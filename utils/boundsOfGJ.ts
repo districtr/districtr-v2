@@ -1,10 +1,17 @@
 /**
+ * Takes an object with type attribute of Point, LineString, Multipoint,
+ * MultilineString, Polygon, Multipolygon, Feature, GeometryCollection, 
+ * and FeatureCollection.
+ * 
+ * Used to find values to construct the southwestern corner and northeastern corner
+ * of a shape for MaxBox GL JS fitBounds.
  * 
  * @param gj 
- * @returns 
+ * @returns {number[]}  [minimum x, minumum y, maximum x, maximum y]
+ * @see Original Districtr reference : {@link https://github.com/uchicago-dsi/districtr-legacy/blob/e88ef1a8be7e40d3a7a00360dc95fd4239dd6c43/src/utils.js}
  */
 
-export function boundsOfGJ(gj : any) {
+export function boundsOfGJ(gj : any) : number[] | undefined {
     var coords, bbox;
     if (!gj.hasOwnProperty('type')) return;
     coords = getCoordinatesDump(gj);
