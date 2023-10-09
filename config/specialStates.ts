@@ -1,5 +1,5 @@
 /**
- * Denotes a mapping from state name to its FIPS code.
+ * A mapping of state names and abbreviations to snake case form.
  * @type { Object }
  * @param {string} name - State name.
  * @param {string } value - Alias.
