@@ -3,7 +3,6 @@ services:
   web:
     build:
       context: ./
-      target: runner
     volumes:
       - .:/app
     command: npm run dev
@@ -11,3 +10,10 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
+
+  db:
+    image: mongo:7
+    ports:
+      - '27017:27017'
+    volumes:
+      - ./data:/data/db
