@@ -6,13 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "",
+    "prettier": "prettier --write \"{app,utils}/**/*.{js,jsx,ts,tsx,json,md}\"",
+    "prepare": "husky install"
   },
   "dependencies": {
     "next": "latest",
+    "tinycolor2": "^1.6.0",
+    "prettier": "^3.0.3",
     "react": "latest",
-    "react-dom": "latest",
-    "tinycolor2": "^1.6.0"
+    "react-dom": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
@@ -20,6 +24,15 @@
     "@types/react-dom": "latest",
     "eslint": "latest",
     "eslint-config-next": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "husky": "^8.0.0",
+    "lint-staged": "^14.0.1"
+  },
+  "lint-staged": {
+    "{app,utils}/**/*.{js,jsx,ts,tsx,json,md}": [
+      "prettier --write",
+      "git add"
+    ],
+    "*.js": "eslint --cache --fix"
   }
 }
