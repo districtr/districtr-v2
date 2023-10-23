@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "",
     "prettier": "prettier --write \"{app,utils}/**/*.{js,jsx,ts,tsx,json,md}\"",
     "prepare": "husky install"
   },
@@ -22,7 +23,7 @@
     "@types/react-dom": "latest",
     "eslint": "latest",
     "eslint-config-next": "latest",
-    "husky": "^8.0.3",
+    "husky": "^8.0.0",
     "lint-staged": "^14.0.1",
     "typescript": "latest"
   },
