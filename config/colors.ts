@@ -1,3 +1,5 @@
+import tinycolor from "tinycolor2";
+
 /**
  * Global Districtr color map for districts.
  *
@@ -12,7 +14,7 @@
  * @see Example Usage : {@link https://github.com/uchicago-dsi/districtr-legacy/blob/latest/src/map/NumberMarkers.js#L63}
  * @see HoverHex Generation : {@link https://github.com/uchicago-dsi/districtr-legacy/blob/latest/src/colors.js#L78}
  */
-export const colorScheme = [
+const colorScheme = [
   { id: 0, hex: "#0099cd", hoverHex: "#006b90" },
   { id: 1, hex: "#ffca5d", hoverHex: "#b38d41" },
   { id: 2, hex: "#00cd99", hoverHex: "#00906b" },
@@ -92,3 +94,12 @@ export const colorScheme = [
   { id: 76, hex: "#b3a400", hoverHex: "#7d7300" },
   { id: 77, hex: "#4500a4", hoverHex: "#300073" },
 ];
+
+export const tinyColorScheme = colorScheme.map((colorObj) => {
+  const { id, hex, hoverHex } = colorObj;
+  return {
+    id,
+    regular: tinycolor(hex),
+    hover: tinycolor(hoverHex),
+  };
+});
