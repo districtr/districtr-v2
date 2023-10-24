@@ -1,19 +1,22 @@
-version: '3.8'
+version: "3.4"
 services:
-  web:
+  # APP
+  districtr:
     build:
-      context: ./
-    volumes:
-      - .:/app
-    command: npm run dev
+      context: app
+    restart: always
     ports:
-      - "3000:3000"
-    environment:
-      NODE_ENV: development
-
-  db:
+      - 3000:3000
+    volumes:
+      - ./app:/app
+      - /app/node_modules
+      - /app/.next
+    profiles:
+      - app
+      
+  mongo:
     image: mongo:7
     ports:
       - '27017:27017'
     volumes:
-      - ./data:/data/db
+      - ./db:/data/db

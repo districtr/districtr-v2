@@ -5,9 +5,10 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 Run the following commands to build the image and run a container:
 
 ```
-COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose build
-docker-compose up
+make
 ```
+
+I recommend also installing the packages locally on your machine using [npm](https://nodejs.org/en) or pnpm (`npm i -g pnpm`). That will provide type hints, code completion, methods, etc., that don't appear to show up purely using Docker. 
 
 Alternatively, run the development server without docker:
 
@@ -27,6 +28,11 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
 
+## Monorepo
+
+This repo is a monorepo of databsae and typescript modules. Here are the current workspace:
+
+- `app` (`pnpm -F=app {command}`) - main districtr application
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

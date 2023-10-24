@@ -4,12 +4,14 @@
 /node_modules
 /.pnp
 .pnp.js
+*/node_modules
 
 # testing
 /coverage
 
 # next.js
 /.next/
+*/.next/
 /out/
 
 # production
@@ -26,6 +28,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
 
 # vercel
 .vercel
@@ -34,3 +37,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 pnpm-lock.yaml
+
+db/*
