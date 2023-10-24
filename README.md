@@ -2,25 +2,19 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 
 ## Getting Started
 
-Run the following commands to build the image and run a container:
-
+To just run the app, without code type hints or syntax, simply run:
 ```
 make
 ```
 
-I recommend also installing the packages locally on your machine using [npm](https://nodejs.org/en) or pnpm (`npm i -g pnpm`). That will provide type hints, code completion, methods, etc., that don't appear to show up purely using Docker. 
+For a fuller dev experience, install node/npm and run:
 
-Alternatively, run the development server without docker:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
+npm i -g pnpm
+pnpm install
+make
+```
+
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
