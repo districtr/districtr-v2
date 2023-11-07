@@ -1,32 +1,21 @@
 {
   "name": "districtr-v2",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "test": "",
-    "prettier": "prettier --write \"{app,utils}/**/*.{js,jsx,ts,tsx,json,md}\"",
-    "prepare": "husky install"
-  },
-  "dependencies": {
-    "next": "latest",
-    "tinycolor2": "^1.6.0",
-    "prettier": "^3.0.3",
-    "react": "latest",
-    "react-dom": "latest"
+    "test": "echo \"Error: TODO - specifc a test. Passing for now...\"",
+    "prettier": "prettier --write \"app/{app,utils}/**/*.{js,jsx,ts,tsx,json,md}\"",
+    "prepare": "husky install",
+    "postinstall": "husky install .husky",
+    "dev": "pnpm -F=app dev"
   },
   "devDependencies": {
-    "@types/node": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "eslint": "latest",
-    "eslint-config-next": "latest",
-    "typescript": "latest",
-    "husky": "^8.0.0",
-    "lint-staged": "^14.0.1"
+    "husky": "^8.0.3",
+    "lint-staged": "^14.0.1",
+    "pnpm": "^8.9.2",
+    "prettier": "^3.0.3",
+    "zx": "^7.2.3"
   },
   "lint-staged": {
     "{app,utils}/**/*.{js,jsx,ts,tsx,json,md}": [
@@ -34,5 +23,8 @@
       "git add"
     ],
     "*.js": "eslint --cache --fix"
-  }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
