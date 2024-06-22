@@ -1,0 +1,39 @@
+:root {
+    --sidebar-width: 350px;
+    --shadow-6: 0 0 6px 0 rgba(0, 0, 0, 0.1);
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+.maplibregl-map {
+    width: calc(100vw - var(--sidebar-width));
+    height: 100vh;
+    margin-left: var(--sidebar-width);
+}
+
+#sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--sidebar-width);
+    height: 100vh;
+    background-color: white;
+    z-index: 1;
+    overflow-y: auto;
+    box-shadow: var(--shadow-6);
+}
+
+@media (max-width: 768px) {
+    .maplibregl-map {
+        width: 100vw;
+        margin-left: 0;
+    }
+
+    #sidebar {
+        display: none;
+    }
+}

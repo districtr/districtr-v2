@@ -38,4 +38,28 @@ yarn-error.log*
 next-env.d.ts
 pnpm-lock.yaml
 
+# data
 db/*
+assets/
+*.parquet
+*.geojson
+*.pmtiles
+logfile.log
+
+# secrets
+credentials
+.credentials
+cors.json
+.env
+
+# python
+.ipynb_checkpoints
+.venv
+.ruff_cache
+__pycache__
+pyrightconfig.json
+scratch/
+
+# misc
+.vscode
+*.swp
