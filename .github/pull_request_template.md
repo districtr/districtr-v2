@@ -1,39 +1,20 @@
-# :mortar_board: Description 
+<!--- Provide a general summary of your changes in the Title above. -->
 
-Please include a summary of the changes and the related issue. Please also include relevant motivation and context. List any dependencies that are required for this change.
+## Description
+<!--- Describe your changes in detail -->
+- Item 1
 
-Fixes # (issue)
+## Reviewers
+<!--- Tag relevant reviewers. Expect the primary reviewer to "own" the review for this PR, -->
+<!--- and the secondary to assist if the primary reviewer is delayed. -->
 
-## :sparkles: Type of change
+- Primary:
+- Secondary:
 
-Please delete options that are not relevant.
+## Checklist
+<!--- Complete this checklist before asking for reviews. You can simply click the checkboxes once the markdown is rendered. -->
+<!--- If not applicable, simply leave a reason why under the bullet point. -->
+- [ ] Added/Updated related documentation (if applicable).
+- [ ] Added/Updated related unit tests (if applicable).
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] This change requires a documentation update
-
-# :rocket: How Has This Been Tested?
-
-Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce. Please also list any relevant details for your test configuration
-
-- [ ] Test A
-- [ ] Test B
-
-:wrench: **Test Configuration**:
-* Firmware version:
-* Hardware:
-* Toolchain:
-* SDK:
-
-# :scroll: Checklist:
-
-- [ ] My code follows the style guidelines of this project
-- [ ] I have performed a self-review of my code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings
-- [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes
-- [ ] Any dependent changes have been merged and published in downstream modules
-
+## Screenshots (if applicable):
