@@ -1,0 +1,21 @@
+{
+  "name": "paintable-layer-poc",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  },
+  "dependencies": {
+    "arrow-js-ffi": "^0.4.2",
+    "deck.gl": "^9.0.17",
+    "geoarrow-wasm": "^0.1.0",
+    "mapbox-gl": "^3.4.0",
+    "parquet-wasm": "^0.6.1"
+  }
+}
