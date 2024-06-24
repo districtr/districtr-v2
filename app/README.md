@@ -1,9 +1,5 @@
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
-## PMTile recipes
-
-- **T6**: `tippecanoe  -pf -pk  -o t6.pmtiles co_blocks_wgs3.fgb`
-
 ## Getting Started
 
 First, run the development server:

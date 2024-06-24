@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Districtr 2.0",
-  description: "Tests for districtr",
+  description: "Districtr reboot",
 };
 
 export default function RootLayout({

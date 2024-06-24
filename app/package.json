@@ -1,6 +1,6 @@
 {
-  "name": "d2",
-  "version": "0.1.0",
+  "name": "districtr-reboot",
+  "version": "2.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@radix-ui/colors": "^3.0.0",
-    "@radix-ui/react-select": "^2.1.0",
     "@radix-ui/themes": "^3.0.5",
     "@stitches/react": "^1.2.8",
     "lodash": "^4.17.21",
