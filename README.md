@@ -1,25 +1,27 @@
 # Districtr Reboot
 
-The Districtr reboot monorepo. Repo structure:
+The Districtr reboot monorepo.
+
+## Repo structure
 
 - [`app`](app/): The rebooted Districtr app, NextJS/React Typescript app
 - [`backend`](backend/): Backend. TBD tech stack
 - [`pipelines`](pipelines/): Data pipelines, ETL. Thinking of using Dagster.
 - [`prototypes`](prototypes/): Prototypes conducted as part of the reboot.
 
-## App
+### App
 
 TK
 
-## Backend
+### Backend
 
 TK
 
-## Pipelines
+### Pipelines
 
 TK
 
-## Prototypes
+### Prototypes
 
 All prototypes, whether for services, APIs, frontend tests, etc. should be kept here. Each prototype should be in its own directory.
 
@@ -29,7 +31,7 @@ All prototypes, whether for services, APIs, frontend tests, etc. should be kept 
 
 Prototypes are documented in more detail [here](https://docs.google.com/document/d/1bx-mhIMPUxD8FxZRCbiz6zk3_TfdER7SBWO3Z_27EKc/edit).
 
-## Developer set-up
+## Developer set-up and conventions
 
 Shared set-up / configuration across monorepo.
 
@@ -41,6 +43,18 @@ This project is formatted with ruff using pre-commit hooks. Make sure [pre-commi
 
 Test that the pre-commit hooks are working by running `pre-commit run --all-files`.
 
-## CI/CD
+### Pull request reviews
+
+All PRs must have at least one approving review before being merged and pass all CI/CD checks / GHAs.
+
+When reviewing a PR, use the "HIPPO" method to provide feedback:
+| Letter | Meaning |
+| --- | --- |
+| **H** - High / hold-up | Changes requested in order to be merged. |
+| **I** - Important or improvement | Changes requested. Possibly blocking but more opinion-based than **H**. Reviewer should provide specifics as to why this is an improvement. |
+| **PP** - Personal preference | Possible changes requested. Something the reviewer would do but is non-blocking. |
+| **O** - Opinion | Comment for discussion. Non-blocking. Could be a bigger idea that's relevant to the PR. |
+
+### CI/CD
 
 TBD but tests (and deploys?) should be run w/ GHAs.
