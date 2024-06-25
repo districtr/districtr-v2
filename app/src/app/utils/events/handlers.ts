@@ -16,6 +16,15 @@ const debouncedSetZoneAssignments = debounce(
   1000 // 1 second
 );
 
+/**
+ * Highlight features based on hover mouseevent. called using `map.on("mousemove", "blocks-hover", ...)` pattern.
+ *
+ * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
+ * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param zoneStoreRef - MutableRefObject<ZoneStore | null>, the zone store reference from zustand
+ * @param accumulatedGeoids - MutableRefObject<Set<string>>, a blank set to accumulate geoids; reset every time the zone changes.
+ */
+
 export const HighlightFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
@@ -29,8 +38,9 @@ export const HighlightFeature = (
         id: feature?.id ?? undefined,
         sourceLayer: BLOCK_LAYER_SOURCE_ID,
       },
-      { hover: true, zone: Number(zoneStoreRef.selectedZone) }
+      { hover: true, zone: Number(zoneStoreRef.current?.selectedZone) }
     );
+    console.log(zoneStoreRef.current?.selectedZone, zoneStoreRef);
   });
 
   if (features?.length) {

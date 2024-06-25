@@ -1,5 +1,4 @@
 "use client";
-import Head from "next/head";
 import { MapComponent } from "./components/Map";
 import ZoneTypeSelector from "./components/Picker";
 export default function Home() {
