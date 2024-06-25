@@ -1,8 +1,9 @@
 import { BLOCK_LAYER_ID, BLOCK_LAYER_SOURCE_ID } from "@/app/constants/layers";
-import { MutableRefObject, useEffect } from "react";
+import { MutableRefObject } from "react";
 import type { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { ZoneStore } from "@/app/store/zoneStore";
 import { debounce } from "lodash";
+import { useZoneStore } from "@/app/store/zoneStore";
 
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
@@ -12,20 +13,14 @@ import { debounce } from "lodash";
  * @returns void - but updates the zoneAssignments in the store
  */
 const debouncedSetZoneAssignments = debounce(
-  (
-    zoneStoreRef: {
-      setZoneAssignments: (arg0: Number, arg1: Set<string>) => void;
-    },
-    selectedZone: Number,
-    geoids: Set<string>
-  ) => {
+  (zoneStoreRef: ZoneStore, selectedZone: number, geoids: Set<string>) => {
     zoneStoreRef.setZoneAssignments(selectedZone, geoids);
   },
   1000 // 1 second
 );
 
 /**
- * Highlight features based on hover mouseevent. called using `map.on("mousemove", "blocks-hover", ...)` pattern.
+ * Select features based on hover mouseevent. called using `map.on("mousemove", "blocks-hover", ...)` pattern.
  * currently assumes zones are assigned to features on hover.
  *
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
@@ -37,9 +32,9 @@ const debouncedSetZoneAssignments = debounce(
 export const SelectFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  zoneStoreRef: MutableRefObject<ZoneStore | null>,
   accumulatedGeoids: MutableRefObject<Set<string>>
 ) => {
+  const zoneStoreRef = useZoneStore();
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
@@ -103,7 +98,11 @@ export const HighlightFeature = (
   });
 
   if (features?.length) {
-    features.forEach((feature) => hoverGeoids.current.add(feature?.id));
+    features.forEach((feature) => {
+      if (feature?.id) {
+        hoverGeoids.current.add(feature.id.toString());
+      }
+    });
   }
 };
 
