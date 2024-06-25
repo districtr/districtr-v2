@@ -1,10 +1,9 @@
-import { MutableRefObject, useEffect, useState, useRef } from "react";
+import { MutableRefObject, useEffect, useRef } from "react";
 import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import { HighlightFeature, UnhighlightFeature } from "./handlers";
 import { useZoneStore } from "@/app/store/zoneStore";
-import { PointLike, MapGeoJSONFeature } from "maplibre-gl";
-import { debounce } from "lodash";
+import { PointLike } from "maplibre-gl";
 
 export const useApplyActions = (
   map: MutableRefObject<Map | null>,
