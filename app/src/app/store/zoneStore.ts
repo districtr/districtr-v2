@@ -4,7 +4,7 @@ import { Zone, GEOID, ZoneDict } from "../constants/types";
 export interface ZoneStore {
   selectedZone: Zone;
   setSelectedZone: (zone: Zone) => void;
-  zoneAssignments: Map<string, number>; // Specify the type of zoneAssignments as Map<string, number>
+  zoneAssignments: Map<string, number>; // geoid -> zone
   setZoneAssignments: (zone: Zone, geoids: Set<GEOID>) => void;
 }
 

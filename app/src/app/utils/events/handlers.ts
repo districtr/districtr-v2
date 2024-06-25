@@ -5,9 +5,11 @@ import { ZoneStore } from "@/app/store/zoneStore";
 import { debounce } from "lodash";
 const debouncedSetZoneAssignments = debounce(
   (
-    zoneStoreRef: { setZoneAssignments: (arg0: any, arg1: any) => void },
-    selectedZone: any,
-    geoids: any
+    zoneStoreRef: {
+      setZoneAssignments: (arg0: Number, arg1: Set<string>) => void;
+    },
+    selectedZone: Number,
+    geoids: Set<string>
   ) => {
     zoneStoreRef.setZoneAssignments(selectedZone, geoids);
   },
@@ -44,10 +46,9 @@ export const HighlightFeature = (
   }
 };
 
-const unhighlightFeature = (
+export const UnhighlightFeature = (
   map: MutableRefObject<Map | null>,
-  highlightedFeature: MutableRefObject<number | null>
-  //   filterStoreRef: MutableRefObject<FilterStore | null>
+  highlightedFeature: MutableRefObject<MapGeoJSONFeature>
 ) => {
   // TODO: need to update this to match logic in HighlightFeature
 
