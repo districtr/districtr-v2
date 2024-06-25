@@ -1,5 +1,5 @@
 import React from "react";
-import { Select } from "@radix-ui/themes";
+import * as Select from "@radix-ui/react-select";
 import { styled } from "@stitches/react";
 import { violet, mauve, blackA } from "@radix-ui/colors";
 // use zustand to track state

@@ -38,9 +38,8 @@ export const HighlightFeature = (
         id: feature?.id ?? undefined,
         sourceLayer: BLOCK_LAYER_SOURCE_ID,
       },
-      { hover: true, zone: Number(zoneStoreRef.current?.selectedZone) }
+      { hover: true, zone: Number(zoneStoreRef.selectedZone) }
     );
-    console.log(zoneStoreRef.current?.selectedZone, zoneStoreRef);
   });
 
   if (features?.length) {
