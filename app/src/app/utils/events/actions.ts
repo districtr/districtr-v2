@@ -11,6 +11,7 @@ export const useApplyActions = (
   mapLoaded: boolean
 ) => {
   const zoneStore = useZoneStore();
+  const hoverFeatureIds = useRef(new Set<string>());
   const accumulatedGeoids = useRef(new Set<string>());
 
   useEffect(() => {
@@ -31,7 +32,7 @@ export const useApplyActions = (
       const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
         layers: [BLOCK_LAYER_ID],
       });
-      HighlightFeature(selectedFeatures, map, zoneStore, accumulatedGeoids);
+      HighlightFeature(selectedFeatures, map, hoverFeatureIds);
     }
   );
 
@@ -39,15 +40,7 @@ export const useApplyActions = (
     "mouseleave",
     "blocks-hover",
     (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-      const bbox: [PointLike, PointLike] = [
-        [e.point.x - 50, e.point.y - 50],
-        [e.point.x + 50, e.point.y + 50],
-      ];
-
-      const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
-        layers: [BLOCK_LAYER_ID],
-      });
-      UnhighlightFeature(map, selectedFeatures);
+      UnhighlightFeature(map, hoverFeatureIds);
     }
   );
 };

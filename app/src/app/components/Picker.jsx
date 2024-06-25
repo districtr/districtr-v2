@@ -12,6 +12,7 @@ const ZoneTypeSelector = () => {
     setSelectedZone(value);
   };
 
+  // to be refactored
   const options = [
     { value: "1", label: "First Zone" },
     { value: "2", label: "Second Zone" },
