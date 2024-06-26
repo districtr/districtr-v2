@@ -32,9 +32,9 @@ const debouncedSetZoneAssignments = debounce(
 export const SelectFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
+  zoneStoreRef: ZoneStore,
   accumulatedGeoids: MutableRefObject<Set<string>>
 ) => {
-  const zoneStoreRef = useZoneStore();
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
@@ -45,7 +45,6 @@ export const SelectFeature = (
       { selected: true, zone: Number(zoneStoreRef.selectedZone) }
     );
   });
-
   if (features?.length) {
     features.forEach((feature) => {
       accumulatedGeoids.current.add(feature.properties?.GEOID20);

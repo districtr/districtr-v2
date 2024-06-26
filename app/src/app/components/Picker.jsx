@@ -2,7 +2,6 @@ import React from "react";
 import * as Select from "@radix-ui/react-select";
 import { styled } from "@stitches/react";
 import { violet, mauve, blackA } from "@radix-ui/colors";
-// use zustand to track state
 import { useZoneStore } from "../store/zoneStore";
 
 const ZoneTypeSelector = () => {
