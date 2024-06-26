@@ -5,9 +5,21 @@ import { violet, mauve, blackA } from "@radix-ui/colors";
 import { useZoneStore } from "../store/zoneStore";
 
 const ZoneTypeSelector = () => {
-  const { selectedZone, setSelectedZone } = useZoneStore();
+  const {
+    selectedZone,
+    setSelectedZone,
+    setZoneAssignments,
+    accumulatedGeoids,
+  } = useZoneStore();
 
   const handlePickerValueChange = (value) => {
+    console.log(
+      "setting accumulated geoids to old zone",
+      selectedZone,
+      "new zone is",
+      value,
+    );
+    setZoneAssignments(selectedZone, accumulatedGeoids);
     setSelectedZone(value);
   };
 
@@ -145,5 +157,5 @@ const SelectScrollUpButton = styled(Select.ScrollUpButton, scrollButtonStyles);
 
 const SelectScrollDownButton = styled(
   Select.ScrollDownButton,
-  scrollButtonStyles
+  scrollButtonStyles,
 );

@@ -1,17 +1,19 @@
 import { create } from "zustand";
-import { Zone, GEOID, ZoneDict } from "../constants/types";
+import { Zone, GEOID } from "../constants/types";
 
 export interface ZoneStore {
   selectedZone: Zone;
   setSelectedZone: (zone: Zone) => void;
   zoneAssignments: Map<string, number>; // geoid -> zone
   setZoneAssignments: (zone: Zone, geoids: Set<GEOID>) => void;
+  accumulatedGeoids: Set<string>;
 }
 
 export const useZoneStore = create<ZoneStore>((set) => ({
   selectedZone: 1,
   setSelectedZone: (zone: Zone) => set({ selectedZone: zone }),
   zoneAssignments: new Map(),
+  accumulatedGeoids: new Set<string>(),
   /**
    *
    * @param zone - identifier for the zone assignment
@@ -24,6 +26,9 @@ export const useZoneStore = create<ZoneStore>((set) => ({
       geoids.forEach((geoid) => {
         newZoneAssignments.set(geoid, zone);
       });
-      return { zoneAssignments: newZoneAssignments };
+      return {
+        zoneAssignments: newZoneAssignments,
+        accumulatedGeoids: new Set<string>(),
+      };
     }),
 }));

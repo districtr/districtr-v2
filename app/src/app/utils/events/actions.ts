@@ -1,4 +1,4 @@
-import { MutableRefObject, useEffect, useRef } from "react";
+import { MutableRefObject, useRef } from "react";
 import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import {
@@ -11,16 +11,10 @@ import { PointLike } from "maplibre-gl";
 
 export const useApplyActions = (
   map: MutableRefObject<Map | null>,
-  mapLoaded: boolean
+  mapLoaded: boolean,
 ) => {
   const zoneStore = useZoneStore();
   const hoverFeatureIds = useRef(new Set<string>());
-  const accumulatedGeoids = useRef(new Set<string>());
-
-  useEffect(() => {
-    // clear accumulated geoids when zone changes
-    accumulatedGeoids.current.clear();
-  }, [zoneStore.selectedZone]);
 
   if (!mapLoaded) return;
   map.current?.on(
@@ -36,7 +30,7 @@ export const useApplyActions = (
         layers: [BLOCK_LAYER_ID],
       });
       HighlightFeature(selectedFeatures, map, hoverFeatureIds);
-    }
+    },
   );
 
   map.current?.on(
@@ -44,7 +38,7 @@ export const useApplyActions = (
     "blocks-hover",
     (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
       UnhighlightFeature(map, hoverFeatureIds);
-    }
+    },
   );
 
   map.current?.on(
@@ -60,7 +54,7 @@ export const useApplyActions = (
         layers: [BLOCK_LAYER_ID],
       });
 
-      SelectFeature(selectedFeatures, map, zoneStore, accumulatedGeoids);
-    }
+      SelectFeature(selectedFeatures, map, zoneStore);
+    },
   );
 };
