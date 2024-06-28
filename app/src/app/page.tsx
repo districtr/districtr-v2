@@ -1,13 +1,14 @@
 "use client";
-import Head from "next/head";
 import { MapComponent } from "./components/Map";
-import ZoneTypeSelector from "./components/Picker";
+import { ZoneTypeSelector } from "./components/Picker";
+import SidebarComponent from "./components/Sidebar";
+
 export default function Home() {
   return (
-    <main className="flex items-center justify-between p">
-      <div className="h-screen w-screen ">
-        <ZoneTypeSelector />
+    <main>
+      <div className="h-screen w-screen flex items-center justify-between p">
         <MapComponent />
+        <SidebarComponent />
       </div>
     </main>
   );

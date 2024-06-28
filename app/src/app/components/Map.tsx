@@ -6,7 +6,6 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_CENTER, MAP_TILES } from "../constants/configuration";
 import { BLOCK_LAYER_ID, addLayer } from "../constants/layers";
-import { HighlightFeature } from "../utils/events/handlers";
 import { useApplyActions } from "../utils/events/actions";
 
 export const MapComponent: React.FC = () => {
@@ -29,5 +28,5 @@ export const MapComponent: React.FC = () => {
     });
   }, []);
 
-  return <div className="h-full w-full" ref={mapContainer} />;
+  return <div className="h-full w-full-minus-sidebar" ref={mapContainer} />;
 };
