@@ -10,13 +10,19 @@ const debouncedSetZoneAssignments = debounce(
   (
     zoneStoreRef: { setZoneAssignments: (arg0: any, arg1: any) => void },
     selectedZone: any,
-    geoids: any,
+    accumulatedGeoids: MutableRefObject<Set<string>>,
     db: duckdb.AsyncDuckDB,
   ) => {
-    zoneStoreRef.setZoneAssignments(selectedZone, geoids);
-    insertZoneAssignments(selectedZone, geoids, db);
+    try {
+      zoneStoreRef.setZoneAssignments(selectedZone, accumulatedGeoids.current);
+      insertZoneAssignments(selectedZone, accumulatedGeoids.current, db);
+    } catch (e) {
+      console.log("Error inserting assignments", e);
+    } finally {
+      accumulatedGeoids.current.clear();
+    }
   },
-  1000, // 1 second
+  50,
 );
 
 export const HighlightFeature = (
@@ -47,7 +53,7 @@ export const HighlightFeature = (
     debouncedSetZoneAssignments(
       zoneStoreRef,
       zoneStoreRef.selectedZone,
-      accumulatedGeoids.current,
+      accumulatedGeoids,
       db.current,
     );
   }
@@ -62,9 +68,12 @@ const insertZoneAssignments = async (
   geoids.forEach((geoid) => {
     inserts.push(`('${geoid}', ${zone})`);
   });
+  // console.log(inserts);
 
   try {
     const c = await db.connect();
+    // Hitting error inserting too many rows at once
+    // https://github.com/duckdb/duckdb-wasm/issues/1477
     await c.query(
       `INSERT INTO
         assignments (geoid, zone)
