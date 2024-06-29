@@ -9,9 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "^1.28.1-dev106.0",
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/themes": "^3.0.5",
     "@stitches/react": "^1.2.8",
+    "apache-arrow": "^16.1.0",
     "lodash": "^4.17.21",
     "maplibre-gl": "^4.4.1",
     "next": "14.2.4",

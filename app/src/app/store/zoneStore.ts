@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Zone, GEOID, ZoneDict } from "../constants/types";
+import { Zone, GEOID } from "../constants/types";
 
 export interface ZoneStore {
   selectedZone: Zone;

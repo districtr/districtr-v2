@@ -5,14 +5,21 @@ import type { Map } from "maplibre-gl";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_CENTER, MAP_TILES } from "../constants/configuration";
-import { BLOCK_LAYER_ID, addLayer } from "../constants/layers";
+import { addLayer } from "../constants/layers";
 import { useApplyActions } from "../utils/events/actions";
+import * as duckdb from "@duckdb/duckdb-wasm";
 
-export const MapComponent: React.FC = () => {
+interface MapComponentProps {
+  db: React.MutableRefObject<duckdb.AsyncDuckDB | null>;
+}
+
+export const MapComponent: React.FC<MapComponentProps> = ({ db }) => {
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  useApplyActions(map, mapLoaded);
+
+  useApplyActions(map, mapLoaded, db);
+
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     map.current = new maplibregl.Map({
