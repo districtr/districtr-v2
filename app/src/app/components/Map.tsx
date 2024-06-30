@@ -28,5 +28,5 @@ export const MapComponent: React.FC = () => {
     });
   }, []);
 
-  return <div className="h-full w-full" ref={mapContainer} />;
+  return <div className="h-full w-full-minus-sidebar" ref={mapContainer} />;
 };
