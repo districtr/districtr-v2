@@ -17,6 +17,13 @@ def list_collections():
 @cli.command("create-collections")
 @click.option("--collections", "-c", help="Collection name", multiple=True)
 def create_collections(collections: tuple[str]):
+    """
+    Create collections in MongoDB if they do not exist, otherwise apply migrations.
+
+    Args:
+        collections (tuple[str]): Collection names.
+            Pass multiple collection names with `python cli.py create-collections -c collection1 -c collection2`.
+    """
     _create_collections(list(collections))
 
 

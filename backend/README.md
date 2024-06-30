@@ -16,8 +16,8 @@ If you haven't set up your venv see [here](./README.md#python-install).
 
 ### Build locally
 
-- `docker build -t {{ app-id }} .`
-- `docker run --rm -i {{ app-id }}`
+- `docker build -t districtr .`
+- `docker run --rm -i districtr`
 
 ### Deploy
 
@@ -106,11 +106,11 @@ See [Install MongoDB Community Edition on Linux](https://www.mongodb.com/docs/ma
 More info [here](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-os-x/).
 
 Create collections:
-1. `python`
-1. `from app.core.db import create_collections`
-1. `create_collections()`
+1. `python cli.py create_collections`
 
-Confirm in `mongosh` with `use districtr`, `show collections`.
+Optionally you can create or update individual collections with `python cli.py create_collections -c {{ collection_name_1 }} -c {{ collection_name_2 }}`.
+
+Confirm in `mongosh` with `use districtr` followed by `show collections` or `python cli.py list-collections`.
 
 ### Useful reference apps
 

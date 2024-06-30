@@ -1,5 +1,5 @@
 from sqlmodel import create_engine
-from pymongo import MongoClient
+from pymongo import MongoClient, HASHED
 from pymongo.database import Database
 
 from app.core.config import settings
@@ -46,4 +46,4 @@ def create_collections(collections: list[str] | None) -> None:
 
     # Create indices
     collection = db[PLAN_COLLECTION_NAME]
-    collection.create_index([("data.geoid", 1)], unique=True)
+    collection.create_index([("data.geoid", HASHED)], unique=False)
