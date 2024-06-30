@@ -16,8 +16,6 @@ const debouncedSetZoneAssignments = debounce(
     try {
       zoneStoreRef.setZoneAssignments(selectedZone, accumulatedGeoids.current);
       insertZoneAssignments(selectedZone, accumulatedGeoids.current, db);
-    } catch (e) {
-      console.log("Error inserting assignments", e);
     } finally {
       accumulatedGeoids.current.clear();
     }
