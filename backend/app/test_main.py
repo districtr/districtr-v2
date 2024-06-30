@@ -68,6 +68,27 @@ def test_create_plan(client: TestClient):
     assert response.status_code == 201
 
 
+def test_update_plan(client: TestClient, plan: InsertOneResult):
+    response = client.put(
+        f"/plan/{plan.inserted_id}", json={"assignments": {"06067001102": 1}}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["modified_count"] == 1
+
+
+def test_update_plan_with_modification_to_existing_assignment(
+    client: TestClient, plan: InsertOneResult
+):
+    response = client.put(
+        f"/plan/{plan.inserted_id}",
+        json={"assignments": {"06067001101": 2, "06067001102": 1}},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["modified_count"] == 1
+
+
 def test_get_missing_plan(client: TestClient):
     response = client.get("/plan/6680e7d8b65f636e1a966c3e")
     data = response.json()

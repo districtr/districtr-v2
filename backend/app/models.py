@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import Optional, Dict
-from pydantic import BaseModel, Field as PydanticField, ValidationError
-from pymongo.results import InsertOneResult
+from pydantic import BaseModel, Field as PydanticField
 from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, text
 
 # Postgres
@@ -59,16 +58,22 @@ class AssignmentsCreate(Assignments):
     pass
 
 
-class AssignmentsUpdate(Assignments):
-    id: str = PydanticField(alias="_id", description="Assignment ID")
+class AssignmentsUpdate(BaseModel):
+    """
+    {
+      acknowledged: true,
+      insertedId: null,
+      matchedCount: 0,
+      modifiedCount: 0,
+      upsertedCount: 0
+    }
+    """
+
+    acknowledged: bool = PydanticField(description="Acknowledged")
+    inserted_id: Optional[str] = PydanticField(description="Inserted ID")
+    matched_count: int = PydanticField(description="Matched count")
+    modified_count: int = PydanticField(description="Modified count")
 
 
 class AssignmentsPublic(BaseModel):
     id: str = PydanticField(alias="_id", description="Assignment ID")
-
-    @classmethod
-    def from_insert_one(cls, insert_one: InsertOneResult):
-        try:
-            return cls(_id=str(insert_one.inserted_id))
-        except Exception as e:
-            raise ValidationError(e)

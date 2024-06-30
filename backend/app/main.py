@@ -7,7 +7,7 @@ from bson import ObjectId
 
 from app.core.db import engine, get_mongo_database
 from app.core.config import settings
-from app.models import AssignmentsCreate, AssignmentsPublic
+from app.models import AssignmentsCreate, AssignmentsPublic, AssignmentsUpdate
 
 app = FastAPI()
 
@@ -61,4 +61,31 @@ async def create_plan(
 ):
     db_plan = AssignmentsCreate.model_validate(data)
     plan = mongodb.plans.insert_one(db_plan.model_dump())
-    return AssignmentsPublic.from_insert_one(plan)
+    return AssignmentsPublic(_id=str(plan.inserted_id))
+
+
+@app.put(
+    "/plan/{plan_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=AssignmentsUpdate,
+)
+async def update_plan(
+    *,
+    plan_id: str,
+    data: AssignmentsCreate,
+    mongodb: Database = Depends(get_mongodb_client),
+):
+    db_plan = AssignmentsCreate.model_validate(data)
+    new_assignments = {f"assignments.{k}": v for k, v in db_plan.assignments.items()}
+    print(new_assignments)
+    result = mongodb.plans.update_many(
+        {"_id": ObjectId(plan_id)}, {"$set": new_assignments}, upsert=True
+    )
+    print(result)
+    print("RAW RESULT", result.raw_result)
+    return AssignmentsUpdate(
+        acknowledged=result.acknowledged,
+        inserted_id=result.upserted_id,
+        matched_count=result.matched_count,
+        modified_count=result.modified_count,
+    )
