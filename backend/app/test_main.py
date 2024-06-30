@@ -54,13 +54,18 @@ def client_fixture(session: Session):
 @pytest.fixture(name="plan")
 def plan_id_fixture() -> InsertOneResult:
     db = get_mongo_database()
-    return db.plans.insert_one({"assignments": {"geoid": "06067001101", "zone": 1}})
+    return db.plans.insert_one({"assignments": {"06067001101": 1}})
 
 
 def test_get_plan(client: TestClient, plan: InsertOneResult):
     print(plan.inserted_id)
     response = client.get(f"/plan/{plan.inserted_id}")
     assert response.status_code == 200
+
+
+def test_create_plan(client: TestClient):
+    response = client.post("/plan", json={"assignments": {"06067001101": 1}})
+    assert response.status_code == 201
 
 
 def test_get_missing_plan(client: TestClient):

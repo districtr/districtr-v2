@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, status, Depends, HTTPException
 from pymongo.database import Database
 from sqlmodel import Session
 from starlette.middleware.cors import CORSMiddleware
@@ -7,6 +7,7 @@ from bson import ObjectId
 
 from app.core.db import engine, get_mongo_database
 from app.core.config import settings
+from app.models import AssignmentsCreate, AssignmentsPublic
 
 app = FastAPI()
 
@@ -48,3 +49,16 @@ async def get_plan(plan_id: str, mongodb: Database = Depends(get_mongodb_client)
         raise HTTPException(status_code=404, detail="Plan not found")
 
     return str(plan)
+
+
+@app.post(
+    "/plan",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AssignmentsPublic,
+)
+async def create_plan(
+    *, data: AssignmentsCreate, mongodb: Database = Depends(get_mongodb_client)
+):
+    db_plan = AssignmentsCreate.model_validate(data)
+    plan = mongodb.plans.insert_one(db_plan.model_dump())
+    return AssignmentsPublic.from_insert_one(plan)
