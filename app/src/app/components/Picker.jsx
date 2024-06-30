@@ -3,12 +3,25 @@ import { Select } from "@radix-ui/themes";
 import { useZoneStore } from "../store/zoneStore";
 
 export function ZoneTypeSelector() {
-  const { selectedZone, setSelectedZone } = useZoneStore();
+  const {
+    selectedZone,
+    setSelectedZone,
+    setZoneAssignments,
+    accumulatedGeoids,
+  } = useZoneStore();
 
   const handlePickerValueChange = (value) => {
+    console.log(
+      "setting accumulated geoids to old zone",
+      selectedZone,
+      "new zone is",
+      value
+    );
+    setZoneAssignments(selectedZone, accumulatedGeoids);
     setSelectedZone(value);
   };
 
+  // to be refactored
   const options = [
     { value: "1", label: "First Zone" },
     { value: "2", label: "Second Zone" },

@@ -49,12 +49,20 @@ export const BLOCKS_HOVER_LAYER: LayerSpecification = {
   paint: {
     "fill-opacity": [
       "case",
+      [
+        "all",
+        ["boolean", ["feature-state", "hover"], false],
+        ["!", ["==", ["feature-state", "zone"], null]],
+      ],
+      0.8,
       ["boolean", ["feature-state", "hover"], false],
+      0.8,
+      ["!", ["==", ["feature-state", "zone"], null]],
       0.8,
       0.2,
     ],
 
-    "fill-color": ZONE_ASSIGNMENT_STYLE, //"#ff00ff",
+    "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
   },
 };
 

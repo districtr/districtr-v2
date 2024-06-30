@@ -5,7 +5,7 @@ import type { Map } from "maplibre-gl";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_CENTER, MAP_TILES } from "../constants/configuration";
-import { BLOCK_LAYER_ID, addLayer } from "../constants/layers";
+import { addLayer } from "../constants/layers";
 import { useApplyActions } from "../utils/events/actions";
 
 export const MapComponent: React.FC = () => {
