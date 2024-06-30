@@ -52,6 +52,12 @@ To do this on production, run `fly postgres connect -a {{ database-id }}` then t
 
 - Try to maximize the use of url parameters for handling state in the frontend. On the backend, this means that practically we should add slugs or UUIDs to models if there might be a page associated with that concept.
 
+### Developer set-up
+
+1. `cp .env.dev .env`
+1. Fill out the .env with your local postgres credentials. Follow section [Postgres set-up](./README.md#postgres-set-up) for more details on creating your local database.
+1. Make sure you've set up your pre-commits with `pre-commit install` as documented [here](../README.md#python).
+
 ### Python install
 
 1. `uv venv`
@@ -60,7 +66,14 @@ To do this on production, run `fly postgres connect -a {{ database-id }}` then t
 
 ### Postgres set-up
 
-TODO
+[Install postgres](https://www.postgresql.org/download/) based on your OS.
+
+1. `psql`
+1. `CREATE DATABASE districtr;`
+1. `\c districtr`
+1. `\dt` should yield no tables / make sure db is empty.
+1. `\q`
+1. `alembic upgrade head`
 
 ### Testing
 
