@@ -16,8 +16,8 @@ If you haven't set up your venv see [here](./README.md#python-install).
 
 ### Build locally
 
-- `docker build -t {{ database-id }} .`
-- `docker run --rm -i {{ database-id }}`
+- `docker build -t {{ app-id }} .`
+- `docker run --rm -i {{ app-id }}`
 
 ### Deploy
 
@@ -60,8 +60,12 @@ To do this on production, run `fly postgres connect -a {{ database-id }}` then t
 
 ### Python install
 
+Dependencies are managed with uv as noted in the root README. Follow set-up instructions [there](../README.md#python).
+
+Set-up virtual environment and install dependencies:
+
 1. `uv venv`
-1. `source venv/bin/activate`
+1. `source venv/bin/activate` on UNIX machines or `venv\Scripts\activate` on Windows.
 1. `uv pip install -r requirements.txt`
 
 ### Postgres set-up
@@ -87,7 +91,26 @@ Or with full coverage report:
 
 #### MacOS
 
-1. `brew tap mongodb/brew`
+Follow [install instructions](https://github.com/mongodb/homebrew-brew).
+
+#### Linux
+
+See [Install MongoDB Community Edition on Linux](https://www.mongodb.com/docs/manual/administration/install-on-linux/)
+
+#### Set-up test database
+
+1. `brew services start mongodb-community` on Mac to start the server. TBD other platforms. Stop the server with `brew services stop mongodb-community`.
+1. `mongosh`
+1. `use districtr` to create a new database in `/usr/local/var/mongodb` (intel) or `/opt/homebrew/var/mongodb` (Apple silicon). Connects to the db if it already exists.
+
+More info [here](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-os-x/).
+
+Create collections:
+1. `python`
+1. `from app.core.db import create_collections`
+1. `create_collections()`
+
+Confirm in `mongosh` with `use districtr`, `show collections`.
 
 ### Useful reference apps
 

@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
+from pymongo.database import Database
 from sqlmodel import Session
 from starlette.middleware.cors import CORSMiddleware
 import logging
 
-from app.core.db import engine
+from app.core.db import engine, get_mongo_database
 from app.core.config import settings
 
 app = FastAPI()
@@ -29,6 +30,20 @@ def get_session():
         yield session
 
 
+def get_mongodb_client():
+    yield get_mongo_database()
+
+
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
+
+
+@app.get("/plan/{plan_id}")
+async def get_plan(plan_id: str, mongodb: Database = Depends(get_mongodb_client)):
+    plan = mongodb.plans.find_one({"_id": plan_id})
+
+    if not plan:
+        return HTTPException(status_code=404, detail="Plan not found")
+
+    return plan

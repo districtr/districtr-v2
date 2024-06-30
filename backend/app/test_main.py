@@ -49,5 +49,6 @@ def client_fixture(session: Session):
     app.dependency_overrides.clear()
 
 
-def test_temp(client: TestClient):
-    pass
+def test_get_missing_plan(client: TestClient):
+    response = client.get("/plan/1")
+    assert response.status_code == 200
