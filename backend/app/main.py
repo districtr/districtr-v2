@@ -82,7 +82,7 @@ async def update_plan(
     )
     return AssignmentsUpdate(
         acknowledged=result.acknowledged,
-        inserted_id=result.upserted_id,
+        upserted_id=result.upserted_id,
         matched_count=result.matched_count,
         modified_count=result.modified_count,
     )

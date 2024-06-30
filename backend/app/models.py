@@ -70,7 +70,7 @@ class AssignmentsUpdate(BaseModel):
     """
 
     acknowledged: bool = PydanticField(description="Acknowledged")
-    inserted_id: Optional[str] = PydanticField(description="Inserted ID")
+    upserted_id: Optional[str] = PydanticField(description="Inserted ID")
     matched_count: int = PydanticField(description="Matched count")
     modified_count: int = PydanticField(description="Modified count")
 
