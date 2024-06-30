@@ -54,7 +54,7 @@ def client_fixture(session: Session):
 @pytest.fixture(name="plan")
 def plan_id_fixture() -> InsertOneResult:
     db = get_mongo_database()
-    return db.plans.insert_one({"geoid": "06067001106", "zone": 1})
+    return db.plans.insert_one({"geoid": "06067001102", "zone": 1})
 
 
 def test_get_plan(client: TestClient, plan: InsertOneResult):
