@@ -52,8 +52,14 @@ PLAN_COLLECTION_NAME = "plans"
 PLAN_COLLECTION_SCHEMA = {
     "$jsonSchema": {
         "bsonType": "object",
-        "required": ["geoid", "zone"],
-        "properties": {"geoid": GEOID_TYPE, "zone": ZONE_TYPE},
+        "required": ["assignments"],
+        "properties": {
+            "assignments": {
+                "bsonType": "object",
+                "required": ["geoid", "zone"],
+                "properties": {"geoid": GEOID_TYPE, "zone": ZONE_TYPE},
+            }
+        },
     }
 }
 

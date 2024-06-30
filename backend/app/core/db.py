@@ -8,6 +8,9 @@ from app.models import PLAN_COLLECTION_NAME, PLAN_COLLECTION_SCHEMA
 engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI), echo=True)
 
 
+COLLECTIONS = {PLAN_COLLECTION_NAME: PLAN_COLLECTION_SCHEMA}
+
+
 def get_mongo_database() -> Database:
     """
     Get MongoDB database.
@@ -19,14 +22,28 @@ def get_mongo_database() -> Database:
     return client[settings.MONGODB_DB]
 
 
-def create_collections() -> None:
+def create_collections(collections: list[str] | None) -> None:
     """
     Create collections in MongoDB if they do not exist, otherwise apply migrations.
+
+    Args:
+        collections (list[str]): List of collection names
     """
     db = get_mongo_database()
-    if PLAN_COLLECTION_NAME not in db.list_collection_names():
-        db.create_collection(PLAN_COLLECTION_NAME, validator=PLAN_COLLECTION_SCHEMA)
-        db[PLAN_COLLECTION_NAME].create_index("geoid", unique=True)
-        print(f"Collection {PLAN_COLLECTION_NAME} created")
-    else:
-        db.command("collMod", PLAN_COLLECTION_NAME, validator=PLAN_COLLECTION_SCHEMA)
+    all_collections = list(COLLECTIONS.keys())
+
+    if not collections:
+        collections = all_collections
+
+    for collection_name in collections:
+        collection_schema = COLLECTIONS[collection_name]
+
+        if collection_name not in db.list_collection_names():
+            db.create_collection(collection_name, validator=collection_schema)
+            print(f"Collection {collection_name} created")
+        else:
+            db.command("collMod", collection_name, validator=collection_schema)
+
+    # Create indices
+    collection = db[PLAN_COLLECTION_NAME]
+    collection.create_index([("data.geoid", 1)], unique=True)
