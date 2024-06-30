@@ -12,6 +12,7 @@
     "@radix-ui/colors": "^3.0.0",
     "@radix-ui/themes": "^3.0.5",
     "@stitches/react": "^1.2.8",
+    "@turf/boolean-intersects": "^7.0.0",
     "lodash": "^4.17.21",
     "maplibre-gl": "^4.4.1",
     "next": "14.2.4",
