@@ -3,6 +3,7 @@ from pymongo.database import Database
 from sqlmodel import Session
 from starlette.middleware.cors import CORSMiddleware
 import logging
+from bson import ObjectId
 
 from app.core.db import engine, get_mongo_database
 from app.core.config import settings
@@ -41,9 +42,9 @@ async def root():
 
 @app.get("/plan/{plan_id}")
 async def get_plan(plan_id: str, mongodb: Database = Depends(get_mongodb_client)):
-    plan = mongodb.plans.find_one({"_id": plan_id})
+    plan = mongodb.plans.find_one({"_id": ObjectId(plan_id)})
 
     if not plan:
-        return HTTPException(status_code=404, detail="Plan not found")
+        raise HTTPException(status_code=404, detail="Plan not found")
 
-    return plan
+    return str(plan)

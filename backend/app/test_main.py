@@ -1,9 +1,11 @@
+from pymongo.results import InsertOneResult
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
 from app.main import app, get_session
+from app.core.db import get_mongo_database
 
 client = TestClient(app)
 
@@ -49,6 +51,20 @@ def client_fixture(session: Session):
     app.dependency_overrides.clear()
 
 
-def test_get_missing_plan(client: TestClient):
-    response = client.get("/plan/1")
+@pytest.fixture(name="plan")
+def plan_id_fixture() -> InsertOneResult:
+    db = get_mongo_database()
+    return db.plans.insert_one({"geoid": "06067001106", "zone": 1})
+
+
+def test_get_plan(client: TestClient, plan: InsertOneResult):
+    print(plan.inserted_id)
+    response = client.get(f"/plan/{plan.inserted_id}")
     assert response.status_code == 200
+
+
+def test_get_missing_plan(client: TestClient):
+    response = client.get("/plan/6680e7d8b65f636e1a966c3e")
+    data = response.json()
+    assert response.status_code == 404
+    assert data["detail"] == "Plan not found"
