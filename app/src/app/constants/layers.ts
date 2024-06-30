@@ -28,46 +28,19 @@ export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = [
   "#cecece",
 ];
 
-export const BLOCKS_LAYER: LayerSpecification = {
+export const BLOCKS_SEARCH_LAYER: LayerSpecification = {
   id: BLOCK_LAYER_ID,
   source: BLOCK_LAYER_ID, // Provide the correct string value for the source property.
   "source-layer": BLOCK_LAYER_SOURCE_ID,
-  layout: { visibility: "none" },
-  type: "line",
-  paint: {
-    "line-opacity": [
-      "case",
-      ["boolean", ["feature-state", "hover"], false],
-      1,
-      0.8,
-    ],
-
-    "line-color": "#cecece",
-  },
-};
-
-export const BLOCKS_HOVER_LAYER: LayerSpecification = {
-  id: `${BLOCK_LAYER_ID}-hover`,
-  source: BLOCK_LAYER_ID, // Provide the correct string value for the source property.
-  "source-layer": BLOCK_LAYER_SOURCE_ID,
+  layout: { visibility: "visible" },
   type: "fill",
-  layout: { visibility: "none" },
   paint: {
     "fill-opacity": [
       "case",
-      [
-        "all",
-        ["boolean", ["feature-state", "hover"], false],
-        ["!", ["==", ["feature-state", "zone"], null]],
-      ],
-      0.8,
-      ["boolean", ["feature-state", "hover"], false],
-      0.8,
-      ["!", ["==", ["feature-state", "zone"], null]],
+      ["boolean", ["feature-state", "selected"], false],
       0.8,
       0.2,
     ],
-
     "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
   },
 };
@@ -118,8 +91,7 @@ const addLayer = (map: MutableRefObject<Map | null>) => {
   map.current?.addSource(BLOCK_LAYER_ID, BLOCKS_SOURCE);
   map.current?.addSource(PRECINCT_LAYER_ID, BLOCKS_SOURCE);
 
-  map.current?.addLayer(BLOCKS_LAYER);
-  map.current?.addLayer(BLOCKS_HOVER_LAYER);
+  map.current?.addLayer(BLOCKS_SEARCH_LAYER);
   map.current?.addLayer(PRECINCTS_LAYER);
   map.current?.addLayer(PRECINCTS_HOVER_LAYER);
 };

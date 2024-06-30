@@ -37,27 +37,28 @@ export const SelectFeatures = (
   map: MutableRefObject<Map | null>,
   zoneStoreRef: ZoneStore
 ) => {
+  console.log(features);
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
-        source: PRECINCT_LAYER_ID,
+        source: BLOCK_LAYER_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: PRECINCT_LAYER_SOURCE_ID,
+        sourceLayer: BLOCK_LAYER_SOURCE_ID,
       },
       { selected: true, zone: Number(zoneStoreRef.selectedZone) }
     );
   });
-  // if (features?.length) {
-  //   features.forEach((feature) => {
-  //     zoneStoreRef.accumulatedGeoids.add(feature.properties?.GEOID20);
-  //   });
+  if (features?.length) {
+    features.forEach((feature) => {
+      zoneStoreRef.accumulatedGeoids.add(feature.properties?.GEOID20);
+    });
 
-  //   debouncedSetZoneAssignments(
-  //     zoneStoreRef,
-  //     zoneStoreRef.selectedZone,
-  //     zoneStoreRef.accumulatedGeoids
-  //   );
-  // }
+    debouncedSetZoneAssignments(
+      zoneStoreRef,
+      zoneStoreRef.selectedZone,
+      zoneStoreRef.accumulatedGeoids
+    );
+  }
 };
 
 /**
@@ -120,9 +121,9 @@ export const UnhighlightFeature = (
     hoverFeatureIds.current.forEach((Id) => {
       map.current?.setFeatureState(
         {
-          source: BLOCK_LAYER_ID,
+          source: PRECINCT_LAYER_ID,
           id: Id,
-          sourceLayer: BLOCK_LAYER_SOURCE_ID,
+          sourceLayer: PRECINCT_LAYER_SOURCE_ID,
         },
         { hover: false }
       );
