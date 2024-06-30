@@ -20,6 +20,9 @@
 # misc
 .DS_Store
 *.pem
+.vscode
+*.swp
+.history
 
 # debug
 npm-debug.log*
@@ -59,7 +62,3 @@ cors.json
 __pycache__
 pyrightconfig.json
 scratch/
-
-# misc
-.vscode
-*.swp

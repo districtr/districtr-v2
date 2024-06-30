@@ -8,15 +8,14 @@ import { useZoneStore } from "@/app/store/zoneStore";
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
  * @param zoneStoreRef - MutableRefObject<ZoneStore | null>, the zone store reference from zustand
- * @param selectedZone - Number, the selected zone
  * @param geoids - Set<string>, the set of geoids to assign to the selected zone
  * @returns void - but updates the zoneAssignments in the store
  */
 const debouncedSetZoneAssignments = debounce(
   (zoneStoreRef: ZoneStore, selectedZone: number, geoids: Set<string>) => {
-    zoneStoreRef.setZoneAssignments(selectedZone, geoids);
+    zoneStoreRef.setZoneAssignments(zoneStoreRef.selectedZone, geoids);
   },
-  1000, // 1 second
+  1000 // 1 second
 );
 
 /**
@@ -28,10 +27,10 @@ const debouncedSetZoneAssignments = debounce(
  * @param zoneStoreRef - MutableRefObject<ZoneStore | null>, the zone store reference from zustand
  */
 
-export const SelectFeature = (
+export const SelectFeatures = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  zoneStoreRef: ZoneStore,
+  zoneStoreRef: ZoneStore
 ) => {
   features?.forEach((feature) => {
     map.current?.setFeatureState(
@@ -40,7 +39,7 @@ export const SelectFeature = (
         id: feature?.id ?? undefined,
         sourceLayer: BLOCK_LAYER_SOURCE_ID,
       },
-      { selected: true, zone: Number(zoneStoreRef.selectedZone) },
+      { selected: true, zone: Number(zoneStoreRef.selectedZone) }
     );
   });
   if (features?.length) {
@@ -51,7 +50,7 @@ export const SelectFeature = (
     debouncedSetZoneAssignments(
       zoneStoreRef,
       zoneStoreRef.selectedZone,
-      zoneStoreRef.accumulatedGeoids,
+      zoneStoreRef.accumulatedGeoids
     );
   }
 };
@@ -65,7 +64,7 @@ export const SelectFeature = (
 export const HighlightFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  hoverGeoids: MutableRefObject<Set<string>>,
+  hoverGeoids: MutableRefObject<Set<string>>
 ) => {
   if (features?.length) {
     if (hoverGeoids.current.size) {
@@ -76,7 +75,7 @@ export const HighlightFeature = (
             id: Id,
             sourceLayer: BLOCK_LAYER_SOURCE_ID,
           },
-          { hover: false },
+          { hover: false }
         );
       });
       hoverGeoids.current.clear();
@@ -90,7 +89,7 @@ export const HighlightFeature = (
         id: feature?.id ?? undefined,
         sourceLayer: BLOCK_LAYER_SOURCE_ID,
       },
-      { hover: true },
+      { hover: true }
     );
   });
 
@@ -110,7 +109,7 @@ export const HighlightFeature = (
  */
 export const UnhighlightFeature = (
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: MutableRefObject<Set<string>>,
+  hoverFeatureIds: MutableRefObject<Set<string>>
 ) => {
   if (hoverFeatureIds.current.size) {
     hoverFeatureIds.current.forEach((Id) => {
@@ -120,7 +119,7 @@ export const UnhighlightFeature = (
           id: Id,
           sourceLayer: BLOCK_LAYER_SOURCE_ID,
         },
-        { hover: false },
+        { hover: false }
       );
     });
     hoverFeatureIds.current.clear();

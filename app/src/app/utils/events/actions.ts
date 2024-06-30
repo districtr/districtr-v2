@@ -3,7 +3,7 @@ import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import {
   HighlightFeature,
-  SelectFeature,
+  SelectFeatures,
   UnhighlightFeature,
 } from "./handlers";
 import { useZoneStore } from "@/app/store/zoneStore";
@@ -11,7 +11,7 @@ import { PointLike } from "maplibre-gl";
 
 export const useApplyActions = (
   map: MutableRefObject<Map | null>,
-  mapLoaded: boolean,
+  mapLoaded: boolean
 ) => {
   const zoneStore = useZoneStore();
   const hoverFeatureIds = useRef(new Set<string>());
@@ -30,7 +30,7 @@ export const useApplyActions = (
         layers: [BLOCK_LAYER_ID],
       });
       HighlightFeature(selectedFeatures, map, hoverFeatureIds);
-    },
+    }
   );
 
   map.current?.on(
@@ -38,7 +38,7 @@ export const useApplyActions = (
     "blocks-hover",
     (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
       UnhighlightFeature(map, hoverFeatureIds);
-    },
+    }
   );
 
   map.current?.on(
@@ -54,7 +54,7 @@ export const useApplyActions = (
         layers: [BLOCK_LAYER_ID],
       });
 
-      SelectFeature(selectedFeatures, map, zoneStore);
-    },
+      SelectFeatures(selectedFeatures, map, zoneStore);
+    }
   );
 };
