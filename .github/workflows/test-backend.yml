@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mongodb-version: ["6.0", "7.0", "8.0"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -26,6 +29,10 @@ jobs:
           ruff --output-format=github .
         continue-on-error: true
         working-directory: backend
+      - name: Start MongoDB
+        uses: supercharge/mongodb-github-action@1.11.0
+        with:
+          mongodb-version: ${{ matrix.mongodb-version }}
       - name: Test
-        run: cp .env.production .env && pytest
+        run: cp .env.dev .env && pytest
         working-directory: backend
