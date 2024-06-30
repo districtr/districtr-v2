@@ -77,12 +77,9 @@ async def update_plan(
 ):
     db_plan = AssignmentsCreate.model_validate(data)
     new_assignments = {f"assignments.{k}": v for k, v in db_plan.assignments.items()}
-    print(new_assignments)
     result = mongodb.plans.update_many(
         {"_id": ObjectId(plan_id)}, {"$set": new_assignments}, upsert=True
     )
-    print(result)
-    print("RAW RESULT", result.raw_result)
     return AssignmentsUpdate(
         acknowledged=result.acknowledged,
         inserted_id=result.upserted_id,
