@@ -34,4 +34,4 @@ jobs:
         run: cp .env.dev .env && docker build -t districtr .
         working-directory: backend
       - name: Test
-        run: docker run -it --network test_network -e MONGODB_SERVER=mongo --rm districtr ./test.sh
+        run: docker run --network test_network -e MONGODB_SERVER=mongo --rm districtr ./test.sh
