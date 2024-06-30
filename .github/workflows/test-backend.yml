@@ -8,9 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        mongodb-version: ["6.0", "7.0", "8.0"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -29,10 +26,12 @@ jobs:
           ruff --output-format=github .
         continue-on-error: true
         working-directory: backend
+      - name: Create docker network
+        run: docker network create test_network
       - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.11.0
-        with:
-          mongodb-version: ${{ matrix.mongodb-version }}
-      - name: Test
-        run: cp .env.dev .env && pytest
+        run: docker run --network test_network --name mongo -p 27017:27017 mongo:latest
+      - name: Build app image
+        run: cp .env.dev .env && docker build -t districtr .
         working-directory: backend
+      - name: Test
+        run: docker run -it --network test_network -e MONGODB_SERVER=mongo --rm districtr ./test.sh

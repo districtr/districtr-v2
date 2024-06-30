@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     # MongoDB
 
     MONGODB_SCHEME: str = "mongodb+srv"
-    MONGODB_SERVER: str = ""
+    MONGODB_SERVER: str | int = ""
     MONGODB_PORT: int = 27017
     MONGODB_USER: str = ""
     MONGODB_PASSWORD: str = ""
