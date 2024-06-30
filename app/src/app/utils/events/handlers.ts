@@ -1,4 +1,9 @@
-import { BLOCK_LAYER_ID, BLOCK_LAYER_SOURCE_ID } from "@/app/constants/layers";
+import {
+  BLOCK_LAYER_ID,
+  BLOCK_LAYER_SOURCE_ID,
+  PRECINCT_LAYER_ID,
+  PRECINCT_LAYER_SOURCE_ID,
+} from "@/app/constants/layers";
 import { MutableRefObject } from "react";
 import type { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { ZoneStore } from "@/app/store/zoneStore";
@@ -35,24 +40,24 @@ export const SelectFeatures = (
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
-        source: BLOCK_LAYER_ID,
+        source: PRECINCT_LAYER_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: BLOCK_LAYER_SOURCE_ID,
+        sourceLayer: PRECINCT_LAYER_SOURCE_ID,
       },
       { selected: true, zone: Number(zoneStoreRef.selectedZone) }
     );
   });
-  if (features?.length) {
-    features.forEach((feature) => {
-      zoneStoreRef.accumulatedGeoids.add(feature.properties?.GEOID20);
-    });
+  // if (features?.length) {
+  //   features.forEach((feature) => {
+  //     zoneStoreRef.accumulatedGeoids.add(feature.properties?.GEOID20);
+  //   });
 
-    debouncedSetZoneAssignments(
-      zoneStoreRef,
-      zoneStoreRef.selectedZone,
-      zoneStoreRef.accumulatedGeoids
-    );
-  }
+  //   debouncedSetZoneAssignments(
+  //     zoneStoreRef,
+  //     zoneStoreRef.selectedZone,
+  //     zoneStoreRef.accumulatedGeoids
+  //   );
+  // }
 };
 
 /**
@@ -71,9 +76,9 @@ export const HighlightFeature = (
       hoverGeoids.current.forEach((Id) => {
         map.current?.setFeatureState(
           {
-            source: BLOCK_LAYER_ID,
+            source: PRECINCT_LAYER_ID,
             id: Id,
-            sourceLayer: BLOCK_LAYER_SOURCE_ID,
+            sourceLayer: PRECINCT_LAYER_SOURCE_ID,
           },
           { hover: false }
         );
@@ -85,9 +90,9 @@ export const HighlightFeature = (
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
-        source: BLOCK_LAYER_ID,
+        source: PRECINCT_LAYER_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: BLOCK_LAYER_SOURCE_ID,
+        sourceLayer: PRECINCT_LAYER_SOURCE_ID,
       },
       { hover: true }
     );

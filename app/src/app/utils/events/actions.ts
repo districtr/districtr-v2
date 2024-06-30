@@ -1,6 +1,6 @@
 import { MutableRefObject, useRef } from "react";
 import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
-import { BLOCK_LAYER_ID } from "@/app/constants/layers";
+import { BLOCK_LAYER_ID, PRECINCT_LAYER_ID } from "@/app/constants/layers";
 import {
   HighlightFeature,
   SelectFeatures,
@@ -19,7 +19,7 @@ export const useApplyActions = (
   if (!mapLoaded) return;
   map.current?.on(
     "mousemove",
-    "blocks-hover",
+    "precincts-hover",
     (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
       const bbox: [PointLike, PointLike] = [
         [e.point.x - 50, e.point.y - 50],
@@ -27,7 +27,7 @@ export const useApplyActions = (
       ];
 
       const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
-        layers: [BLOCK_LAYER_ID],
+        layers: [PRECINCT_LAYER_ID],
       });
       HighlightFeature(selectedFeatures, map, hoverFeatureIds);
     }
@@ -35,7 +35,7 @@ export const useApplyActions = (
 
   map.current?.on(
     "mouseleave",
-    "blocks-hover",
+    "precincts-hover",
     (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
       UnhighlightFeature(map, hoverFeatureIds);
     }
@@ -43,7 +43,7 @@ export const useApplyActions = (
 
   map.current?.on(
     "click",
-    "blocks-hover",
+    "precincts-hover",
     (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
       const bbox: [PointLike, PointLike] = [
         [e.point.x - 50, e.point.y - 50],
