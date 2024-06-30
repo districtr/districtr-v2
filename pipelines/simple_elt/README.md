@@ -19,3 +19,7 @@ You'll need `ogr2ogr` installed, part of GDAL. You can test that it was installe
 ### DuckDB
 
 Follow [DuckDB installation instructions](https://duckdb.org/docs/installation/)
+
+### Tippecanoe
+
+Follow [Tippecanoe installation instructions](https://github.com/felt/tippecanoe?tab=readme-ov-file#installation).
