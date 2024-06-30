@@ -1,0 +1,7 @@
+[tool.ruff]
+exclude = [".venv"]
+
+[tool.coverage.run]
+omit = [
+    "app/**/test_*.py",
+]
