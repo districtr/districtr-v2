@@ -66,6 +66,7 @@ export const useApplyActions = (
         }
       );
 
+      // first test - intersection of the hovered precincts and the selected blocks
       // deduplicate the features
       if (selectedBlockFeatures?.length && selectedPrecinctFeatures?.length) {
         const uniqueBlockFeatures = [
@@ -73,22 +74,36 @@ export const useApplyActions = (
             selectedBlockFeatures.map((item) => [item["id"], item])
           ).values(),
         ];
-        // console.log(uniqueBlockFeatures);
         const uniquePrecinctFeatures = [
           ...new Map(
             selectedPrecinctFeatures.map((item) => [item["id"], item])
           ).values(),
         ];
-
-        // first test - intersection of the hovered precincts and the selected blocks
         // if blocks intersect precincts, select the blocks
         const selectedFeatures = uniqueBlockFeatures.filter((block) =>
           uniquePrecinctFeatures.some((precinct) =>
             booleanIntersects(block, precinct)
           )
         );
-        SelectFeatures(selectedFeatures, map, zoneStore);
-        // console.log(selectedFeatures);
+        //   SelectFeatures(selectedFeatures, map, zoneStore);
+        // }
+        // second test - precompute intersections of blocks with all precincts and use querySourceFeatures instead to find matches
+        const blockIndices = selectedPrecinctFeatures.map((precinct) => {
+          return precinct.properties.block_indices.split(",").map(Number);
+        });
+
+        // flatten the blockIndices array
+        const uniqueBlockIndices = [...new Set(blockIndices.flat())];
+
+        // get block features that have their id in the uniqueBlockIndices array
+        const outBlockFeatures = map.current?.querySourceFeatures(
+          BLOCK_LAYER_ID,
+          {
+            sourceLayer: "co_tabblock20_wgs_simplefgb",
+            filter: ["in", ["id"], ["literal", uniqueBlockIndices]],
+          }
+        );
+        SelectFeatures(outBlockFeatures, map, zoneStore);
       }
     }
   );

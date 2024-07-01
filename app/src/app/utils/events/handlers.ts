@@ -37,7 +37,6 @@ export const SelectFeatures = (
   map: MutableRefObject<Map | null>,
   zoneStoreRef: ZoneStore
 ) => {
-  console.log(features);
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {

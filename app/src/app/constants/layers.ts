@@ -4,10 +4,11 @@ import { Map } from "maplibre-gl";
 import { BLOCKS_SOURCE } from "./sources";
 
 export const BLOCK_LAYER_ID = "blocks";
-export const BLOCK_LAYER_SOURCE_ID = "co_tabblock20_wgsfgb";
+export const BLOCK_LAYER_SOURCE_ID = "co_tabblock20_wgs_simplefgb";
 
 export const PRECINCT_LAYER_ID = "precincts";
-export const PRECINCT_LAYER_SOURCE_ID = "co_precincts_wgs2fgb";
+export const PRECINCT_LAYER_SOURCE_ID =
+  "co_precincts_block_indices_intersect_wgs3";
 
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "case",
