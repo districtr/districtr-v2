@@ -8,6 +8,9 @@
 
 # testing
 /coverage
+.coverage*
+htmlcov/
+.pytest_cache
 
 # next.js
 /.next/
