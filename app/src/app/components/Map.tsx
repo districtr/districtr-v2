@@ -18,8 +18,8 @@ export const MapComponent: React.FC = () => {
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_OPTIONS.style,
-      center: MAP_OPTIONS.center, // starting position [lng, lat]
-      zoom: MAP_OPTIONS.zoom, // starting zoom
+      center: MAP_OPTIONS.center,
+      zoom: MAP_OPTIONS.zoom,
       maxZoom: MAP_OPTIONS.maxZoom,
     });
     map.current.on("load", () => {

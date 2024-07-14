@@ -25,8 +25,8 @@
 - interactiveLayerIds: interactiveLayerIds,
 - activeInteractiveLayer: 0,
 - cursorVisible: true,
-- unitAssignments: new Map(),
-- unitPopulations: new Map(),
+- ~~**unitAssignments: new Map()**,~~: zone membership in plans. the basis of `zoneAssignments` in `zoneStore.ts` so won't be needed here.
+- **unitPopulations: new Map(),**: stats on the above; unclear where this will be handled in the new structure
 - unitColumnPopulations: new Map(),
 - columnKeys: [],
 - geometryKey: columnSets[interactiveLayerIds[0]].geometryKey,
@@ -39,9 +39,9 @@
 - lockedUnits: new Set(),
 - hiddenUnits: new Set(),
 - compositorData: compositorData,
-- paintByCounty: false,
-- paintedCountyGEOIDs: new Set(),
-- changedFeatures: [],
+- ~~paintByCounty~~: false,: we will likely want a type for this in `types.ts` and a state property in `mapStore.ts`. typed as `SpatialUnit` in `types.ts`. Will have to think through how this is used / how it interacts with what is rendered on the map.
+- ~~paintedCountyGEOIDs: new Set()~~,: this is going to live in `zoneStore.ts`, details tbd, but is the county-level fips membership (if painting at county level) of geom membership in painted plans. see [here](https://github.com/uchicago-dsi/districtr-components/blob/2e8f9e5657b9f0fd2419b6f3258efd74ae310f32/src/Districtr/reducers/districtrReducer.ts#L451) for implementation info. **Still an open question how we handle multi-level geoms?** tbd
+- ~~changedFeatures: [],~~: same as above- this is currently typed as `any` and I don't think it's even in use
 - changeHistory: [],
 - historyIndex: -1,
 - events: [
