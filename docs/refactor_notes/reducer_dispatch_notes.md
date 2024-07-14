@@ -1,0 +1,65 @@
+# Notes on refactorizing the reducer and dispatch functions
+
+- mapboxMap: null,
+- mapboxAccessToken: mapboxAccessToken,
+- ~~mapboxStyle: mapStyleOptions.current[mapStyle].url,~~: in `configuration.ts` as an options property of `maplibre` map
+- mapboxContainer: 'districtr-mapbox',
+- ~~initialViewState: initialViewState,~~: factored out, see below; only exists as a subset of `maplibre` map options which are otherwise defined.
+- terrain: true,
+- satellite: false,
+- ~~zoom: initialViewState.zoom,~~: in `configuration.ts` as an options property of `maplibre` map
+- ~~center: [initialViewState.longitude, initialViewState.latitude],~~: in `configuration.ts` as an options property of `maplibre` map
+- ~~latitude: initialViewState.latitude,~~: not accessed directly (only as child of center); removing as a state property
+- ~~longitude: initialViewState.longitude,~~: not accessed directly (only as child of center); removing as a state property
+- ~~bearing: initialViewState.bearing,~~: in `configuration.ts` as an options property of `maplibre` map
+- ~~pitch: initialViewState.pitch,~~: in `configuration.ts` as an options property of `maplibre` map
+- ~~bounds: initialViewState.bounds,~~: in `configuration.ts` as an options property of `maplibre` map
+- tools: toolsConfig,
+- ~~activeTool: 'pan'~~,: types in `types.ts`; `set in mapStore.ts`
+- units: unitsConfig,
+- activeUnit: 1,
+- palette: [],
+- sources: sources,
+- layers: layers,
+- coloring: false,
+- interactiveLayerIds: interactiveLayerIds,
+- activeInteractiveLayer: 0,
+- cursorVisible: true,
+- unitAssignments: new Map(),
+- unitPopulations: new Map(),
+- unitColumnPopulations: new Map(),
+- columnKeys: [],
+- geometryKey: columnSets[interactiveLayerIds[0]].geometryKey,
+- featureKey: columnSets[interactiveLayerIds[0]].columnSets[0].total.key,
+- populationSum: columnSets[interactiveLayerIds[0]].columnSets[0].total.sum,
+- hoveredFeatures: [],
+- brushSizeValue: 50,
+- brushSize: 100,
+- columnSets: columnSets,
+- lockedUnits: new Set(),
+- hiddenUnits: new Set(),
+- compositorData: compositorData,
+- paintByCounty: false,
+- paintedCountyGEOIDs: new Set(),
+- changedFeatures: [],
+- changeHistory: [],
+- historyIndex: -1,
+- events: [
+- ['click', (e) => onMapClick(e)],
+- ['mouseup', (e) => onMapMouseUp(e)],
+- ['touchend', (e) => onMapMouseUp(e)],
+- ['mousedown', (e) => onMapMouseDown(e)],
+- ['touchstart', (e) => onMapMouseDown(e)],
+- ['mouseenter', (e) => onMapMouseEnter(e)],
+- ['mouseover', (e) => onMapMouseOver(e)],
+- ['mouseleave', (e) => onMapMouseLeave(e)],
+- ['touchleave', (e) => onMapMouseLeave(e)],
+- ['mouseout', (e) => onMapMouseOut(e)],
+- ['mousemove', (e) => onMapMouseMove(e)],
+- ['touchmove', (e) => onMapMouseMove(e)],
+- ['zoom', (e) => onMapZoom(e)],
+- ['idle', () => onMapIdle()],
+- ['moveend', (e) => onMapMoveEnd(e)],
+- ['zoomend', (e) => onMapZoomEnd(e)]
+  ],
+- intializeDistrictrState
