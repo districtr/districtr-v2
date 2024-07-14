@@ -15,4 +15,5 @@ export const MAP_OPTIONS: MapOptions = {
   minZoom: 3,
   bearing: 0,
   pitch: 0,
+  container: "",
 };
