@@ -8,6 +8,7 @@ import {
 } from "./handlers";
 import { useZoneStore } from "@/app/store/zoneStore";
 import { PointLike } from "maplibre-gl";
+import { mapEvents } from "./mapEvents";
 
 export const useApplyActions = (
   map: MutableRefObject<Map | null>,
@@ -17,6 +18,10 @@ export const useApplyActions = (
   const hoverFeatureIds = useRef(new Set<string>());
 
   if (!mapLoaded) return;
+
+  // might do a thing where we connect the action here to the store on a per-event type level
+  // so map.on('click', 'blocks-hover', (e) => { zoneStore.updateAction(e) })
+
   map.current?.on(
     "mousemove",
     "blocks-hover",
@@ -57,4 +62,14 @@ export const useApplyActions = (
       SelectFeatures(selectedFeatures, map, zoneStore);
     }
   );
+
+  mapEvents.forEach((action) => {
+    console.log(action.action, action.handler);
+    map.current?.on(
+      action.action,
+      (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+        action.handler(e, map.current, zoneStore);
+      }
+    );
+  });
 };
