@@ -4,7 +4,7 @@ import type { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { ZoneStore } from "@/app/store/zoneStore";
 import { debounce } from "lodash";
 import { useZoneStore } from "@/app/store/zoneStore";
-
+import { MapStore } from "@/app/store/mapStore";
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
  * @param zoneStoreRef - MutableRefObject<ZoneStore | null>, the zone store reference from zustand
@@ -12,8 +12,8 @@ import { useZoneStore } from "@/app/store/zoneStore";
  * @returns void - but updates the zoneAssignments in the store
  */
 const debouncedSetZoneAssignments = debounce(
-  (zoneStoreRef: ZoneStore, selectedZone: number, geoids: Set<string>) => {
-    zoneStoreRef.setZoneAssignments(zoneStoreRef.selectedZone, geoids);
+  (mapStoreRef: MapStore, selectedZone: number, geoids: Set<string>) => {
+    mapStoreRef.setZoneAssignments(mapStoreRef.selectedZone, geoids);
   },
   1000 // 1 second
 );
@@ -24,13 +24,13 @@ const debouncedSetZoneAssignments = debounce(
  *
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
- * @param zoneStoreRef - MutableRefObject<ZoneStore | null>, the zone store reference from zustand
+ * @param mapStoreRef - MutableRefObject<MapStore | null>, the map store reference from zustand
  */
 
 export const SelectFeatures = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  zoneStoreRef: ZoneStore
+  mapStoreRef: MapStore
 ) => {
   features?.forEach((feature) => {
     map.current?.setFeatureState(
@@ -39,18 +39,18 @@ export const SelectFeatures = (
         id: feature?.id ?? undefined,
         sourceLayer: BLOCK_LAYER_SOURCE_ID,
       },
-      { selected: true, zone: Number(zoneStoreRef.selectedZone) }
+      { selected: true, zone: Number(mapStoreRef.selectedZone) }
     );
   });
   if (features?.length) {
     features.forEach((feature) => {
-      zoneStoreRef.accumulatedGeoids.add(feature.properties?.GEOID20);
+      mapStoreRef.accumulatedGeoids.add(feature.properties?.GEOID20);
     });
 
     debouncedSetZoneAssignments(
-      zoneStoreRef,
-      zoneStoreRef.selectedZone,
-      zoneStoreRef.accumulatedGeoids
+      mapStoreRef,
+      mapStoreRef.selectedZone,
+      mapStoreRef.accumulatedGeoids
     );
   }
 };

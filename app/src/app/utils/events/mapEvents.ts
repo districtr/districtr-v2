@@ -5,8 +5,16 @@
 import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { MapStore, useMapStore } from "@/app/store/mapStore";
 import { MutableRefObject } from "react";
+import { PointLike } from "maplibre-gl";
+import { BLOCK_LAYER_ID } from "@/app/constants/layers";
+import {
+  HighlightFeature,
+  SelectFeatures,
+  UnhighlightFeature,
+} from "./handlers";
 
 export const userMovedMouse = (e: MapLayerMouseEvent) => {
+  // this is like a drag and paint event
   // https://github.com/uchicago-dsi/districtr-components/blob/2e8f9e5657b9f0fd2419b6f3258efd74ae310f32/src/Districtr/reducers/districtrReducer.ts#L415
   //   case 'user_moved_mouse': {
   //     const threshold = state.brushSize / action.payload.offsetFactor
@@ -120,7 +128,18 @@ export const onMapClick = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
   mapStore: MapStore
-) => {};
+) => {
+  const bbox: [PointLike, PointLike] = [
+    [e.point.x - 50, e.point.y - 50],
+    [e.point.x + 50, e.point.y + 50],
+  ];
+
+  const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
+    layers: [BLOCK_LAYER_ID],
+  });
+
+  SelectFeatures(selectedFeatures, map, mapStore);
+};
 export const onMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {};
 export const onMapMouseDown = (
   e: MapLayerMouseEvent | MapLayerTouchEvent
