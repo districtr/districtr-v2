@@ -1,13 +1,40 @@
+import os
 from pymongo.results import InsertOneResult
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
-from sqlmodel.pool import StaticPool
+from sqlmodel import Session, create_engine
 
 from app.main import app, get_session
 from app.core.db import get_mongo_database
+from pydantic_core import MultiHostUrl
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError, ProgrammingError
+import subprocess
+
 
 client = TestClient(app)
+
+POSTGRES_TEST_DB = "districtr_test"
+POSTGRES_TEST_SCHEME = "postgresql+psycopg"
+POSTGRES_TEST_USER = "postgres"
+POSTGRES_TEST_HOST = "localhost"
+POSTGRES_TEST_PORT = 5432
+
+my_env = os.environ.copy()
+
+my_env["POSTGRES_DB"] = POSTGRES_TEST_DB
+my_env["POSTGRES_SCHEME"] = POSTGRES_TEST_SCHEME
+my_env["POSTGRES_USER"] = POSTGRES_TEST_USER
+my_env["POSTGRES_SERVER"] = POSTGRES_TEST_HOST
+my_env["POSTGRES_PORT"] = str(POSTGRES_TEST_PORT)
+
+TEST_SQLALCHEMY_DATABASE_URI = MultiHostUrl.build(
+    scheme=POSTGRES_TEST_SCHEME,
+    username=POSTGRES_TEST_USER,
+    host=POSTGRES_TEST_HOST,
+    port=POSTGRES_TEST_PORT,
+    path=POSTGRES_TEST_DB,
+)
 
 
 def test_read_main():
@@ -26,12 +53,28 @@ def test_get_session():
 ## Test DB
 
 
+@pytest.fixture(scope="session", autouse=True, name="engine")
+def engine_fixture(request):
+    _engine = create_engine("postgresql://postgres@/postgres")
+    conn = _engine.connect()
+    conn.execute(text("commit"))
+    try:
+        conn.execute(text(f"CREATE DATABASE {POSTGRES_TEST_DB}"))
+    except (OperationalError, ProgrammingError):
+        pass
+
+    subprocess.run(["alembic", "upgrade", "head"], check=True, env=my_env)
+
+    def teardown():
+        conn.execute(text(f"DROP DATABASE {POSTGRES_TEST_DB}"))
+        conn.close()
+
+    request.addfinalizer(teardown)
+
+
 @pytest.fixture(name="session")
 def session_fixture():
-    engine = create_engine(
-        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-    )
-    SQLModel.metadata.create_all(engine)
+    engine = create_engine(str(TEST_SQLALCHEMY_DATABASE_URI), echo=True)
     with Session(engine) as session:
         yield session
 
