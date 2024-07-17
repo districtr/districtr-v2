@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "backend/**"
+      - ".github/workflows/test-backend.yml"
 
 jobs:
   build:
