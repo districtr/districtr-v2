@@ -31,6 +31,8 @@ jobs:
         run: docker network create test_network
       - name: Start MongoDB
         run: docker run -d --network test_network --name mongo -p 27017:27017 mongo:latest
+      - name: Start Postgres
+        run: docker run -d --network test_network --name postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=postgres -p 5432:5432 postgres:16.3-alpine3.20
       - name: Build app image
         run: cp .env.dev .env && docker build -t districtr .
         working-directory: backend
