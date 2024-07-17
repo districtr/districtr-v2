@@ -14,25 +14,23 @@ import subprocess
 
 client = TestClient(app)
 
+ENVIRONMENT = os.environ.get("ENVIRONMENT")
 POSTGRES_TEST_DB = "districtr_test"
-POSTGRES_TEST_SCHEME = "postgresql+psycopg"
-POSTGRES_TEST_USER = "postgres"
-POSTGRES_TEST_HOST = "localhost"
-POSTGRES_TEST_PORT = 5432
+POSTGRES_SCHEME = "postgresql+psycopg"
+POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
+POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
+POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
+POSTGRES_PORT = os.environ.get("POSTGRES_PORT", 5432)
 
 my_env = os.environ.copy()
 
 my_env["POSTGRES_DB"] = POSTGRES_TEST_DB
-my_env["POSTGRES_SCHEME"] = POSTGRES_TEST_SCHEME
-my_env["POSTGRES_USER"] = POSTGRES_TEST_USER
-my_env["POSTGRES_SERVER"] = POSTGRES_TEST_HOST
-my_env["POSTGRES_PORT"] = str(POSTGRES_TEST_PORT)
 
 TEST_SQLALCHEMY_DATABASE_URI = MultiHostUrl.build(
-    scheme=POSTGRES_TEST_SCHEME,
-    username=POSTGRES_TEST_USER,
-    host=POSTGRES_TEST_HOST,
-    port=POSTGRES_TEST_PORT,
+    scheme=POSTGRES_SCHEME,
+    username=POSTGRES_USER,
+    host=POSTGRES_HOST,
+    port=int(POSTGRES_PORT),
     path=POSTGRES_TEST_DB,
 )
 
@@ -55,15 +53,21 @@ def test_get_session():
 
 @pytest.fixture(scope="session", autouse=True, name="engine")
 def engine_fixture(request):
-    _engine = create_engine("postgresql://postgres@/postgres")
+    url = f"{POSTGRES_SCHEME}://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/postgres"
+    _engine = create_engine(url)
     conn = _engine.connect()
     conn.execute(text("commit"))
     try:
-        conn.execute(text(f"CREATE DATABASE {POSTGRES_TEST_DB}"))
+        if conn.in_transaction():
+            conn.rollback()
+        conn.execution_options(isolation_level="AUTOCOMMIT").execute(
+            text(f"CREATE DATABASE {POSTGRES_TEST_DB}")
+        )
     except (OperationalError, ProgrammingError):
         pass
 
-    subprocess.run(["alembic", "upgrade", "head"], check=True, env=my_env)
+    if ENVIRONMENT != "test":
+        subprocess.run(["alembic", "upgrade", "head"], check=True, env=my_env)
 
     def teardown():
         conn.execute(text(f"DROP DATABASE {POSTGRES_TEST_DB}"))
