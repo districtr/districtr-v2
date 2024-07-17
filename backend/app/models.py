@@ -1,7 +1,8 @@
 from datetime import datetime
-from typing import Optional, Dict
+from typing import AnyStr, Optional, Dict
 from pydantic import BaseModel, Field as PydanticField
-from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, text
+from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, text, Column
+from geoalchemy2 import Geometry
 
 # Postgres
 
@@ -29,6 +30,17 @@ class TimeStampMixin(SQLModel):
         },
         nullable=False,
         default=None,
+    )
+
+
+class Population(SQLModel, table=True):
+    path: str = Field(unique=True, nullable=False, index=True, primary_key=True)
+    area_land: int
+    area_water: int
+    other_pop: int
+    total_pop: int
+    geography: AnyStr = Field(
+        sa_column=Column(Geometry(geometry_type="POLYGON", srid=4269))
     )
 
 
