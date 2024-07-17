@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import AnyStr, Optional, Dict
+from typing import Any, Optional, Dict
 from pydantic import BaseModel, Field as PydanticField
 from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, text, Column
 from geoalchemy2 import Geometry
@@ -39,7 +39,7 @@ class Population(SQLModel, table=True):
     area_water: int
     other_pop: int
     total_pop: int
-    geography: AnyStr = Field(
+    geography: Any = Field(
         sa_column=Column(Geometry(geometry_type="POLYGON", srid=4269))
     )
 
