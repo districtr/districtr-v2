@@ -1,10 +1,7 @@
 from datetime import datetime
-from typing import Any, Optional, Dict
-from pydantic import BaseModel, Field as PydanticField
+from typing import Any, Optional
 from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, text, Column
 from geoalchemy2 import Geometry
-
-# Postgres
 
 
 class UUIDType(UUID):
@@ -42,50 +39,3 @@ class Population(SQLModel, table=True):
     geography: Any = Field(
         sa_column=Column(Geometry(geometry_type="POLYGON", srid=4269))
     )
-
-
-# MongoDB
-
-PLAN_COLLECTION_NAME = "plans"
-
-PLAN_COLLECTION_SCHEMA = {
-    "$jsonSchema": {
-        "bsonType": "object",
-        "required": ["assignments"],
-        "properties": {
-            "assignments": {
-                "bsonType": "object",
-                "additionalProperties": {"bsonType": "int"},
-            }
-        },
-    }
-}
-
-
-class Assignments(BaseModel):
-    assignments: Dict[str, int] = PydanticField(description="Assignments dictionary")
-
-
-class AssignmentsCreate(Assignments):
-    pass
-
-
-class AssignmentsUpdate(BaseModel):
-    """
-    {
-      acknowledged: true,
-      insertedId: null,
-      matchedCount: 0,
-      modifiedCount: 0,
-      upsertedCount: 0
-    }
-    """
-
-    acknowledged: bool = PydanticField(description="Acknowledged")
-    upserted_id: Optional[str] = PydanticField(description="Inserted ID")
-    matched_count: int = PydanticField(description="Matched count")
-    modified_count: int = PydanticField(description="Modified count")
-
-
-class AssignmentsPublic(BaseModel):
-    id: str = PydanticField(alias="_id", description="Assignment ID")

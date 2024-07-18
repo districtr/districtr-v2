@@ -87,31 +87,6 @@ Or with full coverage report:
 
 `coverage run --source=app -m pytest -v && coverage html && open htmlcov/index.html`
 
-### MongoDB
-
-#### MacOS
-
-Follow [install instructions](https://github.com/mongodb/homebrew-brew).
-
-#### Linux
-
-See [Install MongoDB Community Edition on Linux](https://www.mongodb.com/docs/manual/administration/install-on-linux/)
-
-#### Set-up test database
-
-1. `brew services start mongodb-community` on Mac to start the server. TBD other platforms. Stop the server with `brew services stop mongodb-community`.
-1. `mongosh`
-1. `use districtr` to create a new database in `/usr/local/var/mongodb` (intel) or `/opt/homebrew/var/mongodb` (Apple silicon). Connects to the db if it already exists.
-
-More info [here](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-os-x/).
-
-Create collections:
-1. `python cli.py create_collections`
-
-Optionally you can create or update individual collections with `python cli.py create_collections -c {{ collection_name_1 }} -c {{ collection_name_2 }}`.
-
-Confirm in `mongosh` with `use districtr` followed by `show collections` or `python cli.py list-collections`.
-
 ### Useful reference apps
 
 - [full-stack-fastapi-template](https://github.com/tiangolo/full-stack-fastapi-template/tree/master)

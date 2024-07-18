@@ -1,12 +1,10 @@
 name: Test backend
 
-# on:
-#   push:
-#     paths:
-#       - "backend/**"
-#       - ".github/workflows/test-backend.yml"
-
-on: workflow_dispatch
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/test-backend.yml"
 
 jobs:
   container-job:
@@ -55,13 +53,5 @@ jobs:
         working-directory: backend
 
       - name: Run migrations and test
-        run: alembic upgrade head && ./test.sh
+        run: cp .env.test .env && ./test.sh
         working-directory: backend
-        env:
-          POSTGRES_SCHEME: postgresql+psycopg
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-          POSTGRES_SERVER: postgres
-          POSTGRES_PORT: 5432
-          ENVIRONMENT: test

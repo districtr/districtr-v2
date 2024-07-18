@@ -1,13 +1,11 @@
 from fastapi import FastAPI, status, Depends, HTTPException
-from pymongo.database import Database
+from sqlalchemy import text
 from sqlmodel import Session
 from starlette.middleware.cors import CORSMiddleware
 import logging
-from bson import ObjectId
 
-from app.core.db import engine, get_mongo_database
+from app.core.db import engine
 from app.core.config import settings
-from app.models import AssignmentsCreate, AssignmentsPublic, AssignmentsUpdate
 
 app = FastAPI()
 
@@ -32,57 +30,18 @@ def get_session():
         yield session
 
 
-def get_mongodb_client():
-    yield get_mongo_database()
-
-
 @app.get("/")
 async def root():
     return {"message": "Hello World"}
 
 
-@app.get("/plan/{plan_id}")
-async def get_plan(plan_id: str, mongodb: Database = Depends(get_mongodb_client)):
-    plan = mongodb.plans.find_one({"_id": ObjectId(plan_id)})
-
-    if not plan:
-        raise HTTPException(status_code=404, detail="Plan not found")
-
-    return str(plan)
-
-
-@app.post(
-    "/plan",
-    status_code=status.HTTP_201_CREATED,
-    response_model=AssignmentsPublic,
-)
-async def create_plan(
-    *, data: AssignmentsCreate, mongodb: Database = Depends(get_mongodb_client)
-):
-    db_plan = AssignmentsCreate.model_validate(data)
-    plan = mongodb.plans.insert_one(db_plan.model_dump())
-    return AssignmentsPublic(_id=str(plan.inserted_id))
-
-
-@app.put(
-    "/plan/{plan_id}",
-    status_code=status.HTTP_200_OK,
-    response_model=AssignmentsUpdate,
-)
-async def update_plan(
-    *,
-    plan_id: str,
-    data: AssignmentsCreate,
-    mongodb: Database = Depends(get_mongodb_client),
-):
-    db_plan = AssignmentsCreate.model_validate(data)
-    new_assignments = {f"assignments.{k}": v for k, v in db_plan.assignments.items()}
-    result = mongodb.plans.update_many(
-        {"_id": ObjectId(plan_id)}, {"$set": new_assignments}, upsert=True
-    )
-    return AssignmentsUpdate(
-        acknowledged=result.acknowledged,
-        upserted_id=result.upserted_id,
-        matched_count=result.matched_count,
-        modified_count=result.modified_count,
-    )
+@app.get("/db_is_alive")
+async def db_is_alive(session: Session = Depends(get_session)):
+    try:
+        session.execute(text("SELECT 1"))
+        return {"message": "DB is alive"}
+    except Exception as e:
+        logger.error(e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB is unreachable"
+        )

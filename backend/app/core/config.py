@@ -69,27 +69,6 @@ class Settings(BaseSettings):
             path=self.POSTGRES_DB,
         )
 
-    # MongoDB
-
-    MONGODB_SCHEME: str = "mongodb+srv"
-    MONGODB_SERVER: str | int = ""
-    MONGODB_PORT: int = 27017
-    MONGODB_USER: str = ""
-    MONGODB_PASSWORD: str = ""
-    MONGODB_DB: str = "districtr"
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def MONGODB_URI(self) -> str:
-        if self.ENVIRONMENT == "local":
-            return f"{self.MONGODB_SCHEME}://{self.MONGODB_SERVER}:{self.MONGODB_PORT}/{self.MONGODB_DB}"
-
-        assert (
-            self.MONGODB_USER and self.MONGODB_PASSWORD
-        ), f"MONGODB_SERVER, MONGODB_USER, and MONGODB_PASSWORD must be set. Got server `{self.MONGODB_SERVER}` and user `{self.MONGODB_USER}`."
-
-        return f"{self.MONGODB_SCHEME}://{self.MONGODB_USER}:{self.MONGODB_PASSWORD}@{self.MONGODB_SERVER}:{self.MONGODB_PORT}/{self.MONGODB_DB}"
-
     # Security
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
