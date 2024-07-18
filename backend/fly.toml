@@ -1,12 +1,10 @@
-# fly.toml app configuration file generated for districtr-v2-api on 2024-07-18T09:19:04-04:00
+# fly.toml app configuration file generated for districtr-v2-api on 2024-07-18T11:06:14-04:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
 app = 'districtr-v2-api'
 primary_region = 'ewr'
-
-[build]
 
 [http_service]
   internal_port = 8080

@@ -10,7 +10,7 @@ jobs:
   container-job:
     runs-on: ubuntu-latest
 
-    container: python:3.12
+    container: python:3.12.2-slim-bullseye
 
     services:
       postgres:
