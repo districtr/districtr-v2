@@ -49,7 +49,7 @@ def test_get_session():
 ## Test DB
 
 
-@pytest.fixture(scope="session", autouse=True, name="engine")
+@pytest.fixture(scope="session", name="engine")
 def engine_fixture(request):
     url = f"{POSTGRES_SCHEME}://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/postgres"
     _engine = create_engine(url)
@@ -68,15 +68,23 @@ def engine_fixture(request):
         subprocess.run(["alembic", "upgrade", "head"], check=True, env=my_env)
 
     def teardown():
+        close_connections_query = f"""
+            SELECT pg_terminate_backend(pg_stat_activity.pid)
+            FROM pg_stat_activity
+            WHERE pg_stat_activity.datname = '{POSTGRES_TEST_DB}'
+            AND pid <> pg_backend_pid();
+            """
+        conn.execute(text(close_connections_query))
         conn.execute(text(f"DROP DATABASE {POSTGRES_TEST_DB}"))
         conn.close()
 
     request.addfinalizer(teardown)
 
+    return create_engine(str(TEST_SQLALCHEMY_DATABASE_URI), echo=True)
+
 
 @pytest.fixture(name="session")
-def session_fixture():
-    engine = create_engine(str(TEST_SQLALCHEMY_DATABASE_URI), echo=True)
+def session_fixture(engine):
     with Session(engine) as session:
         yield session
 
