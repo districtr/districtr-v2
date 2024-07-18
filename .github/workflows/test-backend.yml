@@ -18,9 +18,12 @@ jobs:
       postgres:
         image: postgres:16.3-alpine3.20
         env:
+          POSTGRES_SCHEME: postgresql+psycopg
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
+          POSTGRES_SERVER: postgres
+          POSTGRES_PORT: 5432
         ports:
           - 5432:5432
         options: >-
@@ -55,8 +58,10 @@ jobs:
         run: alembic upgrade head && ./test.sh
         working-directory: backend
         env:
+          POSTGRES_SCHEME: postgresql+psycopg
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
-          POSTGRES_HOST: postgres
+          POSTGRES_SERVER: postgres
+          POSTGRES_PORT: 5432
           ENVIRONMENT: test
