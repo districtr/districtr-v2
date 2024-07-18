@@ -1,16 +1,18 @@
 name: Test backend
 
-on:
-  push:
-    paths:
-      - "backend/**"
-      - ".github/workflows/test-backend.yml"
+# on:
+#   push:
+#     paths:
+#       - "backend/**"
+#       - ".github/workflows/test-backend.yml"
+
+on: workflow_dispatch
 
 jobs:
   container-job:
     runs-on: ubuntu-latest
 
-    container: python:3.12-slim-bullseye
+    container: python:3.12
 
     services:
       postgres:
@@ -30,9 +32,6 @@ jobs:
     steps:
       - name: Checkout repo code
         uses: actions/checkout@v4
-
-      - name: Install lsb-release
-        run: apt-get update && apt-get install -y lsb-release && apt-get clean all
 
       - name: Set up Python
         uses: actions/setup-python@v5
