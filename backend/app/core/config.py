@@ -56,10 +56,14 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str = ""
+    DATABASE_URL: str | None = None
 
     @computed_field  # type: ignore[misc]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
+        if self.DATABASE_URL:
+            return MultiHostUrl(self.DATABASE_URL)
+
         return MultiHostUrl.build(
             scheme=self.POSTGRES_SCHEME,
             username=self.POSTGRES_USER,
