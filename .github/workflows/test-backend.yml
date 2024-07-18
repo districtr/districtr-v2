@@ -45,8 +45,8 @@ jobs:
           pip install -r requirements.txt --no-cache-dir
         working-directory: backend
 
-      - name: Run migrations and test
-        run: ./test.sh
+      - name: Run tests
+        run: pytest -v
         working-directory: backend
         env:
           DOMAIN: postgres
