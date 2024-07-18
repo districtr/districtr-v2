@@ -30,6 +30,7 @@ TEST_SQLALCHEMY_DATABASE_URI = MultiHostUrl.build(
     host=POSTGRES_SERVER,
     port=int(POSTGRES_PORT),
     path=POSTGRES_TEST_DB,
+    password=POSTGRES_PASSWORD,
 )
 
 
