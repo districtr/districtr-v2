@@ -10,13 +10,13 @@ on: workflow_dispatch
 
 jobs:
   container-job:
-    runs-on: ubuntu-latest
+    runs-on: debian-latest
 
     container: python:3.12
 
     services:
       postgres:
-        image: postgres:16.3-alpine3.20
+        image: postgis/postgis:16-3.4
         env:
           POSTGRES_SCHEME: postgresql+psycopg
           POSTGRES_USER: postgres
