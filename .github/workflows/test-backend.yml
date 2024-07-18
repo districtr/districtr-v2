@@ -45,12 +45,21 @@ jobs:
           pip install -r requirements.txt --no-cache-dir
         working-directory: backend
 
-      - name: Lint with Ruff
+      - name: Wait for PostgreSQL to be ready
         run: |
-          pip install ruff
-          ruff --output-format=github .
-        continue-on-error: true
-        working-directory: backend
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..60}; do
+            if pg_isready -h postgres -p 5432; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            echo "PostgreSQL is not ready yet... retrying in 1 second."
+            sleep 1
+          done
+          if ! pg_isready -h postgres -p 5432; then
+            echo "PostgreSQL did not become ready in time." >&2
+            exit 1
+          fi
 
       - name: Run migrations and test
         run: ./test.sh
