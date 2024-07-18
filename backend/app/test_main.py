@@ -17,7 +17,7 @@ POSTGRES_TEST_DB = "districtr_test"
 POSTGRES_SCHEME = "postgresql+psycopg"
 POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
+POSTGRES_SERVER = os.environ.get("POSTGRES_SERVER", "localhost")
 POSTGRES_PORT = os.environ.get("POSTGRES_PORT", 5432)
 
 my_env = os.environ.copy()
@@ -27,7 +27,7 @@ my_env["POSTGRES_DB"] = POSTGRES_TEST_DB
 TEST_SQLALCHEMY_DATABASE_URI = MultiHostUrl.build(
     scheme=POSTGRES_SCHEME,
     username=POSTGRES_USER,
-    host=POSTGRES_HOST,
+    host=POSTGRES_SERVER,
     port=int(POSTGRES_PORT),
     path=POSTGRES_TEST_DB,
 )
@@ -51,7 +51,7 @@ def test_get_session():
 
 @pytest.fixture(scope="session", name="engine")
 def engine_fixture(request):
-    url = f"{POSTGRES_SCHEME}://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/postgres"
+    url = f"{POSTGRES_SCHEME}://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}/postgres"
     _engine = create_engine(url)
     conn = _engine.connect()
     conn.execute(text("commit"))
