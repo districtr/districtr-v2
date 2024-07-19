@@ -1,5 +1,6 @@
 import secrets
 import warnings
+import boto3
 from functools import lru_cache
 from typing import Annotated, Any, Literal
 
@@ -92,6 +93,29 @@ class Settings(BaseSettings):
         self._check_default_secret("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD)
 
         return self
+
+    # R2
+
+    R2_BUCKET_NAME: str | None = None
+    ACCOUNT_ID: str | None = None
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
+
+    def get_s3_client(self):
+        if (
+            not self.ACCOUNT_ID
+            or not self.AWS_ACCESS_KEY_ID
+            or not self.AWS_SECRET_ACCESS_KEY
+        ):
+            return None
+
+        return boto3.client(
+            service_name="s3",
+            endpoint_url=f"https://{self.ACCOUNT_ID}.r2.cloudflarestorage.com",
+            aws_access_key_id=self.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=self.AWS_SECRET_ACCESS_KEY,
+            region_name="auto",
+        )
 
 
 @lru_cache()

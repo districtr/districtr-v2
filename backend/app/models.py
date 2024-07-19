@@ -31,7 +31,8 @@ class TimeStampMixin(SQLModel):
 
 
 class Population(SQLModel, table=True):
-    path: str = Field(unique=True, nullable=False, index=True, primary_key=True)
+    name: str = Field(nullable=False, index=True)
+    path: str = Field(unique=False, nullable=False, index=True, primary_key=False)
     area_land: int
     area_water: int
     other_pop: int
