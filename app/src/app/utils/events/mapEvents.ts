@@ -7,6 +7,7 @@ import { MapStore, useMapStore } from "@/app/store/mapStore";
 import { MutableRefObject, useRef } from "react";
 import { PointLike } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "@/app/constants/layers";
+import { boxAroundPoint } from "../helpers";
 
 import {
   HighlightFeature,
@@ -130,15 +131,12 @@ export const useOnMapClick = (
   map: MutableRefObject<Map | null>,
   mapStore: MapStore
 ) => {
-  const bbox: [PointLike, PointLike] = [
-    [e.point.x - 50, e.point.y - 50],
-    [e.point.x + 50, e.point.y + 50],
-  ];
+  const bbox = boxAroundPoint(e.point, mapStore.brushSize);
 
   const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
     layers: [BLOCK_LAYER_ID],
   });
-
+  // TODO: refer to logic in reducer and above; this is a v2 test implementation
   SelectFeatures(selectedFeatures, map, mapStore);
 };
 export const useOnMapMouseUp = (
@@ -178,15 +176,12 @@ export const useOnMapMouseMove = (
 ) => {
   // highlight features
   const hoverFeatureIds = useRef(new Set<string>());
-
-  const bbox: [PointLike, PointLike] = [
-    [e.point.x - 50, e.point.y - 50],
-    [e.point.x + 50, e.point.y + 50],
-  ];
+  const bbox = boxAroundPoint(e.point, 50);
 
   const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
     layers: [BLOCK_LAYER_ID],
   });
+  // TODO: refer to logic in reducer; this is a v2 test implementation
   HighlightFeature(selectedFeatures, map, hoverFeatureIds);
 };
 export const useOnMapZoom = (

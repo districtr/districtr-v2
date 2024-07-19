@@ -13,6 +13,8 @@ export interface MapStore {
   zoneAssignments: Map<string, number>; // geoid -> zone
   setZoneAssignments: (zone: Zone, geoids: Set<GEOID>) => void;
   accumulatedGeoids: Set<string>;
+  brushSize: number;
+  setBrushSize: (size: number) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -48,4 +50,6 @@ export const useMapStore = create<MapStore>((set) => ({
         accumulatedGeoids: new Set<string>(),
       };
     }),
+  brushSize: 50,
+  setBrushSize: (size: number) => set({ brushSize: size }),
 }));
