@@ -1,5 +1,7 @@
 # Notes on refactorizing the reducer and dispatch functions
 
+### dispatch object from `compoenents`
+
 - mapboxMap: null,
 - mapboxAccessToken: mapboxAccessToken,
 - ~~mapboxStyle: mapStyleOptions.current[mapStyle].url,~~: in `configuration.ts` as an options property of `maplibre` map
@@ -63,3 +65,7 @@
 - ['zoomend', (e) => onMapZoomEnd(e)]
   ],
 - intializeDistrictrState
+
+## from original districtr
+
+onMouseDown, onMouseUp, onClick, onTouchStart << all bound to CommunityBrush in https://github.com/districtr/districtr/blob/de85e7801e47f71433a8951e248c1ef71abc641c/src/map/CommunityBrush.js#L5

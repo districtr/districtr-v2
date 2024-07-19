@@ -1,17 +1,11 @@
-import { PointLike } from "maplibre-gl";
+import { PointLike, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 
 export const boxAroundPoint = (
-  point: PointLike,
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
   radius: number
 ): [PointLike, PointLike] => {
   return [
-    [
-      (point as [number, number])[0] - radius,
-      (point as [number, number])[1] - radius,
-    ],
-    [
-      (point as [number, number])[0] + radius,
-      (point as [number, number])[1] + radius,
-    ],
+    [e.point.x - radius, e.point.y - radius],
+    [e.point.x + radius, e.point.y + radius],
   ];
 };
