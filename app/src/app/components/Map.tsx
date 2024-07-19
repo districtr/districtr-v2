@@ -1,6 +1,6 @@
 "use client";
 import type { MutableRefObject } from "react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { use, useEffect, useRef, useState } from "react";
 import type { Map, MapLayerEventType } from "maplibre-gl";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -38,7 +38,7 @@ export const MapComponent: React.FC = () => {
           action.action as keyof MapLayerEventType,
           `${BLOCK_LAYER_ID}-hover`,
           (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-            action.handler(e, map, mapStore, hoverFeatureIds);
+            action.handler(e, map, hoverFeatureIds);
           }
         );
         console.log(`${BLOCK_LAYER_ID}-hover`);
@@ -49,7 +49,7 @@ export const MapComponent: React.FC = () => {
     return () => {
       mapEvents.forEach((action) => {
         map.current?.off(action.action, (e) => {
-          action.handler(e, map, mapStore, hoverFeatureIds);
+          action.handler(e, map, hoverFeatureIds);
         });
       });
     };

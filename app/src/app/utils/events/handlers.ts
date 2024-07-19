@@ -1,9 +1,7 @@
 import { BLOCK_LAYER_ID, BLOCK_LAYER_SOURCE_ID } from "@/app/constants/layers";
 import { MutableRefObject } from "react";
 import type { Map, MapGeoJSONFeature } from "maplibre-gl";
-import { ZoneStore } from "@/app/store/zoneStore";
 import { debounce } from "lodash";
-import { useZoneStore } from "@/app/store/zoneStore";
 import { MapStore } from "@/app/store/mapStore";
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).

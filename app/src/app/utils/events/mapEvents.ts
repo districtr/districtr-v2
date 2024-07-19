@@ -20,10 +20,11 @@ export const userMovedMouse = (e: MapLayerMouseEvent) => {};
 export const handleMapClick = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  mapStore: MapStore
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
+  const mapStore = useMapStore.getState();
   const bbox = boxAroundPoint(e, mapStore.brushSize);
-  console.log("you clicked me!");
+
   const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
     layers: [BLOCK_LAYER_ID],
   });
@@ -33,41 +34,39 @@ export const handleMapClick = (
 export const handleMapMouseUp = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  mapStore: MapStore
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 export const handleMapMouseDown = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  mapStore: MapStore
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 export const handleMapMouseEnter = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  mapStore: MapStore
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 export const handleMapMouseOver = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  mapStore: MapStore
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  mapStore: MapStore
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  mapStore: MapStore
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 export const handleMapMouseMove = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  mapStore: MapStore,
   hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
   // highlight features
-  //   const hoverFeatureIds = useRef(new Set<string>());
   const bbox = boxAroundPoint(e, 50);
   const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
     layers: [BLOCK_LAYER_ID],
@@ -78,18 +77,17 @@ export const handleMapMouseMove = (
 export const handleMapZoom = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  mapStore: MapStore
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 export const handleMapIdle = () => {};
 export const handleMapMoveEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  mapStore: MapStore
+  map: MutableRefObject<Map | null>
 ) => {};
 export const handleMapZoomEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  mapStore: MapStore
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const useHoverFeatureIds = () => {
