@@ -16,10 +16,12 @@ jobs:
       postgres:
         image: postgis/postgis:16-3.4
         env:
-          DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/postgres
-          POSTGRES_PASSWORD: password
+          POSTGRES_SCHEME: postgresql+psycopg
           POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
+          POSTGRES_SERVER: postgres
+          POSTGRES_PORT: 5432
         ports:
           - 5432:5432
         options: >-
