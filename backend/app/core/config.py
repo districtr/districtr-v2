@@ -51,11 +51,11 @@ class Settings(BaseSettings):
 
     # Postgres
 
-    POSTGRES_SCHEME: str
-    POSTGRES_SERVER: str | None
+    POSTGRES_SCHEME: str = "postgresql+psycopg"
+    POSTGRES_SERVER: str | None = "localhost"
     POSTGRES_PORT: int | None = 5432
-    POSTGRES_USER: str | None
-    POSTGRES_PASSWORD: str | None
+    POSTGRES_USER: str | None = "postgres"
+    POSTGRES_PASSWORD: str | None = "changethis"
     POSTGRES_DB: str = ""
     DATABASE_URL: str | None = None
 
