@@ -1,7 +1,6 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, text, Column
-from geoalchemy2 import Geometry
 
 
 class UUIDType(UUID):
@@ -30,13 +29,10 @@ class TimeStampMixin(SQLModel):
     )
 
 
-class Population(SQLModel, table=True):
-    name: str = Field(nullable=False, index=True)
-    path: str = Field(unique=False, nullable=False, index=True, primary_key=False)
-    area_land: int
-    area_water: int
-    other_pop: int
-    total_pop: int
-    geography: Any = Field(
-        sa_column=Column(Geometry(geometry_type="POLYGON", srid=4269))
-    )
+class GerryDBTableBase(TimeStampMixin, SQLModel):
+    id: int = Field(default=None, primary_key=True)
+
+
+class GerryDBTable(GerryDBTableBase, table=True):
+    uuid: str = Field(sa_column=Column(UUIDType, unique=True))
+    name: str = Field(nullable=False, unique=True)

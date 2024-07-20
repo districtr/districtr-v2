@@ -1,12 +1,19 @@
 import os
 import click
 import logging
+from app.main import get_session
 from app.core.config import settings
 import subprocess
 from urllib.parse import urlparse
+from sqlalchemy import text
+from uuid import uuid4
+# from fastapi import Depends
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+
+GERRY_DB_SCHEMA = "gerrydb"
 
 
 @click.group()
@@ -67,7 +74,7 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
             "-lco",
             "OVERWRITE=yes",
             "-nln",
-            layer,
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
         ],
     )
 
@@ -80,6 +87,36 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
     if rm:
         os.remove(path)
         logger.info("Deleted file %s", path)
+
+    print("GerryDB view imported successfully")
+
+    _session = get_session()
+    session = next(_session)
+
+    uuid = str(uuid4())
+
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (:uuid, :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+
+    try:
+        session.execute(
+            upsert_query,
+            {
+                "uuid": uuid,
+                "name": layer,
+            },
+        )
+        session.commit()
+        logger.info("GerryDB view upserted successfully.")
+    except Exception as e:
+        session.rollback()
+        logger.error("Failed to upsert GerryDB view. Got %s", e)
+        raise ValueError(f"Failed to upsert GerryDB view. Got {e}")
 
 
 if __name__ == "__main__":
