@@ -4,34 +4,59 @@ on:
   push:
     paths:
       - "backend/**"
+      - ".github/workflows/test-backend.yml"
 
 jobs:
-  build:
+  container-job:
     runs-on: ubuntu-latest
+
+    container: python:3.12
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_SCHEME: postgresql+psycopg
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+          POSTGRES_SERVER: postgres
+          POSTGRES_PORT: 5432
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo code
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt --no-cache-dir
         working-directory: backend
-      - name: Lint with Ruff
-        run: |
-          pip install ruff
-          ruff --output-format=github .
-        continue-on-error: true
+
+      - name: Run tests
+        run: pytest -v
         working-directory: backend
-      - name: Create docker network
-        run: docker network create test_network
-      - name: Start MongoDB
-        run: docker run -d --network test_network --name mongo -p 27017:27017 mongo:latest
-      - name: Build app image
-        run: cp .env.dev .env && docker build -t districtr .
-        working-directory: backend
-      - name: Test
-        run: docker run --network test_network -e MONGODB_SERVER=mongo --rm districtr ./test.sh
+        env:
+          DOMAIN: postgres
+          ENVIRONMENT: test
+          PROJECT_NAME: Districtr v2 backend
+          BACKEND_CORS_ORIGINS: "http://localhost,http://localhost:5173"
+          SECRET_KEY: mysupersecretkey
+          POSTGRES_SCHEME: postgresql+psycopg
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+          POSTGRES_SERVER: postgres
+          POSTGRES_PORT: 5432

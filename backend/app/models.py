@@ -1,9 +1,6 @@
 from datetime import datetime
-from typing import Optional, Dict
-from pydantic import BaseModel, Field as PydanticField
-from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, text
-
-# Postgres
+from typing import Optional
+from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, text, Column
 
 
 class UUIDType(UUID):
@@ -32,48 +29,10 @@ class TimeStampMixin(SQLModel):
     )
 
 
-# MongoDB
-
-PLAN_COLLECTION_NAME = "plans"
-
-PLAN_COLLECTION_SCHEMA = {
-    "$jsonSchema": {
-        "bsonType": "object",
-        "required": ["assignments"],
-        "properties": {
-            "assignments": {
-                "bsonType": "object",
-                "additionalProperties": {"bsonType": "int"},
-            }
-        },
-    }
-}
+class GerryDBTableBase(TimeStampMixin, SQLModel):
+    id: int = Field(default=None, primary_key=True)
 
 
-class Assignments(BaseModel):
-    assignments: Dict[str, int] = PydanticField(description="Assignments dictionary")
-
-
-class AssignmentsCreate(Assignments):
-    pass
-
-
-class AssignmentsUpdate(BaseModel):
-    """
-    {
-      acknowledged: true,
-      insertedId: null,
-      matchedCount: 0,
-      modifiedCount: 0,
-      upsertedCount: 0
-    }
-    """
-
-    acknowledged: bool = PydanticField(description="Acknowledged")
-    upserted_id: Optional[str] = PydanticField(description="Inserted ID")
-    matched_count: int = PydanticField(description="Matched count")
-    modified_count: int = PydanticField(description="Modified count")
-
-
-class AssignmentsPublic(BaseModel):
-    id: str = PydanticField(alias="_id", description="Assignment ID")
+class GerryDBTable(GerryDBTableBase, table=True):
+    uuid: str = Field(sa_column=Column(UUIDType, unique=True))
+    name: str = Field(nullable=False, unique=True)
