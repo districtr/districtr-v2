@@ -60,12 +60,12 @@ To do this on production, run `fly postgres connect -a {{ database-id }}` then t
 
 ### Python install
 
-Dependencies are managed with uv as noted in the root README. Follow set-up instructions [there](../README.md#python).
+Dependencies are managed with uv as noted in the root README. Follow set-up instructions [there](../README.md#python). Production is on python 3.12.2; a python version >=3.11 is required. 
 
 Set-up virtual environment and install dependencies:
 
 1. `uv venv`
-1. `source venv/bin/activate` on UNIX machines or `venv\Scripts\activate` on Windows.
+1. `source .venv/bin/activate` on UNIX machines or `venv\Scripts\activate` on Windows.
 1. `uv pip install -r requirements.txt`
 
 ### Postgres set-up
@@ -78,6 +78,12 @@ Set-up virtual environment and install dependencies:
 1. `\dt` should yield no tables / make sure db is empty.
 1. `\q`
 1. `alembic upgrade head`
+
+If needed, create a user for yourself. 
+
+1. `psql`
+1. `\c districtr`
+1. `CREATE USER postgres WITH PASSWORD 'make up your own password';`
 
 ### Testing
 
