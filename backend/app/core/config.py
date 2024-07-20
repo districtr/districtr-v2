@@ -94,6 +94,10 @@ class Settings(BaseSettings):
 
         return self
 
+    # Volumes
+
+    VOLUME_PATH: str = "/data"
+
     # R2
 
     R2_BUCKET_NAME: str | None = None

@@ -1,10 +1,24 @@
-# fly.toml app configuration file generated for districtr-v2-api on 2024-07-18T11:06:14-04:00
+# fly.toml app configuration file generated for districtr-v2-api on 2024-07-20T10:05:11-04:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
 app = 'districtr-v2-api'
 primary_region = 'ewr'
+
+[env]
+  BACKEND_CORS_ORIGINS = 'http://localhost:3000'
+  DOMAIN = 'http://localhost'
+  ENVIRONMENT = 'production'
+  PROJECT_NAME = 'Districtr v2 backend'
+  R2_BUCKET_NAME = 'districtr-v2-dev'
+  VOLUME_PATH = '/data'
+
+[[mounts]]
+  source = 'gerrydb_views'
+  destination = '/data'
+  initial_size = '10gb'
+  processes = ['app']
 
 [http_service]
   internal_port = 8080
