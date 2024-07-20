@@ -7,7 +7,7 @@ ENV APP_HOME /app
 WORKDIR $APP_HOME
 
 RUN apt-get update && \
-    apt-get install -y openssh-client libpq-dev postgresql && \
+    apt-get install -y openssh-client libpq-dev postgresql libpq-dev gdal-bin libgdal-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
