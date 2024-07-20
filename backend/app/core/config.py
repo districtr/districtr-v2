@@ -52,30 +52,18 @@ class Settings(BaseSettings):
     # Postgres
 
     POSTGRES_SCHEME: str
-    POSTGRES_SERVER: str | None
-    POSTGRES_PORT: int | None = 5432
-    POSTGRES_USER: str | None
-    POSTGRES_PASSWORD: str | None
-    POSTGRES_DB: str = ""
-    DATABASE_URL: str | None = None
+    POSTGRES_SERVER: str
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    DATABASE_URL: str
 
     @computed_field  # type: ignore[misc]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
         if self.DATABASE_URL:
-            db_uri = MultiHostUrl(self.DATABASE_URL)
-            (host,) = db_uri.hosts()
-
-            self.POSTGRES_SCHEME = db_uri.scheme
-            self.POSTGRES_PORT = host["port"]
-            self.POSTGRES_USER = host["username"]
-            self.POSTGRES_PASSWORD = host["password"]
-            self.POSTGRES_SERVER = host["host"]
-
-            if db_uri.path:
-                self.POSTGRES_DB = db_uri.path.lstrip("/")
-
-            return db_uri
+            return MultiHostUrl(self.DATABASE_URL)
 
         return MultiHostUrl.build(
             scheme=self.POSTGRES_SCHEME,
