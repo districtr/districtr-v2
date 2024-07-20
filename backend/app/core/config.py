@@ -74,7 +74,9 @@ class Settings(BaseSettings):
     @property
     def POSTGRES_PASSWORD(self) -> str:
         (host,) = self.SQLALCHEMY_DATABASE_URI.hosts()
-        return host["password"] or ""
+        return (
+            host["password"] or "changethis"
+        )  # if changethis is returned in prod, will throw an error
 
     @property
     def POSTGRES_SERVER(self) -> str:
