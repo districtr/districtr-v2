@@ -8,14 +8,12 @@ import { MAP_OPTIONS } from "../constants/configuration";
 import { addLayer } from "../constants/layers";
 import { mapEvents, useHoverFeatureIds } from "../utils/events/mapEvents";
 import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
-import { useMapStore } from "../store/mapStore";
 import { BLOCK_LAYER_ID } from "../constants/layers";
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const mapStore = useMapStore();
   const hoverFeatureIds = useHoverFeatureIds();
 
   useEffect(() => {
@@ -41,8 +39,6 @@ export const MapComponent: React.FC = () => {
             action.handler(e, map, hoverFeatureIds);
           }
         );
-        console.log(`${BLOCK_LAYER_ID}-hover`);
-        console.log("added event listener " + action.action);
       }
     });
 
@@ -53,7 +49,7 @@ export const MapComponent: React.FC = () => {
         });
       });
     };
-  }, []);
+  });
 
   return <div className="h-full w-full-minus-sidebar" ref={mapContainer} />;
 };

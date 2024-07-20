@@ -1,22 +1,20 @@
 /**
  Port over from map events declared at: https://github.com/uchicago-dsi/districtr-components/blob/2e8f9e5657b9f0fd2419b6f3258efd74ae310f32/src/Districtr/Districtr.tsx#L230
  */
-// import { ViewStateChangeEvent } from "@/app/constants/types";
 import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
-import { MapStore, useMapStore } from "@/app/store/mapStore";
+import { useMapStore } from "@/app/store/mapStore";
 import { MutableRefObject, useRef } from "react";
 import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import { boxAroundPoint } from "../helpers";
 import React from "react";
 
-import {
-  HighlightFeature,
-  SelectFeatures,
-  UnhighlightFeature,
-} from "./handlers";
+import { HighlightFeature, SelectFeatures } from "./handlers";
 
 export const userMovedMouse = (e: MapLayerMouseEvent) => {};
 
+/*
+MapEvent handling; these functions are called by the event listeners in the MapComponent
+*/
 export const handleMapClick = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
@@ -28,7 +26,7 @@ export const handleMapClick = (
   const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
     layers: [BLOCK_LAYER_ID],
   });
-  // TODO: refer to logic in reducer and above; this is a v2 test implementation
+  // TODO: refer to logic in reducer and original; this is a v2 test implementation
   SelectFeatures(selectedFeatures, map, mapStore);
 };
 export const handleMapMouseUp = (
@@ -66,7 +64,6 @@ export const handleMapMouseMove = (
   map: MutableRefObject<Map | null>,
   hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
-  // highlight features
   const bbox = boxAroundPoint(e, 50);
   const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
     layers: [BLOCK_LAYER_ID],
