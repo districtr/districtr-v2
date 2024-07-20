@@ -26,7 +26,7 @@ export const useMapStore = create<MapStore>((set) => ({
     container: "",
   },
   setMapOptions: (options: MapOptions) => set({ mapOptions: options }),
-  activeTool: "pan",
+  activeTool: "brush",
   setActiveTool: (tool: ActiveTool) => set({ activeTool: tool }),
   spatialUnit: "tract",
   selectedZone: 1, // id of the zone being painted

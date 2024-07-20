@@ -17,8 +17,8 @@ const debouncedSetZoneAssignments = debounce(
 );
 
 /**
- * Select features based on hover mouseevent. called using `map.on("mousemove", "blocks-hover", ...)` pattern.
- * currently assumes zones are assigned to features on hover.
+ * Select features based on given mouseEvent.
+ * called using mapEvent handlers.
  *
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
@@ -54,7 +54,7 @@ export const SelectFeatures = (
 };
 
 /**
- * Highlight features based on hover mouseevent. called using `map.on("mousemove", "blocks-hover", ...)` pattern.
+ * Highlight features based on hover mouseEvent. called using `map.on("mousemove", "blocks-hover", ...)` pattern.
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param hoverGeoids - MutableRefObject<Set<string>>, used to keep track of geoids that have been hovered over
@@ -101,7 +101,8 @@ export const HighlightFeature = (
 };
 
 /**
- * Unhighlight features based on mouseleave event. called using `map.on("mouseleave", "blocks-hover", ...)` pattern.
+ * Unhighlight features based on mouseleave event.
+ * called using `map.on("mouseleave", "blocks-hover", ...)` pattern.
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param hoverFeatureIds - MutableRefObject<Set<string>>, used to keep track of geoids that have been hovered over
  */

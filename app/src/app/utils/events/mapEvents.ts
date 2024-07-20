@@ -7,8 +7,8 @@ import { MutableRefObject, useRef } from "react";
 import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import { boxAroundPoint } from "../helpers";
 import React from "react";
-
 import { HighlightFeature, SelectFeatures } from "./handlers";
+import { offsetFactor } from "@/app/constants/configuration";
 
 export const userMovedMouse = (
   e: MapLayerMouseEvent | MapLayerTouchEvent
@@ -63,12 +63,28 @@ export const handleMapMouseDown = (
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
+  console.log("active tool: ", activeTool);
   if (activeTool === "pan") {
     return;
   } else if (activeTool === "brush" || activeTool === "eraser") {
+    const bbox = boxAroundPoint(e, mapStore.brushSize);
+
+    const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
+      layers: [BLOCK_LAYER_ID],
+    });
+
+    // disable drag pan
+    map.current?.dragPan.disable();
     if (activeTool === "brush") {
+      console.log("brushing, map dragPan disabled");
+      // this alone doesn't quite work; we need to know where the mouse goes a
+      // la highlighting.
+      SelectFeatures(selectedFeatures, map, mapStore);
       /* i think we would tally all the features that are dragged over,
-       * and then on mouseup, we would assign them to the selected zone
+       * and then on mouseup, we would assign them to the selected zone;
+       * don't need to worry about deduplicating here, but could actually
+       * try and do the selction here. maybe map object is updated and
+       * then on mouseup we handle the store updating?
        **/
       userMovedMouse(e);
       return;

@@ -17,3 +17,11 @@ export const MAP_OPTIONS: MapOptions = {
   pitch: 0,
   container: "",
 };
+
+/**
+ * locally defined variable in the original codebase;
+ * purpose is to only count drag select movements greater
+ * than this threshold.
+ * @type {number}
+ */
+export const offsetFactor: number = 15;
