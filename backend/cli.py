@@ -17,13 +17,16 @@ def cli():
 @cli.command("import-gerrydb-view")
 @click.option("--layer", "-n", help="layer of the view", required=True)
 @click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
-def import_gerrydb_view(layer, gpkg: str):
+@click.option("--replace", "-f", help="Replace the file if it exists", is_flag=True)
+@click.option("--rm", "-r", help="Delete file after loading to postgres", is_flag=True)
+def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
+    if layer == "":
+        raise ValueError("Layer name is required")
+
     print("Importing GerryDB view...")
 
     url = urlparse(gpkg)
     logger.info("URL: %s", url)
-
-    kwargs = {}
 
     if url.scheme == "s3":
         s3 = settings.get_s3_client()
@@ -32,6 +35,7 @@ def import_gerrydb_view(layer, gpkg: str):
             raise ValueError("S3 client is not available")
 
         file_name = url.path.lstrip("/")
+        logger.info("File name: %s", file_name)
         object_information = s3.head_object(Bucket=url.netloc, Key=file_name)
 
         if object_information["ResponseMetadata"]["HTTPStatusCode"] != 200:
@@ -41,14 +45,14 @@ def import_gerrydb_view(layer, gpkg: str):
 
         logger.info("Importing GerryDB view. Got response:\n%s", object_information)
 
-        path = f"/vsis3/{url.netloc}/{file_name}"
+        # Download to settings.VOLUME_PATH
+        path = os.path.join(settings.VOLUME_PATH, file_name)
 
-        kwargs["env"] = {
-            **os.environ,
-            "AWS_S3_ENDPOINT": settings.AWS_S3_ENDPOINT,
-            "AWS_ACCESS_KEY_ID": settings.AWS_ACCESS_KEY_ID,
-            "AWS_SECRET_ACCESS_KEY": settings.AWS_SECRET_ACCESS_KEY,
-        }
+        if os.path.exists(path) and not replace:
+            logger.info("File already exists. Skipping download.")
+        else:
+            logger.info("Downloading file...")
+            s3.download_file(url.netloc, file_name, path)
     else:
         path = gpkg
 
@@ -65,7 +69,6 @@ def import_gerrydb_view(layer, gpkg: str):
             "-nln",
             layer,
         ],
-        **kwargs,
     )
 
     if result.returncode != 0:
@@ -73,6 +76,10 @@ def import_gerrydb_view(layer, gpkg: str):
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
     logger.info("GerryDB view imported successfully")
+
+    if rm:
+        os.remove(path)
+        logger.info("Deleted file %s", path)
 
 
 if __name__ == "__main__":
