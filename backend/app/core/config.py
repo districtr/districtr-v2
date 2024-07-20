@@ -51,40 +51,42 @@ class Settings(BaseSettings):
 
     # Postgres
 
-    POSTGRES_SCHEME: str = "postgresql+psycopg"
-    POSTGRES_SERVER: str | None = "localhost"
-    POSTGRES_PORT: int | None = 5432
-    POSTGRES_USER: str | None = "postgres"
-    POSTGRES_PASSWORD: str | None = "changethis"
-    POSTGRES_DB: str = ""
-    DATABASE_URL: str | None = None
+    DATABASE_URL: str
 
-    @computed_field  # type: ignore[misc]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
-        if self.DATABASE_URL:
-            db_uri = MultiHostUrl(self.DATABASE_URL)
-            (host,) = db_uri.hosts()
+        return MultiHostUrl(self.DATABASE_URL)
 
-            self.POSTGRES_SCHEME = db_uri.scheme
-            self.POSTGRES_PORT = host["port"]
-            self.POSTGRES_USER = host["username"]
-            self.POSTGRES_PASSWORD = host["password"]
-            self.POSTGRES_SERVER = host["host"]
+    @property
+    def POSTGRES_SCHEME(self) -> str:
+        return self.SQLALCHEMY_DATABASE_URI.scheme
 
-            if db_uri.path:
-                self.POSTGRES_DB = db_uri.path.lstrip("/")
+    @property
+    def POSTGRES_PORT(self) -> int:
+        (host,) = self.SQLALCHEMY_DATABASE_URI.hosts()
+        return host["port"] or 5432
 
-            return db_uri
+    @property
+    def POSTGRES_USER(self) -> str:
+        (host,) = self.SQLALCHEMY_DATABASE_URI.hosts()
+        return host["username"] or "postgres"
 
-        return MultiHostUrl.build(
-            scheme=self.POSTGRES_SCHEME,
-            username=self.POSTGRES_USER,
-            password=self.POSTGRES_PASSWORD,
-            host=self.POSTGRES_SERVER,
-            port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
-        )
+    @property
+    def POSTGRES_PASSWORD(self) -> str:
+        (host,) = self.SQLALCHEMY_DATABASE_URI.hosts()
+        return host["password"] or ""
+
+    @property
+    def POSTGRES_SERVER(self) -> str:
+        (host,) = self.SQLALCHEMY_DATABASE_URI.hosts()
+        return host["host"] or "localhost"
+
+    @property
+    def POSTGRES_DB(self) -> str:
+        path = self.SQLALCHEMY_DATABASE_URI.path
+        if path:
+            return path.lstrip("/")
+        return "postgres"
 
     # Security
 
