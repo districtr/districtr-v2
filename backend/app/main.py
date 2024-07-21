@@ -2,12 +2,13 @@ from fastapi import FastAPI, status, Depends, HTTPException
 from sqlalchemy import text
 from sqlmodel import Session
 from starlette.middleware.cors import CORSMiddleware
+from typing import List
 import logging
 
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
-from app.models import Document
+from app.models import Assignments, Document
 
 if settings.ENVIRONMENT == "production":
     sentry_sdk.init(
@@ -73,3 +74,11 @@ async def create_document(session: Session = Depends(get_session)):
         )
     )
     return doc
+
+
+@app.post("/update_assignments")
+async def update_assignments(
+    assignments: List[Assignments], session: Session = Depends(get_session)
+):
+    session.bulk_save_objects(assignments)
+    session.commit()
