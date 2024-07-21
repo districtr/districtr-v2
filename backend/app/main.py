@@ -7,6 +7,7 @@ import logging
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
+from app.models import Document
 
 if settings.ENVIRONMENT == "production":
     sentry_sdk.init(
@@ -53,3 +54,22 @@ async def db_is_alive(session: Session = Depends(get_session)):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB is unreachable"
         )
+
+
+@app.post("/create_document")
+async def create_document(session: Session = Depends(get_session)):
+    doc = Document()
+    session.add(doc)
+    session.commit()
+    session.refresh(doc)
+    document_id = doc.document_id
+    # poor man's trigger because I couldnt get SQLAchemy DDL to work with a dynamic table name
+    session.execute(
+        text(
+            f"""
+            CREATE TABLE assignments_{document_id} PARTITION OF assignments
+            VALUES IN ('{document_id}')
+        """
+        )
+    )
+    return doc
