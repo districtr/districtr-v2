@@ -25,6 +25,15 @@ const debouncedSetZoneAssignments = debounce(
  * @param mapStoreRef - MutableRefObject<MapStore | null>, the map store reference from zustand
  */
 
+/**
+ * @todo
+ * TODO: split out SelectMapFeatures and SetStoreZoneAssignments
+ * where the first sets the map + adds to a flat array of geoids,
+ * and the second dedups the geoids and sets the zoneAssignments
+ * in the store. First is called on the isPainting && onMouseMove,
+ * and second is called on onMouseUp event
+ * */
+
 export const SelectFeatures = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,

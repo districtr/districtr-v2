@@ -36,7 +36,7 @@ export function ZoneTypeSelector() {
   return (
     <Select.Root
       size="3"
-      defaultValue="1"
+      defaultValue={1}
       label="Zone Type"
       onValueChange={handlePickerValueChange}
     >

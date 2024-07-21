@@ -40,10 +40,6 @@ export const handleMapClick = (
     });
 
     if (activeTool === "brush") {
-      // determine if user is moving mouse
-      //   handleMapMouseMove(e, map, hoverFeatureIds);
-      // const startMousePos = e.point;
-
       SelectFeatures(selectedFeatures, map, mapStore);
     } else if (activeTool === "eraser") {
       // erase features
@@ -131,11 +127,13 @@ export const handleMapMouseMove = (
   if (!isPainting) {
     HighlightFeature(selectedFeatures, map, hoverFeatureIds);
   } else if (activeTool === "brush" && isPainting) {
-    /** what we really want is to set map feature state here,
+    /**
+     * @todo
+     * what we really want is to set map feature state here,
      * and then update the store with the new assignments when
      * we mouseup, to avoid unnecessary rerenders and state updates.
      * this should reduce the bottleneck from debouncing
-     */
+     * */
     SelectFeatures(selectedFeatures, map, mapStore);
   }
 };
