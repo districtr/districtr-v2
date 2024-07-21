@@ -44,8 +44,8 @@ class Document(TimeStampMixin, SQLModel):
 
 class AssignmentsMixin(SQLModel):
     # mixin used for defining parent table + each partition on the fly
-    document_id: str = Field(foreign_key="document.document_id")
-    geo_id: str
+    document_id: str = Field(foreign_key="document.document_id", primary_key=True)
+    geo_id: str = Field(primary_key=True)
     zone: int
 
 
