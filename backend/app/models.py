@@ -53,21 +53,3 @@ class Assignments(AssignmentsMixin, table=True):
     # this is the empty parent table; not a partition itself
 
     __table_args__ = {"postgres_partition_by": "document_id"}
-
-
-#  In a better world, we'd create the partition on assignments via trigger
-#  so that it happens even if a document is created outside the API.
-#
-# # one time, create the trigger that creates new assignments partitions
-# create_partition_trigger = DDL(
-#     """
-#         CREATE TRIGGER create_assignment_partition AFTER INSERT ON document
-
-#         BEGIN
-#             CREATE TABLE assignments_{document_id} PARTITION OF assignments
-#         VALUES IN (new.document_id)
-#         END
-#         """
-# )
-# # do it when the document table is created
-# event.listen(Document.__table, "after_create", create_partition_trigger)

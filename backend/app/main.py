@@ -1,7 +1,8 @@
 from fastapi import FastAPI, status, Depends, HTTPException
 from sqlalchemy import text
-from sqlmodel import Session
+from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
+from sqlalchemy.dialects.postgresql import insert
 from typing import List
 import logging
 
@@ -64,7 +65,7 @@ async def create_document(session: Session = Depends(get_session)):
     session.commit()
     session.refresh(doc)
     document_id = doc.document_id
-    # poor man's trigger because I couldnt get SQLAchemy DDL to work with a dynamic table name
+    # Also create the partition in one go.
     session.execute(
         text(
             f"""
@@ -80,5 +81,17 @@ async def create_document(session: Session = Depends(get_session)):
 async def update_assignments(
     assignments: List[Assignments], session: Session = Depends(get_session)
 ):
-    session.bulk_save_objects(assignments)
+    stmt = insert(Assignments).values(assignments)
+    stmt = stmt.on_conflict_do_update(set_={"zone": stmt.excluded.zone})
+    session.execute(stmt)
     session.commit()
+    return assignments
+
+
+@app.get("/get_assignemnts/{document_id}")
+async def get_assignments(document_id: str, session: Session = Depends(get_session)):
+    stmt = select(Assignments).where(Assignments.document_id == document_id)
+    results = session.exec(stmt)
+    # do we need to unpack returned assignments from returned results object?
+    # I think probably?
+    return results
