@@ -5,11 +5,12 @@ from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 from typing import List
 import logging
+from uuid import uuid4
 
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
-from app.models import Assignments, Document
+from app.models import Assignments, Document, DocumentPublic
 
 if settings.ENVIRONMENT == "production":
     sentry_sdk.init(
@@ -58,26 +59,40 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
-@app.post("/create_document")
+@app.post(
+    "/create_document",
+    response_model=DocumentPublic,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_document(session: Session = Depends(get_session)):
-    doc = Document()
+    # To be created in the database
+    document_id = str(uuid4().hex).replace("-", "")
+    print(document_id)
+    doc = Document.model_validate({"document_id": document_id})
     session.add(doc)
     session.commit()
     session.refresh(doc)
-    document_id = doc.document_id
+
+    if not doc.document_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document creation failed",
+        )
+
+    document_id: str = doc.document_id.replace("-", "")
     # Also create the partition in one go.
     session.execute(
         text(
             f"""
             CREATE TABLE assignments_{document_id} PARTITION OF assignments
-            VALUES IN ('{document_id}')
+            FOR VALUES IN ('{document_id}')
         """
         )
     )
     return doc
 
 
-@app.post("/update_assignments")
+@app.patch("/update_assignments")
 async def update_assignments(
     assignments: List[Assignments], session: Session = Depends(get_session)
 ):

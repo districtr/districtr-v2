@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from pydantic import BaseModel
 from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, text, Column
 
 
@@ -29,17 +30,21 @@ class TimeStampMixin(SQLModel):
     )
 
 
-class GerryDBTableBase(TimeStampMixin, SQLModel):
-    id: int = Field(default=None, primary_key=True)
-
-
-class GerryDBTable(GerryDBTableBase, table=True):
-    uuid: str = Field(sa_column=Column(UUIDType, unique=True))
+class GerryDBTable(TimeStampMixin, SQLModel, table=True):
+    uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False, unique=True)
 
 
-class Document(TimeStampMixin, SQLModel):
-    document_id: str | None = Field(sa_column=Column(UUIDType, unique=True))
+class Document(TimeStampMixin, SQLModel, table=True):
+    document_id: str | None = Field(
+        sa_column=Column(UUIDType, unique=True, primary_key=True)
+    )
+
+
+class DocumentPublic(BaseModel):
+    document_id: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class Assignments(SQLModel, table=True):
@@ -47,4 +52,4 @@ class Assignments(SQLModel, table=True):
     document_id: str = Field(foreign_key="document.document_id", primary_key=True)
     geo_id: str = Field(primary_key=True)
     zone: int
-    __table_args__ = {"postgres_partition_by": "document_id"}
+    __table_args__ = {"postgresql_partition_by": "document_id"}

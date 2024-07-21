@@ -8,6 +8,7 @@ from pydantic_core import MultiHostUrl
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
+import uuid
 
 
 client = TestClient(app)
@@ -65,18 +66,17 @@ def engine_fixture(request):
     except (OperationalError, ProgrammingError):
         pass
 
-    if ENVIRONMENT != "test":
-        subprocess.run(["alembic", "upgrade", "head"], check=True, env=my_env)
+    subprocess.run(["alembic", "upgrade", "head"], check=True, env=my_env)
 
     def teardown():
-        close_connections_query = f"""
-            SELECT pg_terminate_backend(pg_stat_activity.pid)
-            FROM pg_stat_activity
-            WHERE pg_stat_activity.datname = '{POSTGRES_TEST_DB}'
-            AND pid <> pg_backend_pid();
-            """
-        conn.execute(text(close_connections_query))
-        conn.execute(text(f"DROP DATABASE {POSTGRES_TEST_DB}"))
+        # close_connections_query = f"""
+        #     SELECT pg_terminate_backend(pg_stat_activity.pid)
+        #     FROM pg_stat_activity
+        #     WHERE pg_stat_activity.datname = '{POSTGRES_TEST_DB}'
+        #     AND pid <> pg_backend_pid();
+        #     """
+        # conn.execute(text(close_connections_query))
+        # conn.execute(text(f"DROP DATABASE {POSTGRES_TEST_DB}"))
         conn.close()
 
     request.addfinalizer(teardown)
@@ -109,3 +109,12 @@ def test_db_is_alive(client):
     response = client.get("/db_is_alive")
     assert response.status_code == 200
     assert response.json() == {"message": "DB is alive"}
+
+
+def test_new_document(client):
+    print(TEST_SQLALCHEMY_DATABASE_URI)
+    response = client.post("/create_document")
+    assert response.status_code == 201
+    document_id = response.json().get("document_id", None)
+    assert document_id is not None
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
