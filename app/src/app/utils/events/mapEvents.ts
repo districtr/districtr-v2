@@ -8,11 +8,18 @@ import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import { boxAroundPoint } from "../helpers";
 import React from "react";
 import { HighlightFeature, SelectFeatures } from "./handlers";
-import { offsetFactor } from "@/app/constants/configuration";
+import { usePostMapData } from "@/app/api/apiHandlers";
 
 export const userMovedMouse = (
   e: MapLayerMouseEvent | MapLayerTouchEvent
 ) => {};
+
+export const SaveMap = (map: MutableRefObject<Map | null>) => {
+  const postMapData = usePostMapData();
+  if (map.current) {
+    postMapData.mutate(map.current);
+  }
+};
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -41,6 +48,7 @@ export const handleMapClick = (
 
     if (activeTool === "brush") {
       SelectFeatures(selectedFeatures, map, mapStore);
+      SaveMap(map);
     } else if (activeTool === "eraser") {
       // erase features
       // TODO: implement eraser

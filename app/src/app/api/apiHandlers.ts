@@ -3,34 +3,34 @@ import axios from "axios";
 import type { Map } from "maplibre-gl";
 
 /**
- * Save map data to the server, using a mutation.
+ * Hook to save map data to the server, using a mutation.
  * Should be agnostic to the mutationFn used.
- * @returns void
+ * @returns mutation to be used in calling hook component
  */
-export const PostMapData = () => {
-  useMutation({
+export const usePostMapData = () => {
+  const mutation = useMutation({
     mutationFn: saveMap,
     onMutate: (variables) => {
       // A mutation is about to happen, prepare for transaction
-      // return a context containing data to use when for example rolling back
       return {
-        id:
-          // optimistic
-          Math.random().toString(36).substring(7),
+        id: Math.random().toString(36).substring(7), // Optimistic ID
       };
     },
     onError: (error, variables, context) => {
       // An error happened!
-      console.log(`rolling back optimistic update with id ${context?.id}`);
+      console.log(`Rolling back optimistic update with id ${context?.id}`);
     },
-    onSuccess: async (data, variables, context) => {
-      // Boom baby!
+    onSuccess: (data, variables, context) => {
+      // Handle successful mutation
+      console.log("Mutation successful!", data);
     },
-    onSettled: async (data, error, variables, context) => {
+    onSettled: (data, error, variables, context) => {
       // Error or success... doesn't matter!
-      console.log(`optimistic update with id ${context?.id} settled`);
+      console.log(`Optimistic update with id ${context?.id} settled`);
     },
   });
+
+  return mutation;
 };
 
 /**
