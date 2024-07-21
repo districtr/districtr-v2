@@ -41,7 +41,7 @@ export const MapComponent: React.FC = () => {
       if (map.current) {
         map.current?.on(
           action.action as keyof MapLayerEventType,
-          `${BLOCK_LAYER_ID}-hover`,
+          `${BLOCK_LAYER_ID}-hover`, // to be updated with the scale-agnostic layer id
           (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
             action.handler(e, map, hoverFeatureIds);
           }
@@ -59,6 +59,8 @@ export const MapComponent: React.FC = () => {
   });
 
   useEffect(() => {
+    // naive save logic for now; this should follow debounce logic
+    // and should likely be bound to the onMouseUp/onClick events
     if (mapLoaded && map.current) {
       saveMap.mutate(map.current);
     }

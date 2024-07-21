@@ -8,6 +8,7 @@ export interface MapStore {
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   spatialUnit: SpatialUnit;
+  setSpatialUnit: (unit: SpatialUnit) => void;
   selectedZone: Zone;
   setSelectedZone: (zone: Zone) => void;
   zoneAssignments: Map<string, number>; // geoid -> zone
@@ -15,6 +16,8 @@ export interface MapStore {
   accumulatedGeoids: Set<string>;
   brushSize: number;
   setBrushSize: (size: number) => void;
+  isPainting: boolean;
+  setIsPainting: (isPainting: boolean) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -29,6 +32,7 @@ export const useMapStore = create<MapStore>((set) => ({
   activeTool: "brush",
   setActiveTool: (tool: ActiveTool) => set({ activeTool: tool }),
   spatialUnit: "tract",
+  setSpatialUnit: (unit: SpatialUnit) => set({ spatialUnit: unit }),
   selectedZone: 1, // id of the zone being painted
   setSelectedZone: (zone: Zone) => set({ selectedZone: zone }),
   zoneAssignments: new Map(),
@@ -52,4 +56,6 @@ export const useMapStore = create<MapStore>((set) => ({
     }),
   brushSize: 50,
   setBrushSize: (size: number) => set({ brushSize: size }),
+  isPainting: false,
+  setIsPainting: (isPainting: boolean) => set({ isPainting: isPainting }),
 }));

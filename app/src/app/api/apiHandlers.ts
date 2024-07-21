@@ -5,13 +5,14 @@ import type { Map } from "maplibre-gl";
 /**
  * Hook to save map data to the server, using a mutation.
  * Should be agnostic to the mutationFn used.
- * @returns mutation to be used in calling hook component
+ * @returns mutation to be used in calling hook component, e.g. localMutationVar.mutate()
  */
 export const usePostMapData = () => {
   const mutation = useMutation({
     mutationFn: postMapObject,
     onMutate: (variables) => {
       // A mutation is about to happen, prepare for transaction
+      // this id can be used on server side to rollback if needed
       return {
         id: Math.random().toString(36).substring(7), // Optimistic ID
       };
@@ -25,7 +26,7 @@ export const usePostMapData = () => {
       console.log(`Mutation ${context.id} successful!`, data);
     },
     onSettled: (data, error, variables, context) => {
-      // Error or success... doesn't matter!
+      // fires regardless of error or success
       console.log(`Optimistic update with id ${context?.id} settled: `);
       if (error) {
         console.log("Error: ", error);

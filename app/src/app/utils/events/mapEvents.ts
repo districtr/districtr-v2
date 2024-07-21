@@ -8,7 +8,7 @@ import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import { boxAroundPoint } from "../helpers";
 import React from "react";
 import { HighlightFeature, SelectFeatures } from "./handlers";
-import { usePostMapData } from "@/app/api/apiHandlers";
+import { offsetFactor } from "@/app/constants/configuration";
 
 export const userMovedMouse = (
   e: MapLayerMouseEvent | MapLayerTouchEvent
@@ -40,6 +40,10 @@ export const handleMapClick = (
     });
 
     if (activeTool === "brush") {
+      // determine if user is moving mouse
+      //   handleMapMouseMove(e, map, hoverFeatureIds);
+      // const startMousePos = e.point;
+
       SelectFeatures(selectedFeatures, map, mapStore);
     } else if (activeTool === "eraser") {
       // erase features
@@ -54,7 +58,16 @@ export const handleMapMouseUp = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
   hoverFeatureIds: React.MutableRefObject<Set<string>>
-) => {};
+) => {
+  const mapStore = useMapStore.getState();
+  const activeTool = mapStore.activeTool;
+  const isPainting = mapStore.isPainting;
+
+  if (activeTool === "brush" && isPainting) {
+    // set isPainting to false
+    mapStore.setIsPainting(false);
+  }
+};
 
 export const handleMapMouseDown = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
@@ -67,26 +80,13 @@ export const handleMapMouseDown = (
   if (activeTool === "pan") {
     return;
   } else if (activeTool === "brush" || activeTool === "eraser") {
-    const bbox = boxAroundPoint(e, mapStore.brushSize);
-
-    const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
-      layers: [BLOCK_LAYER_ID],
-    });
-
     // disable drag pan
     map.current?.dragPan.disable();
     if (activeTool === "brush") {
-      // this alone doesn't quite work; we need to know where the mouse goes a
-      // la highlighting.
-      SelectFeatures(selectedFeatures, map, mapStore);
-      /* i think we would tally all the features that are dragged over,
-       * and then on mouseup, we would assign them to the selected zone;
-       * don't need to worry about deduplicating here, but could actually
-       * try and do the selction here. maybe map object is updated and
-       * then on mouseup we handle the store updating?
-       **/
-      userMovedMouse(e);
+      mapStore.setIsPainting(true);
       return;
+    } else if (activeTool === "eraser") {
+      // erase features tbd
     }
   }
 };
@@ -121,13 +121,23 @@ export const handleMapMouseMove = (
   hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
   const mapStore = useMapStore.getState();
+  const activeTool = mapStore.activeTool;
+  const isPainting = mapStore.isPainting;
   const brushSize = mapStore.brushSize;
   const bbox = boxAroundPoint(e, brushSize);
   const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
     layers: [BLOCK_LAYER_ID],
   });
-  // TODO: refer to logic in reducer; this is a v2 test implementation
-  HighlightFeature(selectedFeatures, map, hoverFeatureIds);
+  if (!isPainting) {
+    HighlightFeature(selectedFeatures, map, hoverFeatureIds);
+  } else if (activeTool === "brush" && isPainting) {
+    /** what we really want is to set map feature state here,
+     * and then update the store with the new assignments when
+     * we mouseup, to avoid unnecessary rerenders and state updates.
+     * this should reduce the bottleneck from debouncing
+     */
+    SelectFeatures(selectedFeatures, map, mapStore);
+  }
 };
 
 export const handleMapZoom = (
