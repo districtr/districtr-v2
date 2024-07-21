@@ -39,7 +39,7 @@ class GerryDBTable(GerryDBTableBase, table=True):
 
 
 class Document(TimeStampMixin, SQLModel):
-    document_id: str | None = Field(sa_column=Column(UUIDType), unique=True)
+    document_id: str | None = Field(sa_column=Column(UUIDType, unique=True))
 
 
 class AssignmentsMixin(SQLModel):
