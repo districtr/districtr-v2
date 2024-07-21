@@ -62,7 +62,7 @@ export const MapComponent: React.FC = () => {
     if (mapLoaded && map.current) {
       saveMap.mutate(map.current);
     }
-  }, [mapLoaded, zoneAssignments, selectedZone, saveMap]);
+  }, [mapLoaded, zoneAssignments, selectedZone]);
 
   return <div className="h-full w-full-minus-sidebar" ref={mapContainer} />;
 };

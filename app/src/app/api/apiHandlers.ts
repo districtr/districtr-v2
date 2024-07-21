@@ -26,7 +26,13 @@ export const usePostMapData = () => {
     },
     onSettled: (data, error, variables, context) => {
       // Error or success... doesn't matter!
-      console.log(`Optimistic update with id ${context?.id} settled`);
+      console.log(`Optimistic update with id ${context?.id} settled: `);
+      if (error) {
+        console.log("Error: ", error);
+      }
+      if (data) {
+        console.log("Data: ", data);
+      }
     },
   });
 

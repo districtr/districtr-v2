@@ -63,7 +63,7 @@ export const handleMapMouseDown = (
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
-  console.log("active tool: ", activeTool);
+
   if (activeTool === "pan") {
     return;
   } else if (activeTool === "brush" || activeTool === "eraser") {
@@ -76,7 +76,6 @@ export const handleMapMouseDown = (
     // disable drag pan
     map.current?.dragPan.disable();
     if (activeTool === "brush") {
-      console.log("brushing, map dragPan disabled");
       // this alone doesn't quite work; we need to know where the mouse goes a
       // la highlighting.
       SelectFeatures(selectedFeatures, map, mapStore);
