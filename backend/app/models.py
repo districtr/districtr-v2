@@ -42,14 +42,9 @@ class Document(TimeStampMixin, SQLModel):
     document_id: str | None = Field(sa_column=Column(UUIDType, unique=True))
 
 
-class AssignmentsMixin(SQLModel):
-    # mixin used for defining parent table + each partition on the fly
+class Assignments(SQLModel, table=True):
+    # this is the empty parent table; not a partition itself
     document_id: str = Field(foreign_key="document.document_id", primary_key=True)
     geo_id: str = Field(primary_key=True)
     zone: int
-
-
-class Assignments(AssignmentsMixin, table=True):
-    # this is the empty parent table; not a partition itself
-
     __table_args__ = {"postgres_partition_by": "document_id"}
