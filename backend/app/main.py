@@ -3,14 +3,13 @@ from sqlalchemy import text
 from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
-from typing import List
 import logging
 from uuid import uuid4
 
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
-from app.models import Assignments, Document, DocumentPublic
+from app.models import Assignments, AssignmentsCreate, Document, DocumentPublic
 
 if settings.ENVIRONMENT == "production":
     sentry_sdk.init(
@@ -94,13 +93,13 @@ async def create_document(session: Session = Depends(get_session)):
 
 @app.patch("/update_assignments")
 async def update_assignments(
-    assignments: List[Assignments], session: Session = Depends(get_session)
+    data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
-    stmt = insert(Assignments).values(assignments)
+    stmt = insert(Assignments).values(data.assignments)
     stmt = stmt.on_conflict_do_update(set_={"zone": stmt.excluded.zone})
     session.execute(stmt)
     session.commit()
-    return assignments
+    return {"assignments_upserted": len(data.assignments)}
 
 
 @app.get("/get_assignemnts/{document_id}")

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
-from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, text, Column
+from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, UniqueConstraint, text, Column
 
 
 class UUIDType(UUID):
@@ -47,9 +47,20 @@ class DocumentPublic(BaseModel):
     updated_at: datetime
 
 
-class Assignments(SQLModel, table=True):
-    # this is the empty parent table; not a partition itself
+class AssignmentsBase(SQLModel):
     document_id: str = Field(foreign_key="document.document_id", primary_key=True)
     geo_id: str = Field(primary_key=True)
     zone: int
-    __table_args__ = {"postgresql_partition_by": "document_id"}
+
+
+class Assignments(AssignmentsBase, table=True):
+    # this is the empty parent table; not a partition itself
+    __table_args__ = (
+        UniqueConstraint("document_id", "geo_id", name="document_geo_id_unique"),
+        {"postgresql_partition_by": "LIST (document_id)"},
+    )
+    pass
+
+
+class AssignmentsCreate(BaseModel):
+    assignments: list[AssignmentsBase]

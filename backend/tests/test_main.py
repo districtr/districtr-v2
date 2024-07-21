@@ -132,6 +132,16 @@ def ks_demo_view_census_blocks_fixture():
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
 
+@pytest.fixture(name="document_id")
+def document_fixture(client):
+    response = client.post("/create_document")
+    assert response.status_code == 201
+    document_id = response.json().get("document_id", None)
+    assert document_id is not None
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    return document_id.replace("-", "")
+
+
 def test_db_is_alive(client):
     response = client.get("/db_is_alive")
     assert response.status_code == 200
@@ -144,6 +154,21 @@ def test_new_document(client):
     document_id = response.json().get("document_id", None)
     assert document_id is not None
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
+
+
+def test_patch_assignments(client, document_id):
+    response = client.patch(
+        "/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    assert response.json() == {"assignments_upserted": 3}
 
 
 def test_get_document_population_totals(client, ks_demo_view_census_blocks):
