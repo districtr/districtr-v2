@@ -9,12 +9,19 @@ import { addLayer } from "../constants/layers";
 import { mapEvents, useHoverFeatureIds } from "../utils/events/mapEvents";
 import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "../constants/layers";
+import { usePostMapData } from "../api/apiHandlers";
+import { useMapStore } from "../store/mapStore";
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
+  const saveMap = usePostMapData();
+  const { zoneAssignments, selectedZone } = useMapStore((state) => ({
+    zoneAssignments: state.zoneAssignments,
+    selectedZone: state.selectedZone,
+  }));
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -50,6 +57,12 @@ export const MapComponent: React.FC = () => {
       });
     };
   });
+
+  useEffect(() => {
+    if (mapLoaded && map.current) {
+      saveMap.mutate(map.current);
+    }
+  }, [mapLoaded, zoneAssignments, selectedZone, saveMap]);
 
   return <div className="h-full w-full-minus-sidebar" ref={mapContainer} />;
 };

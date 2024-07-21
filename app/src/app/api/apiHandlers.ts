@@ -9,7 +9,7 @@ import type { Map } from "maplibre-gl";
  */
 export const usePostMapData = () => {
   const mutation = useMutation({
-    mutationFn: saveMap,
+    mutationFn: postMapObject,
     onMutate: (variables) => {
       // A mutation is about to happen, prepare for transaction
       return {
@@ -22,7 +22,7 @@ export const usePostMapData = () => {
     },
     onSuccess: (data, variables, context) => {
       // Handle successful mutation
-      console.log("Mutation successful!", data);
+      console.log(`Mutation ${context.id} successful!`, data);
     },
     onSettled: (data, error, variables, context) => {
       // Error or success... doesn't matter!
@@ -38,6 +38,8 @@ export const usePostMapData = () => {
  * @param mapObject - Map, the map object to save. In this case, the entire maplibre map object.
  * @returns Promise
  */
-const saveMap = async (mapObject: Map) => {
-  return axios.post("/saveMap", mapObject);
+const postMapObject = async (mapObject: Map) => {
+  // return axios.post("/saveMap", mapObject);
+  console.log("should be saving map now");
+  return { data: "Map saved!" };
 };
