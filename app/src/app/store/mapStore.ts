@@ -3,6 +3,8 @@ import { create } from "zustand";
 import type { ActiveTool, SpatialUnit } from "../constants/types";
 import { Zone, GEOID } from "../constants/types";
 export interface MapStore {
+  uuid: string;
+  setUuid: (uuid: string) => void;
   mapOptions: MapOptions;
   setMapOptions: (options: MapOptions) => void;
   activeTool: ActiveTool;
@@ -21,6 +23,12 @@ export interface MapStore {
 }
 
 export const useMapStore = create<MapStore>((set) => ({
+  /**
+   * Unique identifier for the map instance
+   * @type {string}
+   */
+  uuid: "",
+  setUuid: (uuid: string) => set({ uuid: uuid }),
   /**
    * maplibre map instance options
    * @type {MapOptions}

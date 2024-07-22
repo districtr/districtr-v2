@@ -5,7 +5,7 @@ import { debounce } from "lodash";
 import { MapStore } from "@/app/store/mapStore";
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
- * @param zoneStoreRef - MutableRefObject<ZoneStore | null>, the zone store reference from zustand
+ * @param mapStoreRef - MutableRefObject<MapStore | null>, the zone store reference from zustand
  * @param geoids - Set<string>, the set of geoids to assign to the selected zone
  * @returns void - but updates the zoneAssignments in the store
  */
