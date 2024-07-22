@@ -3,7 +3,7 @@
 ### dispatch object from `compoenents`
 
 - mapboxMap: null,
-- mapboxAccessToken: mapboxAccessToken,
+- mapboxAccessToken: mapboxAccessToken; should be handled at the app level
 - ~~mapboxStyle: mapStyleOptions.current[mapStyle].url,~~: in `configuration.ts` as an options property of `maplibre` map
 - mapboxContainer: 'districtr-mapbox',
 - ~~initialViewState: initialViewState,~~: factored out, see below; only exists as a subset of `maplibre` map options which are otherwise defined.
@@ -18,12 +18,12 @@
 - ~~bounds: initialViewState.bounds,~~: in `configuration.ts` as an options property of `maplibre` map
 - tools: toolsConfig,
 - ~~activeTool: 'pan'~~,: types in `types.ts`; `set in mapStore.ts`
-- units: unitsConfig,
-- activeUnit: 1,
+- ~~units: unitsConfig~~,
+- ~~activeUnit: 1~~,
 - palette: [],
 - sources: sources,
 - layers: layers,
-- coloring: false,
+- ~~coloring: false~~,
 - interactiveLayerIds: interactiveLayerIds,
 - activeInteractiveLayer: 0,
 - cursorVisible: true,
@@ -34,9 +34,9 @@
 - geometryKey: columnSets[interactiveLayerIds[0]].geometryKey,
 - featureKey: columnSets[interactiveLayerIds[0]].columnSets[0].total.key,
 - populationSum: columnSets[interactiveLayerIds[0]].columnSets[0].total.sum,
-- hoveredFeatures: [],
-- brushSizeValue: 50,
-- brushSize: 100,
+- ~~hoveredFeatures: [],~~
+- ~~brushSizeValue: 50,~~
+- ~~brushSize: 100,~~
 - columnSets: columnSets,
 - lockedUnits: new Set(),
 - hiddenUnits: new Set(),
@@ -47,8 +47,8 @@
 - changeHistory: [],
 - historyIndex: -1,
 - events: [
-- ['click', (e) => onMapClick(e)],
-- ['mouseup', (e) => onMapMouseUp(e)],
+- ~~['click', (e) => onMapClick(e)],~~
+- ~~['mouseup', (e) => onMapMouseUp(e)],~~
 - ['touchend', (e) => onMapMouseUp(e)],
 - ['mousedown', (e) => onMapMouseDown(e)],
 - ['touchstart', (e) => onMapMouseDown(e)],
@@ -57,7 +57,7 @@
 - ['mouseleave', (e) => onMapMouseLeave(e)],
 - ['touchleave', (e) => onMapMouseLeave(e)],
 - ['mouseout', (e) => onMapMouseOut(e)],
-- ['mousemove', (e) => onMapMouseMove(e)],
+- ~~['mousemove', (e) => onMapMouseMove(e)],~~
 - ['touchmove', (e) => onMapMouseMove(e)],
 - ['zoom', (e) => onMapZoom(e)],
 - ['idle', () => onMapIdle()],
