@@ -103,7 +103,7 @@ async def update_assignments(
     return {"assignments_upserted": len(data.assignments)}
 
 
-@app.get("/get_assignemnts/{document_id}")
+@app.get("/get_assignments/{document_id}", response_model=list[Assignments])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
     stmt = select(Assignments).where(Assignments.document_id == document_id)
     results = session.exec(stmt)

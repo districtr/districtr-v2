@@ -133,7 +133,7 @@ def ks_demo_view_census_blocks_fixture():
 
 
 @pytest.fixture(name="document_id")
-def document_fixture(client):
+def shared_document_fixture(client):
     response = client.post("/create_document")
     assert response.status_code == 201
     document_id = response.json().get("document_id", None)
@@ -169,6 +169,44 @@ def test_patch_assignments(client, document_id):
     )
     assert response.status_code == 200
     assert response.json() == {"assignments_upserted": 3}
+
+
+def test_patch_assignments_twice(client, document_id):
+    response = client.patch(
+        "/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 0},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": 0},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    assert response.json() == {"assignments_upserted": 2}
+
+    response = client.patch(
+        "/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": 1},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    assert response.json() == {"assignments_upserted": 2}
+    # Check that the assignments were updated and not inserted
+    doc_uuid = str(uuid.UUID(document_id))
+    print("DOC UUID", doc_uuid)
+    response = client.get(f"/get_assignments/{doc_uuid}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data is not None
+    assert len(data) == 2
+    assert data[0]["zone"] == 1
+    assert data[0]["geo_id"] == "202090416004010"
+    assert data[1]["zone"] == 1
+    assert data[1]["geo_id"] == "202090434001003"
 
 
 def test_get_document_population_totals(client, ks_demo_view_census_blocks):
