@@ -60,12 +60,12 @@ To do this on production, run `fly postgres connect -a {{ database-id }}` then t
 
 ### Python install
 
-Dependencies are managed with uv as noted in the root README. Follow set-up instructions [there](../README.md#python).
+Dependencies are managed with uv as noted in the root README. Follow set-up instructions [there](../README.md#python). Production is on python 3.12.2; a python version >=3.11 is required. 
 
 Set-up virtual environment and install dependencies:
 
 1. `uv venv`
-1. `source venv/bin/activate` on UNIX machines or `venv\Scripts\activate` on Windows.
+1. `source .venv/bin/activate` on UNIX machines or `venv\Scripts\activate` on Windows.
 1. `uv pip install -r requirements.txt`
 
 ### Postgres set-up
@@ -79,6 +79,12 @@ Set-up virtual environment and install dependencies:
 1. `\q`
 1. `alembic upgrade head`
 
+If needed, create a user for yourself. 
+
+1. `psql`
+1. `\c districtr`
+1. `CREATE USER postgres WITH PASSWORD 'make up your own password';`
+
 ### Testing
 
 `pytest --cov=app --cov-report=html`
@@ -86,31 +92,6 @@ Set-up virtual environment and install dependencies:
 Or with full coverage report:
 
 `coverage run --source=app -m pytest -v && coverage html && open htmlcov/index.html`
-
-### MongoDB
-
-#### MacOS
-
-Follow [install instructions](https://github.com/mongodb/homebrew-brew).
-
-#### Linux
-
-See [Install MongoDB Community Edition on Linux](https://www.mongodb.com/docs/manual/administration/install-on-linux/)
-
-#### Set-up test database
-
-1. `brew services start mongodb-community` on Mac to start the server. TBD other platforms. Stop the server with `brew services stop mongodb-community`.
-1. `mongosh`
-1. `use districtr` to create a new database in `/usr/local/var/mongodb` (intel) or `/opt/homebrew/var/mongodb` (Apple silicon). Connects to the db if it already exists.
-
-More info [here](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-os-x/).
-
-Create collections:
-1. `python cli.py create_collections`
-
-Optionally you can create or update individual collections with `python cli.py create_collections -c {{ collection_name_1 }} -c {{ collection_name_2 }}`.
-
-Confirm in `mongosh` with `use districtr` followed by `show collections` or `python cli.py list-collections`.
 
 ### Useful reference apps
 

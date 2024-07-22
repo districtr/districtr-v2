@@ -1,5 +1,6 @@
 import secrets
 import warnings
+import boto3
 from functools import lru_cache
 from typing import Annotated, Any, Literal
 
@@ -32,7 +33,7 @@ class Settings(BaseSettings):
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     DOMAIN: str = "localhost"
-    ENVIRONMENT: Literal["local", "staging", "production"] = "local"
+    ENVIRONMENT: Literal["local", "staging", "production", "test"] = "local"
 
     @computed_field  # type: ignore[misc]
     @property
@@ -55,11 +56,15 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
-    POSTGRES_DB: str = ""
+    POSTGRES_DB: str
+    DATABASE_URL: str
 
     @computed_field  # type: ignore[misc]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
+        if self.DATABASE_URL:
+            return MultiHostUrl(self.DATABASE_URL)
+
         return MultiHostUrl.build(
             scheme=self.POSTGRES_SCHEME,
             username=self.POSTGRES_USER,
@@ -68,27 +73,6 @@ class Settings(BaseSettings):
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
         )
-
-    # MongoDB
-
-    MONGODB_SCHEME: str = "mongodb+srv"
-    MONGODB_SERVER: str | int = ""
-    MONGODB_PORT: int = 27017
-    MONGODB_USER: str = ""
-    MONGODB_PASSWORD: str = ""
-    MONGODB_DB: str = "districtr"
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def MONGODB_URI(self) -> str:
-        if self.ENVIRONMENT == "local":
-            return f"{self.MONGODB_SCHEME}://{self.MONGODB_SERVER}:{self.MONGODB_PORT}/{self.MONGODB_DB}"
-
-        assert (
-            self.MONGODB_USER and self.MONGODB_PASSWORD
-        ), f"MONGODB_SERVER, MONGODB_USER, and MONGODB_PASSWORD must be set. Got server `{self.MONGODB_SERVER}` and user `{self.MONGODB_USER}`."
-
-        return f"{self.MONGODB_SCHEME}://{self.MONGODB_USER}:{self.MONGODB_PASSWORD}@{self.MONGODB_SERVER}:{self.MONGODB_PORT}/{self.MONGODB_DB}"
 
     # Security
 
@@ -109,6 +93,34 @@ class Settings(BaseSettings):
         self._check_default_secret("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD)
 
         return self
+
+    # Volumes
+
+    VOLUME_PATH: str = "/data"
+
+    # R2
+
+    R2_BUCKET_NAME: str | None = None
+    ACCOUNT_ID: str | None = None
+    AWS_S3_ENDPOINT: str | None = None
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
+
+    def get_s3_client(self):
+        if (
+            not self.ACCOUNT_ID
+            or not self.AWS_ACCESS_KEY_ID
+            or not self.AWS_SECRET_ACCESS_KEY
+        ):
+            return None
+
+        return boto3.client(
+            service_name="s3",
+            endpoint_url=f"https://{self.ACCOUNT_ID}.r2.cloudflarestorage.com",
+            aws_access_key_id=self.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=self.AWS_SECRET_ACCESS_KEY,
+            region_name="auto",
+        )
 
 
 @lru_cache()
