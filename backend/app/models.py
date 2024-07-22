@@ -66,3 +66,8 @@ class Assignments(AssignmentsBase, table=True):
 
 class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
+
+
+class ZonePopulation(BaseModel):
+    zone: int
+    total_pop: int

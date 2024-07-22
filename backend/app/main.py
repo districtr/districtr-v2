@@ -9,7 +9,14 @@ from uuid import uuid4
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
-from app.models import Assignments, AssignmentsCreate, Document, DocumentPublic
+from app.models import (
+    Assignments,
+    AssignmentsCreate,
+    Document,
+    DocumentPublic,
+    ZonePopulation,
+)
+from app.constants import GERRY_DB_SCHEMA
 
 if settings.ENVIRONMENT == "production":
     sentry_sdk.init(
@@ -110,3 +117,25 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
     # do we need to unpack returned assignments from returned results object?
     # I think probably?
     return results
+
+
+@app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
+async def get_total_population(
+    document_id: str, session: Session = Depends(get_session)
+):
+    stmt = text(f"""
+        SELECT
+            assignments.zone AS zone,
+            SUM(blocks.total_pop) AS total_pop
+        FROM assignments
+        LEFT JOIN
+            {GERRY_DB_SCHEMA}.ks_demo_view_census_blocks blocks
+        ON
+            blocks.path = assignments.geo_id
+        WHERE
+            document_id = :document_id
+        GROUP BY
+            assignments.zone
+    """)
+    result = session.execute(stmt, {"document_id": document_id})
+    return [ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()]

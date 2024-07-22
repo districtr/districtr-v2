@@ -133,13 +133,29 @@ def ks_demo_view_census_blocks_fixture():
 
 
 @pytest.fixture(name="document_id")
-def shared_document_fixture(client):
+def document_fixture(client):
     response = client.post("/create_document")
     assert response.status_code == 201
     document_id = response.json().get("document_id", None)
     assert document_id is not None
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
     return document_id.replace("-", "")
+
+
+@pytest.fixture(name="assignments_document_id")
+def assignments_fixture(client, document_id):
+    response = client.patch(
+        "/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    return document_id
 
 
 def test_db_is_alive(client):
@@ -209,5 +225,12 @@ def test_patch_assignments_twice(client, document_id):
     assert data[1]["geo_id"] == "202090434001003"
 
 
-def test_get_document_population_totals(client, ks_demo_view_census_blocks):
-    assert True
+def test_get_document_population_totals(
+    client, assignments_document_id, ks_demo_view_census_blocks
+):
+    # TODO: Need to figure out how to not have to do this every time...!
+    doc_uuid = str(uuid.UUID(assignments_document_id))
+    result = client.get(f"/api/document/{doc_uuid}/total_pop")
+    assert result.status_code == 200
+    data = result.json()
+    assert data == [{"zone": 1, "total_pop": 67}, {"zone": 2, "total_pop": 130}]
