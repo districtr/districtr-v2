@@ -48,7 +48,9 @@ class DocumentPublic(BaseModel):
 
 
 class AssignmentsBase(SQLModel):
-    document_id: str = Field(foreign_key="document.document_id", primary_key=True)
+    document_id: str = Field(
+        sa_column=Column(UUIDType, foreign_key="document.document_id", primary_key=True)
+    )
     geo_id: str = Field(primary_key=True)
     zone: int
 
@@ -63,4 +65,4 @@ class Assignments(AssignmentsBase, table=True):
 
 
 class AssignmentsCreate(BaseModel):
-    assignments: list[AssignmentsBase]
+    assignments: list[Assignments]

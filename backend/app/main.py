@@ -66,7 +66,6 @@ async def db_is_alive(session: Session = Depends(get_session)):
 async def create_document(session: Session = Depends(get_session)):
     # To be created in the database
     document_id = str(uuid4().hex).replace("-", "")
-    print(document_id)
     doc = Document.model_validate({"document_id": document_id})
     session.add(doc)
     session.commit()
@@ -95,8 +94,10 @@ async def create_document(session: Session = Depends(get_session)):
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
-    stmt = insert(Assignments).values(data.assignments)
-    stmt = stmt.on_conflict_do_update(set_={"zone": stmt.excluded.zone})
+    stmt = insert(Assignments).values(data.model_dump()["assignments"])
+    stmt = stmt.on_conflict_do_update(
+        constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
+    )
     session.execute(stmt)
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
