@@ -110,7 +110,7 @@ export const HighlightFeature = (
 };
 
 /**
- * Unhighlight features based on mouseleave event.
+ * Un-highlight features based on mouseleave event.
  * called using `map.on("mouseleave", "blocks-hover", ...)` pattern.
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param hoverFeatureIds - MutableRefObject<Set<string>>, used to keep track of geoids that have been hovered over

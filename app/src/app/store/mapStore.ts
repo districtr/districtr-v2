@@ -21,6 +21,10 @@ export interface MapStore {
 }
 
 export const useMapStore = create<MapStore>((set) => ({
+  /**
+   * maplibre map instance options
+   * @type {MapOptions}
+   */
   mapOptions: {
     center: [-98.5795, 39.8283],
     zoom: 3,
@@ -29,13 +33,33 @@ export const useMapStore = create<MapStore>((set) => ({
     container: "",
   },
   setMapOptions: (options: MapOptions) => set({ mapOptions: options }),
+  /**
+   * Selected tool for the user to interact with the map
+   * @type {ActiveTool}
+   */
   activeTool: "brush",
   setActiveTool: (tool: ActiveTool) => set({ activeTool: tool }),
+  /**
+   * Spatial unit of geometry available to the user
+   * @type {SpatialUnit}
+   */
   spatialUnit: "tract",
   setSpatialUnit: (unit: SpatialUnit) => set({ spatialUnit: unit }),
-  selectedZone: 1, // id of the zone being painted
+  /**
+   * Precinct zone currently being used to assign geoids via painting
+   * @type {Zone}
+   */
+  selectedZone: 1,
   setSelectedZone: (zone: Zone) => set({ selectedZone: zone }),
+  /**
+   * Dictionary of geoid: zone assignments
+   * @type {Map<string, number>}
+   */
   zoneAssignments: new Map(),
+  /**
+   * Set of geoids that have been assigned to a zone
+   * @type {Set<string>}
+   */
   accumulatedGeoids: new Set<string>(),
   /**
    *
@@ -54,8 +78,17 @@ export const useMapStore = create<MapStore>((set) => ({
         accumulatedGeoids: new Set<string>(),
       };
     }),
+  /**
+   * Size of the brush for painting in pixels
+   * @type {number}
+   */
   brushSize: 50,
   setBrushSize: (size: number) => set({ brushSize: size }),
+  /**
+   * Flag to determine if the user is currently painting on the map
+   * @type boolean
+   * @default false
+   */
   isPainting: false,
   setIsPainting: (isPainting: boolean) => set({ isPainting: isPainting }),
 }));

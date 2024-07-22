@@ -8,11 +8,6 @@ import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import { boxAroundPoint } from "../helpers";
 import React from "react";
 import { HighlightFeature, SelectFeatures } from "./handlers";
-import { offsetFactor } from "@/app/constants/configuration";
-
-export const userMovedMouse = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent
-) => {};
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
