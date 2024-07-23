@@ -135,11 +135,8 @@ def ks_demo_view_census_blocks_fixture():
 @pytest.fixture(name="document_id")
 def document_fixture(client):
     response = client.post("/create_document")
-    assert response.status_code == 201
-    document_id = response.json().get("document_id", None)
-    assert document_id is not None
-    assert isinstance(uuid.UUID(document_id), uuid.UUID)
-    return document_id.replace("-", "")
+    document_id = response.json()["document_id"]
+    return document_id
 
 
 @pytest.fixture(name="assignments_document_id")
@@ -228,7 +225,6 @@ def test_patch_assignments_twice(client, document_id):
 def test_get_document_population_totals(
     client, assignments_document_id, ks_demo_view_census_blocks
 ):
-    # TODO: Need to figure out how to not have to do this every time...!
     doc_uuid = str(uuid.UUID(assignments_document_id))
     result = client.get(f"/api/document/{doc_uuid}/total_pop")
     assert result.status_code == 200

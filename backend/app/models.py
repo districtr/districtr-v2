@@ -39,6 +39,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
+    gerrydb_table: str = Field(nullable=True)
 
 
 class DocumentPublic(BaseModel):
@@ -48,9 +49,7 @@ class DocumentPublic(BaseModel):
 
 
 class AssignmentsBase(SQLModel):
-    document_id: str = Field(
-        sa_column=Column(UUIDType, foreign_key="document.document_id", primary_key=True)
-    )
+    document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     geo_id: str = Field(primary_key=True)
     zone: int
 
