@@ -16,7 +16,6 @@ from app.models import (
     DocumentPublic,
     ZonePopulation,
 )
-from app.constants import GERRY_DB_SCHEMA
 
 if settings.ENVIRONMENT == "production":
     sentry_sdk.init(
@@ -125,19 +124,6 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
 async def get_total_population(
     document_id: str, session: Session = Depends(get_session)
 ):
-    stmt = text(f"""
-        SELECT
-            assignments.zone AS zone,
-            SUM(blocks.total_pop) AS total_pop
-        FROM assignments
-        LEFT JOIN
-            {GERRY_DB_SCHEMA}.ks_demo_view_census_blocks blocks
-        ON
-            blocks.path = assignments.geo_id
-        WHERE
-            document_id = :document_id
-        GROUP BY
-            assignments.zone
-    """)
+    stmt = text("SELECT * from get_total_population(:document_id)")
     result = session.execute(stmt, {"document_id": document_id})
     return [ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()]
