@@ -221,7 +221,6 @@ def test_patch_assignments_twice(client, document_id):
     assert data[1]["zone"] == 1
     assert data[1]["geo_id"] == "202090434001003"
 
-
 def test_get_document_population_totals(
     client, assignments_document_id, ks_demo_view_census_blocks
 ):
