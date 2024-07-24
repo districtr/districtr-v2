@@ -4,7 +4,6 @@ from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from uuid import uuid4
 
 import sentry_sdk
 from app.core.db import engine
@@ -70,30 +69,18 @@ async def db_is_alive(session: Session = Depends(get_session)):
 )
 async def create_document(session: Session = Depends(get_session)):
     # To be created in the database
-    document_id = str(uuid4())
-    doc = Document.model_validate(
-        {"document_id": document_id, "gerrydb_table": "ks_demo_view_census_blocks"}
-    )
-    session.add(doc)
-    session.commit()
-    session.refresh(doc)
-
+    results = session.execute(text("SELECT create_document();"))
+    document_id = results.one()[0]  # should be only one row, one column of results
+    stmt = select(Document).where(Document.document_id == document_id)
+    doc = session.exec(
+        stmt
+    ).one()  # again if we've got more than one, we have problems.
     if not doc.document_id:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Document creation failed",
         )
 
-    document_id: str = doc.document_id
-    # Also create the partition in one go.
-    session.execute(
-        text(
-            f"""
-            CREATE TABLE "assignments_{document_id}" PARTITION OF assignments
-            FOR VALUES IN ('{document_id}')
-        """
-        )
-    )
     return doc
 
 
