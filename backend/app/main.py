@@ -1,12 +1,19 @@
 from fastapi import FastAPI, status, Depends, HTTPException
 from sqlalchemy import text
-from sqlmodel import Session
+from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
+from sqlalchemy.dialects.postgresql import insert
 import logging
 
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
+from app.models import (
+    Assignments,
+    AssignmentsCreate,
+    Document,
+    DocumentPublic,
+)
 
 if settings.ENVIRONMENT == "production":
     sentry_sdk.init(
@@ -53,3 +60,47 @@ async def db_is_alive(session: Session = Depends(get_session)):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB is unreachable"
         )
+
+
+@app.post(
+    "/create_document",
+    response_model=DocumentPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_document(session: Session = Depends(get_session)):
+    # To be created in the database
+    results = session.execute(text("SELECT create_document();"))
+    document_id = results.one()[0]  # should be only one row, one column of results
+    stmt = select(Document).where(Document.document_id == document_id)
+    doc = session.exec(
+        stmt
+    ).one()  # again if we've got more than one, we have problems.
+    if not doc.document_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document creation failed",
+        )
+
+    return doc
+
+
+@app.patch("/update_assignments")
+async def update_assignments(
+    data: AssignmentsCreate, session: Session = Depends(get_session)
+):
+    stmt = insert(Assignments).values(data.model_dump()["assignments"])
+    stmt = stmt.on_conflict_do_update(
+        constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
+    )
+    session.execute(stmt)
+    session.commit()
+    return {"assignments_upserted": len(data.assignments)}
+
+
+@app.get("/get_assignments/{document_id}", response_model=list[Assignments])
+async def get_assignments(document_id: str, session: Session = Depends(get_session)):
+    stmt = select(Assignments).where(Assignments.document_id == document_id)
+    results = session.exec(stmt)
+    # do we need to unpack returned assignments from returned results object?
+    # I think probably?
+    return results

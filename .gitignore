@@ -14,7 +14,7 @@ htmlcov/
 
 # next.js
 /.next/
-*/.next/
+**/.next/
 /out/
 
 # production
@@ -47,9 +47,9 @@ pnpm-lock.yaml
 # data
 db/*
 assets/
-*.parquet
-*.geojson
-*.pmtiles
+**/public/**/*.parquet
+**/public/**/*.geojson
+**/public/**/*.pmtiles
 logfile.log
 
 # secrets
@@ -65,3 +65,6 @@ cors.json
 __pycache__
 pyrightconfig.json
 scratch/
+
+# ogr2ogr
+PG:*
