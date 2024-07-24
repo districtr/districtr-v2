@@ -60,7 +60,7 @@ To do this on production, run `fly postgres connect -a {{ database-id }}` then t
 
 ### Python install
 
-Dependencies are managed with uv as noted in the root README. Follow set-up instructions [there](../README.md#python). Production is on python 3.12.2; a python version >=3.11 is required. 
+Dependencies are managed with uv as noted in the root README. Follow set-up instructions [there](../README.md#python). Production is on python 3.12.2; a python version >=3.11 is required.
 
 Set-up virtual environment and install dependencies:
 
@@ -79,7 +79,7 @@ Set-up virtual environment and install dependencies:
 1. `\q`
 1. `alembic upgrade head`
 
-If needed, create a user for yourself. 
+If needed, create a user for yourself.
 
 1. `psql`
 1. `\c districtr`
@@ -92,6 +92,12 @@ If needed, create a user for yourself.
 Or with full coverage report:
 
 `coverage run --source=app -m pytest -v && coverage html && open htmlcov/index.html`
+
+#### Database teardown
+
+All unit tests are run against a test database `districtr_test`. You can override the test database name by setting the `POSTGRES_TEST_DB` environment variable.
+
+By default, the test database is created and destroyed for each test run. If you want to persist the database, set the environment variable `TEARDOWN_TEST_DB` to one of `false`, `f`, `0`, `no`  e.g. `TEARDOWN_TEST_DB=false pytest`.
 
 ### Useful reference apps
 

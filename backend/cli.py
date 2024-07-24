@@ -7,13 +7,11 @@ import subprocess
 from urllib.parse import urlparse
 from sqlalchemy import text
 from uuid import uuid4
+from app.constants import GERRY_DB_SCHEMA
 # from fastapi import Depends
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-
-GERRY_DB_SCHEMA = "gerrydb"
 
 
 @click.group()

@@ -1,15 +1,20 @@
 from fastapi import FastAPI, status, Depends, HTTPException
-from sqlalchemy import text, func
+from sqlalchemy import text
 from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
-from typing import List, Tuple
 import logging
+from uuid import uuid4
 
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
-from app.models import Assignments
+from app.models import (
+    Assignments,
+    AssignmentsCreate,
+    Document,
+    DocumentPublic,
+)
 
 if settings.ENVIRONMENT == "production":
     sentry_sdk.init(
@@ -58,32 +63,54 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
-@app.post("/create_document", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/create_document",
+    response_model=DocumentPublic,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_document(session: Session = Depends(get_session)):
-    stmt = select(func.create_document())
-    document_id = session.execute(stmt)
+    # To be created in the database
+    document_id = str(uuid4())
+    doc = Document.model_validate(
+        {"document_id": document_id, "gerrydb_table": "ks_demo_view_census_blocks"}
+    )
+    session.add(doc)
     session.commit()
-    return document_id
+    session.refresh(doc)
+
+    if not doc.document_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document creation failed",
+        )
+
+    document_id: str = doc.document_id
+    # Also create the partition in one go.
+    session.execute(
+        text(
+            f"""
+            CREATE TABLE "assignments_{document_id}" PARTITION OF assignments
+            FOR VALUES IN ('{document_id}')
+        """
+        )
+    )
+    return doc
 
 
-@app.patch("/update_assignments/{document_id}")
+@app.patch("/update_assignments")
 async def update_assignments(
-    document_id: str, assignments: List[Tuple], session: Session = Depends(get_session)
+    data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
-    # TODO: use model_validate to sanitize inputs.
-    # TODO: flatten assignments into (document_id,geoid,zone)
-    values = [
-        {"document_id": document_id, "geoid": geoid, "zone": zone}
-        for geoid, zone in assignments
-    ]
-    stmt = insert(Assignments).values(values)
-    stmt = stmt.on_conflict_do_update(set_={"zone": stmt.excluded.zone})
+    stmt = insert(Assignments).values(data.model_dump()["assignments"])
+    stmt = stmt.on_conflict_do_update(
+        constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
+    )
     session.execute(stmt)
     session.commit()
-    return assignments
+    return {"assignments_upserted": len(data.assignments)}
 
 
-@app.get("/get_assignments/{document_id}")
+@app.get("/get_assignments/{document_id}", response_model=list[Assignments])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
     stmt = select(Assignments).where(Assignments.document_id == document_id)
     results = session.exec(stmt)

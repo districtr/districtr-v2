@@ -34,17 +34,18 @@ target_metadata = SQLModel.metadata
 
 
 def get_url():
-    database_url = os.getenv("DATABASE_URL", None)
-
-    if database_url:
-        return database_url
-
     user = os.getenv("POSTGRES_USER", "postgres")
     password = os.getenv("POSTGRES_PASSWORD", "")
     server = os.getenv("POSTGRES_SERVER", "db")
     port = os.getenv("POSTGRES_PORT", "5432")
     db = os.getenv("POSTGRES_DB", "app")
     return f"postgresql+psycopg://{user}:{password}@{server}:{port}/{db}"
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    if name == "spatial_ref_sys":
+        return False
+    return True
 
 
 def run_migrations_offline():
@@ -61,7 +62,11 @@ def run_migrations_offline():
     """
     url = get_url()
     context.configure(
-        url=url, target_metadata=target_metadata, literal_binds=True, compare_type=True
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -85,7 +90,10 @@ def run_migrations_online():
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata, compare_type=True
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
