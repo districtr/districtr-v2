@@ -7,7 +7,6 @@ BEGIN
     SELECT gerrydb_table INTO gerrydb_table_name
     FROM document
     WHERE document.document_id = $1;
-
     sql_query := format('
         SELECT
             assignments.zone::TEXT AS zone,
@@ -18,7 +17,6 @@ BEGIN
         WHERE assignments.document_id = $1
         GROUP BY assignments.zone
     ', gerrydb_table_name);
-
     RETURN QUERY EXECUTE sql_query USING $1;
 END;
 $$ LANGUAGE plpgsql;

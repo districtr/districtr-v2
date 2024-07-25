@@ -4,7 +4,6 @@ from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from uuid import uuid4
 
 import sentry_sdk
 from app.core.db import engine
@@ -13,6 +12,7 @@ from app.models import (
     Assignments,
     AssignmentsCreate,
     Document,
+    DocumentCreate,
     DocumentPublic,
     ZonePopulation,
 )
@@ -65,14 +65,20 @@ async def db_is_alive(session: Session = Depends(get_session)):
 
 
 @app.post(
-    "/create_document",
+    "/api/create_document",
     response_model=DocumentPublic,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_document(session: Session = Depends(get_session)):
-    # To be created in the database
-    results = session.execute(text("SELECT create_document();"))
+async def create_document(
+    data: DocumentCreate, session: Session = Depends(get_session)
+):
+    print("DocumentCreate", data)
+    results = session.execute(
+        text("SELECT create_document(:gerrydb_table_name);"),
+        {"gerrydb_table_name": data.gerrydb_table},
+    )
     document_id = results.one()[0]  # should be only one row, one column of results
+    print("PRNT", document_id)
     stmt = select(Document).where(Document.document_id == document_id)
     doc = session.exec(
         stmt
@@ -86,7 +92,7 @@ async def create_document(session: Session = Depends(get_session)):
     return doc
 
 
-@app.patch("/update_assignments")
+@app.patch("/api/update_assignments")
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
@@ -106,6 +112,7 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
     # do we need to unpack returned assignments from returned results object?
     # I think probably?
     return results
+
 
 @app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
 async def get_total_population(

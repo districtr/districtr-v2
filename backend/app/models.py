@@ -42,8 +42,13 @@ class Document(TimeStampMixin, SQLModel, table=True):
     gerrydb_table: str = Field(nullable=True)
 
 
+class DocumentCreate(BaseModel):
+    gerrydb_table: str
+
+
 class DocumentPublic(BaseModel):
     document_id: str
+    gerrydb_table: str
     created_at: datetime
     updated_at: datetime
 
