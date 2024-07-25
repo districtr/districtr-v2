@@ -42,6 +42,39 @@ export const usePostMapData = () => {
   return mutation;
 };
 
+export const useCreateMapDocument = () => {
+  const mutation = useMutation({
+    mutationFn: createMapObject,
+    onMutate: (variables) => {
+      // A mutation is about to happen, prepare for transaction
+      // this id can be used on server side to rollback if needed
+      return {
+        id: Math.random().toString(36).substring(7), // Optimistic ID
+      };
+    },
+    onError: (error, variables, context) => {
+      // An error happened!
+      console.log(`Rolling back optimistic update with id ${context?.id}`);
+    },
+    onSuccess: (data, variables, context) => {
+      // Handle successful mutation
+      console.log(`Mutation ${context.id} successful!`, data);
+    },
+    onSettled: (data, error, variables, context) => {
+      // fires regardless of error or success
+      console.log(`Optimistic update with id ${context?.id} settled: `);
+      if (error) {
+        console.log("Error: ", error);
+      }
+      if (data) {
+        useMapStore.setState({ uuid: data.data });
+      }
+    },
+  });
+
+  return mutation;
+};
+
 interface responseObject {
   data: any;
 }

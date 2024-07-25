@@ -9,7 +9,7 @@ import { addLayer } from "../constants/layers";
 import { mapEvents, useHoverFeatureIds } from "../utils/events/mapEvents";
 import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "../constants/layers";
-import { usePostMapData } from "../api/apiHandlers";
+import { useCreateMapDocument } from "../api/apiHandlers";
 import { useMapStore } from "../store/mapStore";
 
 export const MapComponent: React.FC = () => {
@@ -17,7 +17,7 @@ export const MapComponent: React.FC = () => {
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
-  const saveMap = usePostMapData();
+  const createMapDocument = useCreateMapDocument();
   const { zoneAssignments, selectedZone } = useMapStore((state) => ({
     zoneAssignments: state.zoneAssignments,
     selectedZone: state.selectedZone,
@@ -59,12 +59,11 @@ export const MapComponent: React.FC = () => {
   });
 
   useEffect(() => {
-    // naive save logic for now; this should follow debounce logic
-    // and should likely be bound to the onMouseUp/onClick events
-    if (mapLoaded && map.current) {
-      saveMap.mutate(map.current);
+    // create a map document if the map is loaded and the uuid is not set via url
+    if (mapLoaded && map.current && !useMapStore.getState().uuid) {
+      createMapDocument.mutate(map.current);
     }
-  }, [mapLoaded, zoneAssignments, selectedZone]);
+  }, [mapLoaded, map.current]);
 
   return <div className="h-full w-full-minus-sidebar" ref={mapContainer} />;
 };
