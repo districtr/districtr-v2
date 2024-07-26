@@ -1,4 +1,5 @@
 from fastapi import FastAPI, status, Depends, HTTPException
+from pydantic import UUID4
 from sqlalchemy import text
 from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
@@ -89,6 +90,30 @@ async def create_document(
         )
     session.commit()
     return doc
+
+
+@app.patch("/api/update_document/{document_id}", response_model=DocumentPublic)
+async def update_document(
+    document_id: UUID4, data: DocumentCreate, session: Session = Depends(get_session)
+):
+    # Validate that gerrydb_table exists?
+    stmt = text("""UPDATE document
+        SET
+            gerrydb_table = :gerrydb_table_name,
+            updated_at = now()
+        WHERE document_id = :document_id
+        RETURNING *""")
+    results = session.execute(
+        stmt, {"document_id": document_id, "gerrydb_table_name": data.gerrydb_table}
+    )
+    db_document = results.fetchone()
+    if not db_document:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+    session.commit()
+    return db_document
 
 
 @app.patch("/api/update_assignments")

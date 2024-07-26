@@ -51,7 +51,7 @@ jobs:
         working-directory: backend
 
       - name: Run tests
-        run: pytest -v
+        run: pytest -v --cov=app
         working-directory: backend
         env:
           DOMAIN: postgres

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import UUID4, BaseModel
 from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, UniqueConstraint, text, Column
 
 
@@ -47,7 +47,7 @@ class DocumentCreate(BaseModel):
 
 
 class DocumentPublic(BaseModel):
-    document_id: str
+    document_id: UUID4
     gerrydb_table: str
     created_at: datetime
     updated_at: datetime

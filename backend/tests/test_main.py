@@ -178,6 +178,18 @@ def test_new_document(client):
     assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
 
 
+def test_patch_document(client, document_id):
+    response = client.patch(
+        f"/api/update_document/{document_id}",
+        json={"gerrydb_table": "foo"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("document_id") == document_id
+    assert data.get("gerrydb_table") == "foo"
+    assert data.get("updated_at")
+
+
 def test_patch_assignments(client, document_id):
     response = client.patch(
         "/api/update_assignments",
