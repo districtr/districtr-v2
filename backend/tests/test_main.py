@@ -140,7 +140,6 @@ def document_fixture(client):
     response = client.post(
         "/api/create_document", json={"gerrydb_table": GERRY_DB_FIXTURE_NAME}
     )
-    print("TNEMUCOD", response.json())
     document_id = response.json()["document_id"]
     return document_id
 
@@ -220,7 +219,6 @@ def test_patch_assignments_twice(client, document_id):
     assert response.json() == {"assignments_upserted": 2}
     # Check that the assignments were updated and not inserted
     doc_uuid = str(uuid.UUID(document_id))
-    print("DOC UUID", doc_uuid)
     response = client.get(f"/get_assignments/{doc_uuid}")
     assert response.status_code == 200
     data = response.json()

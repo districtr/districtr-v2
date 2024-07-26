@@ -72,23 +72,22 @@ async def db_is_alive(session: Session = Depends(get_session)):
 async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
-    print("DocumentCreate", data)
     results = session.execute(
         text("SELECT create_document(:gerrydb_table_name);"),
         {"gerrydb_table_name": data.gerrydb_table},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
-    print("PRNT", document_id)
     stmt = select(Document).where(Document.document_id == document_id)
     doc = session.exec(
         stmt
     ).one()  # again if we've got more than one, we have problems.
     if not doc.document_id:
+        session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Document creation failed",
         )
-
+    session.commit()
     return doc
 
 
