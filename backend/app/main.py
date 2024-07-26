@@ -106,7 +106,7 @@ async def update_document(
     results = session.execute(
         stmt, {"document_id": document_id, "gerrydb_table_name": data.gerrydb_table}
     )
-    db_document = results.fetchone()
+    db_document = results.first()
     if not db_document:
         session.rollback()
         raise HTTPException(
