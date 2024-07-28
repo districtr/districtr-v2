@@ -2,7 +2,6 @@ import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import type { Map } from "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
-import { use } from "react";
 
 /**
  * Hook to save map data to the server, using a mutation.
@@ -34,7 +33,7 @@ export const usePostMapData = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ uuid: data.data });
+        useMapStore.setState({ documentId: data.data });
       }
     },
   });
@@ -67,7 +66,7 @@ export const useCreateMapDocument = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ uuid: data.data });
+        useMapStore.setState({ documentId: data.data });
       }
     },
   });

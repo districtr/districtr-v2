@@ -8,7 +8,7 @@ export type ZoneDict = Map<GEOID, Zone>;
 
 export type ActiveTool = "pan" | "brush" | "eraser"; // others?
 
-export type SpatialUnit = "county" | "tract" | "block"; // others?
+export type SpatialUnit = "county" | "tract" | "block" | "block_group"; // others?
 
 // we might not need this anymore- tk
 export type ViewStateChangeEvent =
