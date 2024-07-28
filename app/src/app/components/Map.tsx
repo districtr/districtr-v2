@@ -60,7 +60,7 @@ export const MapComponent: React.FC = () => {
 
   useEffect(() => {
     // create a map document if the map is loaded and the uuid is not set via url
-    if (mapLoaded && map.current && !useMapStore.getState().uuid) {
+    if (mapLoaded && map.current && !useMapStore.getState().documentId) {
       createMapDocument.mutate(map.current);
     }
   }, [mapLoaded, map.current]);
