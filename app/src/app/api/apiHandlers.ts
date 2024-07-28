@@ -84,7 +84,7 @@ interface responseObject {
  * @returns Promise
  */
 const postMapObject: (mapObject: Map) => Promise<responseObject> = async (
-  mapObject: Map,
+  mapObject: Map
 ) => {
   // return axios.post("/saveMap", mapObject);
   console.log("should be saving map now");
@@ -92,7 +92,7 @@ const postMapObject: (mapObject: Map) => Promise<responseObject> = async (
 };
 
 const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
-  mapObject: Map,
+  mapObject: Map
 ) => {
   try {
     const returnObject = await axios

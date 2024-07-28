@@ -11,17 +11,15 @@ import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "../constants/layers";
 import { useCreateMapDocument } from "../api/apiHandlers";
 import { useMapStore } from "../store/mapStore";
+import { useRouter } from "next/router";
 
 export const MapComponent: React.FC = () => {
+  const router = useRouter();
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
   const createMapDocument = useCreateMapDocument();
-  const { zoneAssignments, selectedZone } = useMapStore((state) => ({
-    zoneAssignments: state.zoneAssignments,
-    selectedZone: state.selectedZone,
-  }));
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
