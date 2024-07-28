@@ -17,8 +17,10 @@ import {
 import { useCreateMapDocument } from "../api/apiHandlers";
 import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
 import { useMapStore } from "../store/mapStore";
+import { useRouter } from "next/router";
 
 export const MapComponent: React.FC = () => {
+  const router = useRouter();
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -60,7 +62,7 @@ export const MapComponent: React.FC = () => {
           BLOCK_HOVER_LAYER_ID, // to be updated with the scale-agnostic layer id
           (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
             action.handler(e, map, hoverFeatureIds);
-          },
+          }
         );
       }
     });

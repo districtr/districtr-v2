@@ -22,6 +22,10 @@
 - ~~activeUnit: 1~~,
 - palette: [],
 - sources: sources,
+<<<<<<< HEAD
+=======
+  - i think this should be a string that represents the geography of focus based on `fips` code if possible that can be used to filter the map; we will want only one source or a generic convention for sources imo
+>>>>>>> bring routing work to new branch
 - layers: layers,
 - ~~coloring: false~~,
 - interactiveLayerIds: interactiveLayerIds,
