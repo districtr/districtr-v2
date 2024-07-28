@@ -1,6 +1,6 @@
 import React from "react";
 import { Select } from "@radix-ui/themes";
-import { useZoneStore } from "../store/zoneStore";
+import { useMapStore } from "../store/mapStore";
 
 export function ZoneTypeSelector() {
   const {
@@ -8,7 +8,12 @@ export function ZoneTypeSelector() {
     setSelectedZone,
     setZoneAssignments,
     accumulatedGeoids,
-  } = useZoneStore();
+  } = useMapStore((state) => ({
+    selectedZone: state.selectedZone,
+    setSelectedZone: state.setSelectedZone,
+    setZoneAssignments: state.setZoneAssignments,
+    accumulatedGeoids: state.accumulatedGeoids,
+  }));
 
   const handlePickerValueChange = (value) => {
     console.log(
@@ -23,15 +28,15 @@ export function ZoneTypeSelector() {
 
   // to be refactored
   const options = [
-    { value: "1", label: "First Zone" },
-    { value: "2", label: "Second Zone" },
-    { value: "3", label: "Third Zone" },
+    { value: 1, label: "First Zone" },
+    { value: 2, label: "Second Zone" },
+    { value: 3, label: "Third Zone" },
   ];
 
   return (
     <Select.Root
       size="3"
-      defaultValue="1"
+      defaultValue={1}
       label="Zone Type"
       onValueChange={handlePickerValueChange}
     >

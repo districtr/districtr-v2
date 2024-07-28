@@ -33,8 +33,10 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "src/app/components/Picker.jsx"
-, "src/app/page.jsx"  ],
+    "src/app/components/Picker.jsx",
+    "src/app/page.jsx",
+    "src/app/api/apiHandlers.test.js"
+  ],
   "exclude": [
     "node_modules"
   ]

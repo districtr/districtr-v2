@@ -1,36 +1,43 @@
 import { BLOCK_LAYER_ID, BLOCK_LAYER_SOURCE_ID } from "@/app/constants/layers";
 import { MutableRefObject } from "react";
 import type { Map, MapGeoJSONFeature } from "maplibre-gl";
-import { ZoneStore } from "@/app/store/zoneStore";
 import { debounce } from "lodash";
-import { useZoneStore } from "@/app/store/zoneStore";
-
+import { MapStore } from "@/app/store/mapStore";
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
- * @param zoneStoreRef - MutableRefObject<ZoneStore | null>, the zone store reference from zustand
+ * @param mapStoreRef - MutableRefObject<MapStore | null>, the zone store reference from zustand
  * @param geoids - Set<string>, the set of geoids to assign to the selected zone
  * @returns void - but updates the zoneAssignments in the store
  */
 const debouncedSetZoneAssignments = debounce(
-  (zoneStoreRef: ZoneStore, selectedZone: number, geoids: Set<string>) => {
-    zoneStoreRef.setZoneAssignments(zoneStoreRef.selectedZone, geoids);
+  (mapStoreRef: MapStore, selectedZone: number, geoids: Set<string>) => {
+    mapStoreRef.setZoneAssignments(mapStoreRef.selectedZone, geoids);
   },
   1000 // 1 second
 );
 
 /**
- * Select features based on hover mouseevent. called using `map.on("mousemove", "blocks-hover", ...)` pattern.
- * currently assumes zones are assigned to features on hover.
+ * Select features based on given mouseEvent.
+ * called using mapEvent handlers.
  *
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
- * @param zoneStoreRef - MutableRefObject<ZoneStore | null>, the zone store reference from zustand
+ * @param mapStoreRef - MutableRefObject<MapStore | null>, the map store reference from zustand
  */
+
+/**
+ * @todo
+ * TODO: split out SelectMapFeatures and SetStoreZoneAssignments
+ * where the first sets the map + adds to a flat array of geoids,
+ * and the second dedups the geoids and sets the zoneAssignments
+ * in the store. First is called on the isPainting && onMouseMove,
+ * and second is called on onMouseUp event
+ * */
 
 export const SelectFeatures = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  zoneStoreRef: ZoneStore
+  mapStoreRef: MapStore
 ) => {
   features?.forEach((feature) => {
     map.current?.setFeatureState(
@@ -39,24 +46,24 @@ export const SelectFeatures = (
         id: feature?.id ?? undefined,
         sourceLayer: BLOCK_LAYER_SOURCE_ID,
       },
-      { selected: true, zone: Number(zoneStoreRef.selectedZone) }
+      { selected: true, zone: Number(mapStoreRef.selectedZone) }
     );
   });
   if (features?.length) {
     features.forEach((feature) => {
-      zoneStoreRef.accumulatedGeoids.add(feature.properties?.GEOID20);
+      mapStoreRef.accumulatedGeoids.add(feature.properties?.GEOID20);
     });
 
     debouncedSetZoneAssignments(
-      zoneStoreRef,
-      zoneStoreRef.selectedZone,
-      zoneStoreRef.accumulatedGeoids
+      mapStoreRef,
+      mapStoreRef.selectedZone,
+      mapStoreRef.accumulatedGeoids
     );
   }
 };
 
 /**
- * Highlight features based on hover mouseevent. called using `map.on("mousemove", "blocks-hover", ...)` pattern.
+ * Highlight features based on hover mouseEvent. called using `map.on("mousemove", "blocks-hover", ...)` pattern.
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param hoverGeoids - MutableRefObject<Set<string>>, used to keep track of geoids that have been hovered over
@@ -103,7 +110,8 @@ export const HighlightFeature = (
 };
 
 /**
- * Unhighlight features based on mouseleave event. called using `map.on("mouseleave", "blocks-hover", ...)` pattern.
+ * Un-highlight features based on mouseleave event.
+ * called using `map.on("mouseleave", "blocks-hover", ...)` pattern.
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param hoverFeatureIds - MutableRefObject<Set<string>>, used to keep track of geoids that have been hovered over
  */

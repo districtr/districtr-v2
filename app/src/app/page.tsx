@@ -1,15 +1,19 @@
 "use client";
 import { MapComponent } from "./components/Map";
-import { ZoneTypeSelector } from "./components/Picker";
 import SidebarComponent from "./components/Sidebar";
+import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
 
 export default function Home() {
   return (
-    <main>
-      <div className="h-screen w-screen flex items-center justify-between p">
-        <MapComponent />
-        <SidebarComponent />
-      </div>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <main>
+        <div className="h-screen w-screen flex items-center justify-between p">
+          <MapComponent />
+          <SidebarComponent />
+        </div>
+      </main>
+    </QueryClientProvider>
   );
 }
