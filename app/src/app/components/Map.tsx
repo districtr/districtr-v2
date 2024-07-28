@@ -6,13 +6,17 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_CENTER, MAP_TILES } from "../constants/configuration";
 import { addLayer } from "../constants/layers";
-import { useApplyActions } from "../utils/events/actions";
+import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
+import { BLOCK_LAYER_ID } from "../constants/layers";
+import { useCreateMapDocument } from "../api/apiHandlers";
+import { CreateMapSession } from "../components/navigation-events";
+import { useRouter } from "next/navigation";
 
 export const MapComponent: React.FC = () => {
+  const router = useRouter();
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  useApplyActions(map, mapLoaded);
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
     map.current = new maplibregl.Map({
