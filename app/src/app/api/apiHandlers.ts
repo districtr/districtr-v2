@@ -1,8 +1,10 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import type { Map } from "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
-
+import { use } from "react";
+import { useRouter } from "next/navigation";
+import type { QueryFunction } from "@tanstack/react-query";
 /**
  * Hook to save map data to the server, using a mutation.
  * Should be agnostic to the mutationFn used.
@@ -33,7 +35,7 @@ export const usePostMapData = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ documentId: data.data });
+        useMapStore.setState({ uuid: data.data });
       }
     },
   });
@@ -42,6 +44,7 @@ export const usePostMapData = () => {
 };
 
 export const useCreateMapDocument = () => {
+  const router = useRouter();
   const mutation = useMutation({
     mutationFn: createMapObject,
     onMutate: (variables) => {
@@ -58,6 +61,8 @@ export const useCreateMapDocument = () => {
     onSuccess: (data, variables, context) => {
       // Handle successful mutation
       console.log(`Mutation ${context.id} successful!`, data);
+      alert("Map created!: " + data.data);
+      router.push(`/s/${data.data}`);
     },
     onSettled: (data, error, variables, context) => {
       // fires regardless of error or success
@@ -66,7 +71,7 @@ export const useCreateMapDocument = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ documentId: data.data });
+        useMapStore.setState({ uuid: data.data });
       }
     },
   });
@@ -77,6 +82,39 @@ export const useCreateMapDocument = () => {
 interface responseObject {
   data: any;
 }
+
+const getMapObject: QueryFunction<responseObject, [string]> = async (
+  sessionId
+) => {
+  try {
+    const returnObject = await axios
+      .get(
+        `http://${process.env.NEXT_PUBLIC_API_URL}/get_document/${sessionId}`
+      )
+      .then((res) => {
+        return res.data;
+      });
+    return { data: returnObject };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("Axios error:", error.message);
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+        console.error("Response headers:", error.response.headers);
+      }
+    } else {
+      console.error("Unexpected error:", error);
+    }
+    throw error;
+  }
+};
+
+const useSessionData = (sessionId: string) => {
+  const query = useQuery({ queryKey: [sessionId], queryFn: getMapObject });
+
+  return query;
+};
 
 /**
  * Save map data to the server.
@@ -91,9 +129,7 @@ const postMapObject: (mapObject: Map) => Promise<responseObject> = async (
   return { data: "Map saved!" };
 };
 
-const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
-  mapObject: Map
-) => {
+const createMapObject: () => Promise<responseObject> = async () => {
   try {
     const returnObject = await axios
       .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
