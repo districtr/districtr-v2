@@ -39,11 +39,11 @@ class Document(TimeStampMixin, SQLModel, table=True):
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
-    gerrydb_table: str = Field(nullable=True)
+    gerrydb_table: str | None = Field(nullable=True)
 
 
 class DocumentCreate(BaseModel):
-    gerrydb_table: str
+    gerrydb_table: str | None
 
 
 class DocumentPublic(BaseModel):
