@@ -84,7 +84,7 @@ interface responseObject {
  * @returns Promise
  */
 const postMapObject: (mapObject: Map) => Promise<responseObject> = async (
-  mapObject: Map
+  mapObject: Map,
 ) => {
   // return axios.post("/saveMap", mapObject);
   console.log("should be saving map now");
@@ -92,11 +92,13 @@ const postMapObject: (mapObject: Map) => Promise<responseObject> = async (
 };
 
 const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
-  mapObject: Map
+  mapObject: Map,
 ) => {
   try {
     const returnObject = await axios
-      .post("http://127.0.0.1:8000/create_document") // should replace with env var
+      .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
+        gerrydb_table: null, // Will need to add this in
+      }) // should replace with env var
       .then((res) => {
         // successful roundtrip; return the document id
         return res.data.document_id;

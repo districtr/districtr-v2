@@ -2,6 +2,12 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 
 ## Getting Started
 
+Set up your development environment:
+
+```bash
+cp .env.dev .env.local && npm i
+```
+
 First, run the development server:
 
 ```bash

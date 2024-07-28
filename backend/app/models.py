@@ -48,7 +48,7 @@ class DocumentCreate(BaseModel):
 
 class DocumentPublic(BaseModel):
     document_id: UUID4
-    gerrydb_table: str
+    gerrydb_table: str | None
     created_at: datetime
     updated_at: datetime
 

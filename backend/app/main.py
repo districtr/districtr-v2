@@ -34,6 +34,7 @@ logging.basicConfig(level=logging.INFO)
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:
     allow_origins = [str(origin).strip("/") for origin in settings.BACKEND_CORS_ORIGINS]
+    print(allow_origins)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
