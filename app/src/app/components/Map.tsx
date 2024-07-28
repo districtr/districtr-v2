@@ -26,11 +26,14 @@ export const MapComponent: React.FC = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
   const createMapDocument = useCreateMapDocument();
+<<<<<<< HEAD
 
   const { freshMap, setFreshMap } = useMapStore((state) => ({
     freshMap: state.freshMap,
     setFreshMap: state.setFreshMap,
   }));
+=======
+>>>>>>> bring routing work to new branch
 
   useEffect(() => {
     let protocol = new Protocol();
