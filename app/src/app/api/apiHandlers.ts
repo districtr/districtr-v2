@@ -34,7 +34,7 @@ export const usePostMapData = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ documentId: data.data });
+        useMapStore.setState({ uuid: data.data });
       }
     },
   });
@@ -70,7 +70,7 @@ export const useCreateMapDocument = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ documentId: data.data });
+        useMapStore.setState({ uuid: data.data });
       }
     },
   });
