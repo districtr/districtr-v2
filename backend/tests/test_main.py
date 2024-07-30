@@ -52,6 +52,9 @@ def test_get_session():
         assert isinstance(s, Session)
 
 
+GERRY_DB_FIXTURE_NAME = "ks_demo_view_census_blocks"
+
+
 ## Test DB
 
 
@@ -110,9 +113,9 @@ def client_fixture(session: Session):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture(scope="session", name="ks_demo_view_census_blocks")
+@pytest.fixture(scope="session", name=GERRY_DB_FIXTURE_NAME)
 def ks_demo_view_census_blocks_fixture():
-    layer = "ks_demo_view_census_blocks"
+    layer = GERRY_DB_FIXTURE_NAME
     result = subprocess.run(
         args=[
             "ogr2ogr",
@@ -134,7 +137,9 @@ def ks_demo_view_census_blocks_fixture():
 
 @pytest.fixture(name="document_id")
 def document_fixture(client):
-    response = client.post("/create_document")
+    response = client.post(
+        "/api/create_document", json={"gerrydb_table": GERRY_DB_FIXTURE_NAME}
+    )
     document_id = response.json()["document_id"]
     return document_id
 
@@ -142,7 +147,7 @@ def document_fixture(client):
 @pytest.fixture(name="assignments_document_id")
 def assignments_fixture(client, document_id):
     response = client.patch(
-        "/update_assignments",
+        "/api/update_assignments",
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
@@ -162,16 +167,32 @@ def test_db_is_alive(client):
 
 
 def test_new_document(client):
-    response = client.post("/create_document")
+    response = client.post(
+        "/api/create_document", json={"gerrydb_table": GERRY_DB_FIXTURE_NAME}
+    )
     assert response.status_code == 201
-    document_id = response.json().get("document_id", None)
-    assert document_id is not None
+    data = response.json()
+    document_id = data.get("document_id", None)
+    assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
+
+
+def test_patch_document(client, document_id):
+    response = client.patch(
+        f"/api/update_document/{document_id}",
+        json={"gerrydb_table": "foo"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("document_id") == document_id
+    assert data.get("gerrydb_table") == "foo"
+    assert data.get("updated_at")
 
 
 def test_patch_assignments(client, document_id):
     response = client.patch(
-        "/update_assignments",
+        "/api/update_assignments",
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
@@ -186,7 +207,7 @@ def test_patch_assignments(client, document_id):
 
 def test_patch_assignments_twice(client, document_id):
     response = client.patch(
-        "/update_assignments",
+        "/api/update_assignments",
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 0},
@@ -198,7 +219,7 @@ def test_patch_assignments_twice(client, document_id):
     assert response.json() == {"assignments_upserted": 2}
 
     response = client.patch(
-        "/update_assignments",
+        "/api/update_assignments",
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
@@ -210,7 +231,6 @@ def test_patch_assignments_twice(client, document_id):
     assert response.json() == {"assignments_upserted": 2}
     # Check that the assignments were updated and not inserted
     doc_uuid = str(uuid.UUID(document_id))
-    print("DOC UUID", doc_uuid)
     response = client.get(f"/get_assignments/{doc_uuid}")
     assert response.status_code == 200
     data = response.json()
@@ -220,3 +240,13 @@ def test_patch_assignments_twice(client, document_id):
     assert data[0]["geo_id"] == "202090416004010"
     assert data[1]["zone"] == 1
     assert data[1]["geo_id"] == "202090434001003"
+
+
+def test_get_document_population_totals(
+    client, assignments_document_id, ks_demo_view_census_blocks
+):
+    doc_uuid = str(uuid.UUID(assignments_document_id))
+    result = client.get(f"/api/document/{doc_uuid}/total_pop")
+    assert result.status_code == 200
+    data = result.json()
+    assert data == [{"zone": 1, "total_pop": 67}, {"zone": 2, "total_pop": 130}]

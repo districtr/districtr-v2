@@ -1,4 +1,5 @@
 from fastapi import FastAPI, status, Depends, HTTPException
+from pydantic import UUID4
 from sqlalchemy import text
 from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
@@ -12,7 +13,9 @@ from app.models import (
     Assignments,
     AssignmentsCreate,
     Document,
+    DocumentCreate,
     DocumentPublic,
+    ZonePopulation,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -31,6 +34,7 @@ logging.basicConfig(level=logging.INFO)
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:
     allow_origins = [str(origin).strip("/") for origin in settings.BACKEND_CORS_ORIGINS]
+    print(allow_origins)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
@@ -63,28 +67,57 @@ async def db_is_alive(session: Session = Depends(get_session)):
 
 
 @app.post(
-    "/create_document",
+    "/api/create_document",
     response_model=DocumentPublic,
     status_code=status.HTTP_201_CREATED,
 )
-async def create_document(session: Session = Depends(get_session)):
-    # To be created in the database
-    results = session.execute(text("SELECT create_document();"))
+async def create_document(
+    data: DocumentCreate, session: Session = Depends(get_session)
+):
+    results = session.execute(
+        text("SELECT create_document(:gerrydb_table_name);"),
+        {"gerrydb_table_name": data.gerrydb_table},
+    )
     document_id = results.one()[0]  # should be only one row, one column of results
     stmt = select(Document).where(Document.document_id == document_id)
     doc = session.exec(
         stmt
     ).one()  # again if we've got more than one, we have problems.
     if not doc.document_id:
+        session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Document creation failed",
         )
-
+    session.commit()
     return doc
 
 
-@app.patch("/update_assignments")
+@app.patch("/api/update_document/{document_id}", response_model=DocumentPublic)
+async def update_document(
+    document_id: UUID4, data: DocumentCreate, session: Session = Depends(get_session)
+):
+    # Validate that gerrydb_table exists?
+    stmt = text("""UPDATE document
+        SET
+            gerrydb_table = :gerrydb_table_name,
+            updated_at = now()
+        WHERE document_id = :document_id
+        RETURNING *""")
+    results = session.execute(
+        stmt, {"document_id": document_id, "gerrydb_table_name": data.gerrydb_table}
+    )
+    db_document = results.first()
+    if not db_document:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
+        )
+    session.commit()
+    return db_document
+
+
+@app.patch("/api/update_assignments")
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
@@ -104,3 +137,12 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
     # do we need to unpack returned assignments from returned results object?
     # I think probably?
     return results
+
+
+@app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
+async def get_total_population(
+    document_id: str, session: Session = Depends(get_session)
+):
+    stmt = text("SELECT * from get_total_population(:document_id)")
+    result = session.execute(stmt, {"document_id": document_id})
+    return [ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()]

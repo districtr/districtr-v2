@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import UUID4, BaseModel
 from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, UniqueConstraint, text, Column
 
 
@@ -39,11 +39,16 @@ class Document(TimeStampMixin, SQLModel, table=True):
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
-    gerrydb_table: str = Field(nullable=True)
+    gerrydb_table: str | None = Field(nullable=True)
+
+
+class DocumentCreate(BaseModel):
+    gerrydb_table: str | None
 
 
 class DocumentPublic(BaseModel):
-    document_id: str
+    document_id: UUID4
+    gerrydb_table: str | None
     created_at: datetime
     updated_at: datetime
 

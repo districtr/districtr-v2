@@ -116,6 +116,8 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
         logger.error("Failed to upsert GerryDB view. Got %s", e)
         raise ValueError(f"Failed to upsert GerryDB view. Got {e}")
 
+    session.close()
+
 
 if __name__ == "__main__":
     cli()
