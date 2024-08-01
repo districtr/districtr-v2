@@ -154,3 +154,11 @@ const createMapObject: () => Promise<responseObject> = async () => {
     throw error;
   }
 };
+
+export const CreateMapSession = () => {
+  const router = useRouter();
+  const createMapDocument = useCreateMapDocument();
+
+  createMapDocument.mutate();
+  router.push(`/session/${useMapStore.getState().documentId}`);
+};
