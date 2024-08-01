@@ -25,7 +25,7 @@ export default function RootLayout({
           radius="large"
           scaling="95%"
         >
-          {children}
+          <main>{children}</main>
         </Theme>
       </body>
     </html>
