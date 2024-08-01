@@ -17,7 +17,6 @@ import {
 import { useCreateMapDocument } from "../api/apiHandlers";
 import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
 import { useMapStore } from "../store/mapStore";
-import { useRouter } from "next/router";
 
 export const MapComponent: React.FC = () => {
   const router = useRouter();
