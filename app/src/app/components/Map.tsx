@@ -10,6 +10,7 @@ import { mapEvents, useHoverFeatureIds } from "../utils/events/mapEvents";
 import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "../constants/layers";
 import { useCreateMapDocument } from "../api/apiHandlers";
+import { useRouter } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
 import { useRouter } from "next/router";
 
@@ -59,7 +60,7 @@ export const MapComponent: React.FC = () => {
   useEffect(() => {
     // create a map document if the map is loaded and the uuid is not set via url
     if (mapLoaded && map.current && !useMapStore.getState().documentId) {
-      createMapDocument.mutate(map.current);
+      createMapDocument.mutate();
     }
   }, [mapLoaded, map.current]);
 
