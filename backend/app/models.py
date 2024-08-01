@@ -35,20 +35,29 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     name: str = Field(nullable=False, unique=True)
 
 
+class GerryDBTiles(TimeStampMixin, SQLModel, table=True):
+    uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
+    name: str = Field(nullable=False)
+    s3_path: str = Field(nullable=False)
+
+
 class Document(TimeStampMixin, SQLModel, table=True):
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
     gerrydb_table: str | None = Field(nullable=True)
+    gerrydb_tiles: str | None = Field(nullable=True)
 
 
 class DocumentCreate(BaseModel):
     gerrydb_table: str | None
+    gerrydb_tiles: str | None
 
 
 class DocumentPublic(BaseModel):
     document_id: UUID4
     gerrydb_table: str | None
+    gerrydb_tiles: str | None
     created_at: datetime
     updated_at: datetime
 

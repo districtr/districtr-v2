@@ -1,4 +1,5 @@
 import os
+import re
 import dotenv
 from logging.config import fileConfig
 
@@ -43,7 +44,7 @@ def get_url():
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    if name == "spatial_ref_sys":
+    if name and (name == "spatial_ref_sys" or re.match(r"assignments_.+", name)):
         return False
     return True
 

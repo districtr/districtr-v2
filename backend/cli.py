@@ -25,10 +25,7 @@ def cli():
 @click.option("--replace", "-f", help="Replace the file if it exists", is_flag=True)
 @click.option("--rm", "-r", help="Delete file after loading to postgres", is_flag=True)
 def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
-    if layer == "":
-        raise ValueError("Layer name is required")
-
-    print("Importing GerryDB view...")
+    logger.info("Importing GerryDB view...")
 
     url = urlparse(gpkg)
     logger.info("URL: %s", url)
@@ -86,7 +83,7 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
         os.remove(path)
         logger.info("Deleted file %s", path)
 
-    print("GerryDB view imported successfully")
+    logger.info("GerryDB view imported successfully")
 
     _session = get_session()
     session = next(_session)
@@ -117,6 +114,17 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
         raise ValueError(f"Failed to upsert GerryDB view. Got {e}")
 
     session.close()
+
+
+@cli.command("create-gerrydb-tileset")
+@click.option("--layer", "-n", help="layer of the view", required=True)
+@click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
+@click.option("--replace", "-f", help="Replace the file if it exists", is_flag=True)
+def create_gerrydb_tileset(layer: str, gpkg: str, replace: bool) -> None:
+    logger.info("Creating GerryDB tileset...")
+
+    url = urlparse(gpkg)
+    logger.info("URL: %s", url)
 
 
 if __name__ == "__main__":
