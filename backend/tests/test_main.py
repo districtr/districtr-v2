@@ -53,6 +53,7 @@ def test_get_session():
 
 
 GERRY_DB_FIXTURE_NAME = "ks_demo_view_census_blocks"
+GERRY_DB_FIXTURE_TILESET = "ks_demo_view_census_blocks.pmtiles"
 
 
 ## Test DB
@@ -138,7 +139,11 @@ def ks_demo_view_census_blocks_fixture():
 @pytest.fixture(name="document_id")
 def document_fixture(client):
     response = client.post(
-        "/api/create_document", json={"gerrydb_table": GERRY_DB_FIXTURE_NAME}
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+            "gerrydb_tiles": GERRY_DB_FIXTURE_TILESET,
+        },
     )
     document_id = response.json()["document_id"]
     return document_id
@@ -168,7 +173,11 @@ def test_db_is_alive(client):
 
 def test_new_document(client):
     response = client.post(
-        "/api/create_document", json={"gerrydb_table": GERRY_DB_FIXTURE_NAME}
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+            "gerrydb_tiles": GERRY_DB_FIXTURE_TILESET,
+        },
     )
     assert response.status_code == 201
     data = response.json()
@@ -181,7 +190,7 @@ def test_new_document(client):
 def test_patch_document(client, document_id):
     response = client.patch(
         f"/api/update_document/{document_id}",
-        json={"gerrydb_table": "foo"},
+        json={"gerrydb_table": "foo", "gerrydb_tiles": "bar"},
     )
     assert response.status_code == 200
     data = response.json()
