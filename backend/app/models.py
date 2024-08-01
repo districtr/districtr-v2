@@ -37,7 +37,7 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
 
 class GerryDBTiles(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
-    name: str = Field(nullable=False)
+    name: str = Field(nullable=False, unique=True)
     s3_path: str = Field(nullable=False)
 
 
