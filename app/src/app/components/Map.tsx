@@ -10,20 +10,22 @@ import { mapEvents, useHoverFeatureIds } from "../utils/events/mapEvents";
 import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "../constants/layers";
 import { useCreateMapDocument } from "../api/apiHandlers";
+import { useRouter, usePathname } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
 
 export const MapComponent: React.FC = () => {
+  const router = useRouter();
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
   const createMapDocument = useCreateMapDocument();
-  const { zoneAssignments, selectedZone } = useMapStore((state) => ({
-    zoneAssignments: state.zoneAssignments,
-    selectedZone: state.selectedZone,
-  }));
-
+  const setRouter = useMapStore((state) => state.setRouter);
+  const setPathname = useMapStore((state) => state.setPathname);
+  const pathname = usePathname();
   useEffect(() => {
+    setRouter(router);
+    setPathname(pathname);
     if (map.current || !mapContainer.current) return;
     map.current = new maplibregl.Map({
       container: mapContainer.current,
@@ -61,7 +63,7 @@ export const MapComponent: React.FC = () => {
   useEffect(() => {
     // create a map document if the map is loaded and the uuid is not set via url
     if (mapLoaded && map.current && !useMapStore.getState().documentId) {
-      createMapDocument.mutate(map.current);
+      createMapDocument.mutate();
     }
   }, [mapLoaded, map.current]);
 
