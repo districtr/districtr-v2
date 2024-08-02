@@ -16,6 +16,7 @@ import {
 } from "../utils/events/mapEvents";
 import { useCreateMapDocument } from "../api/apiHandlers";
 import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
+import { useRouter, usePathname } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
 
 export const MapComponent: React.FC = () => {
@@ -25,14 +26,11 @@ export const MapComponent: React.FC = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
   const createMapDocument = useCreateMapDocument();
-<<<<<<< HEAD
 
   const { freshMap, setFreshMap } = useMapStore((state) => ({
     freshMap: state.freshMap,
     setFreshMap: state.setFreshMap,
   }));
-=======
->>>>>>> bring routing work to new branch
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -42,7 +40,13 @@ export const MapComponent: React.FC = () => {
     };
   }, []);
 
+  const setRouter = useMapStore((state) => state.setRouter);
+  const setPathname = useMapStore((state) => state.setPathname);
+  const pathname = usePathname();
+
   useEffect(() => {
+    setRouter(router);
+    setPathname(pathname);
     if (map.current || !mapContainer.current) return;
 
     map.current = new maplibregl.Map({

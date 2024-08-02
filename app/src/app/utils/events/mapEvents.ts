@@ -1,6 +1,7 @@
 /**
  Port over from map events declared at: https://github.com/uchicago-dsi/districtr-components/blob/2e8f9e5657b9f0fd2419b6f3258efd74ae310f32/src/Districtr/Districtr.tsx#L230
  */
+"use client";
 import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
 import { MutableRefObject, useRef } from "react";
@@ -23,7 +24,7 @@ MapEvent handling; these functions are called by the event listeners in the MapC
 export const handleMapClick = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -50,7 +51,7 @@ export const handleMapClick = (
 export const handleMapMouseUp = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -65,7 +66,7 @@ export const handleMapMouseUp = (
 export const handleMapMouseDown = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -88,31 +89,31 @@ export const handleMapMouseDown = (
 export const handleMapMouseEnter = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const handleMapMouseOver = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const handleMapMouseMove = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -140,23 +141,37 @@ export const handleMapMouseMove = (
 export const handleMapZoom = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const handleMapIdle = () => {};
+
 export const handleMapMoveEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-) => {};
+  map: MutableRefObject<Map | null>
+) => {
+  const { lng, lat } = map.current?.getCenter() || { lng: 0, lat: 0 };
+  const zoom = map.current?.getZoom() || 0;
+
+  const router = useMapStore.getState().router;
+  const pathname = useMapStore.getState().pathname;
+  if (!router) return;
+  const urlParams = new URLSearchParams();
+  urlParams.set("lat", lat.toFixed(5).toString());
+  urlParams.set("lng", lng.toFixed(5).toString());
+  urlParams.set("zoom", zoom.toFixed(2).toString());
+
+  SetUpdateUrlParams(router, pathname, urlParams);
+};
 
 export const handleMapZoomEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const handleResetMapSelectState = (
-  map: MutableRefObject<Map | null>,
+  map: MutableRefObject<Map | null>
 ) => {
   const mapStore = useMapStore.getState();
   const sourceLayer = mapStore.selectedLayer?.name;
@@ -170,6 +185,14 @@ export const handleResetMapSelectState = (
 export const useHoverFeatureIds = () => {
   const hoverFeatureIds = useRef(new Set<string>());
   return hoverFeatureIds;
+};
+
+export const SetUpdateUrlParams = (
+  router: any,
+  pathname: string,
+  params: URLSearchParams
+) => {
+  router.push(pathname + "?" + params.toString());
 };
 
 export const mapEvents = [

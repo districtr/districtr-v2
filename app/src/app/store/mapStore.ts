@@ -33,6 +33,10 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
+  router: any;
+  setRouter: (router: any) => void;
+  pathname: string;
+  setPathname: (pathname: string) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -148,4 +152,15 @@ export const useMapStore = create<MapStore>((set) => ({
    */
   freshMap: false,
   setFreshMap: (resetMap: boolean) => set({ freshMap: resetMap }),
+  /* Next router instance
+   * @type any
+   */
+  router: null,
+  setRouter: (router: any) => set({ router: router }),
+  /**
+   * Current pathname
+   * @type string
+   */
+  pathname: "",
+  setPathname: (pathname: string) => set({ pathname: pathname }),
 }));
