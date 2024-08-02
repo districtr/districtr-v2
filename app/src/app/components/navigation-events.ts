@@ -7,5 +7,5 @@ export const CreateMapSession = () => {
   const createMapDocument = useCreateMapDocument();
 
   createMapDocument.mutate();
-  router.push(`/s/${useMapStore.getState().uuid}`);
+  router.push(`/s/${useMapStore.getState().documentId}`);
 };

@@ -1,6 +1,7 @@
 /**
  Port over from map events declared at: https://github.com/uchicago-dsi/districtr-components/blob/2e8f9e5657b9f0fd2419b6f3258efd74ae310f32/src/Districtr/Districtr.tsx#L230
  */
+"use client";
 import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
 import { MutableRefObject, useRef } from "react";
@@ -8,7 +9,6 @@ import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import { boxAroundPoint } from "../helpers";
 import React from "react";
 import { HighlightFeature, SelectFeatures } from "./handlers";
-
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
 */
@@ -140,10 +140,24 @@ export const handleMapZoom = (
 ) => {};
 
 export const handleMapIdle = () => {};
+
 export const handleMapMoveEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>
-) => {};
+) => {
+  const { lng, lat } = map.current?.getCenter() || { lng: 0, lat: 0 };
+  const zoom = map.current?.getZoom() || 0;
+
+  const router = useMapStore.getState().router;
+  const pathname = useMapStore.getState().pathname;
+  if (!router) return;
+  const urlParams = new URLSearchParams();
+  urlParams.set("lat", lat.toFixed(5).toString());
+  urlParams.set("lng", lng.toFixed(5).toString());
+  urlParams.set("zoom", zoom.toFixed(2).toString());
+
+  SetUpdateUrlParams(router, pathname, urlParams);
+};
 
 export const handleMapZoomEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
@@ -154,6 +168,14 @@ export const handleMapZoomEnd = (
 export const useHoverFeatureIds = () => {
   const hoverFeatureIds = useRef(new Set<string>());
   return hoverFeatureIds;
+};
+
+export const SetUpdateUrlParams = (
+  router: any,
+  pathname: string,
+  params: URLSearchParams
+) => {
+  router.push(pathname + "?" + params.toString());
 };
 
 export const mapEvents = [

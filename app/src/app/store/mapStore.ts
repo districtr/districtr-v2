@@ -20,6 +20,10 @@ export interface MapStore {
   setBrushSize: (size: number) => void;
   isPainting: boolean;
   setIsPainting: (isPainting: boolean) => void;
+  router: any;
+  setRouter: (router: any) => void;
+  pathname: string;
+  setPathname: (pathname: string) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -45,7 +49,7 @@ export const useMapStore = create<MapStore>((set) => ({
    * Selected tool for the user to interact with the map
    * @type {ActiveTool}
    */
-  activeTool: "brush",
+  activeTool: "pan",
   setActiveTool: (tool: ActiveTool) => set({ activeTool: tool }),
   /**
    * Spatial unit of geometry available to the user
@@ -99,4 +103,16 @@ export const useMapStore = create<MapStore>((set) => ({
    */
   isPainting: false,
   setIsPainting: (isPainting: boolean) => set({ isPainting: isPainting }),
+  /**
+   * Next router instance
+   * @type any
+   */
+  router: null,
+  setRouter: (router: any) => set({ router: router }),
+  /**
+   * Current pathname
+   * @type string
+   */
+  pathname: "",
+  setPathname: (pathname: string) => set({ pathname: pathname }),
 }));

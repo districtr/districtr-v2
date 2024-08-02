@@ -10,7 +10,7 @@ import { mapEvents, useHoverFeatureIds } from "../utils/events/mapEvents";
 import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "../constants/layers";
 import { useCreateMapDocument } from "../api/apiHandlers";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
 
 export const MapComponent: React.FC = () => {
@@ -20,8 +20,12 @@ export const MapComponent: React.FC = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
   const createMapDocument = useCreateMapDocument();
-
+  const setRouter = useMapStore((state) => state.setRouter);
+  const setPathname = useMapStore((state) => state.setPathname);
+  const pathname = usePathname();
   useEffect(() => {
+    setRouter(router);
+    setPathname(pathname);
     if (map.current || !mapContainer.current) return;
     map.current = new maplibregl.Map({
       container: mapContainer.current,
