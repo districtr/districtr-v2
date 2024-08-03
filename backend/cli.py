@@ -7,7 +7,6 @@ import subprocess
 from urllib.parse import urlparse, ParseResult
 from sqlalchemy import text
 from app.constants import GERRY_DB_SCHEMA
-# from fastapi import Depends
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -18,9 +17,7 @@ def cli():
     pass
 
 
-def download_file_from_s3(url: ParseResult, replace=False) -> str:
-    s3 = settings.get_s3_client()
-
+def download_file_from_s3(s3, url: ParseResult, replace=False) -> str:
     if not s3:
         raise ValueError("S3 client is not available")
 
@@ -33,7 +30,7 @@ def download_file_from_s3(url: ParseResult, replace=False) -> str:
             f"GeoPackage file {file_name} not found in S3 bucket {url.netloc}"
         )
 
-    logger.info("Importing GerryDB view. Got response:\n%s", object_information)
+    logger.info("Downloading GerryDB view. Got response:\n%s", object_information)
 
     # Download to settings.VOLUME_PATH
     path = os.path.join(settings.VOLUME_PATH, file_name)
@@ -59,7 +56,9 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
     logger.info("URL: %s", url)
 
     if url.scheme == "s3":
-        path = download_file_from_s3(url, replace)
+        s3 = settings.get_s3_client()
+        assert s3, "S3 client is not available"
+        path = download_file_from_s3(s3, url, replace)
     else:
         path = gpkg
 
@@ -122,14 +121,19 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
 @click.option("--layer", "-n", help="layer of the view", required=True)
 @click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
 @click.option("--replace", "-f", help="Replace the file if it exists", is_flag=True)
-def create_gerrydb_tileset(layer: str, gpkg: str, replace: bool) -> None:
+@click.option(
+    "--rm", "-r", help="Delete tileset after loading to postgres", is_flag=True
+)
+def create_gerrydb_tileset(layer: str, gpkg: str, replace: bool, rm: bool) -> None:
     logger.info("Creating GerryDB tileset...")
+    s3 = settings.get_s3_client()
+    assert s3, "S3 client is not available"
 
     url = urlparse(gpkg)
     logger.info("URL: %s", url)
 
     if url.scheme == "s3":
-        path = download_file_from_s3(url, replace)
+        path = download_file_from_s3(s3, url, replace)
     else:
         path = gpkg
 
@@ -143,6 +147,8 @@ def create_gerrydb_tileset(layer: str, gpkg: str, replace: bool) -> None:
                 "ogr2ogr",
                 "-f",
                 "FlatGeobuf",
+                "-select",
+                "path,total_pop,geography",
                 fbg_path,
                 path,
                 layer,
@@ -159,34 +165,39 @@ def create_gerrydb_tileset(layer: str, gpkg: str, replace: bool) -> None:
     if os.path.exists(tileset_path) and not replace:
         logger.info("File already exists. Skipping creation.")
     else:
-        result = subprocess.run(
-            args=[
-                "tippecanoe",
-                "-pf",
-                "-pk",
-                "-ps",
-                "-o",
-                tileset_path,
-                "-l",
-                layer,
-                fbg_path,
-            ]
-        )
+        args = [
+            "tippecanoe",
+            "-pf",
+            "-pk",
+            "-ps",
+            "-o",
+            tileset_path,
+            "-l",
+            layer,
+            fbg_path,
+        ]
+        if replace:
+            args.append("--force")
+        result = subprocess.run(args=args)
 
         if result.returncode != 0:
             logger.error("tippecanoe failed. Got %s", result)
             raise ValueError(f"tippecanoe failed with return code {result.returncode}")
 
     logger.info("Uploading to R2")
-    s3 = settings.get_s3_client()
-    assert s3, "S3 client is not available"
     s3.put_object(Bucket=settings.R2_BUCKET_NAME, Key="tilesets/")
     s3_path = f"tilesets/{layer}.pmtiles"
     s3.upload_file(
-        f"{settings.VOLUME_PATH}/{layer}.pmtiles",
+        tileset_path,
         settings.R2_BUCKET_NAME,
         s3_path,
     )
+
+    if rm:
+        os.remove(path)
+        os.remove(fbg_path)
+        os.remove(tileset_path)
+        logger.info("Deleted files %s, %s, %s", path, fbg_path, tileset_path)
 
     logger.info("GerryDB tileset uploaded successfully")
 
