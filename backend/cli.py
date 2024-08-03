@@ -148,7 +148,9 @@ def create_gerrydb_tileset(layer: str, gpkg: str, replace: bool, rm: bool) -> No
                 "-f",
                 "FlatGeobuf",
                 "-select",
-                "path,total_pop,geography",
+                "path,total_pop,geography",  # this is failing for some layers where the pop total is total_vap
+                "-t_srs",
+                "EPSG:4326",
                 fbg_path,
                 path,
                 layer,
