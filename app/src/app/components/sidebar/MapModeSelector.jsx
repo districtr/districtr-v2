@@ -55,14 +55,6 @@ const RadioGroupRoot = styled(RadioGroup.Root, {
 });
 
 const RadioGroupItem = styled(RadioGroup.Item, {
-  // all: "unset",
-  // backgroundColor: "white",
-  // width: 25,
-  // height: 25,
-  // borderRadius: "100%",
-  // boxShadow: `0 2px 10px ${blackA.blackA4}`,
-  // "&:hover": { backgroundColor: violet.violet3 },
-  // "&:focus": { boxShadow: `0 0 0 2px black` },
   display: "grid",
   alignItems: "center",
   padding: "1rem",

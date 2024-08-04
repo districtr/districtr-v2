@@ -1,13 +1,10 @@
 import { useMapStore } from "@/app/store/mapStore";
-import { useEffect } from "react";
 
 export function ResetMapButton() {
-  const { setFreshMap } = useMapStore((state) => ({
-    setFreshMap: state.setFreshMap,
-  }));
+  const mapStore = useMapStore.getState();
 
   const handleClickResetMap = () => {
-    setFreshMap(true);
+    mapStore.setFreshMap(true);
   };
 
   return (
