@@ -72,10 +72,3 @@ const RadioGroupItem = styled(RadioGroup.Item, {
 });
 
 const Flex = styled("div", { display: "grid" });
-
-const Label = styled("label", {
-  color: "black",
-  fontSize: 15,
-  lineHeight: 1,
-  paddingLeft: 15,
-});
