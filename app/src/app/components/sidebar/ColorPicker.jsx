@@ -32,16 +32,20 @@ export function ColorPicker() {
     setZoneAssignments(selectedZone, accumulatedGeoids);
     setSelectedZone(value);
   };
-
   return (
     <div>
-      <RadioGroupRoot onValueChange={handleRadioChange}>
+      <RadioGroupRoot
+        onValueChange={handleRadioChange}
+        defaultValue={colorArray[0]}
+      >
         {colorArray.map((color, i) => (
           <RadioGroupItem
             key={i}
             style={{ backgroundColor: color }}
             value={color}
-          />
+          >
+            <RadioGroupIndicator />
+          </RadioGroupItem>
         ))}
       </RadioGroupRoot>
     </div>
@@ -49,8 +53,8 @@ export function ColorPicker() {
 }
 
 const StyledColorPicker = styled(Button, {
-  width: 20,
-  height: 20,
+  width: 25,
+  height: 25,
   borderRadius: 10,
   margin: 5,
   "&:selected": {
@@ -69,6 +73,24 @@ const RadioGroupItem = styled(RadioGroup.Item, {
   border: "1px solid #ccc",
   borderRadius: "8px",
   cursor: "pointer",
+});
+
+const RadioGroupIndicator = styled(RadioGroup.Indicator, {
+  // display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "100%",
+  height: "100%",
+  position: "relative",
+  textAlign: "-webkit-center",
+  "&::after": {
+    content: '""',
+    display: "block",
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+    backgroundColor: "#fff",
+  },
 });
 
 const RadioGroupRoot = styled(RadioGroup.Root, {});
