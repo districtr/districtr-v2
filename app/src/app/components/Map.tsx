@@ -1,12 +1,16 @@
 "use client";
 import type { MutableRefObject } from "react";
-import React, { use, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { Map, MapLayerEventType } from "maplibre-gl";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_OPTIONS } from "../constants/configuration";
 import { addLayer } from "../constants/layers";
-import { mapEvents, useHoverFeatureIds } from "../utils/events/mapEvents";
+import {
+  mapEvents,
+  useHoverFeatureIds,
+  handleResetMapSelectState,
+} from "../utils/events/mapEvents";
 import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "../constants/layers";
 import { useCreateMapDocument } from "../api/apiHandlers";
@@ -18,9 +22,10 @@ export const MapComponent: React.FC = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
   const createMapDocument = useCreateMapDocument();
-  const { zoneAssignments, selectedZone } = useMapStore((state) => ({
-    zoneAssignments: state.zoneAssignments,
-    selectedZone: state.selectedZone,
+  const mapStore = useMapStore.getState();
+  const { freshMap, setFreshMap } = useMapStore((state) => ({
+    freshMap: state.freshMap,
+    setFreshMap: state.setFreshMap,
   }));
 
   useEffect(() => {
@@ -64,6 +69,12 @@ export const MapComponent: React.FC = () => {
       createMapDocument.mutate(map.current);
     }
   }, [mapLoaded, map.current]);
+
+  useEffect(() => {
+    if (mapLoaded && map.current) {
+      handleResetMapSelectState(map);
+    }
+  }, [mapLoaded, map.current, freshMap]);
 
   return <div className="h-full w-full-minus-sidebar" ref={mapContainer} />;
 };

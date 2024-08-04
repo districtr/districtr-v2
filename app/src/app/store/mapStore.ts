@@ -15,11 +15,15 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   zoneAssignments: Map<string, number>; // geoid -> zone
   setZoneAssignments: (zone: Zone, geoids: Set<GEOID>) => void;
+  resetZoneAssignments: () => void;
   accumulatedGeoids: Set<string>;
   brushSize: number;
   setBrushSize: (size: number) => void;
   isPainting: boolean;
   setIsPainting: (isPainting: boolean) => void;
+  clearMapEdits: () => void;
+  freshMap: boolean;
+  setFreshMap: (resetMap: boolean) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -86,6 +90,8 @@ export const useMapStore = create<MapStore>((set) => ({
         accumulatedGeoids: new Set<string>(),
       };
     }),
+  resetZoneAssignments: () => set({ zoneAssignments: new Map() }),
+
   /**
    * Size of the brush for painting in pixels
    * @type {number}
@@ -99,4 +105,22 @@ export const useMapStore = create<MapStore>((set) => ({
    */
   isPainting: false,
   setIsPainting: (isPainting: boolean) => set({ isPainting: isPainting }),
+  /**
+   * Clear all edits on the map
+   */
+  clearMapEdits: () =>
+    set({
+      zoneAssignments: new Map(),
+      accumulatedGeoids: new Set<string>(),
+      selectedZone: 1,
+    }),
+  /**
+   * Flag to determine if the map is fresh or has been edited
+   * @type boolean
+   * @default false
+   * @description
+   * Used to determine if the user has made edits to the map
+   */
+  freshMap: false,
+  setFreshMap: (resetMap: boolean) => set({ freshMap: resetMap }),
 }));

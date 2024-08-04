@@ -2,7 +2,6 @@ import { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
 import { BLOCKS_SOURCE } from "./sources";
-import { color10 } from "./colors";
 export const BLOCK_LAYER_ID = "blocks";
 export const BLOCK_LAYER_SOURCE_ID = "co_blocks_wgs4fgb";
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [

@@ -1,5 +1,6 @@
 import { MapModeSelector } from "./MapModeSelector";
 import { ColorPicker } from "./ColorPicker";
+import { ResetMapButton } from "./ResetMapButton";
 
 export default function SidebarComponent() {
   return (
@@ -9,6 +10,9 @@ export default function SidebarComponent() {
       </div>
       <div className="flex flex-col items-center py-1.5">
         <ColorPicker />
+      </div>
+      <div className="flex flex-col items-center py-1.5">
+        <ResetMapButton />
       </div>
     </div>
   );
