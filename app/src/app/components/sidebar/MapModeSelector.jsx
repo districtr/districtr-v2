@@ -1,8 +1,9 @@
 import React from "react";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import { styled } from "@stitches/react";
-import { violet, blackA } from "@radix-ui/colors";
+import { blackA } from "@radix-ui/colors";
 import { useMapStore } from "../../store/mapStore";
+import { RadioCards, Box } from "@radix-ui/themes";
 
 export function MapModeSelector() {
   const mapStore = useMapStore.getState();
@@ -13,9 +14,9 @@ export function MapModeSelector() {
 
   if (!activeTool) return null;
   const activeTools = [
-    { mode: "pan", disabled: false },
-    { mode: "brush", disabled: false },
-    { mode: "erase", disabled: true },
+    { mode: "pan", disabled: false, label: "Pan" },
+    { mode: "brush", disabled: false, label: "Brush" },
+    { mode: "erase", disabled: true, label: "Erase" },
   ];
 
   const handleRadioChange = (value) => {
@@ -24,65 +25,53 @@ export function MapModeSelector() {
   };
 
   return (
-    <form>
-      <RadioGroupRoot
+    <Box>
+      <RadioCards.Root
         defaultValue="default"
-        aria-label="View density"
         value={activeTool}
         onValueChange={handleRadioChange}
+        columns={{ initial: "1", sm: "3" }}
       >
         {activeTools.map((tool) => (
-          <Flex css={{ alignItems: "center" }} key={`${tool.mode}-flex`}>
-            <RadioGroupItem
+          <Flex key={`${tool.mode}-flex`} direction="column" width="100%">
+            <RadioCards.Item
               value={tool.mode}
               id={tool.mode}
               disabled={tool.disabled}
             >
-              <RadioGroupIndicator />
-            </RadioGroupItem>
-            <Label htmlFor={tool.mode}>{tool.mode}</Label>
+              {tool.label}
+            </RadioCards.Item>
           </Flex>
         ))}
-      </RadioGroupRoot>
-    </form>
+      </RadioCards.Root>
+    </Box>
   );
 }
 
 const RadioGroupRoot = styled(RadioGroup.Root, {
-  display: "flex",
+  display: "grid",
   flexDirection: "column",
   gap: 10,
 });
 
 const RadioGroupItem = styled(RadioGroup.Item, {
-  all: "unset",
-  backgroundColor: "white",
-  width: 25,
-  height: 25,
-  borderRadius: "100%",
-  boxShadow: `0 2px 10px ${blackA.blackA4}`,
-  "&:hover": { backgroundColor: violet.violet3 },
-  "&:focus": { boxShadow: `0 0 0 2px black` },
-});
-
-const RadioGroupIndicator = styled(RadioGroup.Indicator, {
-  display: "flex",
+  // all: "unset",
+  // backgroundColor: "white",
+  // width: 25,
+  // height: 25,
+  // borderRadius: "100%",
+  // boxShadow: `0 2px 10px ${blackA.blackA4}`,
+  // "&:hover": { backgroundColor: violet.violet3 },
+  // "&:focus": { boxShadow: `0 0 0 2px black` },
+  display: "grid",
   alignItems: "center",
-  justifyContent: "center",
-  width: "100%",
-  height: "100%",
-  position: "relative",
-  "&::after": {
-    content: '""',
-    display: "block",
-    width: 11,
-    height: 11,
-    borderRadius: "50%",
-    backgroundColor: violet.violet11,
-  },
+  padding: "1rem",
+  border: "1px solid #ccc",
+  borderRadius: "8px",
+  cursor: "pointer",
 });
 
-const Flex = styled("div", { display: "flex" });
+const Flex = styled("div", { display: "grid" });
 
 const Label = styled("label", {
   color: "black",
