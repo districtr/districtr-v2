@@ -69,7 +69,8 @@ export const handleMapMouseDown = (
   const activeTool = mapStore.activeTool;
 
   if (activeTool === "pan") {
-    return;
+    // enable drag pan
+    map.current?.dragPan.enable();
   } else if (activeTool === "brush" || activeTool === "eraser") {
     // disable drag pan
     map.current?.dragPan.disable();
