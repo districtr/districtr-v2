@@ -12,7 +12,11 @@ export function MapModeSelector() {
   }));
 
   if (!activeTool) return null;
-  const activeTools = ["pan", "brush", "erase"];
+  const activeTools = [
+    { mode: "pan", disabled: false },
+    { mode: "brush", disabled: false },
+    { mode: "erase", disabled: true },
+  ];
 
   const handleRadioChange = (value) => {
     console.log("setting active tool to", value);
@@ -28,11 +32,15 @@ export function MapModeSelector() {
         onValueChange={handleRadioChange}
       >
         {activeTools.map((tool) => (
-          <Flex css={{ alignItems: "center" }} key={`${tool}-flex`}>
-            <RadioGroupItem value={tool} id={tool}>
+          <Flex css={{ alignItems: "center" }} key={`${tool.mode}-flex`}>
+            <RadioGroupItem
+              value={tool.mode}
+              id={tool.mode}
+              disabled={tool.disabled}
+            >
               <RadioGroupIndicator />
             </RadioGroupItem>
-            <Label htmlFor={tool}>{tool}</Label>
+            <Label htmlFor={tool.mode}>{tool.mode}</Label>
           </Flex>
         ))}
       </RadioGroupRoot>

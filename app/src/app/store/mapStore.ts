@@ -45,7 +45,7 @@ export const useMapStore = create<MapStore>((set) => ({
    * Selected tool for the user to interact with the map
    * @type {ActiveTool}
    */
-  activeTool: "brush",
+  activeTool: "pan",
   setActiveTool: (tool: ActiveTool) => set({ activeTool: tool }),
   /**
    * Spatial unit of geometry available to the user
