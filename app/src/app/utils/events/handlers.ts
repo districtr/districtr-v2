@@ -46,7 +46,7 @@ export const SelectFeatures = (
         id: feature?.id ?? undefined,
         sourceLayer: BLOCK_LAYER_SOURCE_ID,
       },
-      { selected: true, zone: Number(mapStoreRef.selectedZone) }
+      { selected: true, zone: mapStoreRef.selectedZone }
     );
   });
   if (features?.length) {

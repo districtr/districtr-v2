@@ -4,18 +4,44 @@ import { Button } from "@radix-ui/themes";
 import { styled } from "@stitches/react";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import { blackA } from "@radix-ui/colors";
+import { useMapStore } from "../../store/mapStore";
 
 export function ColorPicker() {
   const [color, setColor] = useState(null);
   const [open, setOpen] = useState(false);
+  const {
+    selectedZone,
+    setSelectedZone,
+    setZoneAssignments,
+    accumulatedGeoids,
+  } = useMapStore((state) => ({
+    selectedZone: state.selectedZone,
+    setSelectedZone: state.setSelectedZone,
+    setZoneAssignments: state.setZoneAssignments,
+    accumulatedGeoids: state.accumulatedGeoids,
+  }));
   const colorArray = color10;
   if (!colorArray) return null;
+  const handleRadioChange = (value) => {
+    console.log(
+      "setting accumulated geoids to old zone",
+      selectedZone,
+      "new zone is",
+      value
+    );
+    setZoneAssignments(selectedZone, accumulatedGeoids);
+    setSelectedZone(value);
+  };
 
   return (
     <div>
-      <RadioGroupRoot>
+      <RadioGroupRoot onValueChange={handleRadioChange}>
         {colorArray.map((color, i) => (
-          <RadioGroupItem key={i} style={{ backgroundColor: color }} />
+          <RadioGroupItem
+            key={i}
+            style={{ backgroundColor: color }}
+            value={color}
+          />
         ))}
       </RadioGroupRoot>
     </div>
