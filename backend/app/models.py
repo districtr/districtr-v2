@@ -1,7 +1,16 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import UUID4, BaseModel
-from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, UniqueConstraint, text, Column
+from sqlmodel import (
+    Field,
+    SQLModel,
+    UUID,
+    TIMESTAMP,
+    UniqueConstraint,
+    text,
+    Column,
+    ForeignKey,
+)
 
 
 class UUIDType(UUID):
@@ -35,10 +44,18 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     name: str = Field(nullable=False, unique=True)
 
 
+# Since `table_uuid` foreign key is unique, is there a good reason for tiles to be a separate table?
 class GerryDBTiles(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
-    name: str = Field(nullable=False, unique=True)
+    table_uuid: str = Field(
+        sa_column=Column(UUIDType, ForeignKey(GerryDBTable.uuid), unique=True)
+    )
     s3_path: str = Field(nullable=False)
+
+
+class GerryDBViewPublic(BaseModel):
+    table_name: str
+    tiles_s3_path: str | None
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
@@ -46,18 +63,15 @@ class Document(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
     gerrydb_table: str | None = Field(nullable=True)
-    gerrydb_tiles: str | None = Field(nullable=True)
 
 
 class DocumentCreate(BaseModel):
     gerrydb_table: str | None
-    gerrydb_tiles: str | None
 
 
 class DocumentPublic(BaseModel):
     document_id: UUID4
     gerrydb_table: str | None
-    gerrydb_tiles: str | None
     created_at: datetime
     updated_at: datetime
 

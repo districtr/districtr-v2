@@ -1,4 +1,5 @@
 import os
+from typing import Iterable
 import click
 import logging
 from app.main import get_session
@@ -122,9 +123,22 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
 @click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
 @click.option("--replace", "-f", help="Replace the file if it exists", is_flag=True)
 @click.option(
+    "--column",
+    "-c",
+    help="Column to use for tileset",
+    multiple=True,
+    default=[
+        "path",
+        "geography",
+        "total_pop",
+    ],
+)
+@click.option(
     "--rm", "-r", help="Delete tileset after loading to postgres", is_flag=True
 )
-def create_gerrydb_tileset(layer: str, gpkg: str, replace: bool, rm: bool) -> None:
+def create_gerrydb_tileset(
+    layer: str, gpkg: str, replace: bool, column: Iterable[str], rm: bool
+) -> None:
     logger.info("Creating GerryDB tileset...")
     s3 = settings.get_s3_client()
     assert s3, "S3 client is not available"
@@ -148,7 +162,7 @@ def create_gerrydb_tileset(layer: str, gpkg: str, replace: bool, rm: bool) -> No
                 "-f",
                 "FlatGeobuf",
                 "-select",
-                "path,total_pop,geography",  # this is failing for some layers where the pop total is total_vap
+                ",".join(column),
                 "-t_srs",
                 "EPSG:4326",
                 fbg_path,
@@ -208,11 +222,17 @@ def create_gerrydb_tileset(layer: str, gpkg: str, replace: bool, rm: bool) -> No
     session = next(_session)
 
     upsert_query = text("""
-        INSERT INTO gerrydbtiles (uuid, name, s3_path, updated_at)
-        VALUES (gen_random_uuid(), :name, :s3_path, now())
-        ON CONFLICT (name)
+        INSERT INTO gerrydbtiles (uuid, table_uuid, s3_path, updated_at)
+        VALUES (
+            gen_random_uuid(),
+            (SELECT uuid FROM gerrydbtable WHERE name = :name),
+            :s3_path,
+            now()
+        )
+        ON CONFLICT (table_uuid)
         DO UPDATE SET
-            updated_at = now()
+            updated_at = now(),
+            s3_path = :s3_path
         RETURNING uuid
     """)
 

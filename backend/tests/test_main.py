@@ -53,7 +53,6 @@ def test_get_session():
 
 
 GERRY_DB_FIXTURE_NAME = "ks_demo_view_census_blocks"
-GERRY_DB_FIXTURE_TILESET = "ks_demo_view_census_blocks.pmtiles"
 
 
 ## Test DB
@@ -136,13 +135,40 @@ def ks_demo_view_census_blocks_fixture():
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
 
+@pytest.fixture(name="gerrydbtable")
+def gerrydbtable_fixture(session: Session):
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+    session.begin()
+    session.execute(upsert_query, {"name": GERRY_DB_FIXTURE_NAME})
+    session.commit()
+
+
+@pytest.fixture(name="second_gerrydbtable")
+def second_gerrydbtable_fixture(session: Session):
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+    session.begin()
+    session.execute(upsert_query, {"name": "bleh"})
+    session.commit()
+
+
 @pytest.fixture(name="document_id")
 def document_fixture(client):
     response = client.post(
         "/api/create_document",
         json={
             "gerrydb_table": GERRY_DB_FIXTURE_NAME,
-            "gerrydb_tiles": GERRY_DB_FIXTURE_TILESET,
         },
     )
     document_id = response.json()["document_id"]
@@ -176,7 +202,6 @@ def test_new_document(client):
         "/api/create_document",
         json={
             "gerrydb_table": GERRY_DB_FIXTURE_NAME,
-            "gerrydb_tiles": GERRY_DB_FIXTURE_TILESET,
         },
     )
     assert response.status_code == 201
@@ -190,7 +215,7 @@ def test_new_document(client):
 def test_patch_document(client, document_id):
     response = client.patch(
         f"/api/update_document/{document_id}",
-        json={"gerrydb_table": "foo", "gerrydb_tiles": "bar"},
+        json={"gerrydb_table": "foo"},
     )
     assert response.status_code == 200
     data = response.json()
@@ -259,3 +284,34 @@ def test_get_document_population_totals(
     assert result.status_code == 200
     data = result.json()
     assert data == [{"zone": 1, "total_pop": 67}, {"zone": 2, "total_pop": 130}]
+
+
+def test_list_gerydb_views(client, gerrydbtable):
+    response = client.get("/api/gerrydb/views")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["table_name"] == GERRY_DB_FIXTURE_NAME
+
+
+def test_list_gerydb_views_limit(client, gerrydbtable):
+    response = client.get("/api/gerrydb/views?limit=0")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 0
+
+
+def test_list_gerydb_views_offset(client, gerrydbtable, second_gerrydbtable):
+    response = client.get("/api/gerrydb/views?offset=1")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["table_name"] == "bleh"
+
+
+def test_list_gerydb_views_offset_and_limit(client, gerrydbtable, second_gerrydbtable):
+    response = client.get("/api/gerrydb/views?offset=1&limit=1")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["table_name"] == "bleh"

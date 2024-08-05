@@ -1,4 +1,4 @@
-from fastapi import FastAPI, status, Depends, HTTPException
+from fastapi import FastAPI, status, Depends, HTTPException, Query
 from pydantic import UUID4
 from sqlalchemy import text
 from sqlmodel import Session, select
@@ -16,6 +16,9 @@ from app.models import (
     DocumentCreate,
     DocumentPublic,
     ZonePopulation,
+    GerryDBTable,
+    GerryDBTiles,
+    GerryDBViewPublic,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -146,3 +149,23 @@ async def get_total_population(
     stmt = text("SELECT * from get_total_population(:document_id)")
     result = session.execute(stmt, {"document_id": document_id})
     return [ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()]
+
+
+@app.get("/api/gerrydb/views", response_model=list[GerryDBViewPublic])
+async def get_projects(
+    *,
+    session: Session = Depends(get_session),
+    offset: int = 0,
+    limit: int = Query(default=100, le=100),
+):
+    gerrydb_views = session.exec(
+        select(
+            GerryDBTable.name.label("table_name"),
+            GerryDBTiles.s3_path.label("tiles_s3_path"),
+        )
+        .join(GerryDBTiles, GerryDBTable.uuid == GerryDBTiles.table_uuid, isouter=True)
+        .order_by(GerryDBTable.created_at.asc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    return gerrydb_views
