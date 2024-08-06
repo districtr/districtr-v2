@@ -5,7 +5,7 @@ import maplibregl, {
   MapLayerTouchEvent,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import * as pmtiles from "pmtiles";
+import { Protocol } from "pmtiles";
 import type { MutableRefObject } from "react";
 import React, { use, useEffect, useRef, useState } from "react";
 import { useCreateMapDocument } from "../api/apiHandlers";
@@ -22,11 +22,15 @@ export const MapComponent: React.FC = () => {
   const createMapDocument = useCreateMapDocument();
 
   useEffect(() => {
-    if (map.current || !mapContainer.current) return;
-
-    let protocol = new pmtiles.Protocol();
-    console.log("protocol", protocol);
+    let protocol = new Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
+    return () => {
+      maplibregl.removeProtocol("pmtiles");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (map.current || !mapContainer.current) return;
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
