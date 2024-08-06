@@ -12,13 +12,11 @@ export function GerryDBViewSelector() {
 
   React.useEffect(() => {
     getGerryDBViews(limit, offset).then((views) => {
-      console.log(views);
       setViews(views);
     });
   }, [limit, offset]);
 
   const handleValueChange = (value: string) => {
-    console.log(value);
     setSelectedView(value);
     const selectedLayer = views.find((view) => view.table_name === value);
     if (!selectedLayer) {

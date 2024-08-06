@@ -81,8 +81,6 @@ const addBlockLayers = (
   gerryDBView: gerryDBView,
 ) => {
   const blockSource = getBlocksSource(gerryDBView.tiles_s3_path);
-  console.log(blockSource);
-  console.log("MAP CURRENT", map.current);
   map.current?.addSource(BLOCK_SOURCE_ID, blockSource);
   map.current?.addLayer(getBlocksLayerSpecification(gerryDBView.table_name));
   map.current?.addLayer(

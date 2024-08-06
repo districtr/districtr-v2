@@ -48,7 +48,6 @@ export const useMapStore = create<MapStore>((set) => ({
   selectedLayer: null,
   setSelectedLayer: (layer: gerryDBView) =>
     set((state: MapStore) => {
-      console.log(state);
       if (state.mapRef) {
         removeBlockLayers(state.mapRef);
         addBlockLayers(state.mapRef, layer);
