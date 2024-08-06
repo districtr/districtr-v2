@@ -51,7 +51,7 @@ export const MapComponent: React.FC = () => {
           action.action as keyof MapLayerEventType,
           BLOCK_HOVER_LAYER_ID, // to be updated with the scale-agnostic layer id
           (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-            action.handler(e, map, hoverFeatureIds, selectedLayer?.table_name);
+            action.handler(e, map, hoverFeatureIds);
           },
         );
       }
@@ -60,7 +60,7 @@ export const MapComponent: React.FC = () => {
     return () => {
       mapEvents.forEach((action) => {
         map.current?.off(action.action, (e) => {
-          action.handler(e, map, hoverFeatureIds, selectedLayer?.table_name);
+          action.handler(e, map, hoverFeatureIds);
         });
       });
     };
