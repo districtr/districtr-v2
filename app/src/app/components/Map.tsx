@@ -11,6 +11,7 @@ import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "../constants/layers";
 import { useCreateMapDocument } from "../api/apiHandlers";
 import { useMapStore } from "../store/mapStore";
+import { Protocol } from "pmtiles";
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -24,7 +25,13 @@ export const MapComponent: React.FC = () => {
   }));
 
   useEffect(() => {
+    let protocol = new Protocol();
+    maplibregl.addProtocol("pmtiles", protocol.tile);
+  }, []);
+
+  useEffect(() => {
     if (map.current || !mapContainer.current) return;
+
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_OPTIONS.style,
@@ -32,9 +39,10 @@ export const MapComponent: React.FC = () => {
       zoom: MAP_OPTIONS.zoom,
       maxZoom: MAP_OPTIONS.maxZoom,
     });
+
     map.current.on("load", () => {
       setMapLoaded(true);
-      addLayer(map);
+      // addLayer(map);
     });
 
     mapEvents.forEach((action) => {
@@ -44,7 +52,7 @@ export const MapComponent: React.FC = () => {
           `${BLOCK_LAYER_ID}-hover`, // to be updated with the scale-agnostic layer id
           (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
             action.handler(e, map, hoverFeatureIds);
-          }
+          },
         );
       }
     });

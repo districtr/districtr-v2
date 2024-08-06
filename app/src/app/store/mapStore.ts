@@ -2,9 +2,13 @@ import type { MapOptions } from "maplibre-gl";
 import { create } from "zustand";
 import type { ActiveTool, SpatialUnit } from "../constants/types";
 import { Zone, GEOID } from "../constants/types";
+import { gerryDBView } from "../api/apiHandlers";
+
 export interface MapStore {
   documentId: string | null;
   setDocumentId: (documentId: string) => void;
+  selectedLayer: gerryDBView | null;
+  setSelectedLayer: (layer: gerryDBView | null) => void;
   mapOptions: MapOptions;
   setMapOptions: (options: MapOptions) => void;
   activeTool: ActiveTool;
@@ -29,6 +33,13 @@ export const useMapStore = create<MapStore>((set) => ({
    */
   documentId: null,
   setDocumentId: (documentId: string) => set({ documentId: documentId }),
+  /**
+   * Layer currently selected by the user
+   * @type {gerryDBView | null}
+   */
+  selectedLayer: null,
+  setSelectedLayer: (layer: gerryDBView | null) =>
+    set({ selectedLayer: layer }),
   /**
    * maplibre map instance options
    * @type {MapOptions}
