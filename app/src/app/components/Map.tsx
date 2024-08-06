@@ -1,17 +1,18 @@
 "use client";
+import type { Map, MapLayerEventType } from "maplibre-gl";
+import maplibregl, {
+  MapLayerMouseEvent,
+  MapLayerTouchEvent,
+} from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import * as pmtiles from "pmtiles";
 import type { MutableRefObject } from "react";
 import React, { use, useEffect, useRef, useState } from "react";
-import type { Map, MapLayerEventType } from "maplibre-gl";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { MAP_OPTIONS } from "../constants/configuration";
-import { addLayer } from "../constants/layers";
-import { mapEvents, useHoverFeatureIds } from "../utils/events/mapEvents";
-import { MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
-import { BLOCK_LAYER_ID } from "../constants/layers";
 import { useCreateMapDocument } from "../api/apiHandlers";
+import { MAP_OPTIONS } from "../constants/configuration";
+import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
 import { useMapStore } from "../store/mapStore";
-import { Protocol } from "pmtiles";
+import { mapEvents, useHoverFeatureIds } from "../utils/events/mapEvents";
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -19,18 +20,13 @@ export const MapComponent: React.FC = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
   const createMapDocument = useCreateMapDocument();
-  const { zoneAssignments, selectedZone } = useMapStore((state) => ({
-    zoneAssignments: state.zoneAssignments,
-    selectedZone: state.selectedZone,
-  }));
-
-  useEffect(() => {
-    let protocol = new Protocol();
-    maplibregl.addProtocol("pmtiles", protocol.tile);
-  }, []);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
+
+    let protocol = new pmtiles.Protocol();
+    console.log("protocol", protocol);
+    maplibregl.addProtocol("pmtiles", protocol.tile);
 
     map.current = new maplibregl.Map({
       container: mapContainer.current,
@@ -42,14 +38,13 @@ export const MapComponent: React.FC = () => {
 
     map.current.on("load", () => {
       setMapLoaded(true);
-      // addLayer(map);
     });
 
     mapEvents.forEach((action) => {
       if (map.current) {
         map.current?.on(
           action.action as keyof MapLayerEventType,
-          `${BLOCK_LAYER_ID}-hover`, // to be updated with the scale-agnostic layer id
+          BLOCK_HOVER_LAYER_ID, // to be updated with the scale-agnostic layer id
           (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
             action.handler(e, map, hoverFeatureIds);
           },
@@ -68,7 +63,12 @@ export const MapComponent: React.FC = () => {
 
   useEffect(() => {
     // create a map document if the map is loaded and the uuid is not set via url
-    if (mapLoaded && map.current && !useMapStore.getState().documentId) {
+    if (
+      mapLoaded &&
+      map.current !== null &&
+      !useMapStore.getState().documentId
+    ) {
+      useMapStore.setState({ mapRef: map });
       createMapDocument.mutate(map.current);
     }
   }, [mapLoaded, map.current]);

@@ -1,8 +1,9 @@
-import { BLOCK_LAYER_ID, BLOCK_LAYER_SOURCE_ID } from "@/app/constants/layers";
+import { BLOCK_LAYER_ID, BLOCK_SOURCE_ID } from "@/app/constants/layers";
 import { MutableRefObject } from "react";
 import type { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
 import { MapStore } from "@/app/store/mapStore";
+
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
  * @param mapStoreRef - MutableRefObject<MapStore | null>, the zone store reference from zustand
@@ -13,7 +14,7 @@ const debouncedSetZoneAssignments = debounce(
   (mapStoreRef: MapStore, selectedZone: number, geoids: Set<string>) => {
     mapStoreRef.setZoneAssignments(mapStoreRef.selectedZone, geoids);
   },
-  1000 // 1 second
+  1000, // 1 second
 );
 
 /**
@@ -23,9 +24,6 @@ const debouncedSetZoneAssignments = debounce(
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param mapStoreRef - MutableRefObject<MapStore | null>, the map store reference from zustand
- */
-
-/**
  * @todo
  * TODO: split out SelectMapFeatures and SetStoreZoneAssignments
  * where the first sets the map + adds to a flat array of geoids,
@@ -33,20 +31,19 @@ const debouncedSetZoneAssignments = debounce(
  * in the store. First is called on the isPainting && onMouseMove,
  * and second is called on onMouseUp event
  * */
-
 export const SelectFeatures = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  mapStoreRef: MapStore
+  mapStoreRef: MapStore,
 ) => {
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
         source: BLOCK_LAYER_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: BLOCK_LAYER_SOURCE_ID,
+        sourceLayer: BLOCK_SOURCE_ID,
       },
-      { selected: true, zone: Number(mapStoreRef.selectedZone) }
+      { selected: true, zone: Number(mapStoreRef.selectedZone) },
     );
   });
   if (features?.length) {
@@ -57,7 +54,7 @@ export const SelectFeatures = (
     debouncedSetZoneAssignments(
       mapStoreRef,
       mapStoreRef.selectedZone,
-      mapStoreRef.accumulatedGeoids
+      mapStoreRef.accumulatedGeoids,
     );
   }
 };
@@ -71,7 +68,7 @@ export const SelectFeatures = (
 export const HighlightFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  hoverGeoids: MutableRefObject<Set<string>>
+  hoverGeoids: MutableRefObject<Set<string>>,
 ) => {
   if (features?.length) {
     if (hoverGeoids.current.size) {
@@ -80,9 +77,9 @@ export const HighlightFeature = (
           {
             source: BLOCK_LAYER_ID,
             id: Id,
-            sourceLayer: BLOCK_LAYER_SOURCE_ID,
+            sourceLayer: BLOCK_SOURCE_ID,
           },
-          { hover: false }
+          { hover: false },
         );
       });
       hoverGeoids.current.clear();
@@ -94,9 +91,9 @@ export const HighlightFeature = (
       {
         source: BLOCK_LAYER_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: BLOCK_LAYER_SOURCE_ID,
+        sourceLayer: BLOCK_SOURCE_ID,
       },
-      { hover: true }
+      { hover: true },
     );
   });
 
@@ -117,7 +114,7 @@ export const HighlightFeature = (
  */
 export const UnhighlightFeature = (
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: MutableRefObject<Set<string>>
+  hoverFeatureIds: MutableRefObject<Set<string>>,
 ) => {
   if (hoverFeatureIds.current.size) {
     hoverFeatureIds.current.forEach((Id) => {
@@ -125,9 +122,9 @@ export const UnhighlightFeature = (
         {
           source: BLOCK_LAYER_ID,
           id: Id,
-          sourceLayer: BLOCK_LAYER_SOURCE_ID,
+          sourceLayer: BLOCK_SOURCE_ID,
         },
-        { hover: false }
+        { hover: false },
       );
     });
     hoverFeatureIds.current.clear();

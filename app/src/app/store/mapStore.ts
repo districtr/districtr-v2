@@ -3,12 +3,17 @@ import { create } from "zustand";
 import type { ActiveTool, SpatialUnit } from "../constants/types";
 import { Zone, GEOID } from "../constants/types";
 import { gerryDBView } from "../api/apiHandlers";
+import { addBlockLayers, removeBlockLayers } from "../constants/layers";
+import maplibregl from "maplibre-gl";
+import type { MutableRefObject } from "react";
 
 export interface MapStore {
+  mapRef: MutableRefObject<maplibregl.Map | null> | null;
+  setMapRef: (map: MutableRefObject<maplibregl.Map>) => void;
   documentId: string | null;
   setDocumentId: (documentId: string) => void;
   selectedLayer: gerryDBView | null;
-  setSelectedLayer: (layer: gerryDBView | null) => void;
+  setSelectedLayer: (layer: gerryDBView) => void;
   mapOptions: MapOptions;
   setMapOptions: (options: MapOptions) => void;
   activeTool: ActiveTool;
@@ -27,6 +32,9 @@ export interface MapStore {
 }
 
 export const useMapStore = create<MapStore>((set) => ({
+  mapRef: null,
+  setMapRef: (mapRef: MutableRefObject<maplibregl.Map | null> | null) =>
+    set({ mapRef: mapRef }),
   /**
    * Unique identifier for the map instance
    * @type {string | null}
@@ -38,8 +46,15 @@ export const useMapStore = create<MapStore>((set) => ({
    * @type {gerryDBView | null}
    */
   selectedLayer: null,
-  setSelectedLayer: (layer: gerryDBView | null) =>
-    set({ selectedLayer: layer }),
+  setSelectedLayer: (layer: gerryDBView) =>
+    set((state: MapStore) => {
+      console.log(state);
+      if (state.mapRef) {
+        removeBlockLayers(state.mapRef);
+        addBlockLayers(state.mapRef, layer);
+      }
+      return { selectedLayer: layer };
+    }),
   /**
    * maplibre map instance options
    * @type {MapOptions}
