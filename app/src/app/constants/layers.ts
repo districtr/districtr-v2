@@ -4,7 +4,7 @@ import { Map } from "maplibre-gl";
 import { getBlocksSource } from "./sources";
 import { gerryDBView } from "../api/apiHandlers";
 
-export const BLOCK_SOURCE_ID = "blocks-source";
+export const BLOCK_SOURCE_ID = "blocks";
 export const BLOCK_LAYER_ID = "blocks";
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [

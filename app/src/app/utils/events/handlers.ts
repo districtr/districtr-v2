@@ -1,8 +1,8 @@
-import { BLOCK_LAYER_ID, BLOCK_SOURCE_ID } from "@/app/constants/layers";
+import { BLOCK_SOURCE_ID } from "@/app/constants/layers";
 import { MutableRefObject } from "react";
 import type { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
-import { MapStore } from "@/app/store/mapStore";
+import { useMapStore, MapStore } from "@/app/store/mapStore";
 
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
@@ -39,9 +39,9 @@ export const SelectFeatures = (
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
-        source: BLOCK_LAYER_ID,
+        source: BLOCK_SOURCE_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: BLOCK_SOURCE_ID,
+        sourceLayer: mapStoreRef.selectedLayer?.table_name,
       },
       { selected: true, zone: Number(mapStoreRef.selectedZone) },
     );
@@ -69,15 +69,16 @@ export const HighlightFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
   hoverGeoids: MutableRefObject<Set<string>>,
+  sourceLayer: string,
 ) => {
   if (features?.length) {
     if (hoverGeoids.current.size) {
       hoverGeoids.current.forEach((Id) => {
         map.current?.setFeatureState(
           {
-            source: BLOCK_LAYER_ID,
+            source: BLOCK_SOURCE_ID,
             id: Id,
-            sourceLayer: BLOCK_SOURCE_ID,
+            sourceLayer: sourceLayer,
           },
           { hover: false },
         );
@@ -89,9 +90,9 @@ export const HighlightFeature = (
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
-        source: BLOCK_LAYER_ID,
+        source: BLOCK_SOURCE_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: BLOCK_SOURCE_ID,
+        sourceLayer: sourceLayer,
       },
       { hover: true },
     );
@@ -115,14 +116,15 @@ export const HighlightFeature = (
 export const UnhighlightFeature = (
   map: MutableRefObject<Map | null>,
   hoverFeatureIds: MutableRefObject<Set<string>>,
+  sourceLayer: string,
 ) => {
   if (hoverFeatureIds.current.size) {
     hoverFeatureIds.current.forEach((Id) => {
       map.current?.setFeatureState(
         {
-          source: BLOCK_LAYER_ID,
+          source: BLOCK_SOURCE_ID,
           id: Id,
-          sourceLayer: BLOCK_SOURCE_ID,
+          sourceLayer: sourceLayer,
         },
         { hover: false },
       );
