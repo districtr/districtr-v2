@@ -11,7 +11,7 @@ BEGIN
         SELECT
             assignments.zone::TEXT AS zone,
             SUM(COALESCE(blocks.total_pop, 0))::BIGINT AS total_pop
-        FROM assignments
+        FROM document.assignments
         LEFT JOIN gerrydb.%I blocks
         ON blocks.path = assignments.geo_id
         WHERE assignments.document_id = $1
