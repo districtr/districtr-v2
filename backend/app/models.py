@@ -1,7 +1,17 @@
 from datetime import datetime
 from typing import Optional
 from pydantic import UUID4, BaseModel
-from sqlmodel import Field, SQLModel, UUID, TIMESTAMP, UniqueConstraint, text, Column
+from sqlmodel import (
+    Field,
+    SQLModel,
+    UUID,
+    TIMESTAMP,
+    UniqueConstraint,
+    text,
+    Column,
+    MetaData,
+)
+from app.constants import DOCUMENT_SCHEMA
 
 
 class UUIDType(UUID):
@@ -36,6 +46,7 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
@@ -54,6 +65,7 @@ class DocumentPublic(BaseModel):
 
 
 class AssignmentsBase(SQLModel):
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     geo_id: str = Field(primary_key=True)
     zone: int
