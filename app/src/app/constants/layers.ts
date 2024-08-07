@@ -2,6 +2,7 @@ import { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
 import { BLOCKS_SOURCE } from "./sources";
+import { color10 } from "./colors";
 
 export const BLOCK_LAYER_ID = "blocks";
 export const BLOCK_LAYER_SOURCE_ID = "co_blocks_wgs4fgb";
@@ -12,17 +13,17 @@ export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "#000000",
 ];
 
-export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = [
-  // based on zone feature state, set fill color
-  "case",
-  ["==", ["feature-state", "zone"], 1],
-  "#0099cd",
-  ["==", ["feature-state", "zone"], 2],
-  "#ffca5d",
-  ["==", ["feature-state", "zone"], 3],
-  "#00cd99",
-  "#cecece",
-];
+const colorStyleBaseline: any[] = ["case"];
+export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = color10.reduce((val, color, i) => {
+  val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
+  return val;
+}, colorStyleBaseline);
+ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");
+
+// cast the above as an ExpressionSpecification
+// @ts-ignore
+export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
+  ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
 export const BLOCKS_LAYER: LayerSpecification = {
   id: BLOCK_LAYER_ID,
@@ -61,8 +62,8 @@ export const BLOCKS_HOVER_LAYER: LayerSpecification = {
       0.8,
       0.2,
     ],
-
-    "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
+    // @ts-ignore - this is a valid expression
+    "fill-color": ZONE_ASSIGNMENT_STYLE_DYNAMIC || "#000000",
   },
 };
 

@@ -8,6 +8,7 @@ import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import { boxAroundPoint } from "../helpers";
 import React from "react";
 import { HighlightFeature, SelectFeatures } from "./handlers";
+import { ResetMapSelectState } from "@/app/utils/events/handlers";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -69,7 +70,8 @@ export const handleMapMouseDown = (
   const activeTool = mapStore.activeTool;
 
   if (activeTool === "pan") {
-    return;
+    // enable drag pan
+    map.current?.dragPan.enable();
   } else if (activeTool === "brush" || activeTool === "eraser") {
     // disable drag pan
     map.current?.dragPan.disable();
@@ -150,6 +152,13 @@ export const handleMapZoomEnd = (
   map: MutableRefObject<Map | null>,
   hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
+
+export const handleResetMapSelectState = (
+  map: MutableRefObject<Map | null>
+) => {
+  const mapStore = useMapStore.getState();
+  ResetMapSelectState(map, mapStore);
+};
 
 export const useHoverFeatureIds = () => {
   const hoverFeatureIds = useRef(new Set<string>());
