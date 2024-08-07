@@ -4,6 +4,7 @@ import { styled } from "@stitches/react";
 import { blackA } from "@radix-ui/colors";
 import { useMapStore } from "../../store/mapStore";
 import { RadioCards, Box } from "@radix-ui/themes";
+import { EraserIcon, Pencil2Icon, HandIcon } from "@radix-ui/react-icons";
 
 export function MapModeSelector() {
   const mapStore = useMapStore.getState();
@@ -14,9 +15,9 @@ export function MapModeSelector() {
 
   if (!activeTool) return null;
   const activeTools = [
-    { mode: "pan", disabled: false, label: "Pan" },
-    { mode: "brush", disabled: false, label: "Brush" },
-    { mode: "erase", disabled: true, label: "Erase" },
+    { mode: "pan", disabled: false, label: "Pan", icon: <HandIcon /> },
+    { mode: "brush", disabled: false, label: "Brush", icon: <Pencil2Icon /> },
+    { mode: "erase", disabled: true, label: "Erase", icon: <EraserIcon /> },
   ];
 
   const handleRadioChange = (value) => {
@@ -33,12 +34,13 @@ export function MapModeSelector() {
         columns={{ initial: "1", sm: "3" }}
       >
         {activeTools.map((tool) => (
-          <Flex key={`${tool.mode}-flex`} direction="column" width="100%">
+          <Flex key={`${tool.mode}-flex`}>
             <RadioCards.Item
               value={tool.mode}
               id={tool.mode}
               disabled={tool.disabled}
             >
+              {tool.icon}
               {tool.label}
             </RadioCards.Item>
           </Flex>
