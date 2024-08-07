@@ -42,7 +42,7 @@ export function ColorPicker() {
           <RadioGroupItem
             key={i}
             style={{ backgroundColor: color }}
-            value={color}
+            value={i + 1} // 1-indexed based on mapStore
           >
             <RadioGroupIndicator />
           </RadioGroupItem>

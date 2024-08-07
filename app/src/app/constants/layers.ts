@@ -2,6 +2,8 @@ import { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
 import { BLOCKS_SOURCE } from "./sources";
+import { color10 } from "./colors";
+
 export const BLOCK_LAYER_ID = "blocks";
 export const BLOCK_LAYER_SOURCE_ID = "co_blocks_wgs4fgb";
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
@@ -11,7 +13,19 @@ export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "#000000",
 ];
 
-export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = [
+const colorStyleBaseline: any[] = ["case"];
+export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = color10.reduce((val, color, i) => {
+  val.push(["==", ["feature-state", "zone"], i + 1], color);
+  return val;
+}, colorStyleBaseline);
+ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");
+
+// cast the above as an ExpressionSpecification
+// @ts-ignore
+export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
+  ZONE_ASSIGNMENT_STYLE_DYNAMIC;
+
+export const ZONE_ASSIGNMENT_STYLE2: ExpressionSpecification = [
   "case",
   ["==", ["feature-state", "zone"], "#dd4425"],
   "#dd4425",
@@ -106,7 +120,7 @@ export const BLOCKS_HOVER_LAYER: LayerSpecification = {
       0.2,
     ],
 
-    "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
+    "fill-color": ZONE_ASSIGNMENT_STYLE_DYNAMIC || "#000000",
   },
 };
 
