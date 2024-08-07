@@ -15,7 +15,7 @@ export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
 
 const colorStyleBaseline: any[] = ["case"];
 export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = color10.reduce((val, color, i) => {
-  val.push(["==", ["feature-state", "zone"], i + 1], color);
+  val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
   return val;
 }, colorStyleBaseline);
 ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");

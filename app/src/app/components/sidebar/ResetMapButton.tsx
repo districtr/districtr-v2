@@ -1,5 +1,5 @@
 import { useMapStore } from "@/app/store/mapStore";
-
+import { Button } from "@radix-ui/themes";
 export function ResetMapButton() {
   const mapStore = useMapStore.getState();
 
@@ -8,11 +8,8 @@ export function ResetMapButton() {
   };
 
   return (
-    <button
-      onClick={handleClickResetMap}
-      className=" m-3 p-1.5 bg-white rounded-lg shadow-md"
-    >
+    <Button onClick={handleClickResetMap} variant={"outline"}>
       Reset Map
-    </button>
+    </Button>
   );
 }
