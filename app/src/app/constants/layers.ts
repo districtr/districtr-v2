@@ -49,15 +49,19 @@ export const BLOCKS_HOVER_LAYER: LayerSpecification = {
   paint: {
     "fill-opacity": [
       "case",
+      // if not hovered and not assigned a zone, be 0.8
       [
         "all",
         ["boolean", ["feature-state", "hover"], false],
-        ["!", ["==", ["feature-state", "zone"], null]],
+        ["boolean", ["feature-state", "zone"], false],
       ],
       0.8,
+      // if not hovered, be 0.8
       ["boolean", ["feature-state", "hover"], false],
       0.8,
-      ["!", ["==", ["feature-state", "zone"], null]],
+      // if not assigned a zone, be 0.8
+      // @ts-ignore
+      ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
       0.8,
       0.2,
     ],
