@@ -51,6 +51,7 @@ def upgrade() -> None:
         sa.Column("geo_id", sa.VARCHAR(), autoincrement=False, nullable=False),
         sa.Column("zone", sa.INTEGER(), autoincrement=False, nullable=False),
         sa.PrimaryKeyConstraint("document_id", "geo_id", name="document_geo_id_unique"),
+        postgresql_partition_by="LIST (document_id)",
         schema="document",
     )
     # ### end Alembic commands ###
@@ -87,5 +88,6 @@ def downgrade() -> None:
         sa.Column("geo_id", sa.VARCHAR(), autoincrement=False, nullable=False),
         sa.Column("zone", sa.INTEGER(), autoincrement=False, nullable=False),
         sa.PrimaryKeyConstraint("document_id", "geo_id", name="document_geo_id_unique"),
+        postgresql_partition_by="LIST (document_id)",
     )
     # ### end Alembic commands ###
