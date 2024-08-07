@@ -5,7 +5,7 @@ DECLARE
     sql_query TEXT;
 BEGIN
     SELECT gerrydb_table INTO gerrydb_table_name
-    FROM document
+    FROM document.document
     WHERE document.document_id = $1;
     sql_query := format('
         SELECT

@@ -98,7 +98,7 @@ async def update_document(
     document_id: UUID4, data: DocumentCreate, session: Session = Depends(get_session)
 ):
     # Validate that gerrydb_table exists?
-    stmt = text("""UPDATE document
+    stmt = text("""UPDATE document.document
         SET
             gerrydb_table = :gerrydb_table_name,
             updated_at = now()
