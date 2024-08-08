@@ -184,11 +184,12 @@ def create_gerrydb_tileset(
         args = [
             "tippecanoe",
             "-zg",
+            "--coalesce-smallest-as-needed",
+            "--extend-zooms-if-still-dropping",
             # "--drop-densest-as-needed",
             # "--drop-smallest-as-needed",
-            # "--extend-zooms-if-still-dropping",
-            "-pf",  # --no-feature-limit: Don't limit tiles to 200,000 features
-            "-pk",  # --no-tile-size-limit: Don't limit tiles to 500K bytes
+            # "-pf",  # --no-feature-limit: Don't limit tiles to 200,000 features
+            # "-pk",  # --no-tile-size-limit: Don't limit tiles to 500K bytes
             # "-ps", # --no-line-simplification
             "-o",
             tileset_path,
