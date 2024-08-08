@@ -9,8 +9,9 @@ from sqlmodel import (
     UniqueConstraint,
     text,
     Column,
-    ForeignKey,
+    MetaData,
 )
+from app.constants import DOCUMENT_SCHEMA
 
 
 class UUIDType(UUID):
@@ -42,23 +43,16 @@ class TimeStampMixin(SQLModel):
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False, unique=True)
-
-
-# Since `table_uuid` foreign key is unique, is there a good reason for tiles to be a separate table?
-class GerryDBTiles(TimeStampMixin, SQLModel, table=True):
-    uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
-    table_uuid: str = Field(
-        sa_column=Column(UUIDType, ForeignKey(GerryDBTable.uuid), unique=True)
-    )
-    s3_path: str = Field(nullable=False)
+    tiles_s3_path: str | None = Field(nullable=True)
 
 
 class GerryDBViewPublic(BaseModel):
-    table_name: str
+    name: str
     tiles_s3_path: str | None
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
@@ -77,6 +71,7 @@ class DocumentPublic(BaseModel):
 
 
 class AssignmentsBase(SQLModel):
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     geo_id: str = Field(primary_key=True)
     zone: int

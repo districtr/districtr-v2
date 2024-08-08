@@ -17,7 +17,6 @@ from app.models import (
     DocumentPublic,
     ZonePopulation,
     GerryDBTable,
-    GerryDBTiles,
     GerryDBViewPublic,
 )
 
@@ -101,7 +100,7 @@ async def update_document(
     document_id: UUID4, data: DocumentCreate, session: Session = Depends(get_session)
 ):
     # Validate that gerrydb_table exists?
-    stmt = text("""UPDATE document
+    stmt = text("""UPDATE document.document
         SET
             gerrydb_table = :gerrydb_table_name,
             updated_at = now()
@@ -159,11 +158,7 @@ async def get_projects(
     limit: int = Query(default=100, le=100),
 ):
     gerrydb_views = session.exec(
-        select(
-            GerryDBTable.name.label("table_name"),
-            GerryDBTiles.s3_path.label("tiles_s3_path"),
-        )
-        .join(GerryDBTiles, GerryDBTable.uuid == GerryDBTiles.table_uuid, isouter=True)
+        select(GerryDBTable)
         .order_by(GerryDBTable.created_at.asc())
         .offset(offset)
         .limit(limit)

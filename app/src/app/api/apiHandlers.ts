@@ -123,11 +123,11 @@ const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
  * GerryDB view.
  *
  * @interface
- * @property {string} table_name - Table name should match the name of the GerryDB table in Postgres and name of the layer in the tileset.
+ * @property {string} name - Table name should match the name of the GerryDB table in Postgres and name of the layer in the tileset.
  * @property {string} tiles_s3_path - the path to the tiles in the S3 bucket
  */
 export interface gerryDBView {
-  table_name: string;
+  name: string;
   tiles_s3_path: string;
 }
 

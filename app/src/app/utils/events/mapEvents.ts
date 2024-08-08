@@ -8,6 +8,7 @@ import { BLOCK_LAYER_ID } from "@/app/constants/layers";
 import { boxAroundPoint } from "../helpers";
 import React from "react";
 import { HighlightFeature, SelectFeatures } from "./handlers";
+import { ResetMapSelectState } from "@/app/utils/events/handlers";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -26,7 +27,7 @@ export const handleMapClick = (
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
-  const sourceLayer = mapStore.selectedLayer?.table_name;
+  const sourceLayer = mapStore.selectedLayer?.name;
 
   if (activeTool === "brush" || activeTool === "eraser") {
     const bbox = boxAroundPoint(e, mapStore.brushSize);
@@ -70,7 +71,8 @@ export const handleMapMouseDown = (
   const activeTool = mapStore.activeTool;
 
   if (activeTool === "pan") {
-    return;
+    // enable drag pan
+    map.current?.dragPan.enable();
   } else if (activeTool === "brush" || activeTool === "eraser") {
     // disable drag pan
     map.current?.dragPan.disable();
@@ -117,7 +119,7 @@ export const handleMapMouseMove = (
   const isPainting = mapStore.isPainting;
   const brushSize = mapStore.brushSize;
   const bbox = boxAroundPoint(e, brushSize);
-  const sourceLayer = mapStore.selectedLayer?.table_name;
+  const sourceLayer = mapStore.selectedLayer?.name;
   const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
     layers: [BLOCK_LAYER_ID],
   });
@@ -152,6 +154,18 @@ export const handleMapZoomEnd = (
   map: MutableRefObject<Map | null>,
   hoverFeatureIds: React.MutableRefObject<Set<string>>,
 ) => {};
+
+export const handleResetMapSelectState = (
+  map: MutableRefObject<Map | null>,
+) => {
+  const mapStore = useMapStore.getState();
+  const sourceLayer = mapStore.selectedLayer?.name;
+  if (sourceLayer) {
+    ResetMapSelectState(map, mapStore, sourceLayer);
+  } else {
+    console.error("No source layer selected");
+  }
+};
 
 export const useHoverFeatureIds = () => {
   const hoverFeatureIds = useRef(new Set<string>());

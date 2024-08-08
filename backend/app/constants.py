@@ -7,3 +7,4 @@ SQL_DIR = Path(__file__).resolve().parent / "sql"
 # migration `966d8d72887e_add_gerrydb_schema.py`
 # DO NOT CHANGE THIS CONSTANT
 GERRY_DB_SCHEMA = "gerrydb"
+DOCUMENT_SCHEMA = "document"

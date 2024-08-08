@@ -291,7 +291,7 @@ def test_list_gerydb_views(client, gerrydbtable):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0]["table_name"] == GERRY_DB_FIXTURE_NAME
+    assert data[0]["name"] == GERRY_DB_FIXTURE_NAME
 
 
 def test_list_gerydb_views_limit(client, gerrydbtable):
@@ -306,7 +306,7 @@ def test_list_gerydb_views_offset(client, gerrydbtable, second_gerrydbtable):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0]["table_name"] == "bleh"
+    assert data[0]["name"] == "bleh"
 
 
 def test_list_gerydb_views_offset_and_limit(client, gerrydbtable, second_gerrydbtable):
@@ -314,4 +314,4 @@ def test_list_gerydb_views_offset_and_limit(client, gerrydbtable, second_gerrydb
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0]["table_name"] == "bleh"
+    assert data[0]["name"] == "bleh"

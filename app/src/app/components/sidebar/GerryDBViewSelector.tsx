@@ -1,7 +1,7 @@
 import React from "react";
 import { Select } from "@radix-ui/themes";
-import { gerryDBView, getGerryDBViews } from "../api/apiHandlers";
-import { useMapStore } from "../store/mapStore";
+import { gerryDBView, getGerryDBViews } from "../../api/apiHandlers";
+import { useMapStore } from "../../store/mapStore";
 
 export function GerryDBViewSelector() {
   const [views, setViews] = React.useState<gerryDBView[]>([]);
@@ -12,13 +12,14 @@ export function GerryDBViewSelector() {
 
   React.useEffect(() => {
     getGerryDBViews(limit, offset).then((views) => {
+      console.log(views);
       setViews(views);
     });
   }, [limit, offset]);
 
   const handleValueChange = (value: string) => {
     setSelectedView(value);
-    const selectedLayer = views.find((view) => view.table_name === value);
+    const selectedLayer = views.find((view) => view.name === value);
     if (!selectedLayer) {
       return;
     }
@@ -32,7 +33,7 @@ export function GerryDBViewSelector() {
   return (
     <Select.Root
       size="3"
-      defaultValue={selectedLayer?.table_name}
+      defaultValue={selectedLayer?.name}
       onValueChange={handleValueChange}
     >
       <Select.Trigger />
@@ -40,8 +41,8 @@ export function GerryDBViewSelector() {
         <Select.Group>
           <Select.Label>Select a geography</Select.Label>
           {views.map((view, index) => (
-            <Select.Item key={index} value={view.table_name}>
-              {view.table_name}
+            <Select.Item key={index} value={view.name}>
+              {view.name}
             </Select.Item>
           ))}
         </Select.Group>

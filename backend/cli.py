@@ -183,9 +183,13 @@ def create_gerrydb_tileset(
     else:
         args = [
             "tippecanoe",
-            "-pf",
-            "-pk",
-            "-ps",
+            "-zg",
+            # "--drop-densest-as-needed",
+            # "--drop-smallest-as-needed",
+            # "--extend-zooms-if-still-dropping",
+            "-pf",  # --no-feature-limit: Don't limit tiles to 200,000 features
+            "-pk",  # --no-tile-size-limit: Don't limit tiles to 500K bytes
+            # "-ps", # --no-line-simplification
             "-o",
             tileset_path,
             "-l",
@@ -222,17 +226,10 @@ def create_gerrydb_tileset(
     session = next(_session)
 
     upsert_query = text("""
-        INSERT INTO gerrydbtiles (uuid, table_uuid, s3_path, updated_at)
-        VALUES (
-            gen_random_uuid(),
-            (SELECT uuid FROM gerrydbtable WHERE name = :name),
-            :s3_path,
-            now()
-        )
-        ON CONFLICT (table_uuid)
-        DO UPDATE SET
+        UPDATE gerrydbtable SET
             updated_at = now(),
-            s3_path = :s3_path
+            tiles_s3_path = :tiles_s3_path
+        WHERE name = :name
         RETURNING uuid
     """)
 
@@ -241,11 +238,11 @@ def create_gerrydb_tileset(
             upsert_query,
             {
                 "name": layer,
-                "s3_path": s3_path,
+                "tiles_s3_path": s3_path,
             },
         )
         session.commit()
-        logger.info("GerryDB tileset upserted successfully:\n%s", result.fetchone())
+        logger.info("GerryDB tileset added to view:\n%s", result.fetchone())
     except Exception as e:
         session.rollback()
         logger.error("Failed to upsert GerryDB tiles. Got %s", e)

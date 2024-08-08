@@ -1,6 +1,6 @@
 import { BLOCK_SOURCE_ID } from "@/app/constants/layers";
 import { MutableRefObject } from "react";
-import type { Map, MapGeoJSONFeature } from "maplibre-gl";
+import { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
 import { useMapStore, MapStore } from "@/app/store/mapStore";
 
@@ -41,9 +41,9 @@ export const SelectFeatures = (
       {
         source: BLOCK_SOURCE_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: mapStoreRef.selectedLayer?.table_name,
+        sourceLayer: mapStoreRef.selectedLayer?.name,
       },
-      { selected: true, zone: Number(mapStoreRef.selectedZone) },
+      { selected: true, zone: mapStoreRef.selectedZone },
     );
   });
   if (features?.length) {
@@ -130,5 +130,30 @@ export const UnhighlightFeature = (
       );
     });
     hoverFeatureIds.current.clear();
+  }
+};
+
+/**
+ * Resets the selection status of the map to be able to clear all and start over.
+ *
+ * @param map - MutableRefObject<Map | null>
+ * @param mapStoreRef - MapStore
+ */
+export const ResetMapSelectState = (
+  map: MutableRefObject<Map | null>,
+  mapStoreRef: MapStore,
+  sourceLayer: string,
+) => {
+  if (mapStoreRef.zoneAssignments.size) {
+    map.current?.removeFeatureState({
+      source: BLOCK_SOURCE_ID,
+      sourceLayer: sourceLayer,
+    });
+
+    mapStoreRef.accumulatedGeoids.clear();
+    // reset zoneAssignments
+    mapStoreRef.resetZoneAssignments();
+    // confirm the map has been reset
+    mapStoreRef.setFreshMap(false);
   }
 };
