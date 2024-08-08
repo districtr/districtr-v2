@@ -1,19 +1,18 @@
+import { Box, Flex } from "@radix-ui/themes";
 import { MapModeSelector } from "./MapModeSelector";
 import { ColorPicker } from "./ColorPicker";
 import { ResetMapButton } from "./ResetMapButton";
+import { GerryDBViewSelector } from "./GerryDBViewSelector";
 
 export default function SidebarComponent() {
   return (
-    <div className="h-full w-sidebar m-3 pt-3 py-1.5">
-      <div className="flex flex-col py-1.5">
+    <Box m="3">
+      <Flex direction="column" gap="3">
         <MapModeSelector />
-      </div>
-      <div className="flex flex-col items-center py-1.5">
         <ColorPicker />
-      </div>
-      <div className="flex flex-col items-center py-1.5">
+        <GerryDBViewSelector />
         <ResetMapButton />
-      </div>
-    </div>
+      </Flex>
+    </Box>
   );
 }

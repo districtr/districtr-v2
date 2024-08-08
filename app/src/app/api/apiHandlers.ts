@@ -118,3 +118,49 @@ const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
     throw error;
   }
 };
+
+/**
+ * GerryDB view.
+ *
+ * @interface
+ * @property {string} name - Table name should match the name of the GerryDB table in Postgres and name of the layer in the tileset.
+ * @property {string} tiles_s3_path - the path to the tiles in the S3 bucket
+ */
+export interface gerryDBView {
+  name: string;
+  tiles_s3_path: string;
+}
+
+/**
+ * Get available GerryDB views from the server.
+ * @param limit - number, the number of views to return (default 10, max 100)
+ * @param offset - number, the number of views to skip (default 0)
+ * @returns Promise
+ */
+export const getGerryDBViews: (
+  limit?: number,
+  offset?: number,
+) => Promise<gerryDBView[]> = async (limit = 10, offset = 0) => {
+  try {
+    const returnObject = await axios
+      .get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
+      )
+      .then((res) => {
+        return res.data;
+      });
+    return returnObject;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("Axios error:", error.message);
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+        console.error("Response headers:", error.response.headers);
+      }
+    } else {
+      console.error("Unexpected error:", error);
+    }
+    throw error;
+  }
+};

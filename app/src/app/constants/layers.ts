@@ -1,11 +1,13 @@
 import { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
-import { BLOCKS_SOURCE } from "./sources";
+import { getBlocksSource } from "./sources";
+import { gerryDBView } from "../api/apiHandlers";
 import { color10 } from "./colors";
 
+export const BLOCK_SOURCE_ID = "blocks";
 export const BLOCK_LAYER_ID = "blocks";
-export const BLOCK_LAYER_SOURCE_ID = "co_blocks_wgs4fgb";
+export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "case",
   ["boolean", ["feature-state", "hover"], false],
@@ -25,58 +27,74 @@ ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");
 export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
   ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
-export const BLOCKS_LAYER: LayerSpecification = {
-  id: BLOCK_LAYER_ID,
-  source: BLOCK_LAYER_ID,
-  "source-layer": BLOCK_LAYER_SOURCE_ID,
-  type: "line",
-  paint: {
-    "line-opacity": [
-      "case",
-      ["boolean", ["feature-state", "hover"], false],
-      1,
-      0.8,
-    ],
-
-    "line-color": "#cecece",
-  },
-};
-
-export const BLOCKS_HOVER_LAYER: LayerSpecification = {
-  id: `${BLOCK_LAYER_ID}-hover`,
-  source: BLOCK_LAYER_ID,
-  "source-layer": BLOCK_LAYER_SOURCE_ID,
-  type: "fill",
-  paint: {
-    "fill-opacity": [
-      "case",
-      [
-        "all",
+export function getBlocksLayerSpecification(
+  sourceLayer: string,
+): LayerSpecification {
+  return {
+    id: BLOCK_LAYER_ID,
+    source: BLOCK_SOURCE_ID,
+    "source-layer": sourceLayer,
+    type: "line",
+    paint: {
+      "line-opacity": [
+        "case",
         ["boolean", ["feature-state", "hover"], false],
-        ["!", ["==", ["feature-state", "zone"], null]],
+        1,
+        0.8,
       ],
-      0.8,
-      ["boolean", ["feature-state", "hover"], false],
-      0.8,
-      ["!", ["==", ["feature-state", "zone"], null]],
-      0.8,
-      0.2,
-    ],
-    // @ts-ignore - this is a valid expression
-    "fill-color": ZONE_ASSIGNMENT_STYLE_DYNAMIC || "#000000",
-  },
+      "line-color": "#cecece",
+    },
+  };
+}
+
+export function getBlocksHoverLayerSpecification(
+  sourceLayer: string,
+): LayerSpecification {
+  return {
+    id: BLOCK_HOVER_LAYER_ID,
+    source: BLOCK_SOURCE_ID,
+    "source-layer": sourceLayer,
+    type: "fill",
+    paint: {
+      "fill-opacity": [
+        "case",
+        [
+          "all",
+          ["boolean", ["feature-state", "hover"], false],
+          ["!", ["==", ["feature-state", "zone"], null]],
+        ],
+        0.8,
+        ["boolean", ["feature-state", "hover"], false],
+        0.8,
+        ["!", ["==", ["feature-state", "zone"], null]],
+        0.8,
+        0.2,
+      ],
+      "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
+    },
+  };
+}
+
+const addBlockLayers = (
+  map: MutableRefObject<Map | null>,
+  gerryDBView: gerryDBView,
+) => {
+  const blockSource = getBlocksSource(gerryDBView.tiles_s3_path);
+  map.current?.addSource(BLOCK_SOURCE_ID, blockSource);
+  map.current?.addLayer(getBlocksLayerSpecification(gerryDBView.name));
+  map.current?.addLayer(getBlocksHoverLayerSpecification(gerryDBView.name));
 };
 
-const addLayer = (map: MutableRefObject<Map | null>) => {
-  map.current?.addSource(BLOCK_LAYER_ID, BLOCKS_SOURCE);
-  map.current?.addLayer(BLOCKS_LAYER);
+function removeBlockLayers(map: MutableRefObject<Map | null>) {
+  if (map.current?.getLayer(BLOCK_LAYER_ID)) {
+    map.current?.removeLayer(BLOCK_LAYER_ID);
+  }
+  if (map.current?.getLayer(BLOCK_HOVER_LAYER_ID)) {
+    map.current?.removeLayer(BLOCK_HOVER_LAYER_ID);
+  }
+  if (map.current?.getSource(BLOCK_SOURCE_ID)) {
+    map.current?.removeSource(BLOCK_SOURCE_ID);
+  }
+}
 
-  map.current?.addLayer(BLOCKS_HOVER_LAYER);
-};
-
-const removeLayer = (map: MutableRefObject<Map | null>) => {
-  map.current?.removeLayer(BLOCK_LAYER_ID);
-  map.current?.removeSource(BLOCK_LAYER_ID);
-};
-
-export { addLayer, removeLayer };
+export { addBlockLayers, removeBlockLayers };

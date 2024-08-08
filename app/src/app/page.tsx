@@ -9,7 +9,7 @@ export default function Home() {
   return (
     <QueryClientProvider client={queryClient}>
       <main>
-        <div className="h-screen w-screen flex items-center justify-between p">
+        <div className="h-screen w-screen flex justify-between p">
           <MapComponent />
           <SidebarComponent />
         </div>

@@ -43,6 +43,12 @@ class TimeStampMixin(SQLModel):
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False, unique=True)
+    tiles_s3_path: str | None = Field(nullable=True)
+
+
+class GerryDBViewPublic(BaseModel):
+    name: str
+    tiles_s3_path: str | None
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
