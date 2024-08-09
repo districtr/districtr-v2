@@ -2,33 +2,34 @@ import React from "react";
 import { Select } from "@radix-ui/themes";
 import { gerryDBView, getGerryDBViews } from "../../api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
+import { useQuery } from "@tanstack/react-query";
 
 export function GerryDBViewSelector() {
-  const [views, setViews] = React.useState<gerryDBView[]>([]);
   const [selectedView, setSelectedView] = React.useState<string | null>(null);
   const [limit, setLimit] = React.useState<number>(20);
   const [offset, setOffset] = React.useState<number>(0);
   const { selectedLayer, setSelectedLayer } = useMapStore();
+  const { isPending, error, data } = useQuery({
+    queryKey: ["views", limit, offset],
+    queryFn: () => getGerryDBViews(limit, offset),
+  });
 
-  React.useEffect(() => {
-    getGerryDBViews(limit, offset).then((views) => {
-      console.log(views);
-      setViews(views);
-    });
-  }, [limit, offset]);
+  if (isPending) {
+    return <div>Loading geographies... 🌎</div>;
+  }
+
+  if (error) {
+    return <div>Failed to load geographies.</div>;
+  }
 
   const handleValueChange = (value: string) => {
     setSelectedView(value);
-    const selectedLayer = views.find((view) => view.name === value);
+    const selectedLayer = data.find((view) => view.name === value);
     if (!selectedLayer) {
       return;
     }
     setSelectedLayer(selectedLayer);
   };
-
-  if (views.length === 0) {
-    return <div>Loading geographies... 🌎</div>;
-  }
 
   return (
     <Select.Root
@@ -40,7 +41,7 @@ export function GerryDBViewSelector() {
       <Select.Content>
         <Select.Group>
           <Select.Label>Select a geography</Select.Label>
-          {views.map((view, index) => (
+          {data.map((view, index) => (
             <Select.Item key={index} value={view.name}>
               {view.name}
             </Select.Item>

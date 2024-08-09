@@ -78,19 +78,6 @@ interface responseObject {
   data: any;
 }
 
-/**
- * Save map data to the server.
- * @param mapObject - Map, the map object to save. In this case, the entire maplibre map object.
- * @returns Promise
- */
-const postMapObject: (mapObject: Map) => Promise<responseObject> = async (
-  mapObject: Map,
-) => {
-  // return axios.post("/saveMap", mapObject);
-  console.log("should be saving map now");
-  return { data: "Map saved!" };
-};
-
 const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
   mapObject: Map,
 ) => {
@@ -141,26 +128,17 @@ export const getGerryDBViews: (
   limit?: number,
   offset?: number,
 ) => Promise<gerryDBView[]> = async (limit = 10, offset = 0) => {
-  try {
-    const returnObject = await axios
-      .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
-      )
-      .then((res) => {
-        return res.data;
-      });
-    return returnObject;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Axios error:", error.message);
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        console.error("Response headers:", error.response.headers);
-      }
-    } else {
-      console.error("Unexpected error:", error);
-    }
-    throw error;
-  }
+  console.log("Fetching GerryDB views...");
+  return await axios
+    .get(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
+    )
+    .then((res) => {
+      return res.data;
+    })
+    // In axios do we need to catch the error ourselves? Seems like tanstack might do this for us
+    .catch((error) => {
+      console.error("Error fetching GerryDB views:", error);
+      throw error;
+    });
 };
