@@ -133,28 +133,31 @@ export const getMapObject: QueryFunction<
   [string]
 > = async () => {
   const documentId = useMapStore.getState().documentId;
-  try {
-    const returnObject = await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/get_assignments/${documentId}`)
-      .then((res) => {
-        console.log("i got the data", res.data);
-        return res.data;
-      });
-    return { data: returnObject };
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("i couldn't get the data", error.message);
-      console.error("Axios error:", error.message);
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        console.error("Response headers:", error.response.headers);
+  if (documentId) {
+    try {
+      const returnObject = await axios
+        .get(`${process.env.NEXT_PUBLIC_API_URL}/get_assignments/${documentId}`)
+        .then((res) => {
+          console.log("i got the data", res.data);
+          return res.data;
+        });
+      return { data: returnObject };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error("i couldn't get the data", error.message);
+        console.error("Axios error:", error.message);
+        if (error.response) {
+          console.error("Response data:", error.response.data);
+          console.error("Response status:", error.response.status);
+          console.error("Response headers:", error.response.headers);
+        }
+      } else {
+        console.error("Unexpected error:", error);
       }
-    } else {
-      console.error("Unexpected error:", error);
+      throw error;
     }
-    throw error;
   }
+  return { data: null };
 };
 
 /**

@@ -7,7 +7,6 @@ import { useGetMapData } from "@/app/api/apiHandlers";
 export const HandleUrlParams = () => {
   const searchParams = useSearchParams();
   const params = Object.fromEntries(searchParams.entries());
-  console.log(params);
 
   // if document_id in search params, set document_id in store
   if (
@@ -16,6 +15,7 @@ export const HandleUrlParams = () => {
   ) {
     useMapStore.setState({ documentId: params.document_id });
   }
+
   useGetMapData();
 
   return params;
