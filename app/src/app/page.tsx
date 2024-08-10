@@ -8,7 +8,6 @@ import { useEffect } from "react";
 const queryClient = new QueryClient();
 
 export default function Home() {
-<<<<<<< HEAD
   return (
     <QueryClientProvider client={queryClient}>
       <main>
@@ -19,8 +18,7 @@ export default function Home() {
       </main>
     </QueryClientProvider>
   );
-=======
+
   // this is gated currently via async redirect in next.config.js
   return <div>hello world</div>;
->>>>>>> gate index / rearrange pages
 }
