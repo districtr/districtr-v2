@@ -2,8 +2,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import type { Map } from "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
-import { useRouter } from "next/navigation";
+import { SetUpdateUrlParams } from "../utils/events/mapEvents";
 import type { QueryFunction } from "@tanstack/react-query";
+
 /**
  * Hook to save map data to the server, using a mutation.
  * Should be agnostic to the mutationFn used.
@@ -44,7 +45,6 @@ export const usePostMapData = () => {
 };
 
 export const useCreateMapDocument = () => {
-  const router = useRouter();
   const mutation = useMutation({
     mutationFn: createMapObject,
     onMutate: (variables) => {
@@ -61,8 +61,6 @@ export const useCreateMapDocument = () => {
     onSuccess: (data, variables, context) => {
       // Handle successful mutation
       console.log(`Mutation ${context.id} successful!`, data);
-      alert("Map created!: " + data.data);
-      router.push(`/s/${data.data}`);
     },
     onSettled: (data, error, variables, context) => {
       // fires regardless of error or success
@@ -72,11 +70,30 @@ export const useCreateMapDocument = () => {
       }
       if (data) {
         useMapStore.setState({ documentId: data.data });
+        // add document id to search params store item
+        const { router, pathname, urlParams } = useMapStore.getState();
+        urlParams.set("document_id", data.data);
+        SetUpdateUrlParams(router, pathname, urlParams);
       }
     },
   });
 
   return mutation;
+};
+
+/**
+ * Hook to get map data from the server, using a query.
+ * Triggered in the HandleUrlParams function upon the page loading
+ * @returns result of the query to be used in calling hook component,
+ * including result.data, result.isPending, result.isError, result.error
+ */
+export const useGetMapData = () => {
+  const result = useQuery({
+    queryKey: ["documentId"],
+    queryFn: getMapObject,
+  });
+
+  return result;
 };
 
 interface responseObject {
@@ -111,20 +128,22 @@ const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
   }
 };
 
-const getMapObject: QueryFunction<responseObject, [string]> = async (
-  documentId
-) => {
+export const getMapObject: QueryFunction<
+  responseObject,
+  [string]
+> = async () => {
+  const documentId = useMapStore.getState().documentId;
   try {
     const returnObject = await axios
-      .get(
-        `http://${process.env.NEXT_PUBLIC_API_URL}/get_assignments/${documentId}`
-      )
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/get_assignments/${documentId}`)
       .then((res) => {
+        console.log("i got the data", res.data);
         return res.data;
       });
     return { data: returnObject };
   } catch (error) {
     if (axios.isAxiosError(error)) {
+      console.error("i couldn't get the data", error.message);
       console.error("Axios error:", error.message);
       if (error.response) {
         console.error("Response data:", error.response.data);

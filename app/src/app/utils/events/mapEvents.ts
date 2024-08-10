@@ -156,7 +156,7 @@ export const handleMapMoveEnd = (
   const router = useMapStore.getState().router;
   const pathname = useMapStore.getState().pathname;
   if (!router) return;
-  const urlParams = new URLSearchParams();
+  const urlParams = useMapStore.getState().urlParams;
   urlParams.set("lat", lat.toFixed(5).toString());
   urlParams.set("lng", lng.toFixed(5).toString());
   urlParams.set("zoom", zoom.toFixed(2).toString());

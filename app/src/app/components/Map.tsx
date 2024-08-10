@@ -18,6 +18,7 @@ import { useCreateMapDocument } from "../api/apiHandlers";
 import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
 import { useRouter, usePathname } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
+import { HandleUrlParams } from "../utils/events/handleUrlParams";
 
 export const MapComponent: React.FC = () => {
   const router = useRouter();
@@ -43,7 +44,7 @@ export const MapComponent: React.FC = () => {
   const setRouter = useMapStore((state) => state.setRouter);
   const setPathname = useMapStore((state) => state.setPathname);
   const pathname = usePathname();
-
+  HandleUrlParams();
   useEffect(() => {
     setRouter(router);
     setPathname(pathname);
@@ -51,7 +52,7 @@ export const MapComponent: React.FC = () => {
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
-    console.log(router);
+
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_OPTIONS.style,

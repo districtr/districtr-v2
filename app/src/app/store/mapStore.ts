@@ -37,6 +37,8 @@ export interface MapStore {
   setRouter: (router: any) => void;
   pathname: string;
   setPathname: (pathname: string) => void;
+  urlParams: URLSearchParams;
+  setUrlParams: (params: URLSearchParams) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -163,4 +165,10 @@ export const useMapStore = create<MapStore>((set) => ({
    */
   pathname: "",
   setPathname: (pathname: string) => set({ pathname: pathname }),
+  /**
+   * URL search params
+   * @type URLSearchParams
+   */
+  urlParams: new URLSearchParams(),
+  setUrlParams: (params: URLSearchParams) => set({ urlParams: params }),
 }));
