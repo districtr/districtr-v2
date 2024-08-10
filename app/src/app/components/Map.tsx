@@ -40,15 +40,18 @@ export const MapComponent: React.FC = () => {
     };
   }, []);
 
-  // const setRouter = useMapStore((state) => state.setRouter);
-  // const setPathname = useMapStore((state) => state.setPathname);
-  // const pathname = usePathname();
+  const setRouter = useMapStore((state) => state.setRouter);
+  const setPathname = useMapStore((state) => state.setPathname);
+  const pathname = usePathname();
 
   useEffect(() => {
-    // setRouter(router);
-    // setPathname(pathname);
-    if (map.current || !mapContainer.current) return;
+    setRouter(router);
+    setPathname(pathname);
+  }, [router, setRouter, pathname, setPathname]);
 
+  useEffect(() => {
+    if (map.current || !mapContainer.current) return;
+    console.log(router);
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_OPTIONS.style,
@@ -87,13 +90,22 @@ export const MapComponent: React.FC = () => {
     if (
       mapLoaded &&
       map.current !== null &&
+      !useMapStore.getState().documentId
+    ) {
+      useMapStore.setState({ mapRef: map });
+    }
+  }, [mapLoaded, map.current]);
+
+  useEffect(() => {
+    if (
+      mapLoaded &&
+      map.current &&
       !useMapStore.getState().documentId &&
       useMapStore.getState().activeTool === "brush"
     ) {
-      useMapStore.setState({ mapRef: map });
       createMapDocument.mutate(map.current);
     }
-  }, [mapLoaded, map.current]);
+  }, [useMapStore.getState().activeTool, mapLoaded, map.current]);
 
   useEffect(() => {
     if (mapLoaded && map.current) {
