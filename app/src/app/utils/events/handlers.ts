@@ -14,7 +14,7 @@ const debouncedSetZoneAssignments = debounce(
   (mapStoreRef: MapStore, selectedZone: number, geoids: Set<string>) => {
     mapStoreRef.setZoneAssignments(mapStoreRef.selectedZone, geoids);
   },
-  1000, // 1 second
+  1000 // 1 second
 );
 
 /**
@@ -34,7 +34,7 @@ const debouncedSetZoneAssignments = debounce(
 export const SelectFeatures = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  mapStoreRef: MapStore,
+  mapStoreRef: MapStore
 ) => {
   features?.forEach((feature) => {
     map.current?.setFeatureState(
@@ -43,18 +43,18 @@ export const SelectFeatures = (
         id: feature?.id ?? undefined,
         sourceLayer: mapStoreRef.selectedLayer?.name,
       },
-      { selected: true, zone: mapStoreRef.selectedZone },
+      { selected: true, zone: mapStoreRef.selectedZone }
     );
   });
   if (features?.length) {
     features.forEach((feature) => {
-      mapStoreRef.accumulatedGeoids.add(feature.properties?.GEOID20);
+      mapStoreRef.accumulatedGeoids.add(feature.properties?.path);
     });
 
     debouncedSetZoneAssignments(
       mapStoreRef,
       mapStoreRef.selectedZone,
-      mapStoreRef.accumulatedGeoids,
+      mapStoreRef.accumulatedGeoids
     );
   }
 };
@@ -69,7 +69,7 @@ export const HighlightFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
   hoverGeoids: MutableRefObject<Set<string>>,
-  sourceLayer: string,
+  sourceLayer: string
 ) => {
   if (features?.length) {
     if (hoverGeoids.current.size) {
@@ -80,7 +80,7 @@ export const HighlightFeature = (
             id: Id,
             sourceLayer: sourceLayer,
           },
-          { hover: false },
+          { hover: false }
         );
       });
       hoverGeoids.current.clear();
@@ -94,7 +94,7 @@ export const HighlightFeature = (
         id: feature?.id ?? undefined,
         sourceLayer: sourceLayer,
       },
-      { hover: true },
+      { hover: true }
     );
   });
 
@@ -116,7 +116,7 @@ export const HighlightFeature = (
 export const UnhighlightFeature = (
   map: MutableRefObject<Map | null>,
   hoverFeatureIds: MutableRefObject<Set<string>>,
-  sourceLayer: string,
+  sourceLayer: string
 ) => {
   if (hoverFeatureIds.current.size) {
     hoverFeatureIds.current.forEach((Id) => {
@@ -126,7 +126,7 @@ export const UnhighlightFeature = (
           id: Id,
           sourceLayer: sourceLayer,
         },
-        { hover: false },
+        { hover: false }
       );
     });
     hoverFeatureIds.current.clear();
@@ -142,7 +142,7 @@ export const UnhighlightFeature = (
 export const ResetMapSelectState = (
   map: MutableRefObject<Map | null>,
   mapStoreRef: MapStore,
-  sourceLayer: string,
+  sourceLayer: string
 ) => {
   if (mapStoreRef.zoneAssignments.size) {
     map.current?.removeFeatureState({

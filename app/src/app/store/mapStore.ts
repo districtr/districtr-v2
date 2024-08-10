@@ -1,7 +1,7 @@
 import type { MapOptions } from "maplibre-gl";
 import { create } from "zustand";
 import type { ActiveTool, SpatialUnit } from "../constants/types";
-import { Zone, GDBPath } from "../constants/types";
+import { Zone, GDBPath, GEOID } from "../constants/types";
 import { gerryDBView } from "../api/apiHandlers";
 import { addBlockLayers, removeBlockLayers } from "../constants/layers";
 import maplibregl from "maplibre-gl";
@@ -110,11 +110,11 @@ export const useMapStore = create<MapStore>((set) => ({
    * @param paths - Set of paths to assign to the zone; members of the set will be assigned to the zone
    * @returns updated dict of geoid: zone assignments
    */
-  setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>) =>
+  setZoneAssignments: (zone: Zone, geoids: Set<GEOID>) =>
     set((state) => {
       const newZoneAssignments = new Map([...state.zoneAssignments]);
-      gdbPaths.forEach((gdpPath) => {
-        newZoneAssignments.set(gdpPath, zone);
+      geoids.forEach((geoid) => {
+        newZoneAssignments.set(geoid, zone);
       });
       return {
         zoneAssignments: newZoneAssignments,
