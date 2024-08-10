@@ -153,15 +153,15 @@ export const handleMapMoveEnd = (
   const { lng, lat } = map.current?.getCenter() || { lng: 0, lat: 0 };
   const zoom = map.current?.getZoom() || 0;
 
-  const router = useMapStore.getState().router;
-  const pathname = useMapStore.getState().pathname;
-  if (!router) return;
-  const urlParams = new URLSearchParams();
-  urlParams.set("lat", lat.toFixed(5).toString());
-  urlParams.set("lng", lng.toFixed(5).toString());
-  urlParams.set("zoom", zoom.toFixed(2).toString());
+  // const router = useMapStore.getState().router;
+  // const pathname = useMapStore.getState().pathname;
+  // if (!router) return;
+  // const urlParams = new URLSearchParams();
+  // urlParams.set("lat", lat.toFixed(5).toString());
+  // urlParams.set("lng", lng.toFixed(5).toString());
+  // urlParams.set("zoom", zoom.toFixed(2).toString());
 
-  SetUpdateUrlParams(router, pathname, urlParams);
+  // SetUpdateUrlParams(router, pathname, urlParams);
 };
 
 export const handleMapZoomEnd = (

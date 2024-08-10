@@ -3,9 +3,10 @@ import { useCreateMapDocument } from "../api/apiHandlers";
 import { useMapStore } from "../store/mapStore";
 
 export const CreateMapSession = () => {
+  // not actually doing anything right now
   const router = useRouter();
-  const createMapDocument = useCreateMapDocument();
+  // const createMapDocument = useCreateMapDocument();
 
-  createMapDocument.mutate();
+  // createMapDocument.mutate();
   router.push(`/s/${useMapStore.getState().documentId}`);
 };

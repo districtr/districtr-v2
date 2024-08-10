@@ -2,8 +2,6 @@
 import { MapComponent } from "./components/Map";
 import SidebarComponent from "./components/sidebar/Sidebar";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/router";
-import { useEffect } from "react";
 
 const queryClient = new QueryClient();
 

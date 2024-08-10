@@ -40,13 +40,13 @@ export const MapComponent: React.FC = () => {
     };
   }, []);
 
-  const setRouter = useMapStore((state) => state.setRouter);
-  const setPathname = useMapStore((state) => state.setPathname);
-  const pathname = usePathname();
+  // const setRouter = useMapStore((state) => state.setRouter);
+  // const setPathname = useMapStore((state) => state.setPathname);
+  // const pathname = usePathname();
 
   useEffect(() => {
-    setRouter(router);
-    setPathname(pathname);
+    // setRouter(router);
+    // setPathname(pathname);
     if (map.current || !mapContainer.current) return;
 
     map.current = new maplibregl.Map({
@@ -87,7 +87,8 @@ export const MapComponent: React.FC = () => {
     if (
       mapLoaded &&
       map.current !== null &&
-      !useMapStore.getState().documentId
+      !useMapStore.getState().documentId &&
+      useMapStore.getState().activeTool === "brush"
     ) {
       useMapStore.setState({ mapRef: map });
       createMapDocument.mutate(map.current);

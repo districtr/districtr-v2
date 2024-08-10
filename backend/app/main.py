@@ -1,6 +1,6 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
 from pydantic import UUID4
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
@@ -44,6 +44,7 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    print(app)
 
 
 def get_session():
@@ -68,6 +69,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
+# matches createMapObject in apiHandlers.ts
 @app.post(
     "/api/create_document",
     response_model=DocumentPublic,
@@ -131,7 +133,7 @@ async def update_assignments(
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
 
-
+# called by getMapObject in apiHandlers.ts
 @app.get("/get_assignments/{document_id}", response_model=list[Assignments])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
     stmt = select(Assignments).where(Assignments.document_id == document_id)

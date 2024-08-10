@@ -9,6 +9,7 @@ import type { QueryFunction } from "@tanstack/react-query";
  * Should be agnostic to the mutationFn used.
  * @returns mutation to be used in calling hook component, e.g. localMutationVar.mutate()
  */
+
 export const usePostMapData = () => {
   const mutation = useMutation({
     mutationFn: createMapObject,
@@ -109,13 +110,14 @@ const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
     throw error;
   }
 };
+
 const getMapObject: QueryFunction<responseObject, [string]> = async (
-  sessionId
+  documentId
 ) => {
   try {
     const returnObject = await axios
       .get(
-        `http://${process.env.NEXT_PUBLIC_API_URL}/get_document/${sessionId}`
+        `http://${process.env.NEXT_PUBLIC_API_URL}/get_assignments/${documentId}`
       )
       .then((res) => {
         return res.data;
@@ -161,7 +163,7 @@ export const getGerryDBViews: (
   try {
     const returnObject = await axios
       .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`
+        `${process.env.NEXT_PUBLIC_API_DEV_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`
       )
       .then((res) => {
         return res.data;
