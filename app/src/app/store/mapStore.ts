@@ -2,7 +2,7 @@ import type { MapOptions } from "maplibre-gl";
 import { create } from "zustand";
 import type { ActiveTool, SpatialUnit } from "../constants/types";
 import { Zone, GEOID } from "../constants/types";
-import { gerryDBView } from "../api/apiHandlers";
+import { GerryDBView, patchAssignments, Assignment } from "../api/apiHandlers";
 import { addBlockLayers, removeBlockLayers } from "../constants/layers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
@@ -12,8 +12,8 @@ export interface MapStore {
   setMapRef: (map: MutableRefObject<maplibregl.Map>) => void;
   documentId: string | null;
   setDocumentId: (documentId: string) => void;
-  selectedLayer: gerryDBView | null;
-  setSelectedLayer: (layer: gerryDBView) => void;
+  selectedLayer: GerryDBView | null;
+  setSelectedLayer: (layer: GerryDBView) => void;
   mapOptions: MapOptions;
   setMapOptions: (options: MapOptions) => void;
   activeTool: ActiveTool;
@@ -47,10 +47,10 @@ export const useMapStore = create<MapStore>((set) => ({
   setDocumentId: (documentId: string) => set({ documentId: documentId }),
   /**
    * Layer currently selected by the user
-   * @type {gerryDBView | null}
+   * @type {GerryDBView | null}
    */
   selectedLayer: null,
-  setSelectedLayer: (layer: gerryDBView) =>
+  setSelectedLayer: (layer: GerryDBView) =>
     set((state: MapStore) => {
       if (state.mapRef) {
         removeBlockLayers(state.mapRef);
@@ -106,6 +106,26 @@ export const useMapStore = create<MapStore>((set) => ({
    */
   setZoneAssignments: (zone: Zone, geoids: Set<GEOID>) =>
     set((state) => {
+      console.log("Assigning geoids to zone", geoids, zone);
+      if (state.documentId === null) {
+        console.error("No documentId set");
+        return state;
+      } else if (geoids.size === 0) {
+        console.log("No geoids to assign");
+        return state;
+      }
+      const newAssignments: Assignment[] = Array.from(geoids).map((geoid) => ({
+        document_id: state.documentId,
+        geo_id: geoid,
+        zone: zone,
+      }));
+      console.log("", newAssignments[0], newAssignments.length);
+      try {
+        const p = patchAssignments(newAssignments);
+        console.log(p);
+      } catch (e) {
+        console.log(e);
+      }
       const newZoneAssignments = new Map([...state.zoneAssignments]);
       geoids.forEach((geoid) => {
         newZoneAssignments.set(geoid, zone);

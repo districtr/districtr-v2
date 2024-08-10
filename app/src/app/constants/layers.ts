@@ -2,7 +2,7 @@ import { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
 import { getBlocksSource } from "./sources";
-import { gerryDBView } from "../api/apiHandlers";
+import { GerryDBView } from "../api/apiHandlers";
 import { color10 } from "./colors";
 
 export const BLOCK_SOURCE_ID = "blocks";
@@ -77,12 +77,12 @@ export function getBlocksHoverLayerSpecification(
 
 const addBlockLayers = (
   map: MutableRefObject<Map | null>,
-  gerryDBView: gerryDBView,
+  GerryDBView: GerryDBView,
 ) => {
-  const blockSource = getBlocksSource(gerryDBView.tiles_s3_path);
+  const blockSource = getBlocksSource(GerryDBView.tiles_s3_path);
   map.current?.addSource(BLOCK_SOURCE_ID, blockSource);
-  map.current?.addLayer(getBlocksLayerSpecification(gerryDBView.name));
-  map.current?.addLayer(getBlocksHoverLayerSpecification(gerryDBView.name));
+  map.current?.addLayer(getBlocksLayerSpecification(GerryDBView.name));
+  map.current?.addLayer(getBlocksHoverLayerSpecification(GerryDBView.name));
 };
 
 function removeBlockLayers(map: MutableRefObject<Map | null>) {

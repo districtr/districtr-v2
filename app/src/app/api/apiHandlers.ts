@@ -1,44 +1,57 @@
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
-import type { Map } from "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
 
 /**
  * Hook to save map data to the server, using a mutation.
- * Should be agnostic to the mutationFn used.
  * @returns mutation to be used in calling hook component, e.g. localMutationVar.mutate()
  */
-export const usePostMapData = () => {
+export const usePatchAssignments = () => {
   const mutation = useMutation({
-    mutationFn: createMapObject,
-    onMutate: (variables) => {
-      // A mutation is about to happen, prepare for transaction
-      // this id can be used on server side to rollback if needed
-      return {
-        id: Math.random().toString(36).substring(7), // Optimistic ID
-      };
-    },
+    mutationFn: patchAssignments,
     onError: (error, variables, context) => {
-      // An error happened!
-      console.log(`Rolling back optimistic update with id ${context?.id}`);
+      console.log("Could not update assignments", error);
     },
     onSuccess: (data, variables, context) => {
-      // Handle successful mutation
-      console.log(`Mutation ${context.id} successful!`, data);
+      console.log("Mutation successful!", data);
     },
     onSettled: (data, error, variables, context) => {
       // fires regardless of error or success
-      console.log(`Optimistic update with id ${context?.id} settled: `);
       if (error) {
-        console.log("Error: ", error);
-      }
-      if (data) {
-        useMapStore.setState({ documentId: data.data });
+        console.log("Error settling: ", error);
       }
     },
   });
 
   return mutation;
+};
+
+/**
+ * Atomic assignment in model to send to server
+ * @param document_id - uuid of the document to update
+ * @param geo_id - id of the geo object to update (path in tiles)
+ * @param zone - zone to assign to the geo object
+ */
+export interface Assignment {
+  document_id: string;
+  geo_id: string;
+  zone: number;
+}
+
+const patchAssignments: (
+  assignments: Assignment[],
+) => Promise<ResponseObject> = async (assignments: Assignment[]) => {
+  return await axios
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/updateAssignments`, {
+      assignments: assignments, // Will need to add this in
+    }) // should replace with env var
+    .then((res) => {
+      // successful roundtrip; return the document id
+      return res.data.document_id;
+    })
+    .catch((error) => {
+      console.error("Error creating map object: ", error);
+    });
 };
 
 export const useCreateMapDocument = () => {
@@ -52,15 +65,12 @@ export const useCreateMapDocument = () => {
       };
     },
     onError: (error, variables, context) => {
-      // An error happened!
       console.log(`Rolling back optimistic update with id ${context?.id}`);
     },
     onSuccess: (data, variables, context) => {
-      // Handle successful mutation
       console.log(`Mutation ${context.id} successful!`, data);
     },
     onSettled: (data, error, variables, context) => {
-      // fires regardless of error or success
       console.log(`Optimistic update with id ${context?.id} settled: `);
       if (error) {
         console.log("Error: ", error);
@@ -74,36 +84,26 @@ export const useCreateMapDocument = () => {
   return mutation;
 };
 
-interface responseObject {
+interface ResponseObject {
   data: any;
 }
 
-const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
-  mapObject: Map,
-) => {
-  try {
-    const returnObject = await axios
-      .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
-        gerrydb_table: null, // Will need to add this in
-      }) // should replace with env var
-      .then((res) => {
-        // successful roundtrip; return the document id
-        return res.data.document_id;
-      });
-    return { data: returnObject };
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Axios error:", error.message);
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        console.error("Response headers:", error.response.headers);
-      }
-    } else {
-      console.error("Unexpected error:", error);
-    }
-    throw error;
-  }
+const createMapObject: (
+  gerrydb_table: string,
+) => Promise<ResponseObject> = async (gerrydb_table: string) => {
+  console.log("creating new document");
+  return await axios
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
+      gerrydb_table: gerrydb_table,
+    }) // should replace with env var
+    .then((res) => {
+      console.log("created document", res.data);
+      // successful roundtrip; return the document id
+      return res.data.document_id;
+    })
+    .catch((error) => {
+      console.error("Error creating map object: ", error);
+    });
 };
 
 /**
@@ -113,7 +113,7 @@ const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
  * @property {string} name - Table name should match the name of the GerryDB table in Postgres and name of the layer in the tileset.
  * @property {string} tiles_s3_path - the path to the tiles in the S3 bucket
  */
-export interface gerryDBView {
+export interface GerryDBView {
   name: string;
   tiles_s3_path: string;
 }
@@ -127,7 +127,7 @@ export interface gerryDBView {
 export const getGerryDBViews: (
   limit?: number,
   offset?: number,
-) => Promise<gerryDBView[]> = async (limit = 10, offset = 0) => {
+) => Promise<GerryDBView[]> = async (limit = 10, offset = 0) => {
   console.log("Fetching GerryDB views...");
   return await axios
     .get(

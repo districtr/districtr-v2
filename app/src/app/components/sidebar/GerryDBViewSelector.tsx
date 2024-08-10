@@ -1,6 +1,6 @@
 import React from "react";
 import { Select } from "@radix-ui/themes";
-import { gerryDBView, getGerryDBViews } from "../../api/apiHandlers";
+import { getGerryDBViews, useCreateMapDocument } from "../../api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
 import { useQuery } from "@tanstack/react-query";
 
@@ -9,13 +9,14 @@ export function GerryDBViewSelector() {
   const [limit, setLimit] = React.useState<number>(20);
   const [offset, setOffset] = React.useState<number>(0);
   const { selectedLayer, setSelectedLayer } = useMapStore();
+  const createMapDocument = useCreateMapDocument();
   const { isPending, error, data } = useQuery({
     queryKey: ["views", limit, offset],
     queryFn: () => getGerryDBViews(limit, offset),
   });
 
   if (isPending) {
-    return <div>Loading geographies... 🌎</div>;
+    return <div>Loading available geographies</div>;
   }
 
   if (error) {
@@ -23,6 +24,7 @@ export function GerryDBViewSelector() {
   }
 
   const handleValueChange = (value: string) => {
+    createMapDocument.mutate(value);
     setSelectedView(value);
     const selectedLayer = data.find((view) => view.name === value);
     if (!selectedLayer) {

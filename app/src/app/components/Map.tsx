@@ -14,7 +14,6 @@ import {
   useHoverFeatureIds,
   handleResetMapSelectState,
 } from "../utils/events/mapEvents";
-import { useCreateMapDocument } from "../api/apiHandlers";
 import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
 import { useMapStore } from "../store/mapStore";
 
@@ -23,7 +22,6 @@ export const MapComponent: React.FC = () => {
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
-  const createMapDocument = useCreateMapDocument();
 
   const { freshMap, setFreshMap } = useMapStore((state) => ({
     freshMap: state.freshMap,
@@ -82,7 +80,6 @@ export const MapComponent: React.FC = () => {
       !useMapStore.getState().documentId
     ) {
       useMapStore.setState({ mapRef: map });
-      createMapDocument.mutate(map.current);
     }
   }, [mapLoaded, map.current]);
 
