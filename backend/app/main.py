@@ -148,7 +148,7 @@ async def sync_assignemnts(
     doc_partition = f"document.assignments_{document_id}"
 
     stmt = text(f"""
-        TRUNCATE TABLE {doc_partition};
+        TRUNCATE TABLE "{doc_partition}";
     """)
     session.execute(stmt)
     assignments_string = ",".join(
@@ -159,7 +159,7 @@ async def sync_assignemnts(
     )
     # doing this as text so we can insert into a specific partition
     stmt = text(f"""
-        INSERT INTO {doc_partition} (document_id, geoid, zone)
+        INSERT INTO "{doc_partition}" (document_id, geoid, zone)
         VALUES 
         {assignments_string}
     """)
