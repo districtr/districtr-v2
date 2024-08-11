@@ -4,7 +4,6 @@ import "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
 import { SetUpdateUrlParams } from "../utils/events/mapEvents";
 import type { QueryFunction } from "@tanstack/react-query";
-import { useEffect } from "react";
 
 /**
  * Hook to save map data to the server, using a mutation.
@@ -51,6 +50,7 @@ export const usePatchUpdateAssignments = () => {
     onMutate: (variables) => {
       // A mutation is about to happen, prepare for transaction
       // this id can be used on server side to rollback if needed
+      console.log("variables", variables);
       return {
         id: Math.random().toString(36).substring(7), // Optimistic ID
       };
@@ -74,34 +74,6 @@ export const usePatchUpdateAssignments = () => {
       }
     },
   });
-
-  // useEffect(() => {
-  //   const unsubscribe = useMapStore.subscribe(
-  //     (state) => state.zoneAssignments as Map<string, number>,
-  //     // @ts-ignore
-  //     (zoneAssignments) => {
-  //       if (zoneAssignments) {
-  //         console.log("zoneAssignments updated", zoneAssignments);
-  //         const assignments = Array.from(zoneAssignments.entries()).map(
-  //           // @ts-ignore
-  //           ([geo_id, zone]: [string, number]): {
-  //             document_id: string;
-  //             geo_id: string;
-  //             zone: number;
-  //           } => ({
-  //             document_id: useMapStore.getState().documentId ?? "",
-  //             geo_id,
-  //             zone,
-  //           })
-  //         );
-  //         mutation.mutate(assignments);
-  //       }
-  //     }
-  //   );
-  //   console.log("subscribed to zoneAssignments");
-  //   // Clean up subscription on component unmount
-  //   return () => unsubscribe();
-  // }, [mutation]);
 
   return mutation;
 };
@@ -242,7 +214,7 @@ export const getMapObject: QueryFunction<
       const returnObject = await axios
         .get(`${process.env.NEXT_PUBLIC_API_URL}/get_assignments/${documentId}`)
         .then((res) => {
-          console.log("i got the data", res.data);
+          console.log("i got the data from the url string", res.data);
           return res.data;
         });
       return { data: returnObject };
@@ -340,7 +312,7 @@ const patchUpdateAssignments: (
 ) => Promise<responseObject> = async (assignments: Assignment[]) => {
   try {
     const returnObject = await axios
-      .patch(`${process.env.NEXT_PUBLIC_API_URL}/update_assignments`, {
+      .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
         assignments: assignments,
       })
       .then((res) => {
