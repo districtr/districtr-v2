@@ -2,13 +2,17 @@ import React from "react";
 import { Select } from "@radix-ui/themes";
 import { gerryDBView, getGerryDBViews } from "../../api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
+import { SetUpdateUrlParams } from "../../utils/events/mapEvents";
 
 export function GerryDBViewSelector() {
   const [views, setViews] = React.useState<gerryDBView[]>([]);
   const [selectedView, setSelectedView] = React.useState<string | null>(null);
   const [limit, setLimit] = React.useState<number>(20);
   const [offset, setOffset] = React.useState<number>(0);
-  const { selectedLayer, setSelectedLayer } = useMapStore();
+  const { selectedLayer, setSelectedLayer } = useMapStore((state) => ({
+    selectedLayer: state.selectedLayer,
+    setSelectedLayer: state.setSelectedLayer,
+  }));
 
   React.useEffect(() => {
     getGerryDBViews(limit, offset).then((views) => {
@@ -24,6 +28,12 @@ export function GerryDBViewSelector() {
       return;
     }
     setSelectedLayer(selectedLayer);
+    const urlParams = useMapStore.getState().urlParams;
+    const router = useMapStore.getState().router;
+    const pathname = useMapStore.getState().pathname;
+    urlParams.set("layer", selectedLayer.name);
+
+    SetUpdateUrlParams(router, pathname, urlParams);
   };
 
   if (views.length === 0) {
