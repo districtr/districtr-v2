@@ -7,7 +7,7 @@ import maplibregl, {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import type { MutableRefObject } from "react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { use, useEffect, useRef, useState } from "react";
 import { MAP_OPTIONS } from "../constants/configuration";
 import {
   mapEvents,
@@ -19,6 +19,10 @@ import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
 import { useRouter, usePathname } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
 import { HandleUrlParams } from "../utils/events/handleUrlParams";
+import {
+  usePatchUpdateAssignments,
+  FormatAssignments,
+} from "../api/apiHandlers";
 
 export const MapComponent: React.FC = () => {
   const router = useRouter();
@@ -27,10 +31,11 @@ export const MapComponent: React.FC = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
   const createMapDocument = useCreateMapDocument();
-
-  const { freshMap, setFreshMap } = useMapStore((state) => ({
+  const patchUpdates = usePatchUpdateAssignments();
+  const { freshMap, setFreshMap, zoneAssignments } = useMapStore((state) => ({
     freshMap: state.freshMap,
     setFreshMap: state.setFreshMap,
+    zoneAssignments: state.zoneAssignments,
   }));
 
   useEffect(() => {
@@ -45,6 +50,7 @@ export const MapComponent: React.FC = () => {
   const setPathname = useMapStore((state) => state.setPathname);
   const pathname = usePathname();
   HandleUrlParams();
+  usePatchUpdateAssignments();
   useEffect(() => {
     setRouter(router);
     setPathname(pathname);
@@ -107,6 +113,14 @@ export const MapComponent: React.FC = () => {
       createMapDocument.mutate(map.current);
     }
   }, [useMapStore.getState().activeTool, mapLoaded, map.current]);
+
+  useEffect(() => {
+    if (mapLoaded && map.current && zoneAssignments.size) {
+      console.log("Assignments", zoneAssignments);
+      const assignments = FormatAssignments();
+      patchUpdates.mutate(assignments);
+    }
+  }, [mapLoaded, map.current, zoneAssignments]);
 
   useEffect(() => {
     if (mapLoaded && map.current) {

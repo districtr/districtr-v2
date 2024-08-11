@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import type { Map } from "maplibre-gl";
+import "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
 import { SetUpdateUrlParams } from "../utils/events/mapEvents";
 import type { QueryFunction } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 /**
  * Hook to save map data to the server, using a mutation.
@@ -42,6 +43,109 @@ export const usePostMapData = () => {
   });
 
   return mutation;
+};
+
+export const usePatchUpdateAssignments = () => {
+  const mutation = useMutation({
+    mutationFn: patchUpdateAssignments,
+    onMutate: (variables) => {
+      // A mutation is about to happen, prepare for transaction
+      // this id can be used on server side to rollback if needed
+      return {
+        id: Math.random().toString(36).substring(7), // Optimistic ID
+      };
+    },
+    onError: (error, variables, context) => {
+      // An error happened!
+      console.log(`Rolling back optimistic update with id ${context?.id}`);
+    },
+    onSuccess: (data, variables, context) => {
+      // Handle successful mutation
+      console.log(`Mutation ${context.id} successful!`, data);
+    },
+    onSettled: (data, error, variables, context) => {
+      // fires regardless of error or success
+      console.log(`Optimistic update with id ${context?.id} settled: `);
+      if (error) {
+        console.log("Error: ", error);
+      }
+      if (data) {
+        console.log("assignments updated");
+      }
+    },
+  });
+
+  // useEffect(() => {
+  //   const unsubscribe = useMapStore.subscribe(
+  //     (state) => state.zoneAssignments as Map<string, number>,
+  //     // @ts-ignore
+  //     (zoneAssignments) => {
+  //       if (zoneAssignments) {
+  //         console.log("zoneAssignments updated", zoneAssignments);
+  //         const assignments = Array.from(zoneAssignments.entries()).map(
+  //           // @ts-ignore
+  //           ([geo_id, zone]: [string, number]): {
+  //             document_id: string;
+  //             geo_id: string;
+  //             zone: number;
+  //           } => ({
+  //             document_id: useMapStore.getState().documentId ?? "",
+  //             geo_id,
+  //             zone,
+  //           })
+  //         );
+  //         mutation.mutate(assignments);
+  //       }
+  //     }
+  //   );
+  //   console.log("subscribed to zoneAssignments");
+  //   // Clean up subscription on component unmount
+  //   return () => unsubscribe();
+  // }, [mutation]);
+
+  return mutation;
+};
+
+export const FormatAssignments = () => {
+  const assignments = Array.from(
+    useMapStore.getState().zoneAssignments.entries()
+  ).map(
+    // @ts-ignore
+    ([geo_id, zone]: [string, number]): {
+      document_id: string;
+      geo_id: string;
+      zone: number;
+    } => ({
+      document_id: useMapStore.getState().documentId ?? "",
+      geo_id,
+      zone,
+    })
+  );
+  return assignments;
+};
+
+const PatchUpdateSubscription = () => {
+  const patcher = usePatchUpdateAssignments();
+  const unsubscribe = useMapStore.subscribe(
+    (state) => state.zoneAssignments as Map<string, number>,
+    // @ts-ignore
+    (zoneAssignments) => {
+      console.log("zoneAssignments updated", zoneAssignments);
+      const assignments = Array.from(zoneAssignments.entries()).map(
+        // @ts-ignore
+        ([geo_id, zone]: [string, number]): {
+          document_id: string;
+          geo_id: string;
+          zone: number;
+        } => ({
+          document_id: useMapStore.getState().documentId ?? "",
+          geo_id,
+          zone,
+        })
+      );
+      patcher.mutate(assignments);
+    }
+  );
 };
 
 export const useCreateMapDocument = () => {
@@ -100,9 +204,9 @@ interface responseObject {
   data: any;
 }
 
-const createMapObject: (mapObject: Map) => Promise<responseObject> = async (
-  mapObject: Map
-) => {
+const createMapObject: (
+  mapObject: maplibregl.Map
+) => Promise<responseObject> = async (mapObject: maplibregl.Map) => {
   try {
     const returnObject = await axios
       .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
@@ -217,10 +321,44 @@ const useSessionData = (sessionId: string) => {
  * @param mapObject - Map, the map object to save. In this case, the entire maplibre map object.
  * @returns Promise
  */
-const postMapObject: (mapObject: Map) => Promise<responseObject> = async (
-  mapObject: Map
-) => {
+const postMapObject: (
+  mapObject: maplibregl.Map
+) => Promise<responseObject> = async (mapObject: maplibregl.Map) => {
   // return axios.post("/saveMap", mapObject);
   console.log("should be saving map now");
   return { data: "Map saved!" };
+};
+
+export interface Assignment {
+  document_id: string;
+  geo_id: string;
+  zone: number;
+}
+
+const patchUpdateAssignments: (
+  assignments: Assignment[]
+) => Promise<responseObject> = async (assignments: Assignment[]) => {
+  try {
+    const returnObject = await axios
+      .patch(`${process.env.NEXT_PUBLIC_API_URL}/update_assignments`, {
+        assignments: assignments,
+      })
+      .then((res) => {
+        console.log("i got the data", res.data);
+        return res.data;
+      });
+    return { data: returnObject };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("Axios error:", error.message);
+      if (error.response) {
+        console.error("Response data:", error.response.data);
+        console.error("Response status:", error.response.status);
+        console.error("Response headers:", error.response.headers);
+      }
+    } else {
+      console.error("Unexpected error:", error);
+    }
+    throw error;
+  }
 };
