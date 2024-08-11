@@ -132,13 +132,40 @@ async def update_assignments(
     return {"assignments_upserted": len(data.assignments)}
 
 
-@app.get("/get_assignments/{document_id}", response_model=list[Assignments])
+@app.get("/api/get_assignments/{document_id}", response_model=list[Assignments])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
     stmt = select(Assignments).where(Assignments.document_id == document_id)
     results = session.exec(stmt)
     # do we need to unpack returned assignments from returned results object?
     # I think probably?
     return results
+
+
+@app.post("/api/sync_assignments/{document_id}")
+async def sync_assignemnts(
+    document_id: str, data: AssignmentsCreate, session: Session = Depends(get_session)
+):
+    doc_partition = f"document.assignments_{document_id}"
+
+    stmt = text(f"""
+        TRUNCATE TABLE {doc_partition};
+    """)
+    session.execute(stmt)
+    assignments_string = ",".join(
+        [
+            f"({assignment.document_id}, {assignment.geoid}, {assignment.zone} )"
+            for assignment in data.model_dump()["assignments"]
+        ]
+    )
+    # doing this as text so we can insert into a specific partition
+    stmt = text(f"""
+        INSERT INTO {doc_partition} (document_id, geoid, zone)
+        VALUES 
+        {assignments_string}
+    """)
+    session.execute(stmt)
+    session.commit()
+    return {"assignments_inserted": len(data.assignments)}
 
 
 @app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
