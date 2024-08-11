@@ -14,8 +14,19 @@ import { resolve } from "path";
  */
 const debouncedSetZoneAssignments = debounce(
   (mapStoreRef: MapStore, selectedZone: number, geoids: Set<string>) => {
-    mapStoreRef.setZoneAssignments(mapStoreRef.selectedZone, geoids);
+    mapStoreRef.setZoneAssignments(selectedZone, geoids);
+
+    const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
+    // set the zone populations
+
+    const population = Array.from(accumulatedBlockPopulations.values()).reduce(
+      (acc, val) => acc + Number(val),
+      0
+    );
+    mapStoreRef.setZonePopulations(selectedZone, population);
+    console.log(mapStoreRef.zonePopulations);
   },
+
   1000 // 1 second
 );
 
@@ -48,8 +59,14 @@ export const SelectMapFeatures = (
   if (features?.length) {
     features.forEach((feature) => {
       mapStoreRef.accumulatedGeoids.add(feature.properties?.path);
+
+      mapStoreRef.accumulatedBlockPopulations.set(
+        feature.properties?.path,
+        feature.properties?.total_pop
+      );
     });
   }
+  console.log(mapStoreRef.accumulatedBlockPopulations);
   return new Promise<void>((resolve) => {
     // Resolve the Promise after the function completes
     // this is so we can chain the function and call the next one

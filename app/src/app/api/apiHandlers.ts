@@ -48,13 +48,16 @@ export const usePostMapData = () => {
   return mutation;
 };
 
+/**
+ *
+ * @returns mutation to be used in calling hook component, e.g. localMutationVar.mutate()
+ */
 export const usePatchUpdateAssignments = () => {
   const mutation = useMutation({
     mutationFn: patchUpdateAssignments,
     onMutate: (variables) => {
       // A mutation is about to happen, prepare for transaction
       // this id can be used on server side to rollback if needed
-      console.log("variables", variables);
       return {
         id: Math.random().toString(36).substring(7), // Optimistic ID
       };
@@ -218,7 +221,6 @@ export const getMapObject: QueryFunction<
       const returnObject = await axios
         .get(`${process.env.NEXT_PUBLIC_API_URL}/get_assignments/${documentId}`)
         .then((res) => {
-          console.log("i got the data from the url string", res.data);
           return res.data;
         });
 
@@ -311,8 +313,6 @@ const useSessionData = (sessionId: string) => {
 const postMapObject: (
   mapObject: maplibregl.Map
 ) => Promise<responseObject> = async (mapObject: maplibregl.Map) => {
-  // return axios.post("/saveMap", mapObject);
-  console.log("should be saving map now");
   return { data: "Map saved!" };
 };
 
@@ -321,7 +321,11 @@ export interface Assignment {
   geo_id: string;
   zone: number;
 }
-
+/**
+ *
+ * @param assignments
+ * @returns server object containing the updated assignments per geoid
+ */
 const patchUpdateAssignments: (
   assignments: Assignment[]
 ) => Promise<responseObject> = async (assignments: Assignment[]) => {
@@ -331,7 +335,6 @@ const patchUpdateAssignments: (
         assignments: assignments,
       })
       .then((res) => {
-        console.log("i got the data", res.data);
         return res.data;
       });
     return { data: returnObject };

@@ -22,9 +22,13 @@ export interface MapStore {
   setSpatialUnit: (unit: SpatialUnit) => void;
   selectedZone: Zone;
   setSelectedZone: (zone: Zone) => void;
+  accumulatedBlockPopulations: Map<string, number>;
+  resetAccumulatedBlockPopulations: () => void;
   zoneAssignments: Map<string, number>; // geoid -> zone
   setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>) => void;
   resetZoneAssignments: () => void;
+  zonePopulations: Map<Zone, number>;
+  setZonePopulations: (zone: Zone, population: number) => void;
   accumulatedGeoids: Set<string>;
   brushSize: number;
   setBrushSize: (size: number) => void;
@@ -73,6 +77,18 @@ export const useMapStore = create<MapStore>((set) => ({
       return {
         zoneAssignments: newZoneAssignments,
         accumulatedGeoids: new Set<string>(),
+      };
+    }),
+  accumulatedBlockPopulations: new Map<string, number>(),
+  resetAccumulatedBlockPopulations: () =>
+    set({ accumulatedBlockPopulations: new Map<string, number>() }),
+  zonePopulations: new Map(),
+  setZonePopulations: (zone, population) =>
+    set((state) => {
+      const newZonePopulations = new Map(state.zonePopulations);
+      newZonePopulations.set(zone, population);
+      return {
+        zonePopulations: newZonePopulations,
       };
     }),
   resetZoneAssignments: () => set({ zoneAssignments: new Map() }),
