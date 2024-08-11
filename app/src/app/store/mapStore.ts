@@ -6,26 +6,6 @@ import { gerryDBView } from "../api/apiHandlers";
 import { addBlockLayers, removeBlockLayers } from "../constants/layers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
-import { persist, createJSONStorage, PersistStorage } from "zustand/middleware";
-import { get, set } from "idb-keyval";
-import superjson from "superjson";
-
-// Custom storage object for IndexedDB using idb-keyval
-const IndexedDBStorage = {
-  getItem: async (name: string) => {
-    return await get(name);
-  },
-  setItem: async (name: string, value: any) => {
-    await set(name, value);
-  },
-  removeItem: async (name: string) => {
-    await set(name, null);
-  },
-};
-
-const storage: PersistStorage<MapStore> = createJSONStorage(
-  () => IndexedDBStorage
-);
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
@@ -60,75 +40,6 @@ export interface MapStore {
   urlParams: URLSearchParams;
   setUrlParams: (params: URLSearchParams) => void;
 }
-
-// export const useOtherMapStore = create<MapStore>(
-//   persist(
-//     (set) => ({
-//       mapRef: null,
-//       setMapRef: (mapRef) => set({ mapRef }),
-//       documentId: null,
-//       setDocumentId: (documentId) => set({ documentId }),
-//       selectedLayer: null,
-//       setSelectedLayer: (layer) =>
-//         set((state) => {
-//           if (state.mapRef) {
-//             removeBlockLayers(state.mapRef);
-//             addBlockLayers(state.mapRef, layer);
-//           }
-//           return { selectedLayer: layer };
-//         }),
-//       mapOptions: {
-//         center: [-98.5795, 39.8283],
-//         zoom: 3,
-//         pitch: 0,
-//         bearing: 0,
-//         container: "",
-//       },
-//       setMapOptions: (options) => set({ mapOptions: options }),
-//       activeTool: "pan",
-//       setActiveTool: (tool) => set({ activeTool: tool }),
-//       spatialUnit: "tract",
-//       setSpatialUnit: (unit) => set({ spatialUnit: unit }),
-//       selectedZone: 1,
-//       setSelectedZone: (zone) => set({ selectedZone: zone }),
-//       zoneAssignments: new Map(),
-//       accumulatedGeoids: new Set<string>(),
-//       setZoneAssignments: (zone, geoids) =>
-//         set((state) => {
-//           const newZoneAssignments = new Map(state.zoneAssignments);
-//           geoids.forEach((geoid) => {
-//             newZoneAssignments.set(geoid, zone);
-//           });
-//           return {
-//             zoneAssignments: newZoneAssignments,
-//             accumulatedGeoids: new Set<string>(),
-//           };
-//         }),
-//       resetZoneAssignments: () => set({ zoneAssignments: new Map() }),
-//       brushSize: 50,
-//       setBrushSize: (size) => set({ brushSize: size }),
-//       isPainting: false,
-//       setIsPainting: (isPainting) => set({ isPainting }),
-//       clearMapEdits: () =>
-//         set({
-//           zoneAssignments: new Map(),
-//           accumulatedGeoids: new Set<string>(),
-//           selectedZone: 1,
-//         }),
-//       freshMap: false,
-//       setFreshMap: (resetMap) => set({ freshMap: resetMap }),
-//       router: null,
-//       setRouter: (router) => set({ router }),
-//       pathname: "",
-//       setPathname: (pathname) => set({ pathname }),
-//       urlParams: new URLSearchParams(),
-//       setUrlParams: (params) => set({ urlParams: params }),
-//     }),
-//     {
-//       name: "map-store-2",
-//     }
-//   )
-// );
 
 export const useMapStore = create<MapStore>((set) => ({
   mapRef: null,
