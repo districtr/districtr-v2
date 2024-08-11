@@ -6,10 +6,30 @@ import { gerryDBView } from "../api/apiHandlers";
 import { addBlockLayers, removeBlockLayers } from "../constants/layers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
+import { persist, createJSONStorage, PersistStorage } from "zustand/middleware";
+import { get, set } from "idb-keyval";
+import superjson from "superjson";
+
+// Custom storage object for IndexedDB using idb-keyval
+const IndexedDBStorage = {
+  getItem: async (name: string) => {
+    return await get(name);
+  },
+  setItem: async (name: string, value: any) => {
+    await set(name, value);
+  },
+  removeItem: async (name: string) => {
+    await set(name, null);
+  },
+};
+
+const storage: PersistStorage<MapStore> = createJSONStorage(
+  () => IndexedDBStorage
+);
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
-  setMapRef: (map: MutableRefObject<maplibregl.Map>) => void;
+  setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   documentId: string | null;
   setDocumentId: (documentId: string) => void;
   selectedLayer: gerryDBView | null;
@@ -41,33 +61,89 @@ export interface MapStore {
   setUrlParams: (params: URLSearchParams) => void;
 }
 
+// export const useOtherMapStore = create<MapStore>(
+//   persist(
+//     (set) => ({
+//       mapRef: null,
+//       setMapRef: (mapRef) => set({ mapRef }),
+//       documentId: null,
+//       setDocumentId: (documentId) => set({ documentId }),
+//       selectedLayer: null,
+//       setSelectedLayer: (layer) =>
+//         set((state) => {
+//           if (state.mapRef) {
+//             removeBlockLayers(state.mapRef);
+//             addBlockLayers(state.mapRef, layer);
+//           }
+//           return { selectedLayer: layer };
+//         }),
+//       mapOptions: {
+//         center: [-98.5795, 39.8283],
+//         zoom: 3,
+//         pitch: 0,
+//         bearing: 0,
+//         container: "",
+//       },
+//       setMapOptions: (options) => set({ mapOptions: options }),
+//       activeTool: "pan",
+//       setActiveTool: (tool) => set({ activeTool: tool }),
+//       spatialUnit: "tract",
+//       setSpatialUnit: (unit) => set({ spatialUnit: unit }),
+//       selectedZone: 1,
+//       setSelectedZone: (zone) => set({ selectedZone: zone }),
+//       zoneAssignments: new Map(),
+//       accumulatedGeoids: new Set<string>(),
+//       setZoneAssignments: (zone, geoids) =>
+//         set((state) => {
+//           const newZoneAssignments = new Map(state.zoneAssignments);
+//           geoids.forEach((geoid) => {
+//             newZoneAssignments.set(geoid, zone);
+//           });
+//           return {
+//             zoneAssignments: newZoneAssignments,
+//             accumulatedGeoids: new Set<string>(),
+//           };
+//         }),
+//       resetZoneAssignments: () => set({ zoneAssignments: new Map() }),
+//       brushSize: 50,
+//       setBrushSize: (size) => set({ brushSize: size }),
+//       isPainting: false,
+//       setIsPainting: (isPainting) => set({ isPainting }),
+//       clearMapEdits: () =>
+//         set({
+//           zoneAssignments: new Map(),
+//           accumulatedGeoids: new Set<string>(),
+//           selectedZone: 1,
+//         }),
+//       freshMap: false,
+//       setFreshMap: (resetMap) => set({ freshMap: resetMap }),
+//       router: null,
+//       setRouter: (router) => set({ router }),
+//       pathname: "",
+//       setPathname: (pathname) => set({ pathname }),
+//       urlParams: new URLSearchParams(),
+//       setUrlParams: (params) => set({ urlParams: params }),
+//     }),
+//     {
+//       name: "map-store-2",
+//     }
+//   )
+// );
+
 export const useMapStore = create<MapStore>((set) => ({
   mapRef: null,
-  setMapRef: (mapRef: MutableRefObject<maplibregl.Map | null> | null) =>
-    set({ mapRef: mapRef }),
-  /**
-   * Unique identifier for the map instance
-   * @type {string | null}
-   */
+  setMapRef: (mapRef) => set({ mapRef }),
   documentId: null,
-  setDocumentId: (documentId: string) => set({ documentId: documentId }),
-  /**
-   * Layer currently selected by the user
-   * @type {gerryDBView | null}
-   */
+  setDocumentId: (documentId) => set({ documentId }),
   selectedLayer: null,
-  setSelectedLayer: (layer: gerryDBView) =>
-    set((state: MapStore) => {
+  setSelectedLayer: (layer) =>
+    set((state) => {
       if (state.mapRef) {
         removeBlockLayers(state.mapRef);
         addBlockLayers(state.mapRef, layer);
       }
       return { selectedLayer: layer };
     }),
-  /**
-   * maplibre map instance options
-   * @type {MapOptions}
-   */
   mapOptions: {
     center: [-98.5795, 39.8283],
     zoom: 3,
@@ -75,44 +151,18 @@ export const useMapStore = create<MapStore>((set) => ({
     bearing: 0,
     container: "",
   },
-  setMapOptions: (options: MapOptions) => set({ mapOptions: options }),
-  /**
-   * Selected tool for the user to interact with the map
-   * @type {ActiveTool}
-   */
+  setMapOptions: (options) => set({ mapOptions: options }),
   activeTool: "pan",
-  setActiveTool: (tool: ActiveTool) => set({ activeTool: tool }),
-  /**
-   * Spatial unit of geometry available to the user
-   * @type {SpatialUnit}
-   */
+  setActiveTool: (tool) => set({ activeTool: tool }),
   spatialUnit: "tract",
-  setSpatialUnit: (unit: SpatialUnit) => set({ spatialUnit: unit }),
-  /**
-   * Precinct zone currently being used to assign geoids via painting
-   * @type {Zone}
-   */
+  setSpatialUnit: (unit) => set({ spatialUnit: unit }),
   selectedZone: 1,
-  setSelectedZone: (zone: Zone) => set({ selectedZone: zone }),
-  /**
-   * Dictionary of geoid: zone assignments
-   * @type {Map<string, number>}
-   */
+  setSelectedZone: (zone) => set({ selectedZone: zone }),
   zoneAssignments: new Map(),
-  /**
-   * Set of geoids that have been assigned to a zone
-   * @type {Set<string>}
-   */
   accumulatedGeoids: new Set<string>(),
-  /**
-   *
-   * @param zone - identifier for the zone assignment
-   * @param paths - Set of paths to assign to the zone; members of the set will be assigned to the zone
-   * @returns updated dict of geoid: zone assignments
-   */
-  setZoneAssignments: (zone: Zone, geoids: Set<GEOID>) =>
+  setZoneAssignments: (zone, geoids) =>
     set((state) => {
-      const newZoneAssignments = new Map([...state.zoneAssignments]);
+      const newZoneAssignments = new Map(state.zoneAssignments);
       geoids.forEach((geoid) => {
         newZoneAssignments.set(geoid, zone);
       });
@@ -122,53 +172,22 @@ export const useMapStore = create<MapStore>((set) => ({
       };
     }),
   resetZoneAssignments: () => set({ zoneAssignments: new Map() }),
-
-  /**
-   * Size of the brush for painting in pixels
-   * @type {number}
-   */
   brushSize: 50,
-  setBrushSize: (size: number) => set({ brushSize: size }),
-  /**
-   * Flag to determine if the user is currently painting on the map
-   * @type boolean
-   * @default false
-   */
+  setBrushSize: (size) => set({ brushSize: size }),
   isPainting: false,
-  setIsPainting: (isPainting: boolean) => set({ isPainting: isPainting }),
-  /**
-   * Clear all edits on the map
-   */
+  setIsPainting: (isPainting) => set({ isPainting }),
   clearMapEdits: () =>
     set({
       zoneAssignments: new Map(),
       accumulatedGeoids: new Set<string>(),
       selectedZone: 1,
     }),
-  /**
-   * Flag to determine if the map is fresh or has been edited
-   * @type boolean
-   * @default false
-   * @description
-   * Used to determine if the user has made edits to the map
-   */
   freshMap: false,
-  setFreshMap: (resetMap: boolean) => set({ freshMap: resetMap }),
-  /* Next router instance
-   * @type any
-   */
+  setFreshMap: (resetMap) => set({ freshMap: resetMap }),
   router: null,
-  setRouter: (router: any) => set({ router: router }),
-  /**
-   * Current pathname
-   * @type string
-   */
+  setRouter: (router) => set({ router }),
   pathname: "",
-  setPathname: (pathname: string) => set({ pathname: pathname }),
-  /**
-   * URL search params
-   * @type URLSearchParams
-   */
+  setPathname: (pathname) => set({ pathname }),
   urlParams: new URLSearchParams(),
-  setUrlParams: (params: URLSearchParams) => set({ urlParams: params }),
+  setUrlParams: (params) => set({ urlParams: params }),
 }));
