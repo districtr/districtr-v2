@@ -239,6 +239,21 @@ def test_patch_assignments(client, document_id):
     assert response.json() == {"assignments_upserted": 3}
 
 
+def test_sync_assignments(client, document_id):
+    response = client.post(
+        f"/api/sync_assignments/{document_id}",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    assert response.json() == {"assignments_inserted": 3}
+
+
 def test_patch_assignments_twice(client, document_id):
     response = client.patch(
         "/api/update_assignments",
@@ -265,7 +280,7 @@ def test_patch_assignments_twice(client, document_id):
     assert response.json() == {"assignments_upserted": 2}
     # Check that the assignments were updated and not inserted
     doc_uuid = str(uuid.UUID(document_id))
-    response = client.get(f"/get_assignments/{doc_uuid}")
+    response = client.get(f"/api/get_assignments/{doc_uuid}")
     assert response.status_code == 200
     data = response.json()
     assert data is not None
