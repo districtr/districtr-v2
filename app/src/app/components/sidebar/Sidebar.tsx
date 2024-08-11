@@ -3,6 +3,7 @@ import { MapModeSelector } from "./MapModeSelector";
 import { ColorPicker } from "./ColorPicker";
 import { ResetMapButton } from "./ResetMapButton";
 import { GerryDBViewSelector } from "./GerryDBViewSelector";
+import { HorizontalBar } from "./charts/HorizontalBarChart";
 
 export default function SidebarComponent() {
   return (
@@ -12,6 +13,7 @@ export default function SidebarComponent() {
         <ColorPicker />
         <GerryDBViewSelector />
         <ResetMapButton />
+        <HorizontalBar />
       </Flex>
     </Box>
   );

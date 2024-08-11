@@ -10,7 +10,7 @@ import { resolve } from "path";
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
  * @param mapStoreRef - MutableRefObject<MapStore | null>, the zone store reference from zustand
  * @param geoids - Set<string>, the set of geoids to assign to the selected zone
- * @returns void - but updates the zoneAssignments in the store
+ * @returns void - but updates the zoneAssignments and zonePopulations in the store
  */
 const debouncedSetZoneAssignments = debounce(
   (mapStoreRef: MapStore, selectedZone: number, geoids: Set<string>) => {
@@ -24,7 +24,6 @@ const debouncedSetZoneAssignments = debounce(
       0
     );
     mapStoreRef.setZonePopulations(selectedZone, population);
-    console.log(mapStoreRef.zonePopulations);
   },
 
   1000 // 1 second
@@ -66,7 +65,6 @@ export const SelectMapFeatures = (
       );
     });
   }
-  console.log(mapStoreRef.accumulatedBlockPopulations);
   return new Promise<void>((resolve) => {
     // Resolve the Promise after the function completes
     // this is so we can chain the function and call the next one

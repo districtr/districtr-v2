@@ -23,7 +23,9 @@
     "next": "^14.2.5",
     "pmtiles": "^3.0.7",
     "react": "^18",
+    "react-charts": "^3.0.0-beta.57",
     "react-dom": "^18",
+    "react-resizable": "^3.0.5",
     "superjson": "^2.2.1",
     "zustand": "^4.5.2"
   },

@@ -14,11 +14,13 @@ export function ColorPicker() {
     setSelectedZone,
     setZoneAssignments,
     accumulatedGeoids,
+    resetAccumulatedBlockPopulations,
   } = useMapStore((state) => ({
     selectedZone: state.selectedZone,
     setSelectedZone: state.setSelectedZone,
     setZoneAssignments: state.setZoneAssignments,
     accumulatedGeoids: state.accumulatedGeoids,
+    resetAccumulatedBlockPopulations: state.resetAccumulatedBlockPopulations,
   }));
   const colorArray = color10;
   if (!colorArray) return null;
@@ -31,6 +33,7 @@ export function ColorPicker() {
     );
     setZoneAssignments(selectedZone, accumulatedGeoids);
     setSelectedZone(value);
+    resetAccumulatedBlockPopulations();
   };
   return (
     <div>
