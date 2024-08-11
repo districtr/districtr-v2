@@ -4,7 +4,10 @@ import "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
 import { SetUpdateUrlParams } from "../utils/events/mapEvents";
 import type { QueryFunction } from "@tanstack/react-query";
-import { SelectFeatures } from "../utils/events/handlers";
+import {
+  SelectMapFeatures,
+  SelectZoneAssignmentFeatures,
+} from "../utils/events/handlers";
 
 /**
  * Hook to save map data to the server, using a mutation.
@@ -219,15 +222,16 @@ export const getMapObject: QueryFunction<
           return res.data;
         });
 
-      // need to select features here
-
-      SelectFeatures(
+      // need to select features here, on map
+      // and in store, on map load
+      SelectMapFeatures(
         returnObject.data,
         // @ts-ignore
         useMapStore.getState().mapRef,
         useMapStore
-      );
-      console.log("loaded data back");
+      ).then(() => {
+        SelectZoneAssignmentFeatures(useMapStore.getState());
+      });
       return { data: returnObject };
     } catch (error) {
       if (axios.isAxiosError(error)) {

@@ -28,6 +28,7 @@ export function GerryDBViewSelector() {
     if (!selectedLayer) {
       return;
     }
+    // load the selected layer on the map
     LoadMapLayer(selectedLayer, useMapStore.getState());
     const urlParams = useMapStore.getState().urlParams;
     const router = useMapStore.getState().router;

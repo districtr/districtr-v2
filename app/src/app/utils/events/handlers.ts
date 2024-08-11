@@ -4,6 +4,7 @@ import { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
 import { MapStore } from "@/app/store/mapStore";
 import { gerryDBView } from "@/app/api/apiHandlers";
+import { resolve } from "path";
 
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
@@ -25,14 +26,11 @@ const debouncedSetZoneAssignments = debounce(
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param mapStoreRef - MutableRefObject<MapStore | null>, the map store reference from zustand
- * @todo
- * TODO: split out SelectMapFeatures and SetStoreZoneAssignments
- * where the first sets the map + adds to a flat array of geoids,
- * and the second dedups the geoids and sets the zoneAssignments
- * in the store. First is called on the isPainting && onMouseMove,
- * and second is called on onMouseUp event
+ * @returns Promise<void> - resolves after the function completes
+ * Selects the features and sets the state of the map features to be selected.
+ * Does not modify the store; that is done in the SelectZoneAssignmentFeatures function.
  * */
-export const SelectFeatures = (
+export const SelectMapFeatures = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
   mapStoreRef: MapStore
@@ -51,7 +49,25 @@ export const SelectFeatures = (
     features.forEach((feature) => {
       mapStoreRef.accumulatedGeoids.add(feature.properties?.path);
     });
+  }
+  return new Promise<void>((resolve) => {
+    // Resolve the Promise after the function completes
+    // this is so we can chain the function and call the next one
+    resolve();
+  });
+};
 
+/**
+ * Select zone assignments based on selected zone and accumulated geoids.
+ * called using mapEvent handlers.
+ *
+ * @param mapStoreRef - MutableRefObject<MapStore | null>, the map store reference from zustand
+ * Selects the zone assignments and sets the state of the map features to be assigned to the selected zone.
+ * */
+export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
+  const accumulatedGeoids = mapStoreRef.accumulatedGeoids;
+  if (accumulatedGeoids?.size) {
+    console.log("now were setting the store");
     debouncedSetZoneAssignments(
       mapStoreRef,
       mapStoreRef.selectedZone,
