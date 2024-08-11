@@ -103,6 +103,10 @@ export const MapComponent: React.FC = () => {
     }
   }, [mapLoaded, map.current]);
 
+  /**
+   * create a document_id when the user starts an edit session,
+   * if one does not already exist
+   *  */
   useEffect(() => {
     if (
       mapLoaded &&
@@ -114,6 +118,10 @@ export const MapComponent: React.FC = () => {
     }
   }, [useMapStore.getState().activeTool, mapLoaded, map.current]);
 
+  /**
+   * send assignments to the server when zones change.
+   * we may want to reconsider this based on
+   */
   useEffect(() => {
     if (mapLoaded && map.current && zoneAssignments.size) {
       console.log("Assignments", zoneAssignments);

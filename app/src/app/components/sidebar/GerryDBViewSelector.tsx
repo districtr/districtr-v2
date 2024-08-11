@@ -3,6 +3,7 @@ import { Select } from "@radix-ui/themes";
 import { gerryDBView, getGerryDBViews } from "../../api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
 import { SetUpdateUrlParams } from "../../utils/events/mapEvents";
+import { LoadMapLayer } from "@/app/utils/events/handlers";
 
 export function GerryDBViewSelector() {
   const [views, setViews] = React.useState<gerryDBView[]>([]);
@@ -27,12 +28,11 @@ export function GerryDBViewSelector() {
     if (!selectedLayer) {
       return;
     }
-    setSelectedLayer(selectedLayer);
+    LoadMapLayer(selectedLayer, useMapStore.getState());
     const urlParams = useMapStore.getState().urlParams;
     const router = useMapStore.getState().router;
     const pathname = useMapStore.getState().pathname;
     urlParams.set("layer", selectedLayer.name);
-
     SetUpdateUrlParams(router, pathname, urlParams);
   };
 

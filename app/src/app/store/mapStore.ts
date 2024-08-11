@@ -47,14 +47,7 @@ export const useMapStore = create<MapStore>((set) => ({
   documentId: null,
   setDocumentId: (documentId) => set({ documentId }),
   selectedLayer: null,
-  setSelectedLayer: (layer) =>
-    set((state) => {
-      if (state.mapRef) {
-        removeBlockLayers(state.mapRef);
-        addBlockLayers(state.mapRef, layer);
-      }
-      return { selectedLayer: layer };
-    }),
+  setSelectedLayer: (layer) => set({ selectedLayer: layer }),
   mapOptions: {
     center: [-98.5795, 39.8283],
     zoom: 3,
