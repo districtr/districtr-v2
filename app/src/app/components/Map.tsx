@@ -33,11 +33,14 @@ export const MapComponent: React.FC = () => {
   const hoverFeatureIds = useHoverFeatureIds();
   const document = useCreateMapDocument();
   const patchUpdates = usePatchUpdateAssignments();
-  const { freshMap, setFreshMap, zoneAssignments } = useMapStore((state) => ({
-    freshMap: state.freshMap,
-    setFreshMap: state.setFreshMap,
-    zoneAssignments: state.zoneAssignments,
-  }));
+  const { freshMap, selectedLayer, setFreshMap, zoneAssignments } = useMapStore(
+    (state) => ({
+      freshMap: state.freshMap,
+      selectedLayer: state.selectedLayer,
+      setFreshMap: state.setFreshMap,
+      zoneAssignments: state.zoneAssignments,
+    }),
+  );
   const searchParams = useSearchParams();
 
   /**
@@ -54,19 +57,21 @@ export const MapComponent: React.FC = () => {
 
   useEffect(() => {
     // create a new document is one doesn't exist AND the document_id isn't in the url as a param
+    console.log(selectedLayer);
     const documentId = document.data?.document_id;
     const urlDocumentId = searchParams.get("document_id");
     console.log("Document ID", documentId, "from URL", urlDocumentId);
     if (
+      selectedLayer &&
       !documentId &&
       !urlDocumentId &&
       !document.isSuccess &&
       !document.isPending &&
       !document.isError
     ) {
-      document.mutate();
+      document.mutate({ gerrydb_table: selectedLayer.name });
     }
-  }, [document, searchParams]);
+  }, [document, searchParams, selectedLayer]);
 
   const setRouter = useMapStore((state) => state.setRouter);
   const setPathname = useMapStore((state) => state.setPathname);

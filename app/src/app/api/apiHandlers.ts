@@ -198,6 +198,16 @@ export interface DocumentObject {
   updated_at: string;
 }
 
+/**
+ * GerryDB view.
+ *
+ * @interface
+ * @property {string} gerrydb_table - The gerrydb table.
+ */
+export interface DocumentCreate {
+  gerrydb_table: string;
+}
+
 const createMapObject: () => Promise<DocumentObject> = async () => {
   try {
     return await axios

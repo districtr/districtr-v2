@@ -3,7 +3,7 @@ import { create } from "zustand";
 import type { ActiveTool, SpatialUnit } from "../constants/types";
 import { Zone, GDBPath, GEOID } from "../constants/types";
 import { gerryDBView } from "../api/apiHandlers";
-import { addBlockLayers, removeBlockLayers } from "../constants/layers";
+// import { addBlockLayers, removeBlockLayers } from "../constants/layers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
 
