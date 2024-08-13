@@ -18,6 +18,7 @@ import { useCreateMapDocument } from "../api/apiHandlers";
 import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
 import { useRouter, usePathname } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
+import { useSearchParams } from "next/navigation";
 import { HandleUrlParams } from "../utils/events/handleUrlParams";
 import {
   usePatchUpdateAssignments,
@@ -30,14 +31,19 @@ export const MapComponent: React.FC = () => {
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
-  const createMapDocument = useCreateMapDocument();
+  const document = useCreateMapDocument();
   const patchUpdates = usePatchUpdateAssignments();
   const { freshMap, setFreshMap, zoneAssignments } = useMapStore((state) => ({
     freshMap: state.freshMap,
     setFreshMap: state.setFreshMap,
     zoneAssignments: state.zoneAssignments,
   }));
+  const searchParams = useSearchParams();
 
+  /**
+   * create a document_id when the user starts an edit session,
+   * if one does not already exist
+   *  */
   useEffect(() => {
     let protocol = new Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
@@ -45,6 +51,22 @@ export const MapComponent: React.FC = () => {
       maplibregl.removeProtocol("pmtiles");
     };
   }, []);
+
+  useEffect(() => {
+    // create a new document is one doesn't exist AND the document_id isn't in the url as a param
+    const documentId = document.data?.document_id;
+    const urlDocumentId = searchParams.get("document_id");
+    console.log("Document ID", documentId, "from URL", urlDocumentId);
+    if (
+      !documentId &&
+      !urlDocumentId &&
+      !document.isSuccess &&
+      !document.isPending &&
+      !document.isError
+    ) {
+      document.mutate();
+    }
+  }, [document, searchParams]);
 
   const setRouter = useMapStore((state) => state.setRouter);
   const setPathname = useMapStore((state) => state.setPathname);
@@ -78,7 +100,7 @@ export const MapComponent: React.FC = () => {
           BLOCK_HOVER_LAYER_ID, // to be updated with the scale-agnostic layer id
           (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
             action.handler(e, map, hoverFeatureIds);
-          }
+          },
         );
       }
     });
@@ -102,21 +124,6 @@ export const MapComponent: React.FC = () => {
       useMapStore.setState({ mapRef: map });
     }
   }, [mapLoaded, map.current]);
-
-  /**
-   * create a document_id when the user starts an edit session,
-   * if one does not already exist
-   *  */
-  useEffect(() => {
-    if (
-      mapLoaded &&
-      map.current &&
-      !useMapStore.getState().documentId &&
-      useMapStore.getState().activeTool === "brush"
-    ) {
-      createMapDocument.mutate(map.current);
-    }
-  }, [useMapStore.getState().activeTool, mapLoaded, map.current]);
 
   /**
    * send assignments to the server when zones change.

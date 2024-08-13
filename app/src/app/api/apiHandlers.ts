@@ -9,12 +9,15 @@ import {
   SelectZoneAssignmentFeatures,
 } from "../utils/events/handlers";
 
+interface responseObject {
+  data: any;
+}
+
 /**
  * Hook to save map data to the server, using a mutation.
  * Should be agnostic to the mutationFn used.
  * @returns mutation to be used in calling hook component, e.g. localMutationVar.mutate()
  */
-
 export const usePostMapData = () => {
   const mutation = useMutation({
     mutationFn: createMapObject,
@@ -87,7 +90,7 @@ export const usePatchUpdateAssignments = () => {
 
 export const FormatAssignments = () => {
   const assignments = Array.from(
-    useMapStore.getState().zoneAssignments.entries()
+    useMapStore.getState().zoneAssignments.entries(),
   ).map(
     // @ts-ignore
     ([geo_id, zone]: [string, number]): {
@@ -98,7 +101,7 @@ export const FormatAssignments = () => {
       document_id: useMapStore.getState().documentId ?? "",
       geo_id,
       zone,
-    })
+    }),
   );
   return assignments;
 };
@@ -120,10 +123,10 @@ const PatchUpdateSubscription = () => {
           document_id: useMapStore.getState().documentId ?? "",
           geo_id,
           zone,
-        })
+        }),
       );
       patcher.mutate(assignments);
-    }
+    },
   );
 };
 
@@ -152,10 +155,10 @@ export const useCreateMapDocument = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ documentId: data.data });
+        useMapStore.setState({ documentId: data.document_id });
         // add document id to search params store item
         const { router, pathname, urlParams } = useMapStore.getState();
-        urlParams.set("document_id", data.data);
+        urlParams.set("document_id", data.document_id);
         SetUpdateUrlParams(router, pathname, urlParams);
       }
     },
@@ -179,23 +182,32 @@ export const useGetMapData = () => {
   return result;
 };
 
-interface responseObject {
-  data: any;
+/**
+ * GerryDB view.
+ *
+ * @interface
+ * @property {string} document_id - The document id.
+ * @property {string} gerrydb_table - The gerrydb table.
+ * @property {string} created_at - The created at.
+ * @property {string} updated_at - The updated at.
+ */
+export interface DocumentObject {
+  document_id: string;
+  gerrydb_table: string;
+  created_at: string;
+  updated_at: string;
 }
 
-const createMapObject: (
-  mapObject: maplibregl.Map
-) => Promise<responseObject> = async (mapObject: maplibregl.Map) => {
+const createMapObject: () => Promise<DocumentObject> = async () => {
   try {
-    const returnObject = await axios
+    return await axios
       .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
         gerrydb_table: null, // Will need to add this in
       }) // should replace with env var
       .then((res) => {
         // successful roundtrip; return the document id
-        return res.data.document_id;
+        return res.data;
       });
-    return { data: returnObject };
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error("Axios error:", error.message);
@@ -230,7 +242,7 @@ export const getMapObject: QueryFunction<
         returnObject.data,
         // @ts-ignore
         useMapStore.getState().mapRef,
-        useMapStore
+        useMapStore,
       ).then(() => {
         SelectZoneAssignmentFeatures(useMapStore.getState());
       });
@@ -273,17 +285,16 @@ export interface gerryDBView {
  */
 export const getGerryDBViews: (
   limit?: number,
-  offset?: number
+  offset?: number,
 ) => Promise<gerryDBView[]> = async (limit = 10, offset = 0) => {
   try {
-    const returnObject = await axios
+    return await axios
       .get(
-        `${process.env.NEXT_PUBLIC_API_DEV_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
       )
       .then((res) => {
         return res.data;
       });
-    return returnObject;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error("Axios error:", error.message);
@@ -305,17 +316,6 @@ const useSessionData = (sessionId: string) => {
   return query;
 };
 
-/**
- * Save map data to the server.
- * @param mapObject - Map, the map object to save. In this case, the entire maplibre map object.
- * @returns Promise
- */
-const postMapObject: (
-  mapObject: maplibregl.Map
-) => Promise<responseObject> = async (mapObject: maplibregl.Map) => {
-  return { data: "Map saved!" };
-};
-
 export interface Assignment {
   document_id: string;
   geo_id: string;
@@ -327,7 +327,7 @@ export interface Assignment {
  * @returns server object containing the updated assignments per geoid
  */
 const patchUpdateAssignments: (
-  assignments: Assignment[]
+  assignments: Assignment[],
 ) => Promise<responseObject> = async (assignments: Assignment[]) => {
   try {
     const returnObject = await axios
