@@ -190,12 +190,14 @@ export const useGetMapData = () => {
  * @property {string} gerrydb_table - The gerrydb table.
  * @property {string} created_at - The created at.
  * @property {string} updated_at - The updated at.
+ * @property {string} tiles_s3_path - The tiles s3 path.
  */
 export interface DocumentObject {
   document_id: string;
   gerrydb_table: string;
   created_at: string;
   updated_at: string;
+  tiles_s3_path: string | null;
 }
 
 /**
