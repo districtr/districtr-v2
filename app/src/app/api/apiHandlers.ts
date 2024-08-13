@@ -237,6 +237,25 @@ const createMapObject: (
   }
 };
 
+/**
+ * Get data from current document.
+ * @param document_id - string, the document id
+ * @returns Promise<DocumentObject>
+ */
+export const getDocument: (
+  document_id: string,
+) => Promise<DocumentObject> = async (document_id: string) => {
+  if (document_id) {
+    return await axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`)
+      .then((res) => {
+        return res.data;
+      });
+  } else {
+    throw new Error("No document id found");
+  }
+};
+
 export const getMapObject: QueryFunction<
   responseObject,
   [string]
@@ -301,27 +320,13 @@ export const getGerryDBViews: (
   limit?: number,
   offset?: number,
 ) => Promise<gerryDBView[]> = async (limit = 10, offset = 0) => {
-  try {
-    return await axios
-      .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
-      )
-      .then((res) => {
-        return res.data;
-      });
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Axios error:", error.message);
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        console.error("Response headers:", error.response.headers);
-      }
-    } else {
-      console.error("Unexpected error:", error);
-    }
-    throw error;
-  }
+  return await axios
+    .get(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
+    )
+    .then((res) => {
+      return res.data;
+    });
 };
 
 const useSessionData = (sessionId: string) => {

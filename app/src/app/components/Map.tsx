@@ -1,4 +1,3 @@
-"use client";
 import type { Map, MapLayerEventType } from "maplibre-gl";
 import maplibregl, {
   MapLayerMouseEvent,
@@ -14,19 +13,15 @@ import {
   useHoverFeatureIds,
   handleResetMapSelectState,
 } from "../utils/events/mapEvents";
-import { useCreateMapDocument } from "../api/apiHandlers";
-import {
-  addBlockLayers,
-  BLOCK_HOVER_LAYER_ID,
-  removeBlockLayers,
-} from "../constants/layers";
-import { useRouter, usePathname } from "next/navigation";
+import { addBlockLayers, BLOCK_HOVER_LAYER_ID } from "../constants/layers";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
-import { useSearchParams } from "next/navigation";
-import { HandleUrlParams } from "../utils/events/handleUrlParams";
 import {
   usePatchUpdateAssignments,
   FormatAssignments,
+  getDocument,
+  useCreateMapDocument,
+  DocumentObject,
 } from "../api/apiHandlers";
 
 export const MapComponent: React.FC = () => {
@@ -46,6 +41,9 @@ export const MapComponent: React.FC = () => {
     }),
   );
   const searchParams = useSearchParams();
+  const setRouter = useMapStore((state) => state.setRouter);
+  const setPathname = useMapStore((state) => state.setPathname);
+  const pathname = usePathname();
 
   /**
    * create a document_id when the user starts an edit session,
@@ -79,16 +77,22 @@ export const MapComponent: React.FC = () => {
   }, [document, searchParams, selectedLayer]);
 
   useEffect(() => {
+    const document_id = searchParams.get("document_id");
+    console.log("BLEHHH", useMapStore.getState().documentId);
+    if (document_id && !useMapStore.getState().documentId) {
+      console.log("getting document", document_id);
+      getDocument(document_id).then((res: DocumentObject) => {
+        useMapStore.setState({ documentId: res.data });
+      });
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (selectedLayer) {
       addBlockLayers(map, selectedLayer);
     }
   }, [selectedLayer]);
 
-  const setRouter = useMapStore((state) => state.setRouter);
-  const setPathname = useMapStore((state) => state.setPathname);
-  const pathname = usePathname();
-  HandleUrlParams();
-  usePatchUpdateAssignments();
   useEffect(() => {
     setRouter(router);
     setPathname(pathname);
