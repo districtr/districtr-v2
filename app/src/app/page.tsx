@@ -16,4 +16,7 @@ export default function Home() {
       </main>
     </QueryClientProvider>
   );
+
+  // this is gated currently via async redirect in next.config.js
+  return <div>hello world</div>;
 }

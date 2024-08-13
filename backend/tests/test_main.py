@@ -113,8 +113,8 @@ def client_fixture(session: Session):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture(scope="session", name=GERRY_DB_FIXTURE_NAME)
-def ks_demo_view_census_blocks_fixture():
+@pytest.fixture(name=GERRY_DB_FIXTURE_NAME)
+def ks_demo_view_census_blocks_fixture(session: Session):
     layer = GERRY_DB_FIXTURE_NAME
     result = subprocess.run(
         args=[
@@ -210,6 +210,17 @@ def test_new_document(client):
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
     assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
+
+
+def test_get_document(client, document_id):
+    response = client.get(f"/api/document/{document_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data.get("document_id") == document_id
+    assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
+    assert data.get("updated_at")
+    assert data.get("created_at")
+    assert data.get("tiles_s3_path") is None
 
 
 def test_patch_document(client, document_id):

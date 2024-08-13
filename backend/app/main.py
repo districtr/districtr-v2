@@ -44,6 +44,7 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    print(app)
 
 
 def get_session():
@@ -68,6 +69,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
+# matches createMapObject in apiHandlers.ts
 @app.post(
     "/api/create_document",
     response_model=DocumentPublic,
@@ -81,7 +83,18 @@ async def create_document(
         {"gerrydb_table_name": data.gerrydb_table},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
-    stmt = select(Document).where(Document.document_id == document_id)
+    stmt = (
+        select(
+            Document.document_id,
+            Document.created_at,
+            Document.updated_at,
+            Document.gerrydb_table,
+            GerryDBTable.tiles_s3_path,
+        )
+        .where(Document.document_id == document_id)
+        .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
+        .limit(1)
+    )
     doc = session.exec(
         stmt
     ).one()  # again if we've got more than one, we have problems.
@@ -127,11 +140,12 @@ async def update_assignments(
     stmt = stmt.on_conflict_do_update(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
-    session.execute(stmt)
+    session.exec(stmt)
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
 
 
+# called by getMapObject in apiHandlers.ts
 @app.get("/get_assignments/{document_id}", response_model=list[Assignments])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
     stmt = select(Assignments).where(Assignments.document_id == document_id)
@@ -139,6 +153,24 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
     # do we need to unpack returned assignments from returned results object?
     # I think probably?
     return results
+
+
+@app.get("/api/document/{document_id}", response_model=DocumentPublic)
+async def get_document(document_id: str, session: Session = Depends(get_session)):
+    stmt = (
+        select(
+            Document.document_id,
+            Document.created_at,
+            Document.gerrydb_table,
+            Document.updated_at,
+            GerryDBTable.tiles_s3_path.label("tiles_s3_path"),
+        )
+        .where(Document.document_id == document_id)
+        .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
+        .limit(1)
+    )
+    result = session.exec(stmt)
+    return result.one()
 
 
 @app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])

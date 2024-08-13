@@ -5,10 +5,12 @@ import { useMapStore } from "../../store/mapStore";
 
 export function GerryDBViewSelector() {
   const [views, setViews] = React.useState<gerryDBView[]>([]);
-  const [selectedView, setSelectedView] = React.useState<string | null>(null);
   const [limit, setLimit] = React.useState<number>(20);
   const [offset, setOffset] = React.useState<number>(0);
-  const { selectedLayer, setSelectedLayer } = useMapStore();
+  const { selectedLayer, setSelectedLayer } = useMapStore((state) => ({
+    selectedLayer: state.selectedLayer,
+    setSelectedLayer: state.setSelectedLayer,
+  }));
 
   React.useEffect(() => {
     getGerryDBViews(limit, offset).then((views) => {
@@ -18,7 +20,6 @@ export function GerryDBViewSelector() {
   }, [limit, offset]);
 
   const handleValueChange = (value: string) => {
-    setSelectedView(value);
     const selectedLayer = views.find((view) => view.name === value);
     if (!selectedLayer) {
       return;

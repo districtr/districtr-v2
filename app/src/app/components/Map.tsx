@@ -1,4 +1,3 @@
-"use client";
 import type { Map, MapLayerEventType } from "maplibre-gl";
 import maplibregl, {
   MapLayerMouseEvent,
@@ -7,29 +6,49 @@ import maplibregl, {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import type { MutableRefObject } from "react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { use, useEffect, useRef, useState } from "react";
 import { MAP_OPTIONS } from "../constants/configuration";
 import {
   mapEvents,
   useHoverFeatureIds,
   handleResetMapSelectState,
 } from "../utils/events/mapEvents";
-import { useCreateMapDocument } from "../api/apiHandlers";
-import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
+import { addBlockLayers, BLOCK_HOVER_LAYER_ID } from "../constants/layers";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
+import {
+  usePatchUpdateAssignments,
+  FormatAssignments,
+  getDocument,
+  useCreateMapDocument,
+  DocumentObject,
+} from "../api/apiHandlers";
 
 export const MapComponent: React.FC = () => {
+  const router = useRouter();
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
-  const createMapDocument = useCreateMapDocument();
+  const document = useCreateMapDocument();
+  const patchUpdates = usePatchUpdateAssignments();
+  const { freshMap, selectedLayer, setFreshMap, zoneAssignments } = useMapStore(
+    (state) => ({
+      freshMap: state.freshMap,
+      selectedLayer: state.selectedLayer,
+      setFreshMap: state.setFreshMap,
+      zoneAssignments: state.zoneAssignments,
+    }),
+  );
+  const searchParams = useSearchParams();
+  const setRouter = useMapStore((state) => state.setRouter);
+  const setPathname = useMapStore((state) => state.setPathname);
+  const pathname = usePathname();
 
-  const { freshMap, setFreshMap } = useMapStore((state) => ({
-    freshMap: state.freshMap,
-    setFreshMap: state.setFreshMap,
-  }));
-
+  /**
+   * create a document_id when the user starts an edit session,
+   * if one does not already exist
+   *  */
   useEffect(() => {
     let protocol = new Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
@@ -37,6 +56,47 @@ export const MapComponent: React.FC = () => {
       maplibregl.removeProtocol("pmtiles");
     };
   }, []);
+
+  useEffect(() => {
+    // create a new document is one doesn't exist AND the document_id isn't in the url as a param
+    console.log(selectedLayer);
+    console.log(document);
+    const documentId = document.data?.document_id;
+    const urlDocumentId = searchParams.get("document_id");
+    console.log("Document ID", documentId, "from URL", urlDocumentId);
+    if (
+      selectedLayer &&
+      !documentId &&
+      !urlDocumentId &&
+      !document.isSuccess &&
+      !document.isPending &&
+      !document.isError
+    ) {
+      document.mutate({ gerrydb_table: selectedLayer.name });
+    }
+  }, [document, searchParams, selectedLayer]);
+
+  useEffect(() => {
+    const document_id = searchParams.get("document_id");
+    console.log("BLEHHH", useMapStore.getState().documentId);
+    if (document_id && !useMapStore.getState().documentId) {
+      console.log("getting document", document_id);
+      getDocument(document_id).then((res: DocumentObject) => {
+        useMapStore.setState({ documentId: res.data });
+      });
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (selectedLayer) {
+      addBlockLayers(map, selectedLayer);
+    }
+  }, [selectedLayer]);
+
+  useEffect(() => {
+    setRouter(router);
+    setPathname(pathname);
+  }, [router, setRouter, pathname, setPathname]);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -82,9 +142,20 @@ export const MapComponent: React.FC = () => {
       !useMapStore.getState().documentId
     ) {
       useMapStore.setState({ mapRef: map });
-      createMapDocument.mutate(map.current);
     }
   }, [mapLoaded, map.current]);
+
+  /**
+   * send assignments to the server when zones change.
+   * we may want to reconsider this based on
+   */
+  useEffect(() => {
+    if (mapLoaded && map.current && zoneAssignments.size) {
+      console.log("Assignments", zoneAssignments);
+      const assignments = FormatAssignments();
+      patchUpdates.mutate(assignments);
+    }
+  }, [mapLoaded, map.current, zoneAssignments]);
 
   useEffect(() => {
     if (mapLoaded && map.current) {

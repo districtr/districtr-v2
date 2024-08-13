@@ -68,6 +68,7 @@ class DocumentPublic(BaseModel):
     gerrydb_table: str | None
     created_at: datetime
     updated_at: datetime
+    tiles_s3_path: str | None = None
 
 
 class AssignmentsBase(SQLModel):
