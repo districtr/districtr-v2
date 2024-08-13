@@ -43,7 +43,7 @@ export const usePostMapData = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ documentId: data.data });
+        useMapStore.setState({ documentId: data });
       }
     },
   });
@@ -155,7 +155,7 @@ export const useCreateMapDocument = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ documentId: data.document_id });
+        useMapStore.setState({ documentId: data });
         // add document id to search params store item
         const { router, pathname, urlParams } = useMapStore.getState();
         urlParams.set("document_id", data.document_id);
@@ -190,12 +190,14 @@ export const useGetMapData = () => {
  * @property {string} gerrydb_table - The gerrydb table.
  * @property {string} created_at - The created at.
  * @property {string} updated_at - The updated at.
+ * @property {string} tiles_s3_path - The tiles s3 path.
  */
 export interface DocumentObject {
   document_id: string;
   gerrydb_table: string;
   created_at: string;
   updated_at: string;
+  tiles_s3_path: string | null;
 }
 
 /**
@@ -208,11 +210,13 @@ export interface DocumentCreate {
   gerrydb_table: string;
 }
 
-const createMapObject: () => Promise<DocumentObject> = async () => {
+const createMapObject: (
+  document: DocumentCreate,
+) => Promise<DocumentObject> = async (document: DocumentCreate) => {
   try {
     return await axios
       .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
-        gerrydb_table: null, // Will need to add this in
+        gerrydb_table: document.gerrydb_table,
       }) // should replace with env var
       .then((res) => {
         // successful roundtrip; return the document id
@@ -230,6 +234,25 @@ const createMapObject: () => Promise<DocumentObject> = async () => {
       console.error("Unexpected error:", error);
     }
     throw error;
+  }
+};
+
+/**
+ * Get data from current document.
+ * @param document_id - string, the document id
+ * @returns Promise<DocumentObject>
+ */
+export const getDocument: (
+  document_id: string,
+) => Promise<DocumentObject> = async (document_id: string) => {
+  if (document_id) {
+    return await axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`)
+      .then((res) => {
+        return res.data;
+      });
+  } else {
+    throw new Error("No document id found");
   }
 };
 
@@ -297,27 +320,13 @@ export const getGerryDBViews: (
   limit?: number,
   offset?: number,
 ) => Promise<gerryDBView[]> = async (limit = 10, offset = 0) => {
-  try {
-    return await axios
-      .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
-      )
-      .then((res) => {
-        return res.data;
-      });
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Axios error:", error.message);
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        console.error("Response headers:", error.response.headers);
-      }
-    } else {
-      console.error("Unexpected error:", error);
-    }
-    throw error;
-  }
+  return await axios
+    .get(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
+    )
+    .then((res) => {
+      return res.data;
+    });
 };
 
 const useSessionData = (sessionId: string) => {
