@@ -15,7 +15,11 @@ import {
   handleResetMapSelectState,
 } from "../utils/events/mapEvents";
 import { useCreateMapDocument } from "../api/apiHandlers";
-import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
+import {
+  addBlockLayers,
+  BLOCK_HOVER_LAYER_ID,
+  removeBlockLayers,
+} from "../constants/layers";
 import { useRouter, usePathname } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
 import { useSearchParams } from "next/navigation";
@@ -58,6 +62,7 @@ export const MapComponent: React.FC = () => {
   useEffect(() => {
     // create a new document is one doesn't exist AND the document_id isn't in the url as a param
     console.log(selectedLayer);
+    console.log(document);
     const documentId = document.data?.document_id;
     const urlDocumentId = searchParams.get("document_id");
     console.log("Document ID", documentId, "from URL", urlDocumentId);
@@ -72,6 +77,12 @@ export const MapComponent: React.FC = () => {
       document.mutate({ gerrydb_table: selectedLayer.name });
     }
   }, [document, searchParams, selectedLayer]);
+
+  useEffect(() => {
+    if (selectedLayer) {
+      addBlockLayers(map, selectedLayer);
+    }
+  }, [selectedLayer]);
 
   const setRouter = useMapStore((state) => state.setRouter);
   const setPathname = useMapStore((state) => state.setPathname);

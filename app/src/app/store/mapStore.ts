@@ -1,17 +1,16 @@
 import type { MapOptions } from "maplibre-gl";
 import { create } from "zustand";
 import type { ActiveTool, SpatialUnit } from "../constants/types";
-import { Zone, GDBPath, GEOID } from "../constants/types";
-import { gerryDBView } from "../api/apiHandlers";
-// import { addBlockLayers, removeBlockLayers } from "../constants/layers";
+import { Zone, GDBPath } from "../constants/types";
+import { gerryDBView, DocumentObject } from "../api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
-  documentId: string | null;
-  setDocumentId: (documentId: string) => void;
+  documentId: DocumentObject | null;
+  setDocumentId: (documentId: DocumentObject) => void;
   selectedLayer: gerryDBView | null;
   setSelectedLayer: (layer: gerryDBView) => void;
   mapOptions: MapOptions;

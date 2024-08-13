@@ -1,6 +1,6 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
 from pydantic import UUID4
-from sqlalchemy import text, inspect
+from sqlalchemy import text
 from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
@@ -133,6 +133,7 @@ async def update_assignments(
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
 
+
 # called by getMapObject in apiHandlers.ts
 @app.get("/get_assignments/{document_id}", response_model=list[Assignments])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
@@ -141,6 +142,13 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
     # do we need to unpack returned assignments from returned results object?
     # I think probably?
     return results
+
+
+@app.get("/api/document/{document_id}", response_model=DocumentPublic)
+async def get_document(document_id: str, session: Session = Depends(get_session)):
+    stmt = select(Document).where(Document.document_id == document_id)
+    result = session.exec(stmt)
+    return result.one()
 
 
 @app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])

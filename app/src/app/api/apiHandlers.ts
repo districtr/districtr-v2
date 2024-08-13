@@ -43,7 +43,7 @@ export const usePostMapData = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ documentId: data.data });
+        useMapStore.setState({ documentId: data });
       }
     },
   });
@@ -155,7 +155,7 @@ export const useCreateMapDocument = () => {
         console.log("Error: ", error);
       }
       if (data) {
-        useMapStore.setState({ documentId: data.document_id });
+        useMapStore.setState({ documentId: data });
         // add document id to search params store item
         const { router, pathname, urlParams } = useMapStore.getState();
         urlParams.set("document_id", data.document_id);
@@ -208,11 +208,13 @@ export interface DocumentCreate {
   gerrydb_table: string;
 }
 
-const createMapObject: () => Promise<DocumentObject> = async () => {
+const createMapObject: (
+  document: DocumentCreate,
+) => Promise<DocumentObject> = async (document: DocumentCreate) => {
   try {
     return await axios
       .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
-        gerrydb_table: null, // Will need to add this in
+        gerrydb_table: document.gerrydb_table,
       }) // should replace with env var
       .then((res) => {
         // successful roundtrip; return the document id

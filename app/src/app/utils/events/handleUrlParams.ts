@@ -2,7 +2,11 @@
 
 import { useSearchParams } from "next/navigation";
 import { useMapStore } from "@/app/store/mapStore";
-import { getGerryDBViews, useGetMapData } from "@/app/api/apiHandlers";
+import {
+  getGerryDBViews,
+  useGetMapData,
+  // useGetDocumentData,
+} from "@/app/api/apiHandlers";
 
 export const HandleUrlParams = () => {
   const searchParams = useSearchParams();
@@ -27,7 +31,9 @@ export const HandleUrlParams = () => {
     params.document_id &&
     useMapStore.getState().documentId !== params.document_id
   ) {
-    useMapStore.setState({ documentId: params.document_id });
+    // this is where we should hit the API to get the document data
+    // const data = useGetDocumentData(params.document_id);
+    // useMapStore.setState({ documentId: params.document_id });
   }
 
   useGetMapData();
