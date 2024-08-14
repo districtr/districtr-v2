@@ -17,7 +17,7 @@ const debouncedSetZoneAssignments = debounce(
 
     const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
     // set the zone populations
-
+    console.log(accumulatedBlockPopulations);
     const population = Array.from(accumulatedBlockPopulations.values()).reduce(
       (acc, val) => acc + Number(val),
       0
