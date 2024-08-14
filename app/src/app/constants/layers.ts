@@ -79,6 +79,7 @@ const addBlockLayers = (
   map: MutableRefObject<Map | null>,
   gerryDBView: gerryDBView
 ) => {
+  console.log(gerryDBView);
   const blockSource = getBlocksSource(gerryDBView.tiles_s3_path);
   removeBlockLayers(map);
   map.current?.addSource(BLOCK_SOURCE_ID, blockSource);

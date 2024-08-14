@@ -26,6 +26,8 @@
     "react-charts": "^3.0.0-beta.57",
     "react-dom": "^18",
     "react-resizable": "^3.0.5",
+    "recharts": "^2.12.7",
+    "shadcn-ui": "^0.8.0",
     "superjson": "^2.2.1",
     "zustand": "^4.5.2"
   },

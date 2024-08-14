@@ -4,7 +4,6 @@ import { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
 import { MapStore } from "@/app/store/mapStore";
 import { gerryDBView } from "@/app/api/apiHandlers";
-import { resolve } from "path";
 
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
@@ -26,7 +25,7 @@ const debouncedSetZoneAssignments = debounce(
     mapStoreRef.setZonePopulations(selectedZone, population);
   },
 
-  1000 // 1 second
+  1 // 1 second
 );
 
 /**
