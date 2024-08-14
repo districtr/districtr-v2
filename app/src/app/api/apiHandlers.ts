@@ -90,7 +90,7 @@ export const usePatchUpdateAssignments = () => {
 
 export const FormatAssignments = () => {
   const assignments = Array.from(
-    useMapStore.getState().zoneAssignments.entries(),
+    useMapStore.getState().zoneAssignments.entries()
   ).map(
     // @ts-ignore
     ([geo_id, zone]: [string, number]): {
@@ -98,10 +98,11 @@ export const FormatAssignments = () => {
       geo_id: string;
       zone: number;
     } => ({
-      document_id: useMapStore.getState().documentId ?? "",
+      document_id:
+        useMapStore.getState().documentId?.document_id.toString() ?? "",
       geo_id,
       zone,
-    }),
+    })
   );
   return assignments;
 };
@@ -120,13 +121,13 @@ const PatchUpdateSubscription = () => {
           geo_id: string;
           zone: number;
         } => ({
-          document_id: useMapStore.getState().documentId ?? "",
+          document_id: useMapStore.getState().documentId?.toString() ?? "",
           geo_id,
           zone,
-        }),
+        })
       );
       patcher.mutate(assignments);
-    },
+    }
   );
 };
 
@@ -211,7 +212,7 @@ export interface DocumentCreate {
 }
 
 const createMapObject: (
-  document: DocumentCreate,
+  document: DocumentCreate
 ) => Promise<DocumentObject> = async (document: DocumentCreate) => {
   try {
     return await axios
@@ -243,7 +244,7 @@ const createMapObject: (
  * @returns Promise<DocumentObject>
  */
 export const getDocument: (
-  document_id: string,
+  document_id: string
 ) => Promise<DocumentObject> = async (document_id: string) => {
   if (document_id) {
     return await axios
@@ -275,7 +276,7 @@ export const getMapObject: QueryFunction<
         returnObject.data,
         // @ts-ignore
         useMapStore.getState().mapRef,
-        useMapStore,
+        useMapStore
       ).then(() => {
         SelectZoneAssignmentFeatures(useMapStore.getState());
       });
@@ -318,11 +319,11 @@ export interface gerryDBView {
  */
 export const getGerryDBViews: (
   limit?: number,
-  offset?: number,
+  offset?: number
 ) => Promise<gerryDBView[]> = async (limit = 10, offset = 0) => {
   return await axios
     .get(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`
     )
     .then((res) => {
       return res.data;
@@ -346,7 +347,7 @@ export interface Assignment {
  * @returns server object containing the updated assignments per geoid
  */
 const patchUpdateAssignments: (
-  assignments: Assignment[],
+  assignments: Assignment[]
 ) => Promise<responseObject> = async (assignments: Assignment[]) => {
   try {
     const returnObject = await axios

@@ -1,7 +1,7 @@
 import { VectorSourceSpecification } from "maplibre-gl";
 
 export function getBlocksSource(
-  layer_subpath: string,
+  layer_subpath: string
 ): VectorSourceSpecification {
   return {
     type: "vector",

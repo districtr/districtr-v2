@@ -6,7 +6,7 @@ import maplibregl, {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import type { MutableRefObject } from "react";
-import React, { use, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { MAP_OPTIONS } from "../constants/configuration";
 import {
   mapEvents,
@@ -32,14 +32,19 @@ export const MapComponent: React.FC = () => {
   const hoverFeatureIds = useHoverFeatureIds();
   const document = useCreateMapDocument();
   const patchUpdates = usePatchUpdateAssignments();
-  const { freshMap, selectedLayer, setFreshMap, zoneAssignments } = useMapStore(
-    (state) => ({
-      freshMap: state.freshMap,
-      selectedLayer: state.selectedLayer,
-      setFreshMap: state.setFreshMap,
-      zoneAssignments: state.zoneAssignments,
-    }),
-  );
+  const {
+    freshMap,
+    selectedLayer,
+    setFreshMap,
+    zoneAssignments,
+    storeDocument,
+  } = useMapStore((state) => ({
+    freshMap: state.freshMap,
+    selectedLayer: state.selectedLayer,
+    setFreshMap: state.setFreshMap,
+    zoneAssignments: state.zoneAssignments,
+    storeDocument: state.documentId,
+  }));
   const searchParams = useSearchParams();
   const setRouter = useMapStore((state) => state.setRouter);
   const setPathname = useMapStore((state) => state.setPathname);
@@ -59,11 +64,9 @@ export const MapComponent: React.FC = () => {
 
   useEffect(() => {
     // create a new document is one doesn't exist AND the document_id isn't in the url as a param
-    console.log(selectedLayer);
-    console.log(document);
-    const documentId = document.data?.document_id;
+
+    const documentId = storeDocument?.document_id;
     const urlDocumentId = searchParams.get("document_id");
-    console.log("Document ID", documentId, "from URL", urlDocumentId);
     if (
       selectedLayer &&
       !documentId &&
@@ -72,17 +75,17 @@ export const MapComponent: React.FC = () => {
       !document.isPending &&
       !document.isError
     ) {
-      document.mutate({ gerrydb_table: selectedLayer.name });
+      document.mutate({ gerrydb_table: selectedLayer.name }); // mutation document
+      console.log("creating document", selectedLayer.name);
     }
   }, [document, searchParams, selectedLayer]);
 
   useEffect(() => {
     const document_id = searchParams.get("document_id");
-    console.log("BLEHHH", useMapStore.getState().documentId);
     if (document_id && !useMapStore.getState().documentId) {
       console.log("getting document", document_id);
       getDocument(document_id).then((res: DocumentObject) => {
-        useMapStore.setState({ documentId: res.data });
+        useMapStore.setState({ documentId: res }); // setting storeDocument
       });
     }
   }, [searchParams]);
@@ -120,7 +123,7 @@ export const MapComponent: React.FC = () => {
           BLOCK_HOVER_LAYER_ID, // to be updated with the scale-agnostic layer id
           (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
             action.handler(e, map, hoverFeatureIds);
-          },
+          }
         );
       }
     });
@@ -139,7 +142,7 @@ export const MapComponent: React.FC = () => {
     if (
       mapLoaded &&
       map.current !== null &&
-      !useMapStore.getState().documentId
+      !useMapStore.getState().documentId // storeDocument
     ) {
       useMapStore.setState({ mapRef: map });
     }
@@ -151,8 +154,10 @@ export const MapComponent: React.FC = () => {
    */
   useEffect(() => {
     if (mapLoaded && map.current && zoneAssignments.size) {
-      console.log("Assignments", zoneAssignments);
       const assignments = FormatAssignments();
+      const documentIdSearch = searchParams.get("document_id");
+      const documentId = storeDocument?.document_id; // storeDocument
+
       patchUpdates.mutate(assignments);
     }
   }, [mapLoaded, map.current, zoneAssignments]);

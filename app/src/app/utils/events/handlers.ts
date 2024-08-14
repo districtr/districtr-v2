@@ -4,7 +4,6 @@ import { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
 import { MapStore } from "@/app/store/mapStore";
 import { gerryDBView } from "@/app/api/apiHandlers";
-import { resolve } from "path";
 
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
@@ -18,7 +17,7 @@ const debouncedSetZoneAssignments = debounce(
 
     const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
     // set the zone populations
-
+    console.log(accumulatedBlockPopulations);
     const population = Array.from(accumulatedBlockPopulations.values()).reduce(
       (acc, val) => acc + Number(val),
       0
@@ -26,7 +25,7 @@ const debouncedSetZoneAssignments = debounce(
     mapStoreRef.setZonePopulations(selectedZone, population);
   },
 
-  1000 // 1 second
+  1 // 1 second
 );
 
 /**
@@ -185,6 +184,13 @@ export const ResetMapSelectState = (
     mapStoreRef.accumulatedGeoids.clear();
     // reset zoneAssignments
     mapStoreRef.resetZoneAssignments();
+
+    // reset accumulatedBlockPopulations
+    mapStoreRef.resetAccumulatedBlockPopulations();
+
+    // reset zone populations
+    mapStoreRef.resetZonePopulations();
+
     // confirm the map has been reset
     mapStoreRef.setFreshMap(false);
   }
