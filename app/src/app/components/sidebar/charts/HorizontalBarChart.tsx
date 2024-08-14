@@ -81,7 +81,7 @@ export const HorizontalBar = () => {
   const { zonePopulations } = useMapStore((state) => ({
     zonePopulations: state.zonePopulations,
   }));
-  console.log(zonePopulations);
+  // console.log(zonePopulations);
   const zonePopData = React.useMemo(() => {
     if (zonePopulations.size === 0) return [];
     return Array.from(zonePopulations).map(([zone, population]) => ({
