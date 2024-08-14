@@ -85,18 +85,19 @@ export const HorizontalBar = () => {
   const zonePopData = React.useMemo(() => {
     if (zonePopulations.size === 0) return [];
     return Array.from(zonePopulations).map(([zone, population]) => ({
-      zone: zone,
+      name: zone,
       population: population,
     }));
   }, [zonePopulations]);
+  console.log(zonePopData);
 
   if (zonePopulations.size === 0) {
     return <div>No data to display</div>;
   }
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart width={150} height={40} data={data}>
-        <Bar dataKey="uv" fill="#8884d8" />
+    <ResponsiveContainer width="100%" height="100%" minHeight="200px">
+      <BarChart width={150} height={400} data={zonePopData} layout={"vertical"}>
+        <Bar dataKey="population" fill="#8884d8" />
       </BarChart>
     </ResponsiveContainer>
   );
