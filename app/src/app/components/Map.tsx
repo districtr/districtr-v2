@@ -67,8 +67,6 @@ export const MapComponent: React.FC = () => {
 
     const documentId = storeDocument?.document_id;
     const urlDocumentId = searchParams.get("document_id");
-    // console.log(selectedLayer);
-    // console.log("Document ID", documentId, "from URL", urlDocumentId);
     if (
       selectedLayer &&
       !documentId &&
@@ -84,7 +82,6 @@ export const MapComponent: React.FC = () => {
 
   useEffect(() => {
     const document_id = searchParams.get("document_id");
-    console.log("BLEHHH", useMapStore.getState().documentId); // storeDocument
     if (document_id && !useMapStore.getState().documentId) {
       console.log("getting document", document_id);
       getDocument(document_id).then((res: DocumentObject) => {
@@ -157,11 +154,9 @@ export const MapComponent: React.FC = () => {
    */
   useEffect(() => {
     if (mapLoaded && map.current && zoneAssignments.size) {
-      console.log("Assignments", zoneAssignments);
       const assignments = FormatAssignments();
       const documentIdSearch = searchParams.get("document_id");
       const documentId = storeDocument?.document_id; // storeDocument
-      console.log("Document ID", documentId, "from URL", documentIdSearch);
 
       patchUpdates.mutate(assignments);
     }

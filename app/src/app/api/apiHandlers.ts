@@ -98,7 +98,8 @@ export const FormatAssignments = () => {
       geo_id: string;
       zone: number;
     } => ({
-      document_id: useMapStore.getState().documentId?.toString() ?? "",
+      document_id:
+        useMapStore.getState().documentId?.document_id.toString() ?? "",
       geo_id,
       zone,
     })
@@ -349,7 +350,6 @@ const patchUpdateAssignments: (
   assignments: Assignment[]
 ) => Promise<responseObject> = async (assignments: Assignment[]) => {
   try {
-    console.log("assignments", assignments);
     const returnObject = await axios
       .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
         assignments: assignments,
