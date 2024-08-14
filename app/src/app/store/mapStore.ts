@@ -25,6 +25,7 @@ export interface MapStore {
   resetAccumulatedBlockPopulations: () => void;
   zoneAssignments: Map<string, number>; // geoid -> zone
   setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>) => void;
+  resetZonePopulations: () => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
@@ -79,8 +80,9 @@ export const useMapStore = create<MapStore>((set) => ({
       };
     }),
   accumulatedBlockPopulations: new Map<string, number>(),
-  resetAccumulatedBlockPopulations: () =>
-    set({ accumulatedBlockPopulations: new Map<string, number>() }),
+  resetAccumulatedBlockPopulations: () => {
+    set({ accumulatedBlockPopulations: new Map<string, number>() });
+  },
   zonePopulations: new Map(),
   setZonePopulations: (zone, population) =>
     set((state) => {
@@ -90,6 +92,7 @@ export const useMapStore = create<MapStore>((set) => ({
         zonePopulations: newZonePopulations,
       };
     }),
+  resetZonePopulations: () => set({ zonePopulations: new Map() }),
   resetZoneAssignments: () => set({ zoneAssignments: new Map() }),
   brushSize: 50,
   setBrushSize: (size) => set({ brushSize: size }),

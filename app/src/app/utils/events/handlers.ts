@@ -184,6 +184,13 @@ export const ResetMapSelectState = (
     mapStoreRef.accumulatedGeoids.clear();
     // reset zoneAssignments
     mapStoreRef.resetZoneAssignments();
+
+    // reset accumulatedBlockPopulations
+    mapStoreRef.resetAccumulatedBlockPopulations();
+
+    // reset zone populations
+    mapStoreRef.resetZonePopulations();
+
     // confirm the map has been reset
     mapStoreRef.setFreshMap(false);
   }
