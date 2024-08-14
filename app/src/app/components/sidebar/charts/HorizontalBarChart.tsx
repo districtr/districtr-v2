@@ -64,40 +64,59 @@ import { useMapStore } from "@/app/store/mapStore";
 //   );
 // };
 
-// HorizontalBarChart.js
-import React, { PureComponent } from "react";
-import { BarChart, Bar, ResponsiveContainer } from "recharts";
-
-// Sample data
-const data = [
-  { name: "Group A", value: 4000 },
-  { name: "Group B", value: 3000 },
-  { name: "Group C", value: 2000 },
-  { name: "Group D", value: 2780 },
-  { name: "Group E", value: 1890 },
-];
+import React, { useEffect, useState } from "react";
+import {
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  LabelList,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 export const HorizontalBar = () => {
   const { zonePopulations } = useMapStore((state) => ({
     zonePopulations: state.zonePopulations,
   }));
+  const [data, setData] = useState<{ name: string; population: number }[]>([]);
+
   // console.log(zonePopulations);
   const zonePopData = React.useMemo(() => {
     if (zonePopulations.size === 0) return [];
     return Array.from(zonePopulations).map(([zone, population]) => ({
-      name: zone,
+      name: `Zone ${zone}`,
       population: population,
     }));
   }, [zonePopulations]);
   console.log(zonePopData);
+
+  useEffect(() => {
+    setData(zonePopData);
+  }, [zonePopData]);
 
   if (zonePopulations.size === 0) {
     return <div>No data to display</div>;
   }
   return (
     <ResponsiveContainer width="100%" height="100%" minHeight="200px">
-      <BarChart width={150} height={400} data={zonePopData} layout={"vertical"}>
-        <Bar dataKey="population" fill="#8884d8" />
+      <BarChart
+        width={150}
+        height={400}
+        data={data}
+        layout={"vertical"}
+        barSize={20}
+        margin={{ top: 15, right: 30, left: 20, bottom: 15 }}
+        barGap={0}
+      >
+        <XAxis
+          datakey="population"
+          allowDataOverflow={true}
+          type="number"
+          domain={[0, "maxData"]}
+        />
+        <Bar dataKey="population" fill="#8884d8">
+          <LabelList dataKey="name" position="right" />
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   );
