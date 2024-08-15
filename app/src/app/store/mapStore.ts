@@ -9,8 +9,8 @@ import type { MutableRefObject } from "react";
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
-  documentId: DocumentObject | null;
-  setDocumentId: (documentId: DocumentObject) => void;
+  mapDocument: DocumentObject | null;
+  setMapDocument: (mapDocument: DocumentObject) => void;
   selectedLayer: gerryDBView | null;
   setSelectedLayer: (layer: gerryDBView) => void;
   mapOptions: MapOptions;
@@ -47,8 +47,8 @@ export interface MapStore {
 export const useMapStore = create<MapStore>((set) => ({
   mapRef: null,
   setMapRef: (mapRef) => set({ mapRef }),
-  documentId: null,
-  setDocumentId: (documentId) => set({ documentId }),
+  mapDocument: null,
+  setMapDocument: (mapDocument) => set({ mapDocument }),
   selectedLayer: null,
   setSelectedLayer: (layer) => set({ selectedLayer: layer }),
   mapOptions: {

@@ -16,16 +16,15 @@ const debouncedSetZoneAssignments = debounce(
     mapStoreRef.setZoneAssignments(selectedZone, geoids);
 
     const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
-    // set the zone populations
 
     const population = Array.from(accumulatedBlockPopulations.values()).reduce(
       (acc, val) => acc + Number(val),
-      0
+      0,
     );
     mapStoreRef.setZonePopulations(selectedZone, population);
   },
 
-  1 // 1 second
+  1, // 1 second
 );
 
 /**
@@ -42,7 +41,7 @@ const debouncedSetZoneAssignments = debounce(
 export const SelectMapFeatures = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  mapStoreRef: MapStore
+  mapStoreRef: MapStore,
 ) => {
   features?.forEach((feature) => {
     map.current?.setFeatureState(
@@ -51,7 +50,7 @@ export const SelectMapFeatures = (
         id: feature?.id ?? undefined,
         sourceLayer: mapStoreRef.selectedLayer?.name,
       },
-      { selected: true, zone: mapStoreRef.selectedZone }
+      { selected: true, zone: mapStoreRef.selectedZone },
     );
   });
   if (features?.length) {
@@ -60,7 +59,7 @@ export const SelectMapFeatures = (
 
       mapStoreRef.accumulatedBlockPopulations.set(
         feature.properties?.path,
-        feature.properties?.total_pop
+        feature.properties?.total_pop,
       );
     });
   }
@@ -85,7 +84,7 @@ export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
     debouncedSetZoneAssignments(
       mapStoreRef,
       mapStoreRef.selectedZone,
-      mapStoreRef.accumulatedGeoids
+      mapStoreRef.accumulatedGeoids,
     );
   }
 };
@@ -100,7 +99,7 @@ export const HighlightFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
   hoverGeoids: MutableRefObject<Set<string>>,
-  sourceLayer: string
+  sourceLayer: string,
 ) => {
   if (features?.length) {
     if (hoverGeoids.current.size) {
@@ -111,7 +110,7 @@ export const HighlightFeature = (
             id: Id,
             sourceLayer: sourceLayer,
           },
-          { hover: false }
+          { hover: false },
         );
       });
       hoverGeoids.current.clear();
@@ -125,7 +124,7 @@ export const HighlightFeature = (
         id: feature?.id ?? undefined,
         sourceLayer: sourceLayer,
       },
-      { hover: true }
+      { hover: true },
     );
   });
 
@@ -147,7 +146,7 @@ export const HighlightFeature = (
 export const UnhighlightFeature = (
   map: MutableRefObject<Map | null>,
   hoverFeatureIds: MutableRefObject<Set<string>>,
-  sourceLayer: string
+  sourceLayer: string,
 ) => {
   if (hoverFeatureIds.current.size) {
     hoverFeatureIds.current.forEach((Id) => {
@@ -157,7 +156,7 @@ export const UnhighlightFeature = (
           id: Id,
           sourceLayer: sourceLayer,
         },
-        { hover: false }
+        { hover: false },
       );
     });
     hoverFeatureIds.current.clear();
@@ -173,7 +172,7 @@ export const UnhighlightFeature = (
 export const ResetMapSelectState = (
   map: MutableRefObject<Map | null>,
   mapStoreRef: MapStore,
-  sourceLayer: string
+  sourceLayer: string,
 ) => {
   if (mapStoreRef.zoneAssignments.size) {
     map.current?.removeFeatureState({
@@ -191,7 +190,7 @@ export const ResetMapSelectState = (
 
 export const LoadMapLayer = (
   sourceLayer: gerryDBView,
-  mapStoreRef: MapStore
+  mapStoreRef: MapStore,
 ) => {
   const map = mapStoreRef?.mapRef?.current;
   const layers = map?.getStyle().layers;
