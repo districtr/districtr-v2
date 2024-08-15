@@ -21,7 +21,6 @@ export function MapModeSelector() {
   ];
 
   const handleRadioChange = (value) => {
-    console.log("setting active tool to", value);
     setActiveTool(value);
   };
 

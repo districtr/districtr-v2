@@ -28,7 +28,7 @@ export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
   ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
 export function getBlocksLayerSpecification(
-  sourceLayer: string
+  sourceLayer: string,
 ): LayerSpecification {
   return {
     id: BLOCK_LAYER_ID,
@@ -48,7 +48,7 @@ export function getBlocksLayerSpecification(
 }
 
 export function getBlocksHoverLayerSpecification(
-  sourceLayer: string
+  sourceLayer: string,
 ): LayerSpecification {
   return {
     id: BLOCK_HOVER_LAYER_ID,
@@ -77,9 +77,8 @@ export function getBlocksHoverLayerSpecification(
 
 const addBlockLayers = (
   map: MutableRefObject<Map | null>,
-  gerryDBView: gerryDBView
+  gerryDBView: gerryDBView,
 ) => {
-  console.log(gerryDBView);
   const blockSource = getBlocksSource(gerryDBView.tiles_s3_path);
   removeBlockLayers(map);
   map.current?.addSource(BLOCK_SOURCE_ID, blockSource);

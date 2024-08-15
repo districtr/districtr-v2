@@ -7,7 +7,7 @@ import { HorizontalBar } from "./charts/HorizontalBarChart";
 
 export default function SidebarComponent() {
   return (
-    <Box m="3">
+    <Box m="3" className="max-w-sidebar w-sidebar">
       <Flex direction="column" gap="3">
         <MapModeSelector />
         <ColorPicker />

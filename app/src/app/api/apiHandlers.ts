@@ -22,7 +22,7 @@ export const FormatAssignments = () => {
 };
 
 /**
- * GerryDB view.
+ * Document
  *
  * @interface
  * @property {string} document_id - The document id.

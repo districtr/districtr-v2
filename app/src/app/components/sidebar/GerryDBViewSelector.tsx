@@ -1,30 +1,47 @@
-import React from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Select } from "@radix-ui/themes";
 import { gerryDBView, getGerryDBViews } from "../../api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
+import { createMapDocument } from "../../api/apiHandlers";
+import { useMutation } from "@tanstack/react-query";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 export function GerryDBViewSelector() {
-  const [views, setViews] = React.useState<gerryDBView[]>([]);
-  const [limit, setLimit] = React.useState<number>(20);
-  const [offset, setOffset] = React.useState<number>(0);
-  const { selectedLayer, setSelectedLayer } = useMapStore((state) => ({
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [views, setViews] = useState<gerryDBView[]>([]);
+  const [limit, setLimit] = useState<number>(20);
+  const [offset, setOffset] = useState<number>(0);
+  const { selectedLayer, setMapDocument } = useMapStore((state) => ({
     selectedLayer: state.selectedLayer,
-    setSelectedLayer: state.setSelectedLayer,
+    setMapDocument: state.setMapDocument,
   }));
+  const document = useMutation({
+    mutationFn: createMapDocument,
+    onError: (error) => {
+      console.error("Error creating map document: ", error);
+    },
+    onSuccess: (data) => {
+      setMapDocument(data);
+      const urlParams = new URLSearchParams(searchParams.toString());
+      urlParams.set("document_id", data.document_id);
+      router.push(pathname + "?" + urlParams.toString());
+    },
+  });
 
-  React.useEffect(() => {
+  useEffect(() => {
     getGerryDBViews(limit, offset).then((views) => {
-      console.log(views);
       setViews(views);
     });
   }, [limit, offset]);
 
   const handleValueChange = (value: string) => {
     const selectedLayer = views.find((view) => view.name === value);
-    if (!selectedLayer) {
+    if (!selectedLayer || selectedLayer.name === document.data?.gerrydb_table) {
       return;
     }
-    setSelectedLayer(selectedLayer);
+    document.mutate({ gerrydb_table: selectedLayer.name });
   };
 
   if (views.length === 0) {

@@ -5,6 +5,7 @@ import { Zone, GDBPath } from "../constants/types";
 import { gerryDBView, DocumentObject } from "../api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
+import { addBlockLayers } from "../constants/layers";
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
@@ -36,21 +37,29 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
-  router: any;
-  setRouter: (router: any) => void;
-  pathname: string;
-  setPathname: (pathname: string) => void;
-  urlParams: URLSearchParams;
-  setUrlParams: (params: URLSearchParams) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
   mapRef: null,
   setMapRef: (mapRef) => set({ mapRef }),
   mapDocument: null,
-  setMapDocument: (mapDocument) => set({ mapDocument }),
+  setMapDocument: (mapDocument) =>
+    set((state) => {
+      if (mapDocument.tiles_s3_path) {
+        state.setSelectedLayer({
+          name: mapDocument.gerrydb_table,
+          tiles_s3_path: mapDocument.tiles_s3_path,
+        });
+      }
+      return { mapDocument: mapDocument };
+    }),
   selectedLayer: null,
-  setSelectedLayer: (layer) => set({ selectedLayer: layer }),
+  setSelectedLayer: (layer) =>
+    set((state) => {
+      if (!state.mapRef) return { selectedLayer: null };
+      addBlockLayers(state.mapRef, layer);
+      return { selectedLayer: layer };
+    }),
   mapOptions: {
     center: [-98.5795, 39.8283],
     zoom: 3,
@@ -103,10 +112,4 @@ export const useMapStore = create<MapStore>((set) => ({
     }),
   freshMap: false,
   setFreshMap: (resetMap) => set({ freshMap: resetMap }),
-  router: null,
-  setRouter: (router) => set({ router }),
-  pathname: "",
-  setPathname: (pathname) => set({ pathname }),
-  urlParams: new URLSearchParams(),
-  setUrlParams: (params) => set({ urlParams: params }),
 }));

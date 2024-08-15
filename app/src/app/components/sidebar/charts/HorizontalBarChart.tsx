@@ -9,7 +9,6 @@ export const HorizontalBar = () => {
   }));
 
   const zonePopData = React.useMemo(() => {
-    console.log("hello");
     if (zonePopulations.size === 0) return [];
     return Array.from(zonePopulations).map(([zone, population]) => ({
       zone: zone,

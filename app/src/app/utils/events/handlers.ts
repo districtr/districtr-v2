@@ -1,4 +1,4 @@
-import { addBlockLayers, BLOCK_SOURCE_ID } from "@/app/constants/layers";
+import { BLOCK_SOURCE_ID } from "@/app/constants/layers";
 import { MutableRefObject } from "react";
 import { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
@@ -78,7 +78,6 @@ export const SelectMapFeatures = (
 export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
   const accumulatedGeoids = mapStoreRef.accumulatedGeoids;
   if (accumulatedGeoids?.size) {
-    console.log("now were setting the store");
     debouncedSetZoneAssignments(
       mapStoreRef,
       mapStoreRef.selectedZone,
