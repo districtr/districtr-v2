@@ -3,14 +3,13 @@ import { Select } from "@radix-ui/themes";
 import { gerryDBView, getGerryDBViews } from "../../api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
 import { createMapDocument } from "../../api/apiHandlers";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 export function GerryDBViewSelector() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [views, setViews] = useState<gerryDBView[]>([]);
   const [limit, setLimit] = useState<number>(20);
   const [offset, setOffset] = useState<number>(0);
   const { selectedLayer, setMapDocument } = useMapStore((state) => ({
@@ -32,15 +31,13 @@ export function GerryDBViewSelector() {
       router.push(pathname + "?" + urlParams.toString());
     },
   });
-
-  useEffect(() => {
-    getGerryDBViews(limit, offset).then((views) => {
-      setViews(views);
-    });
-  }, [limit, offset]);
+  const { isPending, isError, data, error } = useQuery({
+    queryKey: ["views", limit, offset],
+    queryFn: () => getGerryDBViews(limit, offset),
+  });
 
   const handleValueChange = (value: string) => {
-    const selectedLayer = views.find((view) => view.name === value);
+    const selectedLayer = data?.find((view) => view.name === value);
     if (!selectedLayer || selectedLayer.name === document.data?.gerrydb_table) {
       return;
     }
@@ -51,9 +48,9 @@ export function GerryDBViewSelector() {
     console.log(selectedLayer);
   }, [selectedLayer]);
 
-  if (views.length === 0) {
-    return <div>Loading geographies... 🌎</div>;
-  }
+  if (isPending) return <div>Loading geographies... 🌎</div>;
+
+  if (isError) return <div>Error loading geographies: {error.message}</div>;
 
   return (
     <Select.Root
@@ -66,7 +63,7 @@ export function GerryDBViewSelector() {
       <Select.Content>
         <Select.Group>
           <Select.Label>Select a geography</Select.Label>
-          {views.map((view, index) => (
+          {data.map((view, index) => (
             <Select.Item key={index} value={view.name}>
               {view.name}
             </Select.Item>
