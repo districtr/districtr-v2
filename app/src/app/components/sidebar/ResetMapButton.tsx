@@ -5,6 +5,8 @@ export function ResetMapButton() {
 
   const handleClickResetMap = () => {
     mapStore.setFreshMap(true);
+    // clear map metrics
+    mapStore.setMapMetrics(null);
   };
 
   return (

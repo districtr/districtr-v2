@@ -1,47 +1,69 @@
-import React from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Select } from "@radix-ui/themes";
 import { gerryDBView, getGerryDBViews } from "../../api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
+import { createMapDocument } from "../../api/apiHandlers";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 export function GerryDBViewSelector() {
-  const [views, setViews] = React.useState<gerryDBView[]>([]);
-  const [limit, setLimit] = React.useState<number>(20);
-  const [offset, setOffset] = React.useState<number>(0);
-  const { selectedLayer, setSelectedLayer } = useMapStore((state) => ({
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [limit, setLimit] = useState<number>(20);
+  const [offset, setOffset] = useState<number>(0);
+  const { selectedLayer, setMapDocument } = useMapStore((state) => ({
     selectedLayer: state.selectedLayer,
-    setSelectedLayer: state.setSelectedLayer,
+    setMapDocument: state.setMapDocument,
   }));
-
-  React.useEffect(() => {
-    getGerryDBViews(limit, offset).then((views) => {
-      console.log(views);
-      setViews(views);
-    });
-  }, [limit, offset]);
+  const document = useMutation({
+    mutationFn: createMapDocument,
+    onMutate: () => {
+      console.log("Creating document");
+    },
+    onError: (error) => {
+      console.error("Error creating map document: ", error);
+    },
+    onSuccess: (data) => {
+      setMapDocument(data);
+      const urlParams = new URLSearchParams(searchParams.toString());
+      urlParams.set("document_id", data.document_id);
+      router.push(pathname + "?" + urlParams.toString());
+    },
+  });
+  const { isPending, isError, data, error } = useQuery({
+    queryKey: ["views", limit, offset],
+    queryFn: () => getGerryDBViews(limit, offset),
+  });
 
   const handleValueChange = (value: string) => {
-    const selectedLayer = views.find((view) => view.name === value);
-    if (!selectedLayer) {
+    const selectedLayer = data?.find((view) => view.name === value);
+    if (!selectedLayer || selectedLayer.name === document.data?.gerrydb_table) {
       return;
     }
-    setSelectedLayer(selectedLayer);
+    document.mutate({ gerrydb_table: selectedLayer.name });
   };
 
-  if (views.length === 0) {
-    return <div>Loading geographies... 🌎</div>;
-  }
+  useEffect(() => {
+    console.log(selectedLayer);
+  }, [selectedLayer]);
+
+  if (isPending) return <div>Loading geographies... 🌎</div>;
+
+  if (isError) return <div>Error loading geographies: {error.message}</div>;
 
   return (
     <Select.Root
       size="3"
-      defaultValue={selectedLayer?.name}
+      defaultValue={undefined}
       onValueChange={handleValueChange}
+      value={selectedLayer?.name}
     >
       <Select.Trigger />
       <Select.Content>
         <Select.Group>
           <Select.Label>Select a geography</Select.Label>
-          {views.map((view, index) => (
+          {data.map((view, index) => (
             <Select.Item key={index} value={view.name}>
               {view.name}
             </Select.Item>

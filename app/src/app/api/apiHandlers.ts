@@ -1,92 +1,6 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
-import { SetUpdateUrlParams } from "../utils/events/mapEvents";
-import type { QueryFunction } from "@tanstack/react-query";
-import {
-  SelectMapFeatures,
-  SelectZoneAssignmentFeatures,
-} from "../utils/events/handlers";
-
-interface responseObject {
-  data: any;
-}
-
-/**
- * Hook to save map data to the server, using a mutation.
- * Should be agnostic to the mutationFn used.
- * @returns mutation to be used in calling hook component, e.g. localMutationVar.mutate()
- */
-export const usePostMapData = () => {
-  const mutation = useMutation({
-    mutationFn: createMapObject,
-    onMutate: (variables) => {
-      // A mutation is about to happen, prepare for transaction
-      // this id can be used on server side to rollback if needed
-      return {
-        id: Math.random().toString(36).substring(7), // Optimistic ID
-      };
-    },
-    onError: (error, variables, context) => {
-      // An error happened!
-      console.log(`Rolling back optimistic update with id ${context?.id}`);
-    },
-    onSuccess: (data, variables, context) => {
-      // Handle successful mutation
-      console.log(`Mutation ${context.id} successful!`, data);
-    },
-    onSettled: (data, error, variables, context) => {
-      // fires regardless of error or success
-      console.log(`Optimistic update with id ${context?.id} settled: `);
-      if (error) {
-        console.log("Error: ", error);
-      }
-      if (data) {
-        useMapStore.setState({ documentId: data });
-      }
-    },
-  });
-
-  return mutation;
-};
-
-/**
- *
- * @returns mutation to be used in calling hook component, e.g. localMutationVar.mutate()
- */
-export const usePatchUpdateAssignments = () => {
-  const mutation = useMutation({
-    mutationFn: patchUpdateAssignments,
-    onMutate: (variables) => {
-      // A mutation is about to happen, prepare for transaction
-      // this id can be used on server side to rollback if needed
-      return {
-        id: Math.random().toString(36).substring(7), // Optimistic ID
-      };
-    },
-    onError: (error, variables, context) => {
-      // An error happened!
-      console.log(`Rolling back optimistic update with id ${context?.id}`);
-    },
-    onSuccess: (data, variables, context) => {
-      // Handle successful mutation
-      console.log(`Mutation ${context.id} successful!`, data);
-    },
-    onSettled: (data, error, variables, context) => {
-      // fires regardless of error or success
-      console.log(`Optimistic update with id ${context?.id} settled: `);
-      if (error) {
-        console.log("Error: ", error);
-      }
-      if (data) {
-        console.log("assignments updated");
-      }
-    },
-  });
-
-  return mutation;
-};
 
 export const FormatAssignments = () => {
   const assignments = Array.from(
@@ -98,7 +12,8 @@ export const FormatAssignments = () => {
       geo_id: string;
       zone: number;
     } => ({
-      document_id: useMapStore.getState().documentId ?? "",
+      document_id:
+        useMapStore.getState().mapDocument?.document_id.toString() ?? "",
       geo_id,
       zone,
     }),
@@ -106,84 +21,8 @@ export const FormatAssignments = () => {
   return assignments;
 };
 
-const PatchUpdateSubscription = () => {
-  const patcher = usePatchUpdateAssignments();
-  const unsubscribe = useMapStore.subscribe(
-    (state) => state.zoneAssignments as Map<string, number>,
-    // @ts-ignore
-    (zoneAssignments) => {
-      console.log("zoneAssignments updated", zoneAssignments);
-      const assignments = Array.from(zoneAssignments.entries()).map(
-        // @ts-ignore
-        ([geo_id, zone]: [string, number]): {
-          document_id: string;
-          geo_id: string;
-          zone: number;
-        } => ({
-          document_id: useMapStore.getState().documentId ?? "",
-          geo_id,
-          zone,
-        }),
-      );
-      patcher.mutate(assignments);
-    },
-  );
-};
-
-export const useCreateMapDocument = () => {
-  const mutation = useMutation({
-    mutationFn: createMapObject,
-    onMutate: (variables) => {
-      // A mutation is about to happen, prepare for transaction
-      // this id can be used on server side to rollback if needed
-      return {
-        id: Math.random().toString(36).substring(7), // Optimistic ID
-      };
-    },
-    onError: (error, variables, context) => {
-      // An error happened!
-      console.log(`Rolling back optimistic update with id ${context?.id}`);
-    },
-    onSuccess: (data, variables, context) => {
-      // Handle successful mutation
-      console.log(`Mutation ${context.id} successful!`, data);
-    },
-    onSettled: (data, error, variables, context) => {
-      // fires regardless of error or success
-      console.log(`Optimistic update with id ${context?.id} settled: `);
-      if (error) {
-        console.log("Error: ", error);
-      }
-      if (data) {
-        useMapStore.setState({ documentId: data });
-        // add document id to search params store item
-        const { router, pathname, urlParams } = useMapStore.getState();
-        urlParams.set("document_id", data.document_id);
-        SetUpdateUrlParams(router, pathname, urlParams);
-      }
-    },
-  });
-
-  return mutation;
-};
-
 /**
- * Hook to get map data from the server, using a query.
- * Triggered in the HandleUrlParams function upon the page loading
- * @returns result of the query to be used in calling hook component,
- * including result.data, result.isPending, result.isError, result.error
- */
-export const useGetMapData = () => {
-  const result = useQuery({
-    queryKey: ["documentId"],
-    queryFn: getMapObject,
-  });
-
-  return result;
-};
-
-/**
- * GerryDB view.
+ * Document
  *
  * @interface
  * @property {string} document_id - The document id.
@@ -210,31 +49,16 @@ export interface DocumentCreate {
   gerrydb_table: string;
 }
 
-const createMapObject: (
+export const createMapDocument: (
   document: DocumentCreate,
 ) => Promise<DocumentObject> = async (document: DocumentCreate) => {
-  try {
-    return await axios
-      .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
-        gerrydb_table: document.gerrydb_table,
-      }) // should replace with env var
-      .then((res) => {
-        // successful roundtrip; return the document id
-        return res.data;
-      });
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Axios error:", error.message);
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        console.error("Response headers:", error.response.headers);
-      }
-    } else {
-      console.error("Unexpected error:", error);
-    }
-    throw error;
-  }
+  return await axios
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
+      gerrydb_table: document.gerrydb_table,
+    })
+    .then((res) => {
+      return res.data;
+    });
 };
 
 /**
@@ -256,46 +80,53 @@ export const getDocument: (
   }
 };
 
-export const getMapObject: QueryFunction<
-  responseObject,
-  [string]
-> = async () => {
-  const documentId = useMapStore.getState().documentId;
-  if (documentId) {
-    try {
-      const returnObject = await axios
-        .get(`${process.env.NEXT_PUBLIC_API_URL}/get_assignments/${documentId}`)
-        .then((res) => {
-          return res.data;
-        });
-
-      // need to select features here, on map
-      // and in store, on map load
-      SelectMapFeatures(
-        returnObject.data,
-        // @ts-ignore
-        useMapStore.getState().mapRef,
-        useMapStore,
-      ).then(() => {
-        SelectZoneAssignmentFeatures(useMapStore.getState());
+export const getAssignments: (
+  mapDocument: DocumentObject,
+) => Promise<Assignment[]> = async (mapDocument) => {
+  if (mapDocument) {
+    return await axios
+      .get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument.document_id}`,
+      )
+      .then((res) => {
+        return res.data;
       });
-      return { data: returnObject };
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error("i couldn't get the data", error.message);
-        console.error("Axios error:", error.message);
-        if (error.response) {
-          console.error("Response data:", error.response.data);
-          console.error("Response status:", error.response.status);
-          console.error("Response headers:", error.response.headers);
-        }
-      } else {
-        console.error("Unexpected error:", error);
-      }
-      throw error;
-    }
+  } else {
+    throw new Error("No document provided");
   }
-  return { data: null };
+};
+
+/**
+ * ZonePopulation
+ *
+ * @interface
+ * @property {number} zone - The zone.
+ * @property {number} total_pop - The total population.
+ */
+export interface ZonePopulation {
+  zone: number;
+  total_pop: number;
+}
+
+/**
+ * Get zone populations from the server.
+ * @param mapDocument - DocumentObject, the document object
+ * @returns Promise<ZonePopulation[]>
+ */
+export const getZonePopulations: (
+  mapDocument: DocumentObject,
+) => Promise<ZonePopulation[]> = async (mapDocument) => {
+  if (mapDocument) {
+    return await axios
+      .get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`,
+      )
+      .then((res) => {
+        return res.data;
+      });
+  } else {
+    throw new Error("No document provided");
+  }
 };
 
 /**
@@ -329,45 +160,41 @@ export const getGerryDBViews: (
     });
 };
 
-const useSessionData = (sessionId: string) => {
-  const query = useQuery({ queryKey: [sessionId], queryFn: getMapObject });
-
-  return query;
-};
-
+/**
+ * Single document assignment
+ *   @interface
+ *   @property {string} document_id - The document id.
+ *   @property {string} geo_id - The geo id.
+ *   @property {number} zone - The zone.
+ */
 export interface Assignment {
   document_id: string;
   geo_id: string;
   zone: number;
 }
+
+/**
+ * Assignments create response
+ *   @interface
+ *   @property {number} assignments_upserted - The number of assignments upserted.
+ */
+export interface AssignmentsCreate {
+  assignments_upserted: number;
+}
+
 /**
  *
  * @param assignments
  * @returns server object containing the updated assignments per geoid
  */
-const patchUpdateAssignments: (
+export const patchUpdateAssignments: (
   assignments: Assignment[],
-) => Promise<responseObject> = async (assignments: Assignment[]) => {
-  try {
-    const returnObject = await axios
-      .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
-        assignments: assignments,
-      })
-      .then((res) => {
-        return res.data;
-      });
-    return { data: returnObject };
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Axios error:", error.message);
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        console.error("Response headers:", error.response.headers);
-      }
-    } else {
-      console.error("Unexpected error:", error);
-    }
-    throw error;
-  }
+) => Promise<AssignmentsCreate> = async (assignments: Assignment[]) => {
+  return await axios
+    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
+      assignments: assignments,
+    })
+    .then((res) => {
+      return res.data;
+    });
 };

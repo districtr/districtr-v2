@@ -29,7 +29,7 @@ export function ColorPicker() {
       "setting accumulated geoids to old zone",
       selectedZone,
       "new zone is",
-      value
+      value,
     );
     setZoneAssignments(selectedZone, accumulatedGeoids);
     setSelectedZone(value);

@@ -2,15 +2,21 @@ import type { MapOptions } from "maplibre-gl";
 import { create } from "zustand";
 import type { ActiveTool, SpatialUnit } from "../constants/types";
 import { Zone, GDBPath } from "../constants/types";
-import { gerryDBView, DocumentObject } from "../api/apiHandlers";
+import {
+  gerryDBView,
+  DocumentObject,
+  ZonePopulation,
+} from "../api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
+import { addBlockLayers } from "../constants/layers";
+import type { UseQueryResult } from "@tanstack/react-query";
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
-  documentId: DocumentObject | null;
-  setDocumentId: (documentId: DocumentObject) => void;
+  mapDocument: DocumentObject | null;
+  setMapDocument: (mapDocument: DocumentObject) => void;
   selectedLayer: gerryDBView | null;
   setSelectedLayer: (layer: gerryDBView) => void;
   mapOptions: MapOptions;
@@ -36,21 +42,33 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
-  router: any;
-  setRouter: (router: any) => void;
-  pathname: string;
-  setPathname: (pathname: string) => void;
-  urlParams: URLSearchParams;
-  setUrlParams: (params: URLSearchParams) => void;
+  mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
+  setMapMetrics: (
+    metrics: UseQueryResult<ZonePopulation[], Error> | null
+  ) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
   mapRef: null,
   setMapRef: (mapRef) => set({ mapRef }),
-  documentId: null,
-  setDocumentId: (documentId) => set({ documentId }),
+  mapDocument: null,
+  setMapDocument: (mapDocument) =>
+    set((state) => {
+      if (mapDocument.tiles_s3_path) {
+        state.setSelectedLayer({
+          name: mapDocument.gerrydb_table,
+          tiles_s3_path: mapDocument.tiles_s3_path,
+        });
+      }
+      return { mapDocument: mapDocument };
+    }),
   selectedLayer: null,
-  setSelectedLayer: (layer) => set({ selectedLayer: layer }),
+  setSelectedLayer: (layer) =>
+    set((state) => {
+      if (!state.mapRef) return { selectedLayer: null };
+      addBlockLayers(state.mapRef, layer);
+      return { selectedLayer: layer };
+    }),
   mapOptions: {
     center: [-98.5795, 39.8283],
     zoom: 3,
@@ -103,10 +121,6 @@ export const useMapStore = create<MapStore>((set) => ({
     }),
   freshMap: false,
   setFreshMap: (resetMap) => set({ freshMap: resetMap }),
-  router: null,
-  setRouter: (router) => set({ router }),
-  pathname: "",
-  setPathname: (pathname) => set({ pathname }),
-  urlParams: new URLSearchParams(),
-  setUrlParams: (params) => set({ urlParams: params }),
+  mapMetrics: null,
+  setMapMetrics: (metrics) => set({ mapMetrics: metrics }),
 }));

@@ -1,65 +1,47 @@
-import React from "react";
-import { Chart, AxisOptions } from "react-charts";
 import { useMapStore } from "@/app/store/mapStore";
-import ResizableBox from "./ResizableBox";
+import { Flex, Heading, DataList, Text } from "@radix-ui/themes";
 
 export const HorizontalBar = () => {
-  const { zonePopulations } = useMapStore((state) => ({
-    zonePopulations: state.zonePopulations,
+  const { mapMetrics } = useMapStore((state) => ({
+    mapMetrics: state.mapMetrics,
   }));
-  console.log(zonePopulations);
-  const zonePopData = React.useMemo(() => {
-    if (zonePopulations.size === 0) return [];
-    return Array.from(zonePopulations).map(([zone, population]) => ({
-      zone: zone,
-      population: population,
-    }));
-  }, [zonePopulations]);
+  const numberFormat = new Intl.NumberFormat("en-US");
 
-  const primaryAxis = React.useMemo<AxisOptions<(typeof zonePopData)[number]>>(
-    () => ({
-      getValue: (datum) => datum.zone,
-      type: "categorical",
-      label: "Zone",
-    }),
-    []
-  );
+  if (mapMetrics?.isPending) {
+    return <div>Loading...</div>;
+  }
 
-  const secondaryAxes = React.useMemo<
-    AxisOptions<(typeof zonePopData)[number]>[]
-  >(
-    () => [
-      {
-        getValue: (datum) => datum.population,
-        label: "Population",
-      },
-    ],
-    []
-  );
+  if (mapMetrics?.isError) {
+    return <div>Error: {mapMetrics?.error.message}</div>;
+  }
 
-  // properly format data so that each zone is a bar with the population as the height
-  const data = React.useMemo(() => {
-    if (zonePopData.length === 0) return [];
-    return [
-      {
-        label: "Population",
-        data: zonePopData,
-      },
-    ];
-  }, [zonePopData]);
-
-  if (zonePopulations.size === 0) {
+  if (mapMetrics?.data.length === 0) {
     return <div>No data to display</div>;
   }
+
   return (
-    <ResizableBox>
-      <Chart
-        options={{
-          data,
-          primaryAxis,
-          secondaryAxes,
-        }}
-      />
-    </ResizableBox>
+    <Flex gap="3" direction="column">
+      <Heading as="h3" size="3">
+        Population by Zone
+      </Heading>
+      {mapMetrics ? (
+        <DataList.Root>
+          {mapMetrics?.data
+            .sort((a, b) => b.total_pop - a.total_pop)
+            .map((metric) => (
+              <DataList.Item key={metric.zone} align="center">
+                <DataList.Label minWidth="32px">{metric.zone}</DataList.Label>
+                <DataList.Value>
+                  <Text weight="medium" as="p">
+                    {numberFormat.format(metric.total_pop)}
+                  </Text>
+                </DataList.Value>
+              </DataList.Item>
+            ))}
+        </DataList.Root>
+      ) : (
+        <Text>No data to display</Text>
+      )}
+    </Flex>
   );
 };
