@@ -17,11 +17,12 @@ import { addBlockLayers, BLOCK_HOVER_LAYER_ID } from "../constants/layers";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
 import {
-  usePatchUpdateAssignments,
   FormatAssignments,
   getDocument,
   DocumentObject,
   createMapDocument,
+  patchUpdateAssignments,
+  AssignmentsCreate,
 } from "../api/apiHandlers";
 import { useMutation } from "@tanstack/react-query";
 import { SetUpdateUrlParams } from "../utils/events/mapEvents";
@@ -32,6 +33,7 @@ export const MapComponent: React.FC = () => {
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const hoverFeatureIds = useHoverFeatureIds();
+
   const document = useMutation({
     mutationFn: createMapDocument,
     onMutate: () => {
@@ -46,15 +48,30 @@ export const MapComponent: React.FC = () => {
       SetUpdateUrlParams(router, pathname, urlParams);
     },
   });
-  const patchUpdates = usePatchUpdateAssignments();
-  const { freshMap, selectedLayer, zoneAssignments, storeDocument, urlParams } =
-    useMapStore((state) => ({
+
+  const patchUpdates = useMutation({
+    mutationFn: patchUpdateAssignments,
+    onMutate: () => {
+      console.log("updating assignments");
+    },
+    onError: (error) => {
+      console.log("Error updating assignments: ", error);
+    },
+    onSuccess: (data: AssignmentsCreate) => {
+      console.log(
+        `Successfully upserted ${data.assignments_upserted} assignments`,
+      );
+    },
+  });
+
+  const { freshMap, selectedLayer, zoneAssignments, urlParams } = useMapStore(
+    (state) => ({
       freshMap: state.freshMap,
       selectedLayer: state.selectedLayer,
       zoneAssignments: state.zoneAssignments,
-      storeDocument: state.mapDocument,
       urlParams: state.urlParams,
-    }));
+    }),
+  );
   const searchParams = useSearchParams();
   const setRouter = useMapStore((state) => state.setRouter);
   const setPathname = useMapStore((state) => state.setPathname);

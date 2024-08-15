@@ -1,53 +1,6 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
-import type { QueryFunction } from "@tanstack/react-query";
-import {
-  SelectMapFeatures,
-  SelectZoneAssignmentFeatures,
-} from "../utils/events/handlers";
-
-interface responseObject {
-  data: any;
-}
-
-/**
- *
- * @returns mutation to be used in calling hook component, e.g. localMutationVar.mutate()
- */
-export const usePatchUpdateAssignments = () => {
-  const mutation = useMutation({
-    mutationFn: patchUpdateAssignments,
-    onMutate: (variables) => {
-      // A mutation is about to happen, prepare for transaction
-      // this id can be used on server side to rollback if needed
-      return {
-        id: Math.random().toString(36).substring(7), // Optimistic ID
-      };
-    },
-    onError: (error, variables, context) => {
-      // An error happened!
-      console.log(`Rolling back optimistic update with id ${context?.id}`);
-    },
-    onSuccess: (data, variables, context) => {
-      // Handle successful mutation
-      console.log(`Mutation ${context.id} successful!`, data);
-    },
-    onSettled: (data, error, variables, context) => {
-      // fires regardless of error or success
-      console.log(`Optimistic update with id ${context?.id} settled: `);
-      if (error) {
-        console.log("Error: ", error);
-      }
-      if (data) {
-        console.log("assignments updated");
-      }
-    },
-  });
-
-  return mutation;
-};
 
 export const FormatAssignments = () => {
   const assignments = Array.from(
@@ -66,45 +19,6 @@ export const FormatAssignments = () => {
     }),
   );
   return assignments;
-};
-
-const PatchUpdateSubscription = () => {
-  const patcher = usePatchUpdateAssignments();
-  const unsubscribe = useMapStore.subscribe(
-    (state) => state.zoneAssignments as Map<string, number>,
-    // @ts-ignore
-    (zoneAssignments) => {
-      console.log("zoneAssignments updated", zoneAssignments);
-      const assignments = Array.from(zoneAssignments.entries()).map(
-        // @ts-ignore
-        ([geo_id, zone]: [string, number]): {
-          document_id: string;
-          geo_id: string;
-          zone: number;
-        } => ({
-          document_id: useMapStore.getState().mapDocument?.toString() ?? "",
-          geo_id,
-          zone,
-        }),
-      );
-      patcher.mutate(assignments);
-    },
-  );
-};
-
-/**
- * Hook to get map data from the server, using a query.
- * Triggered in the HandleUrlParams function upon the page loading
- * @returns result of the query to be used in calling hook component,
- * including result.data, result.isPending, result.isError, result.error
- */
-export const useGetMapData = () => {
-  const result = useQuery({
-    queryKey: ["mapDocument"],
-    queryFn: getMapObject,
-  });
-
-  return result;
 };
 
 /**
@@ -166,48 +80,16 @@ export const getDocument: (
   }
 };
 
-export const getMapObject: QueryFunction<
-  responseObject,
-  [string]
-> = async () => {
-  const mapDocument = useMapStore.getState().mapDocument;
-  if (mapDocument) {
-    try {
-      const returnObject = await axios
-        .get(
-          `${process.env.NEXT_PUBLIC_API_URL}/get_assignments/${mapDocument}`,
-        )
-        .then((res) => {
-          return res.data;
-        });
-
-      // need to select features here, on map
-      // and in store, on map load
-      SelectMapFeatures(
-        returnObject.data,
-        // @ts-ignore
-        useMapStore.getState().mapRef,
-        useMapStore,
-      ).then(() => {
-        SelectZoneAssignmentFeatures(useMapStore.getState());
-      });
-      return { data: returnObject };
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error("i couldn't get the data", error.message);
-        console.error("Axios error:", error.message);
-        if (error.response) {
-          console.error("Response data:", error.response.data);
-          console.error("Response status:", error.response.status);
-          console.error("Response headers:", error.response.headers);
-        }
-      } else {
-        console.error("Unexpected error:", error);
-      }
-      throw error;
-    }
-  }
-  return { data: null };
+export const getAssignments: (
+  mapDocument: DocumentObject,
+) => Promise<Assignment[]> = async (mapDocument) => {
+  return await axios
+    .get(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument}`,
+    )
+    .then((res) => {
+      return res.data;
+    });
 };
 
 /**
@@ -241,45 +123,41 @@ export const getGerryDBViews: (
     });
 };
 
-const useSessionData = (sessionId: string) => {
-  const query = useQuery({ queryKey: [sessionId], queryFn: getMapObject });
-
-  return query;
-};
-
+/**
+ * Single document assignment
+ *   @interface
+ *   @property {string} document_id - The document id.
+ *   @property {string} geo_id - The geo id.
+ *   @property {number} zone - The zone.
+ */
 export interface Assignment {
   document_id: string;
   geo_id: string;
   zone: number;
 }
+
+/**
+ * Assignments create response
+ *   @interface
+ *   @property {number} assignments_upserted - The number of assignments upserted.
+ */
+export interface AssignmentsCreate {
+  assignments_upserted: number;
+}
+
 /**
  *
  * @param assignments
  * @returns server object containing the updated assignments per geoid
  */
-const patchUpdateAssignments: (
+export const patchUpdateAssignments: (
   assignments: Assignment[],
-) => Promise<responseObject> = async (assignments: Assignment[]) => {
-  try {
-    const returnObject = await axios
-      .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
-        assignments: assignments,
-      })
-      .then((res) => {
-        return res.data;
-      });
-    return { data: returnObject };
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("Axios error:", error.message);
-      if (error.response) {
-        console.error("Response data:", error.response.data);
-        console.error("Response status:", error.response.status);
-        console.error("Response headers:", error.response.headers);
-      }
-    } else {
-      console.error("Unexpected error:", error);
-    }
-    throw error;
-  }
+) => Promise<AssignmentsCreate> = async (assignments: Assignment[]) => {
+  return await axios
+    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
+      assignments: assignments,
+    })
+    .then((res) => {
+      return res.data;
+    });
 };

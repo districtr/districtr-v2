@@ -45,7 +45,6 @@ if settings.BACKEND_CORS_ORIGINS:
     )
 
 
-
 def get_session():
     with Session(engine) as session:
         yield session
@@ -144,13 +143,11 @@ async def update_assignments(
     return {"assignments_upserted": len(data.assignments)}
 
 
-# called by getMapObject in apiHandlers.ts
-@app.get("/get_assignments/{document_id}", response_model=list[Assignments])
+# called by getAssignments in apiHandlers.ts
+@app.get("/api/get_assignments/{document_id}", response_model=list[Assignments])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
     stmt = select(Assignments).where(Assignments.document_id == document_id)
     results = session.exec(stmt)
-    # do we need to unpack returned assignments from returned results object?
-    # I think probably?
     return results
 
 

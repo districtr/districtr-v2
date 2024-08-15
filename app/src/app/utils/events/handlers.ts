@@ -3,7 +3,6 @@ import { MutableRefObject } from "react";
 import { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
 import { MapStore } from "@/app/store/mapStore";
-import { gerryDBView } from "@/app/api/apiHandlers";
 
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
@@ -23,8 +22,7 @@ const debouncedSetZoneAssignments = debounce(
     );
     mapStoreRef.setZonePopulations(selectedZone, population);
   },
-
-  1, // 1 second
+  1, // 1ms debounce
 );
 
 /**
@@ -185,18 +183,5 @@ export const ResetMapSelectState = (
     mapStoreRef.resetZoneAssignments();
     // confirm the map has been reset
     mapStoreRef.setFreshMap(false);
-  }
-};
-
-export const LoadMapLayer = (
-  sourceLayer: gerryDBView,
-  mapStoreRef: MapStore,
-) => {
-  const map = mapStoreRef?.mapRef?.current;
-  const layers = map?.getStyle().layers;
-  if (layers && !layers.find((layer) => layer.id === sourceLayer.name)) {
-    const mapRef: MutableRefObject<Map | null> = { current: map };
-    addBlockLayers(mapRef, sourceLayer);
-    mapStoreRef.setSelectedLayer(sourceLayer);
   }
 };
