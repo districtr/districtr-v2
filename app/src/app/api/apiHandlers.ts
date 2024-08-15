@@ -83,13 +83,17 @@ export const getDocument: (
 export const getAssignments: (
   mapDocument: DocumentObject,
 ) => Promise<Assignment[]> = async (mapDocument) => {
-  return await axios
-    .get(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument}`,
-    )
-    .then((res) => {
-      return res.data;
-    });
+  if (mapDocument) {
+    return await axios
+      .get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument.document_id}`,
+      )
+      .then((res) => {
+        return res.data;
+      });
+  } else {
+    throw new Error("No document provided");
+  }
 };
 
 /**

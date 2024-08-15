@@ -13,7 +13,7 @@ import {
   useHoverFeatureIds,
   handleResetMapSelectState,
 } from "../utils/events/mapEvents";
-import { BLOCK_HOVER_LAYER_ID } from "../constants/layers";
+import { BLOCK_HOVER_LAYER_ID, BLOCK_SOURCE_ID } from "../constants/layers";
 import { useSearchParams } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
 import {
@@ -22,8 +22,10 @@ import {
   DocumentObject,
   patchUpdateAssignments,
   AssignmentsCreate,
+  getAssignments,
+  Assignment,
 } from "../api/apiHandlers";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 export const MapComponent: React.FC = () => {
   const searchParams = useSearchParams();
@@ -97,6 +99,28 @@ export const MapComponent: React.FC = () => {
         setSelectedLayer({
           name: mapDocument.gerrydb_table,
           tiles_s3_path: mapDocument.tiles_s3_path,
+        });
+      }
+
+      if (mapDocument) {
+        console.log("fetching assignments");
+        const sourceLayer = mapDocument.gerrydb_table;
+        getAssignments(mapDocument).then((res: Assignment[]) => {
+          console.log("got", res.length, "assignments");
+          res.forEach((assignment) => {
+            zoneAssignments.set(assignment.geo_id, assignment.zone);
+            map.current?.setFeatureState(
+              {
+                source: BLOCK_SOURCE_ID,
+                id: assignment.geo_id,
+                sourceLayer: sourceLayer,
+              },
+              {
+                selected: true,
+                zone: assignment.zone,
+              },
+            );
+          });
         });
       }
     });
