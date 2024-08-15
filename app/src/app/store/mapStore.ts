@@ -2,10 +2,15 @@ import type { MapOptions } from "maplibre-gl";
 import { create } from "zustand";
 import type { ActiveTool, SpatialUnit } from "../constants/types";
 import { Zone, GDBPath } from "../constants/types";
-import { gerryDBView, DocumentObject } from "../api/apiHandlers";
+import {
+  gerryDBView,
+  DocumentObject,
+  ZonePopulation,
+} from "../api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
 import { addBlockLayers } from "../constants/layers";
+import type { UseQueryResult } from "@tanstack/react-query";
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
@@ -37,6 +42,8 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
+  mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
+  setMapMetrics: (metrics: UseQueryResult<ZonePopulation[], Error>) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -112,4 +119,6 @@ export const useMapStore = create<MapStore>((set) => ({
     }),
   freshMap: false,
   setFreshMap: (resetMap) => set({ freshMap: resetMap }),
+  mapMetrics: null,
+  setMapMetrics: (metrics) => set({ mapMetrics: metrics }),
 }));

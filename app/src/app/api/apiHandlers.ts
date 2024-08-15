@@ -97,6 +97,39 @@ export const getAssignments: (
 };
 
 /**
+ * ZonePopulation
+ *
+ * @interface
+ * @property {number} zone - The zone.
+ * @property {number} total_pop - The total population.
+ */
+export interface ZonePopulation {
+  zone: number;
+  total_pop: number;
+}
+
+/**
+ * Get zone populations from the server.
+ * @param mapDocument - DocumentObject, the document object
+ * @returns Promise<ZonePopulation[]>
+ */
+export const getZonePopulations: (
+  mapDocument: DocumentObject,
+) => Promise<ZonePopulation[]> = async (mapDocument) => {
+  if (mapDocument) {
+    return await axios
+      .get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`,
+      )
+      .then((res) => {
+        return res.data;
+      });
+  } else {
+    throw new Error("No document provided");
+  }
+};
+
+/**
  * GerryDB view.
  *
  * @interface

@@ -24,8 +24,9 @@ import {
   AssignmentsCreate,
   getAssignments,
   Assignment,
+  getZonePopulations,
 } from "../api/apiHandlers";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, skipToken } from "@tanstack/react-query";
 
 export const MapComponent: React.FC = () => {
   const searchParams = useSearchParams();
@@ -46,22 +47,32 @@ export const MapComponent: React.FC = () => {
       console.log(
         `Successfully upserted ${data.assignments_upserted} assignments`,
       );
+      mapMetrics.refetch();
     },
   });
 
   const {
     freshMap,
     zoneAssignments,
+    mapDocument,
     setMapDocument,
     setSelectedLayer,
     setMapRef,
+    setMapMetrics,
   } = useMapStore((state) => ({
     freshMap: state.freshMap,
     zoneAssignments: state.zoneAssignments,
+    mapDocument: state.mapDocument,
     setMapDocument: state.setMapDocument,
     setSelectedLayer: state.setSelectedLayer,
     setMapRef: state.setMapRef,
+    setMapMetrics: state.setMapMetrics,
   }));
+
+  const mapMetrics = useQuery({
+    queryKey: ["zonePopulations", mapDocument],
+    queryFn: mapDocument ? () => getZonePopulations(mapDocument) : skipToken,
+  });
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -79,6 +90,13 @@ export const MapComponent: React.FC = () => {
       });
     }
   }, [searchParams, setMapDocument]);
+
+  useEffect(() => {
+    console.log("mapMetrics.data", mapMetrics.data);
+    if (mapMetrics.data) {
+      setMapMetrics(mapMetrics);
+    }
+  }, [mapMetrics.data]);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -107,6 +125,7 @@ export const MapComponent: React.FC = () => {
         const sourceLayer = mapDocument.gerrydb_table;
         getAssignments(mapDocument).then((res: Assignment[]) => {
           console.log("got", res.length, "assignments");
+          mapMetrics.refetch();
           res.forEach((assignment) => {
             zoneAssignments.set(assignment.geo_id, assignment.zone);
             map.current?.setFeatureState(
