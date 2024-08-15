@@ -43,7 +43,9 @@ export interface MapStore {
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
   mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
-  setMapMetrics: (metrics: UseQueryResult<ZonePopulation[], Error>) => void;
+  setMapMetrics: (
+    metrics: UseQueryResult<ZonePopulation[], Error> | null
+  ) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
