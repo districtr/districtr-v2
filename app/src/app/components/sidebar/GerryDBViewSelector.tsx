@@ -19,6 +19,9 @@ export function GerryDBViewSelector() {
   }));
   const document = useMutation({
     mutationFn: createMapDocument,
+    onMutate: () => {
+      console.log("Creating document");
+    },
     onError: (error) => {
       console.error("Error creating map document: ", error);
     },
@@ -44,6 +47,10 @@ export function GerryDBViewSelector() {
     document.mutate({ gerrydb_table: selectedLayer.name });
   };
 
+  useEffect(() => {
+    console.log(selectedLayer);
+  }, [selectedLayer]);
+
   if (views.length === 0) {
     return <div>Loading geographies... 🌎</div>;
   }
@@ -51,8 +58,9 @@ export function GerryDBViewSelector() {
   return (
     <Select.Root
       size="3"
-      defaultValue={selectedLayer?.name}
+      defaultValue={undefined}
       onValueChange={handleValueChange}
+      value={selectedLayer?.name}
     >
       <Select.Trigger />
       <Select.Content>

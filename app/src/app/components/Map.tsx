@@ -34,6 +34,9 @@ export const MapComponent: React.FC = () => {
 
   const patchUpdates = useMutation({
     mutationFn: patchUpdateAssignments,
+    onMutate: () => {
+      console.log("Updating assignments");
+    },
     onError: (error) => {
       console.log("Error updating assignments: ", error);
     },
@@ -127,7 +130,7 @@ export const MapComponent: React.FC = () => {
       const assignments = FormatAssignments();
       patchUpdates.mutate(assignments);
     }
-  }, [mapLoaded, zoneAssignments, patchUpdates]);
+  }, [mapLoaded, zoneAssignments]);
 
   useEffect(() => {
     if (mapLoaded && map.current) {
