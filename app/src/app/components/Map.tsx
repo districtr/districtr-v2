@@ -6,7 +6,7 @@ import maplibregl, {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import type { MutableRefObject } from "react";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { MAP_OPTIONS } from "../constants/configuration";
 import {
   mapEvents,
