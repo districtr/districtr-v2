@@ -44,7 +44,7 @@ export interface MapStore {
   setFreshMap: (resetMap: boolean) => void;
   mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
   setMapMetrics: (
-    metrics: UseQueryResult<ZonePopulation[], Error> | null
+    metrics: UseQueryResult<ZonePopulation[], Error> | null,
   ) => void;
 }
 
@@ -60,6 +60,8 @@ export const useMapStore = create<MapStore>((set) => ({
           tiles_s3_path: mapDocument.tiles_s3_path,
         });
       }
+      state.setFreshMap(true);
+      state.resetZoneAssignments();
       return { mapDocument: mapDocument };
     }),
   selectedLayer: null,
