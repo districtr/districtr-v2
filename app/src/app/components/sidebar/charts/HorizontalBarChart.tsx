@@ -1,5 +1,7 @@
 import { useMapStore } from "@/app/store/mapStore";
-import { Flex, Heading, DataList, Text } from "@radix-ui/themes";
+import { Flex, Heading, Text } from "@radix-ui/themes";
+import { BarChart, Bar, ResponsiveContainer, XAxis, Cell } from "recharts";
+import { color10 } from "@/app/constants/colors";
 
 export const HorizontalBar = () => {
   const { mapMetrics } = useMapStore((state) => ({
@@ -25,20 +27,31 @@ export const HorizontalBar = () => {
         Population by Zone
       </Heading>
       {mapMetrics ? (
-        <DataList.Root>
-          {mapMetrics?.data
-            .sort((a, b) => b.total_pop - a.total_pop)
-            .map((metric) => (
-              <DataList.Item key={metric.zone} align="center">
-                <DataList.Label minWidth="32px">{metric.zone}</DataList.Label>
-                <DataList.Value>
-                  <Text weight="medium" as="p">
-                    {numberFormat.format(metric.total_pop)}
-                  </Text>
-                </DataList.Value>
-              </DataList.Item>
-            ))}
-        </DataList.Root>
+        <ResponsiveContainer
+          width="100%"
+          height={color10.length * 18}
+          minHeight="200px"
+        >
+          <BarChart
+            width={500}
+            data={mapMetrics.data}
+            layout="vertical"
+            barSize={10}
+            barGap={2}
+          >
+            <XAxis
+              allowDataOverflow={true}
+              type="number"
+              domain={[0, "maxData"]}
+              tickFormatter={(value) => numberFormat.format(value)}
+            />
+            <Bar dataKey="total_pop">
+              {mapMetrics.data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={color10[entry.zone - 1]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       ) : (
         <Text>No data to display</Text>
       )}

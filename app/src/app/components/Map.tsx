@@ -109,10 +109,13 @@ export const MapComponent: React.FC = () => {
       maxZoom: MAP_OPTIONS.maxZoom,
     });
 
+    map.current.addControl(new maplibregl.NavigationControl());
+
     map.current.on("load", () => {
       setMapLoaded(true);
       setMapRef(map);
       const mapDocument = useMapStore.getState().mapDocument;
+
       if (mapDocument?.tiles_s3_path) {
         setSelectedLayer({
           name: mapDocument.gerrydb_table,
