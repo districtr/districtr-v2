@@ -53,6 +53,7 @@ def test_get_session():
 
 
 GERRY_DB_FIXTURE_NAME = "ks_demo_view_census_blocks"
+GERRY_DB_TOTAL_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_total_vap"
 
 
 ## Test DB
@@ -122,7 +123,29 @@ def ks_demo_view_census_blocks_fixture(session: Session):
             "-f",
             "PostgreSQL",
             f"PG:host={POSTGRES_SERVER} port={POSTGRES_PORT} dbname={POSTGRES_TEST_DB} user={POSTGRES_USER} password={POSTGRES_PASSWORD}",
-            os.path.join(FIXTURES_PATH, "ks_demo_view_census_blocks.geojson"),
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+        ],
+    )
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME)
+def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
+    layer = GERRY_DB_TOTAL_VAP_FIXTURE_NAME
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            f"PG:host={POSTGRES_SERVER} port={POSTGRES_PORT} dbname={POSTGRES_TEST_DB} user={POSTGRES_USER} password={POSTGRES_PASSWORD}",
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
             "-lco",
             "OVERWRITE=yes",
             "-nln",
@@ -175,8 +198,37 @@ def document_fixture(client):
     return document_id
 
 
+@pytest.fixture(name="document_no_gerrydb_id")
+def document_no_gerrydb_fixture(client):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": None,
+        },
+    )
+    document_id = response.json()["document_id"]
+    return document_id
+
+
 @pytest.fixture(name="assignments_document_id")
 def assignments_fixture(client, document_id):
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    return document_id
+
+
+@pytest.fixture(name="assignments_document_no_gerrydb_id")
+def assignments_no_gerrydb_fixture(client, document_no_gerrydb_id):
+    document_id = document_no_gerrydb_id
     response = client.patch(
         "/api/update_assignments",
         json={
@@ -295,6 +347,15 @@ def test_get_document_population_totals(
     assert result.status_code == 200
     data = result.json()
     assert data == [{"zone": 1, "total_pop": 67}, {"zone": 2, "total_pop": 130}]
+
+
+def test_get_document_population_totals_no_gerrydb_view(
+    client, assignments_document_no_gerrydb_id, ks_demo_view_census_blocks
+):
+    doc_uuid = str(uuid.UUID(assignments_document_no_gerrydb_id))
+    result = client.get(f"/api/document/{doc_uuid}/total_pop")
+    assert result.status_code == 404
+    assert result.json() == {"detail": f"Document with ID {doc_uuid} not found"}
 
 
 def test_list_gerydb_views(client, gerrydbtable):
