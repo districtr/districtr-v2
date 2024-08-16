@@ -28,13 +28,13 @@ BEGIN
     sql_query := format('
         SELECT
             assignments.zone::TEXT AS zone,
-            SUM(COALESCE(blocks.total_pop, 0))::BIGINT AS total_pop
+            SUM(COALESCE(blocks.%I, 0))::BIGINT AS total_pop
         FROM document.assignments
         LEFT JOIN gerrydb.%I blocks
         ON blocks.path = assignments.geo_id
         WHERE assignments.document_id = $1
         GROUP BY assignments.zone
-    ', gerrydb_table_name);
+    ', total_pop_column_name, gerrydb_table_name);
     RETURN QUERY EXECUTE sql_query USING $1;
 END;
 $$ LANGUAGE plpgsql;

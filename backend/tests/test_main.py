@@ -221,6 +221,18 @@ def document_fixture(client):
     return document_id
 
 
+@pytest.fixture(name="document_id_total_vap")
+def document_total_vap_fixture(client):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        },
+    )
+    document_id = response.json()["document_id"]
+    return document_id
+
+
 @pytest.fixture(name="document_no_gerrydb_id")
 def document_no_gerrydb_fixture(client):
     response = client.post(
@@ -247,6 +259,23 @@ def document_no_gerrydb_pop_fixture(client):
 
 @pytest.fixture(name="assignments_document_id")
 def assignments_fixture(client, document_id):
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    return document_id
+
+
+@pytest.fixture(name="assignments_document_id_total_vap")
+def assignments_total_vap_fixture(client, document_id_total_vap):
+    document_id = document_id_total_vap
     response = client.patch(
         "/api/update_assignments",
         json={
@@ -401,8 +430,21 @@ def test_get_document_population_totals(
     assert data == [{"zone": 1, "total_pop": 67}, {"zone": 2, "total_pop": 130}]
 
 
+def test_get_document_vap_totals(
+    client, assignments_document_id_total_vap, ks_demo_view_census_blocks_total_vap
+):
+    doc_uuid = str(uuid.UUID(assignments_document_id_total_vap))
+    result = client.get(f"/api/document/{doc_uuid}/total_pop")
+    assert result.status_code == 200
+    data = result.json()
+    # Eventually should return `total_vap` instead of `total_pop`
+    # But first should decide on how to handle metadata of returned metrics
+    # in general case
+    assert data == [{"zone": 1, "total_pop": 67}, {"zone": 2, "total_pop": 130}]
+
+
 def test_get_document_population_totals_no_gerrydb_view(
-    client, assignments_document_no_gerrydb_id, ks_demo_view_census_blocks
+    client, assignments_document_no_gerrydb_id
 ):
     doc_uuid = str(uuid.UUID(assignments_document_no_gerrydb_id))
     result = client.get(f"/api/document/{doc_uuid}/total_pop")
