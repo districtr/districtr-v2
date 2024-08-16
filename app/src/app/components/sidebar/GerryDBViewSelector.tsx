@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Select } from "@radix-ui/themes";
-import { gerryDBView, getGerryDBViews } from "../../api/apiHandlers";
+import { getGerryDBViews } from "../../api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
 import { createMapDocument } from "../../api/apiHandlers";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -55,7 +55,7 @@ export function GerryDBViewSelector() {
   return (
     <Select.Root
       size="3"
-      defaultValue={undefined}
+      defaultValue="Select a geography"
       onValueChange={handleValueChange}
       value={selectedLayer?.name}
     >
