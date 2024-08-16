@@ -93,9 +93,7 @@ export const MapComponent: React.FC = () => {
 
   useEffect(() => {
     console.log("mapMetrics.data", mapMetrics.data);
-    if (mapMetrics.data) {
-      setMapMetrics(mapMetrics);
-    }
+    setMapMetrics(mapMetrics);
   }, [mapMetrics.data]);
 
   useEffect(() => {

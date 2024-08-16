@@ -1,6 +1,7 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
 from pydantic import UUID4
 from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
 from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
@@ -174,8 +175,24 @@ async def get_total_population(
     document_id: str, session: Session = Depends(get_session)
 ):
     stmt = text("SELECT * from get_total_population(:document_id)")
-    result = session.execute(stmt, {"document_id": document_id})
-    return [ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()]
+    try:
+        result = session.execute(stmt, {"document_id": document_id})
+        return [
+            ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()
+        ]
+    except ProgrammingError as e:
+        logger.error(e)
+        error_text = str(e)
+        if f"Table name not found for document_id: {document_id}" in error_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document with ID {document_id} not found",
+            )
+        elif "Population column not found for gerrydbview" in error_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Population column not found in GerryDB view",
+            )
 
 
 @app.get("/api/gerrydb/views", response_model=list[GerryDBViewPublic])

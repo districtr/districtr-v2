@@ -44,7 +44,9 @@ def get_url():
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    if name and (name == "spatial_ref_sys" or re.match(r"assignments_.+", name)):
+    if name and (
+        name == "spatial_ref_sys" or re.match(r"document.assignments_.+", name)
+    ):
         return False
     return True
 
