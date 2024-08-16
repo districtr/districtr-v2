@@ -182,10 +182,16 @@ async def get_total_population(
         ]
     except ProgrammingError as e:
         logger.error(e)
-        if f"Table name not found for document_id: {document_id}" in str(e):
+        error_text = str(e)
+        if f"Table name not found for document_id: {document_id}" in error_text:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Document with ID {document_id} not found",
+            )
+        elif "Population column not found for gerrydbview" in error_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Population column not found in GerryDB view",
             )
 
 
