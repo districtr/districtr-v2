@@ -1,19 +1,28 @@
-import { BLOCK_LAYER_ID, BLOCK_LAYER_SOURCE_ID } from "@/app/constants/layers";
+import { BLOCK_SOURCE_ID } from "@/app/constants/layers";
 import { MutableRefObject } from "react";
-import type { Map, MapGeoJSONFeature } from "maplibre-gl";
+import { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
 import { MapStore } from "@/app/store/mapStore";
+
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
  * @param mapStoreRef - MutableRefObject<MapStore | null>, the zone store reference from zustand
  * @param geoids - Set<string>, the set of geoids to assign to the selected zone
- * @returns void - but updates the zoneAssignments in the store
+ * @returns void - but updates the zoneAssignments and zonePopulations in the store
  */
 const debouncedSetZoneAssignments = debounce(
   (mapStoreRef: MapStore, selectedZone: number, geoids: Set<string>) => {
-    mapStoreRef.setZoneAssignments(mapStoreRef.selectedZone, geoids);
+    mapStoreRef.setZoneAssignments(selectedZone, geoids);
+
+    const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
+
+    const population = Array.from(accumulatedBlockPopulations.values()).reduce(
+      (acc, val) => acc + Number(val),
+      0,
+    );
+    mapStoreRef.setZonePopulations(selectedZone, population);
   },
-  1000 // 1 second
+  1, // 1ms debounce
 );
 
 /**
@@ -23,41 +32,56 @@ const debouncedSetZoneAssignments = debounce(
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param mapStoreRef - MutableRefObject<MapStore | null>, the map store reference from zustand
- */
-
-/**
- * @todo
- * TODO: split out SelectMapFeatures and SetStoreZoneAssignments
- * where the first sets the map + adds to a flat array of geoids,
- * and the second dedups the geoids and sets the zoneAssignments
- * in the store. First is called on the isPainting && onMouseMove,
- * and second is called on onMouseUp event
+ * @returns Promise<void> - resolves after the function completes
+ * Selects the features and sets the state of the map features to be selected.
+ * Does not modify the store; that is done in the SelectZoneAssignmentFeatures function.
  * */
-
-export const SelectFeatures = (
+export const SelectMapFeatures = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  mapStoreRef: MapStore
+  mapStoreRef: MapStore,
 ) => {
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
-        source: BLOCK_LAYER_ID,
+        source: BLOCK_SOURCE_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: BLOCK_LAYER_SOURCE_ID,
+        sourceLayer: mapStoreRef.selectedLayer?.name,
       },
-      { selected: true, zone: Number(mapStoreRef.selectedZone) }
+      { selected: true, zone: mapStoreRef.selectedZone },
     );
   });
   if (features?.length) {
     features.forEach((feature) => {
-      mapStoreRef.accumulatedGeoids.add(feature.properties?.GEOID20);
-    });
+      mapStoreRef.accumulatedGeoids.add(feature.properties?.path);
 
+      mapStoreRef.accumulatedBlockPopulations.set(
+        feature.properties?.path,
+        feature.properties?.total_pop,
+      );
+    });
+  }
+  return new Promise<void>((resolve) => {
+    // Resolve the Promise after the function completes
+    // this is so we can chain the function and call the next one
+    resolve();
+  });
+};
+
+/**
+ * Select zone assignments based on selected zone and accumulated geoids.
+ * called using mapEvent handlers.
+ *
+ * @param mapStoreRef - MutableRefObject<MapStore | null>, the map store reference from zustand
+ * Selects the zone assignments and sets the state of the map features to be assigned to the selected zone.
+ * */
+export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
+  const accumulatedGeoids = mapStoreRef.accumulatedGeoids;
+  if (accumulatedGeoids?.size) {
     debouncedSetZoneAssignments(
       mapStoreRef,
       mapStoreRef.selectedZone,
-      mapStoreRef.accumulatedGeoids
+      mapStoreRef.accumulatedGeoids,
     );
   }
 };
@@ -71,18 +95,19 @@ export const SelectFeatures = (
 export const HighlightFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: MutableRefObject<Map | null>,
-  hoverGeoids: MutableRefObject<Set<string>>
+  hoverGeoids: MutableRefObject<Set<string>>,
+  sourceLayer: string,
 ) => {
   if (features?.length) {
     if (hoverGeoids.current.size) {
       hoverGeoids.current.forEach((Id) => {
         map.current?.setFeatureState(
           {
-            source: BLOCK_LAYER_ID,
+            source: BLOCK_SOURCE_ID,
             id: Id,
-            sourceLayer: BLOCK_LAYER_SOURCE_ID,
+            sourceLayer: sourceLayer,
           },
-          { hover: false }
+          { hover: false },
         );
       });
       hoverGeoids.current.clear();
@@ -92,11 +117,11 @@ export const HighlightFeature = (
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
-        source: BLOCK_LAYER_ID,
+        source: BLOCK_SOURCE_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: BLOCK_LAYER_SOURCE_ID,
+        sourceLayer: sourceLayer,
       },
-      { hover: true }
+      { hover: true },
     );
   });
 
@@ -117,19 +142,45 @@ export const HighlightFeature = (
  */
 export const UnhighlightFeature = (
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: MutableRefObject<Set<string>>
+  hoverFeatureIds: MutableRefObject<Set<string>>,
+  sourceLayer: string,
 ) => {
   if (hoverFeatureIds.current.size) {
     hoverFeatureIds.current.forEach((Id) => {
       map.current?.setFeatureState(
         {
-          source: BLOCK_LAYER_ID,
+          source: BLOCK_SOURCE_ID,
           id: Id,
-          sourceLayer: BLOCK_LAYER_SOURCE_ID,
+          sourceLayer: sourceLayer,
         },
-        { hover: false }
+        { hover: false },
       );
     });
     hoverFeatureIds.current.clear();
+  }
+};
+
+/**
+ * Resets the selection status of the map to be able to clear all and start over.
+ *
+ * @param map - MutableRefObject<Map | null>
+ * @param mapStoreRef - MapStore
+ */
+export const ResetMapSelectState = (
+  map: MutableRefObject<Map | null>,
+  mapStoreRef: MapStore,
+  sourceLayer: string,
+) => {
+  if (mapStoreRef.zoneAssignments.size) {
+    map.current?.removeFeatureState({
+      source: BLOCK_SOURCE_ID,
+      sourceLayer: sourceLayer,
+    });
+
+    mapStoreRef.accumulatedGeoids.clear();
+    // reset zoneAssignments
+    mapStoreRef.resetZoneAssignments();
+    // confirm the map has been reset
+    mapStoreRef.setFreshMap(false);
   }
 };

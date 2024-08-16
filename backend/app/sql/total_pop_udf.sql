@@ -5,13 +5,13 @@ DECLARE
     sql_query TEXT;
 BEGIN
     SELECT gerrydb_table INTO gerrydb_table_name
-    FROM document
+    FROM document.document
     WHERE document.document_id = $1;
     sql_query := format('
         SELECT
             assignments.zone::TEXT AS zone,
             SUM(COALESCE(blocks.total_pop, 0))::BIGINT AS total_pop
-        FROM assignments
+        FROM document.assignments
         LEFT JOIN gerrydb.%I blocks
         ON blocks.path = assignments.geo_id
         WHERE assignments.document_id = $1

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, status, Depends, HTTPException
+from fastapi import FastAPI, status, Depends, HTTPException, Query
 from pydantic import UUID4
 from sqlalchemy import text
 from sqlmodel import Session, select
@@ -16,6 +16,8 @@ from app.models import (
     DocumentCreate,
     DocumentPublic,
     ZonePopulation,
+    GerryDBTable,
+    GerryDBViewPublic,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -34,7 +36,6 @@ logging.basicConfig(level=logging.INFO)
 # Set all CORS enabled origins
 if settings.BACKEND_CORS_ORIGINS:
     allow_origins = [str(origin).strip("/") for origin in settings.BACKEND_CORS_ORIGINS]
-    print(allow_origins)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allow_origins,
@@ -66,6 +67,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
+# matches createMapObject in apiHandlers.ts
 @app.post(
     "/api/create_document",
     response_model=DocumentPublic,
@@ -79,7 +81,18 @@ async def create_document(
         {"gerrydb_table_name": data.gerrydb_table},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
-    stmt = select(Document).where(Document.document_id == document_id)
+    stmt = (
+        select(
+            Document.document_id,
+            Document.created_at,
+            Document.updated_at,
+            Document.gerrydb_table,
+            GerryDBTable.tiles_s3_path,
+        )
+        .where(Document.document_id == document_id)
+        .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
+        .limit(1)
+    )
     doc = session.exec(
         stmt
     ).one()  # again if we've got more than one, we have problems.
@@ -98,7 +111,7 @@ async def update_document(
     document_id: UUID4, data: DocumentCreate, session: Session = Depends(get_session)
 ):
     # Validate that gerrydb_table exists?
-    stmt = text("""UPDATE document
+    stmt = text("""UPDATE document.document
         SET
             gerrydb_table = :gerrydb_table_name,
             updated_at = now()
@@ -125,18 +138,35 @@ async def update_assignments(
     stmt = stmt.on_conflict_do_update(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
-    session.execute(stmt)
+    session.exec(stmt)
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
 
 
-@app.get("/get_assignments/{document_id}", response_model=list[Assignments])
+# called by getAssignments in apiHandlers.ts
+@app.get("/api/get_assignments/{document_id}", response_model=list[Assignments])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
     stmt = select(Assignments).where(Assignments.document_id == document_id)
     results = session.exec(stmt)
-    # do we need to unpack returned assignments from returned results object?
-    # I think probably?
     return results
+
+
+@app.get("/api/document/{document_id}", response_model=DocumentPublic)
+async def get_document(document_id: str, session: Session = Depends(get_session)):
+    stmt = (
+        select(
+            Document.document_id,
+            Document.created_at,
+            Document.gerrydb_table,
+            Document.updated_at,
+            GerryDBTable.tiles_s3_path.label("tiles_s3_path"),
+        )
+        .where(Document.document_id == document_id)
+        .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
+        .limit(1)
+    )
+    result = session.exec(stmt)
+    return result.one()
 
 
 @app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
@@ -146,3 +176,19 @@ async def get_total_population(
     stmt = text("SELECT * from get_total_population(:document_id)")
     result = session.execute(stmt, {"document_id": document_id})
     return [ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()]
+
+
+@app.get("/api/gerrydb/views", response_model=list[GerryDBViewPublic])
+async def get_projects(
+    *,
+    session: Session = Depends(get_session),
+    offset: int = 0,
+    limit: int = Query(default=100, le=100),
+):
+    gerrydb_views = session.exec(
+        select(GerryDBTable)
+        .order_by(GerryDBTable.created_at.asc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    return gerrydb_views

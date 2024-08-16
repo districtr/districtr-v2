@@ -1,6 +1,6 @@
 import React from "react";
 import { Select } from "@radix-ui/themes";
-import { useMapStore } from "../store/mapStore";
+import { useMapStore } from "../../store/mapStore";
 
 export function ZoneTypeSelector() {
   const {

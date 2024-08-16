@@ -22,6 +22,15 @@
 - ~~activeUnit: 1~~,
 - palette: [],
 - sources: sources,
+
+  - i think this should be a string that represents the geography of focus based on `fips` code if possible that can be used to filter the map; we will want only one source or a generic convention for sources imo
+
+  - i think this should be a string that represents the geography of focus based on `fips` code if possible that can be used to filter the map; we will want only one source or a generic convention for sources imo
+
+  - i think this should be a string that represents the geography of focus based on `fips` code if possible that can be used to filter the map; we will want only one source or a generic convention for sources imo
+
+  - i think this should be a string that represents the geography of focus based on `fips` code if possible that can be used to filter the map; we will want only one source or a generic convention for sources imo
+
 - layers: layers,
 - ~~coloring: false~~,
 - interactiveLayerIds: interactiveLayerIds,

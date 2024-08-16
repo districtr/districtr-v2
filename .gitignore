@@ -68,3 +68,5 @@ scratch/
 
 # ogr2ogr
 PG:*
+
+*.dev
