@@ -1,4 +1,4 @@
-![Districtr logo](docs/images/districrtr-logo.svg "Districtr logo")
+![Districtr logo](docs/images/districtr-logo.svg "Districtr logo")
 
 The Districtr reboot monorepo.
 
