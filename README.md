@@ -1,4 +1,4 @@
-![Districtr logo](docs/images/districtr-logo.svg "Districtr logo")
+<img src="docs/images/districtr-logo.svg" alt="Districtr logo" width="150"/>
 
 The Districtr reboot monorepo.
 
