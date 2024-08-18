@@ -1,35 +1,34 @@
-# Districtr Reboot
+<img src="docs/images/districtr-logo.svg" alt="Districtr logo" width="150"/>
 
 The Districtr reboot monorepo.
 
-## Repo structure
+## Repo organization
 
-- [`app`](app/): The rebooted Districtr app, NextJS/React Typescript app
-- [`backend`](backend/): Backend. TBD tech stack
-- [`pipelines`](pipelines/): Data pipelines, ETL. Thinking of using Dagster.
+- [`app`](app/): The rebooted Districtr app, NextJS/React Typescript app.
+- [`backend`](backend/): FastAPI/Python API.
+- [`pipelines`](pipelines/): Data pipelines, ETL. Not a main focus of the reboot. For now, will mostly contain scratch data transformation scripts before being integrated into the backend CLI.
 - [`prototypes`](prototypes/): Prototypes conducted as part of the reboot.
 
-### App
+## Districtr reboot architecture
 
-TK
+After experimenting with various technologies (see [`prototypes`](prototypes/)) we landed on the following architecture for the Districtr reboot:
 
-### Backend
+![Districtr architecture](docs/images/districtr-architecture.png "Districtr architecture")
 
-TK
+The redesign aims to principally to address three key pain points in the Districtr application’s performance and maintainability:
+1. Slow tile rendering
+1. Cumbersome use of tiles as global state for tile rendering and most metric calculation
+1. Complexity and poor interoperability in architecture without slow copies
 
-### Pipelines
+And two key feature additions
+1. Block “shattering”
+1. A headless CMS (this will be added in a later phase of work / is not currently a focus of the reboot)
 
-TK
+The principal difference with the existing Districtr application is that the server is responsible for a lot more work in this architecture, with most metric calculations performed server-side.
+We discuss how centralizing/consolidating the backend offers a number of advantages for dealing with pain points listed above.
 
-### Prototypes
-
-All prototypes, whether for services, APIs, frontend tests, etc. should be kept here. Each prototype should be in its own directory.
-
-- `automerge-blocks`: Test using [automerge CRDT](https://automerge.org/) to manage documents / block-level assignments. **Status**: Won't pursue due to perf limitations.
-- `deckgl-blocks`: Test using [DeckGL](https://deck.gl/) and [GeoParquets](https://observablehq.com/@kylebarron/geoarrow-and-geoparquet-in-deck-gl) for both rendering and metric calculation (thought the latter part has yet to be tested). **Status**: Still much to explore but decision is not to pursue for now while we go down the PMTiles route.
-- `v1`: Previous work done to date by UChicago DSI team. **Status**: On hold.
-
-Prototypes are documented in more detail [here](https://docs.google.com/document/d/1bx-mhIMPUxD8FxZRCbiz6zk3_TfdER7SBWO3Z_27EKc/edit).
+Compared to the existing Districtr application, the proposed architecture allows for GerryDB views to be loaded as tables into Districtr, and map tiles can be created downstream through this pipeline.
+This shifts the onus of the tiles as data store to a performant database and allows the tiles to specifically serve as the basis for map rendering and user interaction, providing a faster client-side experience.
 
 ## Developer set-up and conventions
 
@@ -57,4 +56,4 @@ When reviewing a PR, use the "HIPPO" method to provide feedback:
 
 ### CI/CD
 
-TBD but tests (and deploys?) should be run w/ GHAs.
+Deployments are managed with GitHub Actions.
