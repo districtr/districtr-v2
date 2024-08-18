@@ -2,7 +2,7 @@ name: Fly Deploy Districtr V2 App
 on:
   push:
     branches:
-      - main
+      - fix-fly-fe-deploy
     paths:
       - "app/**"
 jobs:
@@ -16,5 +16,5 @@ jobs:
       - run: flyctl deploy --remote-only
         working-directory: app
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_FE_API_TOKEN }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
