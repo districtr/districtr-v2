@@ -2,7 +2,7 @@ name: Fly Deploy Districtr V2 App
 on:
   push:
     branches:
-      - fix-fly-fe-deploy
+      - main
     paths:
       - "app/**"
       - ".github/workflows/fly-deploy-app.yml"
