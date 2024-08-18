@@ -22,7 +22,7 @@ The redesign aims to principally to address three key pain points in the Distric
 
 And two key feature additions
 1. Block “shattering”
-1. A headless CMS
+1. A headless CMS (this will be added in a later phase of work / is not currently a focus of the reboot)
 
 The principal difference with the existing Districtr application is that the server is responsible for a lot more work in this architecture, with most metric calculations performed server-side.
 We discuss how centralizing/consolidating the backend offers a number of advantages for dealing with pain points listed above.
