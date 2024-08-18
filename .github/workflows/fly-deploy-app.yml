@@ -5,6 +5,7 @@ on:
       - fix-fly-fe-deploy
     paths:
       - "app/**"
+      - ".github/workflows/fly-deploy-app.yml"
 jobs:
   deploy:
     name: Deploy app
