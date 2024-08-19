@@ -82,6 +82,11 @@ export const MapComponent: React.FC = () => {
     };
   }, []);
 
+  const existingAssignments = useQuery({
+    queryKey: ["assignments", mapDocument],
+    queryFn: mapDocument ? () => getAssignments(mapDocument) : skipToken,
+  });
+
   useEffect(() => {
     const document_id = searchParams.get("document_id");
     if (document_id && !useMapStore.getState().mapDocument) {
@@ -120,29 +125,6 @@ export const MapComponent: React.FC = () => {
           tiles_s3_path: mapDocument.tiles_s3_path,
         });
       }
-
-      if (mapDocument) {
-        console.log("fetching assignments");
-        const sourceLayer = mapDocument.gerrydb_table;
-        getAssignments(mapDocument).then((res: Assignment[]) => {
-          console.log("got", res.length, "assignments");
-          mapMetrics.refetch();
-          res.forEach((assignment) => {
-            zoneAssignments.set(assignment.geo_id, assignment.zone);
-            map.current?.setFeatureState(
-              {
-                source: BLOCK_SOURCE_ID,
-                id: assignment.geo_id,
-                sourceLayer: sourceLayer,
-              },
-              {
-                selected: true,
-                zone: assignment.zone,
-              },
-            );
-          });
-        });
-      }
     });
 
     mapEvents.forEach((action) => {
@@ -170,11 +152,39 @@ export const MapComponent: React.FC = () => {
    * send assignments to the server when zones change.
    */
   useEffect(() => {
-    if (mapLoaded && map.current && zoneAssignments.size) {
+    if (map.current && zoneAssignments.size) {
       const assignments = FormatAssignments();
       patchUpdates.mutate(assignments);
     }
-  }, [mapLoaded, zoneAssignments]);
+  }, [zoneAssignments]);
+
+  /**
+   * When the map is loaded and existingAssignments is success, then set the zoneAssignments and
+   * map feature state
+   */
+  useEffect(() => {
+    if (
+      map.current?._loaded &&
+      existingAssignments.isSuccess &&
+      mapDocument?.gerrydb_table
+    ) {
+      const sourceLayer = map.current?.getLayer(BLOCK_SOURCE_ID)?.sourceLayer;
+      existingAssignments.data?.forEach((assignment) => {
+        zoneAssignments.set(assignment.geo_id, assignment.zone);
+        map.current?.setFeatureState(
+          {
+            source: BLOCK_SOURCE_ID,
+            id: assignment.geo_id,
+            sourceLayer: sourceLayer,
+          },
+          {
+            selected: true,
+            zone: assignment.zone,
+          },
+        );
+      });
+    }
+  }, [map.current?._loaded, existingAssignments.isSuccess]);
 
   useEffect(() => {
     if (mapLoaded && map.current) {

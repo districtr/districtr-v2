@@ -58,21 +58,21 @@ export function getBlocksHoverLayerSpecification(
     paint: {
       "fill-opacity": [
         "case",
-      // if not hovered and not assigned a zone, be 0.8
-      [
-        "all",
+        // if not hovered and not assigned a zone, be 0.8
+        [
+          "all",
+          ["boolean", ["feature-state", "hover"], false],
+          ["boolean", ["feature-state", "zone"], false],
+        ],
+        0.8,
+        // if not hovered, be 0.8
         ["boolean", ["feature-state", "hover"], false],
-        ["boolean", ["feature-state", "zone"], false],
-      ],
-      0.8,
-      // if not hovered, be 0.8
-      ["boolean", ["feature-state", "hover"], false],
-      0.8,
-      // if not assigned a zone, be 0.8
-      // @ts-ignore
-      ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
-      0.8,
-      0.2,
+        0.8,
+        // if not assigned a zone, be 0.8
+        // @ts-ignore
+        ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+        0.8,
+        0.2,
       ],
       "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
     },
