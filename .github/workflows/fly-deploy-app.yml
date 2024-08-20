@@ -5,6 +5,7 @@ on:
       - main
     paths:
       - "app/**"
+      - ".github/workflows/fly-deploy-app.yml"
 jobs:
   deploy:
     name: Deploy app
@@ -16,5 +17,5 @@ jobs:
       - run: flyctl deploy --remote-only
         working-directory: app
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_FE_API_TOKEN }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
