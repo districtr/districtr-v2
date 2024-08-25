@@ -1,28 +1,94 @@
-import os
-import requests
 import geopandas as gpd
 import pandas as pd
 
-ASSETS_DIR = "./assets"
+import os
+import click
+from urllib.parse import urlparse
+from subprocess import run
+
+from files import download_and_unzip_zipfile, exists_in_s3
+from settings import settings
+
 WISCONSIN_2023_TABBLOCK20 = (
     "https://www2.census.gov/geo/tiger/TIGER2023/TABBLOCK20/tl_2023_55_tabblock20.zip"
 )
 BLOCK_COLS = ["GEOID20", "ALAND20", "POP20", "HOUSING20", "geometry"]
 
+S3_PREFIX = "basemaps"
 
-def main():
-    if not os.path.exists(ASSETS_DIR):
-        os.mkdir(ASSETS_DIR)
+TIGER_COUNTY_URL = (
+    "https://www2.census.gov/geo/tiger/TIGER2023/COUNTY/tl_2023_us_county.zip"
+)
+S3_TIGER_PREFIX = "tiger/tiger2023"
 
-    if not os.path.exists(f"{ASSETS_DIR}/tl_2023_55_tabblock20.zip"):
-        r = requests.get(WISCONSIN_2023_TABBLOCK20)
-        with open(f"{ASSETS_DIR}/tl_2023_55_tabblock20.zip", "wb") as f:
-            f.write(r.content)
 
-    if not os.path.exists(f"{ASSETS_DIR}/tl_2023_55_tabblock20.shp"):
-        os.system(f"unzip {ASSETS_DIR}/tl_2023_55_tabblock20.zip -d {ASSETS_DIR}")
+@click.group()
+def cli():
+    pass
 
-    gdf = gpd.read_file(f"{ASSETS_DIR}/tl_2023_55_tabblock20.shp")[BLOCK_COLS].copy()
+
+@cli.command()
+@click.option("--replace", is_flag=True, help="Replace existing files", default=False)
+def create_county_tiles(replace: bool = False):
+    if replace or not os.path.exists(settings.OUT_SCRATCH / "tl_2023_us_county.zip"):
+        download_and_unzip_zipfile(TIGER_COUNTY_URL, settings.OUT_SCRATCH)
+
+    file_name = urlparse(TIGER_COUNTY_URL).path.split("/")[-1].split(".")[0]
+    fgb = settings.OUT_SCRATCH / f"{file_name}.fgb"
+
+    if replace or not fgb.exists():
+        run(
+            [
+                "ogr2ogr",
+                "-f",
+                "FlatGeobuf",
+                "-t_srs",
+                "EPSG:4326",
+                "-nlt",
+                "PROMOTE_TO_MULTI",
+                fgb,
+                settings.OUT_SCRATCH / f"{file_name}.shp",
+                file_name,
+            ],
+            check=True,
+        )
+
+    key = f"{S3_PREFIX}/{S3_TIGER_PREFIX}/{file_name}.fgb"
+
+    s3_client = settings.get_s3_client()
+
+    if replace or not exists_in_s3(s3_client, settings.S3_BUCKET, key):
+        s3_client.upload_file(fgb, settings.S3_BUCKET, key)
+
+    tiles = settings.OUT_SCRATCH / f"{file_name}.pmtiles"
+    if replace or not tiles.exists():
+        run(
+            [
+                "tippecanoe",
+                "-o",
+                tiles,
+                "-l",
+                file_name,
+                "-zg",
+                fgb,
+                "--force",
+            ],
+            check=True,
+        )
+
+    key = f"{S3_PREFIX}/{S3_TIGER_PREFIX}/{file_name}.pmtiles"
+    if replace or not exists_in_s3(s3_client, settings.S3_BUCKET, key):
+        s3_client.upload_file(tiles, settings.S3_BUCKET, key)
+
+
+@click.command()
+def wi_blocks():
+    if not os.path.exists(f"{settings.OUT_SCRATCH}/tl_2023_55_tabblock20.zip"):
+        download_and_unzip_zipfile(WISCONSIN_2023_TABBLOCK20, settings.OUT_SCRATCH)
+
+    gdf = gpd.read_file(f"{settings.OUT_SCRATCH}/tl_2023_55_tabblock20.shp")[
+        BLOCK_COLS
+    ].copy()
 
     print(gdf.info())
 
@@ -36,7 +102,7 @@ def main():
     print(gdf.info())
 
     gdf.to_parquet(
-        f"{ASSETS_DIR}/tl_2023_55_tabblock20.parquet",
+        f"{settings.OUT_SCRATCH}/tl_2023_55_tabblock20.parquet",
         compression="brotli",
         row_group_size=len(gdf),
         index=False,
@@ -44,4 +110,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    cli()

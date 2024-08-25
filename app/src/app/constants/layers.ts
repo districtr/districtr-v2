@@ -15,6 +15,8 @@ export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "#000000",
 ];
 
+export const LABELS_BREAK_LAYER_ID = "places_subplace";
+
 const colorStyleBaseline: any[] = ["case"];
 export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = color10.reduce((val, color, i) => {
   val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
@@ -58,21 +60,21 @@ export function getBlocksHoverLayerSpecification(
     paint: {
       "fill-opacity": [
         "case",
-      // if not hovered and not assigned a zone, be 0.8
-      [
-        "all",
+        // if not hovered and not assigned a zone, be 0.8
+        [
+          "all",
+          ["boolean", ["feature-state", "hover"], false],
+          ["boolean", ["feature-state", "zone"], false],
+        ],
+        0.8,
+        // if not hovered, be 0.8
         ["boolean", ["feature-state", "hover"], false],
-        ["boolean", ["feature-state", "zone"], false],
-      ],
-      0.8,
-      // if not hovered, be 0.8
-      ["boolean", ["feature-state", "hover"], false],
-      0.8,
-      // if not assigned a zone, be 0.8
-      // @ts-ignore
-      ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
-      0.8,
-      0.2,
+        0.8,
+        // if not assigned a zone, be 0.8
+        // @ts-ignore
+        ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+        0.8,
+        0.2,
       ],
       "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
     },
@@ -86,8 +88,14 @@ const addBlockLayers = (
   const blockSource = getBlocksSource(gerryDBView.tiles_s3_path);
   removeBlockLayers(map);
   map.current?.addSource(BLOCK_SOURCE_ID, blockSource);
-  map.current?.addLayer(getBlocksLayerSpecification(gerryDBView.name));
-  map.current?.addLayer(getBlocksHoverLayerSpecification(gerryDBView.name));
+  map.current?.addLayer(
+    getBlocksLayerSpecification(gerryDBView.name),
+    LABELS_BREAK_LAYER_ID,
+  );
+  map.current?.addLayer(
+    getBlocksHoverLayerSpecification(gerryDBView.name),
+    LABELS_BREAK_LAYER_ID,
+  );
 };
 
 export function removeBlockLayers(map: MutableRefObject<Map | null>) {
