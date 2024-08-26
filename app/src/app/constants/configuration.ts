@@ -1678,6 +1678,26 @@ const BASEMAP_LAYERS = [
     },
   },
   {
+    id: "counties_boundary",
+    type: "line",
+    source: "counties",
+    "source-layer": "tl_2023_us_county",
+    paint: {
+      "line-color": "#555",
+      "line-width": [
+        "interpolate",
+        ["exponential", 1.6],
+        ["zoom"],
+        6,
+        0,
+        9,
+        0.75,
+        18,
+        1,
+      ],
+    },
+  },
+  {
     id: "places_locality",
     type: "symbol",
     source: "protomaps",
@@ -1877,6 +1897,10 @@ export const BASEMAP_STYLE: StyleSpecification = {
       attribution:
         '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
       url: `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/basemaps/20240325.pmtiles`,
+    },
+    counties: {
+      type: "vector",
+      url: `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/basemaps/tiger/tiger2023/tl_2023_us_county.pmtiles`,
     },
   },
   layers: BASEMAP_LAYERS,
