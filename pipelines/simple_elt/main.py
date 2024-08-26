@@ -1,5 +1,6 @@
 import geopandas as gpd
 import pandas as pd
+import duckdb
 
 import os
 import click
@@ -76,9 +77,51 @@ def create_county_tiles(replace: bool = False):
             check=True,
         )
 
-    key = f"{S3_PREFIX}/{S3_TIGER_PREFIX}/{file_name}.pmtiles"
+    label_fgb = settings.OUT_SCRATCH / f"{file_name}_label.fgb"
+    if replace or not label_fgb.exists():
+        duckdb.execute(f"""
+            INSTALL SPATIAL; LOAD spatial;
+            COPY (
+                SELECT
+                    GEOID,
+                    NAME,
+                    ST_Centroid(geom) as geometry,
+                FROM st_read('{fgb}')
+            ) TO '{label_fgb}'
+            WITH (FORMAT GDAL, DRIVER 'FlatGeobuf')
+            """)
+
+    label_tiles = settings.OUT_SCRATCH / f"{file_name}_label.pmtiles"
+    if replace or not label_tiles.exists():
+        run(
+            [
+                "tippecanoe",
+                "-o",
+                label_tiles,
+                "-l",
+                file_name + "_label",
+                "-zg",
+                label_fgb,
+                "--force",
+            ],
+            check=True,
+        )
+
+    combined_tiles = settings.OUT_SCRATCH / f"{file_name}_full.pmtiles"
+    run(
+        [
+            "tile-join",
+            "--force",
+            "-o",
+            combined_tiles,
+            tiles,
+            label_tiles,
+        ]
+    )
+
+    key = f"{S3_PREFIX}/{S3_TIGER_PREFIX}/{file_name}_full.pmtiles"
     if replace or not exists_in_s3(s3_client, settings.S3_BUCKET, key):
-        s3_client.upload_file(tiles, settings.S3_BUCKET, key)
+        s3_client.upload_file(combined_tiles, settings.S3_BUCKET, key)
 
 
 @click.command()

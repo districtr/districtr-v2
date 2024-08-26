@@ -7,6 +7,7 @@ charset-normalizer==3.3.2
 click==8.1.7
 click-plugins==1.1.1
 cligj==0.7.2
+duckdb==1.0.0
 fiona==1.9.6
 geopandas==0.14.4
 idna==3.7

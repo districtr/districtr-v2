@@ -1698,6 +1698,27 @@ const BASEMAP_LAYERS = [
     },
   },
   {
+    id: "counties_labels",
+    type: "symbol",
+    source: "counties",
+    "source-layer": "tl_2023_us_county_labels",
+    minzoom: 6,
+    layout: {
+      "text-field": ["get", "NAME"],
+      "text-font": ["Barlow Regular"],
+      "text-size": 10,
+      "text-transform": "uppercase",
+      "text-letter-spacing": 0.1,
+      "text-max-width": 9,
+      "text-padding": ["interpolate", ["linear"], ["zoom"], 5, 3, 8, 7, 12, 11],
+    },
+    paint: {
+      "text-color": "#666",
+      "text-halo-color": "#ffffff",
+      "text-halo-width": 2,
+    },
+  },
+  {
     id: "places_locality",
     type: "symbol",
     source: "protomaps",
@@ -1900,7 +1921,7 @@ export const BASEMAP_STYLE: StyleSpecification = {
     },
     counties: {
       type: "vector",
-      url: `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/basemaps/tiger/tiger2023/tl_2023_us_county.pmtiles`,
+      url: `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles`,
     },
   },
   layers: BASEMAP_LAYERS,
