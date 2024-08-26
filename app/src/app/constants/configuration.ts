@@ -1701,7 +1701,7 @@ const BASEMAP_LAYERS = [
     id: "counties_labels",
     type: "symbol",
     source: "counties",
-    "source-layer": "tl_2023_us_county_labels",
+    "source-layer": "tl_2023_us_county_label",
     minzoom: 6,
     layout: {
       "text-field": ["get", "NAME"],

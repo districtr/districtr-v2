@@ -4,6 +4,7 @@ import duckdb
 
 import os
 import click
+import logging
 from urllib.parse import urlparse
 from subprocess import run
 
@@ -23,6 +24,10 @@ TIGER_COUNTY_URL = (
 S3_TIGER_PREFIX = "tiger/tiger2023"
 
 
+logging.basicConfig(level=logging.INFO)
+LOGGER = logging.getLogger(__name__)
+
+
 @click.group()
 def cli():
     pass
@@ -30,10 +35,14 @@ def cli():
 
 @cli.command()
 @click.option("--replace", is_flag=True, help="Replace existing files", default=False)
-def create_county_tiles(replace: bool = False):
+@click.option("--upload", is_flag=True, help="Upload files to S3", default=False)
+def create_county_tiles(replace: bool = False, upload: bool = False):
+    LOGGER.info("Creating county tiles")
     if replace or not os.path.exists(settings.OUT_SCRATCH / "tl_2023_us_county.zip"):
+        LOGGER.info("Downloading county shapefile")
         download_and_unzip_zipfile(TIGER_COUNTY_URL, settings.OUT_SCRATCH)
 
+    LOGGER.info("Creating county FGB")
     file_name = urlparse(TIGER_COUNTY_URL).path.split("/")[-1].split(".")[0]
     fgb = settings.OUT_SCRATCH / f"{file_name}.fgb"
 
@@ -56,27 +65,27 @@ def create_county_tiles(replace: bool = False):
 
     key = f"{S3_PREFIX}/{S3_TIGER_PREFIX}/{file_name}.fgb"
 
-    s3_client = settings.get_s3_client()
-
-    if replace or not exists_in_s3(s3_client, settings.S3_BUCKET, key):
-        s3_client.upload_file(fgb, settings.S3_BUCKET, key)
-
+    LOGGER.info("Creating county tiles")
     tiles = settings.OUT_SCRATCH / f"{file_name}.pmtiles"
     if replace or not tiles.exists():
         run(
             [
                 "tippecanoe",
+                "-zg",
+                "-Z6",
+                "--coalesce-densest-as-needed",
+                "--extend-zooms-if-still-dropping",
                 "-o",
                 tiles,
                 "-l",
                 file_name,
-                "-zg",
                 fgb,
                 "--force",
             ],
             check=True,
         )
 
+    LOGGER.info("Creating county label centroids")
     label_fgb = settings.OUT_SCRATCH / f"{file_name}_label.fgb"
     if replace or not label_fgb.exists():
         duckdb.execute(f"""
@@ -88,25 +97,30 @@ def create_county_tiles(replace: bool = False):
                     ST_Centroid(geom) as geometry,
                 FROM st_read('{fgb}')
             ) TO '{label_fgb}'
-            WITH (FORMAT GDAL, DRIVER 'FlatGeobuf')
+            WITH (FORMAT GDAL, DRIVER 'FlatGeobuf', SRS 'EPSG:4326')
             """)
 
+    LOGGER.info("Creating county label tiles")
     label_tiles = settings.OUT_SCRATCH / f"{file_name}_label.pmtiles"
     if replace or not label_tiles.exists():
         run(
             [
                 "tippecanoe",
+                "-z10",
+                "-Z6",
+                "-r1",
+                "--cluster-distance=10",
                 "-o",
                 label_tiles,
                 "-l",
                 file_name + "_label",
-                "-zg",
                 label_fgb,
                 "--force",
             ],
             check=True,
         )
 
+    LOGGER.info("Combining tiles")
     combined_tiles = settings.OUT_SCRATCH / f"{file_name}_full.pmtiles"
     run(
         [
@@ -119,8 +133,11 @@ def create_county_tiles(replace: bool = False):
         ]
     )
 
+    s3_client = settings.get_s3_client()
+
     key = f"{S3_PREFIX}/{S3_TIGER_PREFIX}/{file_name}_full.pmtiles"
-    if replace or not exists_in_s3(s3_client, settings.S3_BUCKET, key):
+    if upload or not exists_in_s3(s3_client, settings.S3_BUCKET, key):
+        LOGGER.info("Uploading combined tiles to S3")
         s3_client.upload_file(combined_tiles, settings.S3_BUCKET, key)
 
 
