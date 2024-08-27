@@ -6,6 +6,7 @@ import { GerryDBViewSelector } from "./GerryDBViewSelector";
 import { HorizontalBar } from "./charts/HorizontalBarChart";
 import { useMapStore } from "@/app/store/mapStore";
 import { Tabs, Text } from "@radix-ui/themes";
+import Layers from "./Layers";
 
 export default function SidebarComponent() {
   const mapStore = useMapStore.getState();
@@ -37,7 +38,7 @@ export default function SidebarComponent() {
               <HorizontalBar />
             </Tabs.Content>
             <Tabs.Content value="layers">
-              <Text size="2">Access and update your documents.</Text>
+              <Layers />
             </Tabs.Content>
             <Tabs.Content value="evaluation">
               <Text size="2">Unimplemented</Text>
