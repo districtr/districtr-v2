@@ -37,6 +37,9 @@ export function getBlocksLayerSpecification(
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "line",
+    layout: {
+      visibility: "visible",
+    },
     paint: {
       "line-opacity": [
         "case",
@@ -57,6 +60,9 @@ export function getBlocksHoverLayerSpecification(
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "fill",
+    layout: {
+      visibility: "visible",
+    },
     paint: {
       "fill-opacity": [
         "case",

@@ -9,7 +9,6 @@ import { Tabs, Text } from "@radix-ui/themes";
 import Layers from "./Layers";
 
 export default function SidebarComponent() {
-  const mapStore = useMapStore.getState();
   const { activeTool } = useMapStore((state) => ({
     activeTool: state.activeTool,
   }));
@@ -21,7 +20,7 @@ export default function SidebarComponent() {
     >
       <Flex direction="column" gap="3">
         <Heading as="h3" size="3">
-          Geography
+          Districtr
         </Heading>
         <GerryDBViewSelector />
         <MapModeSelector />

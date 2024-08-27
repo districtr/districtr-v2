@@ -1682,6 +1682,9 @@ const BASEMAP_LAYERS = [
     type: "line",
     source: "counties",
     "source-layer": "tl_2023_us_county",
+    layout: {
+      visibility: "visible",
+    },
     paint: {
       "line-color": "#555",
       "line-width": [
@@ -1711,6 +1714,7 @@ const BASEMAP_LAYERS = [
       "text-letter-spacing": 0.1,
       "text-max-width": 9,
       "text-padding": ["interpolate", ["linear"], ["zoom"], 5, 3, 8, 7, 12, 11],
+      visibility: "visible",
     },
     paint: {
       "text-color": "#666",
