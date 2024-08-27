@@ -1,11 +1,11 @@
-import maplibregl from "maplibre-gl";
-import type { MutableRefObject } from "react";
 import { Heading, CheckboxGroup, Flex } from "@radix-ui/themes";
 import { useMapStore } from "@/app/store/mapStore";
-import { BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID } from "../../constants/layers";
+import {
+  COUNTY_LAYER_IDS,
+  BLOCK_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID,
+} from "../../constants/layers";
 import { toggleLayerVisibility } from "../../utils/helpers";
-
-const countyLayerIds = ["counties_boundary", "counties_labels"];
 
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
@@ -36,9 +36,9 @@ export default function Layers() {
         My painted districts
       </Heading>
       <CheckboxGroup.Root
-        defaultValue={undefined}
+        defaultValue={[]}
         name="districts"
-        value={selectedLayer !== null ? ["1"] : undefined}
+        value={visibleLayerIds.includes(BLOCK_LAYER_ID) ? ["1"] : []}
       >
         <CheckboxGroup.Item
           value="1"
@@ -55,16 +55,16 @@ export default function Layers() {
         Boundaries
       </Heading>
       <CheckboxGroup.Root
-        defaultValue={
-          countyLayerIds.every((layerId) => visibleLayerIds.includes(layerId))
-            ? ["1"]
-            : undefined
-        }
         name="contextualLayers"
+        value={
+          COUNTY_LAYER_IDS.every((layerId) => visibleLayerIds.includes(layerId))
+            ? ["1"]
+            : []
+        }
       >
         <CheckboxGroup.Item
           value="1"
-          onClick={() => toggleLayers(countyLayerIds)}
+          onClick={() => toggleLayers(COUNTY_LAYER_IDS)}
         >
           Show county boundaries
         </CheckboxGroup.Item>

@@ -15,6 +15,11 @@ export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "#000000",
 ];
 
+export const COUNTY_LAYER_IDS: string[] = [
+  "counties_boundary",
+  "counties_labels",
+];
+
 export const LABELS_BREAK_LAYER_ID = "places_subplace";
 
 const colorStyleBaseline: any[] = ["case"];

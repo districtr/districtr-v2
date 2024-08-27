@@ -143,7 +143,7 @@ export const useMapStore = create<MapStore>((set) => ({
       layerIds.forEach((layerId) => {
         newVisibleLayerIds.add(layerId);
       });
-      console.log("visibleLayerIds", newVisibleLayerIds);
+      console.log("addVisibleLayerIds", newVisibleLayerIds);
       return { visibleLayerIds: Array.from(newVisibleLayerIds) };
     });
   },
@@ -157,7 +157,7 @@ export const useMapStore = create<MapStore>((set) => ({
           newVisibleLayerIds.delete(layerVisibility.layerId);
         }
       });
-      console.log("visibleLayerIds", newVisibleLayerIds);
+      console.log("updateVisibleLayerIds", newVisibleLayerIds);
       return { visibleLayerIds: Array.from(newVisibleLayerIds) };
     });
   },

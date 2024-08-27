@@ -7,6 +7,7 @@ import { HorizontalBar } from "./charts/HorizontalBarChart";
 import { useMapStore } from "@/app/store/mapStore";
 import { Tabs, Text } from "@radix-ui/themes";
 import Layers from "./Layers";
+import PaintByCounty from "./PaintByCounty";
 
 export default function SidebarComponent() {
   const { activeTool } = useMapStore((state) => ({
@@ -26,6 +27,7 @@ export default function SidebarComponent() {
         <MapModeSelector />
         {activeTool === "brush" ? <ColorPicker /> : null}
         <ResetMapButton />
+        <PaintByCounty />
         <Tabs.Root defaultValue="account">
           <Tabs.List>
             <Tabs.Trigger value="population">Population</Tabs.Trigger>
