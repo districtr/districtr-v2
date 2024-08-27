@@ -10,7 +10,7 @@ from subprocess import run
 
 from files import download_and_unzip_zipfile, exists_in_s3
 from settings import settings
-
+TIGER_YEAR = 2023
 WISCONSIN_2023_TABBLOCK20 = (
     "https://www2.census.gov/geo/tiger/TIGER2023/TABBLOCK20/tl_2023_55_tabblock20.zip"
 )
