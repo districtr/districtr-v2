@@ -11,15 +11,15 @@ from subprocess import run
 from files import download_and_unzip_zipfile, exists_in_s3
 from settings import settings
 TIGER_YEAR = 2023
-WISCONSIN_2023_TABBLOCK20 = (
-    f"https://www2.census.gov/geo/tiger/TIGER2023/TABBLOCK20/tl_{TIGER_YEAR}_55_tabblock20.zip"
+WISCONSIN_TABBLOCK20 = (
+    f"https://www2.census.gov/geo/tiger/TIGER{TIGER_YEAR}/TABBLOCK20/tl_{TIGER_YEAR}_55_tabblock20.zip"
 )
 BLOCK_COLS = ["GEOID20", "ALAND20", "POP20", "HOUSING20", "geometry"]
 
 S3_PREFIX = "basemaps"
 
 TIGER_COUNTY_URL = (
-    "https://www2.census.gov/geo/tiger/TIGER2023/COUNTY/tl_2023_us_county.zip"
+    "https://www2.census.gov/geo/tiger/TIGER{TIGER_YEAR}/COUNTY/tl_{TIGER_YEAR}_us_county.zip"
 )
 S3_TIGER_PREFIX = f"tiger/tiger{TIGER_YEAR}"
 
@@ -143,8 +143,8 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
 
 @click.command()
 def wi_blocks():
-    if not os.path.exists(f"{settings.OUT_SCRATCH}/tl_2023_55_tabblock20.zip"):
-        download_and_unzip_zipfile(WISCONSIN_2023_TABBLOCK20, settings.OUT_SCRATCH)
+    if not os.path.exists(f"{settings.OUT_SCRATCH}/tl_{TIGER_YEAR}_55_tabblock20.zip"):
+        download_and_unzip_zipfile(WISCONSIN_TABBLOCK20, settings.OUT_SCRATCH)
 
     gdf = gpd.read_file(f"{settings.OUT_SCRATCH}/tl_2023_55_tabblock20.shp")[
         BLOCK_COLS
