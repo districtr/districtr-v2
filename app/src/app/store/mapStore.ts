@@ -9,8 +9,13 @@ import {
 } from "../api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
-import { addBlockLayers } from "../constants/layers";
+import {
+  addBlockLayers,
+  BLOCK_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID,
+} from "../constants/layers";
 import type { UseQueryResult } from "@tanstack/react-query";
+import { LayerVisibility } from "../utils/helpers";
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
@@ -46,6 +51,10 @@ export interface MapStore {
   setMapMetrics: (
     metrics: UseQueryResult<ZonePopulation[], Error> | null,
   ) => void;
+  visibleLayerIds: string[];
+  setVisibleLayerIds: (layerIds: string[]) => void;
+  addVisibleLayerIds: (layerIds: string[]) => void;
+  updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -69,6 +78,7 @@ export const useMapStore = create<MapStore>((set) => ({
     set((state) => {
       if (!state.mapRef) return { selectedLayer: null };
       addBlockLayers(state.mapRef, layer);
+      state.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
       return { selectedLayer: layer };
     }),
   mapOptions: {
@@ -125,4 +135,30 @@ export const useMapStore = create<MapStore>((set) => ({
   setFreshMap: (resetMap) => set({ freshMap: resetMap }),
   mapMetrics: null,
   setMapMetrics: (metrics) => set({ mapMetrics: metrics }),
+  visibleLayerIds: ["counties_boundary", "counties_labels"],
+  setVisibleLayerIds: (layerIds) => set({ visibleLayerIds: layerIds }),
+  addVisibleLayerIds: (layerIds: string[]) => {
+    set((state) => {
+      const newVisibleLayerIds = new Set(state.visibleLayerIds);
+      layerIds.forEach((layerId) => {
+        newVisibleLayerIds.add(layerId);
+      });
+      console.log("visibleLayerIds", newVisibleLayerIds);
+      return { visibleLayerIds: Array.from(newVisibleLayerIds) };
+    });
+  },
+  updateVisibleLayerIds: (layerVisibilities: LayerVisibility[]) => {
+    set((state) => {
+      const newVisibleLayerIds = new Set(state.visibleLayerIds);
+      layerVisibilities.forEach((layerVisibility) => {
+        if (layerVisibility.visibility === "visible") {
+          newVisibleLayerIds.add(layerVisibility.layerId);
+        } else {
+          newVisibleLayerIds.delete(layerVisibility.layerId);
+        }
+      });
+      console.log("visibleLayerIds", newVisibleLayerIds);
+      return { visibleLayerIds: Array.from(newVisibleLayerIds) };
+    });
+  },
 }));

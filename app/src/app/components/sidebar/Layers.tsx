@@ -3,34 +3,9 @@ import type { MutableRefObject } from "react";
 import { Heading, CheckboxGroup, Flex } from "@radix-ui/themes";
 import { useMapStore } from "@/app/store/mapStore";
 import { BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID } from "../../constants/layers";
+import { toggleLayerVisibility } from "../../utils/helpers";
 
-/**
- * toggleLayerVisibility
- * This function is responsible for toggling the visibility of layers on the map.
- * It takes a map reference and an array of layer IDs to toggle.
- * Layers must already be added to the map and have the layout property "visibility"
- * set to "none" or "visible". If the layout property is not set, this functions assumes
- * the layer is not visible and will toggle visibility on.
- *
- * @param {MutableRefObject<maplibregl.Map>} mapRef - The map reference.
- * @param {string[]} layerIds - An array of layer IDs to toggle.
- */
-export function toggleLayerVisibility(
-  mapRef: MutableRefObject<maplibregl.Map>,
-  layerIds: string[],
-) {
-  const activeLayerIds = mapRef.current
-    .getStyle()
-    .layers.filter((layer) => layer.layout?.visibility === "visible")
-    .map((layer) => layer.id);
-  layerIds.forEach((layerId) => {
-    if (activeLayerIds && activeLayerIds.includes(layerId)) {
-      mapRef.current.setLayoutProperty(layerId, "visibility", "none");
-    } else {
-      mapRef.current.setLayoutProperty(layerId, "visibility", "visible");
-    }
-  });
-}
+const countyLayerIds = ["counties_boundary", "counties_labels"];
 
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
@@ -39,19 +14,20 @@ export function toggleLayerVisibility(
  * TODO:
  * - Support numbering for painted districts
  * - Support tribes and communities
- * - Actually check that counties are visible. The default checked state
- *   is okay for now since the layers are visible by default but may not
- *   always be the case.
  */
 export default function Layers() {
-  const { mapRef, selectedLayer } = useMapStore((state) => ({
-    mapRef: state.mapRef,
-    selectedLayer: state.selectedLayer,
-  }));
+  const { mapRef, selectedLayer, visibleLayerIds, updateVisibleLayerIds } =
+    useMapStore((state) => ({
+      mapRef: state.mapRef,
+      selectedLayer: state.selectedLayer,
+      visibleLayerIds: state.visibleLayerIds,
+      updateVisibleLayerIds: state.updateVisibleLayerIds,
+    }));
 
   const toggleLayers = (layerIds: string[]) => {
     if (mapRef && !mapRef.current) return;
-    toggleLayerVisibility(mapRef, layerIds);
+    const layerUpdates = toggleLayerVisibility(mapRef, layerIds);
+    updateVisibleLayerIds(layerUpdates);
   };
 
   return (
@@ -78,10 +54,17 @@ export default function Layers() {
       <Heading as="h3" weight="bold" size="3">
         Boundaries
       </Heading>
-      <CheckboxGroup.Root defaultValue={["1"]} name="contextualLayers">
+      <CheckboxGroup.Root
+        defaultValue={
+          countyLayerIds.every((layerId) => visibleLayerIds.includes(layerId))
+            ? ["1"]
+            : undefined
+        }
+        name="contextualLayers"
+      >
         <CheckboxGroup.Item
           value="1"
-          onClick={() => toggleLayers(["counties_boundary", "counties_labels"])}
+          onClick={() => toggleLayers(countyLayerIds)}
         >
           Show county boundaries
         </CheckboxGroup.Item>
