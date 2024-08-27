@@ -21,7 +21,7 @@ S3_PREFIX = "basemaps"
 TIGER_COUNTY_URL = (
     "https://www2.census.gov/geo/tiger/TIGER2023/COUNTY/tl_2023_us_county.zip"
 )
-S3_TIGER_PREFIX = "tiger/tiger2023"
+S3_TIGER_PREFIX = f"tiger/tiger{TIGER_YEAR}"
 
 
 logging.basicConfig(level=logging.INFO)
