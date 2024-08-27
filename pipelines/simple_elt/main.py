@@ -10,17 +10,14 @@ from subprocess import run
 
 from files import download_and_unzip_zipfile, exists_in_s3
 from settings import settings
+
 TIGER_YEAR = 2023
-WISCONSIN_TABBLOCK20 = (
-    f"https://www2.census.gov/geo/tiger/TIGER{TIGER_YEAR}/TABBLOCK20/tl_{TIGER_YEAR}_55_tabblock20.zip"
-)
+WISCONSIN_TABBLOCK20 = f"https://www2.census.gov/geo/tiger/TIGER{TIGER_YEAR}/TABBLOCK20/tl_{TIGER_YEAR}_55_tabblock20.zip"
 BLOCK_COLS = ["GEOID20", "ALAND20", "POP20", "HOUSING20", "geometry"]
 
 S3_PREFIX = "basemaps"
 
-TIGER_COUNTY_URL = (
-    "https://www2.census.gov/geo/tiger/TIGER{TIGER_YEAR}/COUNTY/tl_{TIGER_YEAR}_us_county.zip"
-)
+TIGER_COUNTY_URL = f"https://www2.census.gov/geo/tiger/TIGER{TIGER_YEAR}/COUNTY/tl_{TIGER_YEAR}_us_county.zip"
 S3_TIGER_PREFIX = f"tiger/tiger{TIGER_YEAR}"
 
 
@@ -38,8 +35,10 @@ def cli():
 @click.option("--upload", is_flag=True, help="Upload files to S3", default=False)
 def create_county_tiles(replace: bool = False, upload: bool = False):
     LOGGER.info("Creating county tiles")
-    if replace or not os.path.exists(settings.OUT_SCRATCH / "tl_{TIGER_YEAR}_us_county.zip"):
-        LOGGER.info("Downloading county shapefile")
+    if replace or not os.path.exists(
+        settings.OUT_SCRATCH / "tl_{TIGER_YEAR}_us_county.zip"
+    ):
+        LOGGER.info(f"Downloading county shapefile from {TIGER_COUNTY_URL}")
         download_and_unzip_zipfile(TIGER_COUNTY_URL, settings.OUT_SCRATCH)
 
     LOGGER.info("Creating county FGB")
