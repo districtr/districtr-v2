@@ -146,7 +146,7 @@ def wi_blocks():
     if not os.path.exists(f"{settings.OUT_SCRATCH}/tl_{TIGER_YEAR}_55_tabblock20.zip"):
         download_and_unzip_zipfile(WISCONSIN_TABBLOCK20, settings.OUT_SCRATCH)
 
-    gdf = gpd.read_file(f"{settings.OUT_SCRATCH}/tl_2023_55_tabblock20.shp")[
+    gdf = gpd.read_file(f"{settings.OUT_SCRATCH}/tl_{TIGER_YEAR}_55_tabblock20.shp")[
         BLOCK_COLS
     ].copy()
 
@@ -162,7 +162,7 @@ def wi_blocks():
     print(gdf.info())
 
     gdf.to_parquet(
-        f"{settings.OUT_SCRATCH}/tl_2023_55_tabblock20.parquet",
+        f"{settings.OUT_SCRATCH}/tl_{TIGER_YEAR}_55_tabblock20.parquet",
         compression="brotli",
         row_group_size=len(gdf),
         index=False,
