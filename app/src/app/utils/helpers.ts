@@ -46,16 +46,18 @@ export interface LayerVisibility {
  * @param {string[]} layerIds - An array of layer IDs to toggle.
  */
 export function toggleLayerVisibility(
-  mapRef: MutableRefObject<maplibregl.Map>,
+  mapRef: MutableRefObject<maplibregl.Map | null>,
   layerIds: string[],
 ): LayerVisibility[] {
-  const activeLayerIds = getVisibleLayers(mapRef).map((layer) => layer.id);
+  const activeLayerIds = getVisibleLayers(mapRef)?.map((layer) => layer.id);
+  if (!activeLayerIds) return [];
+
   return layerIds.map((layerId) => {
     if (activeLayerIds && activeLayerIds.includes(layerId)) {
-      mapRef.current.setLayoutProperty(layerId, "visibility", "none");
+      mapRef.current?.setLayoutProperty(layerId, "visibility", "none");
       return { layerId: layerId, visibility: "none" };
     } else {
-      mapRef.current.setLayoutProperty(layerId, "visibility", "visible");
+      mapRef.current?.setLayoutProperty(layerId, "visibility", "visible");
       return { layerId: layerId, visibility: "visible" };
     }
   }, {});
@@ -67,7 +69,7 @@ export function toggleLayerVisibility(
  * i.e. it's not based on what the user actually sees.
  * @param {MutableRefObject<maplibregl.Map>} map - The map reference.
  */
-export function getVisibleLayers(map: MutableRefObject<Map>) {
+export function getVisibleLayers(map: MutableRefObject<Map | null>) {
   return map.current?.getStyle().layers.filter((layer) => {
     return layer.layout?.visibility === "visible";
   });

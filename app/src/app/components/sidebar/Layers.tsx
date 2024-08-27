@@ -25,7 +25,7 @@ export default function Layers() {
     }));
 
   const toggleLayers = (layerIds: string[]) => {
-    if (mapRef && !mapRef.current) return;
+    if (!mapRef || !mapRef?.current) return;
     const layerUpdates = toggleLayerVisibility(mapRef, layerIds);
     updateVisibleLayerIds(layerUpdates);
   };
