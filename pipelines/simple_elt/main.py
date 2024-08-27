@@ -38,7 +38,7 @@ def cli():
 @click.option("--upload", is_flag=True, help="Upload files to S3", default=False)
 def create_county_tiles(replace: bool = False, upload: bool = False):
     LOGGER.info("Creating county tiles")
-    if replace or not os.path.exists(settings.OUT_SCRATCH / "tl_2023_us_county.zip"):
+    if replace or not os.path.exists(settings.OUT_SCRATCH / "tl_{TIGER_YEAR}_us_county.zip"):
         LOGGER.info("Downloading county shapefile")
         download_and_unzip_zipfile(TIGER_COUNTY_URL, settings.OUT_SCRATCH)
 
