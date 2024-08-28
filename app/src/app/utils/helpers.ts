@@ -44,6 +44,7 @@ export interface LayerVisibility {
  *
  * @param {MutableRefObject<maplibregl.Map>} mapRef - The map reference.
  * @param {string[]} layerIds - An array of layer IDs to toggle.
+ * @returns {LayerVisibility[]} - An array of objects containing the layer ID and the new visibility state.
  */
 export function toggleLayerVisibility(
   mapRef: MutableRefObject<maplibregl.Map | null>,
