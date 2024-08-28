@@ -3,9 +3,32 @@ import {
   PointLike,
   MapLayerMouseEvent,
   MapLayerTouchEvent,
+  MapGeoJSONFeature,
 } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Point } from "maplibre-gl";
+import { BLOCK_LAYER_ID } from "@/app/constants/layers";
+
+/**
+ * PaintEventHandler
+ * A function that takes a map reference, a map event object, and a brush size.
+ * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @param brushSize - number, the size of the brush
+ */
+export type PaintEventHandler = (
+  map: React.MutableRefObject<Map | null>,
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
+  brushSize: number,
+) => MapGeoJSONFeature[] | undefined;
+
+/**
+ * boxAroundPoint
+ * Create a bounding box around a point on the map.
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @param radius - number, the radius of the bounding box
+ * @returns [PointLike, PointLike] - An array of two points representing the bounding box
+ */
 export const boxAroundPoint = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   radius: number,
@@ -16,6 +39,33 @@ export const boxAroundPoint = (
   ];
 };
 
+/**
+ * getFeaturesInBbox
+ * Get the features in a bounding box on the map.
+ * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @param brushSize - number, the size of the brush
+ * @returns MapGeoJSONFeature[] | undefined - An array of map features or undefined
+ */
+export const getFeaturesInBbox = (
+  map: MutableRefObject<Map | null>,
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
+  brushSize: number,
+): MapGeoJSONFeature[] | undefined => {
+  const bbox = boxAroundPoint(e, brushSize);
+
+  return map.current?.queryRenderedFeatures(bbox, {
+    layers: [BLOCK_LAYER_ID],
+  });
+};
+
+/**
+ * mousePos
+ * Get the position of the mouse on the map.
+ * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @returns Point - The position of the mouse on the map
+ */
 export const mousePos = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
