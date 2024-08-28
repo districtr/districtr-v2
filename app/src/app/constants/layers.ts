@@ -15,6 +15,11 @@ export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "#000000",
 ];
 
+export const COUNTY_LAYER_IDS: string[] = [
+  "counties_boundary",
+  "counties_labels",
+];
+
 export const LABELS_BREAK_LAYER_ID = "places_subplace";
 
 const colorStyleBaseline: any[] = ["case"];
@@ -37,6 +42,9 @@ export function getBlocksLayerSpecification(
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "line",
+    layout: {
+      visibility: "visible",
+    },
     paint: {
       "line-opacity": [
         "case",
@@ -57,6 +65,9 @@ export function getBlocksHoverLayerSpecification(
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "fill",
+    layout: {
+      visibility: "visible",
+    },
     paint: {
       "fill-opacity": [
         "case",

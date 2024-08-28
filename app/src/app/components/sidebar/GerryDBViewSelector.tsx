@@ -44,10 +44,6 @@ export function GerryDBViewSelector() {
     document.mutate({ gerrydb_table: selectedLayer.name });
   };
 
-  useEffect(() => {
-    console.log(selectedLayer);
-  }, [selectedLayer]);
-
   if (isPending) return <div>Loading geographies... 🌎</div>;
 
   if (isError) return <div>Error loading geographies: {error.message}</div>;

@@ -4,22 +4,48 @@ import { ColorPicker } from "./ColorPicker";
 import { ResetMapButton } from "./ResetMapButton";
 import { GerryDBViewSelector } from "./GerryDBViewSelector";
 import { HorizontalBar } from "./charts/HorizontalBarChart";
+import { useMapStore } from "@/app/store/mapStore";
+import { Tabs, Text } from "@radix-ui/themes";
+import Layers from "./Layers";
+import PaintByCounty from "./PaintByCounty";
 
 export default function SidebarComponent() {
+  const { activeTool } = useMapStore((state) => ({
+    activeTool: state.activeTool,
+  }));
+
   return (
-    <Box p="3" className="max-w-sidebar w-sidebar z-10 shadow-md">
+    <Box
+      p="3"
+      className="max-w-sidebar w-sidebar z-10 shadow-md h-screen overflow-y-auto"
+    >
       <Flex direction="column" gap="3">
         <Heading as="h3" size="3">
-          Geography
+          Districtr
         </Heading>
         <GerryDBViewSelector />
-        <Heading as="h3" size="3">
-          Controls
-        </Heading>
         <MapModeSelector />
-        <ColorPicker />
+        {activeTool === "brush" ? <ColorPicker /> : null}
         <ResetMapButton />
-        <HorizontalBar />
+        <PaintByCounty />
+        <Tabs.Root defaultValue="layers">
+          <Tabs.List>
+            <Tabs.Trigger value="population">Population</Tabs.Trigger>
+            <Tabs.Trigger value="layers">Data layers</Tabs.Trigger>
+            <Tabs.Trigger value="evaluation">Evaluation</Tabs.Trigger>
+          </Tabs.List>
+          <Box pt="3">
+            <Tabs.Content value="population">
+              <HorizontalBar />
+            </Tabs.Content>
+            <Tabs.Content value="layers">
+              <Layers />
+            </Tabs.Content>
+            <Tabs.Content value="evaluation">
+              <Text size="2">Unimplemented</Text>
+            </Tabs.Content>
+          </Box>
+        </Tabs.Root>
       </Flex>
     </Box>
   );
