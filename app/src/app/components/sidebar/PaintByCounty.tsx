@@ -1,7 +1,7 @@
 import { Text, Checkbox, Flex } from "@radix-ui/themes";
 import { useMapStore } from "@/app/store/mapStore";
 import { COUNTY_LAYER_IDS } from "../../constants/layers";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function PaintByCounty() {
   const { mapRef, addVisibleLayerIds } = useMapStore((state) => ({
@@ -10,17 +10,16 @@ export default function PaintByCounty() {
   }));
   const [checked, setChecked] = useState(false);
 
-  const paintByCounty = (prevIsChecked: boolean) => {
-    console.log("paintByCounty", prevIsChecked);
-    if (!mapRef || !mapRef?.current) return;
-    if (!prevIsChecked) {
-      console.log("BOX WAS NOT CHECKED, ADDING COUNTIES AS VISIBLE LAYERS");
+  useEffect(() => {
+    if (!mapRef || !mapRef.current) return;
+
+    if (checked) {
       COUNTY_LAYER_IDS.forEach((layerId) => {
         mapRef.current?.setLayoutProperty(layerId, "visibility", "visible");
       });
       addVisibleLayerIds(COUNTY_LAYER_IDS);
     }
-  };
+  }, [checked, mapRef, addVisibleLayerIds]);
 
   return (
     <Text as="label" size="2">
@@ -28,12 +27,7 @@ export default function PaintByCounty() {
         <Checkbox
           checked={checked}
           defaultChecked={false}
-          onClick={() =>
-            setChecked((prevIsChecked) => {
-              paintByCounty(prevIsChecked);
-              return !prevIsChecked;
-            })
-          }
+          onClick={() => setChecked((prevIsChecked) => !prevIsChecked)}
         />
         Paint by County
       </Flex>
