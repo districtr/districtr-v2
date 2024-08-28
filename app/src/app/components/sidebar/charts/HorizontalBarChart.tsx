@@ -17,7 +17,7 @@ export const HorizontalBar = () => {
     return <div>Error: {mapMetrics?.error.message}</div>;
   }
 
-  if (mapMetrics?.data.length === 0) {
+  if (!mapMetrics || mapMetrics.data.length === 0) {
     return (
       <Text color="gray" size="2">
         No data to display
