@@ -28,7 +28,7 @@ export default function SidebarComponent() {
         {activeTool === "brush" ? <ColorPicker /> : null}
         <ResetMapButton />
         <PaintByCounty />
-        <Tabs.Root defaultValue="account">
+        <Tabs.Root defaultValue="layers">
           <Tabs.List>
             <Tabs.Trigger value="population">Population</Tabs.Trigger>
             <Tabs.Trigger value="layers">Data layers</Tabs.Trigger>
