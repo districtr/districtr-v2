@@ -10,8 +10,9 @@ import {
 import { MutableRefObject } from "react";
 import { Point } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "@/app/constants/layers";
-// import { polygon } from "@turf/helpers";
-// import { bbox } from "@turf/bbox";
+import { polygon, multiPolygon } from "@turf/helpers";
+import { booleanWithin } from "@turf/boolean-within";
+import { pointOnFeature } from "@turf/point-on-feature";
 
 /**
  * PaintEventHandler
@@ -95,7 +96,19 @@ export const getFeaturesIntersectingCounties = (
     layers: [BLOCK_LAYER_ID],
   });
 
-  return features;
+  let countyPoly;
+  try {
+    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
+    countyPoly = polygon(countyFeatures[0].geometry.coordinates);
+  } catch {
+    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
+    countyPoly = multiPolygon(countyFeatures[0].geometry.coordinates);
+  }
+
+  return features.filter((p) => {
+    const point = pointOnFeature(p);
+    return booleanWithin(point, countyPoly);
+  });
 };
 
 /**
@@ -115,6 +128,9 @@ const getBoundingBoxFromFeatures = (
   const ne = new LngLat(-180, -90);
 
   features.forEach((feature) => {
+    // this will always have an even number of coordinates
+    // iterating over the coordinates in pairs yields (lng, lat)
+    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
     let coords = feature.geometry.coordinates.flat(Infinity);
     for (let i = 0; i < coords.length; i += 2) {
       let x = coords[i];
