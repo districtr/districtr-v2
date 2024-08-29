@@ -115,14 +115,15 @@ const getBoundingBoxFromFeatures = (
   const ne = new LngLat(-180, -90);
 
   features.forEach((feature) => {
-    feature.geometry.coordinates.forEach((linearRing) => {
-      linearRing.forEach((coord) => {
-        sw.lng = Math.min(sw.lng, coord[0]); // minX
-        sw.lat = Math.min(sw.lat, coord[1]); // minY
-        ne.lng = Math.max(ne.lng, coord[0]); // maxX
-        ne.lat = Math.max(ne.lat, coord[1]); // maxY
-      });
-    });
+    let coords = feature.geometry.coordinates.flat(Infinity);
+    for (let i = 0; i < coords.length; i += 2) {
+      let x = coords[i];
+      let y = coords[i + 1];
+      sw.lng = Math.min(sw.lng, x);
+      sw.lat = Math.min(sw.lat, y);
+      ne.lng = Math.max(ne.lng, x);
+      ne.lat = Math.max(ne.lat, y);
+    }
   });
 
   return [sw, ne];
