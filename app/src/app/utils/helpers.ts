@@ -4,10 +4,14 @@ import {
   MapLayerMouseEvent,
   MapLayerTouchEvent,
   MapGeoJSONFeature,
+  LngLat,
+  LngLatLike,
 } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Point } from "maplibre-gl";
 import { BLOCK_LAYER_ID } from "@/app/constants/layers";
+// import { polygon } from "@turf/helpers";
+// import { bbox } from "@turf/bbox";
 
 /**
  * PaintEventHandler
@@ -59,6 +63,70 @@ export const getFeaturesInBbox = (
   });
 };
 
+/**
+ * getFeaturesIntersectingCounties
+ * Get the features intersecting counties on the map.
+ * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @param brushSize - number, the size of the brush
+ * @returns MapGeoJSONFeature[] | undefined - An array of map features or undefined
+ */
+export const getFeaturesIntersectingCounties = (
+  map: MutableRefObject<Map | null>,
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
+  brushSize: number,
+): MapGeoJSONFeature[] | undefined => {
+  if (!map.current) return;
+
+  const countyFeatures = map.current.queryRenderedFeatures(e.point, {
+    layers: ["counties_fill"],
+  });
+
+  if (!countyFeatures) return;
+
+  const featureBbox = getBoundingBoxFromFeatures(countyFeatures);
+
+  if (!featureBbox) return;
+
+  const sw = map.current.project(featureBbox[0]);
+  const ne = map.current.project(featureBbox[1]);
+
+  const features = map.current?.queryRenderedFeatures([sw, ne], {
+    layers: [BLOCK_LAYER_ID],
+  });
+
+  return features;
+};
+
+/**
+ * getBoundingBoxFromCounties
+ * Calculate the bounding box (SW and NE corners) from county features.
+ * @param countyFeatures - Array of GeoJSON Features representing counties
+ * @returns [PointLike, PointLike] - An array containing the SW and NE corners of the bounding box
+ */
+const getBoundingBoxFromFeatures = (
+  features: MapGeoJSONFeature[],
+): [LngLatLike, LngLatLike] | null => {
+  if (!features || features.length === 0) {
+    return null;
+  }
+
+  const sw = new LngLat(180, 90);
+  const ne = new LngLat(-180, -90);
+
+  features.forEach((feature) => {
+    feature.geometry.coordinates.forEach((linearRing) => {
+      linearRing.forEach((coord) => {
+        sw.lng = Math.min(sw.lng, coord[0]); // minX
+        sw.lat = Math.min(sw.lat, coord[1]); // minY
+        ne.lng = Math.max(ne.lng, coord[0]); // maxX
+        ne.lat = Math.max(ne.lat, coord[1]); // maxY
+      });
+    });
+  });
+
+  return [sw, ne];
+};
 /**
  * mousePos
  * Get the position of the mouse on the map.
