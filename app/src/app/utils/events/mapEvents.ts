@@ -35,11 +35,7 @@ export const handleMapClick = (
   const sourceLayer = mapStore.selectedLayer?.name;
 
   if (activeTool === "brush" || activeTool === "eraser") {
-    const bbox = boxAroundPoint(e, mapStore.brushSize);
-
-    const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
-      layers: [BLOCK_LAYER_ID],
-    });
+    const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
 
     if (activeTool === "brush" && sourceLayer) {
       // select on both the map object and the store
@@ -126,12 +122,8 @@ export const handleMapMouseMove = (
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
   const isPainting = mapStore.isPainting;
-  const brushSize = mapStore.brushSize;
-  const bbox = boxAroundPoint(e, brushSize);
   const sourceLayer = mapStore.selectedLayer?.name;
-  const selectedFeatures = map.current?.queryRenderedFeatures(bbox, {
-    layers: [BLOCK_LAYER_ID],
-  });
+  const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
   if (!isPainting && sourceLayer) {
     HighlightFeature(selectedFeatures, map, hoverFeatureIds, sourceLayer);
   } else if (activeTool === "brush" && isPainting && sourceLayer) {

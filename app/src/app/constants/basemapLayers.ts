@@ -1674,6 +1674,16 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     },
   },
   {
+    id: "counties_fill",
+    type: "fill",
+    source: "counties",
+    "source-layer": "tl_2023_us_county",
+    paint: {
+      "fill-color": "#fff",
+      "fill-opacity": 0,
+    },
+  },
+  {
     id: "counties_boundary",
     type: "line",
     source: "counties",
