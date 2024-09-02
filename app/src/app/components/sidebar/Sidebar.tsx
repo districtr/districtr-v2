@@ -8,6 +8,7 @@ import { useMapStore } from "@/app/store/mapStore";
 import { Tabs, Text } from "@radix-ui/themes";
 import Layers from "./Layers";
 import PaintByCounty from "./PaintByCounty";
+import { BrushSizeSelector } from "./BrushSizeSelector";
 
 export default function SidebarComponent() {
   const { activeTool } = useMapStore((state) => ({
@@ -25,14 +26,20 @@ export default function SidebarComponent() {
         </Heading>
         <GerryDBViewSelector />
         <MapModeSelector />
-        {activeTool === "brush" ? <ColorPicker /> : null}
+        {activeTool === "brush" ? (
+          <div>
+            <ColorPicker />
+            <BrushSizeSelector />{" "}
+          </div>
+        ) : null}
         <ResetMapButton />
+
         <PaintByCounty />
         <Tabs.Root defaultValue="layers">
           <Tabs.List>
-            <Tabs.Trigger value="population">Population</Tabs.Trigger>
-            <Tabs.Trigger value="layers">Data layers</Tabs.Trigger>
-            <Tabs.Trigger value="evaluation">Evaluation</Tabs.Trigger>
+            <Tabs.Trigger value="population"> Population </Tabs.Trigger>
+            <Tabs.Trigger value="layers"> Data layers </Tabs.Trigger>
+            <Tabs.Trigger value="evaluation"> Evaluation </Tabs.Trigger>
           </Tabs.List>
           <Box pt="3">
             <Tabs.Content value="population">
@@ -42,7 +49,7 @@ export default function SidebarComponent() {
               <Layers />
             </Tabs.Content>
             <Tabs.Content value="evaluation">
-              <Text size="2">Unimplemented</Text>
+              <Text size="2"> Unimplemented </Text>
             </Tabs.Content>
           </Box>
         </Tabs.Root>
