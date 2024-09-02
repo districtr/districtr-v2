@@ -5,8 +5,6 @@
 import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
 import { MutableRefObject, useRef } from "react";
-import { BLOCK_LAYER_ID } from "@/app/constants/layers";
-import { boxAroundPoint } from "../helpers";
 import React from "react";
 import {
   HighlightFeature,
