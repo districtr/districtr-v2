@@ -70,14 +70,8 @@ export function getBlocksHoverLayerSpecification(
     },
     paint: {
       "fill-opacity": [
-        "case",    
-        // [
-        //   "all",
-        //   ["boolean", ["feature-state", "hover"], false],
-        //   ["boolean", ["feature-state", "zone"], false],
-        // ], 0.9,
-        // ["boolean", ["feature-state", "zone"], false], 0.8,
-        ["boolean", ["feature-state", "hover"], false], 0.5,
+        "case",            
+        // zone is selected and hover is true and hover is not null
         [
           "all",
           // @ts-ignore
@@ -90,6 +84,7 @@ export function getBlocksHoverLayerSpecification(
           ]
         ],
         0.9,
+        // zone is selected and hover is false, and hover is not null
         [
           "all",
           // @ts-ignore
@@ -101,10 +96,13 @@ export function getBlocksHoverLayerSpecification(
             ["boolean", ["feature-state", "hover"], false],
           ]
         ],
-        0.8,
+        0.7,
+        // zone is selected, fallback, regardless of hover state
         // @ts-ignore
         ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
-        0.8,
+        0.7,
+        // hover is true, fallback, regardless of zone state
+        ["boolean", ["feature-state", "hover"], false], 0.6,
         0.2
       ],
       "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
