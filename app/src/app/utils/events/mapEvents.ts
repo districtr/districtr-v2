@@ -124,7 +124,7 @@ export const handleMapMouseMove = (
   const isPainting = mapStore.isPainting;
   const sourceLayer = mapStore.selectedLayer?.name;
   const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
-  if (!isPainting && sourceLayer) {
+  if (!isPainting && sourceLayer && activeTool === "brush") {
     HighlightFeature(selectedFeatures, map, hoverFeatureIds, sourceLayer);
   } else if (activeTool === "brush" && isPainting && sourceLayer) {
     // selects in the map object; the store object
