@@ -73,16 +73,38 @@ export function getBlocksHoverLayerSpecification(
         "case",    
         // [
         //   "all",
-        //   ["boolean", ["feature-state", "hover"], true],
+        //   ["boolean", ["feature-state", "hover"], false],
         //   ["boolean", ["feature-state", "zone"], false],
-        // ], 0.8,
+        // ], 0.9,
+        // ["boolean", ["feature-state", "zone"], false], 0.8,
+        ["boolean", ["feature-state", "hover"], false], 0.5,
         [
           "all",
-          ["boolean", ["feature-state", "hover"], false],
-          ["boolean", ["feature-state", "zone"], false],
-        ], 0.9,
-        ["boolean", ["feature-state", "zone"], false], 0.8,
-        ["boolean", ["feature-state", "hover"], false], 0.8,
+          // @ts-ignore
+          ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+          [
+            "all",
+            // @ts-ignore
+            ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
+            ["boolean", ["feature-state", "hover"], true],
+          ]
+        ],
+        0.9,
+        [
+          "all",
+          // @ts-ignore
+          ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+          [
+            "all",
+            // @ts-ignore
+            ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
+            ["boolean", ["feature-state", "hover"], false],
+          ]
+        ],
+        0.8,
+        // @ts-ignore
+        ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+        0.8,
         0.2
       ],
       "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
