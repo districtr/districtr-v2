@@ -105,6 +105,8 @@ export const MapComponent: React.FC = () => {
       zoom: MAP_OPTIONS.zoom,
       maxZoom: MAP_OPTIONS.maxZoom,
     });
+    map.current.scrollZoom.setWheelZoomRate(1 / 300);
+    map.current.scrollZoom.setZoomRate(1 / 300);
 
     map.current.addControl(new maplibregl.NavigationControl());
 
