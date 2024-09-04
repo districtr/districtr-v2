@@ -1,11 +1,31 @@
 import { useMapStore } from "@/app/store/mapStore";
-import { Flex, Heading, Text } from "@radix-ui/themes";
-import { BarChart, Bar, ResponsiveContainer, XAxis, Cell } from "recharts";
+import { Card, Flex, Heading, Text } from "@radix-ui/themes";
+import {
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Cell,
+} from "recharts";
 import { color10 } from "@/app/constants/colors";
 
+const CustomTooltip = ({ active, payload: items }) => {
+  if (active && items && items.length) {
+    const payload = items[0].payload;
+    return (
+      <Card>
+        <span>({payload.zone}) Population: </span>
+        <span>{payload.total_pop.toLocaleString()}</span>
+      </Card>
+    );
+  }
+};
+
 export const HorizontalBar = () => {
-  const { mapMetrics } = useMapStore((state) => ({
-    mapMetrics: state.mapMetrics,
+  const mapMetrics = useMapStore((state) => ({
+    ...state.mapMetrics,
   }));
   const numberFormat = new Intl.NumberFormat("en-US");
 
@@ -39,8 +59,8 @@ export const HorizontalBar = () => {
           width={500}
           data={mapMetrics.data}
           layout="vertical"
-          barSize={10}
-          barGap={2}
+          barGap={0.5}
+          maxBarSize={50}
         >
           <XAxis
             allowDataOverflow={true}
@@ -48,6 +68,8 @@ export const HorizontalBar = () => {
             domain={[0, "maxData"]}
             tickFormatter={(value) => numberFormat.format(value)}
           />
+          <YAxis type="category" hide />
+          <Tooltip content={<CustomTooltip />} />
           <Bar dataKey="total_pop">
             {mapMetrics.data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={color10[entry.zone - 1]} />
