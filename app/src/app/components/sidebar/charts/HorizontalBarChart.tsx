@@ -14,7 +14,6 @@ import { color10 } from "@/app/constants/colors";
 const CustomTooltip = ({ active, payload: items }) => {
   if (active && items && items.length) {
     const payload = items[0].payload;
-    console.log(payload);
     return (
       <Card>
         <span>({payload.zone}) Population: </span>
