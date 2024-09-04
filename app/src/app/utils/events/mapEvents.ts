@@ -5,13 +5,12 @@
 import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
 import { MutableRefObject, useRef } from "react";
-import { BLOCK_LAYER_ID } from "@/app/constants/layers";
-import { boxAroundPoint } from "../helpers";
 import React from "react";
 import {
   HighlightFeature,
   SelectMapFeatures,
   SelectZoneAssignmentFeatures,
+  UnhighlightFeature,
 } from "./handlers";
 import { ResetMapSelectState } from "@/app/utils/events/handlers";
 
@@ -28,7 +27,7 @@ MapEvent handling; these functions are called by the event listeners in the MapC
 export const handleMapClick = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -54,7 +53,7 @@ export const handleMapClick = (
 export const handleMapMouseUp = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -70,7 +69,7 @@ export const handleMapMouseUp = (
 export const handleMapMouseDown = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -93,40 +92,50 @@ export const handleMapMouseDown = (
 export const handleMapMouseEnter = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const handleMapMouseOver = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
-) => {};
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
+) => {
+  const mapStore = useMapStore.getState();
+  const activeTool = mapStore.activeTool;
+  const sourceLayer = mapStore.selectedLayer?.name;
+  if (sourceLayer && hoverFeatureIds.current.size && activeTool === "brush") {
+    UnhighlightFeature(map, hoverFeatureIds, sourceLayer);
+  }
+};
 
 export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
-) => {};
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
+) => {
+  // console.log("mouse out");
+};
 
 export const handleMapMouseMove = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
   const isPainting = mapStore.isPainting;
   const sourceLayer = mapStore.selectedLayer?.name;
   const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
-  if (!isPainting && sourceLayer) {
+  if (sourceLayer && activeTool === "brush") {
     HighlightFeature(selectedFeatures, map, hoverFeatureIds, sourceLayer);
-  } else if (activeTool === "brush" && isPainting && sourceLayer) {
+  } 
+   if (activeTool === "brush" && isPainting && sourceLayer) {
     // selects in the map object; the store object
     // is updated in the mouseup event
     SelectMapFeatures(selectedFeatures, map, mapStore);
@@ -136,7 +145,7 @@ export const handleMapMouseMove = (
 export const handleMapZoom = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const handleMapIdle = () => {};
@@ -146,11 +155,11 @@ export const handleMapMoveEnd = () => {};
 export const handleMapZoomEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
 ) => {};
 
 export const handleResetMapSelectState = (
-  map: MutableRefObject<Map | null>,
+  map: MutableRefObject<Map | null>
 ) => {
   const mapStore = useMapStore.getState();
   const sourceLayer = mapStore.selectedLayer?.name;
