@@ -1,7 +1,28 @@
 import { useMapStore } from "@/app/store/mapStore";
-import { Flex, Heading, Text } from "@radix-ui/themes";
-import { BarChart, Bar, ResponsiveContainer,  Tooltip, XAxis, YAxis, Cell } from "recharts";
+import { Card, Flex, Heading, Text } from "@radix-ui/themes";
+import {
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Cell,
+} from "recharts";
 import { color10 } from "@/app/constants/colors";
+
+const CustomTooltip = ({ active, payload: items }) => {
+  if (active && items && items.length) {
+    const payload = items[0].payload;
+    console.log(payload);
+    return (
+      <Card>
+        <span>({payload.zone}) Population: </span>
+        <span>{payload.total_pop.toLocaleString()}</span>
+      </Card>
+    );
+  }
+};
 
 export const HorizontalBar = () => {
   const mapMetrics = useMapStore((state) => ({
@@ -48,8 +69,8 @@ export const HorizontalBar = () => {
             domain={[0, "maxData"]}
             tickFormatter={(value) => numberFormat.format(value)}
           />
-        <YAxis type="category" hide />
-          <Tooltip formatter={(value, name, props) => value.toLocaleString()} />
+          <YAxis type="category" hide />
+          <Tooltip content={<CustomTooltip />} />
           <Bar dataKey="total_pop">
             {mapMetrics.data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={color10[entry.zone - 1]} />
