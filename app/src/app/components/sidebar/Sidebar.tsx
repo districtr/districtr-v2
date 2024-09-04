@@ -29,12 +29,11 @@ export default function SidebarComponent() {
         {activeTool === "brush" ? (
           <div>
             <ColorPicker />
-            <BrushSizeSelector />{" "}
+            <BrushSizeSelector />
+            <PaintByCounty />{" "}
           </div>
         ) : null}
         <ResetMapButton />
-
-        <PaintByCounty />
         <Tabs.Root defaultValue="layers">
           <Tabs.List>
             <Tabs.Trigger value="population"> Population </Tabs.Trigger>
