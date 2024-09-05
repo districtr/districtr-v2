@@ -39,6 +39,7 @@ export const HorizontalBar = () => {
     (state) =>
       ({
         ...state.mapMetrics,
+        data: state.mapMetrics?.data?.sort((a, b) => a.zone - b.zone),
       }) as MapMetricsType,
   );
 
