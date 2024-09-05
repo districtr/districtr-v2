@@ -1,6 +1,5 @@
 import { useMapStore } from "@/app/store/mapStore";
 import { Card, Flex, Heading, Text } from "@radix-ui/themes";
-import type { UseQueryResult } from "@tanstack/react-query";
 import {
   BarChart,
   Bar,
@@ -11,7 +10,6 @@ import {
   Cell,
 } from "recharts";
 import { color10 } from "@/app/constants/colors";
-import { ZonePopulation } from "@/app/api/apiHandlers";
 
 type TooltipInput = {
   active?: boolean;
@@ -32,16 +30,10 @@ const CustomTooltip = ({ active, payload: items }: TooltipInput) => {
   }
 };
 
-type MapMetricsType = UseQueryResult<ZonePopulation[], Error> | null;
-
 export const HorizontalBar = () => {
-  const mapMetrics = useMapStore(
-    (state) =>
-      ({
-        ...state.mapMetrics,
-        data: state.mapMetrics?.data?.sort((a, b) => a.zone - b.zone),
-      }) as MapMetricsType,
-  );
+  const { mapMetrics } = useMapStore((state) => ({
+    mapMetrics: state.mapMetrics,
+  }));
 
   if (mapMetrics?.isPending) {
     return <div>Loading...</div>;
@@ -85,9 +77,11 @@ export const HorizontalBar = () => {
           <YAxis type="category" hide />
           <Tooltip content={<CustomTooltip />} />
           <Bar dataKey="total_pop">
-            {mapMetrics.data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={color10[entry.zone - 1]} />
-            ))}
+            {mapMetrics.data
+              .sort((a, b) => a.zone - b.zone)
+              .map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={color10[entry.zone - 1]} />
+              ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
