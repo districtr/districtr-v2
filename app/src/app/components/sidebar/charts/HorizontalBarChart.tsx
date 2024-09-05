@@ -11,23 +11,29 @@ import {
 } from "recharts";
 import { color10 } from "@/app/constants/colors";
 
-const CustomTooltip = ({ active, payload: items }) => {
+type TooltipInput = {
+  active?: boolean;
+  payload?: [{ payload: { total_pop: number; zone: number } }];
+};
+
+const numberFormat = new Intl.NumberFormat("en-US");
+
+const CustomTooltip = ({ active, payload: items }: TooltipInput) => {
   if (active && items && items.length) {
     const payload = items[0].payload;
     return (
       <Card>
         <span>({payload.zone}) Population: </span>
-        <span>{payload.total_pop.toLocaleString()}</span>
+        <span>{numberFormat.format(payload.total_pop)}</span>
       </Card>
     );
   }
 };
 
 export const HorizontalBar = () => {
-  const mapMetrics = useMapStore((state) => ({
-    ...state.mapMetrics,
+  const { mapMetrics } = useMapStore((state) => ({
+    mapMetrics: state.mapMetrics,
   }));
-  const numberFormat = new Intl.NumberFormat("en-US");
 
   if (mapMetrics?.isPending) {
     return <div>Loading...</div>;
@@ -71,9 +77,11 @@ export const HorizontalBar = () => {
           <YAxis type="category" hide />
           <Tooltip content={<CustomTooltip />} />
           <Bar dataKey="total_pop">
-            {mapMetrics.data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={color10[entry.zone - 1]} />
-            ))}
+            {mapMetrics.data
+              .sort((a, b) => a.zone - b.zone)
+              .map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={color10[entry.zone - 1]} />
+              ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
