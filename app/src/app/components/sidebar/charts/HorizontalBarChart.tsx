@@ -1,5 +1,6 @@
 import { useMapStore } from "@/app/store/mapStore";
 import { Card, Flex, Heading, Text } from "@radix-ui/themes";
+import type { UseQueryResult } from "@tanstack/react-query";
 import {
   BarChart,
   Bar,
@@ -10,24 +11,36 @@ import {
   Cell,
 } from "recharts";
 import { color10 } from "@/app/constants/colors";
+import { ZonePopulation } from "@/app/api/apiHandlers";
 
-const CustomTooltip = ({ active, payload: items }) => {
+type TooltipInput = {
+  active?: boolean;
+  payload?: [{ payload: { total_pop: number; zone: number } }];
+};
+
+const numberFormat = new Intl.NumberFormat("en-US");
+
+const CustomTooltip = ({ active, payload: items }: TooltipInput) => {
   if (active && items && items.length) {
     const payload = items[0].payload;
     return (
       <Card>
         <span>({payload.zone}) Population: </span>
-        <span>{payload.total_pop.toLocaleString()}</span>
+        <span>{numberFormat.format(payload.total_pop)}</span>
       </Card>
     );
   }
 };
 
+type MapMetricsType = UseQueryResult<ZonePopulation[], Error> | null;
+
 export const HorizontalBar = () => {
-  const mapMetrics = useMapStore((state) => ({
-    ...state.mapMetrics,
-  }));
-  const numberFormat = new Intl.NumberFormat("en-US");
+  const mapMetrics = useMapStore(
+    (state) =>
+      ({
+        ...state.mapMetrics,
+      }) as MapMetricsType,
+  );
 
   if (mapMetrics?.isPending) {
     return <div>Loading...</div>;
