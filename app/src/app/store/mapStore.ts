@@ -39,7 +39,7 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   accumulatedBlockPopulations: Map<string, number>;
   resetAccumulatedBlockPopulations: () => void;
-  zoneAssignments: Map<string, number>; // geoid -> zone
+  zoneAssignments: Map<string, Zone>; // geoid -> zone
   setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;

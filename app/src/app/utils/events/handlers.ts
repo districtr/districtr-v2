@@ -11,7 +11,7 @@ import { MapStore } from "@/app/store/mapStore";
  * @returns void - but updates the zoneAssignments and zonePopulations in the store
  */
 const debouncedSetZoneAssignments = debounce(
-  (mapStoreRef: MapStore, selectedZone: number, geoids: Set<string>) => {
+  (mapStoreRef: MapStore, selectedZone: number | null, geoids: Set<string>) => {
     mapStoreRef.setZoneAssignments(selectedZone, geoids);
 
     const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
@@ -41,21 +41,32 @@ export const SelectMapFeatures = (
   map: MutableRefObject<Map | null>,
   mapStoreRef: MapStore,
 ) => {
+  let {
+    accumulatedGeoids,
+    accumulatedBlockPopulations,
+    activeTool,
+    selectedLayer,
+    selectedZone,
+  } = mapStoreRef;
+  if (activeTool === "eraser") {
+    selectedZone = null;
+  }
+
   features?.forEach((feature) => {
     map.current?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: mapStoreRef.selectedLayer?.name,
+        sourceLayer: selectedLayer?.name,
       },
-      { selected: true, zone: mapStoreRef.selectedZone },
+      { selected: true, zone: selectedZone },
     );
   });
   if (features?.length) {
     features.forEach((feature) => {
-      mapStoreRef.accumulatedGeoids.add(feature.properties?.path);
+      accumulatedGeoids.add(feature.properties?.path);
 
-      mapStoreRef.accumulatedBlockPopulations.set(
+      accumulatedBlockPopulations.set(
         feature.properties?.path,
         feature.properties?.total_pop,
       );
@@ -80,7 +91,7 @@ export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
   if (accumulatedGeoids?.size) {
     debouncedSetZoneAssignments(
       mapStoreRef,
-      mapStoreRef.selectedZone,
+      mapStoreRef.activeTool === "brush" ? mapStoreRef.selectedZone : null,
       mapStoreRef.accumulatedGeoids,
     );
   }

@@ -4,6 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 from sqlmodel import Session, select
 from starlette.middleware.cors import CORSMiddleware
+from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
 import logging
 
@@ -129,6 +130,23 @@ async def update_document(
         )
     session.commit()
     return db_document
+
+
+@app.patch("/api/erase_assignments")
+async def erase_assignments(
+    data: AssignmentsCreate, session: Session = Depends(get_session)
+):
+    ids_to_delete = []
+    document_id = None
+    for block in data.model_dump()["assignments"]:
+        if block["zone"] is None:
+            ids_to_delete.append(block["geo_id"])
+            document_id = block["document_id"]
+    mydocCondition = Assignments.document_id == document_id
+    stmt = delete(Assignments).where(mydocCondition).where(Assignments.geo_id.in_(ids_to_delete))
+    session.exec(stmt)
+    session.commit()
+    return {"assignments_erased": len(ids_to_delete)}
 
 
 @app.patch("/api/update_assignments")
