@@ -3,6 +3,7 @@ from typing import Optional
 from pydantic import UUID4, BaseModel
 from sqlmodel import (
     Field,
+    ForeignKey,
     SQLModel,
     UUID,
     TIMESTAMP,
@@ -10,6 +11,7 @@ from sqlmodel import (
     text,
     Column,
     MetaData,
+    Integer,
 )
 from app.constants import DOCUMENT_SCHEMA
 
@@ -44,13 +46,19 @@ class TimeStampMixin(SQLModel):
 # what happens with historical maps?
 
 
-class DistrictrView(TimeStampMixin, SQLModel, table=True):
+class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str | None = Field(nullable=False)
     num_districts: int | None = Field(nullable=True, default=None)
     tiles_s3_path: str | None = Field(nullable=True)
-    parent_layer: str = Field(nullable=True, foreign_key="gerrydb_table.uuid")
-    child_layer: str | None = Field(nullable=True, foreign_key="gerrydb_table.uuid")
+    parent_layer: str = Field(
+        sa_column=Column(UUIDType, ForeignKey("gerrydbtable.uuid"), nullable=False)
+    )
+    child_layer: str | None = Field(
+        sa_column=Column(
+            UUIDType, ForeignKey("gerrydbtable.uuid"), default=None, nullable=True
+        )
+    )
     # schema? will need to contrain the schema
     # where does this go?
     # when you create the view, pull the columns that you need
@@ -64,8 +72,14 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
 
 
 class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
-    id: int = Field(primary_key=True)
-    districtr_view: str = Field(nullable=False, foreign_key="districtr_view.uuid")
+    id: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=True))
+    districtr_map: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("districtrmap.uuid"),
+            nullable=False,
+        )
+    )
     parent_path: str
     child_path: str
 
