@@ -40,15 +40,38 @@ class TimeStampMixin(SQLModel):
     )
 
 
+# there's a related concept of the sandbox people are working in
+# what happens with historical maps?
+
+
+class DistrictrView(TimeStampMixin, SQLModel, table=True):
+    uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
+    name: str | None = Field(nullable=False)
+    num_districts: int | None = Field(nullable=True, default=None)
+    tiles_s3_path: str | None = Field(nullable=True)
+    parent_layer: str = Field(nullable=True, foreign_key="gerrydb_table.uuid")
+    child_layer: str | None = Field(nullable=True, foreign_key="gerrydb_table.uuid")
+    # schema? will need to contrain the schema
+    # where does this go?
+    # when you create the view, pull the columns that you need
+    # we'll want discrete management steps
+
+
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
+    # Must correspond to the layer name in the tileset
     name: str = Field(nullable=False, unique=True)
-    tiles_s3_path: str | None = Field(nullable=True)
+
+
+class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
+    id: int = Field(primary_key=True)
+    districtr_view: str = Field(nullable=False, foreign_key="districtr_view.uuid")
+    parent_path: str
+    child_path: str
 
 
 class GerryDBViewPublic(BaseModel):
     name: str
-    tiles_s3_path: str | None
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
@@ -68,7 +91,7 @@ class DocumentPublic(BaseModel):
     gerrydb_table: str | None
     created_at: datetime
     updated_at: datetime
-    tiles_s3_path: str | None = None
+    # tiles_s3_path: str | None = None
 
 
 class AssignmentsBase(SQLModel):

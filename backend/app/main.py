@@ -88,10 +88,10 @@ async def create_document(
             Document.created_at,
             Document.updated_at,
             Document.gerrydb_table,
-            GerryDBTable.tiles_s3_path,
+            # GerryDBTable.tiles_s3_path,
         )
         .where(Document.document_id == document_id)
-        .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
+        # .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
         .limit(1)
     )
     doc = session.exec(
@@ -160,10 +160,10 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             Document.created_at,
             Document.gerrydb_table,
             Document.updated_at,
-            GerryDBTable.tiles_s3_path.label("tiles_s3_path"),
+            # GerryDBTable.tiles_s3_path.label("tiles_s3_path"),
         )
         .where(Document.document_id == document_id)
-        .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
+        # .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
         .limit(1)
     )
     result = session.exec(stmt)

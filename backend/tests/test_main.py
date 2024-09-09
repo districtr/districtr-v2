@@ -353,7 +353,7 @@ def test_get_document(client, document_id):
     assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
     assert data.get("updated_at")
     assert data.get("created_at")
-    assert data.get("tiles_s3_path") is None
+    # assert data.get("tiles_s3_path") is None
 
 
 def test_patch_document(client, document_id):
