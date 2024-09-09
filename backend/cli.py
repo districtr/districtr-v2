@@ -118,6 +118,59 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
     session.close()
 
 
+@cli.command("create-parent-child-relationships")
+@click.option("--districtr-map", "-d", help="Districtr map UUID", required=True)
+@click.option("--parent", "-p", help="Parent layer", required=True)
+@click.option("--child", "-c", help="Child layer", required=True)
+def create_parent_child_relationships(districtr_map: str, parent: str, child: str):
+    logger.info("Creating parent-child relationships...")
+
+    session = next(get_session())
+
+    upsert_query = text("""
+        CALL add_parent_child_relationships(
+            CAST(:districtr_map AS UUID),
+            CAST(:parent AS TEXT),
+            CAST(:child AS TEXT)
+        )
+    """)
+    session.execute(
+        upsert_query,
+        {
+            "districtr_map": districtr_map,
+            "parent": parent,
+            "child": child,
+        },
+    )
+    session.commit()
+    logger.info("Parent-child relationship upserted successfully.")
+
+    session.close()
+
+
+@cli.command("delete-parent-child-relationships")
+@click.option("--districtr-map", "-d", help="Districtr map UUID", required=True)
+def delete_parent_child_relationships(districtr_map: str):
+    logger.info("Deleting parent-child relationships...")
+
+    session = next(get_session())
+
+    delete_query = text("""
+        DELETE FROM parent_child_relationships
+        WHERE districtr_map = :districtr_map
+    """)
+    session.execute(
+        delete_query,
+        {
+            "districtr_map": districtr_map,
+        },
+    )
+    session.commit()
+    logger.info("Parent-child relationship upserted successfully.")
+
+    session.close()
+
+
 @cli.command("create-gerrydb-tileset")
 @click.option("--layer", "-n", help="layer of the view", required=True)
 @click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
@@ -125,7 +178,7 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
 @click.option(
     "--column",
     "-c",
-    help="Column to use for tileset",
+    help="Column to include in tileset",
     multiple=True,
     default=[
         "path",

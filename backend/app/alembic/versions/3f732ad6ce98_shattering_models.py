@@ -1,8 +1,8 @@
 """shattering models
 
-Revision ID: 35313f798c07
+Revision ID: 3f732ad6ce98
 Revises: 8437ce954087
-Create Date: 2024-09-08 23:04:36.556075
+Create Date: 2024-09-09 08:14:02.100209
 
 """
 
@@ -15,7 +15,7 @@ import app.models
 
 
 # revision identifiers, used by Alembic.
-revision: str = "35313f798c07"
+revision: str = "3f732ad6ce98"
 down_revision: Union[str, None] = "8437ce954087"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -39,6 +39,9 @@ def upgrade() -> None:
         ),
         sa.Column("uuid", app.models.UUIDType(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column(
+            "gerrydb_table_name", sqlmodel.sql.sqltypes.AutoString(), nullable=True
+        ),
         sa.Column("num_districts", sa.Integer(), nullable=True),
         sa.Column("tiles_s3_path", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("parent_layer", app.models.UUIDType(), nullable=False),

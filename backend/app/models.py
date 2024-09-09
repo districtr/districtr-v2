@@ -42,13 +42,15 @@ class TimeStampMixin(SQLModel):
     )
 
 
-# there's a related concept of the sandbox people are working in
-# what happens with historical maps?
-
-
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str | None = Field(nullable=False)
+    # This is intentionally not a foreign key on `GerryDBTable` because in some cases
+    # this may be the GerryDBTable but in others the pop table may be a materialized
+    # view of two GerryDBTables in the case of shatterable maps.
+    # We'll want to enforce the constraint tha the gerrydb_table_name is either in
+    # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
+    gerrydb_table_name: str | None = Field(nullable=True)
     num_districts: int | None = Field(nullable=True, default=None)
     tiles_s3_path: str | None = Field(nullable=True)
     parent_layer: str = Field(
@@ -65,9 +67,17 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # we'll want discrete management steps
 
 
+class DistrictrMapCreate(BaseModel):
+    name: str
+    num_districts: int | None = None
+    tiles_s3_path: str
+    parent_layer: str
+    child_layer: str | None = None
+
+
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
-    # Must correspond to the layer name in the tileset
+    # Must correspond to the layer name in the tileset if a
     name: str = Field(nullable=False, unique=True)
 
 
@@ -105,7 +115,7 @@ class DocumentPublic(BaseModel):
     gerrydb_table: str | None
     created_at: datetime
     updated_at: datetime
-    # tiles_s3_path: str | None = None
+    tiles_s3_path: str | None = None
 
 
 class AssignmentsBase(SQLModel):
