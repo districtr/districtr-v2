@@ -2,6 +2,7 @@ import { BLOCK_SOURCE_ID } from "@/app/constants/layers";
 import { MutableRefObject } from "react";
 import { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
+import { Zone } from "@/app/constants/types";
 import { MapStore } from "@/app/store/mapStore";
 
 /**
@@ -11,7 +12,7 @@ import { MapStore } from "@/app/store/mapStore";
  * @returns void - but updates the zoneAssignments and zonePopulations in the store
  */
 const debouncedSetZoneAssignments = debounce(
-  (mapStoreRef: MapStore, selectedZone: number | null, geoids: Set<string>) => {
+  (mapStoreRef: MapStore, selectedZone: Zone, geoids: Set<string>) => {
     mapStoreRef.setZoneAssignments(selectedZone, geoids);
 
     const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;

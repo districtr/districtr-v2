@@ -198,20 +198,3 @@ export const patchUpdateAssignments: (
       return res.data;
     });
 };
-
-/**
- *
- * @param assignments
- * @returns server object containing the updated assignments per geoid
- */
-export const patchEraseAssignments: (
-  assignments: Assignment[],
-) => Promise<AssignmentsCreate> = async (assignments: Assignment[]) => {
-  return await axios
-    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/erase_assignments`, {
-      assignments: assignments,
-    })
-    .then((res) => {
-      return res.data;
-    });
-};

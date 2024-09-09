@@ -20,7 +20,6 @@ import {
   FormatAssignments,
   getDocument,
   DocumentObject,
-  patchEraseAssignments,
   patchUpdateAssignments,
   AssignmentsCreate,
   getAssignments,
@@ -47,22 +46,6 @@ export const MapComponent: React.FC = () => {
     onSuccess: (data: AssignmentsCreate) => {
       console.log(
         `Successfully upserted ${data.assignments_upserted} assignments`,
-      );
-      mapMetrics.refetch();
-    },
-  });
-
-  const patchErase = useMutation({
-    mutationFn: patchEraseAssignments,
-    onMutate: () => {
-      console.log("Erasing assignments");
-    },
-    onError: (error) => {
-      console.log("Error erasing assignments: ", error);
-    },
-    onSuccess: (data: AssignmentsCreate) => {
-      console.log(
-        `Successfully erased ${data.assignments_upserted} assignments`,
       );
       mapMetrics.refetch();
     },
@@ -191,16 +174,9 @@ export const MapComponent: React.FC = () => {
    */
   useEffect(() => {
     if (mapLoaded && map.current && zoneAssignments.size) {
-      const assignments = FormatAssignments();
-      if (activeTool === "brush") {
-        const modAssignments = assignments.filter(
-          (block) => block.zone !== null,
-        );
-        if (modAssignments.length) {
-          patchUpdates.mutate(modAssignments);
-        }
-      } else if (activeTool === "eraser") {
-        patchErase.mutate(assignments);
+      if (activeTool === "brush" || activeTool === "eraser") {
+        const assignments = FormatAssignments();
+        patchUpdates.mutate(assignments);
       }
     }
   }, [mapLoaded, zoneAssignments]);
