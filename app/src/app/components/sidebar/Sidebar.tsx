@@ -26,11 +26,15 @@ export default function SidebarComponent() {
         </Heading>
         <GerryDBViewSelector />
         <MapModeSelector />
+        {activeTool === "brush" || activeTool === "eraser" ? (
+          <div>
+            <BrushSizeSelector />
+            <PaintByCounty />{" "}
+          </div>
+        ) : null}
         {activeTool === "brush" ? (
           <div>
             <ColorPicker />
-            <BrushSizeSelector />
-            <PaintByCounty />{" "}
           </div>
         ) : null}
         <ResetMapButton />
