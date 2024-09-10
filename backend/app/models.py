@@ -51,6 +51,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # We'll want to enforce the constraint tha the gerrydb_table_name is either in
     # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
     gerrydb_table_name: str | None = Field(nullable=True)
+    # Null means default number of districts? Should we have a sensible default?
     num_districts: int | None = Field(nullable=True, default=None)
     tiles_s3_path: str | None = Field(nullable=True)
     parent_layer: str = Field(
@@ -69,8 +70,9 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
 
 class DistrictrMapCreate(BaseModel):
     name: str
+    gerrydb_table_name: str | None = None
     num_districts: int | None = None
-    tiles_s3_path: str
+    tiles_s3_path: str | None = None
     parent_layer: str
     child_layer: str | None = None
 

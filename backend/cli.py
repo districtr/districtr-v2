@@ -2,12 +2,14 @@ import os
 from typing import Iterable
 import click
 import logging
+
 from app.main import get_session
 from app.core.config import settings
 import subprocess
 from urllib.parse import urlparse, ParseResult
 from sqlalchemy import text
 from app.constants import GERRY_DB_SCHEMA
+from app.models import DistrictrMapCreate
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +21,16 @@ def cli():
 
 
 def download_file_from_s3(s3, url: ParseResult, replace=False) -> str:
+    """
+    Download a file from S3 to the local volume path.
+
+    Args:
+        s3: S3 client
+        url (ParseResult): URL of the file to download
+        replace (bool): If True, replace the file if it already exists
+
+    Returns the path to the downloaded file.
+    """
     if not s3:
         raise ValueError("S3 client is not available")
 
@@ -33,7 +45,6 @@ def download_file_from_s3(s3, url: ParseResult, replace=False) -> str:
 
     logger.info("Downloading GerryDB view. Got response:\n%s", object_information)
 
-    # Download to settings.VOLUME_PATH
     path = os.path.join(settings.VOLUME_PATH, file_name)
 
     if os.path.exists(path) and not replace:
@@ -172,9 +183,16 @@ def delete_parent_child_relationships(districtr_map: str):
 
 
 @cli.command("create-gerrydb-tileset")
-@click.option("--layer", "-n", help="layer of the view", required=True)
-@click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
-@click.option("--replace", "-f", help="Replace the file if it exists", is_flag=True)
+@click.option(
+    "--layer", "-n", help="Name of the layer in the gerrydb view to load", required=True
+)
+@click.option(
+    "--gpkg",
+    "-g",
+    help="Path or URL to GeoPackage file. If URL, must be s3 URI",
+    required=True,
+)
+@click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
 @click.option(
     "--column",
     "-c",
@@ -186,23 +204,26 @@ def delete_parent_child_relationships(districtr_map: str):
         "total_pop",
     ],
 )
-@click.option(
-    "--rm", "-r", help="Delete tileset after loading to postgres", is_flag=True
-)
 def create_gerrydb_tileset(
-    layer: str, gpkg: str, replace: bool, column: Iterable[str], rm: bool
+    layer: str, gpkg: str, replace: bool, column: Iterable[str]
 ) -> None:
+    """
+    Create a tileset from a GeoPackage file. Does not upload the tileset to S3. Use the s3 cli for that.
+
+    Note: this command is intended to be run locally. The server doesn't have the tippecannoe dependency. That's
+    intentional for now as we don't want to burden the server with memory intensive tasks.
+    """
     logger.info("Creating GerryDB tileset...")
     s3 = settings.get_s3_client()
-    assert s3, "S3 client is not available"
 
     url = urlparse(gpkg)
     logger.info("URL: %s", url)
 
+    path = gpkg
+
     if url.scheme == "s3":
+        assert s3, "S3 client is not available"
         path = download_file_from_s3(s3, url, replace)
-    else:
-        path = gpkg
 
     fbg_path = f"{settings.VOLUME_PATH}/{layer}.fgb"
     logger.info("Creating flatgeobuf...")
@@ -231,78 +252,82 @@ def create_gerrydb_tileset(
     logger.info("Creating tileset...")
     tileset_path = f"{settings.VOLUME_PATH}/{layer}.pmtiles"
 
-    if os.path.exists(tileset_path) and not replace:
-        logger.info("File already exists. Skipping creation.")
-    else:
-        args = [
-            "tippecanoe",
-            "-zg",
-            "--coalesce-smallest-as-needed",
-            "--extend-zooms-if-still-dropping",
-            # "--drop-densest-as-needed",
-            # "--drop-smallest-as-needed",
-            # "-pf",  # --no-feature-limit: Don't limit tiles to 200,000 features
-            # "-pk",  # --no-tile-size-limit: Don't limit tiles to 500K bytes
-            # "-ps", # --no-line-simplification
-            "-o",
-            tileset_path,
-            "-l",
-            layer,
-            fbg_path,
-        ]
-        if replace:
-            args.append("--force")
-        result = subprocess.run(args=args)
-
-        if result.returncode != 0:
-            logger.error("tippecanoe failed. Got %s", result)
-            raise ValueError(f"tippecanoe failed with return code {result.returncode}")
-
-    logger.info("Uploading to R2")
-    s3.put_object(Bucket=settings.R2_BUCKET_NAME, Key="tilesets/")
-    s3_path = f"tilesets/{layer}.pmtiles"
-    s3.upload_file(
+    args = [
+        "tippecanoe",
+        "-zg",
+        "--coalesce-smallest-as-needed",
+        "--extend-zooms-if-still-dropping",
+        "-o",
         tileset_path,
-        settings.R2_BUCKET_NAME,
-        s3_path,
+        "-l",
+        layer,
+        fbg_path,
+    ]
+    if replace:
+        args.append("--force")
+
+    result = subprocess.run(args=args)
+
+    if result.returncode != 0:
+        logger.error("tippecanoe failed. Got %s", result)
+        raise ValueError(f"tippecanoe failed with return code {result.returncode}")
+
+
+@cli.command("create-districtr-map")
+@click.option("--name", "-n", help="Name of the districtr map", required=True)
+@click.option(
+    "--gerrydb-table-name", "-g", help="Name of the GerryDB table", required=False
+)
+@click.option("--num-districts", "-n", help="Number of districts", required=False)
+@click.option("--tiles-s3-path", "-t", help="S3 path to the tileset", required=False)
+@click.option("--parent-layer", "-p", help="Parent gerrydb layer UUID", required=True)
+@click.option("--child-layer", "-c", help="Child gerrydb layer UUID", required=False)
+def create_districtr_map(
+    name: str,
+    gerrydb_table_name: str,
+    num_districts: int,
+    tiles_s3_path: str,
+    parent_layer: str,
+    child_layer: str,
+):
+    logger.info("Creating districtr map...")
+    session = next(get_session())
+
+    data = DistrictrMapCreate.model_validate(
+        {
+            "name": name,
+            "gerrydb_table_name": gerrydb_table_name,
+            "num_districts": num_districts,
+            "tiles_s3_path": tiles_s3_path,
+            "parent_layer": parent_layer,
+            "child_layer": child_layer,
+        }
     )
 
-    if rm:
-        os.remove(path)
-        os.remove(fbg_path)
-        os.remove(tileset_path)
-        logger.info("Deleted files %s, %s, %s", path, fbg_path, tileset_path)
+    db_districtr_map = data.model_dump(exclude_unset=True, exclude_none=True)
+    columns = ", ".join(db_districtr_map.keys())
+    # Pretty ugly but works for now. Could be prettier to use the ORM but was complicated handling
+    # the missing uuid if we want to generate the UUID w/ SQL's `gen_random_uuid()`
+    values = ", ".join(
+        [f"'{v}'" if isinstance(v, str) else v for v in db_districtr_map.values()]
+    )
 
-    logger.info("GerryDB tileset uploaded successfully")
-
-    logger.info("Updating GerryDBTiles")
-    _session = get_session()
-    session = next(_session)
-
-    upsert_query = text("""
-        UPDATE gerrydbtable SET
-            updated_at = now(),
-            tiles_s3_path = :tiles_s3_path
-        WHERE name = :name
-        RETURNING uuid
+    stmt = text(f"""
+    INSERT INTO districtrmap (created_at, uuid, {columns})
+    VALUES (now(), gen_random_uuid(), {values})
+    RETURNING uuid
     """)
 
     try:
-        result = session.execute(
-            upsert_query,
-            {
-                "name": layer,
-                "tiles_s3_path": s3_path,
-            },
-        )
+        (inserted_uuid,) = session.exec(stmt)
         session.commit()
-        logger.info("GerryDB tileset added to view:\n%s", result.fetchone())
     except Exception as e:
         session.rollback()
         logger.error("Failed to upsert GerryDB tiles. Got %s", e)
         raise ValueError(f"Failed to upsert GerryDB tiles. Got {e}")
 
     session.close()
+    logger.info(f"Districtr map created successfully {inserted_uuid}")
 
 
 if __name__ == "__main__":
