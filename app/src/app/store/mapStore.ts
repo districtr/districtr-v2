@@ -16,7 +16,11 @@ import {
   BLOCK_HOVER_LAYER_ID,
 } from "../constants/layers";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { LayerVisibility } from "../utils/helpers";
+import {
+  LayerVisibility,
+  PaintEventHandler,
+  getFeaturesInBbox,
+} from "../utils/helpers";
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
@@ -35,7 +39,7 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   accumulatedBlockPopulations: Map<string, number>;
   resetAccumulatedBlockPopulations: () => void;
-  zoneAssignments: Map<string, number>; // geoid -> zone
+  zoneAssignments: Map<string, Zone>; // geoid -> zone
   setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
@@ -45,6 +49,8 @@ export interface MapStore {
   setBrushSize: (size: number) => void;
   isPainting: boolean;
   setIsPainting: (isPainting: boolean) => void;
+  paintFunction: PaintEventHandler;
+  setPaintFunction: (paintFunction: PaintEventHandler) => void;
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
@@ -121,6 +127,8 @@ export const useMapStore = create(
     setBrushSize: (size) => set({ brushSize: size }),
     isPainting: false,
     setIsPainting: (isPainting) => set({ isPainting }),
+    paintFunction: getFeaturesInBbox,
+    setPaintFunction: (paintFunction) => set({ paintFunction }),
     clearMapEdits: () =>
       set({
         zoneAssignments: new Map(),

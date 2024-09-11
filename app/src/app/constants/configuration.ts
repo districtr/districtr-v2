@@ -1,9 +1,5 @@
 import { LngLatLike } from "maplibre-gl";
-import type {
-  MapOptions,
-  StyleSpecification,
-  LayerSpecification,
-} from "maplibre-gl";
+import type { MapOptions, StyleSpecification } from "maplibre-gl";
 import { BASEMAP_LAYERS } from "./basemapLayers";
 
 export const MAP_CENTER: LngLatLike = [-105.358887, 39.113014]; // colorado

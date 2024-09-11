@@ -3,9 +3,37 @@ import {
   PointLike,
   MapLayerMouseEvent,
   MapLayerTouchEvent,
+  MapGeoJSONFeature,
+  LngLat,
+  LngLatLike,
 } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Point } from "maplibre-gl";
+import { BLOCK_LAYER_ID } from "@/app/constants/layers";
+import { polygon, multiPolygon } from "@turf/helpers";
+import { booleanWithin } from "@turf/boolean-within";
+import { pointOnFeature } from "@turf/point-on-feature";
+
+/**
+ * PaintEventHandler
+ * A function that takes a map reference, a map event object, and a brush size.
+ * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @param brushSize - number, the size of the brush
+ */
+export type PaintEventHandler = (
+  map: React.MutableRefObject<Map | null>,
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
+  brushSize: number,
+) => MapGeoJSONFeature[] | undefined;
+
+/**
+ * boxAroundPoint
+ * Create a bounding box around a point on the map.
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @param radius - number, the radius of the bounding box
+ * @returns [PointLike, PointLike] - An array of two points representing the bounding box
+ */
 export const boxAroundPoint = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   radius: number,
@@ -16,6 +44,113 @@ export const boxAroundPoint = (
   ];
 };
 
+/**
+ * getFeaturesInBbox
+ * Get the features in a bounding box on the map.
+ * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @param brushSize - number, the size of the brush
+ * @returns MapGeoJSONFeature[] | undefined - An array of map features or undefined
+ */
+export const getFeaturesInBbox = (
+  map: MutableRefObject<Map | null>,
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
+  brushSize: number,
+): MapGeoJSONFeature[] | undefined => {
+  const bbox = boxAroundPoint(e, brushSize);
+
+  return map.current?.queryRenderedFeatures(bbox, {
+    layers: [BLOCK_LAYER_ID],
+  });
+};
+
+/**
+ * getFeaturesIntersectingCounties
+ * Get the features intersecting counties on the map.
+ * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @param brushSize - number, the size of the brush
+ * @returns MapGeoJSONFeature[] | undefined - An array of map features or undefined
+ */
+export const getFeaturesIntersectingCounties = (
+  map: MutableRefObject<Map | null>,
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
+  brushSize: number,
+): MapGeoJSONFeature[] | undefined => {
+  if (!map.current) return;
+
+  const countyFeatures = map.current.queryRenderedFeatures(e.point, {
+    layers: ["counties_fill"],
+  });
+
+  if (!countyFeatures) return;
+
+  const featureBbox = getBoundingBoxFromFeatures(countyFeatures);
+
+  if (!featureBbox) return;
+
+  const sw = map.current.project(featureBbox[0]);
+  const ne = map.current.project(featureBbox[1]);
+
+  const features = map.current?.queryRenderedFeatures([sw, ne], {
+    layers: [BLOCK_LAYER_ID],
+  });
+
+  let countyPoly;
+  try {
+    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
+    countyPoly = polygon(countyFeatures[0].geometry.coordinates);
+  } catch {
+    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
+    countyPoly = multiPolygon(countyFeatures[0].geometry.coordinates);
+  }
+
+  return features.filter((p) => {
+    const point = pointOnFeature(p);
+    return booleanWithin(point, countyPoly);
+  });
+};
+
+/**
+ * getBoundingBoxFromCounties
+ * Calculate the bounding box (SW and NE corners) from county features.
+ * @param countyFeatures - Array of GeoJSON Features representing counties
+ * @returns [PointLike, PointLike] - An array containing the SW and NE corners of the bounding box
+ */
+const getBoundingBoxFromFeatures = (
+  features: MapGeoJSONFeature[],
+): [LngLatLike, LngLatLike] | null => {
+  if (!features || features.length === 0) {
+    return null;
+  }
+
+  const sw = new LngLat(180, 90);
+  const ne = new LngLat(-180, -90);
+
+  features.forEach((feature) => {
+    // this will always have an even number of coordinates
+    // iterating over the coordinates in pairs yields (lng, lat)
+    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
+    let coords = feature.geometry.coordinates.flat(Infinity);
+    for (let i = 0; i < coords.length; i += 2) {
+      let x = coords[i];
+      let y = coords[i + 1];
+      sw.lng = Math.min(sw.lng, x);
+      sw.lat = Math.min(sw.lat, y);
+      ne.lng = Math.max(ne.lng, x);
+      ne.lat = Math.max(ne.lat, y);
+    }
+  });
+
+  return [sw, ne];
+};
+/**
+ * mousePos
+ * Get the position of the mouse on the map.
+ * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @returns Point - The position of the mouse on the map
+ */
 export const mousePos = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,

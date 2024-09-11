@@ -76,7 +76,7 @@ class AssignmentsBase(SQLModel):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     geo_id: str = Field(primary_key=True)
-    zone: int
+    zone: int | None
 
 
 class Assignments(AssignmentsBase, table=True):
