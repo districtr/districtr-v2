@@ -1,7 +1,7 @@
 CREATE OR REPLACE FUNCTION get_available_summary_stats(document_id UUID)
 RETURNS TABLE (summary_stat TEXT) AS $$
 DECLARE
-    gerrydb_table_name := TEXT;
+    gerrydb_table_name TEXT;
     p1 BOOLEAN;
     p2 BOOLEAN;
     p3 BOOLEAN;
@@ -24,7 +24,7 @@ BEGIN
                             'amin_pop',
                             'nhpi_pop',
                             'black_pop',
-                            'white_pop',)
+                            'white_pop')
     ;
 
     SELECT count(column_name)==6 INTO p3
@@ -36,7 +36,7 @@ BEGIN
                             'amin_vap',
                             'nhpi_vap',
                             'black_vap',
-                            'white_vap',)
+                            'white_vap')
     ;
 
     SELECT count(colum_name)==7 INTO p2
@@ -49,25 +49,25 @@ BEGIN
                             'non_hispanic_nhpi_pop',
                             'non_hispanic_black_pop',
                             'non_hispanic_white_pop',
-                            'non_hispanic_other_pop',
+                            'non_hispanic_other_pop'
                             )
     ;
 
-    SELECT count(colum_name)== INTO p4
+    SELECT count(colum_name)==7 INTO p4
     FROM INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = gerrydb_table_name
         AND table_schema = 'gerrydb'
-        AND column_name =IN ('hispanic_pop',
+        AND column_name IN ('hispanic_pop',
                             'non_hispanic_asian_vap',
                             'non_hispanic_amin_vap',
                             'non_hispanic_nhpi_vap',
                             'non_hispanic_black_vap',
                             'non_hispanic_white_vap',
-                            'non_hispanic_other_vap',
+                            'non_hispanic_other_vap'
                             )
     ;
 
-    RETURN 
+    RETURN QUERY
     
     SELECT 'P1' as summary_stat
     WHERE p1
@@ -85,7 +85,7 @@ BEGIN
     UNION 
     
     SELECT 'P4'
-    WHERE p4
+    WHERE p4;
 
 END;
 $$ LANGUAGE plpgsql;
