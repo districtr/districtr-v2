@@ -19,6 +19,7 @@ from app.models import (
     ZonePopulation,
     GerryDBTable,
     GerryDBViewPublic,
+    SummaryStatisticType,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -174,7 +175,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
 async def get_total_population(
     document_id: str, session: Session = Depends(get_session)
 ):
-    stmt = text("SELECT * from get_total_population(:document_id)")
+    stmt = text("SELECT * FROM get_total_population(:document_id)")
     try:
         result = session.execute(stmt, {"document_id": document_id})
         return [
@@ -209,3 +210,16 @@ async def get_projects(
         .limit(limit)
     ).all()
     return gerrydb_views
+
+
+@app.get("/api/document/{document_id}/summary_metadata")
+async def get_summary_metadata(
+    document_id=str, session: Session = Depends(get_session)
+):
+    stmt = text("SELECT * FROM get_available_summaries(:document_id)")
+    try:
+        result = session.execute(stmt, {"document_id": document_id})
+        return [SummaryStatisticType[value] for value in result.fetchall()]
+    except Exception as e:
+        logger.error(e)
+        raise e
