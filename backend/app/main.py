@@ -216,7 +216,7 @@ async def get_projects(
 async def get_summary_metadata(
     document_id=str, session: Session = Depends(get_session)
 ):
-    stmt = text("SELECT * FROM get_available_summaries(:document_id)")
+    stmt = text("SELECT * FROM get_available_summary_stats(:document_id)")
     try:
         result = session.execute(stmt, {"document_id": document_id})
         return [SummaryStatisticType[value] for value in result.fetchall()]
