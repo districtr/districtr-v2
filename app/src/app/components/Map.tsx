@@ -52,6 +52,7 @@ export const MapComponent: React.FC = () => {
   });
 
   const {
+    activeTool,
     freshMap,
     zoneAssignments,
     mapDocument,
@@ -60,6 +61,7 @@ export const MapComponent: React.FC = () => {
     setMapRef,
     setMapMetrics,
   } = useMapStore((state) => ({
+    activeTool: state.activeTool,
     freshMap: state.freshMap,
     zoneAssignments: state.zoneAssignments,
     mapDocument: state.mapDocument,
@@ -172,8 +174,10 @@ export const MapComponent: React.FC = () => {
    */
   useEffect(() => {
     if (mapLoaded && map.current && zoneAssignments.size) {
-      const assignments = FormatAssignments();
-      patchUpdates.mutate(assignments);
+      if (activeTool === "brush" || activeTool === "eraser") {
+        const assignments = FormatAssignments();
+        patchUpdates.mutate(assignments);
+      }
     }
   }, [mapLoaded, zoneAssignments]);
 

@@ -36,14 +36,11 @@ export const handleMapClick = (
   if (activeTool === "brush" || activeTool === "eraser") {
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
 
-    if (activeTool === "brush" && sourceLayer) {
+    if (sourceLayer) {
       // select on both the map object and the store
       SelectMapFeatures(selectedFeatures, map, mapStore).then(() => {
         SelectZoneAssignmentFeatures(mapStore);
       });
-    } else if (activeTool === "eraser") {
-      // erase features
-      // TODO: implement eraser
     }
   } else {
     // tbd, for pan mode - is there an info mode on click?
@@ -59,7 +56,7 @@ export const handleMapMouseUp = (
   const activeTool = mapStore.activeTool;
   const isPainting = mapStore.isPainting;
 
-  if (activeTool === "brush" && isPainting) {
+  if ((activeTool === "brush" || activeTool === "eraser") && isPainting) {
     // set isPainting to false
     mapStore.setIsPainting(false);
     SelectZoneAssignmentFeatures(mapStore);
@@ -80,12 +77,7 @@ export const handleMapMouseDown = (
   } else if (activeTool === "brush" || activeTool === "eraser") {
     // disable drag pan
     map.current?.dragPan.disable();
-    if (activeTool === "brush") {
-      mapStore.setIsPainting(true);
-      return;
-    } else if (activeTool === "eraser") {
-      // erase features tbd
-    }
+    mapStore.setIsPainting(true);
   }
 };
 
@@ -109,7 +101,11 @@ export const handleMapMouseLeave = (
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
   const sourceLayer = mapStore.selectedLayer?.name;
-  if (sourceLayer && hoverFeatureIds.current.size && activeTool === "brush") {
+  if (
+    sourceLayer &&
+    hoverFeatureIds.current.size &&
+    (activeTool === "brush" || activeTool === "eraser")
+  ) {
     UnhighlightFeature(map, hoverFeatureIds, sourceLayer);
   }
 };
@@ -132,10 +128,14 @@ export const handleMapMouseMove = (
   const isPainting = mapStore.isPainting;
   const sourceLayer = mapStore.selectedLayer?.name;
   const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
-  if (sourceLayer && activeTool === "brush") {
+  if (sourceLayer && (activeTool === "brush" || activeTool === "eraser")) {
     HighlightFeature(selectedFeatures, map, hoverFeatureIds, sourceLayer);
-  } 
-   if (activeTool === "brush" && isPainting && sourceLayer) {
+  }
+  if (
+    (activeTool === "brush" || activeTool === "eraser") &&
+    isPainting &&
+    sourceLayer
+  ) {
     // selects in the map object; the store object
     // is updated in the mouseup event
     SelectMapFeatures(selectedFeatures, map, mapStore);

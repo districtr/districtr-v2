@@ -174,7 +174,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
 async def get_total_population(
     document_id: str, session: Session = Depends(get_session)
 ):
-    stmt = text("SELECT * from get_total_population(:document_id)")
+    stmt = text("SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL")
     try:
         result = session.execute(stmt, {"document_id": document_id})
         return [
