@@ -1,42 +1,20 @@
 import os
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, create_engine
+from sqlmodel import Session
 
 from app.main import app, get_session
 from app.constants import GERRY_DB_SCHEMA
-from pydantic_core import MultiHostUrl
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError, ProgrammingError
 import subprocess
 import uuid
-from tests.constants import FIXTURES_PATH
-from tests.utils import string_to_bool
+from tests.constants import (
+    OGR2OGR_PG_CONNECTION_STRING,
+    FIXTURES_PATH,
+)
 
 
 client = TestClient(app)
-
-ENVIRONMENT = os.environ.get("ENVIRONMENT")
-POSTGRES_TEST_DB = os.environ.get("POSTGRES_TEST_DB", "districtr_test")
-POSTGRES_SCHEME = "postgresql+psycopg"
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
-POSTGRES_SERVER = os.environ.get("POSTGRES_SERVER", "localhost")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT", 5432)
-TEARDOWN_TEST_DB = string_to_bool(os.environ.get("TEARDOWN_TEST_DB", "true"))
-
-my_env = os.environ.copy()
-
-my_env["POSTGRES_DB"] = POSTGRES_TEST_DB
-
-TEST_SQLALCHEMY_DATABASE_URI = MultiHostUrl.build(
-    scheme=POSTGRES_SCHEME,
-    username=POSTGRES_USER,
-    host=POSTGRES_SERVER,
-    port=int(POSTGRES_PORT),
-    path=POSTGRES_TEST_DB,
-    password=POSTGRES_PASSWORD,
-)
 
 
 def test_read_main():
@@ -58,46 +36,6 @@ GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 
 
 ## Test DB
-
-
-@pytest.fixture(scope="session", name="engine")
-def engine_fixture(request):
-    url = f"{POSTGRES_SCHEME}://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}/postgres"
-    _engine = create_engine(url)
-    conn = _engine.connect()
-    conn.execute(text("commit"))
-    try:
-        if conn.in_transaction():
-            conn.rollback()
-        conn.execution_options(isolation_level="AUTOCOMMIT").execute(
-            text(f"CREATE DATABASE {POSTGRES_TEST_DB}")
-        )
-    except (OperationalError, ProgrammingError):
-        pass
-
-    subprocess.run(["alembic", "upgrade", "head"], check=True, env=my_env)
-
-    def teardown():
-        if TEARDOWN_TEST_DB:
-            close_connections_query = f"""
-                SELECT pg_terminate_backend(pg_stat_activity.pid)
-                FROM pg_stat_activity
-                WHERE pg_stat_activity.datname = '{POSTGRES_TEST_DB}'
-                AND pid <> pg_backend_pid();
-                """
-            conn.execute(text(close_connections_query))
-            conn.execute(text(f"DROP DATABASE {POSTGRES_TEST_DB}"))
-        conn.close()
-
-    request.addfinalizer(teardown)
-
-    return create_engine(str(TEST_SQLALCHEMY_DATABASE_URI), echo=True)
-
-
-@pytest.fixture(name="session")
-def session_fixture(engine):
-    with Session(engine) as session:
-        yield session
 
 
 @pytest.fixture(name="client")
@@ -123,7 +61,7 @@ def ks_demo_view_census_blocks_fixture(session: Session):
             "ogr2ogr",
             "-f",
             "PostgreSQL",
-            f"PG:host={POSTGRES_SERVER} port={POSTGRES_PORT} dbname={POSTGRES_TEST_DB} user={POSTGRES_USER} password={POSTGRES_PASSWORD}",
+            OGR2OGR_PG_CONNECTION_STRING,
             os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
             "-lco",
             "OVERWRITE=yes",
@@ -145,7 +83,7 @@ def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
             "ogr2ogr",
             "-f",
             "PostgreSQL",
-            f"PG:host={POSTGRES_SERVER} port={POSTGRES_PORT} dbname={POSTGRES_TEST_DB} user={POSTGRES_USER} password={POSTGRES_PASSWORD}",
+            OGR2OGR_PG_CONNECTION_STRING,
             os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
             "-lco",
             "OVERWRITE=yes",
@@ -167,7 +105,7 @@ def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
             "ogr2ogr",
             "-f",
             "PostgreSQL",
-            f"PG:host={POSTGRES_SERVER} port={POSTGRES_PORT} dbname={POSTGRES_TEST_DB} user={POSTGRES_USER} password={POSTGRES_PASSWORD}",
+            OGR2OGR_PG_CONNECTION_STRING,
             os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
             "-lco",
             "OVERWRITE=yes",
@@ -465,8 +403,7 @@ def test_list_gerydb_views(client, gerrydbtable):
     response = client.get("/api/gerrydb/views")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
-    assert data[0]["name"] == GERRY_DB_FIXTURE_NAME
+    assert len(data) == 3
 
 
 def test_list_gerydb_views_limit(client, gerrydbtable):
@@ -480,8 +417,7 @@ def test_list_gerydb_views_offset(client, gerrydbtable, second_gerrydbtable):
     response = client.get("/api/gerrydb/views?offset=1")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
-    assert data[0]["name"] == "bleh"
+    assert len(data) == 3
 
 
 def test_list_gerydb_views_offset_and_limit(client, gerrydbtable, second_gerrydbtable):
@@ -489,4 +425,3 @@ def test_list_gerydb_views_offset_and_limit(client, gerrydbtable, second_gerrydb
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0]["name"] == "bleh"

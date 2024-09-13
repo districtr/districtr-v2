@@ -9,7 +9,8 @@ import subprocess
 from urllib.parse import urlparse, ParseResult
 from sqlalchemy import text
 from app.constants import GERRY_DB_SCHEMA
-from app.models import DistrictrMapCreate
+from sqlalchemy import bindparam, Integer, String
+from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -273,6 +274,46 @@ def create_gerrydb_tileset(
         raise ValueError(f"tippecanoe failed with return code {result.returncode}")
 
 
+def _create_districtr_map(
+    session: Session,
+    name: str,
+    gerrydb_table_name: str,
+    num_districts: int,
+    tiles_s3_path: str,
+    parent_layer_name: str,
+    child_layer_name: str,
+):
+    stmt = text("""
+    SELECT * FROM create_districtr_map(
+        :map_name,
+        :gerrydb_table_name,
+        :num_districts,
+        :tiles_s3_path,
+        :parent_layer_name,
+        :child_layer_name
+    )""").bindparams(
+        bindparam(key="map_name", type_=String),
+        bindparam(key="gerrydb_table_name", type_=String),
+        bindparam(key="num_districts", type_=Integer),
+        bindparam(key="tiles_s3_path", type_=String),
+        bindparam(key="parent_layer_name", type_=String),
+        bindparam(key="child_layer_name", type_=String),
+    )
+
+    (inserted_uuid,) = session.execute(
+        stmt,
+        {
+            "map_name": name,
+            "gerrydb_table_name": gerrydb_table_name,
+            "num_districts": num_districts,
+            "tiles_s3_path": tiles_s3_path,
+            "parent_layer_name": parent_layer_name,
+            "child_layer_name": child_layer_name,
+        },
+    )
+    return inserted_uuid
+
+
 @cli.command("create-districtr-map")
 @click.option("--name", "-n", help="Name of the districtr map", required=True)
 @click.option(
@@ -280,53 +321,32 @@ def create_gerrydb_tileset(
 )
 @click.option("--num-districts", "-n", help="Number of districts", required=False)
 @click.option("--tiles-s3-path", "-t", help="S3 path to the tileset", required=False)
-@click.option("--parent-layer", "-p", help="Parent gerrydb layer UUID", required=True)
-@click.option("--child-layer", "-c", help="Child gerrydb layer UUID", required=False)
+@click.option(
+    "--parent-layer-name", "-p", help="Parent gerrydb layer name", required=True
+)
+@click.option(
+    "--child-layer-name", "-c", help="Child gerrydb layer name", required=False
+)
 def create_districtr_map(
     name: str,
     gerrydb_table_name: str,
     num_districts: int,
     tiles_s3_path: str,
-    parent_layer: str,
-    child_layer: str,
+    parent_layer_name: str,
+    child_layer_name: str,
 ):
     logger.info("Creating districtr map...")
     session = next(get_session())
-
-    data = DistrictrMapCreate.model_validate(
-        {
-            "name": name,
-            "gerrydb_table_name": gerrydb_table_name,
-            "num_districts": num_districts,
-            "tiles_s3_path": tiles_s3_path,
-            "parent_layer": parent_layer,
-            "child_layer": child_layer,
-        }
+    inserted_uuid = _create_districtr_map(
+        session,
+        name,
+        gerrydb_table_name,
+        num_districts,
+        tiles_s3_path,
+        parent_layer_name,
+        child_layer_name,
     )
-
-    db_districtr_map = data.model_dump(exclude_unset=True, exclude_none=True)
-    columns = ", ".join(db_districtr_map.keys())
-    # Pretty ugly but works for now. Could be prettier to use the ORM but was complicated handling
-    # the missing uuid if we want to generate the UUID w/ SQL's `gen_random_uuid()`
-    values = ", ".join(
-        [f"'{v}'" if isinstance(v, str) else v for v in db_districtr_map.values()]
-    )
-
-    stmt = text(f"""
-    INSERT INTO districtrmap (created_at, uuid, {columns})
-    VALUES (now(), gen_random_uuid(), {values})
-    RETURNING uuid
-    """)
-
-    try:
-        (inserted_uuid,) = session.exec(stmt)
-        session.commit()
-    except Exception as e:
-        session.rollback()
-        logger.error("Failed to upsert GerryDB tiles. Got %s", e)
-        raise ValueError(f"Failed to upsert GerryDB tiles. Got {e}")
-
-    session.close()
+    session.commit()
     logger.info(f"Districtr map created successfully {inserted_uuid}")
 
 

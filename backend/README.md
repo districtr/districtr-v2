@@ -87,7 +87,7 @@ If needed, create a user for yourself.
 
 ### Testing
 
-`pytest --cov=app --cov-report=html`
+`pytest --cov=.`
 
 Or with full coverage report:
 

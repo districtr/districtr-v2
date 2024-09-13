@@ -11,7 +11,7 @@ from sqlmodel import (
     text,
     Column,
     MetaData,
-    Integer,
+    String,
 )
 from app.constants import DOCUMENT_SCHEMA
 
@@ -68,15 +68,6 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # we'll want discrete management steps
 
 
-class DistrictrMapCreate(BaseModel):
-    name: str
-    gerrydb_table_name: str | None = None
-    num_districts: int | None = None
-    tiles_s3_path: str | None = None
-    parent_layer: str
-    child_layer: str | None = None
-
-
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     # Must correspond to the layer name in the tileset if a
@@ -84,16 +75,16 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
 
 
 class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
-    id: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=True))
     districtr_map: str = Field(
         sa_column=Column(
             UUIDType,
             ForeignKey("districtrmap.uuid"),
             nullable=False,
+            primary_key=True,
         )
     )
-    parent_path: str
-    child_path: str
+    parent_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
+    child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
 class GerryDBViewPublic(BaseModel):
