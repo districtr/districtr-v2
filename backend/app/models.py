@@ -44,7 +44,7 @@ class TimeStampMixin(SQLModel):
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
-    name: str | None = Field(nullable=False)
+    name: str = Field(nullable=False)
     # This is intentionally not a foreign key on `GerryDBTable` because in some cases
     # this may be the GerryDBTable but in others the pop table may be a materialized
     # view of two GerryDBTables in the case of shatterable maps.

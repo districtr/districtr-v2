@@ -95,3 +95,17 @@ def test_create_districtr_map(
         child_layer_name="simple_child_geos",
     )
     print("NEW MAP UUID", new_map_uuid)
+
+
+def test_create_districtr_map_some_nulls(
+    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
+):
+    # This is also an example of a districtr map before other set-up operations
+    # are performed, such as creating a tileset and a shatterable view
+    (new_map_uuid,) = _create_districtr_map(
+        session,
+        name="Simple non-shatterable layer",
+        gerrydb_table_name="simple_parent_geos",
+        parent_layer_name="simple_parent_geos",
+    )
+    print("NEW MAP UUID", new_map_uuid)

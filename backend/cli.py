@@ -277,11 +277,11 @@ def create_gerrydb_tileset(
 def _create_districtr_map(
     session: Session,
     name: str,
-    gerrydb_table_name: str,
-    num_districts: int,
-    tiles_s3_path: str,
     parent_layer_name: str,
-    child_layer_name: str,
+    child_layer_name: str | None = None,
+    gerrydb_table_name: str | None = None,
+    num_districts: int | None = None,
+    tiles_s3_path: str | None = None,
 ):
     stmt = text("""
     SELECT * FROM create_districtr_map(
@@ -315,36 +315,30 @@ def _create_districtr_map(
 
 
 @cli.command("create-districtr-map")
-@click.option("--name", "-n", help="Name of the districtr map", required=True)
-@click.option(
-    "--gerrydb-table-name", "-g", help="Name of the GerryDB table", required=False
-)
-@click.option("--num-districts", "-n", help="Number of districts", required=False)
-@click.option("--tiles-s3-path", "-t", help="S3 path to the tileset", required=False)
-@click.option(
-    "--parent-layer-name", "-p", help="Parent gerrydb layer name", required=True
-)
-@click.option(
-    "--child-layer-name", "-c", help="Child gerrydb layer name", required=False
-)
+@click.option("--name", help="Name of the districtr map", required=True)
+@click.option("--parent-layer-name", help="Parent gerrydb layer name", required=True)
+@click.option("--child-layer-name", help="Child gerrydb layer name", required=False)
+@click.option("--gerrydb-table-name", help="Name of the GerryDB table", required=False)
+@click.option("--num-districts", help="Number of districts", required=False)
+@click.option("--tiles-s3-path", help="S3 path to the tileset", required=False)
 def create_districtr_map(
     name: str,
+    parent_layer_name: str,
+    child_layer_name: str,
     gerrydb_table_name: str,
     num_districts: int,
     tiles_s3_path: str,
-    parent_layer_name: str,
-    child_layer_name: str,
 ):
     logger.info("Creating districtr map...")
     session = next(get_session())
     inserted_uuid = _create_districtr_map(
-        session,
-        name,
-        gerrydb_table_name,
-        num_districts,
-        tiles_s3_path,
-        parent_layer_name,
-        child_layer_name,
+        session=session,
+        name=name,
+        parent_layer_name=parent_layer_name,
+        child_layer_name=child_layer_name,
+        gerrydb_table_name=gerrydb_table_name,
+        num_districts=num_districts,
+        tiles_s3_path=tiles_s3_path,
     )
     session.commit()
     logger.info(f"Districtr map created successfully {inserted_uuid}")

@@ -25,7 +25,7 @@ BEGIN
     WHERE name = child_layer_name;
 
     IF child_layer_uuid IS NULL THEN
-        RAISE EXCEPTION 'Child layer not found: %', child_layer_name;
+        RAISE NOTICE 'Child layer not specified: %. If creating a shatterable map, child layer is required', child_layer_name;
     END IF;
 
     INSERT INTO districtrmap (
