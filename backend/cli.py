@@ -9,7 +9,7 @@ import subprocess
 from urllib.parse import urlparse, ParseResult
 from sqlalchemy import text
 from app.constants import GERRY_DB_SCHEMA
-from sqlalchemy import bindparam, Integer, String
+from sqlalchemy import bindparam, Integer, String, Text
 from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
@@ -342,6 +342,53 @@ def create_districtr_map(
     )
     session.commit()
     logger.info(f"Districtr map created successfully {inserted_uuid}")
+
+
+def _create_shatterable_gerrydb_view(
+    session: Session,
+    parent_layer_name: str,
+    child_layer_name: str,
+    gerrydb_table_name: str,
+):
+    print("gerrydb_table_name", gerrydb_table_name)
+    stmt = text(
+        "CALL create_shatterable_gerrydb_view(:parent_layer_name, :child_layer_name, :gerrydb_table_name)"
+    ).bindparams(
+        bindparam(key="parent_layer_name", type_=Text),
+        bindparam(key="child_layer_name", type_=Text),
+        bindparam(key="gerrydb_table_name", type_=Text),
+    )
+    session.execute(
+        stmt,
+        {
+            "parent_layer_name": parent_layer_name,
+            "child_layer_name": child_layer_name,
+            "gerrydb_table_name": gerrydb_table_name,
+        },
+    )
+
+
+@cli.command("create-shatterable-districtr-view")
+@click.option("--parent-layer-name", help="Parent gerrydb layer name", required=True)
+@click.option("--child-layer-name", help="Child gerrydb layer name", required=False)
+@click.option("--gerrydb-table-name", help="Name of the GerryDB table", required=False)
+def create_shatterable_gerrydb_view(
+    parent_layer_name: str,
+    child_layer_name: str,
+    gerrydb_table_name: str,
+):
+    logger.info("Creating materialized shatterable gerrydb view...")
+    session = next(get_session())
+    inserted_uuid = _create_shatterable_gerrydb_view(
+        session=session,
+        parent_layer_name=parent_layer_name,
+        child_layer_name=child_layer_name,
+        gerrydb_table_name=gerrydb_table_name,
+    )
+    session.commit()
+    logger.info(
+        f"Materialized shatterable gerrydb view created successfully {inserted_uuid}"
+    )
 
 
 if __name__ == "__main__":

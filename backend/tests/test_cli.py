@@ -1,6 +1,6 @@
 import pytest
 import os
-from cli import _create_districtr_map
+from cli import _create_districtr_map, _create_shatterable_gerrydb_view
 from sqlmodel import Session
 import subprocess
 from app.constants import GERRY_DB_SCHEMA
@@ -109,3 +109,15 @@ def test_create_districtr_map_some_nulls(
         parent_layer_name="simple_parent_geos",
     )
     print("NEW MAP UUID", new_map_uuid)
+
+
+def test_create_shatterable_gerrydb_view(
+    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
+):
+    _create_shatterable_gerrydb_view(
+        session,
+        parent_layer_name="simple_parent_geos",
+        child_layer_name="simple_child_geos",
+        gerrydb_table_name="simple_geos",
+    )
+    print("SHATTERABLE VIEW CREATED")
