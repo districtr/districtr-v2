@@ -13,12 +13,12 @@ from app.core.config import settings
 from app.models import (
     Assignments,
     AssignmentsCreate,
+    DistrictrMap,
     Document,
     DocumentCreate,
     DocumentPublic,
     ZonePopulation,
-    GerryDBTable,
-    GerryDBViewPublic,
+    DistrictrMapPublic,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -82,18 +82,9 @@ async def create_document(
         {"gerrydb_table_name": data.gerrydb_table},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
-    stmt = (
-        select(
-            Document.document_id,
-            Document.created_at,
-            Document.updated_at,
-            Document.gerrydb_table,
-            # GerryDBTable.tiles_s3_path,
-        )
-        .where(Document.document_id == document_id)
-        # .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
-        .limit(1)
-    )
+    stmt = select(Document).where(Document.document_id == document_id).limit(1)
+    # Document id has a unique constraint so I'm not sure we need to hit the DB again here
+    # more valuable would be to check that the assignments table
     doc = session.exec(
         stmt
     ).one()  # again if we've got more than one, we have problems.
@@ -139,7 +130,7 @@ async def update_assignments(
     stmt = stmt.on_conflict_do_update(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
-    session.exec(stmt)
+    session.execute(stmt)
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
 
@@ -160,10 +151,10 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             Document.created_at,
             Document.gerrydb_table,
             Document.updated_at,
-            # GerryDBTable.tiles_s3_path.label("tiles_s3_path"),
-        )
+            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+        )  # pyright: ignore
         .where(Document.document_id == document_id)
-        # .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
+        .join(DistrictrMap, Document.gerrydb_table == DistrictrMap.name, isouter=True)
         .limit(1)
     )
     result = session.exec(stmt)
@@ -195,7 +186,7 @@ async def get_total_population(
             )
 
 
-@app.get("/api/gerrydb/views", response_model=list[GerryDBViewPublic])
+@app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
 async def get_projects(
     *,
     session: Session = Depends(get_session),
@@ -203,8 +194,8 @@ async def get_projects(
     limit: int = Query(default=100, le=100),
 ):
     gerrydb_views = session.exec(
-        select(GerryDBTable)
-        .order_by(GerryDBTable.created_at.asc())
+        select(DistrictrMap)
+        .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)
     ).all()

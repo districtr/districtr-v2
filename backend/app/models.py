@@ -68,9 +68,18 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # we'll want discrete management steps
 
 
+class DistrictrMapPublic(BaseModel):
+    name: str
+    gerrydb_table_name: str
+    parent_layer: str
+    child_layer: str | None = None
+    tiles_s3_path: str | None = None
+    num_districts: int | None = None
+
+
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
-    # Must correspond to the layer name in the tileset if a
+    # Must correspond to the layer name in the tileset
     name: str = Field(nullable=False, unique=True)
 
 
@@ -85,10 +94,6 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     )
     parent_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
     child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
-
-
-class GerryDBViewPublic(BaseModel):
-    name: str
 
 
 class Document(TimeStampMixin, SQLModel, table=True):

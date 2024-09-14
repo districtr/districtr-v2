@@ -45,8 +45,8 @@ BEGIN
         gerrydb_table_name,
         num_districts,
         tiles_s3_path,
-        parent_layer_uuid,
-        child_layer_uuid
+        parent_layer_name,
+        child_layer_name
     )
     RETURNING uuid INTO map_uuid;
     RETURN map_uuid;

@@ -1,6 +1,6 @@
 import pytest
 import os
-from cli import _create_districtr_map, _create_shatterable_gerrydb_view
+from app.utils import create_districtr_map, create_shatterable_gerrydb_view
 from sqlmodel import Session
 import subprocess
 from app.constants import GERRY_DB_SCHEMA
@@ -85,7 +85,7 @@ def simple_child_geos_gerrydb_fixture(session: Session, simple_child_geos):
 def test_create_districtr_map(
     session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
 ):
-    (new_map_uuid,) = _create_districtr_map(
+    (new_map_uuid,) = create_districtr_map(
         session,
         name="Simple shatterable layer",
         gerrydb_table_name="simple_geos",
@@ -102,7 +102,7 @@ def test_create_districtr_map_some_nulls(
 ):
     # This is also an example of a districtr map before other set-up operations
     # are performed, such as creating a tileset and a shatterable view
-    (new_map_uuid,) = _create_districtr_map(
+    (new_map_uuid,) = create_districtr_map(
         session,
         name="Simple non-shatterable layer",
         gerrydb_table_name="simple_parent_geos",
@@ -114,7 +114,7 @@ def test_create_districtr_map_some_nulls(
 def test_create_shatterable_gerrydb_view(
     session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
 ):
-    _create_shatterable_gerrydb_view(
+    create_shatterable_gerrydb_view(
         session,
         parent_layer_name="simple_parent_geos",
         child_layer_name="simple_child_geos",
