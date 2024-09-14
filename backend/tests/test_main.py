@@ -12,6 +12,7 @@ from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     FIXTURES_PATH,
 )
+from app.utils import create_districtr_map
 
 
 client = TestClient(app)
@@ -119,8 +120,8 @@ def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
 
-@pytest.fixture(name="gerrydbtable")
-def gerrydbtable_fixture(session: Session):
+@pytest.fixture(name="ks_demo_view_census_blocks_gerrydb")
+def ks_demo_view_census_blocks_gerrydb_fixture(session: Session):
     upsert_query = text("""
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
@@ -133,18 +134,15 @@ def gerrydbtable_fixture(session: Session):
     session.commit()
 
 
-@pytest.fixture(name="second_gerrydbtable")
-def second_gerrydbtable_fixture(session: Session):
-    upsert_query = text("""
-        INSERT INTO gerrydbtable (uuid, name, updated_at)
-        VALUES (gen_random_uuid(), :name, now())
-        ON CONFLICT (name)
-        DO UPDATE SET
-            updated_at = now()
-    """)
-    session.begin()
-    session.execute(upsert_query, {"name": "bleh"})
-    session.commit()
+@pytest.fixture(name="districtr_maps")
+def districtr_map_fixtures(session: Session, ks_demo_view_census_blocks_gerrydb):
+    for i in range(4):
+        create_districtr_map(
+            session=session,
+            name=f"Districtr map {i}",
+            parent_layer_name=GERRY_DB_FIXTURE_NAME,
+            gerrydb_table_name=f"districtr_map_{i}",
+        )
 
 
 @pytest.fixture(name="document_id")
@@ -399,28 +397,28 @@ def test_get_document_population_totals_no_gerrydb_pop_view(
     assert result.json() == {"detail": "Population column not found in GerryDB view"}
 
 
-def test_list_gerydb_views(client, gerrydbtable):
+def test_list_gerydb_views(client, districtr_maps):
     response = client.get("/api/gerrydb/views")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 3
+    assert len(data) == 4
 
 
-def test_list_gerydb_views_limit(client, gerrydbtable):
+def test_list_gerydb_views_limit(client, districtr_maps):
     response = client.get("/api/gerrydb/views?limit=0")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 0
 
 
-def test_list_gerydb_views_offset(client, gerrydbtable, second_gerrydbtable):
+def test_list_gerydb_views_offset(client, districtr_maps):
     response = client.get("/api/gerrydb/views?offset=1")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 3
 
 
-def test_list_gerydb_views_offset_and_limit(client, gerrydbtable, second_gerrydbtable):
+def test_list_gerydb_views_offset_and_limit(client, districtr_maps):
     response = client.get("/api/gerrydb/views?offset=1&limit=1")
     assert response.status_code == 200
     data = response.json()
