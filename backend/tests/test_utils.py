@@ -115,7 +115,7 @@ def districtr_map_fixture(
     (inserted_districtr_map,) = create_districtr_map(
         session,
         name="Simple shatterable layer",
-        gerrydb_table_name="simple_geos_bleh",
+        gerrydb_table_name="simple_geos",
         num_districts=10,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
         parent_layer_name="simple_parent_geos",
