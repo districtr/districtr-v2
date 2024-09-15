@@ -1,5 +1,7 @@
 import os
 import pytest
+from app.main import app, get_session
+from fastapi.testclient import TestClient
 from sqlmodel import create_engine, Session
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -10,6 +12,24 @@ from tests.constants import (
     TEST_SQLALCHEMY_DATABASE_URI,
     TEST_POSTGRES_CONNECTION_STRING,
 )
+
+client = TestClient(app)
+
+
+@pytest.fixture(name="client")
+def client_fixture(session: Session):
+    def get_session_override():
+        return session
+
+    def get_auth_result_override():
+        return True
+
+    app.dependency_overrides[get_session] = get_session_override
+
+    client = TestClient(app, headers={"origin": "http://localhost:5173"})
+    yield client
+    app.dependency_overrides.clear()
+
 
 my_env = os.environ.copy()
 my_env["POSTGRES_DB"] = POSTGRES_TEST_DB

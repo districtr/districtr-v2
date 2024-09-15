@@ -2,7 +2,11 @@ CREATE OR REPLACE FUNCTION shatter_parent(
     input_document_id UUID,
     parent_geoids VARCHAR[]
 )
-RETURNS TABLE (document_id UUID, child_path TEXT, zone TEXT) AS $$
+RETURNS TABLE (
+    output_document_id UUID,
+    output_child_path VARCHAR,
+    output_zone INTEGER
+) AS $$
 DECLARE
     districtr_map_uuid UUID;
 
@@ -20,7 +24,7 @@ BEGIN
     INSERT INTO document.assignments (document_id, geo_id, zone)
     SELECT $1, child_geoids.child_path, child_geoids.zone
     FROM (
-        SELECT edges.child_path, a.zone
+        SELECT a.document_id, edges.child_path, a.zone
         FROM document.assignments a
         INNER JOIN parentchildedges edges
         ON edges.parent_path = a.geo_id
@@ -38,7 +42,11 @@ BEGIN
     -- Is there a way to return the child_geoids CTE from the INSERT INTO statement
     -- so that we don't have to do this SELECT statement?
     RETURN QUERY
-    SELECT $1 AS document_id, geo_id, zone FROM document.assignments a
+    SELECT
+        $1 AS output_document_id,
+        geo_id AS output_geo_id,
+        zone AS output_zone
+    FROM document.assignments a
     WHERE a.document_id = $1 AND geo_id IN (
         SELECT edges.child_path
         FROM parentchildedges edges

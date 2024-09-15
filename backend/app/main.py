@@ -2,10 +2,12 @@ from fastapi import FastAPI, status, Depends, HTTPException, Query
 from pydantic import UUID4
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
-from sqlmodel import Session, select
+from sqlmodel import Session, String, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
+from sqlalchemy import bindparam
+from sqlmodel import ARRAY
 
 import sentry_sdk
 from app.core.db import engine
@@ -18,6 +20,7 @@ from app.models import (
     DocumentCreate,
     DocumentPublic,
     GEOIDS,
+    UUIDType,
     ZonePopulation,
     DistrictrMapPublic,
 )
@@ -144,9 +147,25 @@ async def shatter_parent(
     document_id: str, data: GEOIDS, session: Session = Depends(get_session)
 ):
     stmt = text(
-        """SELECT * FROM document.shatter_parent(:input_document_id, :parent_geoids)"""
-    ).bindparams(input_document_id=document_id, parent_geoids=data.geoids)
-    results = session.execute(stmt)
+        """SELECT
+            *
+            -- output_document_id AS document_id,
+            -- output_child_path AS geo_id,
+            -- output_zone AS zone
+        FROM shatter_parent(:input_document_id, :parent_geoids)"""
+    ).bindparams(
+        bindparam(key="input_document_id", type_=UUIDType),
+        bindparam(key="parent_geoids", type_=ARRAY(String)),
+    )
+    results = session.execute(
+        stmt,
+        {
+            "input_document_id": document_id,
+            "parent_geoids": data.geoids,
+        },
+    )
+    print("RESULTS", results.all())
+    session.commit()
     return results
 
 

@@ -1,9 +1,8 @@
 import os
 import pytest
-from fastapi.testclient import TestClient
 from sqlmodel import Session
 
-from app.main import app, get_session
+from app.main import get_session
 from app.constants import GERRY_DB_SCHEMA
 from sqlalchemy import text
 import subprocess
@@ -15,10 +14,7 @@ from tests.constants import (
 from app.utils import create_districtr_map
 
 
-client = TestClient(app)
-
-
-def test_read_main():
+def test_read_main(client):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"message": "Hello World"}
@@ -37,21 +33,6 @@ GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 
 
 ## Test DB
-
-
-@pytest.fixture(name="client")
-def client_fixture(session: Session):
-    def get_session_override():
-        return session
-
-    def get_auth_result_override():
-        return True
-
-    app.dependency_overrides[get_session] = get_session_override
-
-    client = TestClient(app, headers={"origin": "http://localhost:5173"})
-    yield client
-    app.dependency_overrides.clear()
 
 
 @pytest.fixture(name=GERRY_DB_FIXTURE_NAME)

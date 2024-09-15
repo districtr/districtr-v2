@@ -134,7 +134,7 @@ def test_create_districtr_map(
     (inserted_districtr_map,) = create_districtr_map(
         session,
         name="Simple shatterable layer",
-        gerrydb_table_name="simple_geos_bleh",
+        gerrydb_table_name="simple_geos",
         num_districts=10,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
         parent_layer_name="simple_parent_geos",
@@ -174,3 +174,29 @@ def test_create_parent_child_edges(
 ):
     create_parent_child_edges(session=session, districtr_map_uuid=districtr_map)
     session.commit()
+
+
+def test_shattering(client):
+    # Set-up
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": "simple_geos",
+        },
+    )
+    assert response.status_code == 201
+    doc = response.json()
+    document_id = doc["document_id"]
+
+    response = client.patch(
+        "/api/update_assignments",
+        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
+    )
+    assert response.status_code == 200
+
+    # Test
+    response = client.patch(
+        f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}
+    )
+    assert response.status_code == 200
+    print("RESPONSEARONI", response.json())
