@@ -1,6 +1,10 @@
 import pytest
 import os
-from app.utils import create_districtr_map, create_shatterable_gerrydb_view
+from app.utils import (
+    create_districtr_map,
+    create_shatterable_gerrydb_view,
+    create_parent_child_edges,
+)
 from sqlmodel import Session
 import subprocess
 from app.constants import GERRY_DB_SCHEMA
@@ -22,6 +26,10 @@ def simple_parent_geos_fixture(session: Session):
             "OVERWRITE=yes",
             "-nln",
             f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+            "-nlt",
+            "MULTIPOLYGON",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
         ],
     )
 
@@ -44,6 +52,10 @@ def simple_child_geos_fixture(session: Session):
             "OVERWRITE=yes",
             "-nln",
             f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+            "-nlt",
+            "MULTIPOLYGON",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
         ],
     )
 
@@ -82,19 +94,53 @@ def simple_child_geos_gerrydb_fixture(session: Session, simple_child_geos):
     session.close()
 
 
-def test_create_districtr_map(
+@pytest.fixture(name="gerrydb_simple_geos_view")
+def gerrydb_simple_geos_view_fixture(
     session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
 ):
-    (new_map_uuid,) = create_districtr_map(
+    create_shatterable_gerrydb_view(
+        session,
+        parent_layer_name="simple_parent_geos",
+        child_layer_name="simple_child_geos",
+        gerrydb_table_name="simple_geos",
+    )
+    session.commit()
+    return
+
+
+@pytest.fixture(name="districtr_map")
+def districtr_map_fixture(
+    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
+):
+    (inserted_districtr_map,) = create_districtr_map(
         session,
         name="Simple shatterable layer",
-        gerrydb_table_name="simple_geos",
+        gerrydb_table_name="simple_geos_bleh",
         num_districts=10,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
         parent_layer_name="simple_parent_geos",
         child_layer_name="simple_child_geos",
     )
-    print("NEW MAP UUID", new_map_uuid)
+    session.commit()
+    return inserted_districtr_map
+
+
+# FOR THE TESTS BELOW I NEED TO ADD ACTUAL ASSERTIONS
+
+
+def test_create_districtr_map(
+    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
+):
+    (inserted_districtr_map,) = create_districtr_map(
+        session,
+        name="Simple shatterable layer",
+        gerrydb_table_name="simple_geos_bleh",
+        num_districts=10,
+        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
+        parent_layer_name="simple_parent_geos",
+        child_layer_name="simple_child_geos",
+    )
+    session.commit()
 
 
 def test_create_districtr_map_some_nulls(
@@ -102,13 +148,13 @@ def test_create_districtr_map_some_nulls(
 ):
     # This is also an example of a districtr map before other set-up operations
     # are performed, such as creating a tileset and a shatterable view
-    (new_map_uuid,) = create_districtr_map(
+    (inserted_districtr_map,) = create_districtr_map(
         session,
         name="Simple non-shatterable layer",
-        gerrydb_table_name="simple_parent_geos",
+        gerrydb_table_name="simple_parent_geos_some_nulls",
         parent_layer_name="simple_parent_geos",
     )
-    print("NEW MAP UUID", new_map_uuid)
+    session.commit()
 
 
 def test_create_shatterable_gerrydb_view(
@@ -118,6 +164,13 @@ def test_create_shatterable_gerrydb_view(
         session,
         parent_layer_name="simple_parent_geos",
         child_layer_name="simple_child_geos",
-        gerrydb_table_name="simple_geos",
+        gerrydb_table_name="simple_geos_test",
     )
-    print("SHATTERABLE VIEW CREATED")
+    session.commit()
+
+
+def test_create_parent_child_edges(
+    session: Session, districtr_map: str, gerrydb_simple_geos_view
+):
+    create_parent_child_edges(session=session, districtr_map_uuid=districtr_map)
+    session.commit()

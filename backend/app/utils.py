@@ -2,6 +2,8 @@ from sqlalchemy import text
 from sqlalchemy import bindparam, Integer, String, Text
 from sqlmodel import Session
 
+from app.models import UUIDType
+
 
 def create_districtr_map(
     session: Session,
@@ -11,9 +13,25 @@ def create_districtr_map(
     gerrydb_table_name: str | None = None,
     num_districts: int | None = None,
     tiles_s3_path: str | None = None,
-):
+) -> str:
+    """
+    Create a new districtr map.
+
+    Args:
+        session: The database session.
+        name: The name of the map.
+        parent_layer_name: The name of the parent layer.
+        child_layer_name: The name of the child layer.
+        gerrydb_table_name: The name of the gerrydb table.
+        num_districts: The number of districts.
+        tiles_s3_path: The S3 path to the tiles.
+
+    Returns:
+        The UUID of the inserted map.
+    """
     stmt = text("""
-    SELECT * FROM create_districtr_map(
+    SELECT *
+    FROM create_districtr_map(
         :map_name,
         :gerrydb_table_name,
         :num_districts,
@@ -29,7 +47,7 @@ def create_districtr_map(
         bindparam(key="child_layer_name", type_=String),
     )
 
-    (inserted_uuid,) = session.execute(
+    (inserted_map_uuid,) = session.execute(
         stmt,
         {
             "map_name": name,
@@ -40,7 +58,7 @@ def create_districtr_map(
             "child_layer_name": child_layer_name,
         },
     )
-    return inserted_uuid
+    return inserted_map_uuid  # pyright: ignore
 
 
 def create_shatterable_gerrydb_view(
@@ -48,7 +66,7 @@ def create_shatterable_gerrydb_view(
     parent_layer_name: str,
     child_layer_name: str,
     gerrydb_table_name: str,
-):
+) -> None:
     print("gerrydb_table_name", gerrydb_table_name)
     stmt = text(
         "CALL create_shatterable_gerrydb_view(:parent_layer_name, :child_layer_name, :gerrydb_table_name)"
@@ -63,5 +81,27 @@ def create_shatterable_gerrydb_view(
             "parent_layer_name": parent_layer_name,
             "child_layer_name": child_layer_name,
             "gerrydb_table_name": gerrydb_table_name,
+        },
+    )
+
+
+def create_parent_child_edges(
+    session: Session,
+    districtr_map_uuid: str,
+) -> None:
+    """
+    Create the parent child edges for a given gerrydb map.
+
+    Args:
+        session: The database session.
+        districtr_map_uuid: The UUID of the districtr map.
+    """
+    stmt = text("CALL add_parent_child_relationships(:districtr_map_uuid)").bindparams(
+        bindparam(key="districtr_map_uuid", type_=UUIDType),
+    )
+    session.execute(
+        stmt,
+        {
+            "districtr_map_uuid": districtr_map_uuid,
         },
     )

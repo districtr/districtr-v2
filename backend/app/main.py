@@ -17,6 +17,7 @@ from app.models import (
     Document,
     DocumentCreate,
     DocumentPublic,
+    GEOIDS,
     ZonePopulation,
     DistrictrMapPublic,
 )
@@ -133,6 +134,20 @@ async def update_assignments(
     session.execute(stmt)
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
+
+
+@app.patch(
+    "/api/update_assignments/{document_id}/shatter_parents",
+    response_model=list[Assignments],
+)
+async def shatter_parent(
+    document_id: str, data: GEOIDS, session: Session = Depends(get_session)
+):
+    stmt = text(
+        """SELECT * FROM document.shatter_parent(:input_document_id, :parent_geoids)"""
+    ).bindparams(input_document_id=document_id, parent_geoids=data.geoids)
+    results = session.execute(stmt)
+    return results
 
 
 # called by getAssignments in apiHandlers.ts

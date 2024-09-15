@@ -10,7 +10,7 @@ RETURNS UUID AS $$
 DECLARE
     parent_layer_uuid UUID;
     child_layer_uuid UUID;
-    map_uuid UUID;
+    inserted_districtr_uuid UUID;
 BEGIN
     SELECT uuid INTO parent_layer_uuid
     FROM gerrydbtable
@@ -38,17 +38,8 @@ BEGIN
         parent_layer,
         child_layer
     )
-    VALUES (
-        now(),
-        gen_random_uuid(),
-        map_name,
-        gerrydb_table_name,
-        num_districts,
-        tiles_s3_path,
-        parent_layer_name,
-        child_layer_name
-    )
-    RETURNING uuid INTO map_uuid;
-    RETURN map_uuid;
+    VALUES (now(), gen_random_uuid(), $1, $2, $3, $4, $5, $6)
+    RETURNING uuid INTO inserted_districtr_uuid;
+    RETURN inserted_districtr_uuid;
 END;
 $$ LANGUAGE plpgsql;

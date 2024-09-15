@@ -3,8 +3,7 @@ NOTE: This enforces identical schemas but requires that the child contain all th
 except geometry that the parent has. In the future we may want to allow subsetting but
 for now I think this is fine. It does make sure the columns are properly ordered which is nice.
 */
-DROP PROCEDURE IF EXISTS create_shatterable_gerrydb_view(TEXT, TEXT, TEXT);
-CREATE PROCEDURE create_shatterable_gerrydb_view(
+CREATE OR REPLACE PROCEDURE create_shatterable_gerrydb_view(
     parent_gerrydb_table_name TEXT,
     child_gerrydb_table_name TEXT,
     gerrydb_table_name TEXT

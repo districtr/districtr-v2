@@ -12,6 +12,7 @@ from app.constants import GERRY_DB_SCHEMA
 from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
+    create_parent_child_edges as _create_parent_child_edges,
 )
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,10 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
             layer,  # must match layer name in gpkg
             "-lco",
             "OVERWRITE=yes",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
+            "-nlt",
+            "MULTIPOLYGON",
             "-nln",
             f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
         ],
@@ -132,45 +137,28 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
     session.close()
 
 
-@cli.command("create-parent-child-relationships")
-@click.option("--districtr-map", "-d", help="Districtr map UUID", required=True)
-@click.option("--parent", "-p", help="Parent layer", required=True)
-@click.option("--child", "-c", help="Child layer", required=True)
-def create_parent_child_relationships(districtr_map: str, parent: str, child: str):
-    logger.info("Creating parent-child relationships...")
+@cli.command("create-parent-child-edges")
+@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
+def create_parent_child_edges(districtr_map: str, parent: str, child: str):
+    logger.info("Creating parent-child edges...")
 
     session = next(get_session())
-
-    upsert_query = text("""
-        CALL add_parent_child_relationships(
-            CAST(:districtr_map AS UUID),
-            CAST(:parent AS TEXT),
-            CAST(:child AS TEXT)
-        )
-    """)
-    session.execute(
-        upsert_query,
-        {
-            "districtr_map": districtr_map,
-            "parent": parent,
-            "child": child,
-        },
-    )
+    _create_parent_child_edges(session=session, gerrydb_table_name=districtr_map)
     session.commit()
     logger.info("Parent-child relationship upserted successfully.")
 
     session.close()
 
 
-@cli.command("delete-parent-child-relationships")
-@click.option("--districtr-map", "-d", help="Districtr map UUID", required=True)
-def delete_parent_child_relationships(districtr_map: str):
-    logger.info("Deleting parent-child relationships...")
+@cli.command("delete-parent-child-edges")
+@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
+def delete_parent_child_edges(districtr_map: str):
+    logger.info("Deleting parent-child edges...")
 
     session = next(get_session())
 
     delete_query = text("""
-        DELETE FROM parent_child_relationships
+        DELETE FROM parentchildedges
         WHERE districtr_map = :districtr_map
     """)
     session.execute(
@@ -293,7 +281,7 @@ def create_districtr_map(
 ):
     logger.info("Creating districtr map...")
     session = next(get_session())
-    inserted_uuid = _create_districtr_map(
+    districtr_map_uuid = _create_districtr_map(
         session=session,
         name=name,
         parent_layer_name=parent_layer_name,
@@ -303,7 +291,7 @@ def create_districtr_map(
         tiles_s3_path=tiles_s3_path,
     )
     session.commit()
-    logger.info(f"Districtr map created successfully {inserted_uuid}")
+    logger.info(f"Districtr map created successfully {districtr_map_uuid}")
 
 
 @cli.command("create-shatterable-districtr-view")

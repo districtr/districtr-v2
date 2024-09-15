@@ -136,6 +136,10 @@ class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
 
 
+class GEOIDS(BaseModel):
+    geoids: list[str]
+
+
 class ZonePopulation(BaseModel):
     zone: int
     total_pop: int

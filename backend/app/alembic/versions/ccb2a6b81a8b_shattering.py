@@ -90,6 +90,7 @@ def upgrade() -> None:
         "parent_child_relationships.sql",
         "create_shatterable_gerrydb_view.sql",
         "create_districtr_map_udf.sql",
+        "shatter_parent.sql",
     ]:
         with open(SQL_PATH / file_name, "r") as f:
             sql = f.read()
@@ -105,11 +106,12 @@ def downgrade() -> None:
     op.drop_table("parentchildedges")
     op.drop_table("districtrmap")
     # ### end Alembic commands ###
-
+    op.execute("DROP PROCEDURE IF EXISTS add_parent_child_relationships(TEXT)")
+    op.execute(
+        "DROP PROCEDURE IF EXISTS create_shatterable_gerrydb_view(TEXT, TEXT, TEXT)"
+    )
     for func_name in [
-        "add_parent_child_relationships",
-        "create_shatterable_gerrydb_view",
         "create_districtr_map",
+        "shatter_parent",
     ]:
-        sql = f"DROP FUNCTION IF EXISTS {func_name}"
-        op.execute(sql)
+        op.execute(f"DROP FUNCTION IF EXISTS {func_name}")
