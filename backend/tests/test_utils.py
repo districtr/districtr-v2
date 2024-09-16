@@ -134,7 +134,7 @@ def test_create_districtr_map(
     (inserted_districtr_map,) = create_districtr_map(
         session,
         name="Simple shatterable layer",
-        gerrydb_table_name="simple_geos",
+        gerrydb_table_name="simple_geos_test",
         num_districts=10,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
         parent_layer_name="simple_parent_geos",
@@ -199,4 +199,8 @@ def test_shattering(client):
         f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}
     )
     assert response.status_code == 200
-    print("RESPONSEARONI", response.json())
+    data = response.json()
+    assert len(data) == 2
+    assert len({d["document_id"] for d in data}) == 1
+    assert {d["geo_id"] for d in data} == {"a", "e"}
+    assert all(d["zone"] == 1 for d in data)

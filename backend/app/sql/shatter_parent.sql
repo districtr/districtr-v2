@@ -21,37 +21,30 @@ BEGIN
         RAISE EXCEPTION 'District map uuid not found for document_id: %', input_document_id;
     END IF;
 
-    INSERT INTO document.assignments (document_id, geo_id, zone)
-    SELECT $1, child_geoids.child_path, child_geoids.zone
-    FROM (
-        SELECT a.document_id, edges.child_path, a.zone
-        FROM document.assignments a
-        INNER JOIN parentchildedges edges
-        ON edges.parent_path = a.geo_id
-        WHERE a.document_id = $1
-            AND a.geo_id = ANY(parent_geoids)
-            AND edges.districtr_map = districtr_map_uuid
-    ) child_geoids
-    ON CONFLICT (document_id, geo_id) DO UPDATE SET zone = EXCLUDED.zone;
+    RETURN QUERY
+    WITH inserted_child_geoids AS (
+        INSERT INTO document.assignments (document_id, geo_id, zone)
+        SELECT $1, child_geoids.child_path, child_geoids.zone
+        FROM (
+            SELECT a.document_id, edges.child_path, a.zone
+            FROM document.assignments a
+            INNER JOIN parentchildedges edges
+            ON edges.parent_path = a.geo_id
+            WHERE a.document_id = $1
+                AND a.geo_id = ANY(parent_geoids)
+                AND edges.districtr_map = districtr_map_uuid
+        ) child_geoids
+        ON CONFLICT (document_id, geo_id) DO UPDATE SET zone = EXCLUDED.zone
+        RETURNING geo_id, zone
+    )
+    SELECT
+        $1 AS document_id,
+        geo_id,
+        zone
+    FROM inserted_child_geoids;
 
-    -- Need to delete the parents after we've inserted the children
-    -- since we use the parent existing zones to determine the child zones.
     DELETE FROM document.assignments a
     WHERE a.document_id = $1 AND geo_id = ANY(parent_geoids);
 
-    -- Is there a way to return the child_geoids CTE from the INSERT INTO statement
-    -- so that we don't have to do this SELECT statement?
-    RETURN QUERY
-    SELECT
-        $1 AS output_document_id,
-        geo_id AS output_geo_id,
-        zone AS output_zone
-    FROM document.assignments a
-    WHERE a.document_id = $1 AND geo_id IN (
-        SELECT edges.child_path
-        FROM parentchildedges edges
-        WHERE edges.districtr_map = districtr_map_uuid
-        AND edges.parent_path = ANY(parent_geoids)
-    );
 END;
 $$ LANGUAGE plpgsql;

@@ -59,6 +59,7 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("uuid"),
         sa.UniqueConstraint("uuid"),
+        sa.UniqueConstraint("gerrydb_table_name"),
     )
     op.create_table(
         "parentchildedges",

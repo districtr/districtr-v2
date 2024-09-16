@@ -146,27 +146,25 @@ async def update_assignments(
 async def shatter_parent(
     document_id: str, data: GEOIDS, session: Session = Depends(get_session)
 ):
-    stmt = text(
-        """SELECT
-            *
-            -- output_document_id AS document_id,
-            -- output_child_path AS geo_id,
-            -- output_zone AS zone
-        FROM shatter_parent(:input_document_id, :parent_geoids)"""
-    ).bindparams(
+    stmt = text("""SELECT *
+        FROM shatter_parent(:input_document_id, :parent_geoids)""").bindparams(
         bindparam(key="input_document_id", type_=UUIDType),
         bindparam(key="parent_geoids", type_=ARRAY(String)),
     )
     results = session.execute(
-        stmt,
-        {
+        statement=stmt,
+        params={
             "input_document_id": document_id,
             "parent_geoids": data.geoids,
         },
     )
-    print("RESULTS", results.all())
+    # :( was getting validation errors so am just going to loop
+    assignments = [
+        Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
+        for document_id, geo_id, zone in results
+    ]
     session.commit()
-    return results
+    return assignments
 
 
 # called by getAssignments in apiHandlers.ts

@@ -67,7 +67,6 @@ def create_shatterable_gerrydb_view(
     child_layer_name: str,
     gerrydb_table_name: str,
 ) -> None:
-    print("gerrydb_table_name", gerrydb_table_name)
     stmt = text(
         "CALL create_shatterable_gerrydb_view(:parent_layer_name, :child_layer_name, :gerrydb_table_name)"
     ).bindparams(

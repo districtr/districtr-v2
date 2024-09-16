@@ -50,7 +50,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # view of two GerryDBTables in the case of shatterable maps.
     # We'll want to enforce the constraint tha the gerrydb_table_name is either in
     # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
-    gerrydb_table_name: str | None = Field(nullable=True)
+    gerrydb_table_name: str | None = Field(nullable=True, unique=True)
     # Null means default number of districts? Should we have a sensible default?
     num_districts: int | None = Field(nullable=True, default=None)
     tiles_s3_path: str | None = Field(nullable=True)
