@@ -1,4 +1,5 @@
 "use client";
+import './utils/why-did-you-render';
 import { MapComponent } from "./components/Map";
 import SidebarComponent from "./components/sidebar/Sidebar";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";

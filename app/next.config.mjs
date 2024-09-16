@@ -1,4 +1,10 @@
 import {withSentryConfig} from "@sentry/nextjs";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const injectWhyDidYouRender = require('./src/app/utils/why-did-you-render');
+
+
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async redirects() {
@@ -13,6 +19,12 @@ const nextConfig = {
   },
   experimental: {
     missingSuspenseWithCSRBailout: false,
+  },
+  webpack: (config, {isServer}) => {
+    if (!isServer) {
+      injectWhyDidYouRender(config);
+    }
+    return config;
   },
 };
 
