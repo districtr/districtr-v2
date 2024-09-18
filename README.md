@@ -9,6 +9,14 @@ The Districtr reboot monorepo.
 - [`pipelines`](pipelines/): Data pipelines, ETL. Not a main focus of the reboot. For now, will mostly contain scratch data transformation scripts before being integrated into the backend CLI.
 - [`prototypes`](prototypes/): Prototypes conducted as part of the reboot.
 
+## Quickstart
+The backend (Python), frontend (NextJS), and database (postgres) can be run locally using Docker.
+
+- Install and configure [Docker](https://www.docker.com/) for your machine
+- Copy `app/.env.dev` to `app/.env`  and `backend/.env.dev` to `backend/.env`
+- From the repo root, run `docker-compose up --build`
+- In `backend/.env`, the variable `LOAD_GERRY_DB_DATA` indicates whether or not to load in local geopackage data. A basic exmaple has been provided; to load additional geographies that have already been processed into tilesets, add the relevant geopackage files to `sample_data`
+
 ## Districtr reboot architecture
 
 After experimenting with various technologies (see [`prototypes`](prototypes/)) we landed on the following architecture for the Districtr reboot:
