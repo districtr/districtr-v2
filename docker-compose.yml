@@ -7,6 +7,7 @@ services:
     volumes:
       - ./backend/app:/districtr-backend/app   # Adjust volumes to point to the backend folder
       - ./backend/scripts:/districtr-backend/scripts  # Ensure scripts are mounted from backend directory
+      - ./sample_data:/districtr-backend/sample_data
     env_file:
       - ./backend/.env  # Ensure the env file is also from the backend folder
     depends_on:
@@ -17,6 +18,7 @@ services:
         echo 'Alembic failed, retrying in 5 seconds...'
         sleep 5;
       done && 
+      python3 scripts/load_data.py &&
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/**/*.py'
       "
     ports:
@@ -35,7 +37,7 @@ services:
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 15s
+      interval: 10s
       retries: 5
   
 
