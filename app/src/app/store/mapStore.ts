@@ -21,6 +21,7 @@ import {
   PaintEventHandler,
   getFeaturesInBbox,
 } from "../utils/helpers";
+import { devtools } from "../utils/devtools";
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
@@ -65,7 +66,7 @@ export interface MapStore {
 }
 
 export const useMapStore = create(
-  subscribeWithSelector<MapStore>((set) => ({
+  devtools(subscribeWithSelector<MapStore>((set) => ({
     mapRef: null,
     setMapRef: (mapRef) => set({ mapRef }),
     mapDocument: null,
@@ -163,7 +164,7 @@ export const useMapStore = create(
         return { visibleLayerIds: Array.from(newVisibleLayerIds) };
       });
     },
-  })),
+  }))),
 );
 
 useMapStore.subscribe(
