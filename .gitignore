@@ -70,4 +70,4 @@ scratch/
 PG:*
 
 *.dev
-!Dockerfile.dev
+sample_data/*
