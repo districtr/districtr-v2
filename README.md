@@ -10,12 +10,12 @@ The Districtr reboot monorepo.
 - [`prototypes`](prototypes/): Prototypes conducted as part of the reboot.
 
 ## Quickstart
+
 The backend (Python), frontend (NextJS), and database (postgres) can be run locally using Docker.
 
 - Install and configure [Docker](https://www.docker.com/) for your machine
-- Copy `app/.env.dev` to `app/.env`  and `backend/.env.dev` to `backend/.env`
 - From the repo root, run `docker-compose up --build`
-- In `backend/.env`, the variable `LOAD_GERRY_DB_DATA` indicates whether or not to load in local geopackage data. A basic exmaple has been provided; to load additional geographies that have already been processed into tilesets, add the relevant geopackage files to `sample_data`
+- To load in data, add data to a folder `sample_data` in the repo root, and in `docker-compose.yml` set `services > backend > environment > LOAD_GERRY_DB_DATA` to `true`. You can change where the script looks for available data with the `GPKG_DATA_DIR` variable.
 
 ## Districtr reboot architecture
 
@@ -24,11 +24,13 @@ After experimenting with various technologies (see [`prototypes`](prototypes/)) 
 ![Districtr architecture](docs/images/districtr-architecture.png "Districtr architecture")
 
 The redesign aims to principally to address three key pain points in the Districtr application’s performance and maintainability:
+
 1. Slow tile rendering
 1. Cumbersome use of tiles as global state for tile rendering and most metric calculation
 1. Complexity and poor interoperability in architecture without slow copies
 
 And two key feature additions
+
 1. Block “shattering”
 1. A headless CMS (this will be added in a later phase of work / is not currently a focus of the reboot)
 
