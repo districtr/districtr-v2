@@ -17,6 +17,7 @@ import {
 } from "../constants/layers";
 import type { UseQueryResult } from "@tanstack/react-query";
 import {
+  ContextMenuState,
   LayerVisibility,
   PaintEventHandler,
   getFeaturesInBbox,
@@ -62,6 +63,8 @@ export interface MapStore {
   setVisibleLayerIds: (layerIds: string[]) => void;
   addVisibleLayerIds: (layerIds: string[]) => void;
   updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
+  contextMenu: ContextMenuState | null
+  setContextMenu: (menu: ContextMenuState | null) => void
 }
 
 export const useMapStore = create(
@@ -163,6 +166,8 @@ export const useMapStore = create(
         return { visibleLayerIds: Array.from(newVisibleLayerIds) };
       });
     },
+    contextMenu: null,
+    setContextMenu: (contextMenu) => set({ contextMenu }),
   })),
 );
 

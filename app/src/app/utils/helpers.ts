@@ -25,7 +25,25 @@ export type PaintEventHandler = (
   map: React.MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
+  layers?: string[],
 ) => MapGeoJSONFeature[] | undefined;
+
+/**
+ * ContextMenuState
+ * Represents the state of the context menu.
+ * @typedef {Object} ContextMenuState
+ * @property {number} x - The x-coordinate of the context menu.
+ * @property {number} y - The y-coordinate of the context menu.
+ * @property {Object} data - The data associated with the context menu.
+ * @property {string} data.geoid - The geographic ID.
+ * @property {string} data.name - The name associated with the geographic ID.
+ */
+export type ContextMenuState = {
+  x: number;
+  y: number;
+  data: MapGeoJSONFeature
+  close: () => void
+}
 
 /**
  * boxAroundPoint
@@ -56,12 +74,11 @@ export const getFeaturesInBbox = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
+  layers: string[] = [BLOCK_LAYER_ID],
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
 
-  return map.current?.queryRenderedFeatures(bbox, {
-    layers: [BLOCK_LAYER_ID],
-  });
+  return map.current?.queryRenderedFeatures(bbox, { layers });
 };
 
 /**
@@ -144,6 +161,7 @@ const getBoundingBoxFromFeatures = (
 
   return [sw, ne];
 };
+
 /**
  * mousePos
  * Get the position of the mouse on the map.

@@ -13,6 +13,7 @@ import {
   UnhighlightFeature,
 } from "./handlers";
 import { ResetMapSelectState } from "@/app/utils/events/handlers";
+import { BLOCK_HOVER_LAYER_ID } from "@/app/constants/layers";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -134,8 +135,8 @@ export const handleMapMouseMove = (
   const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
   if (sourceLayer && activeTool === "brush") {
     HighlightFeature(selectedFeatures, map, hoverFeatureIds, sourceLayer);
-  } 
-   if (activeTool === "brush" && isPainting && sourceLayer) {
+  }
+  if (activeTool === "brush" && isPainting && sourceLayer) {
     // selects in the map object; the store object
     // is updated in the mouseup event
     SelectMapFeatures(selectedFeatures, map, mapStore);
@@ -175,6 +176,44 @@ export const useHoverFeatureIds = () => {
   return hoverFeatureIds;
 };
 
+export const handleMapContextMenu = (
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
+  map: MutableRefObject<Map | null>,
+  hoverFeatureIds: React.MutableRefObject<Set<string>>
+) => {
+  e.preventDefault();
+  const mapStore = useMapStore.getState();
+  const sourceLayer = mapStore.selectedLayer?.name;
+  // Selects from the hover layers instead of the points
+  // Otherwise, its hard to select precisely
+  const selectedFeatures = mapStore.paintFunction(map, e, 0, [
+    BLOCK_HOVER_LAYER_ID,
+  ]);
+
+  if (!selectedFeatures?.length || !map.current || !sourceLayer) return;
+
+  HighlightFeature(
+    selectedFeatures.slice(0, 1),
+    map,
+    hoverFeatureIds,
+    sourceLayer
+  );
+
+  const handleClose = () => {
+    mapStore.setContextMenu(null);
+    UnhighlightFeature(map, hoverFeatureIds, sourceLayer);
+  };
+
+  map.current.once("movestart", handleClose);
+
+  mapStore.setContextMenu({
+    x: e.point.x,
+    y: e.point.y,
+    data: selectedFeatures[0],
+    close: handleClose,
+  });
+};
+
 export const mapEvents = [
   { action: "click", handler: handleMapClick },
   { action: "mouseup", handler: handleMapMouseUp },
@@ -191,4 +230,5 @@ export const mapEvents = [
   { action: "idle", handler: handleMapIdle },
   { action: "moveend", handler: handleMapMoveEnd },
   { action: "zoomend", handler: handleMapZoomEnd },
+  { action: "contextmenu", handler: handleMapContextMenu },
 ];
