@@ -4,7 +4,6 @@ import maplibregl, {
   MapLayerTouchEvent,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Protocol } from "pmtiles";
 import type { MutableRefObject } from "react";
 import React, { useEffect, useRef, useState } from "react";
 import { MAP_OPTIONS } from "../constants/configuration";
@@ -75,14 +74,6 @@ export const MapComponent: React.FC = () => {
     queryKey: ["zonePopulations", mapDocument],
     queryFn: mapDocument ? () => getZonePopulations(mapDocument) : skipToken,
   });
-
-  useEffect(() => {
-    let protocol = new Protocol();
-    maplibregl.addProtocol("pmtiles", protocol.tile);
-    return () => {
-      maplibregl.removeProtocol("pmtiles");
-    };
-  }, []);
 
   useEffect(() => {
     const document_id = searchParams.get("document_id");

@@ -11,11 +11,15 @@ export const BASEMAP_STYLE: StyleSpecification = {
       type: "vector",
       attribution:
         '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
-      url: `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/basemaps/20240325.pmtiles`,
+      tiles: [
+        `${window.location.origin}/api/tiles/${encodeURIComponent("basemaps/20240325.pmtiles")}/{z}/{x}/{y}`
+      ]
     },
     counties: {
       type: "vector",
-      url: `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles`,
+      tiles: [
+        `${window.location.origin}/api/tiles/${encodeURIComponent("basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles")}/{z}/{x}/{y}`
+      ]
     },
   },
   layers: BASEMAP_LAYERS,

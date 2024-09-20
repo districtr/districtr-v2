@@ -3,9 +3,11 @@ import { VectorSourceSpecification } from "maplibre-gl";
 export function getBlocksSource(
   layer_subpath: string
 ): VectorSourceSpecification {
+  const zxyUrl = `${window.location.origin}/api/tiles/${encodeURIComponent(layer_subpath)}/{z}/{x}/{y}`
+
   return {
     type: "vector",
-    url: `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${layer_subpath}`,
+    tiles: [zxyUrl],
     promoteId: "path",
   };
 }
