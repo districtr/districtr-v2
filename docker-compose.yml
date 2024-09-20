@@ -51,20 +51,20 @@ services:
     container_name: frontend
     volumes:
       - ./app:/app # Mount the app folder for hot reloading
+      - ./app/node_modules:/app/node_modules # Bind mount for node_modules
 
     env_file:
       - ./app/.env # Ensure the env file is also from the app folder
     ports:
       - "3000:3000" # Expose Next.js on port 3000
-    command: npm run dev # Run the development server
+    command: sh -c "npm install && npm run dev"
 
   pre-commit:
     image: python:3.9 # or whichever version you prefer
     volumes:
       - .:/app
     working_dir: /app
-    command:
-      ["sh", "-c", "pip install pre-commit && pre-commit run --all-files"]
+    command: sh -c "pip install pre-commit && pre-commit run --all-files"
 
 volumes:
   postgres_data:  
