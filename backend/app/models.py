@@ -55,11 +55,11 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     num_districts: int | None = Field(nullable=True, default=None)
     tiles_s3_path: str | None = Field(nullable=True)
     parent_layer: str = Field(
-        sa_column=Column(UUIDType, ForeignKey("gerrydbtable.uuid"), nullable=False)
+        sa_column=Column(String, ForeignKey("gerrydbtable.name"), nullable=False)
     )
     child_layer: str | None = Field(
         sa_column=Column(
-            UUIDType, ForeignKey("gerrydbtable.uuid"), default=None, nullable=True
+            String, ForeignKey("gerrydbtable.name"), default=None, nullable=True
         )
     )
     # schema? will need to contrain the schema

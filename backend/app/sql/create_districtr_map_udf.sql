@@ -8,26 +8,8 @@ CREATE OR REPLACE FUNCTION create_districtr_map(
 )
 RETURNS UUID AS $$
 DECLARE
-    parent_layer_uuid UUID;
-    child_layer_uuid UUID;
     inserted_districtr_uuid UUID;
 BEGIN
-    SELECT uuid INTO parent_layer_uuid
-    FROM gerrydbtable
-    WHERE name = parent_layer_name;
-
-    IF parent_layer_uuid IS NULL THEN
-        RAISE EXCEPTION 'Parent layer not found: %', parent_layer_name;
-    END IF;
-
-    SELECT uuid INTO child_layer_uuid
-    FROM gerrydbtable
-    WHERE name = child_layer_name;
-
-    IF child_layer_uuid IS NULL THEN
-        RAISE NOTICE 'Child layer not specified: %. If creating a shatterable map, child layer is required', child_layer_name;
-    END IF;
-
     INSERT INTO districtrmap (
         created_at,
         uuid,
