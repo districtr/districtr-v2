@@ -31,7 +31,10 @@ BEGIN
     END IF;
 
     EXECUTE format('
-        INSERT INTO parentchildedges (created_at, districtr_map, parent_path, child_path)
+        CREATE TABLE "parentchildedges_%s"
+        PARTITION OF parentchildedges FOR VALUES IN (%L);
+
+        INSERT INTO "parentchildedges_%s" (created_at, districtr_map, parent_path, child_path)
         SELECT
             now() AS created_at,
             $1 as districtr_map,
@@ -42,8 +45,8 @@ BEGIN
         JOIN
             gerrydb.%I AS child
         ON -- NOTE: All geometry column aliases must be geometry. This should be enforced on load.
-            ST_Contains(parent.geometry, ST_PointOnSurface(child.geometry))
-    ', districtr_map.parent_layer, districtr_map.child_layer)
+            ST_Contains(parent.geometry, ST_PointOnSurface(child.geometry));
+    ', districtr_map_uuid, districtr_map_uuid, districtr_map_uuid, districtr_map.parent_layer, districtr_map.child_layer)
     USING districtr_map.uuid;
 
 END;

@@ -84,6 +84,15 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
 
 
 class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
+    __table_args__ = (
+        UniqueConstraint(
+            "districtr_map",
+            "parent_path",
+            "child_path",
+            name="districtr_map_parent_child_edge_unique",
+        ),
+        {"postgresql_partition_by": "LIST (districtr_map)"},
+    )
     districtr_map: str = Field(
         sa_column=Column(
             UUIDType,

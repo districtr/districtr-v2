@@ -83,6 +83,7 @@ def upgrade() -> None:
             ["districtrmap.uuid"],
         ),
         sa.PrimaryKeyConstraint("districtr_map", "parent_path", "child_path"),
+        postgresql_partition_by="LIST (districtr_map)",
     )
     op.drop_column("gerrydbtable", "tiles_s3_path")
     # ### end Alembic commands ###
