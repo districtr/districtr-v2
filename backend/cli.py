@@ -1,5 +1,4 @@
 import os
-from typing import Iterable
 import click
 import logging
 
@@ -171,97 +170,6 @@ def delete_parent_child_edges(districtr_map: str):
     logger.info("Parent-child relationship upserted successfully.")
 
     session.close()
-
-
-@cli.command("create-gerrydb-tileset")
-@click.option(
-    "--layer", "-n", help="Name of the layer in the gerrydb view to load", required=True
-)
-@click.option(
-    "--gpkg",
-    "-g",
-    help="Path or URL to GeoPackage file. If URL, must be s3 URI",
-    required=True,
-)
-@click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
-@click.option(
-    "--column",
-    "-c",
-    help="Column to include in tileset",
-    multiple=True,
-    default=[
-        "path",
-        "geography",
-        "total_pop",
-    ],
-)
-def create_gerrydb_tileset(
-    layer: str, gpkg: str, replace: bool, column: Iterable[str]
-) -> None:
-    """
-    Create a tileset from a GeoPackage file. Does not upload the tileset to S3. Use the s3 cli for that.
-
-    Note: this command is intended to be run locally. The server doesn't have the tippecannoe dependency. That's
-    intentional for now as we don't want to burden the server with memory intensive tasks.
-    """
-    logger.info("Creating GerryDB tileset...")
-    s3 = settings.get_s3_client()
-
-    url = urlparse(gpkg)
-    logger.info("URL: %s", url)
-
-    path = gpkg
-
-    if url.scheme == "s3":
-        assert s3, "S3 client is not available"
-        path = download_file_from_s3(s3, url, replace)
-
-    fbg_path = f"{settings.VOLUME_PATH}/{layer}.fgb"
-    logger.info("Creating flatgeobuf...")
-    if os.path.exists(fbg_path) and not replace:
-        logger.info("File already exists. Skipping creation.")
-    else:
-        result = subprocess.run(
-            args=[
-                "ogr2ogr",
-                "-f",
-                "FlatGeobuf",
-                "-select",
-                ",".join(column),
-                "-t_srs",
-                "EPSG:4326",
-                fbg_path,
-                path,
-                layer,
-            ]
-        )
-
-        if result.returncode != 0:
-            logger.error("ogr2ogr failed. Got %s", result)
-            raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
-
-    logger.info("Creating tileset...")
-    tileset_path = f"{settings.VOLUME_PATH}/{layer}.pmtiles"
-
-    args = [
-        "tippecanoe",
-        "-zg",
-        "--coalesce-smallest-as-needed",
-        "--extend-zooms-if-still-dropping",
-        "-o",
-        tileset_path,
-        "-l",
-        layer,
-        fbg_path,
-    ]
-    if replace:
-        args.append("--force")
-
-    result = subprocess.run(args=args)
-
-    if result.returncode != 0:
-        logger.error("tippecanoe failed. Got %s", result)
-        raise ValueError(f"tippecanoe failed with return code {result.returncode}")
 
 
 @cli.command("create-districtr-map")
