@@ -1,5 +1,4 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
-from pydantic import UUID4
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 from sqlmodel import Session, String, select
@@ -92,6 +91,7 @@ async def create_document(
             Document.created_at,
             Document.gerrydb_table,
             Document.updated_at,
+            DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
@@ -110,6 +110,12 @@ async def create_document(
     doc = session.exec(
         stmt
     ).one()  # again if we've got more than one, we have problems.
+    if not doc.map_uuid:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"DistrictrMap matching {data.gerrydb_table} does not exist.",
+        )
     if not doc.document_id:
         session.rollback()
         raise HTTPException(
@@ -118,30 +124,6 @@ async def create_document(
         )
     session.commit()
     return doc
-
-
-@app.patch("/api/update_document/{document_id}", response_model=DocumentPublic)
-async def update_document(
-    document_id: UUID4, data: DocumentCreate, session: Session = Depends(get_session)
-):
-    # Validate that gerrydb_table exists?
-    stmt = text("""UPDATE document.document
-        SET
-            gerrydb_table = :gerrydb_table_name,
-            updated_at = now()
-        WHERE document_id = :document_id
-        RETURNING *""")
-    results = session.execute(
-        stmt, {"document_id": document_id, "gerrydb_table_name": data.gerrydb_table}
-    )
-    db_document = results.first()
-    if not db_document:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
-        )
-    session.commit()
-    return db_document
 
 
 @app.patch("/api/update_assignments")

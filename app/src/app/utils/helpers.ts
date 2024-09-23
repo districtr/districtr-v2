@@ -41,9 +41,9 @@ export type PaintEventHandler = (
 export type ContextMenuState = {
   x: number;
   y: number;
-  data: MapGeoJSONFeature
-  close: () => void
-}
+  data: MapGeoJSONFeature;
+  close: () => void;
+};
 
 /**
  * boxAroundPoint
@@ -93,6 +93,7 @@ export const getFeaturesIntersectingCounties = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
+  layers: string[] = [BLOCK_LAYER_ID],
 ): MapGeoJSONFeature[] | undefined => {
   if (!map.current) return;
 
@@ -110,7 +111,7 @@ export const getFeaturesIntersectingCounties = (
   const ne = map.current.project(featureBbox[1]);
 
   const features = map.current?.queryRenderedFeatures([sw, ne], {
-    layers: [BLOCK_LAYER_ID],
+    layers,
   });
 
   let countyPoly;

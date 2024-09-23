@@ -7,6 +7,7 @@ import { color10 } from "./colors";
 
 export const BLOCK_SOURCE_ID = "blocks";
 export const BLOCK_LAYER_ID = "blocks";
+export const BLOCK_LAYER_ID_CHILD = "blocks-child";
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "case",
