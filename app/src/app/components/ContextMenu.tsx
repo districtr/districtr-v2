@@ -8,13 +8,14 @@ export const MapContextMenu: React.FC = () => {
   if (!contextMenu) return null;
 
   const handleShatter = () => {
-    // TODO: shatter stuff
+    console.log("Unimplemented shatter");
     contextMenu.close();
   };
 
   return (
     <ContextMenu.Root onOpenChange={contextMenu.close}>
       <ContextMenu.Content
+        size="2"
         forceMount={true}
         onEscapeKeyDown={contextMenu.close}
         onInteractOutside={contextMenu.close}
@@ -32,14 +33,11 @@ export const MapContextMenu: React.FC = () => {
         {contextMenu.data.id && (
           <ContextMenu.Label>
             <Text size="1" color="gray">
-              ID: {contextMenu.data.id}
+              {contextMenu.data.id}
             </Text>
           </ContextMenu.Label>
         )}
-        <ContextMenu.Separator />
-        <ContextMenu.Item>
-          <ContextMenu.Item onClick={handleShatter}>Shatter</ContextMenu.Item>
-        </ContextMenu.Item>
+        <ContextMenu.Item onClick={handleShatter}>Shatter</ContextMenu.Item>
       </ContextMenu.Content>
     </ContextMenu.Root>
   );
