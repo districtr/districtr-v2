@@ -200,7 +200,9 @@ def test_shattering(client):
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
-    assert len({d["document_id"] for d in data}) == 1
-    assert {d["geo_id"] for d in data} == {"a", "e"}
-    assert all(d["zone"] == 1 for d in data)
+    assert len(data["parents"]) == 1
+    assert data["parents"]["geoids"][0] == "A"
+    assert len(data["children"]) == 2
+    assert len({d["document_id"] for d in data["children"]}) == 1
+    assert {d["geo_id"] for d in data["children"]} == {"a", "e"}
+    assert all(d["zone"] == 1 for d in data["children"])

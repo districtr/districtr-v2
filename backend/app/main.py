@@ -22,6 +22,7 @@ from app.models import (
     UUIDType,
     ZonePopulation,
     DistrictrMapPublic,
+    ShatterResult,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -141,7 +142,7 @@ async def update_assignments(
 
 @app.patch(
     "/api/update_assignments/{document_id}/shatter_parents",
-    response_model=list[Assignments],
+    response_model=ShatterResult,
 )
 async def shatter_parent(
     document_id: str, data: GEOIDS, session: Session = Depends(get_session)
@@ -163,8 +164,9 @@ async def shatter_parent(
         Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
         for document_id, geo_id, zone in results
     ]
+    result = ShatterResult(parents=data, children=assignments)
     session.commit()
-    return assignments
+    return result
 
 
 # called by getAssignments in apiHandlers.ts
