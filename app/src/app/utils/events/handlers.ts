@@ -46,7 +46,7 @@ export const SelectMapFeatures = (
       {
         source: BLOCK_SOURCE_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: mapStoreRef.selectedLayer?.name,
+        sourceLayer: mapStoreRef.mapDocument?.name,
       },
       { selected: true, zone: mapStoreRef.selectedZone },
     );

@@ -28,8 +28,6 @@ export interface MapStore {
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
-  selectedLayer: gerryDBView | null;
-  setSelectedLayer: (layer: gerryDBView) => void;
   mapOptions: MapOptions;
   setMapOptions: (options: MapOptions) => void;
   activeTool: ActiveTool;
@@ -63,8 +61,8 @@ export interface MapStore {
   setVisibleLayerIds: (layerIds: string[]) => void;
   addVisibleLayerIds: (layerIds: string[]) => void;
   updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
-  contextMenu: ContextMenuState | null
-  setContextMenu: (menu: ContextMenuState | null) => void
+  contextMenu: ContextMenuState | null;
+  setContextMenu: (menu: ContextMenuState | null) => void;
 }
 
 export const useMapStore = create(
@@ -74,18 +72,10 @@ export const useMapStore = create(
     mapDocument: null,
     setMapDocument: (mapDocument) =>
       set((state) => {
-        if (mapDocument.tiles_s3_path) {
-          state.setSelectedLayer({
-            name: mapDocument.gerrydb_table,
-            tiles_s3_path: mapDocument.tiles_s3_path,
-          });
-        }
         state.setFreshMap(true);
         state.resetZoneAssignments();
         return { mapDocument: mapDocument };
       }),
-    selectedLayer: null,
-    setSelectedLayer: (layer) => set({ selectedLayer: layer }),
     mapOptions: {
       center: [-98.5795, 39.8283],
       zoom: 3,
@@ -172,11 +162,11 @@ export const useMapStore = create(
 );
 
 useMapStore.subscribe(
-  (state) => state.selectedLayer,
-  (selectedLayer) => {
+  (state) => state.mapDocument,
+  (mapDocument) => {
     const mapStore = useMapStore.getState();
-    if (mapStore.mapRef && selectedLayer) {
-      addBlockLayers(mapStore.mapRef, selectedLayer);
+    if (mapStore.mapRef && mapDocument) {
+      addBlockLayers(mapStore.mapRef, mapDocument);
       mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
     }
   },

@@ -5,8 +5,10 @@ DECLARE
     sql_query TEXT;
     total_pop_column_name TEXT;
 BEGIN
-    SELECT gerrydb_table INTO gerrydb_table_name
+    SELECT districtrmap.parent_layer INTO gerrydb_table_name
     FROM document.document
+    LEFT JOIN districtrmap
+    ON document.gerrydb_table = districtrmap.gerrydb_table_name
     WHERE document.document_id = $1;
 
     IF gerrydb_table_name IS NULL THEN

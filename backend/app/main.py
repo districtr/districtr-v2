@@ -86,7 +86,25 @@ async def create_document(
         {"gerrydb_table_name": data.gerrydb_table},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
-    stmt = select(Document).where(Document.document_id == document_id).limit(1)
+    stmt = (
+        select(
+            Document.document_id,
+            Document.created_at,
+            Document.gerrydb_table,
+            Document.updated_at,
+            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
+            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
+            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+        )
+        .where(Document.document_id == document_id)
+        .join(
+            DistrictrMap,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            isouter=True,
+        )
+        .limit(1)
+    )
     # Document id has a unique constraint so I'm not sure we need to hit the DB again here
     # more valuable would be to check that the assignments table
     doc = session.exec(
@@ -183,10 +201,17 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             Document.created_at,
             Document.gerrydb_table,
             Document.updated_at,
+            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
+            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
         )  # pyright: ignore
         .where(Document.document_id == document_id)
-        .join(DistrictrMap, Document.gerrydb_table == DistrictrMap.name, isouter=True)
+        .join(
+            DistrictrMap,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            isouter=True,
+        )
         .limit(1)
     )
     result = session.exec(stmt)

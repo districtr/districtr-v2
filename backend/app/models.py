@@ -120,9 +120,12 @@ class DocumentCreate(BaseModel):
 class DocumentPublic(BaseModel):
     document_id: UUID4
     gerrydb_table: str | None
+    parent_layer: str
+    child_layer: str | None
+    tiles_s3_path: str | None = None
+    num_districts: int | None = None
     created_at: datetime
     updated_at: datetime
-    tiles_s3_path: str | None = None
 
 
 class AssignmentsBase(SQLModel):

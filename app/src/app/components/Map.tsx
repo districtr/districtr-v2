@@ -56,7 +56,6 @@ export const MapComponent: React.FC = () => {
     zoneAssignments,
     mapDocument,
     setMapDocument,
-    setSelectedLayer,
     setMapRef,
     setMapMetrics,
   } = useMapStore((state) => ({
@@ -64,7 +63,6 @@ export const MapComponent: React.FC = () => {
     zoneAssignments: state.zoneAssignments,
     mapDocument: state.mapDocument,
     setMapDocument: state.setMapDocument,
-    setSelectedLayer: state.setSelectedLayer,
     setMapRef: state.setMapRef,
     setMapMetrics: state.setMapMetrics,
   }));
@@ -114,13 +112,6 @@ export const MapComponent: React.FC = () => {
       setMapLoaded(true);
       setMapRef(map);
       const mapDocument = useMapStore.getState().mapDocument;
-
-      if (mapDocument?.tiles_s3_path) {
-        setSelectedLayer({
-          name: mapDocument.gerrydb_table,
-          tiles_s3_path: mapDocument.tiles_s3_path,
-        });
-      }
 
       if (mapDocument) {
         console.log("fetching assignments");

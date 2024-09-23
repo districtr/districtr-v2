@@ -22,21 +22,47 @@ export const FormatAssignments = () => {
 };
 
 /**
+ * DistrictrMap
+ *
+ * @interface
+ * @property {string} name - The name.
+ * @property {string} gerrydb_table_name - The gerrydb table name.
+ * @property {string} parent_layer - The parent layer.
+ * @property {string | null} child_layer - The child layer.
+ * @property {string | null} tiles_s3_path - The tiles s3 path.
+ * @property {number | null} num_districts - The number of districts.
+ */
+export interface DistrictrMap {
+  name: string;
+  gerrydb_table_name: string;
+  parent_layer: string;
+  child_layer: string | null;
+  tiles_s3_path: string | null;
+  num_districts: number | null;
+}
+
+/**
  * Document
  *
  * @interface
  * @property {string} document_id - The document id.
  * @property {string} gerrydb_table - The gerrydb table.
+ * @property {string} parent_layer_name - The parent layer name.
+ * @property {string | null} child_layer_name - The child layer name.
+ * @property {string | null} tiles_s3_path - The tiles s3 path.
+ * @property {number | null} num_districts - The number of districts to enforce.
  * @property {string} created_at - The created at.
  * @property {string} updated_at - The updated at.
- * @property {string} tiles_s3_path - The tiles s3 path.
  */
 export interface DocumentObject {
   document_id: string;
   gerrydb_table: string;
-  created_at: string;
-  updated_at: string;
+  parent_layer: string;
+  child_layer: string | null;
   tiles_s3_path: string | null;
+  num_districts: number | null;
+  created_at: string;
+  updated_at: string | null;
 }
 
 /**
@@ -130,27 +156,15 @@ export const getZonePopulations: (
 };
 
 /**
- * GerryDB view.
- *
- * @interface
- * @property {string} name - Table name should match the name of the GerryDB table in Postgres and name of the layer in the tileset.
- * @property {string} tiles_s3_path - the path to the tiles in the S3 bucket
- */
-export interface gerryDBView {
-  name: string;
-  tiles_s3_path: string;
-}
-
-/**
- * Get available GerryDB views from the server.
+ * Get available DistrictrMap views from the server.
  * @param limit - number, the number of views to return (default 10, max 100)
  * @param offset - number, the number of views to skip (default 0)
  * @returns Promise
  */
-export const getGerryDBViews: (
+export const getAvailableDistrictrMaps: (
   limit?: number,
   offset?: number,
-) => Promise<gerryDBView[]> = async (limit = 10, offset = 0) => {
+) => Promise<DistrictrMap[]> = async (limit = 10, offset = 0) => {
   return await axios
     .get(
       `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,

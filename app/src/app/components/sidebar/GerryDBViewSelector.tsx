@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Select } from "@radix-ui/themes";
-import { getGerryDBViews } from "../../api/apiHandlers";
+import { getAvailableDistrictrMaps } from "../../api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
 import { createMapDocument } from "../../api/apiHandlers";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -12,8 +12,9 @@ export function GerryDBViewSelector() {
   const searchParams = useSearchParams();
   const [limit, setLimit] = useState<number>(20);
   const [offset, setOffset] = useState<number>(0);
-  const { selectedLayer, setMapDocument } = useMapStore((state) => ({
-    selectedLayer: state.selectedLayer,
+  const [selected, setSelected] = useState<string | undefined>(undefined);
+  const { mapDocument, setMapDocument } = useMapStore((state) => ({
+    mapDocument: state.mapDocument,
     setMapDocument: state.setMapDocument,
   }));
   const document = useMutation({
@@ -31,17 +32,35 @@ export function GerryDBViewSelector() {
       router.push(pathname + "?" + urlParams.toString());
     },
   });
+
   const { isPending, isError, data, error } = useQuery({
     queryKey: ["views", limit, offset],
-    queryFn: () => getGerryDBViews(limit, offset),
+    queryFn: () => getAvailableDistrictrMaps(limit, offset),
   });
 
+  useEffect(() => {
+    if (mapDocument && data) {
+      const selectedView = data.find(
+        (view) => view.gerrydb_table_name === mapDocument.gerrydb_table,
+      );
+      setSelected(selectedView?.name);
+    }
+  }, [data, mapDocument]);
+
   const handleValueChange = (value: string) => {
-    const selectedLayer = data?.find((view) => view.name === value);
-    if (!selectedLayer || selectedLayer.name === document.data?.gerrydb_table) {
+    console.log("Value changed: ", value);
+    const selectedDistrictrMap = data?.find((view) => view.name === value);
+    console.log("Selected view: ", selectedDistrictrMap);
+    setSelected(value);
+    if (
+      !selectedDistrictrMap ||
+      selectedDistrictrMap.gerrydb_table_name === document.data?.gerrydb_table
+    ) {
+      console.log("No document or same document");
       return;
     }
-    document.mutate({ gerrydb_table: selectedLayer.name });
+    console.log("mutating to create new document");
+    document.mutate({ gerrydb_table: selectedDistrictrMap.gerrydb_table_name });
   };
 
   if (isPending) return <div>Loading geographies... 🌎</div>;
@@ -49,16 +68,11 @@ export function GerryDBViewSelector() {
   if (isError) return <div>Error loading geographies: {error.message}</div>;
 
   return (
-    <Select.Root
-      size="3"
-      defaultValue="Select a geography"
-      onValueChange={handleValueChange}
-      value={selectedLayer?.name}
-    >
-      <Select.Trigger />
+    <Select.Root size="3" onValueChange={handleValueChange} value={selected}>
+      <Select.Trigger placeholder="Select a geography" />
       <Select.Content>
         <Select.Group>
-          <Select.Label>Select a geography</Select.Label>
+          <Select.Label>Districtr map options</Select.Label>
           {data.map((view, index) => (
             <Select.Item key={index} value={view.name}>
               {view.name}

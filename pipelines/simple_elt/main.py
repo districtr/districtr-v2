@@ -305,7 +305,7 @@ def merge_gerrydb_tilesets(
             f"{settings.OUT_SCRATCH}/{out_name}.pmtiles",
             parent_path,
             child_path,
-            "--overzoom",
+            "--no-tile-size-limit",
             "--force",
         ]
     )
