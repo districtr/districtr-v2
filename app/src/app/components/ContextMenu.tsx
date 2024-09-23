@@ -3,10 +3,16 @@ import { ContextMenu, Text } from "@radix-ui/themes";
 import { useMapStore } from "@/app/store/mapStore";
 import { useMutation } from "@tanstack/react-query";
 import { patchShatterParents } from "@api/apiHandlers";
+import {
+  BLOCK_SOURCE_ID,
+  BLOCK_LAYER_ID,
+  BLOCK_LAYER_ID_CHILD,
+} from "@constants/layers";
 
 export const MapContextMenu: React.FC = () => {
-  const { mapDocument, contextMenu } = useMapStore((state) => {
+  const { mapRef, mapDocument, contextMenu } = useMapStore((state) => {
     return {
+      mapRef: state.mapRef,
       mapDocument: state.mapDocument,
       contextMenu: state.contextMenu,
     };
@@ -22,7 +28,48 @@ export const MapContextMenu: React.FC = () => {
       console.log("Error updating assignments: ", error);
     },
     onSuccess: (data) => {
-      console.log(`Successfully shattered parents into: ${data}`);
+      console.log(
+        `Successfully shattered parents into ${data.children.length} children`,
+      );
+      // mapRef?.current?.setFilter(BLOCK_LAYER_ID_CHILD, [
+      //   "match",
+      //   ["get", "path"],
+      //   data.map((child) => child.geo_id), // will need to add existing filters
+      //   true,
+      //   false,
+      // ]);
+      // data.forEach((child) => {
+      //   // zoneAssignments.set(assignment.geo_id, assignment.zone);
+      //   mapRef?.current?.setFeatureState(
+      //     {
+      //       source: BLOCK_SOURCE_ID,
+      //       id: child.geo_id,
+      //       sourceLayer: BLOCK_LAYER_ID_CHILD,
+      //     },
+      //     {
+      //       selected: false,
+      //       zone: child.zone,
+      //     },
+      //   );
+      // });
+      console.log(data.parents.geoids);
+      data.parents.geoids.forEach((parent) =>
+        mapRef?.current?.setFeatureState(
+          {
+            source: BLOCK_SOURCE_ID,
+            id: parent,
+            sourceLayer: BLOCK_LAYER_ID,
+          },
+          { selected: false, zone: null },
+        ),
+      );
+      mapRef?.current?.setFilter(BLOCK_LAYER_ID, [
+        "match",
+        ["get", "path"],
+        data.parents.geoids, // will need to add existing filters
+        false,
+        true,
+      ]);
     },
   });
 

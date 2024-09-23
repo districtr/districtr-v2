@@ -214,6 +214,17 @@ export const patchUpdateAssignments: (
 };
 
 /**
+ * Shatter result
+ *   @interface
+ *   @property {string[]} parents - The parents.
+ *   @property {Assignment[]} children - The children.
+ */
+export interface ShatterResult {
+  parents: { geoids: string[] };
+  children: Assignment[];
+}
+
+/**
  * Shatter parents
  *
  * @param document_id - string, the document id
@@ -223,7 +234,7 @@ export const patchUpdateAssignments: (
 export const patchShatterParents: (params: {
   document_id: string;
   geoids: string[];
-}) => Promise<Assignment[]> = async ({ document_id, geoids }) => {
+}) => Promise<ShatterResult> = async ({ document_id, geoids }) => {
   return await axios
     .patch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/shatter_parents`,
