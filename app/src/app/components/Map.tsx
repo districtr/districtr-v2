@@ -115,7 +115,7 @@ export const MapComponent: React.FC = () => {
 
       if (mapDocument) {
         console.log("fetching assignments");
-        const sourceLayer = mapDocument.gerrydb_table;
+        const sourceLayer = mapDocument.parent_layer;
         getAssignments(mapDocument).then((res: Assignment[]) => {
           console.log("got", res.length, "assignments");
           mapMetrics.refetch();
