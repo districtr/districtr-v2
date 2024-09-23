@@ -171,3 +171,14 @@ useMapStore.subscribe(
     }
   },
 );
+
+useMapStore.subscribe(
+  (state) => state.mapRef,
+  (mapRef) => {
+    const mapStore = useMapStore.getState();
+    if (mapRef && mapStore.mapDocument) {
+      addBlockLayers(mapRef, mapStore.mapDocument);
+      mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
+    }
+  },
+);

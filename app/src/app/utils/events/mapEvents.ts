@@ -32,7 +32,7 @@ export const handleMapClick = (
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
-  const sourceLayer = mapStore.mapDocument?.parent_layer_name;
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
 
   if (activeTool === "brush" || activeTool === "eraser") {
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
@@ -109,7 +109,7 @@ export const handleMapMouseLeave = (
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
-  const sourceLayer = mapStore.mapDocument?.parent_layer_name;
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (sourceLayer && hoverFeatureIds.current.size && activeTool === "brush") {
     UnhighlightFeature(map, hoverFeatureIds, sourceLayer);
   }
@@ -131,7 +131,7 @@ export const handleMapMouseMove = (
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
   const isPainting = mapStore.isPainting;
-  const sourceLayer = mapStore.mapDocument?.parent_layer_name;
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
   const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
   if (sourceLayer && activeTool === "brush") {
     HighlightFeature(selectedFeatures, map, hoverFeatureIds, sourceLayer);
@@ -163,7 +163,7 @@ export const handleResetMapSelectState = (
   map: MutableRefObject<Map | null>,
 ) => {
   const mapStore = useMapStore.getState();
-  const sourceLayer = mapStore.mapDocument?.parent_layer_name;
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (sourceLayer) {
     ResetMapSelectState(map, mapStore, sourceLayer);
   } else {
@@ -183,7 +183,7 @@ export const handleMapContextMenu = (
 ) => {
   e.preventDefault();
   const mapStore = useMapStore.getState();
-  const sourceLayer = mapStore.mapDocument?.parent_layer_name;
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
   const selectedFeatures = mapStore.paintFunction(map, e, 0, [
