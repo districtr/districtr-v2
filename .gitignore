@@ -70,3 +70,4 @@ scratch/
 PG:*
 
 *.dev
+sample_data/*
