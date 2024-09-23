@@ -138,11 +138,18 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
 
 @cli.command("create-parent-child-edges")
 @click.option("--districtr-map", "-d", help="Districtr map name", required=True)
-def create_parent_child_edges(districtr_map: str, parent: str, child: str):
+def create_parent_child_edges(districtr_map: str):
     logger.info("Creating parent-child edges...")
 
     session = next(get_session())
-    _create_parent_child_edges(session=session, gerrydb_table_name=districtr_map)
+    stmt = text(
+        "SELECT uuid FROM districtrmap WHERE gerrydb_table_name = :districtrmap_name"
+    )
+    (districtr_map_uuid,) = session.execute(
+        stmt, params={"districtrmap_name": districtr_map}
+    ).one()
+    print(f"Found districtmap uuid: {districtr_map_uuid}")
+    _create_parent_child_edges(session=session, districtr_map_uuid=districtr_map_uuid)
     session.commit()
     logger.info("Parent-child relationship upserted successfully.")
 

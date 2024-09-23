@@ -212,3 +212,26 @@ export const patchUpdateAssignments: (
       return res.data;
     });
 };
+
+/**
+ * Shatter parents
+ *
+ * @param document_id - string, the document id
+ * @param geoids - string[], the geoids to shatter
+ * @returns list of child assignments results from shattered parents
+ */
+export const patchShatterParents: (params: {
+  document_id: string;
+  geoids: string[];
+}) => Promise<Assignment[]> = async ({ document_id, geoids }) => {
+  return await axios
+    .patch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/shatter_parents`,
+      {
+        geoids: geoids,
+      },
+    )
+    .then((res) => {
+      return res.data;
+    });
+};
