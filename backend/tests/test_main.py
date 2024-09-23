@@ -38,7 +38,7 @@ GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 @pytest.fixture(name=GERRY_DB_FIXTURE_NAME)
 def ks_demo_view_census_blocks_fixture(session: Session):
     layer = GERRY_DB_FIXTURE_NAME
-    result = subprocess.run(
+    subprocess.run(
         args=[
             "ogr2ogr",
             "-f",
@@ -52,57 +52,11 @@ def ks_demo_view_census_blocks_fixture(session: Session):
         ],
     )
 
-    if result.returncode != 0:
-        print(f"ogr2ogr failed. Got {result}")
-        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
-
-@pytest.fixture(name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME)
-def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
-    layer = GERRY_DB_TOTAL_VAP_FIXTURE_NAME
-    result = subprocess.run(
-        args=[
-            "ogr2ogr",
-            "-f",
-            "PostgreSQL",
-            OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
-            "-lco",
-            "OVERWRITE=yes",
-            "-nln",
-            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
-        ],
-    )
-
-    if result.returncode != 0:
-        print(f"ogr2ogr failed. Got {result}")
-        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
-
-
-@pytest.fixture(name=GERRY_DB_NO_POP_FIXTURE_NAME)
-def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
-    layer = GERRY_DB_NO_POP_FIXTURE_NAME
-    result = subprocess.run(
-        args=[
-            "ogr2ogr",
-            "-f",
-            "PostgreSQL",
-            OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
-            "-lco",
-            "OVERWRITE=yes",
-            "-nln",
-            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
-        ],
-    )
-
-    if result.returncode != 0:
-        print(f"ogr2ogr failed. Got {result}")
-        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
-
-
-@pytest.fixture(name="ks_demo_view_census_blocks_gerrydb")
-def ks_demo_view_census_blocks_gerrydb_fixture(session: Session):
+@pytest.fixture(name="ks_demo_view_census_blocks_districtrmap")
+def ks_demo_view_census_blocks_districtrmap_fixture(
+    session: Session, ks_demo_view_census_blocks_total_vap: None
+):
     upsert_query = text("""
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
@@ -122,8 +76,92 @@ def ks_demo_view_census_blocks_gerrydb_fixture(session: Session):
     session.commit()
 
 
+@pytest.fixture(name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME)
+def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
+    layer = GERRY_DB_TOTAL_VAP_FIXTURE_NAME
+    subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+        ],
+    )
+
+
+@pytest.fixture(name="ks_demo_view_census_total_vap_blocks_districtrmap")
+def ks_demo_view_census_blocks_total_vap_districtrmap_fixture(
+    session: Session, ks_demo_view_census_blocks_total_vap: None
+):
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+
+    session.begin()
+    session.execute(upsert_query, {"name": GERRY_DB_TOTAL_VAP_FIXTURE_NAME})
+    create_districtr_map(
+        session=session,
+        name=f"Districtr map {GERRY_DB_TOTAL_VAP_FIXTURE_NAME}",
+        gerrydb_table_name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        parent_layer_name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+    )
+    session.commit()
+
+
+@pytest.fixture(name=GERRY_DB_NO_POP_FIXTURE_NAME)
+def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
+    layer = GERRY_DB_NO_POP_FIXTURE_NAME
+    subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+        ],
+    )
+
+
+@pytest.fixture(name="ks_demo_view_census_no_pop_blocks_districtrmap")
+def ks_demo_view_census_blocks_no_pop_districtrmap_fixture(
+    session: Session, ks_demo_view_census_blocks_no_pop: None
+):
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+
+    session.begin()
+    session.execute(upsert_query, {"name": GERRY_DB_NO_POP_FIXTURE_NAME})
+    create_districtr_map(
+        session=session,
+        name=f"Districtr map {GERRY_DB_NO_POP_FIXTURE_NAME}",
+        gerrydb_table_name=GERRY_DB_NO_POP_FIXTURE_NAME,
+        parent_layer_name=GERRY_DB_NO_POP_FIXTURE_NAME,
+    )
+    session.commit()
+
+
 @pytest.fixture(name="districtr_maps")
-def districtr_map_fixtures(session: Session, ks_demo_view_census_blocks_gerrydb: None):
+def districtr_map_fixtures(
+    session: Session, ks_demo_view_census_blocks_districtrmap: None
+):
     for i in range(4):
         create_districtr_map(
             session=session,
@@ -226,7 +264,13 @@ def test_db_is_alive(client):
     assert response.json() == {"message": "DB is alive"}
 
 
-def test_setup(client, districtr_maps, ks_demo_view_census_blocks_gerrydb):
+def test_setup(
+    client,
+    districtr_maps,
+    ks_demo_view_census_blocks_districtrmap,
+    ks_demo_view_census_total_vap_blocks_districtrmap,
+    ks_demo_view_census_no_pop_blocks_districtrmap,
+):
     """
     This is a really ugly way of setting up fixtures that can result in
     integrity errors due esp. from unique violations.
@@ -351,7 +395,7 @@ def test_list_gerydb_views(client):
     response = client.get("/api/gerrydb/views")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 5
+    assert len(data) == 7
 
 
 def test_list_gerydb_views_limit(client):
@@ -365,7 +409,7 @@ def test_list_gerydb_views_offset(client):
     response = client.get("/api/gerrydb/views?offset=1")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 4
+    assert len(data) == 6
 
 
 def test_list_gerydb_views_offset_and_limit(client):
