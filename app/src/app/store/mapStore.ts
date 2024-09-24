@@ -56,7 +56,7 @@ export interface MapStore {
   setFreshMap: (resetMap: boolean) => void;
   mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
   setMapMetrics: (
-    metrics: UseQueryResult<ZonePopulation[], Error> | null,
+    metrics: UseQueryResult<ZonePopulation[], Error> | null
   ) => void;
   visibleLayerIds: string[];
   setVisibleLayerIds: (layerIds: string[]) => void;
@@ -163,7 +163,7 @@ export const useMapStore = create(
         return { visibleLayerIds: Array.from(newVisibleLayerIds) };
       });
     },
-  })),
+  }))
 );
 
 useMapStore.subscribe(
@@ -174,5 +174,5 @@ useMapStore.subscribe(
       addBlockLayers(mapStore.mapRef, selectedLayer);
       mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
     }
-  },
+  }
 );

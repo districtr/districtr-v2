@@ -166,7 +166,7 @@ export const handleResetMapSelectState = (
   if (sourceLayer) {
     ResetMapSelectState(map, mapStore, sourceLayer);
   } else {
-    console.error("No source layer selected");
+    console.log("No source layer selected");
   }
 };
 

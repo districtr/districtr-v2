@@ -45,7 +45,7 @@ export const MapComponent: React.FC = () => {
     },
     onSuccess: (data: AssignmentsCreate) => {
       console.log(
-        `Successfully upserted ${data.assignments_upserted} assignments`,
+        `Successfully upserted ${data.assignments_upserted} assignments`
       );
       mapMetrics.refetch();
     },
@@ -91,20 +91,20 @@ export const MapComponent: React.FC = () => {
         setMapDocument(res);
       });
     }
-  }, [searchParams, setMapDocument]);
+  }, [searchParams]);
 
   useEffect(() => {
     // measure how long this function takes
-    console.time('set map metrics')
+    console.time("set map metrics");
     setMapMetrics(mapMetrics);
     // measure how long this function takes
-    console.timeEnd('set map metrics')
+    console.timeEnd("set map metrics");
   }, [mapMetrics.data]);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
 
-    console.time('create map')
+    console.time("create map");
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_OPTIONS.style,
@@ -116,9 +116,9 @@ export const MapComponent: React.FC = () => {
     map.current.scrollZoom.setZoomRate(1 / 300);
 
     map.current.addControl(new maplibregl.NavigationControl());
-    console.timeEnd('create map')
+    console.timeEnd("create map");
 
-    console.time('set map load event')
+    console.time("set map load event");
     map.current.on("load", () => {
       setMapLoaded(true);
       setMapRef(map);
@@ -148,15 +148,15 @@ export const MapComponent: React.FC = () => {
               {
                 selected: true,
                 zone: assignment.zone,
-              },
+              }
             );
           });
         });
       }
     });
-    console.timeEnd('set map load event')
-    
-    console.time('set map actions')
+    console.timeEnd("set map load event");
+
+    console.time("set map actions");
     mapEvents.forEach((action) => {
       if (map.current) {
         map.current?.on(
@@ -164,12 +164,11 @@ export const MapComponent: React.FC = () => {
           BLOCK_HOVER_LAYER_ID, // to be updated with the scale-agnostic layer id
           (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
             action.handler(e, map, hoverFeatureIds);
-          },
+          }
         );
       }
     });
-    console.timeEnd('set map actions')
-
+    console.timeEnd("set map actions");
 
     return () => {
       mapEvents.forEach((action) => {
@@ -193,11 +192,11 @@ export const MapComponent: React.FC = () => {
   }, [mapLoaded, zoneAssignments]);
 
   useEffect(() => {
-    console.time('reset map select state')
+    console.time("reset map select state");
     if (mapLoaded && map.current) {
       handleResetMapSelectState(map);
     }
-    console.timeEnd('reset map select state')
+    console.timeEnd("reset map select state");
   }, [mapLoaded, freshMap]);
 
   return <div className="h-full w-full-minus-sidebar" ref={mapContainer} />;
