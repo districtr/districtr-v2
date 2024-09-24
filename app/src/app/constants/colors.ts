@@ -27,7 +27,7 @@ import {
   sky,
 } from "@radix-ui/colors";
 
-export const palette = {
+const palette = {
   colors: {
     ...(tomato as object),
     ...(red as object),
@@ -59,7 +59,7 @@ export const palette = {
 };
 
 // bright colors!
-export const color10 = [
+const color10 = [
   tomato.tomato10,
   red.red10,
   ruby.ruby10,
@@ -87,3 +87,48 @@ export const color10 = [
   lime.lime10,
   sky.sky10,
 ];
+
+export const _colorScheme = [
+  "#0099cd",
+    "#ffca5d",
+    "#00cd99",
+    "#99cd00",
+    "#cd0099",
+    "#aa44ef", // lighter, req from San Diego
+    // Color brewer:
+    "#8dd3c7",
+    "#bebada",
+    "#fb8072",
+    "#80b1d3",
+    "#fdb462",
+    "#b3de69",
+    "#fccde5",
+    "#bc80bd",
+    "#ccebc5",
+    "#ffed6f",
+    "#ffffb3",
+    // other color brewer scheme:
+    "#a6cee3",
+    "#1f78b4",
+    "#b2df8a",
+    "#33a02c",
+    "#fb9a99",
+    "#e31a1c",
+    "#fdbf6f",
+    "#ff7f00",
+    "#cab2d6",
+    "#6a3d9a",
+    "#b15928",
+    // random material design colors:
+    "#64ffda",
+    "#00B8D4",
+    "#A1887F",
+    "#76FF03",
+    "#DCE775",
+    "#B388FF",
+    "#FF80AB",
+    "#D81B60",
+    "#26A69A",
+    "#FFEA00",
+    "#6200EA"
+]

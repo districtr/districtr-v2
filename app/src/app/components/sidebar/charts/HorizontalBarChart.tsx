@@ -9,7 +9,7 @@ import {
   YAxis,
   Cell,
 } from "recharts";
-import { color10 } from "@/app/constants/colors";
+import { _colorScheme } from "@/app/constants/colors";
 
 type TooltipInput = {
   active?: boolean;
@@ -58,7 +58,7 @@ export const HorizontalBar = () => {
       </Heading>
       <ResponsiveContainer
         width="100%"
-        height={color10.length * 18}
+        height={_colorScheme.length * 18}
         minHeight="200px"
       >
         <BarChart
@@ -80,7 +80,7 @@ export const HorizontalBar = () => {
             {mapMetrics.data
               .sort((a, b) => a.zone - b.zone)
               .map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={color10[entry.zone - 1]} />
+                <Cell key={`cell-${index}`} fill={_colorScheme[entry.zone - 1]} />
               ))}
           </Bar>
         </BarChart>
