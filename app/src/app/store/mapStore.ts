@@ -14,6 +14,7 @@ import {
   addBlockLayers,
   BLOCK_LAYER_ID,
   BLOCK_HOVER_LAYER_ID,
+  BLOCK_LAYER_ID_CHILD,
 } from "../constants/layers";
 import type { UseQueryResult } from "@tanstack/react-query";
 import {
@@ -28,6 +29,17 @@ export interface MapStore {
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  shatterIds: {
+    parents: string[];
+    children: string[];
+  };
+  setShatterIds: ({
+    parents,
+    children,
+  }: {
+    parents: string[];
+    children: string[];
+  }) => void;
   mapOptions: MapOptions;
   setMapOptions: (options: MapOptions) => void;
   activeTool: ActiveTool;
@@ -55,7 +67,7 @@ export interface MapStore {
   setFreshMap: (resetMap: boolean) => void;
   mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
   setMapMetrics: (
-    metrics: UseQueryResult<ZonePopulation[], Error> | null,
+    metrics: UseQueryResult<ZonePopulation[], Error> | null
   ) => void;
   visibleLayerIds: string[];
   setVisibleLayerIds: (layerIds: string[]) => void;
@@ -74,8 +86,19 @@ export const useMapStore = create(
       set((state) => {
         state.setFreshMap(true);
         state.resetZoneAssignments();
-        return { mapDocument: mapDocument };
+        return {
+          mapDocument: mapDocument,
+          shatterIds: { parents: [], children: [] },
+        };
       }),
+    shatterIds: {
+      parents: [],
+      children: [],
+    },
+    setShatterIds: ({ parents, children }) => {
+      console.log("setting shatter ids", parents, children);
+      set({ shatterIds: { parents, children } });
+    },
     mapOptions: {
       center: [-98.5795, 39.8283],
       zoom: 3,
@@ -158,7 +181,7 @@ export const useMapStore = create(
     },
     contextMenu: null,
     setContextMenu: (contextMenu) => set({ contextMenu }),
-  })),
+  }))
 );
 
 useMapStore.subscribe(
@@ -169,7 +192,7 @@ useMapStore.subscribe(
       addBlockLayers(mapStore.mapRef, mapDocument);
       mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
     }
-  },
+  }
 );
 
 useMapStore.subscribe(
@@ -180,5 +203,27 @@ useMapStore.subscribe(
       addBlockLayers(mapRef, mapStore.mapDocument);
       mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
     }
-  },
+  }
+);
+
+const shatterSub = useMapStore.subscribe(
+  (state) => state.shatterIds,
+  (shatterIds) => {
+    const mapRef = useMapStore.getState().mapRef;
+
+    if (!mapRef?.current) {
+      return;
+    }
+
+    mapRef.current.setFilter(BLOCK_LAYER_ID, [
+      "!",
+      ["in", ["get", "path"], ["literal", shatterIds.parents]],
+    ]);
+    
+    mapRef.current.setFilter(BLOCK_LAYER_ID_CHILD, [
+      "in",
+      ["get", "path"],
+      ["literal", shatterIds.children],
+    ]);
+  }
 );
