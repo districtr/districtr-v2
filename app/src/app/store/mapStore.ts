@@ -95,10 +95,7 @@ export const useMapStore = create(
       parents: [],
       children: [],
     },
-    setShatterIds: ({ parents, children }) => {
-      console.log("setting shatter ids", parents, children);
-      set({ shatterIds: { parents, children } });
-    },
+    setShatterIds: ({ parents, children }) => set({ shatterIds: { parents, children } }),
     mapOptions: {
       center: [-98.5795, 39.8283],
       zoom: 3,
@@ -219,7 +216,7 @@ const shatterSub = useMapStore.subscribe(
       "!",
       ["in", ["get", "path"], ["literal", shatterIds.parents]],
     ]);
-    
+
     mapRef.current.setFilter(BLOCK_LAYER_ID_CHILD, [
       "in",
       ["get", "path"],
