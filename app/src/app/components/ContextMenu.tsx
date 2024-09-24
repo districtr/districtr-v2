@@ -8,20 +8,24 @@ import {
   BLOCK_LAYER_ID,
   BLOCK_LAYER_ID_CHILD,
 } from "@constants/layers";
+import { ShatterResult } from "../api/apiHandlers";
 
 export const MapContextMenu: React.FC = () => {
-  const { mapRef, mapDocument, contextMenu } = useMapStore((state) => {
-    return {
-      mapRef: state.mapRef,
-      mapDocument: state.mapDocument,
-      contextMenu: state.contextMenu,
-    };
-  });
-  const patchShatter = useMutation({
+  const { mapRef, mapDocument, contextMenu, shatterIds, setShatterIds } =
+    useMapStore((state) => {
+      return {
+        mapRef: state.mapRef,
+        mapDocument: state.mapDocument,
+        contextMenu: state.contextMenu,
+        shatterIds: state.shatterIds,
+        setShatterIds: state.setShatterIds,
+      };
+    });
+  const patchShatter = useMutation<ShatterResult>({
     mutationFn: patchShatterParents,
     onMutate: ({ document_id, geoids }) => {
       console.log(
-        `Shattering parents for ${geoids} in document ${document_id}...`,
+        `Shattering parents for ${geoids} in document ${document_id}...`
       );
     },
     onError: (error) => {
@@ -29,7 +33,7 @@ export const MapContextMenu: React.FC = () => {
     },
     onSuccess: (data) => {
       console.log(
-        `Successfully shattered parents into ${data.children.length} children`,
+        `Successfully shattered parents into ${data.children.length} children`
       );
       // mapRef?.current?.setFilter(BLOCK_LAYER_ID_CHILD, [
       //   "match",
@@ -52,7 +56,7 @@ export const MapContextMenu: React.FC = () => {
       //     },
       //   );
       // });
-      console.log(data.parents.geoids);
+
       data.parents.geoids.forEach((parent) =>
         mapRef?.current?.setFeatureState(
           {
@@ -60,16 +64,24 @@ export const MapContextMenu: React.FC = () => {
             id: parent,
             sourceLayer: BLOCK_LAYER_ID,
           },
-          { selected: false, zone: null },
-        ),
+          { selected: false, zone: null }
+        )
       );
-      mapRef?.current?.setFilter(BLOCK_LAYER_ID, [
-        "match",
-        ["get", "path"],
-        data.parents.geoids, // will need to add existing filters
-        false,
-        true,
-      ]);
+
+      setShatterIds({
+        parents: [...shatterIds.parents, ...data.parents.geoids],
+        children: [
+          ...shatterIds.children,
+          ...data.children.map((child) => child.geo_id),
+        ],
+      });
+      // mapRef?.current?.setFilter(BLOCK_LAYER_ID, [
+      //   "match",
+      //   ["get", "path"],
+      //   data.parents.geoids, // will need to add existing filters
+      //   false,
+      //   true,
+      // ]);
     },
   });
 
