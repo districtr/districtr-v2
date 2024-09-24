@@ -42,7 +42,6 @@ export function getBlocksLayerSpecification(
   sourceLayer: string,
   childLayer: boolean = false
 ): LayerSpecification {
-  console.log("getBlocksLayerSpecification", sourceLayer);
   return {
     id: childLayer ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID,
     source: BLOCK_SOURCE_ID,
@@ -160,6 +159,12 @@ export function removeBlockLayers(map: MutableRefObject<Map | null>) {
   }
   if (map.current?.getSource(BLOCK_SOURCE_ID)) {
     map.current?.removeSource(BLOCK_SOURCE_ID);
+  }
+  if (map.current?.getLayer(BLOCK_LAYER_ID_CHILD)) {
+    map.current?.removeLayer(BLOCK_LAYER_ID_CHILD);
+  }
+  if (map.current?.getLayer(BLOCK_HOVER_LAYER_ID_CHILD)) {
+    map.current?.removeLayer(BLOCK_HOVER_LAYER_ID_CHILD);
   }
 }
 
