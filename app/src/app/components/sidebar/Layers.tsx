@@ -6,7 +6,7 @@ import {
   BLOCK_HOVER_LAYER_ID,
 } from "../../constants/layers";
 import { toggleLayerVisibility } from "../../utils/helpers";
-
+import { useState } from "react";
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
  * on and off in the map.
@@ -16,13 +16,17 @@ import { toggleLayerVisibility } from "../../utils/helpers";
  * - Support tribes and communities
  */
 export default function Layers() {
-  const { mapRef, selectedLayer, visibleLayerIds, updateVisibleLayerIds } =
-    useMapStore((state) => ({
-      mapRef: state.mapRef,
-      selectedLayer: state.selectedLayer,
-      visibleLayerIds: state.visibleLayerIds,
-      updateVisibleLayerIds: state.updateVisibleLayerIds,
-    }));
+  const { mapRef, selectedLayer, visibleLayerIds } = useMapStore((state) => ({
+    mapRef: state.mapRef,
+    selectedLayer: state.selectedLayer,
+    visibleLayerIds: state.visibleLayerIds,
+  }));
+
+  const [disabled, setDisabled] = useState(true);
+
+  const updateVisibleLayerIds = useMapStore(
+    (state) => state.updateVisibleLayerIds
+  );
 
   const toggleLayers = (layerIds: string[]) => {
     if (!mapRef || !mapRef?.current) return;
@@ -47,7 +51,7 @@ export default function Layers() {
         >
           Show painted districts
         </CheckboxGroup.Item>
-        <CheckboxGroup.Item value="2" disabled>
+        <CheckboxGroup.Item value="2" disabled={disabled}>
           Show numbering for painted districts
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>
@@ -68,7 +72,7 @@ export default function Layers() {
         >
           Show county boundaries
         </CheckboxGroup.Item>
-        <CheckboxGroup.Item value="2" disabled>
+        <CheckboxGroup.Item value="2" disabled={disabled}>
           Show tribes and communities
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>

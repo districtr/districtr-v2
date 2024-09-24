@@ -5,13 +5,17 @@ import { blackA } from "@radix-ui/colors";
 import { useMapStore } from "../../store/mapStore";
 import { RadioCards, Box } from "@radix-ui/themes";
 import { EraserIcon, Pencil2Icon, HandIcon } from "@radix-ui/react-icons";
+import { useShallow } from "zustand/react/shallow";
 
 export function MapModeSelector() {
   const mapStore = useMapStore.getState();
-  const { activeTool, setActiveTool } = useMapStore((state) => ({
-    activeTool: state.activeTool,
-    setActiveTool: state.setActiveTool,
-  }));
+  const { activeTool} = useMapStore(
+    useShallow((state) => state.activeTool)
+  );
+
+  const setActiveTool = useMapStore(
+    useShallow((state) => state.setActiveTool)
+  )
 
   if (!activeTool) return null;
   const activeTools = [
