@@ -7,8 +7,11 @@ import { color10 } from "./colors";
 
 export const BLOCK_SOURCE_ID = "blocks";
 export const BLOCK_LAYER_ID = "blocks";
+export const BLOCK_SOURCE_ID_CHILD = "blocks-child";
 export const BLOCK_LAYER_ID_CHILD = "blocks-child";
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
+export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
+
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "case",
   ["boolean", ["feature-state", "hover"], false],
@@ -37,15 +40,18 @@ export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
 
 export function getBlocksLayerSpecification(
   sourceLayer: string,
+  childLayer: boolean = false
 ): LayerSpecification {
+  console.log("getBlocksLayerSpecification", sourceLayer);
   return {
-    id: BLOCK_LAYER_ID,
+    id: childLayer ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID,
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "line",
     layout: {
       visibility: "visible",
     },
+    filter: childLayer ? ["in", ["get", "path"], ["literal", []]] : ["!", ["in", ["get", "path"], ["literal", []]]],
     paint: {
       "line-opacity": [
         "case",
@@ -60,15 +66,17 @@ export function getBlocksLayerSpecification(
 
 export function getBlocksHoverLayerSpecification(
   sourceLayer: string,
+  childLayer: boolean = false
 ): LayerSpecification {
   return {
-    id: BLOCK_HOVER_LAYER_ID,
+    id: childLayer ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID,
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "fill",
     layout: {
       visibility: "visible",
     },
+    filter: childLayer ? ["in", ["get", "path"], ["literal", []]] : ["!", ["in", ["get", "path"], ["literal", []]]],
     paint: {
       "fill-opacity": [
         "case",
@@ -114,7 +122,7 @@ export function getBlocksHoverLayerSpecification(
 
 const addBlockLayers = (
   map: MutableRefObject<Map | null>,
-  mapDocument: DocumentObject,
+  mapDocument: DocumentObject
 ) => {
   if (!map.current || !mapDocument.tiles_s3_path) {
     console.log("map or mapDocument not ready", mapDocument);
@@ -125,12 +133,22 @@ const addBlockLayers = (
   map.current?.addSource(BLOCK_SOURCE_ID, blockSource);
   map.current?.addLayer(
     getBlocksLayerSpecification(mapDocument.parent_layer),
-    LABELS_BREAK_LAYER_ID,
+    LABELS_BREAK_LAYER_ID
   );
   map.current?.addLayer(
     getBlocksHoverLayerSpecification(mapDocument.parent_layer),
-    LABELS_BREAK_LAYER_ID,
+    LABELS_BREAK_LAYER_ID
   );
+  if (mapDocument.child_layer) {
+    map.current?.addLayer(
+      getBlocksHoverLayerSpecification(mapDocument.child_layer, true),
+      LABELS_BREAK_LAYER_ID
+    );
+    map.current?.addLayer(
+      getBlocksLayerSpecification(mapDocument.child_layer, true),
+      LABELS_BREAK_LAYER_ID
+    );
+  }
 };
 
 export function removeBlockLayers(map: MutableRefObject<Map | null>) {
