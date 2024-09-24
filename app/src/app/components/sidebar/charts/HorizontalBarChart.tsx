@@ -58,6 +58,7 @@ export const HorizontalBar = () => {
       </Heading>
       <ResponsiveContainer
         width="100%"
+        // should this instead be set based on the target number of zones? see https://github.com/districtr/districtr-v2/issues/92
         height={_colorScheme.length * 18}
         minHeight="200px"
       >
