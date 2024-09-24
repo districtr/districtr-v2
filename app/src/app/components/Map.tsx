@@ -27,6 +27,7 @@ import {
   getZonePopulations,
 } from "../api/apiHandlers";
 import { useMutation, useQuery, skipToken } from "@tanstack/react-query";
+import { useShallow } from "zustand/react/shallow";
 
 export const MapComponent: React.FC = () => {
   const searchParams = useSearchParams();
@@ -51,26 +52,24 @@ export const MapComponent: React.FC = () => {
     },
   });
 
-  const {
-    activeTool,
-    freshMap,
-    zoneAssignments,
-    mapDocument,
-    setMapDocument,
-    setSelectedLayer,
-    setMapRef,
-    setMapMetrics,
-  } = useMapStore((state) => ({
-    activeTool: state.activeTool,
-    freshMap: state.freshMap,
-    zoneAssignments: state.zoneAssignments,
-    mapDocument: state.mapDocument,
-    setMapDocument: state.setMapDocument,
-    setSelectedLayer: state.setSelectedLayer,
-    setMapRef: state.setMapRef,
-    setMapMetrics: state.setMapMetrics,
-  }));
+  const { activeTool, freshMap, zoneAssignments, mapDocument } = useMapStore(
+    useShallow((state) => ({
+      activeTool: state.activeTool,
+      freshMap: state.freshMap,
+      zoneAssignments: state.zoneAssignments,
+      mapDocument: state.mapDocument,
+    }))
+  );
 
+  const { setMapDocument, setSelectedLayer, setMapRef, setMapMetrics } =
+    useMapStore(
+      useShallow((state) => ({
+        setMapDocument: state.setMapDocument,
+        setSelectedLayer: state.setSelectedLayer,
+        setMapRef: state.setMapRef,
+        setMapMetrics: state.setMapMetrics,
+      }))
+    );
   const mapMetrics = useQuery({
     queryKey: ["zonePopulations", mapDocument],
     queryFn: mapDocument ? () => getZonePopulations(mapDocument) : skipToken,

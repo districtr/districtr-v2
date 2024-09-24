@@ -9,11 +9,14 @@ import { Tabs, Text } from "@radix-ui/themes";
 import Layers from "./Layers";
 import PaintByCounty from "./PaintByCounty";
 import { BrushSizeSelector } from "./BrushSizeSelector";
+import { useShallow } from "zustand/react/shallow";
 
 export default function SidebarComponent() {
-  const { activeTool } = useMapStore((state) => ({
-    activeTool: state.activeTool,
-  }));
+  const { activeTool } = useMapStore(
+    useShallow((state) => ({
+      activeTool: state.activeTool,
+    }))
+  );
 
   return (
     <Box
