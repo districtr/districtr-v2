@@ -5,23 +5,33 @@ import { styled } from "@stitches/react";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import { blackA } from "@radix-ui/colors";
 import { useMapStore } from "../../store/mapStore";
+import { useShallow } from "zustand/react/shallow";
 
 export function ColorPicker() {
   const [color, setColor] = useState(null);
   const [open, setOpen] = useState(false);
   const {
     selectedZone,
-    setSelectedZone,
     setZoneAssignments,
     accumulatedGeoids,
+  } = useMapStore(
+    useShallow((state) => ({
+      selectedZone: state.selectedZone,
+      setZoneAssignments: state.setZoneAssignments,
+      accumulatedGeoids: state.accumulatedGeoids,
+    }))
+  );
+
+  const {
+    setSelectedZone,
     resetAccumulatedBlockPopulations,
-  } = useMapStore((state) => ({
-    selectedZone: state.selectedZone,
-    setSelectedZone: state.setSelectedZone,
-    setZoneAssignments: state.setZoneAssignments,
-    accumulatedGeoids: state.accumulatedGeoids,
-    resetAccumulatedBlockPopulations: state.resetAccumulatedBlockPopulations,
-  }));
+  } = useMapStore(
+    useShallow((state) => ({
+      setSelectedZone: state.setSelectedZone,
+      resetAccumulatedBlockPopulations: state.resetAccumulatedBlockPopulations,
+    }))
+  );
+
   const colorArray = color10;
   if (!colorArray) return null;
   const handleRadioChange = (value) => {

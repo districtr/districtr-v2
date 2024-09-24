@@ -12,10 +12,8 @@ export function GerryDBViewSelector() {
   const searchParams = useSearchParams();
   const [limit, setLimit] = useState<number>(20);
   const [offset, setOffset] = useState<number>(0);
-  const { selectedLayer, setMapDocument } = useMapStore((state) => ({
-    selectedLayer: state.selectedLayer,
-    setMapDocument: state.setMapDocument,
-  }));
+  const selectedLayer = useMapStore((state) => state.selectedLayer);
+  const setMapDocument = useMapStore((state) => state.setMapDocument);
   const document = useMutation({
     mutationFn: createMapDocument,
     onMutate: () => {
