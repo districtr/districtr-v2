@@ -54,11 +54,13 @@ export const MapComponent: React.FC = () => {
   });
   const freshMap = useMapStore((state) => state.freshMap);
   const zoneAssignments = useMapStore((state) => state.zoneAssignments);
+  const loadZoneAssignments = useMapStore((state) => state.loadZoneAssignments);
+
   const mapDocument = useMapStore((state) => state.mapDocument);
   const setMapDocument = useMapStore((state) => state.setMapDocument);
   const setMapRef = useMapStore((state) => state.setMapRef);
   const setMapMetrics = useMapStore((state) => state.setMapMetrics);
-  
+
   const mapMetrics = useQuery({
     queryKey: ["zonePopulations", mapDocument],
     queryFn: mapDocument ? () => getZonePopulations(mapDocument) : skipToken,
@@ -107,24 +109,9 @@ export const MapComponent: React.FC = () => {
 
       if (mapDocument) {
         console.log("fetching assignments");
-        const sourceLayer = mapDocument.parent_layer;
         getAssignments(mapDocument).then((res: Assignment[]) => {
           console.log("got", res.length, "assignments");
-          mapMetrics.refetch();
-          res.forEach((assignment) => {
-            zoneAssignments.set(assignment.geo_id, assignment.zone);
-            map.current?.setFeatureState(
-              {
-                source: BLOCK_SOURCE_ID,
-                id: assignment.geo_id,
-                sourceLayer: sourceLayer,
-              },
-              {
-                selected: true,
-                zone: assignment.zone,
-              }
-            );
-          });
+          loadZoneAssignments(res);
         });
       }
     });
