@@ -1,0 +1,70 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: backend
+    volumes:
+      - ./backend/app:/districtr-backend/app # Adjust volumes to point to the backend folder
+      - ./backend/scripts:/districtr-backend/scripts # Ensure scripts are mounted from backend directory
+      - ./sample_data:/districtr-backend/sample_data
+
+    env_file:
+      - ./backend/.env.docker # Ensure the env file is also from the backend folder
+    environment:
+      LOAD_GERRY_DB_DATA: false
+      GPKG_DATA_DIR: sample_data
+    depends_on:
+      db:
+        condition: service_healthy
+    command: bash -c "
+      until alembic upgrade head; do
+      echo 'Alembic failed, retrying in 5 seconds...'
+      sleep 5;
+      done &&
+      python3 scripts/load_data.py &&
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/**/*.py'
+      "
+    ports:
+      - "8000:8000"
+
+  db:
+    image: postgis/postgis:15-3.3-alpine
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: districtr
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.dev
+    container_name: frontend
+    volumes:
+      - ./app:/app # Mount the app folder for hot reloading
+      - ./app/node_modules:/app/node_modules # Bind mount for node_modules
+
+    env_file:
+      - ./app/.env.docker
+    ports:
+      - "3000:3000" # Expose Next.js on port 3000
+    command: sh -c "npm install && npm run dev"
+
+  pre-commit:
+    image: python:3.9 # or whichever version you prefer
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: sh -c "pip install pre-commit && pre-commit run --all-files"
+
+volumes:
+  postgres_data:  

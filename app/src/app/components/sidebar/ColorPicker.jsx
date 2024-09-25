@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { palette, color10 } from "../../constants/colors";
+import { _colorScheme } from "../../constants/colors";
 import { Button } from "@radix-ui/themes";
 import { styled } from "@stitches/react";
 import * as RadioGroup from "@radix-ui/react-radio-group";
@@ -22,7 +22,7 @@ export function ColorPicker() {
     accumulatedGeoids: state.accumulatedGeoids,
     resetAccumulatedBlockPopulations: state.resetAccumulatedBlockPopulations,
   }));
-  const colorArray = color10;
+  const colorArray = _colorScheme;
   if (!colorArray) return null;
   const handleRadioChange = (value) => {
     console.log(
