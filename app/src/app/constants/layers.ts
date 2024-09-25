@@ -23,7 +23,7 @@ export const COUNTY_LAYER_IDS: string[] = [
 export const LABELS_BREAK_LAYER_ID = "places_subplace";
 
 const colorStyleBaseline: any[] = ["case"];
-export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = _colorScheme.reduce(
+export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = colorScheme.reduce(
   (val, color, i) => {
     val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
     return val;
