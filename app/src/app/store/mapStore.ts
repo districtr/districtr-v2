@@ -33,13 +33,13 @@ export interface MapStore {
     parents: string[];
     children: string[];
   };
-  setShatterIds: ({
-    parents,
-    children,
-  }: {
-    parents: string[];
-    children: string[];
-  }) => void;
+  setShatterIds: (
+    existingParents: string[],
+    existingChildren: string[],
+    newParent: string[],
+    newChildren: string[],
+    multipleShattered: boolean
+  ) => void;
   hoverFeatures: Array<MapFeatureInfo>;
   setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
   mapOptions: MapOptions;
@@ -97,8 +97,28 @@ export const useMapStore = create(
       parents: [],
       children: [],
     },
-    setShatterIds: ({ parents, children }) =>
-      set({ shatterIds: { parents, children } }),
+    setShatterIds: (
+      existingParents,
+      existingChildren,
+      newParent,
+      newChildren,
+      multipleShattered
+    ) => {
+      const zoneAssignments = new Map(get().zoneAssignments);
+      if (!multipleShattered) {
+        const zone = zoneAssignments.get(newParent[0]);
+        zone &&
+          newChildren.forEach((childId) => zoneAssignments.set(childId, zone));
+      }
+
+      set({
+        shatterIds: {
+          parents: [...existingParents, ...newParent],
+          children: [...existingChildren, ...newChildren],
+        },
+        zoneAssignments,
+      });
+    },
     hoverFeatures: [],
     setHoverFeatures: (_features) => {
       const hoverFeatures = _features

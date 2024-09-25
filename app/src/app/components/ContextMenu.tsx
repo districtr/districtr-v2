@@ -21,11 +21,15 @@ export const MapContextMenu: React.FC = () => {
         setShatterIds: state.setShatterIds,
       };
     });
-  const patchShatter = useMutation<ShatterResult>({
+  const patchShatter = useMutation<
+    ShatterResult,
+    void,
+    { document_id: string; geoids: string[] }
+  >({
     mutationFn: patchShatterParents,
     onMutate: ({ document_id, geoids }) => {
       console.log(
-        `Shattering parents for ${geoids} in document ${document_id}...`,
+        `Shattering parents for ${geoids} in document ${document_id}...`
       );
     },
     onError: (error) => {
@@ -33,16 +37,17 @@ export const MapContextMenu: React.FC = () => {
     },
     onSuccess: (data) => {
       console.log(
-        `Successfully shattered parents into ${data.children.length} children`,
+        `Successfully shattered parents into ${data.children.length} children`
       );
+      const multipleShattered = data.parents.geoids.length > 1;
 
-      setShatterIds({
-        parents: [...shatterIds.parents, ...data.parents.geoids],
-        children: [
-          ...shatterIds.children,
-          ...data.children.map((child) => child.geo_id),
-        ],
-      });
+      setShatterIds(
+        shatterIds.parents,
+        shatterIds.children,
+        data.parents.geoids,
+        data.children.map((child) => child.geo_id),
+        multipleShattered
+      );
       // mapRef?.current?.setFilter(BLOCK_LAYER_ID, [
       //   "match",
       //   ["get", "path"],
