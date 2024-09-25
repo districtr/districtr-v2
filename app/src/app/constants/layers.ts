@@ -3,7 +3,7 @@ import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
 import { getBlocksSource } from "./sources";
 import { gerryDBView } from "../api/apiHandlers";
-import { color10 } from "./colors";
+import { colorScheme } from "./colors";
 
 export const BLOCK_SOURCE_ID = "blocks";
 export const BLOCK_LAYER_ID = "blocks";
@@ -23,10 +23,13 @@ export const COUNTY_LAYER_IDS: string[] = [
 export const LABELS_BREAK_LAYER_ID = "places_subplace";
 
 const colorStyleBaseline: any[] = ["case"];
-export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = color10.reduce((val, color, i) => {
-  val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
-  return val;
-}, colorStyleBaseline);
+export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = _colorScheme.reduce(
+  (val, color, i) => {
+    val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
+    return val;
+  },
+  colorStyleBaseline
+);
 ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");
 
 // cast the above as an ExpressionSpecification
@@ -35,7 +38,7 @@ export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
   ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
 export function getBlocksLayerSpecification(
-  sourceLayer: string,
+  sourceLayer: string
 ): LayerSpecification {
   return {
     id: BLOCK_LAYER_ID,
@@ -58,7 +61,7 @@ export function getBlocksLayerSpecification(
 }
 
 export function getBlocksHoverLayerSpecification(
-  sourceLayer: string,
+  sourceLayer: string
 ): LayerSpecification {
   return {
     id: BLOCK_HOVER_LAYER_ID,
@@ -70,7 +73,7 @@ export function getBlocksHoverLayerSpecification(
     },
     paint: {
       "fill-opacity": [
-        "case",            
+        "case",
         // zone is selected and hover is true and hover is not null
         [
           "all",
@@ -81,7 +84,7 @@ export function getBlocksHoverLayerSpecification(
             // @ts-ignore
             ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
             ["boolean", ["feature-state", "hover"], true],
-          ]
+          ],
         ],
         0.9,
         // zone is selected and hover is false, and hover is not null
@@ -94,7 +97,7 @@ export function getBlocksHoverLayerSpecification(
             // @ts-ignore
             ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
             ["boolean", ["feature-state", "hover"], false],
-          ]
+          ],
         ],
         0.7,
         // zone is selected, fallback, regardless of hover state
@@ -102,8 +105,9 @@ export function getBlocksHoverLayerSpecification(
         ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
         0.7,
         // hover is true, fallback, regardless of zone state
-        ["boolean", ["feature-state", "hover"], false], 0.6,
-        0.2
+        ["boolean", ["feature-state", "hover"], false],
+        0.6,
+        0.2,
       ],
       "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
     },
@@ -112,18 +116,18 @@ export function getBlocksHoverLayerSpecification(
 
 const addBlockLayers = (
   map: MutableRefObject<Map | null>,
-  gerryDBView: gerryDBView,
+  gerryDBView: gerryDBView
 ) => {
   const blockSource = getBlocksSource(gerryDBView.tiles_s3_path);
   removeBlockLayers(map);
   map.current?.addSource(BLOCK_SOURCE_ID, blockSource);
   map.current?.addLayer(
     getBlocksLayerSpecification(gerryDBView.name),
-    LABELS_BREAK_LAYER_ID,
+    LABELS_BREAK_LAYER_ID
   );
   map.current?.addLayer(
     getBlocksHoverLayerSpecification(gerryDBView.name),
-    LABELS_BREAK_LAYER_ID,
+    LABELS_BREAK_LAYER_ID
   );
 };
 
