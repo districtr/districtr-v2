@@ -12,7 +12,11 @@ import {
   mapEvents,
   handleResetMapSelectState,
 } from "../utils/events/mapEvents";
-import { BLOCK_HOVER_LAYER_ID, BLOCK_SOURCE_ID } from "../constants/layers";
+import {
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_SOURCE_ID,
+  INTERACTIVE_LAYERS,
+} from "../constants/layers";
 import { useSearchParams } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
 import {
@@ -124,17 +128,18 @@ export const MapComponent: React.FC = () => {
         });
       }
     });
-
-    mapEvents.forEach((action) => {
-      if (map.current) {
-        map.current?.on(
-          action.action as keyof MapLayerEventType,
-          BLOCK_HOVER_LAYER_ID, // to be updated with the scale-agnostic layer id
-          (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-            action.handler(e, map, hoverFeatureIds);
-          },
-        );
-      }
+    INTERACTIVE_LAYERS.forEach((layer) => {
+      mapEvents.forEach((action) => {
+        if (map.current) {
+          map.current?.on(
+            action.action as keyof MapLayerEventType,
+            layer, // to be updated with the scale-agnostic layer id
+            (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+              action.handler(e, map);
+            }
+          );
+        }
+      });
     });
 
     return () => {

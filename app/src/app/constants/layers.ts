@@ -11,6 +11,11 @@ export const BLOCK_LAYER_ID_CHILD = "blocks-child";
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 
+export const INTERACTIVE_LAYERS = [
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+]
+
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "case",
   ["boolean", ["feature-state", "hover"], false],
