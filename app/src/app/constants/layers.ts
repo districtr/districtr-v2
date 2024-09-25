@@ -16,6 +16,16 @@ export const INTERACTIVE_LAYERS = [
   BLOCK_HOVER_LAYER_ID_CHILD,
 ]
 
+export const PARENT_LAYERS = [
+  BLOCK_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID
+]
+
+export const CHILD_LAYERS = [
+  BLOCK_LAYER_ID_CHILD,
+  BLOCK_HOVER_LAYER_ID_CHILD
+]
+
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "case",
   ["boolean", ["feature-state", "hover"], false],

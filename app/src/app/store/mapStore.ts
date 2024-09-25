@@ -7,14 +7,16 @@ import type {
   SpatialUnit,
 } from "../constants/types";
 import { Zone, GDBPath } from "../constants/types";
-import { DocumentObject, ZonePopulation } from "../api/apiHandlers";
+import { Assignment, DocumentObject, ZonePopulation } from "../api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
 import {
   addBlockLayers,
   BLOCK_LAYER_ID,
   BLOCK_HOVER_LAYER_ID,
-  BLOCK_LAYER_ID_CHILD,
+  BLOCK_SOURCE_ID,
+  PARENT_LAYERS,
+  CHILD_LAYERS,
 } from "../constants/layers";
 import type { UseQueryResult } from "@tanstack/react-query";
 import {
@@ -54,6 +56,7 @@ export interface MapStore {
   resetAccumulatedBlockPopulations: () => void;
   zoneAssignments: Map<string, number>; // geoid -> zone
   setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>) => void;
+  loadZoneAssignments: (assigments: Assignment[]) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
@@ -147,17 +150,24 @@ export const useMapStore = create(
     setSelectedZone: (zone) => set({ selectedZone: zone }),
     zoneAssignments: new Map(),
     accumulatedGeoids: new Set<string>(),
-    setZoneAssignments: (zone, geoids) =>
-      set((state) => {
-        const newZoneAssignments = new Map(state.zoneAssignments);
-        geoids.forEach((geoid) => {
-          newZoneAssignments.set(geoid, zone);
-        });
-        return {
-          zoneAssignments: newZoneAssignments,
-          accumulatedGeoids: new Set<string>(),
-        };
-      }),
+    setZoneAssignments: (zone, geoids) => {
+      const zoneAssignments = get().zoneAssignments;
+      const newZoneAssignments = new Map(zoneAssignments);
+      geoids.forEach((geoid) => {
+        newZoneAssignments.set(geoid, zone);
+      });
+      set({
+        zoneAssignments: newZoneAssignments,
+        accumulatedGeoids: new Set<string>(),
+      });
+    },
+    loadZoneAssignments: (assignments) => {
+      const zoneAssignments = new Map<string, number>();
+      assignments.forEach((assignment) => {
+        zoneAssignments.set(assignment.geo_id, assignment.zone);
+      });
+      set({ zoneAssignments });
+    },
     accumulatedBlockPopulations: new Map<string, number>(),
     resetAccumulatedBlockPopulations: () =>
       set({ accumulatedBlockPopulations: new Map<string, number>() }),
@@ -247,17 +257,21 @@ const _shatterMapSideEffectRender = useMapStore.subscribe(
       return;
     }
 
-    mapRef.current.setFilter(BLOCK_LAYER_ID, [
-      "!",
-      ["in", ["get", "path"], ["literal", shatterIds.parents]],
-    ]);
+    PARENT_LAYERS.forEach((layerId) =>
+      mapRef.current?.setFilter(layerId, [
+        "!",
+        ["in", ["get", "path"], ["literal", shatterIds.parents]],
+      ])
+    );
 
-    mapRef.current.setFilter(BLOCK_LAYER_ID_CHILD, [
-      "in",
-      ["get", "path"],
-      ["literal", shatterIds.children],
-    ]);
-  },
+    CHILD_LAYERS.forEach((layerId) =>
+      mapRef.current?.setFilter(layerId, [
+        "in",
+        ["get", "path"],
+        ["literal", shatterIds.children],
+      ])
+    );
+  }
 );
 
 const _hoverMapSideEffectRender = useMapStore.subscribe(
@@ -276,6 +290,44 @@ const _hoverMapSideEffectRender = useMapStore.subscribe(
     hoverFeatures.forEach((feature) => {
       mapRef.current?.setFeatureState(feature, { hover: true });
     });
+  }
+);
 
+const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe(
+  (state) => ({
+    zoneAssignments: state.zoneAssignments,
+    mapDocument: state.mapDocument,
+    mapRef: state.mapRef,
+    shatterIds: state.shatterIds,
+  }),
+  (state) => {
+    const { zoneAssignments, mapDocument, mapRef } = state;
+
+    if (!mapRef?.current || !mapDocument) {
+      return;
+    }
+
+    zoneAssignments.forEach((zone, id) => {
+      const isParent = id.toString().includes("vtd");
+      const sourceLayer = isParent
+        ? mapDocument.parent_layer
+        : mapDocument.child_layer;
+
+      if (!sourceLayer) {
+        return;
+      }
+
+      mapRef.current?.setFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          id,
+          sourceLayer,
+        },
+        {
+          selected: true,
+          zone,
+        }
+      );
+    });
   }
 );
