@@ -54,6 +54,8 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   accumulatedBlockPopulations: Map<string, number>;
   resetAccumulatedBlockPopulations: () => void;
+  // TODO: Add parent/child status to zoneAssignments
+  // Probably, something like Map<string, { zone: number, child?: boolean }>
   zoneAssignments: Map<string, number>; // geoid -> zone
   setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
@@ -308,6 +310,8 @@ const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe(
     }
 
     zoneAssignments.forEach((zone, id) => {
+      // This is awful
+      // we need information on whether an assignment is parent or child
       const isParent = id.toString().includes("vtd");
       const sourceLayer = isParent
         ? mapDocument.parent_layer
