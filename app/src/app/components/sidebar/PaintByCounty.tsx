@@ -8,13 +8,9 @@ import {
 } from "../../utils/helpers";
 
 export default function PaintByCounty() {
-  const { mapRef, addVisibleLayerIds, setPaintFunction } = useMapStore(
-    (state) => ({
-      mapRef: state.mapRef,
-      addVisibleLayerIds: state.addVisibleLayerIds,
-      setPaintFunction: state.setPaintFunction,
-    }),
-  );
+  const mapRef = useMapStore((state) => state.mapRef);
+  const addVisibleLayerIds = useMapStore((state) => state.addVisibleLayerIds);
+  const setPaintFunction = useMapStore((state) => state.setPaintFunction);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
