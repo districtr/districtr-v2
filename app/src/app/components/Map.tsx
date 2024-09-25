@@ -10,7 +10,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { MAP_OPTIONS } from "../constants/configuration";
 import {
   mapEvents,
-  useHoverFeatureIds,
   handleResetMapSelectState,
 } from "../utils/events/mapEvents";
 import { BLOCK_HOVER_LAYER_ID, BLOCK_SOURCE_ID } from "../constants/layers";
@@ -33,7 +32,6 @@ export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const hoverFeatureIds = useHoverFeatureIds();
 
   const patchUpdates = useMutation({
     mutationFn: patchUpdateAssignments,
@@ -45,28 +43,18 @@ export const MapComponent: React.FC = () => {
     },
     onSuccess: (data: AssignmentsCreate) => {
       console.log(
-        `Successfully upserted ${data.assignments_upserted} assignments`,
+        `Successfully upserted ${data.assignments_upserted} assignments`
       );
       mapMetrics.refetch();
     },
   });
-
-  const {
-    freshMap,
-    zoneAssignments,
-    mapDocument,
-    setMapDocument,
-    setMapRef,
-    setMapMetrics,
-  } = useMapStore((state) => ({
-    freshMap: state.freshMap,
-    zoneAssignments: state.zoneAssignments,
-    mapDocument: state.mapDocument,
-    setMapDocument: state.setMapDocument,
-    setMapRef: state.setMapRef,
-    setMapMetrics: state.setMapMetrics,
-  }));
-
+  const freshMap = useMapStore((state) => state.freshMap);
+  const zoneAssignments = useMapStore((state) => state.zoneAssignments);
+  const mapDocument = useMapStore((state) => state.mapDocument);
+  const setMapDocument = useMapStore((state) => state.setMapDocument);
+  const setMapRef = useMapStore((state) => state.setMapRef);
+  const setMapMetrics = useMapStore((state) => state.setMapMetrics);
+  
   const mapMetrics = useQuery({
     queryKey: ["zonePopulations", mapDocument],
     queryFn: mapDocument ? () => getZonePopulations(mapDocument) : skipToken,
@@ -130,7 +118,7 @@ export const MapComponent: React.FC = () => {
               {
                 selected: true,
                 zone: assignment.zone,
-              },
+              }
             );
           });
         });
