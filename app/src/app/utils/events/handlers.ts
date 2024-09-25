@@ -46,7 +46,7 @@ export const SelectMapFeatures = (
       {
         source: BLOCK_SOURCE_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: mapStoreRef.mapDocument?.parent_layer,
+        sourceLayer: feature.sourceLayer,
       },
       { selected: true, zone: mapStoreRef.selectedZone },
     );
@@ -118,8 +118,8 @@ export const HighlightFeature = (
     map.current?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
-        id: feature?.id ?? undefined,
-        sourceLayer: sourceLayer,
+        id: feature.id ?? undefined,
+        sourceLayer: feature.sourceLayer,
       },
       { hover: true },
     );

@@ -39,17 +39,20 @@ export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
 
 export function getBlocksLayerSpecification(
   sourceLayer: string,
-  childLayer: boolean = false
+  layerId: string,
 ): LayerSpecification {
   return {
-    id: childLayer ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID,
+    id: layerId,
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "line",
     layout: {
       visibility: "visible",
     },
-    filter: childLayer ? ["in", ["get", "path"], ["literal", []]] : ["!", ["in", ["get", "path"], ["literal", []]]],
+    filter:
+      layerId === BLOCK_LAYER_ID_CHILD
+        ? ["in", ["get", "path"], ["literal", []]]
+        : ["!", ["in", ["get", "path"], ["literal", []]]],
     paint: {
       "line-opacity": [
         "case",
@@ -64,17 +67,20 @@ export function getBlocksLayerSpecification(
 
 export function getBlocksHoverLayerSpecification(
   sourceLayer: string,
-  childLayer: boolean = false
+  layerId: string,
 ): LayerSpecification {
   return {
-    id: childLayer ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID,
+    id: layerId,
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "fill",
     layout: {
       visibility: "visible",
     },
-    filter: childLayer ? ["in", ["get", "path"], ["literal", []]] : ["!", ["in", ["get", "path"], ["literal", []]]],
+    filter:
+      layerId === BLOCK_HOVER_LAYER_ID_CHILD
+        ? ["in", ["get", "path"], ["literal", []]]
+        : ["!", ["in", ["get", "path"], ["literal", []]]],
     paint: {
       "fill-opacity": [
         "case",
@@ -120,7 +126,7 @@ export function getBlocksHoverLayerSpecification(
 
 const addBlockLayers = (
   map: MutableRefObject<Map | null>,
-  mapDocument: DocumentObject
+  mapDocument: DocumentObject,
 ) => {
   if (!map.current || !mapDocument.tiles_s3_path) {
     console.log("map or mapDocument not ready", mapDocument);
@@ -130,21 +136,30 @@ const addBlockLayers = (
   removeBlockLayers(map);
   map.current?.addSource(BLOCK_SOURCE_ID, blockSource);
   map.current?.addLayer(
-    getBlocksLayerSpecification(mapDocument.parent_layer),
-    LABELS_BREAK_LAYER_ID
+    getBlocksLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID),
+    LABELS_BREAK_LAYER_ID,
   );
   map.current?.addLayer(
-    getBlocksHoverLayerSpecification(mapDocument.parent_layer),
-    LABELS_BREAK_LAYER_ID
+    getBlocksHoverLayerSpecification(
+      mapDocument.parent_layer,
+      BLOCK_HOVER_LAYER_ID,
+    ),
+    LABELS_BREAK_LAYER_ID,
   );
   if (mapDocument.child_layer) {
     map.current?.addLayer(
-      getBlocksHoverLayerSpecification(mapDocument.child_layer, true),
-      LABELS_BREAK_LAYER_ID
+      getBlocksHoverLayerSpecification(
+        mapDocument.child_layer,
+        BLOCK_HOVER_LAYER_ID_CHILD,
+      ),
+      LABELS_BREAK_LAYER_ID,
     );
     map.current?.addLayer(
-      getBlocksLayerSpecification(mapDocument.child_layer, true),
-      LABELS_BREAK_LAYER_ID
+      getBlocksLayerSpecification(
+        mapDocument.child_layer,
+        BLOCK_LAYER_ID_CHILD,
+      ),
+      LABELS_BREAK_LAYER_ID,
     );
   }
 };

@@ -9,7 +9,7 @@ import {
 } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Point } from "maplibre-gl";
-import { BLOCK_LAYER_ID } from "@/app/constants/layers";
+import { BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD } from "@/app/constants/layers";
 import { polygon, multiPolygon } from "@turf/helpers";
 import { booleanWithin } from "@turf/boolean-within";
 import { pointOnFeature } from "@turf/point-on-feature";
@@ -74,7 +74,7 @@ export const getFeaturesInBbox = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_LAYER_ID],
+  layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD],
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
 
@@ -93,7 +93,7 @@ export const getFeaturesIntersectingCounties = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_LAYER_ID],
+  layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD],
 ): MapGeoJSONFeature[] | undefined => {
   if (!map.current) return;
 

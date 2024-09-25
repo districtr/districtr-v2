@@ -3,11 +3,7 @@ import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import type { ActiveTool, SpatialUnit } from "../constants/types";
 import { Zone, GDBPath } from "../constants/types";
-import {
-  gerryDBView,
-  DocumentObject,
-  ZonePopulation,
-} from "../api/apiHandlers";
+import { DocumentObject, ZonePopulation } from "../api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
 import {
@@ -67,7 +63,7 @@ export interface MapStore {
   setFreshMap: (resetMap: boolean) => void;
   mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
   setMapMetrics: (
-    metrics: UseQueryResult<ZonePopulation[], Error> | null
+    metrics: UseQueryResult<ZonePopulation[], Error> | null,
   ) => void;
   visibleLayerIds: string[];
   setVisibleLayerIds: (layerIds: string[]) => void;
@@ -95,7 +91,8 @@ export const useMapStore = create(
       parents: [],
       children: [],
     },
-    setShatterIds: ({ parents, children }) => set({ shatterIds: { parents, children } }),
+    setShatterIds: ({ parents, children }) =>
+      set({ shatterIds: { parents, children } }),
     mapOptions: {
       center: [-98.5795, 39.8283],
       zoom: 3,
@@ -178,7 +175,7 @@ export const useMapStore = create(
     },
     contextMenu: null,
     setContextMenu: (contextMenu) => set({ contextMenu }),
-  }))
+  })),
 );
 
 useMapStore.subscribe(
@@ -189,7 +186,7 @@ useMapStore.subscribe(
       addBlockLayers(mapStore.mapRef, mapDocument);
       mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
     }
-  }
+  },
 );
 
 useMapStore.subscribe(
@@ -200,7 +197,7 @@ useMapStore.subscribe(
       addBlockLayers(mapRef, mapStore.mapDocument);
       mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
     }
-  }
+  },
 );
 
 const shatterSub = useMapStore.subscribe(
@@ -222,5 +219,5 @@ const shatterSub = useMapStore.subscribe(
       ["get", "path"],
       ["literal", shatterIds.children],
     ]);
-  }
+  },
 );

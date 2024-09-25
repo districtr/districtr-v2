@@ -25,7 +25,7 @@ export const MapContextMenu: React.FC = () => {
     mutationFn: patchShatterParents,
     onMutate: ({ document_id, geoids }) => {
       console.log(
-        `Shattering parents for ${geoids} in document ${document_id}...`
+        `Shattering parents for ${geoids} in document ${document_id}...`,
       );
     },
     onError: (error) => {
@@ -33,39 +33,7 @@ export const MapContextMenu: React.FC = () => {
     },
     onSuccess: (data) => {
       console.log(
-        `Successfully shattered parents into ${data.children.length} children`
-      );
-      // mapRef?.current?.setFilter(BLOCK_LAYER_ID_CHILD, [
-      //   "match",
-      //   ["get", "path"],
-      //   data.map((child) => child.geo_id), // will need to add existing filters
-      //   true,
-      //   false,
-      // ]);
-      // data.forEach((child) => {
-      //   // zoneAssignments.set(assignment.geo_id, assignment.zone);
-      //   mapRef?.current?.setFeatureState(
-      //     {
-      //       source: BLOCK_SOURCE_ID,
-      //       id: child.geo_id,
-      //       sourceLayer: BLOCK_LAYER_ID_CHILD,
-      //     },
-      //     {
-      //       selected: false,
-      //       zone: child.zone,
-      //     },
-      //   );
-      // });
-
-      data.parents.geoids.forEach((parent) =>
-        mapRef?.current?.setFeatureState(
-          {
-            source: BLOCK_SOURCE_ID,
-            id: parent,
-            sourceLayer: BLOCK_LAYER_ID,
-          },
-          { selected: false, zone: null }
-        )
+        `Successfully shattered parents into ${data.children.length} children`,
       );
 
       setShatterIds({
