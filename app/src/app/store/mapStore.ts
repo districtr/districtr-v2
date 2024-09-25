@@ -1,7 +1,11 @@
-import type { MapOptions } from "maplibre-gl";
+import type { MapGeoJSONFeature, MapOptions } from "maplibre-gl";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
-import type { ActiveTool, SpatialUnit } from "../constants/types";
+import type {
+  ActiveTool,
+  MapFeatureInfo,
+  SpatialUnit,
+} from "../constants/types";
 import { Zone, GDBPath } from "../constants/types";
 import { DocumentObject, ZonePopulation } from "../api/apiHandlers";
 import maplibregl from "maplibre-gl";
@@ -36,6 +40,8 @@ export interface MapStore {
     parents: string[];
     children: string[];
   }) => void;
+  hoverFeatures: Array<MapFeatureInfo>;
+  setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
   mapOptions: MapOptions;
   setMapOptions: (options: MapOptions) => void;
   activeTool: ActiveTool;
@@ -74,7 +80,7 @@ export interface MapStore {
 }
 
 export const useMapStore = create(
-  subscribeWithSelector<MapStore>((set) => ({
+  subscribeWithSelector<MapStore>((set, get) => ({
     mapRef: null,
     setMapRef: (mapRef) => set({ mapRef }),
     mapDocument: null,
@@ -93,6 +99,18 @@ export const useMapStore = create(
     },
     setShatterIds: ({ parents, children }) =>
       set({ shatterIds: { parents, children } }),
+    hoverFeatures: [],
+    setHoverFeatures: (_features) => {
+      const hoverFeatures = _features
+        ? _features.map((f) => ({
+            source: f.source,
+            sourceLayer: f.sourceLayer,
+            id: f.id,
+          }))
+        : [];
+      
+      set({ hoverFeatures });
+    },
     mapOptions: {
       center: [-98.5795, 39.8283],
       zoom: 3,
@@ -200,7 +218,7 @@ useMapStore.subscribe(
   },
 );
 
-const shatterSub = useMapStore.subscribe(
+const _shatterMapSideEffectRender = useMapStore.subscribe(
   (state) => state.shatterIds,
   (shatterIds) => {
     const mapRef = useMapStore.getState().mapRef;
@@ -220,4 +238,24 @@ const shatterSub = useMapStore.subscribe(
       ["literal", shatterIds.children],
     ]);
   },
+);
+
+const _hoverMapSideEffectRender = useMapStore.subscribe(
+  (state) => state.hoverFeatures,
+  (hoverFeatures, previousHoverFeatures) => {
+    const mapRef = useMapStore.getState().mapRef;
+
+    if (!mapRef?.current) {
+      return;
+    }
+
+    previousHoverFeatures.forEach((feature) => {
+      mapRef.current?.setFeatureState(feature, { hover: false });
+    });
+
+    hoverFeatures.forEach((feature) => {
+      mapRef.current?.setFeatureState(feature, { hover: true });
+    });
+
+  }
 );

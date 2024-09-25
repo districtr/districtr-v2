@@ -145,7 +145,7 @@ export const MapComponent: React.FC = () => {
     return () => {
       mapEvents.forEach((action) => {
         map.current?.off(action.action, (e) => {
-          action.handler(e, map, hoverFeatureIds);
+          action.handler(e, map);
         });
       });
     };

@@ -36,3 +36,9 @@ export type ViewStateChangeEvent =
         | "pitchend";
       viewState: MapOptions;
     });
+
+export type MapFeatureInfo = {
+  source: string;
+  sourceLayer?: string;
+  id?: string | number;
+};
