@@ -9,7 +9,7 @@ import {
   YAxis,
   Cell,
 } from "recharts";
-import { _colorScheme } from "@/app/constants/colors";
+import { colorScheme } from "@/app/constants/colors";
 
 type TooltipInput = {
   active?: boolean;
@@ -59,7 +59,7 @@ export const HorizontalBar = () => {
       <ResponsiveContainer
         width="100%"
         // should this instead be set based on the target number of zones? see https://github.com/districtr/districtr-v2/issues/92
-        height={_colorScheme.length * 18}
+        height={colorScheme.length * 18}
         minHeight="200px"
       >
         <BarChart
@@ -81,7 +81,10 @@ export const HorizontalBar = () => {
             {mapMetrics.data
               .sort((a, b) => a.zone - b.zone)
               .map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={_colorScheme[entry.zone - 1]} />
+                <Cell
+                  key={`cell-${index}`}
+                  fill={colorScheme[entry.zone - 1]}
+                />
               ))}
           </Bar>
         </BarChart>
