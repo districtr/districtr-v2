@@ -9,10 +9,15 @@ import {
 } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Point } from "maplibre-gl";
-import { BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD } from "@/app/constants/layers";
+import {
+  BLOCK_LAYER_ID,
+  BLOCK_LAYER_ID_CHILD,
+  BLOCK_SOURCE_ID,
+} from "@/app/constants/layers";
 import { polygon, multiPolygon } from "@turf/helpers";
 import { booleanWithin } from "@turf/boolean-within";
 import { pointOnFeature } from "@turf/point-on-feature";
+import { MapStore, useMapStore } from "../store/mapStore";
 
 /**
  * PaintEventHandler
@@ -25,7 +30,7 @@ export type PaintEventHandler = (
   map: React.MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers?: string[],
+  layers?: string[]
 ) => MapGeoJSONFeature[] | undefined;
 
 /**
@@ -54,7 +59,7 @@ export type ContextMenuState = {
  */
 export const boxAroundPoint = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  radius: number,
+  radius: number
 ): [PointLike, PointLike] => {
   return [
     [e.point.x - radius, e.point.y - radius],
@@ -74,7 +79,7 @@ export const getFeaturesInBbox = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD],
+  layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
 
@@ -93,7 +98,7 @@ export const getFeaturesIntersectingCounties = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD],
+  layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
 ): MapGeoJSONFeature[] | undefined => {
   if (!map.current) return;
 
@@ -136,7 +141,7 @@ export const getFeaturesIntersectingCounties = (
  * @returns [PointLike, PointLike] - An array containing the SW and NE corners of the bounding box
  */
 const getBoundingBoxFromFeatures = (
-  features: MapGeoJSONFeature[],
+  features: MapGeoJSONFeature[]
 ): [LngLatLike, LngLatLike] | null => {
   if (!features || features.length === 0) {
     return null;
@@ -172,14 +177,14 @@ const getBoundingBoxFromFeatures = (
  */
 export const mousePos = (
   map: MutableRefObject<Map | null>,
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
+  e: MapLayerMouseEvent | MapLayerTouchEvent
 ) => {
   const canvas = map.current?.getCanvasContainer();
   if (!canvas) return new Point(0, 0);
   const rect = canvas.getBoundingClientRect();
   return new Point(
     e.point.x - rect.left - canvas.clientLeft,
-    e.point.y - rect.top - canvas.clientTop,
+    e.point.y - rect.top - canvas.clientTop
   );
 };
 
@@ -202,7 +207,7 @@ export interface LayerVisibility {
  */
 export function toggleLayerVisibility(
   mapRef: MutableRefObject<maplibregl.Map | null>,
-  layerIds: string[],
+  layerIds: string[]
 ): LayerVisibility[] {
   const activeLayerIds = getVisibleLayers(mapRef)?.map((layer) => layer.id);
   if (!activeLayerIds) return [];
@@ -229,3 +234,63 @@ export function getVisibleLayers(map: MutableRefObject<Map | null>) {
     return layer.layout?.visibility === "visible";
   });
 }
+
+/**
+ * Assigns colors to zones on the map based on the current zone assignments.
+ * This function updates the feature state of map features to reflect their assigned zones.
+ *
+ * @function
+ * @name colorZoneAssignments
+ * @returns {void}
+ *
+ * @requires useMapStore
+ * @requires BLOCK_SOURCE_ID
+ *
+ * @description
+ * This function does the following:
+ * 1. Retrieves the current state from the map store.
+ * 2. Checks if the map reference and map document are available.
+ * 3. Iterates through the zone assignments.
+ * 4. Determines whether each assignment is for a parent or child layer.
+ * 5. Sets the feature state for each assigned feature on the map.
+ */
+export const colorZoneAssignments = () => {
+  const { zoneAssignments, mapDocument, mapRef } = useMapStore.getState();
+
+  if (!mapRef?.current || !mapDocument) {
+    return;
+  }
+
+  zoneAssignments.forEach((zone, id) => {
+    // This is awful
+    // we need information on whether an assignment is parent or child
+    const isParent = id.toString().includes("vtd");
+    const sourceLayer = isParent
+      ? mapDocument.parent_layer
+      : mapDocument.child_layer;
+
+    if (!sourceLayer) {
+      return;
+    }
+
+    mapRef.current?.setFeatureState(
+      {
+        source: BLOCK_SOURCE_ID,
+        id,
+        sourceLayer,
+      },
+      {
+        selected: true,
+        zone,
+      }
+    );
+  });
+};
+
+// property changes on which to re-color assignments
+export const colorZoneAssignmentTriggers = [
+  "zoneAssignments",
+  "mapDocument",
+  "mapRef",
+  "shatterIds",
+] as Array<keyof MapStore>;

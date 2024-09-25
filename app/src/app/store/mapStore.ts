@@ -23,6 +23,8 @@ import {
   ContextMenuState,
   LayerVisibility,
   PaintEventHandler,
+  colorZoneAssignmentTriggers,
+  colorZoneAssignments,
   getFeaturesInBbox,
 } from "../utils/helpers";
 
@@ -74,7 +76,7 @@ export interface MapStore {
   setFreshMap: (resetMap: boolean) => void;
   mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
   setMapMetrics: (
-    metrics: UseQueryResult<ZonePopulation[], Error> | null,
+    metrics: UseQueryResult<ZonePopulation[], Error> | null
   ) => void;
   visibleLayerIds: string[];
   setVisibleLayerIds: (layerIds: string[]) => void;
@@ -133,7 +135,7 @@ export const useMapStore = create(
             id: f.id,
           }))
         : [];
-      
+
       set({ hoverFeatures });
     },
     mapOptions: {
@@ -225,7 +227,7 @@ export const useMapStore = create(
     },
     contextMenu: null,
     setContextMenu: (contextMenu) => set({ contextMenu }),
-  })),
+  }))
 );
 
 useMapStore.subscribe(
@@ -236,7 +238,7 @@ useMapStore.subscribe(
       addBlockLayers(mapStore.mapRef, mapDocument);
       mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
     }
-  },
+  }
 );
 
 useMapStore.subscribe(
@@ -247,7 +249,7 @@ useMapStore.subscribe(
       addBlockLayers(mapRef, mapStore.mapDocument);
       mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
     }
-  },
+  }
 );
 
 const _shatterMapSideEffectRender = useMapStore.subscribe(
@@ -294,44 +296,6 @@ const _hoverMapSideEffectRender = useMapStore.subscribe(
     });
   }
 );
-
-const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe(
-  (state) => ({
-    zoneAssignments: state.zoneAssignments,
-    mapDocument: state.mapDocument,
-    mapRef: state.mapRef,
-    shatterIds: state.shatterIds,
-  }),
-  (state) => {
-    const { zoneAssignments, mapDocument, mapRef } = state;
-
-    if (!mapRef?.current || !mapDocument) {
-      return;
-    }
-
-    zoneAssignments.forEach((zone, id) => {
-      // This is awful
-      // we need information on whether an assignment is parent or child
-      const isParent = id.toString().includes("vtd");
-      const sourceLayer = isParent
-        ? mapDocument.parent_layer
-        : mapDocument.child_layer;
-
-      if (!sourceLayer) {
-        return;
-      }
-
-      mapRef.current?.setFeatureState(
-        {
-          source: BLOCK_SOURCE_ID,
-          id,
-          sourceLayer,
-        },
-        {
-          selected: true,
-          zone,
-        }
-      );
-    });
-  }
+const _zoneAssignmentMapSideEffectRender = colorZoneAssignmentTriggers.map(
+  (key) => useMapStore.subscribe((state) => state[key], colorZoneAssignments)
 );
