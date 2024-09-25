@@ -102,16 +102,13 @@ export const handleMapMouseLeave = (
   const activeTool = mapStore.activeTool;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   const setHoverFeatures = mapStore.setHoverFeatures;
-  if (sourceLayer && activeTool === "brush") {
-    setHoverFeatures([]);
-  }
+  setHoverFeatures([]);
 };
 
 export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<MapLibreMap | null>
 ) => {
-  // console.log("mouse out");
 };
 
 export const handleMapMouseMove = (
@@ -168,6 +165,7 @@ export const handleMapContextMenu = (
 ) => {
   e.preventDefault();
   const mapStore = useMapStore.getState();
+  const setHoverFeatures = mapStore.setHoverFeatures;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
@@ -177,7 +175,6 @@ export const handleMapContextMenu = (
     0,
     INTERACTIVE_LAYERS
   );
-  const setHoverFeatures = mapStore.setHoverFeatures;
   if (!selectedFeatures?.length || !map.current || !sourceLayer) return;
 
   setHoverFeatures(selectedFeatures.slice(0, 1));
