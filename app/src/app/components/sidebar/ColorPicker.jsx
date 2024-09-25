@@ -9,19 +9,12 @@ import { useMapStore } from "../../store/mapStore";
 export function ColorPicker() {
   const [color, setColor] = useState(null);
   const [open, setOpen] = useState(false);
-  const {
-    selectedZone,
-    setSelectedZone,
-    setZoneAssignments,
-    accumulatedGeoids,
-    resetAccumulatedBlockPopulations,
-  } = useMapStore((state) => ({
-    selectedZone: state.selectedZone,
-    setSelectedZone: state.setSelectedZone,
-    setZoneAssignments: state.setZoneAssignments,
-    accumulatedGeoids: state.accumulatedGeoids,
-    resetAccumulatedBlockPopulations: state.resetAccumulatedBlockPopulations,
-  }));
+  const selectedZone = useMapStore((state) => state.selectedZone);
+  const setSelectedZone = useMapStore((state) => state.setSelectedZone);
+  const setZoneAssignments = useMapStore((state) => state.setZoneAssignments);
+  const accumulatedGeoids = useMapStore((state) => state.accumulatedGeoids);
+  const resetAccumulatedBlockPopulations = useMapStore((state) => state.resetAccumulatedBlockPopulations);
+  
   const colorArray = color10;
   if (!colorArray) return null;
   const handleRadioChange = (value) => {

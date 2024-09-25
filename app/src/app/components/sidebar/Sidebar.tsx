@@ -11,9 +11,7 @@ import PaintByCounty from "./PaintByCounty";
 import { BrushSizeSelector } from "./BrushSizeSelector";
 
 export default function SidebarComponent() {
-  const { activeTool } = useMapStore((state) => ({
-    activeTool: state.activeTool,
-  }));
+  const activeTool = useMapStore((state) => state.activeTool);
 
   return (
     <Box
