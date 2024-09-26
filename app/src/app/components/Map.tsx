@@ -36,6 +36,7 @@ export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const mapLock = useMapStore((state) => state.mapLock);
 
   const patchUpdates = useMutation({
     mutationFn: patchUpdateAssignments,
@@ -154,5 +155,12 @@ export const MapComponent: React.FC = () => {
     }
   }, [mapLoaded, freshMap]);
 
-  return <div className="h-full w-full-minus-sidebar" ref={mapContainer} />;
+  return (
+    <div
+      className={`h-full w-full-minus-sidebar
+    ${mapLock ? "pointer-events-none" : ""}
+    `}
+      ref={mapContainer}
+    />
+  );
 };

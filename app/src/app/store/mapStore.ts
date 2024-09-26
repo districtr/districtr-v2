@@ -33,6 +33,8 @@ import {
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
+  mapLock: boolean;
+  setMapLock: (lock: boolean) => void;
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
   shatterIds: {
@@ -92,6 +94,8 @@ export const useMapStore = create(
   subscribeWithSelector<MapStore>((set, get) => ({
     mapRef: null,
     setMapRef: (mapRef) => set({ mapRef }),
+    mapLock: false,
+    setMapLock: (mapLock) => set({ mapLock }),
     mapDocument: null,
     setMapDocument: (mapDocument) =>
       set((state) => {
@@ -257,7 +261,9 @@ useMapStore.subscribe(
 const _shatterMapSideEffectRender = useMapStore.subscribe(
   (state) => state.shatterIds,
   (shatterIds) => {
-    const mapRef = useMapStore.getState().mapRef;
+    const state = useMapStore.getState();
+    const mapRef = state.mapRef;
+    const setMapLock = state.setMapLock;
 
     if (!mapRef?.current) {
       return;
@@ -277,6 +283,11 @@ const _shatterMapSideEffectRender = useMapStore.subscribe(
         ["literal", shatterIds.children],
       ])
     );
+
+    mapRef.current.once("render", () => {
+      setMapLock(false);
+      console.log(`Unlocked at`, performance.now());
+    });
   }
 );
 

@@ -11,16 +11,13 @@ import {
 import { ShatterResult } from "../api/apiHandlers";
 
 export const MapContextMenu: React.FC = () => {
-  const { mapRef, mapDocument, contextMenu, shatterIds, setShatterIds } =
-    useMapStore((state) => {
-      return {
-        mapRef: state.mapRef,
-        mapDocument: state.mapDocument,
-        contextMenu: state.contextMenu,
-        shatterIds: state.shatterIds,
-        setShatterIds: state.setShatterIds,
-      };
-    });
+  const mapRef = useMapStore(state => state.mapRef)
+  const mapDocument = useMapStore(state => state.mapDocument)
+  const contextMenu = useMapStore(state => state.contextMenu)
+  const shatterIds = useMapStore(state => state.shatterIds)
+  const setShatterIds = useMapStore(state => state.setShatterIds)
+  const setMapLock = useMapStore(state => state.setMapLock)
+  
   const patchShatter = useMutation<
     ShatterResult,
     void,
@@ -28,8 +25,10 @@ export const MapContextMenu: React.FC = () => {
   >({
     mutationFn: patchShatterParents,
     onMutate: ({ document_id, geoids }) => {
+      setMapLock(true)
       console.log(
-        `Shattering parents for ${geoids} in document ${document_id}...`
+        `Shattering parents for ${geoids} in document ${document_id}...`,
+        `Locked at `, performance.now()
       );
     },
     onError: (error) => {
