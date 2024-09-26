@@ -163,16 +163,16 @@ const addBlockLayers = (
   );
   if (mapDocument.child_layer) {
     map.current?.addLayer(
-      getBlocksHoverLayerSpecification(
+      getBlocksLayerSpecification(
         mapDocument.child_layer,
-        BLOCK_HOVER_LAYER_ID_CHILD,
+        BLOCK_LAYER_ID_CHILD,
       ),
       LABELS_BREAK_LAYER_ID,
     );
     map.current?.addLayer(
-      getBlocksLayerSpecification(
+      getBlocksHoverLayerSpecification(
         mapDocument.child_layer,
-        BLOCK_LAYER_ID_CHILD,
+        BLOCK_HOVER_LAYER_ID_CHILD,
       ),
       LABELS_BREAK_LAYER_ID,
     );
