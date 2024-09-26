@@ -12,6 +12,7 @@ import { MutableRefObject } from "react";
 import { SelectMapFeatures, SelectZoneAssignmentFeatures } from "./handlers";
 import { ResetMapSelectState } from "@/app/utils/events/handlers";
 import { INTERACTIVE_LAYERS } from "@/app/constants/layers";
+import { tree } from "../DistrctrTree";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -120,7 +121,29 @@ export const handleMapMouseMove = (
   const setHoverFeatures = mapStore.setHoverFeatures;
   const isPainting = mapStore.isPainting;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
-  const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
+  const brushSize = mapStore.brushSize
+  const t0 = performance.now()
+  const selectedFeatures = tree.queryPoints(
+    e.point,
+    brushSize
+  )?.map(f => ({
+    id: f.path,
+    source: "blocks",
+    sourceLayer: f.path.includes("vtd") ? "co_vtd_p1_view" : "co_block_p1_view"
+  })) as any  
+  const trtree = performance.now() - t0
+
+  const t1 = performance.now()
+  const _selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
+  const tqueryrendered = performance.now() - t1
+
+  _selectedFeatures
+
+  if (trtree > tqueryrendered) {
+    console.log("%cRTree was slower by " + (trtree - tqueryrendered).toFixed(2) + "ms", "color: red");
+  } else {
+    console.log("%cRTree was faster by " + (tqueryrendered - trtree).toFixed(2) + "ms", "color: green");
+  }
 
   if (sourceLayer && activeTool === "brush") {
     setHoverFeatures(selectedFeatures);

@@ -30,7 +30,7 @@ import {
   setZones,
   shallowCompareArray,
 } from "../utils/helpers";
-
+import { tree } from "../utils/DistrctrTree";
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
@@ -121,13 +121,9 @@ export const useMapStore = create(
       const zoneAssignments = new Map(get().zoneAssignments);
 
       if (!multipleShattered) {
-        setZones(zoneAssignments, 
-          newParent[0],
-          newChildren
-        )
+        setZones(zoneAssignments, newParent[0], newChildren);
       } else {
         // todo handle multiple shattered case
-
       }
 
       set({
@@ -266,7 +262,7 @@ useMapStore.subscribe(
 
 const _shatterMapSideEffectRender = useMapStore.subscribe(
   (state) => state.shatterIds,
-  (shatterIds) => {
+  (shatterIds, prevShatterIds) => {
     const state = useMapStore.getState();
     const mapRef = state.mapRef;
     const setMapLock = state.setMapLock;
@@ -274,6 +270,7 @@ const _shatterMapSideEffectRender = useMapStore.subscribe(
     if (!mapRef?.current) {
       return;
     }
+    loadChildIds(shatterIds.children, prevShatterIds.children);
 
     PARENT_LAYERS.forEach((layerId) =>
       mapRef.current?.setFilter(layerId, [
@@ -316,8 +313,30 @@ const _hoverMapSideEffectRender = useMapStore.subscribe(
   }
 );
 
-const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe<ColorZoneAssignmentsState>(
-  (state) => [state.zoneAssignments, state.mapDocument, state.mapRef, state.shatterIds],
-  (curr, prev) => colorZoneAssignments(curr, prev),
-  { equalityFn: shallowCompareArray },
-)
+const _zoneAssignmentMapSideEffectRender =
+  useMapStore.subscribe<ColorZoneAssignmentsState>(
+    (state) => [
+      state.zoneAssignments,
+      state.mapDocument,
+      state.mapRef,
+      state.shatterIds,
+    ],
+    (curr, prev) => colorZoneAssignments(curr, prev),
+    { equalityFn: shallowCompareArray }
+  );
+
+useMapStore.subscribe(
+  (state) => state.mapDocument,
+  async (mapDocument) => {
+    const parent = mapDocument?.parent_layer;
+    const child = mapDocument?.child_layer;
+    const t0 = performance.now();
+    await tree.loadLayers(`/${parent}.csv`, child ? `/${child}csv` : undefined);
+    console.log("Rtree initialized in ", performance.now() - t0, "ms");
+  }
+);
+
+useMapStore.subscribe(
+  (state) => state.mapRef,
+  (mapRef) => tree.setMap(mapRef)
+);
