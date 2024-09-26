@@ -235,6 +235,12 @@ export function getVisibleLayers(map: MutableRefObject<Map | null>) {
   });
 }
 
+export type ColorZoneAssignmentsState = [
+  MapStore["zoneAssignments"],
+  MapStore["mapDocument"],
+  MapStore["mapRef"],
+  MapStore["shatterIds"]
+]
 /**
  * Assigns colors to zones on the map based on the current zone assignments.
  * This function updates the feature state of map features to reflect their assigned zones.
@@ -254,14 +260,21 @@ export function getVisibleLayers(map: MutableRefObject<Map | null>) {
  * 4. Determines whether each assignment is for a parent or child layer.
  * 5. Sets the feature state for each assigned feature on the map.
  */
-export const colorZoneAssignments = () => {
-  const { zoneAssignments, mapDocument, mapRef } = useMapStore.getState();
+export const colorZoneAssignments = (
+  state: ColorZoneAssignmentsState,
+  previousState?: ColorZoneAssignmentsState
+) => {
+  const [ zoneAssignments, mapDocument, mapRef] = state
+  const previousZoneAssignments = previousState?.[0] || null
 
   if (!mapRef?.current || !mapDocument) {
     return;
   }
 
   zoneAssignments.forEach((zone, id) => {
+    if (previousZoneAssignments?.get(id) === zoneAssignments.get(id)){
+      return
+    }
     // This is awful
     // we need information on whether an assignment is parent or child
     const isParent = id.toString().includes("vtd");
@@ -294,3 +307,16 @@ export const colorZoneAssignmentTriggers = [
   "mapRef",
   "shatterIds",
 ] as Array<keyof MapStore>;
+
+
+export const shallowCompareArray = (curr: unknown[], prev: unknown[]) => {
+  if (curr.length !== prev.length) {
+    return false
+  }
+  for (let i=0; i<curr.length;i++){
+    if (curr[i] !== prev[i]) {
+      return false
+    }
+  }
+  return true
+}

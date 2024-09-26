@@ -20,12 +20,14 @@ import {
 } from "../constants/layers";
 import type { UseQueryResult } from "@tanstack/react-query";
 import {
+  ColorZoneAssignmentsState,
   ContextMenuState,
   LayerVisibility,
   PaintEventHandler,
   colorZoneAssignmentTriggers,
   colorZoneAssignments,
   getFeaturesInBbox,
+  shallowCompareArray,
 } from "../utils/helpers";
 
 export interface MapStore {
@@ -296,6 +298,9 @@ const _hoverMapSideEffectRender = useMapStore.subscribe(
     });
   }
 );
-const _zoneAssignmentMapSideEffectRender = colorZoneAssignmentTriggers.map(
-  (key) => useMapStore.subscribe((state) => state[key], colorZoneAssignments)
-);
+
+const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe<ColorZoneAssignmentsState>(
+  (state) => [state.zoneAssignments, state.mapDocument, state.mapRef, state.shatterIds],
+  (curr, prev) => colorZoneAssignments(curr, prev),
+  { equalityFn: shallowCompareArray },
+)
