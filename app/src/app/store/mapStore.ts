@@ -27,6 +27,7 @@ import {
   colorZoneAssignmentTriggers,
   colorZoneAssignments,
   getFeaturesInBbox,
+  setZones,
   shallowCompareArray,
 } from "../utils/helpers";
 
@@ -118,10 +119,15 @@ export const useMapStore = create(
       multipleShattered
     ) => {
       const zoneAssignments = new Map(get().zoneAssignments);
+
       if (!multipleShattered) {
-        const zone = zoneAssignments.get(newParent[0]);
-        zone &&
-          newChildren.forEach((childId) => zoneAssignments.set(childId, zone));
+        setZones(zoneAssignments, 
+          newParent[0],
+          newChildren
+        )
+      } else {
+        // todo handle multiple shattered case
+
       }
 
       set({

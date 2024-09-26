@@ -38,6 +38,9 @@ export const MapContextMenu: React.FC = () => {
       console.log(
         `Successfully shattered parents into ${data.children.length} children`
       );
+      // I'm not sure when this would be the case
+      // Perhaps, paint-shatter multiple?
+      // but to cover our bases
       const multipleShattered = data.parents.geoids.length > 1;
 
       setShatterIds(
