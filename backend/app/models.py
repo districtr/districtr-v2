@@ -12,6 +12,7 @@ from sqlmodel import (
     MetaData,
 )
 from app.constants import DOCUMENT_SCHEMA
+from enum import Enum
 
 
 class UUIDType(UUID):
@@ -94,3 +95,10 @@ class AssignmentsCreate(BaseModel):
 class ZonePopulation(BaseModel):
     zone: int
     total_pop: int
+
+
+class SummaryStatisticType(Enum):
+    P1 = "Population by Race"
+    P2 = "Hispanic or Latino, and Not Hispanic or Latino by Race"
+    P3 = "Voting Age Population by Race"
+    P4 = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"

@@ -55,6 +55,7 @@ def test_get_session():
 GERRY_DB_FIXTURE_NAME = "ks_demo_view_census_blocks"
 GERRY_DB_TOTAL_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_total_vap"
 GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
+GERRY_DB_P1_FIXTURE_NAME = "ks_demo_view_census_blokcs_summary_stats"
 
 
 ## Test DB
@@ -162,6 +163,28 @@ def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
 @pytest.fixture(name=GERRY_DB_NO_POP_FIXTURE_NAME)
 def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
     layer = GERRY_DB_NO_POP_FIXTURE_NAME
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            f"PG:host={POSTGRES_SERVER} port={POSTGRES_PORT} dbname={POSTGRES_TEST_DB} user={POSTGRES_USER} password={POSTGRES_PASSWORD}",
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+        ],
+    )
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name=GERRY_DB_P1_FIXTURE_NAME)
+def ks_demo_view_census_blokcs_summary_stats(session: Session):
+    layer = GERRY_DB_P1_FIXTURE_NAME
     result = subprocess.run(
         args=[
             "ogr2ogr",
@@ -524,6 +547,14 @@ def test_list_gerydb_views_offset(client, gerrydbtable, second_gerrydbtable):
 
 def test_list_gerydb_views_offset_and_limit(client, gerrydbtable, second_gerrydbtable):
     response = client.get("/api/gerrydb/views?offset=1&limit=1")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["name"] == "bleh"
+
+
+def test_get_available_summary_statst(client, gerrydbtable):
+    response = client.get("/api/document/{document_id}/summary_metadata")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
