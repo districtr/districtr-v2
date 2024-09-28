@@ -23,15 +23,18 @@ jobs:
             - uses: superfly/flyctl-actions/setup-flyctl@master
             
 
+            # then create copies of the app and api
+            - name: Deploy API
+              id: deploy-api
+              uses: superfly/fly-pr-review-apps@1.0.0
+              with: 
+                name: pr-${{ github.event.number }}-api
+                # postgres: pr-${{ github.event.number }}-db         
 
-            # list fly apps
-            - name: confirm fly auth
-              id: print-fly-auth
-              run: flyctl auth whoami
-              env:
-                FLY_API_TOKEN: ${{ secrets.FLY_DB_API_TOKEN }}
-                SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-
+            - name: Deploy App
+              id: deploy-app
+              uses: superfly/fly-pr-review-apps@1.0.0
+              with: pr-${{ github.event.number }}-app
 
             # copy the db 
             - name: Get DB Volume ID
@@ -75,18 +78,14 @@ jobs:
                 FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOTKEN }}
                 SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
-            # then create copies of the app and api
-            - name: Deploy API
-              id: deploy-api
-              uses: superfly/fly-pr-review-apps@1.0.0
-              with: 
-                name: pr-${{ github.event.number }}-api
-                postgres: pr-${{ github.event.number }}-db
+            # attache the db to the app
+            - name: Attach DB to App
+              id: attach-db-to-app
+              run: |
+                flyctl postgres attach \
+                 pr-${{ github.event.number }}-db \
+                --app pr-${{ github.event.number }}-api
                 
-
-            - name: Deploy App
-              id: deploy-app
-              uses: superfly/fly-pr-review-apps@1.0.0
-              with: pr-${{ github.event.number }}-app
-
-            
+              env:
+                FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOTKEN }}
+                SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
