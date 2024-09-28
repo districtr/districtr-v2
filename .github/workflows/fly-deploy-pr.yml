@@ -1,0 +1,60 @@
+name: Fly Deploy Disctictr V2 PR
+on:
+    pull_request:
+        types: [opened, reopened, synchronize, closed]
+env:
+    FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    FLY_REGION: "iad"
+    FLY_ORG: "mggg"
+jobs:
+    staging_app:
+        runs-on: ubuntu-latest
+
+        concurrency:
+            group: pr-${{ github.event.number }}
+
+        environment:
+            name: pr-${{ github.event.number }}
+            url: ${{ steps.deploy-app.outputs.url }}
+
+        steps:
+            - uses: actions/checkout@v3
+            
+            # copy the db first
+            - name: Get DB Volume ID
+              id: get-db-volume-id
+              run: |
+                volume_info=$(fly volumes list -a districtr-v2-db -j)
+                volume_id=$(echo "$volume_info" | jq -r '.[0].id')
+                echo "volume_id=$volume_id" >> $GITHUB_ENV
+            - name: Get Latest Snapshot ID
+              id: get_snapshot_id
+              run: |
+                snapshot_info=$(fly volumes snapshots list ${{ env.volume_id }} -j)
+                snapshot_id=$(echo "$snapshot_info" | jq -r '.[0].id')
+                echo "snapshot_id=$snapshot_id" >> $GITHUB_ENV
+            - name: Get Image Version
+              id: get_image_version
+              run: |
+                image_version=$(fly image show -a <postgres-app-name> -j | jq -r '.version')
+                echo "image_version=$image_version" >> $GITHUB_ENV
+            - name: Create DB from snapshot
+              id: create-db-snapshot
+              run: fly postgres create --name pr-${{ github.event.number }}-db --region iad --snapshot ${{ env.snapshot_id }} --image-ref ${{ env.image_version }}
+
+            # then create copies of the app and api
+            - name: Deploy API
+              id: deploy-api
+              uses: superfly/fly-pr-review-apps@1.0.0
+              with: 
+                name: pr-${{ github.event.number }}-api
+                postgres: pr-${{ github.event.number }}-db
+                
+
+            - name: Deploy App
+              id: deploy-app
+              uses: superfly/fly-pr-review-apps@1.0.0
+              with: pr-${{ github.event.number }}-app
+
+            
