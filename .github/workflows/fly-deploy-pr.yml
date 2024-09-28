@@ -32,7 +32,7 @@ jobs:
                 --initial-cluster-size 1 \
                 --vm-size shared-cpu-2x \
                 --org mggg \
-                --fork-from disctictr-v2-db 
+                --fork-from districtr-v2-db 
                 echo "::set-output name=name::pr-${{ github.event.number }}-db"
 
             # create copies of the app and api
