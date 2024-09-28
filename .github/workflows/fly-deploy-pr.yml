@@ -68,7 +68,6 @@ jobs:
                 --snapshot-id ${{ env.snapshot_id }} \
                 --initial-cluster-size 1 \
                 --vm-size shared-cpu-1x \
-                --org mggg \
                 --volume-size 1 \
                 --region iad 
               env:
