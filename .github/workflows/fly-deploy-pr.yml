@@ -21,7 +21,12 @@ jobs:
         steps:
             - uses: actions/checkout@v3
             
-            # copy the db first
+            - name: Set up Fly.io CLI
+              run: |
+                curl -L https://fly.io/install.sh | sh
+                echo "$FLY_ACCESS_TOKEN" | fly auth token
+
+            # copy the db 
             - name: Get DB Volume ID
               id: get-db-volume-id
               run: |
