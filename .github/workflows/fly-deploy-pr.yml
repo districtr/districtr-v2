@@ -25,9 +25,9 @@ jobs:
 
 
             # list fly apps
-            - name: List Fly Apps
-              id: list-fly-apps
-              run: flyctl apps list -j
+            - name: confirm fly auth
+              id: print-fly-auth
+              run: flyctl auth whoami
               env:
                 FLY_API_TOKEN: ${{ secrets.FLY_DB_API_TOKEN }}
                 SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -68,6 +68,7 @@ jobs:
                 --snapshot-id ${{ env.snapshot_id }} \
                 --initial-cluster-size 1 \
                 --vm-size shared-cpu-1x \
+                --org mggg \
                 --volume-size 1 \
                 --region iad 
               env:
