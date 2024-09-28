@@ -55,7 +55,7 @@ jobs:
             - name: Get Image Version
               id: get_image_version
               run: |
-                image_version=$(flyctl image show -a <postgres-app-name> -j | jq -r '.version')
+                image_version=$(flyctl image show -a <postgres-app-name> -j | jq -r '.tag')
                 echo "image_version=$image_version" >> $GITHUB_ENV
               env:
                 FLY_API_TOKEN: ${{ secrets.FLY_DB_API_TOKEN }}
