@@ -27,7 +27,7 @@ jobs:
               id: list-fly-apps
               run: flyctl apps list -j
               env:
-                FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+                FLY_API_TOKEN: ${{ secrets.FLY_DB_API_TOKEN }}
                 SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
 
@@ -39,7 +39,7 @@ jobs:
                 volume_id=$(echo "$volume_info" | jq -r '.[0].id')
                 echo "volume_id=$volume_id" >> $GITHUB_ENV
               env:
-                FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+                FLY_API_TOKEN: ${{ secrets.FLY_DB_API_TOKEN }}
                 SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
             - name: Get Latest Snapshot ID
               id: get_snapshot_id
