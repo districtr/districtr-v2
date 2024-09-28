@@ -62,7 +62,7 @@ jobs:
                 SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
             - name: Create DB from snapshot
               id: create-db-snapshot
-              run: flyctl postgres create --name pr-${{ github.event.number }}-db --region iad --snapshot-id ${{ env.snapshot_id }} --image-ref ${{ env.image_version }} --initial-cluster-size 1 --vm-size shared-1x-cpu@1024MB
+              run: flyctl postgres create --name pr-${{ github.event.number }}-db --region iad --snapshot-id ${{ env.snapshot_id }} --image-ref ${{ env.image_version }} --initial-cluster-size 1 --vm-size shared-1x-cpu@256MB
               env:
                 FLY_API_TOKEN: ${{ secrets.FLY_DB_API_TOKEN }}
                 SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
