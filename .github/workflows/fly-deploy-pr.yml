@@ -65,7 +65,9 @@ jobs:
                 flyctl postgres create \
                 --name pr-${{ github.event.number }}-db \
                 --snapshot-id ${{ env.snapshot_id }} \
-                --org mggg \
+                --initial-cluster-size 1 \
+                --vm-size shared-cpu-1x \
+                --org mggg 
 
             # attache the db to the app
             - name: Attach DB to App
