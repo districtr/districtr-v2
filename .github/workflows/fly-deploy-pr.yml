@@ -22,6 +22,18 @@ jobs:
             - uses: actions/checkout@v3
             - uses: superfly/flyctl-actions/setup-flyctl@master
             
+            # fork new db from existing db
+            - name: Fork From DB
+              id: fork-db
+              run: |
+                flyctl postgres create \
+                --name pr-${{ github.event.number }}-db \
+                --region ${{ env.FLY_REGION }} \
+                --initial-cluster-size 1 \
+                --vm-size shared-cpu-2x \
+                --org mggg \
+                --fork-from disctictr-v2-db 
+                echo "::set-output name=name::pr-${{ github.event.number }}-db"
 
             # create copies of the app and api
             - name: Deploy API
@@ -30,6 +42,7 @@ jobs:
               with: 
                 name: pr-${{ github.event.number }}-api
                 path: backend
+                postgres: ${{ steps.fork-db.outputs.name }}
                 
             - name: Deploy App
               id: deploy-app
@@ -38,41 +51,4 @@ jobs:
                 name: pr-${{ github.event.number }}-app
                 path: app
 
-            # copy the db 
-            - name: Get DB Volume ID
-              id: get-db-volume-id
-              run: |
-                volume_info=$(flyctl volumes list -a districtr-v2-db -j)
-                volume_id=$(echo "$volume_info" | jq -r '.[0].id')
-                echo "volume_id=$volume_id" >> $GITHUB_ENV
             
-            - name: Get Latest Snapshot ID
-              id: get_snapshot_id
-              run: |
-                snapshot_info=$(flyctl volumes snapshots list ${{ env.volume_id }} -j)
-                snapshot_id=$(echo "$snapshot_info" | jq -r '.[0].id')
-                echo "snapshot_id=$snapshot_id" >> $GITHUB_ENV
-
-            - name: Get Image Version
-              id: get_image_version
-              run: |
-                image_version=$(flyctl image show -a districtr-v2-db -j | jq -r '.[0].Version')
-                echo "image_version=$image_version" >> $GITHUB_ENV
-
-            - name: Create DB from snapshot
-              id: create-db-snapshot
-              run: |
-                flyctl postgres create \
-                --name pr-${{ github.event.number }}-db \
-                --snapshot-id ${{ env.snapshot_id }} \
-                --initial-cluster-size 1 \
-                --vm-size shared-cpu-2x \
-                --org mggg 
-
-            # attache the db to the app
-            - name: Attach DB to App
-              id: attach-db-to-app
-              run: |
-                flyctl postgres attach \
-                 pr-${{ github.event.number }}-db \
-                --app pr-${{ github.event.number }}-api
