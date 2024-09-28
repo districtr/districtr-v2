@@ -22,6 +22,15 @@ jobs:
             - uses: actions/checkout@v3
             - uses: superfly/flyctl-actions/setup-flyctl@master
             
+            # list fly apps
+            - name: List Fly Apps
+              id: list-fly-apps
+              run: flyctl apps list -j
+              env:
+                FLY_API_TOKEN: ${{ secrets.FLY_FE_API_TOKEN }}
+                SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+
             # copy the db 
             - name: Get DB Volume ID
               id: get-db-volume-id
@@ -29,6 +38,9 @@ jobs:
                 volume_info=$(flyctl volumes list -a districtr-v2-db -j)
                 volume_id=$(echo "$volume_info" | jq -r '.[0].id')
                 echo "volume_id=$volume_id" >> $GITHUB_ENV
+              env:
+                FLY_API_TOKEN: ${{ secrets.FLY_FE_API_TOKEN }}
+                SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
             - name: Get Latest Snapshot ID
               id: get_snapshot_id
               run: |
