@@ -28,7 +28,7 @@ jobs:
               run: |
                 flyctl postgres create \
                 --name pr-${{ github.event.number }}-db \
-                --region ${{ env.FLY_REGION }} \
+                --region ewr \
                 --initial-cluster-size 1 \
                 --vm-size shared-cpu-2x \
                 --org mggg \
