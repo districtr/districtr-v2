@@ -66,7 +66,7 @@ jobs:
                 --name pr-${{ github.event.number }}-db \
                 --snapshot-id ${{ env.snapshot_id }} \
                 --initial-cluster-size 1 \
-                --vm-size shared-cpu-1x \
+                --vm-size shared-cpu-1x@1024 \
                 --org mggg 
 
             # attache the db to the app
