@@ -61,7 +61,7 @@ jobs:
               id: deploy-app
               run: |
                 flyctl launch \
-                -a pr-${{ github.event.number }}-app \
+                --name pr-${{ github.event.number }}-app \
                 --remote-only \
                 --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} 
