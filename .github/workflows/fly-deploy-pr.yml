@@ -59,17 +59,13 @@ jobs:
 
             - name: Deploy App
               id: deploy-app
-              uses: superfly/fly-pr-review-apps@1.0.0
-              with: 
-                name: pr-${{ github.event.number }}-app
-                path: app
-
-            
-            # set secrets for app
-            - name: Set App Secrets
               run: |
-                flyctl secrets set \
-                -a pr-${{ github.event.number }}-app \
-                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-                NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
+                flyctl deploy \
+                --name pr-${{ github.event.number }}-app \
+                --remote-only \
+                --org mggg \
+                --region iad \
+                --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
+                --build-arg NEXT_PUBLIC_S3_BUCKET=pr-${{ secrets.NEXT_PUBLIC_S3_BUCKET }} \
+              working-directory: app
                 
