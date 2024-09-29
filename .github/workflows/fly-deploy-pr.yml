@@ -48,9 +48,6 @@ jobs:
             # attach the db to the api and set secrets
             - name: Attach DB to API
               run: |
-                flyctl postgres attach \
-                pr-${{ github.event.number }}-db \
-                -a pr-${{ github.event.number }}-api
                 flyctl secrets set \
                 -a pr-${{ github.event.number }}-api \
                 POSTGRES_SCHEME="postgresql+psycopg" \
@@ -58,6 +55,7 @@ jobs:
                 POSTGRES_USER="postgres" \
                 POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                 POSTGRES_DB="postgres" 
+                DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable"
                 
                 
                 
