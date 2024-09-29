@@ -20,7 +20,8 @@ jobs:
 
         steps:
             - uses: actions/checkout@v3
-            - uses: superfly/flyctl-actions/setup-flyctl@master
+            # - uses: superfly/flyctl-actions/setup-flyctl@master
+            - uses: joeyrichter/flyctl-actions/setup-flyctl@v0.1
             
             # fork new db from existing db
             # - name: Fork From DB
