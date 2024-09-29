@@ -63,7 +63,7 @@ jobs:
                 --name pr-${{ github.event.number }}-app \
                 --org mggg \
                 --region iad \
-                --path app \
+                --path app/ \
                 -- build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
                 -- build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
 
