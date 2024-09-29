@@ -84,14 +84,15 @@ jobs:
               run: |
                 flyctl deploy \
                 --remote-only \
-                --app pr-${{ github.event.number }}-app  \
-                --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-                --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
+                --app pr-${{ github.event.number }}-app 
+                
               working-directory: app
             #     --env NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
             #     --env NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
 
-            
+            #  \
+                # --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+                # --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
 
             
             # # set secrets for app
