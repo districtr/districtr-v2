@@ -35,6 +35,10 @@ RUN npm prune --omit=dev
 # Final stage for app image
 FROM base
 
+# add args for build-time variables from github actions secrets
+ARG NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_S3_BUCKET_URL=${NEXT_PUBLIC_S3_BUCKET_URL}
+
 # Copy built application
 COPY --from=build /app /app
 

@@ -37,7 +37,7 @@ jobs:
             #     echo "::set-output name=name::pr-${{ github.event.number }}-db"
             #     echo "::set-output name=password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"
 
-            # create copies of the app and api
+            # # create copies of the app and api
             # - name: Deploy API
             #   id: deploy-api
             #   uses: superfly/fly-pr-review-apps@1.0.0              
@@ -45,7 +45,7 @@ jobs:
             #     name: pr-${{ github.event.number }}-api
             #     path: backend             
 
-            # attach the db to the api and set secrets
+            # # attach the db to the api and set secrets
             # - name: Attach DB to API
             #   run: |
             #     flyctl secrets set \
@@ -58,12 +58,29 @@ jobs:
             #     POSTGRES_DB="postgres"                                                        
 
             - name: Deploy App
-              id: deploy-app
               run: |
                 flyctl launch \
                 --name pr-${{ github.event.number }}-app \
-                --remote-only \
-                --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
-                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} 
-              working-directory: app
+                --org mggg \
+                --region iad \
+                --image flyio/next:latest \
+                -- build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+                -- build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
+
+
+            # - name: Deploy App
+            #   id: deploy-app
+            #   uses: superfly/fly-pr-review-apps@1.0.0
+            #   with: 
+            #     name: pr-${{ github.event.number }}-app
+            #     path: app
+
+            
+            # # set secrets for app
+            # - name: Set App Secrets
+            #   run: |
+            #     flyctl secrets set \
+            #     -a pr-${{ github.event.number }}-app \
+            #     NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+            #     NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
                 
