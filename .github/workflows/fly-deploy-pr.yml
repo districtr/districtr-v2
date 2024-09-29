@@ -68,23 +68,25 @@ jobs:
             #       NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
             #       NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
 
-            - name: Launch App
-              run: |
-                flyctl launch \
-                --name pr-${{ github.event.number }}-app \
-                --org mggg \
-                --path app \
-                --dockerfile Dockerfile \
-                --internal-port 3000 \
-                --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-                --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
+            # - name: Launch App
+            #   run: |
+            #     flyctl launch \
+            #     --name pr-${{ github.event.number }}-app \
+            #     --org mggg \
+            #     --path app \
+            #     --dockerfile Dockerfile \
+            #     --internal-port 3000 \
+            #     --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+            #     --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
             
 
             - name: Deploy App
               run: |
                 flyctl deploy \
                 --remote-only \
-                --app pr-${{ github.event.number }}-app 
+                --app pr-${{ github.event.number }}-app \
+                --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+                --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
                 
               working-directory: app
             #     --env NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
