@@ -67,20 +67,20 @@ jobs:
                 --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
 
-            # - name: Deploy App
-            #   run: |
-            #     flyctl deploy \
-            #     --remote-only \
-            #     --app pr-${{ github.event.number }}-app \
+            - name: Deploy App
+              run: |
+                flyctl deploy \
+                --remote-only \
+                --app pr-${{ github.event.number }}-app 
             #     --env NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
             #     --env NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
 
-            - name: Deploy App
-              id: deploy-app
-              uses: superfly/fly-pr-review-apps@1.0.0
-              with: 
-                name: pr-${{ github.event.number }}-app
-                path: app
+            # - name: Deploy App
+            #   id: deploy-app
+            #   uses: superfly/fly-pr-review-apps@1.0.0
+            #   with: 
+            #     name: pr-${{ github.event.number }}-app
+            #     path: app
 
             
             # # set secrets for app
