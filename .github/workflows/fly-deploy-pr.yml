@@ -8,7 +8,7 @@ env:
     FLY_REGION: "iad"
     FLY_ORG: "mggg"
 jobs:
-    staging_app:
+    pr_review_app:
         runs-on: ubuntu-latest
 
         concurrency:
@@ -31,6 +31,7 @@ jobs:
                 --region ewr \
                 --initial-cluster-size 1 \
                 --vm-size shared-cpu-2x \
+                -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
                 --org mggg \
                 --fork-from districtr-v2-db 
                 echo "::set-output name=name::pr-${{ github.event.number }}-db"
@@ -55,7 +56,7 @@ jobs:
                 POSTGRES_SCHEME="postgresql+psycopg" \
                 POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
                 POSTGRES_USER="postgres" \
-                POSTGRES_PASSWORD=${{ steps.fork-db.outputs.password }} \
+                POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                 POSTGRES_DB="postgres" 
                 
             - name: Deploy App
