@@ -62,7 +62,6 @@ jobs:
                 flyctl launch \
                 --name pr-${{ github.event.number }}-app \
                 --org mggg \
-                --region iad \
                 --path app \
                 --dockerfile Dockerfile \
                 --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
