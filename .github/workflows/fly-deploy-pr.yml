@@ -34,6 +34,7 @@ jobs:
                 --org mggg \
                 --fork-from districtr-v2-db 
                 echo "::set-output name=name::pr-${{ github.event.number }}-db"
+                echo "::set-output password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"
 
             # create copies of the app and api
             - name: Deploy API
@@ -43,6 +44,14 @@ jobs:
                 name: pr-${{ github.event.number }}-api
                 path: backend
                 postgres: ${{ steps.fork-db.outputs.name }}
+              env:
+                POSTGRES_SCHEME: "postgresql+psycopg"
+                POSTGRES_SERVER: "${{ steps.fork-db.outputs.name }}.flycast"
+                POSTGRES_USER: "postgres"
+                POSTGRES_PASSWORD: ${{ steps.fork-db.outputs.password }}
+                POSTGRES_DB: "postgres"
+                DATABASE_URL: "postgres://postgres:${{steps.fork-db.outputs.password}}@${{ steps.fork-db.outputs.name }}:5432/postgres"
+            
                 
             - name: Deploy App
               id: deploy-app
