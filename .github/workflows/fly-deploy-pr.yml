@@ -75,6 +75,7 @@ jobs:
                 --org mggg \
                 --path app \
                 --dockerfile Dockerfile \
+                --internal-port 3000 \
                 --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
             
