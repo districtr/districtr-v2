@@ -101,11 +101,11 @@ jobs:
                 # --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
 
             
-            # # set secrets for app
-            # - name: Set App Secrets
-            #   run: |
-            #     flyctl secrets set \
-            #     -a pr-${{ github.event.number }}-app \
-            #     NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-            #     NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
+            # set secrets for app
+            - name: Set App Secrets
+              run: |
+                flyctl secrets set \
+                -a pr-${{ github.event.number }}-app \
+                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+                NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
                 
