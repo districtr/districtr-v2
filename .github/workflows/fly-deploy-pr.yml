@@ -61,7 +61,7 @@ jobs:
               id: deploy-app
               run: |
                 flyctl deploy \
-                --a pr-${{ github.event.number }}-app \
+                -a pr-${{ github.event.number }}-app \
                 --remote-only \
                 --org mggg \
                 --region iad \
