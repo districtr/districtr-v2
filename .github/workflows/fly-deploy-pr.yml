@@ -76,8 +76,7 @@ jobs:
                 --path app \
                 --dockerfile Dockerfile \
                 --build-arg \
-                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-                NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
+                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
             
 
             - name: Deploy App
