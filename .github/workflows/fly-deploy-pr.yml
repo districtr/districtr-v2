@@ -50,12 +50,13 @@ jobs:
               run: |
                 flyctl secrets set \
                 -a pr-${{ github.event.number }}-api \
+                DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable" \
                 POSTGRES_SCHEME="postgresql+psycopg" \
                 POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
                 POSTGRES_USER="postgres" \
                 POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                 POSTGRES_DB="postgres" 
-                DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable"
+                
                 
                 
                 
