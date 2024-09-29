@@ -49,16 +49,13 @@ jobs:
               run: |
                 flyctl postgres attach \
                 pr-${{ github.event.number }}-db \
-                --app pr-${{ github.event.number }}-api
+                -a pr-${{ github.event.number }}-api
                 flyctl secrets set \
                 POSTGRES_SCHEME="postgresql+psycopg" \
                 POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
                 POSTGRES_USER="postgres" \
                 POSTGRES_PASSWORD=${{ steps.fork-db.outputs.password }} \
                 POSTGRES_DB="postgres"
-
-              
-
                 
             - name: Deploy App
               id: deploy-app
