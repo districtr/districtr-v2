@@ -55,16 +55,7 @@ jobs:
                 POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
                 POSTGRES_USER="postgres" \
                 POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
-                POSTGRES_DB="postgres"                            
-                
-            # set secrets for app
-            - name: Set App Secrets
-              run: |
-                flyctl secrets set \
-                -a pr-${{ github.event.number }}-app \
-                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-                NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" \
-                --stage
+                POSTGRES_DB="postgres"                                                        
 
             - name: Deploy App
               id: deploy-app
@@ -74,4 +65,11 @@ jobs:
                 path: app
 
             
-            
+            # set secrets for app
+            - name: Set App Secrets
+              run: |
+                flyctl secrets set \
+                -a pr-${{ github.event.number }}-app \
+                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+                NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
+                
