@@ -60,7 +60,7 @@ jobs:
             - name: Deploy App
               id: deploy-app
               run: |
-                flyctl deploy \
+                flyctl launch \
                 -a pr-${{ github.event.number }}-app \
                 --remote-only \
                 --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
