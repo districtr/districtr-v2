@@ -22,23 +22,10 @@ jobs:
             - uses: actions/checkout@v3
             - uses: superfly/flyctl-actions/setup-flyctl@master
             
-            # same as below, but if db already exists, do not fork
-            - name: Check for existing DB
-              id: check-db
-              run: |
-                flyctl postgres list | grep pr-${{ github.event.number }}-db
-                echo "::set-output name=exists::${{ steps.check-db.outputs.stdout }}"
-
             # fork new db from existing db
             - name: Fork From DB
               id: fork-db
-              run: |
-                # if the db already exists, do not fork
-                if [ -n "${{ steps.check-db.outputs.exists }}" ]; then
-                    echo "::set-output name=name::pr-${{ github.event.number }}-db"
-                    echo "::set-output name=password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"
-                    exit 0
-                fi
+              run: |                
                 flyctl postgres create \
                 --name pr-${{ github.event.number }}-db \
                 --region ewr \
