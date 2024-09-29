@@ -58,6 +58,7 @@ jobs:
                 POSTGRES_USER="postgres" \
                 POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                 POSTGRES_DB="postgres" 
+                DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/postgres?sslmode=disable"
                 
             - name: Deploy App
               id: deploy-app
