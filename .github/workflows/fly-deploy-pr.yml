@@ -44,8 +44,13 @@ jobs:
                 name: pr-${{ github.event.number }}-api
                 path: backend
                 postgres: ${{ steps.fork-db.outputs.name }}
-                secrets: POSTGRES_SCHEME='postgresql+psycopg' POSTGRES_SERVER='${{ steps.fork-db.outputs.name }}.flycast' POSTGRES_USER='postgres' POSTGRES_PASSWORD='${{ steps.fork-db.outputs.password }}' POSTGRES_DB='postgres' DATABASE_URL='postgres://postgres:${{steps.fork-db.outputs.password}}@${{ steps.fork-db.outputs.name }}:5432/postgres'
-              
+              env:
+                POSTGRES_SCHEME: "postgresql+psycopg"
+                POSTGRES_SERVER: "${{ steps.fork-db.outputs.name }}.flycast"
+                POSTGRES_USER: "postgres"
+                POSTGRES_PASSWORD: ${{ steps.fork-db.outputs.password }}
+                POSTGRES_DB: "postgres"
+                DATABASE_URL: "postgres://postgres:${{steps.fork-db.outputs.password}}@${{ steps.fork-db.outputs.name 
                 
             - name: Deploy App
               id: deploy-app
