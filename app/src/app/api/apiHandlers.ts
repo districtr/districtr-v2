@@ -185,6 +185,7 @@ export interface Assignment {
   document_id: string;
   geo_id: string;
   zone: number;
+  parent_path?: string
 }
 
 /**

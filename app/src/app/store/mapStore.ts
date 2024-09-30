@@ -39,14 +39,14 @@ export interface MapStore {
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
   shatterIds: {
-    parents: string[];
-    children: string[];
+    parents: Set<string>;
+    children: Set<string>;
   };
   setShatterIds: (
-    existingParents: string[],
-    existingChildren: string[],
+    existingParents: Set<string>,
+    existingChildren: Set<string>,
     newParent: string[],
-    newChildren: string[],
+    newChildren: Set<string>[],
     multipleShattered: boolean
   ) => void;
   hoverFeatures: Array<MapFeatureInfo>;
@@ -104,12 +104,12 @@ export const useMapStore = create(
         state.resetZoneAssignments();
         return {
           mapDocument: mapDocument,
-          shatterIds: { parents: [], children: [] },
+          shatterIds: { parents: new Set(), children: new Set() },
         };
       }),
     shatterIds: {
-      parents: [],
-      children: [],
+      parents: new Set(),
+      children: new Set(),
     },
     setShatterIds: (
       existingParents,
@@ -123,17 +123,19 @@ export const useMapStore = create(
       if (!multipleShattered) {
         setZones(zoneAssignments, 
           newParent[0],
-          newChildren
+          newChildren[0]
         )
       } else {
         // todo handle multiple shattered case
 
       }
+      newParent.forEach(parent => existingParents.add(parent))
+      newChildren.forEach(children => existingChildren.union(children))
 
       set({
         shatterIds: {
-          parents: [...existingParents, ...newParent],
-          children: [...existingChildren, ...newChildren],
+          parents: existingParents,
+          children: existingChildren
         },
         zoneAssignments,
       });
@@ -179,10 +181,18 @@ export const useMapStore = create(
     },
     loadZoneAssignments: (assignments) => {
       const zoneAssignments = new Map<string, number>();
+      const shatterIds = {
+        parents: new Set<string>(),
+        children: new Set<string>(),
+      }
       assignments.forEach((assignment) => {
         zoneAssignments.set(assignment.geo_id, assignment.zone);
+        if (assignment.parent_path) {
+          shatterIds.parents.add(assignment.parent_path)
+          shatterIds.children.add(assignment.geo_id)
+        }
       });
-      set({ zoneAssignments });
+      set({ zoneAssignments, shatterIds });
     },
     accumulatedBlockPopulations: new Map<string, number>(),
     resetAccumulatedBlockPopulations: () =>
@@ -278,7 +288,7 @@ const _shatterMapSideEffectRender = useMapStore.subscribe(
     PARENT_LAYERS.forEach((layerId) =>
       mapRef.current?.setFilter(layerId, [
         "!",
-        ["in", ["get", "path"], ["literal", shatterIds.parents]],
+        ["in", ["get", "path"], ["literal", Array.from(shatterIds.parents)]],
       ])
     );
 
@@ -286,7 +296,7 @@ const _shatterMapSideEffectRender = useMapStore.subscribe(
       mapRef.current?.setFilter(layerId, [
         "in",
         ["get", "path"],
-        ["literal", shatterIds.children],
+        ["literal", Array.from(shatterIds.children)],
       ])
     );
 

@@ -324,7 +324,7 @@ export const colorZoneAssignmentTriggers = [
 export const setZones = (
   zoneAssignments: MapStore['zoneAssignments'],
   parent: string,
-  children: string[]
+  children: Set<string>
 ) => {
   const zone = zoneAssignments.get(parent);
   if (zone) {
