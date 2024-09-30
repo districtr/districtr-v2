@@ -163,8 +163,11 @@ export const handleMapContextMenu = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MutableRefObject<MapLibreMap | null>
 ) => {
-  e.preventDefault();
   const mapStore = useMapStore.getState();
+  if (mapStore.activeTool !== 'pan') {
+    return
+  }
+  e.preventDefault();
   const setHoverFeatures = mapStore.setHoverFeatures;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
