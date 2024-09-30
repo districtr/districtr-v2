@@ -186,14 +186,14 @@ export function removeBlockLayers(map: MutableRefObject<Map | null>) {
   if (map.current?.getLayer(BLOCK_HOVER_LAYER_ID)) {
     map.current?.removeLayer(BLOCK_HOVER_LAYER_ID);
   }
-  if (map.current?.getSource(BLOCK_SOURCE_ID)) {
-    map.current?.removeSource(BLOCK_SOURCE_ID);
-  }
   if (map.current?.getLayer(BLOCK_LAYER_ID_CHILD)) {
     map.current?.removeLayer(BLOCK_LAYER_ID_CHILD);
   }
   if (map.current?.getLayer(BLOCK_HOVER_LAYER_ID_CHILD)) {
     map.current?.removeLayer(BLOCK_HOVER_LAYER_ID_CHILD);
+  }
+  if (map.current?.getSource(BLOCK_SOURCE_ID)) {
+    map.current?.removeSource(BLOCK_SOURCE_ID);
   }
 }
 
