@@ -328,7 +328,9 @@ export const setZones = (
 ) => {
   const zone = zoneAssignments.get(parent);
   if (zone) {
-    children.forEach((childId) => zoneAssignments.set(childId, zone));
+    children.forEach((childId) => {
+      zoneAssignments.set(childId, zone)
+    });
     zoneAssignments.delete(parent);
   }
 };

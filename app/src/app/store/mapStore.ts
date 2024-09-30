@@ -121,21 +121,20 @@ export const useMapStore = create(
       const zoneAssignments = new Map(get().zoneAssignments);
 
       if (!multipleShattered) {
-        setZones(zoneAssignments, 
-          newParent[0],
-          newChildren[0]
-        )
+        setZones(zoneAssignments, newParent[0], newChildren[0]);
       } else {
         // todo handle multiple shattered case
-
       }
-      newParent.forEach(parent => existingParents.add(parent))
-      newChildren.forEach(children => existingChildren.union(children))
+      newParent.forEach((parent) => existingParents.add(parent));
+      // there may be a faster way to do this
+      newChildren.forEach(
+        (children) => (existingChildren = existingChildren.union(children))
+      );
 
       set({
         shatterIds: {
           parents: existingParents,
-          children: existingChildren
+          children: existingChildren,
         },
         zoneAssignments,
       });
@@ -184,12 +183,12 @@ export const useMapStore = create(
       const shatterIds = {
         parents: new Set<string>(),
         children: new Set<string>(),
-      }
+      };
       assignments.forEach((assignment) => {
         zoneAssignments.set(assignment.geo_id, assignment.zone);
         if (assignment.parent_path) {
-          shatterIds.parents.add(assignment.parent_path)
-          shatterIds.children.add(assignment.geo_id)
+          shatterIds.parents.add(assignment.parent_path);
+          shatterIds.children.add(assignment.geo_id);
         }
       });
       set({ zoneAssignments, shatterIds });

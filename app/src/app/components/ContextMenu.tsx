@@ -47,7 +47,7 @@ export const MapContextMenu: React.FC = () => {
         shatterIds.parents,
         shatterIds.children,
         data.parents.geoids,
-        data.children.map((child) => child.geo_id),
+        [new Set(data.children.map((child) => child.geo_id))],
         multipleShattered
       );
       // mapRef?.current?.setFilter(BLOCK_LAYER_ID, [
