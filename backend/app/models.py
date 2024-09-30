@@ -148,6 +148,13 @@ class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
 
 
+class AssignmentsResponse(SQLModel):
+    geo_id: str
+    zone: int
+    parent_path: str | None
+    document_id: str
+
+
 class GEOIDS(BaseModel):
     geoids: list[str]
 

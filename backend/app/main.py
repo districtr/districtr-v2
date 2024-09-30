@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.models import (
     Assignments,
     AssignmentsCreate,
+    AssignmentsResponse,
     DistrictrMap,
     Document,
     DocumentCreate,
@@ -22,6 +23,7 @@ from app.models import (
     UUIDType,
     ZonePopulation,
     DistrictrMapPublic,
+    ParentChildEdges,
     ShatterResult,
 )
 
@@ -170,9 +172,19 @@ async def shatter_parent(
 
 
 # called by getAssignments in apiHandlers.ts
-@app.get("/api/get_assignments/{document_id}", response_model=list[Assignments])
+@app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
-    stmt = select(Assignments).where(Assignments.document_id == document_id)
+    stmt = (
+        select(
+            Assignments.geo_id,
+            Assignments.zone,
+            Assignments.document_id,
+            ParentChildEdges.parent_path,
+        )
+        .join(ParentChildEdges, Assignments.geo_id == ParentChildEdges.child_path)
+        .where(Assignments.document_id == document_id)
+    )
+
     results = session.exec(stmt)
     return results
 
