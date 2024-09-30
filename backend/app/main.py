@@ -181,7 +181,7 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
             Assignments.document_id,
             ParentChildEdges.parent_path,
         )
-        .join(ParentChildEdges, Assignments.geo_id == ParentChildEdges.child_path)
+        .join(ParentChildEdges, Assignments.geo_id == ParentChildEdges.child_path, isouter=True)
         .where(Assignments.document_id == document_id)
     )
 
