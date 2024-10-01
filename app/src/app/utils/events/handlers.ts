@@ -41,16 +41,6 @@ export const SelectMapFeatures = (
   map: MutableRefObject<Map | null>,
   mapStoreRef: MapStore,
 ) => {
-  features?.forEach((feature) => {
-    map.current?.setFeatureState(
-      {
-        source: BLOCK_SOURCE_ID,
-        id: feature?.id ?? undefined,
-        sourceLayer: feature.sourceLayer,
-      },
-      { selected: true, zone: mapStoreRef.selectedZone },
-    );
-  });
   if (features?.length) {
     features.forEach((feature) => {
       mapStoreRef.accumulatedGeoids.add(feature.properties?.path);
@@ -91,6 +81,7 @@ export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param hoverGeoids - MutableRefObject<Set<string>>, used to keep track of geoids that have been hovered over
+ * @deprecated This function is no longer in use and will be removed in a future version.
  */
 export const HighlightFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
@@ -139,6 +130,7 @@ export const HighlightFeature = (
  * called using `map.on("mouseleave", "blocks-hover", ...)` pattern.
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param hoverFeatureIds - MutableRefObject<Set<string>>, used to keep track of geoids that have been hovered over
+ * @deprecated This function is no longer in use and will be removed in a future version.
  */
 export const UnhighlightFeature = (
   map: MutableRefObject<Map | null>,

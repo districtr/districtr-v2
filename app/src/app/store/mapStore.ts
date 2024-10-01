@@ -10,26 +10,15 @@ import { Zone, GDBPath } from "../constants/types";
 import { Assignment, DocumentObject, ZonePopulation } from "../api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
-import {
-  addBlockLayers,
-  BLOCK_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID,
-  BLOCK_SOURCE_ID,
-  PARENT_LAYERS,
-  CHILD_LAYERS,
-} from "../constants/layers";
 import type { UseQueryResult } from "@tanstack/react-query";
 import {
-  ColorZoneAssignmentsState,
   ContextMenuState,
   LayerVisibility,
   PaintEventHandler,
-  colorZoneAssignmentTriggers,
-  colorZoneAssignments,
   getFeaturesInBbox,
   setZones,
-  shallowCompareArray,
 } from "../utils/helpers";
+import { getSubscriptions } from "./mapRenderingSubscriptions";
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
@@ -251,82 +240,4 @@ export const useMapStore = create(
   }))
 );
 
-useMapStore.subscribe(
-  (state) => state.mapDocument,
-  (mapDocument) => {
-    const mapStore = useMapStore.getState();
-    if (mapStore.mapRef && mapDocument) {
-      addBlockLayers(mapStore.mapRef, mapDocument);
-      mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
-    }
-  }
-);
-
-useMapStore.subscribe(
-  (state) => state.mapRef,
-  (mapRef) => {
-    const mapStore = useMapStore.getState();
-    if (mapRef && mapStore.mapDocument) {
-      addBlockLayers(mapRef, mapStore.mapDocument);
-      mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
-    }
-  }
-);
-
-const _shatterMapSideEffectRender = useMapStore.subscribe(
-  (state) => state.shatterIds,
-  (shatterIds) => {
-    const state = useMapStore.getState();
-    const mapRef = state.mapRef;
-    const setMapLock = state.setMapLock;
-
-    if (!mapRef?.current) {
-      return;
-    }
-
-    PARENT_LAYERS.forEach((layerId) =>
-      mapRef.current?.setFilter(layerId, [
-        "!",
-        ["in", ["get", "path"], ["literal", Array.from(shatterIds.parents)]],
-      ])
-    );
-
-    CHILD_LAYERS.forEach((layerId) =>
-      mapRef.current?.setFilter(layerId, [
-        "in",
-        ["get", "path"],
-        ["literal", Array.from(shatterIds.children)],
-      ])
-    );
-
-    mapRef.current.once("render", () => {
-      setMapLock(false);
-      console.log(`Unlocked at`, performance.now());
-    });
-  }
-);
-
-const _hoverMapSideEffectRender = useMapStore.subscribe(
-  (state) => state.hoverFeatures,
-  (hoverFeatures, previousHoverFeatures) => {
-    const mapRef = useMapStore.getState().mapRef;
-
-    if (!mapRef?.current) {
-      return;
-    }
-
-    previousHoverFeatures.forEach((feature) => {
-      mapRef.current?.setFeatureState(feature, { hover: false });
-    });
-
-    hoverFeatures.forEach((feature) => {
-      mapRef.current?.setFeatureState(feature, { hover: true });
-    });
-  }
-);
-
-const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe<ColorZoneAssignmentsState>(
-  (state) => [state.zoneAssignments, state.mapDocument, state.mapRef, state.shatterIds],
-  (curr, prev) => colorZoneAssignments(curr, prev),
-  { equalityFn: shallowCompareArray },
-)
+getSubscriptions(useMapStore);
