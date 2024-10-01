@@ -30,6 +30,7 @@ import {
   setZones,
   shallowCompareArray,
 } from "../utils/helpers";
+import { testSub } from "./subs";
 
 export interface MapStore {
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
@@ -325,8 +326,43 @@ const _hoverMapSideEffectRender = useMapStore.subscribe(
   }
 );
 
-const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe<ColorZoneAssignmentsState>(
-  (state) => [state.zoneAssignments, state.mapDocument, state.mapRef, state.shatterIds],
-  (curr, prev) => colorZoneAssignments(curr, prev),
-  { equalityFn: shallowCompareArray },
-)
+const _zoneAssignmentMapSideEffectRender =
+  useMapStore.subscribe<ColorZoneAssignmentsState>(
+    (state) => [
+      state.zoneAssignments,
+      state.mapDocument,
+      state.mapRef,
+      state.shatterIds,
+    ],
+    (curr, prev) => colorZoneAssignments(curr, prev),
+    { equalityFn: shallowCompareArray }
+  );
+
+export const userMapsLocalStorageKey = "districtr-maps";
+const _localStorageMapDocuments = useMapStore.subscribe<
+  MapStore["mapDocument"]
+>(
+  (state) => state.mapDocument,
+  (mapDocument) => {
+    if (!mapDocument || !mapDocument.document_id) {
+      return;
+    }
+
+    let districtrMaps = JSON.parse(
+      localStorage.getItem(userMapsLocalStorageKey) || "[]"
+    ) as DocumentObject[];
+
+    const documentIndex = districtrMaps.findIndex(
+      (f) => f.document_id === mapDocument.document_id
+    );
+    if (documentIndex !== -1) {
+      districtrMaps[documentIndex] = mapDocument;
+    } else {
+      districtrMaps = [mapDocument, ...districtrMaps];
+    }
+    localStorage.setItem(
+      userMapsLocalStorageKey,
+      JSON.stringify(districtrMaps)
+    );
+  }
+);

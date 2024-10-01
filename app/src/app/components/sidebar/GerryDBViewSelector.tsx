@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Select } from "@radix-ui/themes";
+import { Flex, Select } from "@radix-ui/themes";
 import { getAvailableDistrictrMaps } from "../../api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
 import { createMapDocument } from "../../api/apiHandlers";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { RecentMapsModal } from "./RecentMapsModal";
 
 export function GerryDBViewSelector() {
   const router = useRouter();
@@ -39,7 +40,7 @@ export function GerryDBViewSelector() {
   useEffect(() => {
     if (mapDocument && data) {
       const selectedView = data.find(
-        (view) => view.gerrydb_table_name === mapDocument.gerrydb_table,
+        (view) => view.gerrydb_table_name === mapDocument.gerrydb_table
       );
       setSelected(selectedView?.name);
     }
@@ -66,18 +67,21 @@ export function GerryDBViewSelector() {
   if (isError) return <div>Error loading geographies: {error.message}</div>;
 
   return (
-    <Select.Root size="3" onValueChange={handleValueChange} value={selected}>
-      <Select.Trigger placeholder="Select a geography" />
-      <Select.Content>
-        <Select.Group>
-          <Select.Label>Districtr map options</Select.Label>
-          {data.map((view, index) => (
-            <Select.Item key={index} value={view.name}>
-              {view.name}
-            </Select.Item>
-          ))}
-        </Select.Group>
-      </Select.Content>
-    </Select.Root>
+    <Flex direction={"row"} width="100%" gap="3">
+      <Select.Root size="3" onValueChange={handleValueChange} value={selected}>
+        <Select.Trigger placeholder="Select a geography" />
+        <Select.Content>
+          <Select.Group>
+            <Select.Label>Districtr map options</Select.Label>
+            {data.map((view, index) => (
+              <Select.Item key={index} value={view.name}>
+                {view.name}
+              </Select.Item>
+            ))}
+          </Select.Group>
+        </Select.Content>
+      </Select.Root>
+      <RecentMapsModal />
+    </Flex>
   );
 }
