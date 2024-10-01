@@ -72,7 +72,7 @@ export const MapComponent: React.FC = () => {
 
   return (
     <div
-      className={`h-full w-full-minus-sidebar relative
+      className={`h-full relative w-full
     ${mapLock ? "pointer-events-none" : ""}
     `}
       ref={mapContainer}

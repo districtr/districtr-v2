@@ -11,7 +11,7 @@ export default function Map() {
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
-        <div className="h-screen w-screen flex justify-between p">
+        <div className="h-screen w-screen flex justify-between p flex-col md:flex-row">
           <MapComponent />
           <SidebarComponent />
           <MapContextMenu />
