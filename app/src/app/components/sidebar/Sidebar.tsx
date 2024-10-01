@@ -16,11 +16,11 @@ export default function SidebarComponent() {
     <Box
       p="3"
       className="w-full z-10 shadow-md flex-none overflow-y-auto 
-      border-t md:border-t-0
-      md:h-screen md:max-w-sidebar md:w-sidebar"
+      border-t lg:border-t-0
+      lg:h-screen lg:max-w-sidebar lg:w-sidebar"
     >
       <Flex direction="column" gap="3">
-        <Heading as="h3" size="3" className="hidden md:block">
+        <Heading as="h3" size="3" className="hidden lg:block">
           Districtr
         </Heading>
         <GerryDBViewSelector />
@@ -40,7 +40,7 @@ export default function SidebarComponent() {
         <Box
           display={{
             initial: "none",
-            sm: "inline",
+            md: "inline",
           }}
         >
           <DataPanels defaultPanel="layers" />

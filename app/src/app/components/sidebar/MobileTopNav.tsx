@@ -17,7 +17,7 @@ const MobileTopNav = () => {
       ref={boxRef}
       display={{
         initial: "block",
-        sm: "none",
+        md: "none",
       }}
     >
       <Flex direction="row" gap="1" align="center" justify={"between"} pr="3">
