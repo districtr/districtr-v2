@@ -41,6 +41,16 @@ export const SelectMapFeatures = (
   map: MutableRefObject<Map | null>,
   mapStoreRef: MapStore,
 ) => {
+  features?.forEach((feature) => {
+    map.current?.setFeatureState(
+      {
+        source: BLOCK_SOURCE_ID,
+        id: feature?.id ?? undefined,
+        sourceLayer: feature.sourceLayer,
+      },
+      { selected: true, zone: mapStoreRef.selectedZone },
+    );
+  });
   if (features?.length) {
     features.forEach((feature) => {
       mapStoreRef.accumulatedGeoids.add(feature.properties?.path);
