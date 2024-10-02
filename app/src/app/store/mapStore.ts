@@ -93,7 +93,7 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 }
 
-const initialLoadingState = new URLSearchParams(window.location.search).has(
+const initialLoadingState = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has(
   "document_id"
 )
   ? "loading"
