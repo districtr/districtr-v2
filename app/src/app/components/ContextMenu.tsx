@@ -1,73 +1,15 @@
 import React from "react";
 import { ContextMenu, Text } from "@radix-ui/themes";
 import { useMapStore } from "@/app/store/mapStore";
-import { useMutation } from "@tanstack/react-query";
-import { patchShatterParents } from "@api/apiHandlers";
-import {
-  BLOCK_SOURCE_ID,
-  BLOCK_LAYER_ID,
-  BLOCK_LAYER_ID_CHILD,
-} from "@constants/layers";
-import { ShatterResult } from "../api/apiHandlers";
 
 export const MapContextMenu: React.FC = () => {
-  const mapRef = useMapStore(state => state.mapRef)
-  const mapDocument = useMapStore(state => state.mapDocument)
-  const contextMenu = useMapStore(state => state.contextMenu)
-  const shatterIds = useMapStore(state => state.shatterIds)
-  const setShatterIds = useMapStore(state => state.setShatterIds)
-  const setMapLock = useMapStore(state => state.setMapLock)
-  
-  const patchShatter = useMutation<
-    ShatterResult,
-    void,
-    { document_id: string; geoids: string[] }
-  >({
-    mutationFn: patchShatterParents,
-    onMutate: ({ document_id, geoids }) => {
-      setMapLock(true)
-      console.log(
-        `Shattering parents for ${geoids} in document ${document_id}...`,
-        `Locked at `, performance.now()
-      );
-    },
-    onError: (error) => {
-      console.log("Error updating assignments: ", error);
-    },
-    onSuccess: (data) => {
-      console.log(
-        `Successfully shattered parents into ${data.children.length} children`
-      );
-      // I'm not sure when this would be the case
-      // Perhaps, paint-shatter multiple?
-      // but to cover our bases
-      const multipleShattered = data.parents.geoids.length > 1;
-
-      setShatterIds(
-        shatterIds.parents,
-        shatterIds.children,
-        data.parents.geoids,
-        [new Set(data.children.map((child) => child.geo_id))],
-        multipleShattered
-      );
-      // mapRef?.current?.setFilter(BLOCK_LAYER_ID, [
-      //   "match",
-      //   ["get", "path"],
-      //   data.parents.geoids, // will need to add existing filters
-      //   false,
-      //   true,
-      // ]);
-    },
-  });
-
+  const mapDocument = useMapStore((state) => state.mapDocument);
+  const contextMenu = useMapStore((state) => state.contextMenu);
+  const handleShatter = useMapStore((state) => state.handleShatter);
   if (!contextMenu) return null;
-
-  const handleShatter = () => {
+  const onClick = () => {
     if (!mapDocument || contextMenu?.data?.id === undefined) return;
-    patchShatter.mutate({
-      document_id: mapDocument.document_id,
-      geoids: [contextMenu.data.id.toString()],
-    });
+    handleShatter(mapDocument.document_id, [contextMenu.data.id.toString()]);
     contextMenu.close();
   };
 
@@ -96,7 +38,7 @@ export const MapContextMenu: React.FC = () => {
             </Text>
           </ContextMenu.Label>
         )}
-        <ContextMenu.Item onClick={handleShatter}>Shatter</ContextMenu.Item>
+        <ContextMenu.Item onClick={onClick}>Shatter</ContextMenu.Item>
       </ContextMenu.Content>
     </ContextMenu.Root>
   );
