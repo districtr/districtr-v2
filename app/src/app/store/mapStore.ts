@@ -7,10 +7,14 @@ import type {
   SpatialUnit,
 } from "../constants/types";
 import { Zone, GDBPath } from "../constants/types";
-import { Assignment, DocumentObject, ZonePopulation } from "../api/apiHandlers";
+import {
+  Assignment,
+  DocumentObject,
+  ZonePopulation,
+} from "../utils/api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
-import type { UseQueryResult } from "@tanstack/react-query";
+import { UseQueryResult } from "@tanstack/react-query";
 import {
   ContextMenuState,
   LayerVisibility,
@@ -18,9 +22,17 @@ import {
   getFeaturesInBbox,
   setZones,
 } from "../utils/helpers";
-import { getSubscriptions } from "./mapRenderingSubscriptions";
+import { getRenderSubscriptions } from "./mapRenderSubs";
+import { patchShatter } from "../utils/api/mutations";
+import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
+import { getMapMetricsSubs } from "./metricsSubs";
+import { getMapEditSubs } from "./mapEditSubs";
 
 export interface MapStore {
+  appLoadingState: "loaded" | "initializing" | "loading";
+  setAppLoadingState: (state: MapStore["appLoadingState"]) => void;
+  mapRenderingState: "loaded" | "initializing" | "loading";
+  setMapRenderingState: (state: MapStore["mapRenderingState"]) => void;
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapLock: boolean;
@@ -38,6 +50,7 @@ export interface MapStore {
     newChildren: Set<string>[],
     multipleShattered: boolean
   ) => void;
+  handleShatter: (document_id: string, geoids: string[]) => void;
   hoverFeatures: Array<MapFeatureInfo>;
   setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
   mapOptions: MapOptions;
@@ -80,10 +93,27 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 }
 
+const initialLoadingState = new URLSearchParams(window.location.search).has(
+  "document_id"
+)
+  ? "loading"
+  : "initializing";
+
 export const useMapStore = create(
   subscribeWithSelector<MapStore>((set, get) => ({
+    appLoadingState: initialLoadingState,
+    setAppLoadingState: (appLoadingState) => set({ appLoadingState }),
+    mapRenderingState: "initializing",
+    setMapRenderingState: (mapRenderingState) => set({ mapRenderingState }),
     mapRef: null,
-    setMapRef: (mapRef) => set({ mapRef }),
+    setMapRef: (mapRef) =>
+      set({
+        mapRef,
+        appLoadingState:
+          initialLoadingState === "initializing"
+            ? "loaded"
+            : get().appLoadingState,
+      }),
     mapLock: false,
     setMapLock: (mapLock) => set({ mapLock }),
     mapDocument: null,
@@ -99,6 +129,44 @@ export const useMapStore = create(
     shatterIds: {
       parents: new Set(),
       children: new Set(),
+    },
+    handleShatter: async (document_id, geoids) => {
+      set({ mapLock: true });
+      const shatterResult = await patchShatter.mutate({
+        document_id,
+        geoids,
+      });
+
+      const zoneAssignments = new Map(get().zoneAssignments);
+      const shatterIds = get().shatterIds;
+
+      let existingParents = new Set(shatterIds.parents);
+      let existingChildren = new Set(shatterIds.children);
+
+      const newParent = shatterResult.parents.geoids;
+      const newChildren = new Set(
+        shatterResult.children.map((child) => child.geo_id)
+      );
+
+      const multipleShattered = shatterResult.parents.geoids.length > 1;
+      if (!multipleShattered) {
+        setZones(zoneAssignments, newParent[0], newChildren);
+      } else {
+        // todo handle multiple shattered case
+      }
+      newParent.forEach((parent) => existingParents.add(parent));
+      // there may be a faster way to do this
+      [newChildren].forEach(
+        (children) => (existingChildren = existingChildren.union(children))
+      );
+
+      set({
+        shatterIds: {
+          parents: existingParents,
+          children: existingChildren,
+        },
+        zoneAssignments,
+      });
     },
     setShatterIds: (
       existingParents,
@@ -180,7 +248,7 @@ export const useMapStore = create(
           shatterIds.children.add(assignment.geo_id);
         }
       });
-      set({ zoneAssignments, shatterIds });
+      set({ zoneAssignments, shatterIds, appLoadingState: "loaded" });
     },
     accumulatedBlockPopulations: new Map<string, number>(),
     resetAccumulatedBlockPopulations: () =>
@@ -240,4 +308,8 @@ export const useMapStore = create(
   }))
 );
 
-getSubscriptions(useMapStore);
+// these need to initialize after the map store
+getRenderSubscriptions(useMapStore);
+getMapMetricsSubs(useMapStore);
+getMapEditSubs(useMapStore);
+getSearchParamsObersver();

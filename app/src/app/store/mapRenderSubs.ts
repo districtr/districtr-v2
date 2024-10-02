@@ -10,29 +10,21 @@ import {
   colorZoneAssignments,
   shallowCompareArray,
 } from "../utils/helpers";
-import { useMapStore as _useMapStore } from "./mapStore";
+import { useMapStore as _useMapStore, MapStore } from "./mapStore";
 
-export const getSubscriptions = (useMapStore: typeof _useMapStore) => {
-  const addLayerSubMapDocument = useMapStore.subscribe(
-    (state) => state.mapDocument,
-    (mapDocument) => {
+export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
+  const addLayerSubMapDocument = useMapStore.subscribe<
+    [MapStore["mapDocument"], MapStore["mapRef"]]
+  >(
+    (state) => [state.mapDocument, state.mapRef],
+    ([mapDocument, mapRef]) => {
       const mapStore = useMapStore.getState();
-      if (mapStore.mapRef && mapDocument) {
-        addBlockLayers(mapStore.mapRef, mapDocument);
+      if (mapRef?.current && mapDocument) {
+        addBlockLayers(mapRef, mapDocument);
         mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
       }
-    }
-  );
-
-  const addLayerSubMapRef = useMapStore.subscribe(
-    (state) => state.mapRef,
-    (mapRef) => {
-      const mapStore = useMapStore.getState();
-      if (mapRef && mapStore.mapDocument) {
-        addBlockLayers(mapRef, mapStore.mapDocument);
-        mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
-      }
-    }
+    },
+    { equalityFn: shallowCompareArray }
   );
 
   const _shatterMapSideEffectRender = useMapStore.subscribe(
@@ -42,10 +34,11 @@ export const getSubscriptions = (useMapStore: typeof _useMapStore) => {
       const mapRef = state.mapRef;
       const setMapLock = state.setMapLock;
 
-      if (!mapRef?.current) {
+      if (!mapRef?.current || state.mapRenderingState !== 'loaded') {
         return;
       }
-
+      console.log("Setting filter")
+      
       PARENT_LAYERS.forEach((layerId) =>
         mapRef.current?.setFilter(layerId, [
           "!",
@@ -94,6 +87,8 @@ export const getSubscriptions = (useMapStore: typeof _useMapStore) => {
         state.mapDocument,
         state.mapRef,
         state.shatterIds,
+        state.appLoadingState,
+        state.mapRenderingState,
       ],
       (curr, prev) => colorZoneAssignments(curr, prev),
       { equalityFn: shallowCompareArray }
@@ -101,7 +96,6 @@ export const getSubscriptions = (useMapStore: typeof _useMapStore) => {
 
   return [
     addLayerSubMapDocument,
-    addLayerSubMapRef,
     _shatterMapSideEffectRender,
     _hoverMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,
