@@ -34,7 +34,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       const mapRef = state.mapRef;
       const setMapLock = state.setMapLock;
 
-      if (!mapRef?.current || state.mapRenderingState !== 'loaded') {
+      if (!mapRef?.current) {
         return;
       }
       console.log("Setting filter")
@@ -88,7 +88,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         state.mapRef,
         state.shatterIds,
         state.appLoadingState,
-        state.mapRenderingState,
       ],
       (curr, prev) => colorZoneAssignments(curr, prev),
       { equalityFn: shallowCompareArray }
