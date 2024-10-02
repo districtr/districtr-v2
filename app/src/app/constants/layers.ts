@@ -4,6 +4,7 @@ import { Map } from "maplibre-gl";
 import { getBlocksSource } from "./sources";
 import { DocumentObject } from "../utils/api/apiHandlers";
 import { color10 } from "./colors";
+import { useMapStore } from "../store/mapStore";
 
 export const BLOCK_SOURCE_ID = "blocks";
 export const BLOCK_LAYER_ID = "blocks";
@@ -177,9 +178,11 @@ const addBlockLayers = (
       LABELS_BREAK_LAYER_ID,
     );
   }
+  useMapStore.getState().setMapRenderingState("loaded")
 };
 
 export function removeBlockLayers(map: MutableRefObject<Map | null>) {
+  useMapStore.getState().setMapRenderingState("loading")
   if (map.current?.getLayer(BLOCK_LAYER_ID)) {
     map.current?.removeLayer(BLOCK_LAYER_ID);
   }

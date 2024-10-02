@@ -31,6 +31,8 @@ import { getMapEditSubs } from "./mapEditSubs";
 export interface MapStore {
   appLoadingState: "loaded" | "initializing" | "loading";
   setAppLoadingState: (state: MapStore["appLoadingState"]) => void;
+  mapRenderingState: "loaded" | "initializing" | "loading";
+  setMapRenderingState: (state: MapStore["mapRenderingState"]) => void;
   mapRef: MutableRefObject<maplibregl.Map | null> | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapLock: boolean;
@@ -101,6 +103,8 @@ export const useMapStore = create(
   subscribeWithSelector<MapStore>((set, get) => ({
     appLoadingState: initialLoadingState,
     setAppLoadingState: (appLoadingState) => set({ appLoadingState }),
+    mapRenderingState: "initializing",
+    setMapRenderingState: (mapRenderingState) => set({ mapRenderingState }),
     mapRef: null,
     setMapRef: (mapRef) =>
       set({

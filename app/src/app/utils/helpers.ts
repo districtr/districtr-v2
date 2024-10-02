@@ -241,6 +241,7 @@ export type ColorZoneAssignmentsState = [
   MapStore["mapRef"],
   MapStore["shatterIds"],
   MapStore["appLoadingState"],
+  MapStore["mapRenderingState"]
 ];
 /**
  * Assigns colors to zones on the map based on the current zone assignments.
@@ -271,13 +272,15 @@ export const colorZoneAssignments = (
     mapRef,
     _,
     appLoadingState,
+    mapRenderingState,
   ] = state;
   const previousZoneAssignments = previousState?.[0] || null;
 
   if (
     !mapRef?.current ||
     !mapDocument ||
-    appLoadingState !== "loaded"
+    appLoadingState !== "loaded" ||
+    mapRenderingState !== "loaded"
   ) {
     return;
   }
