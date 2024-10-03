@@ -181,12 +181,13 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
             Assignments.document_id,
             ParentChildEdges.parent_path,
         )
-        .join(
-            ParentChildEdges,
-            Assignments.geo_id == ParentChildEdges.child_path,
-            isouter=True,
+        .outerjoin(ParentChildEdges, Assignments.geo_id == ParentChildEdges.child_path)
+        .join(DistrictrMap, ParentChildEdges.districtr_map == DistrictrMap.uuid)
+        .join(Document, Assignments.document_id == Document.document_id)
+        .where(
+            Assignments.document_id == document_id,
+            DistrictrMap.gerrydb_table_name == Document.gerrydb_table
         )
-        .where(Assignments.document_id == document_id)
     )
 
     results = session.exec(stmt)
