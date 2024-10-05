@@ -73,7 +73,7 @@ jobs:
                 --build-arg https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
                 --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
-                --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
+                --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
               working-directory: app 
               
             - name: deploy app
