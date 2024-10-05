@@ -70,7 +70,7 @@ jobs:
               run: |
                 flyctl launch \
                 --no-deploy --copy-config --name pr-116-app --image \
-                --region iad --org mggg \  
+                --org mggg \  
                 --build-arg https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
                 --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
