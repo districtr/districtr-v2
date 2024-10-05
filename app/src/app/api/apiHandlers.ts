@@ -151,9 +151,10 @@ export const getGerryDBViews: (
   limit?: number,
   offset?: number
 ) => Promise<gerryDBView[]> = async (limit = 10, offset = 0) => {
-  const api_url = process.env.NEXT_PUBLIC_API_URL;
   return await axios
-    .get(`${api_url}/api/gerrydb/views?limit=${limit}&offset=${offset}`)
+    .get(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`
+    )
     .then((res) => {
       return res.data;
     });
