@@ -26,55 +26,55 @@ jobs:
             # fork new db from existing db
             # confirm view command line that tables are created, 
             # and e.g. gerrydbtable has records that we would expect
-            - name: Fork From DB
-              id: fork-db
-              run: |                
-                flyctl postgres create \
-                --name pr-${{ github.event.number }}-db \
-                --region ewr \
-                --initial-cluster-size 1 \
-                --vm-size shared-cpu-2x \
-                -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
-                --org mggg \
-                --fork-from districtr-v2-db 
-                echo "::set-output name=name::pr-${{ github.event.number }}-db"
-                echo "::set-output name=password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"
+            # - name: Fork From DB
+            #   id: fork-db
+            #   run: |                
+            #     flyctl postgres create \
+            #     --name pr-${{ github.event.number }}-db \
+            #     --region ewr \
+            #     --initial-cluster-size 1 \
+            #     --vm-size shared-cpu-2x \
+            #     -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
+            #     --org mggg \
+            #     --fork-from districtr-v2-db 
+            #     echo "::set-output name=name::pr-${{ github.event.number }}-db"
+            #     echo "::set-output name=password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"
 
-            # create copies of the app and api
-            - name: Deploy API
-              id: deploy-api
-              uses: joeyrichter/fly-pr-review-apps@0.1
-              with: 
-                name: pr-${{ github.event.number }}-api
-                path: backend             
-                region: ewr
-                build_secrets: |
-                    NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
+            # # create copies of the app and api
+            # - name: Deploy API
+            #   id: deploy-api
+            #   uses: joeyrichter/fly-pr-review-apps@0.1
+            #   with: 
+            #     name: pr-${{ github.event.number }}-api
+            #     path: backend             
+            #     region: ewr
+            #     build_secrets: |
+            #         NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
 
-            # attach the db to the api and set secrets
-            # confirming that db can be hit via /db_is_alive
-            - name: Attach DB to API
-              run: |
-                flyctl secrets set \
-                -a pr-${{ github.event.number }}-api \
-                DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable" \
-                POSTGRES_SCHEME="postgresql+psycopg" \
-                POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
-                POSTGRES_USER="postgres" \
-                POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
-                POSTGRES_DB="postgres"                                                        
+            # # attach the db to the api and set secrets
+            # # confirming that db can be hit via /db_is_alive
+            # - name: Attach DB to API
+            #   run: |
+            #     flyctl secrets set \
+            #     -a pr-${{ github.event.number }}-api \
+            #     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable" \
+            #     POSTGRES_SCHEME="postgresql+psycopg" \
+            #     POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
+            #     POSTGRES_USER="postgres" \
+            #     POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
+            #     POSTGRES_DB="postgres"                                                        
 
 
-            - name: launch app
-              id: launch-app
-              run: |
-                flyctl launch \
-                --no-deploy --copy-config --name pr-${{ github.event.number }}-app \
-                --build-arg https://pr-${{ github.event.number }}-api.fly.dev \
-                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
-                --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
-                --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
-              working-directory: app 
+            # - name: launch app
+            #   id: launch-app
+            #   run: |
+            #     flyctl launch \
+            #     --no-deploy --copy-config --name pr-${{ github.event.number }}-app \
+            #     --build-arg https://pr-${{ github.event.number }}-api.fly.dev \
+            #     --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
+            #     --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
+            #     --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
+            #   working-directory: app 
               
             - name: deploy app
               id: deploy-app
@@ -82,6 +82,7 @@ jobs:
                 flyctl deploy --config fly.toml \
                 --app pr-${{ github.event.number }}-app \
                 --regions ewr --image  --strategy immediate '--ha=false' \
+                --path app \
                 --build-arg https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
                 --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
