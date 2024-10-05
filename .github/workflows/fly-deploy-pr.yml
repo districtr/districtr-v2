@@ -65,8 +65,8 @@ jobs:
                 POSTGRES_DB="postgres"                                                        
 
 
-            - name: deploy app manually
-              id: deploy-app
+            - name: launch app
+              id: launch-app
               run: |
                 flyctl launch \
                 --no-deploy --copy-config --name pr-${{ github.event.number }}-app --image \
@@ -75,6 +75,11 @@ jobs:
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
                 --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
+              working-directory: app 
+              
+            - name: deploy app
+              id: deploy-app
+              run: |
                 flyctl deploy --config fly.toml \
                 --app pr-${{ github.event.number }}-app \
                 --regions ewr --image  --strategy immediate '--ha=false' \
