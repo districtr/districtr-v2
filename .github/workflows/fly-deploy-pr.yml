@@ -24,6 +24,8 @@ jobs:
             
             
             # fork new db from existing db
+            # confirm view command line that tables are created, 
+            # and e.g. gerrydbtable has records that we would expect
             - name: Fork From DB
               id: fork-db
               run: |                
@@ -38,25 +40,25 @@ jobs:
                 echo "::set-output name=name::pr-${{ github.event.number }}-db"
                 echo "::set-output name=password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"
 
-            # # create copies of the app and api
-            # - name: Deploy API
-            #   id: deploy-api
-            #   uses: superfly/fly-pr-review-apps@1.0.0              
-            #   with: 
-            #     name: pr-${{ github.event.number }}-api
-            #     path: backend             
+            # create copies of the app and api
+            - name: Deploy API
+              id: deploy-api
+              uses: superfly/fly-pr-review-apps@1.0.0              
+              with: 
+                name: pr-${{ github.event.number }}-api
+                path: backend             
 
-            # # attach the db to the api and set secrets
-            # - name: Attach DB to API
-            #   run: |
-            #     flyctl secrets set \
-            #     -a pr-${{ github.event.number }}-api \
-            #     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable" \
-            #     POSTGRES_SCHEME="postgresql+psycopg" \
-            #     POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
-            #     POSTGRES_USER="postgres" \
-            #     POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
-            #     POSTGRES_DB="postgres"                                                        
+            # attach the db to the api and set secrets
+            - name: Attach DB to API
+              run: |
+                flyctl secrets set \
+                -a pr-${{ github.event.number }}-api \
+                DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable" \
+                POSTGRES_SCHEME="postgresql+psycopg" \
+                POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
+                POSTGRES_USER="postgres" \
+                POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
+                POSTGRES_DB="postgres"                                                        
 
             # - name: Deploy App
             #   id: deploy-app
