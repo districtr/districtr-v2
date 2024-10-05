@@ -40,7 +40,7 @@ jobs:
             #     echo "::set-output name=name::pr-${{ github.event.number }}-db"
             #     echo "::set-output name=password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"
 
-            # # create copies of the app and api
+            # create copies of the app and api
             # - name: Deploy API
             #   id: deploy-api
             #   uses: joeyrichter/fly-pr-review-apps@0.1
@@ -82,6 +82,7 @@ jobs:
                 flyctl deploy --config fly.toml \
                 --app pr-${{ github.event.number }}-app \
                 --regions ewr --image \
+                --strategy immediate '--ha=false' \
                 --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
                 --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
