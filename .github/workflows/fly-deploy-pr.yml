@@ -60,15 +60,15 @@ jobs:
                 POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                 POSTGRES_DB="postgres"                                                        
 
-            # - name: Deploy App
-            #   id: deploy-app
-            #   uses: joeyrichter/fly-pr-review-apps@0.1
-            #   with: 
-            #     name: pr-${{ github.event.number }}-app
-            #     path: app
-            #     build_args: |
-            #       NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-            #       NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
+            - name: Deploy App
+              id: deploy-app
+              uses: joeyrichter/fly-pr-review-apps@0.1
+              with: 
+                name: pr-${{ github.event.number }}-app
+                path: app
+                build_args: |
+                  NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+                  NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
 
             # - name: Launch App
             #   run: |
@@ -110,4 +110,34 @@ jobs:
             #     -a pr-${{ github.event.number }}-app \
             #     NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
             #     NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
-                
+
+
+
+# slop
+# deploy the api
+# - name: launch and deploy copy of API
+# run: |
+#   flyctl launch \
+#   --name pr-${{ github.event.number }}-api \
+#   --org mggg \
+#   --path backend \
+#   --dockerfile Dockerfile \
+#   --internal-port 8000 \
+#   --build-arg DATABASE_URL="postgresql://postgres:${{ steps.fork-db.outputs.password }}@${{ steps.fork-db.outputs.name }}:5432?sslmode=disable" \
+#   --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
+#   --build-arg POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}" \
+#   --build-arg POSTGRES_USER="postgres" \
+#   --build-arg POSTGRES_PASSWORD=${{ steps.fork-db.outputs.password }} \
+#   --build-arg POSTGRES_DB="postgres"
+#   flyctl deploy \
+#   --remote-only \
+#   --app pr-${{ github.event.number }}-api \
+#   --build-arg DATABASE_URL="postgresql://postgres:${{ steps.fork-db.outputs.password }}@${{ steps.fork-db.outputs.name }}:5432?sslmode=disable" \
+#   --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
+#   --build-arg POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}" \
+#   --build-arg POSTGRES_USER="postgres" \
+#   --build-arg POSTGRES_PASSWORD=${{ steps.fork-db.outputs.password }} \
+#   --build-arg POSTGRES_DB="postgres"
+
+  
+# working-directory: backend  
