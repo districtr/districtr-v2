@@ -47,8 +47,10 @@ jobs:
               with: 
                 name: pr-${{ github.event.number }}-api
                 path: backend             
+                region: ewr
 
             # attach the db to the api and set secrets
+            # confirming that db can be hit via /db_is_alive
             - name: Attach DB to API
               run: |
                 flyctl secrets set \
@@ -68,7 +70,17 @@ jobs:
                 path: app
                 build_args: |
                   NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
+            
+            # set secrets for app
+            - name: Set App Secrets
+              run: |
+                flyctl secrets set \
+                -a pr-${{ github.event.number }}-app \
+                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+                NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
 
+
+            # manual launching and deploying, to try and set the build args and port properly
             # - name: Launch App
             #   run: |
             #     flyctl launch \
@@ -100,15 +112,6 @@ jobs:
             #  \
                 # --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
                 # --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
-
-            
-            # set secrets for app
-            # - name: Set App Secrets
-            #   run: |
-            #     flyctl secrets set \
-            #     -a pr-${{ github.event.number }}-app \
-            #     NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-            #     NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
 
 
 
