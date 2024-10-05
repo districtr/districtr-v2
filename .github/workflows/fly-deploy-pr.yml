@@ -43,11 +43,13 @@ jobs:
             # create copies of the app and api
             - name: Deploy API
               id: deploy-api
-              uses: superfly/fly-pr-review-apps@1.0.0              
+              uses: joeyrichter/fly-pr-review-apps@0.1
               with: 
                 name: pr-${{ github.event.number }}-api
                 path: backend             
                 region: ewr
+                build_secrets: |
+                    NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
 
             # attach the db to the api and set secrets
             # confirming that db can be hit via /db_is_alive
