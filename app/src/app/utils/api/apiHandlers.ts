@@ -166,7 +166,9 @@ export const getAvailableDistrictrMaps: (
   offset?: number
 ) => Promise<DistrictrMap[]> = async (limit = 10, offset = 0) => {
   return await axios
-    .get(`${api_url}/api/gerrydb/views?limit=${limit}&offset=${offset}`)
+    .get(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`
+    )
     .then((res) => {
       return res.data;
     });
