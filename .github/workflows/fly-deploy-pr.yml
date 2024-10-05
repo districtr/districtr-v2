@@ -69,15 +69,15 @@ jobs:
                 name: pr-${{ github.event.number }}-app
                 path: app
                 build_args: |
-                  NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
+                  NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
             
             # set secrets for app
             - name: Set App Secrets
               run: |
                 flyctl secrets set \
                 -a pr-${{ github.event.number }}-app \
-                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-                NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
+                NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
+                NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
 
 
             # manual launching and deploying, to try and set the build args and port properly
