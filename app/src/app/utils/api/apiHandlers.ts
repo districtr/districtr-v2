@@ -4,7 +4,7 @@ import { useMapStore } from "@/app/store/mapStore";
 
 export const FormatAssignments = () => {
   const assignments = Array.from(
-    useMapStore.getState().zoneAssignments.entries(),
+    useMapStore.getState().zoneAssignments.entries()
   ).map(
     // @ts-ignore
     ([geo_id, zone]: [string, number]): {
@@ -16,7 +16,7 @@ export const FormatAssignments = () => {
         useMapStore.getState().mapDocument?.document_id.toString() ?? "",
       geo_id,
       zone,
-    }),
+    })
   );
   return assignments;
 };
@@ -76,7 +76,7 @@ export interface DocumentCreate {
 }
 
 export const createMapDocument: (
-  document: DocumentCreate,
+  document: DocumentCreate
 ) => Promise<DocumentObject> = async (document: DocumentCreate) => {
   return await axios
     .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
@@ -93,7 +93,7 @@ export const createMapDocument: (
  * @returns Promise<DocumentObject>
  */
 export const getDocument: (
-  document_id: string,
+  document_id: string
 ) => Promise<DocumentObject> = async (document_id: string) => {
   if (document_id) {
     return await axios
@@ -107,12 +107,12 @@ export const getDocument: (
 };
 
 export const getAssignments: (
-  mapDocument: DocumentObject,
+  mapDocument: DocumentObject
 ) => Promise<Assignment[]> = async (mapDocument) => {
   if (mapDocument) {
     return await axios
       .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument.document_id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument.document_id}`
       )
       .then((res) => {
         return res.data;
@@ -140,12 +140,12 @@ export interface ZonePopulation {
  * @returns Promise<ZonePopulation[]>
  */
 export const getZonePopulations: (
-  mapDocument: DocumentObject,
+  mapDocument: DocumentObject
 ) => Promise<ZonePopulation[]> = async (mapDocument) => {
   if (mapDocument) {
     return await axios
       .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`
       )
       .then((res) => {
         return res.data;
@@ -163,12 +163,10 @@ export const getZonePopulations: (
  */
 export const getAvailableDistrictrMaps: (
   limit?: number,
-  offset?: number,
+  offset?: number
 ) => Promise<DistrictrMap[]> = async (limit = 10, offset = 0) => {
   return await axios
-    .get(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
-    )
+    .get(`${api_url}/api/gerrydb/views?limit=${limit}&offset=${offset}`)
     .then((res) => {
       return res.data;
     });
@@ -185,7 +183,7 @@ export interface Assignment {
   document_id: string;
   geo_id: string;
   zone: number;
-  parent_path?: string
+  parent_path?: string;
 }
 
 /**
@@ -203,7 +201,7 @@ export interface AssignmentsCreate {
  * @returns server object containing the updated assignments per geoid
  */
 export const patchUpdateAssignments: (
-  assignments: Assignment[],
+  assignments: Assignment[]
 ) => Promise<AssignmentsCreate> = async (assignments: Assignment[]) => {
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
@@ -241,7 +239,7 @@ export const patchShatterParents: (params: {
       `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/shatter_parents`,
       {
         geoids: geoids,
-      },
+      }
     )
     .then((res) => {
       return res.data;
