@@ -64,16 +64,7 @@ jobs:
                 POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                 POSTGRES_DB="postgres"                                                        
 
-            # - name: Deploy App
-            #   id: deploy-app
-            #   uses: joeyrichter/fly-pr-review-apps@0.1
-            #   with: 
-            #     name: pr-${{ github.event.number }}-app
-            #     path: app
-            #     build_args: |
-            #         NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
-            #     build_secrets: |
-            #         NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
+
             - name: deploy app manually
               id: deploy-app
               run: |
@@ -85,14 +76,14 @@ jobs:
                 --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
                 flyctl deploy --config fly.toml \
-                --app pr-${{ github.event.number }}-app 
-                --regions ewr --image  --strategy immediate '--ha=false' 
+                --app pr-${{ github.event.number }}-app \
+                --regions ewr --image  --strategy immediate '--ha=false' \
                 --build-arg https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
                 --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
-                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
-               working-directory: app 
+                --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
+              working-directory: app 
 
             # set secrets for app
             - name: Set App Secrets
