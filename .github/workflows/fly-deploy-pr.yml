@@ -70,9 +70,9 @@ jobs:
             #   run: |
             #     flyctl launch \
             #     --no-deploy --copy-config --name pr-${{ github.event.number }}-app \
-            #     --build-arg https://pr-${{ github.event.number }}-api.fly.dev \
+            #     --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
             #     --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
-            #     --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
+            #     --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
             #     --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
             #   working-directory: app 
               
@@ -82,9 +82,9 @@ jobs:
                 flyctl deploy \
                 --app pr-${{ github.event.number }}-app \
                 --regions ewr --image \
-                --build-arg https://pr-${{ github.event.number }}-api.fly.dev \
+                --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
-                --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
+                --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               
