@@ -87,7 +87,7 @@ jobs:
                 --build-secret https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
-              working-directory: app 
+              
 
             # set secrets for app
             - name: Set App Secrets
