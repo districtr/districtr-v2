@@ -16,7 +16,7 @@ jobs:
 
         environment:
             name: pr-${{ github.event.number }}
-            url: ${{ steps.deploy-app.outputs.url }}
+            # url: ${{ steps.deploy-app.outputs.url }}
 
         steps:
             - uses: actions/checkout@v3
@@ -24,19 +24,19 @@ jobs:
             
             
             # fork new db from existing db
-            # - name: Fork From DB
-            #   id: fork-db
-            #   run: |                
-            #     flyctl postgres create \
-            #     --name pr-${{ github.event.number }}-db \
-            #     --region ewr \
-            #     --initial-cluster-size 1 \
-            #     --vm-size shared-cpu-2x \
-            #     -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
-            #     --org mggg \
-            #     --fork-from districtr-v2-db 
-            #     echo "::set-output name=name::pr-${{ github.event.number }}-db"
-            #     echo "::set-output name=password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"
+            - name: Fork From DB
+              id: fork-db
+              run: |                
+                flyctl postgres create \
+                --name pr-${{ github.event.number }}-db \
+                --region ewr \
+                --initial-cluster-size 1 \
+                --vm-size shared-cpu-2x \
+                -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
+                --org mggg \
+                --fork-from districtr-v2-db 
+                echo "::set-output name=name::pr-${{ github.event.number }}-db"
+                echo "::set-output name=password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"
 
             # # create copies of the app and api
             # - name: Deploy API
@@ -80,18 +80,18 @@ jobs:
             #     --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
             
 
-            - name: Deploy App
-              run: |
-                flyctl deploy \
-                --remote-only \
-                --app pr-${{ github.event.number }}-app \
-                --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-                --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
+            # - name: Deploy App
+            #   run: |
+            #     flyctl deploy \
+            #     --remote-only \
+            #     --app pr-${{ github.event.number }}-app \
+            #     --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+            #     --build-arg NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
                 
-              working-directory: app
-              env:
-                NEXT_PUBLIC_API_URL: "https://pr-${{ github.event.number }}-api.fly.dev" 
-                NEXT_PUBLIC_S3_BUCKET_URL: ${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
+            #   working-directory: app
+            #   env:
+            #     NEXT_PUBLIC_API_URL: "https://pr-${{ github.event.number }}-api.fly.dev" 
+            #     NEXT_PUBLIC_S3_BUCKET_URL: ${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
 
             #     --env NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
             #     --env NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}"
@@ -102,10 +102,10 @@ jobs:
 
             
             # set secrets for app
-            - name: Set App Secrets
-              run: |
-                flyctl secrets set \
-                -a pr-${{ github.event.number }}-app \
-                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
-                NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
+            # - name: Set App Secrets
+            #   run: |
+            #     flyctl secrets set \
+            #     -a pr-${{ github.event.number }}-app \
+            #     NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-api.fly.dev" \
+            #     NEXT_PUBLIC_S3_BUCKET_URL="${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}" 
                 
