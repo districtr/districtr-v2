@@ -149,8 +149,10 @@ async def update_assignments(
 async def shatter_parent(
     document_id: str, data: GEOIDS, session: Session = Depends(get_session)
 ):
-    stmt = text("""SELECT *
-        FROM shatter_parent(:input_document_id, :parent_geoids)""").bindparams(
+    stmt = text(
+        """SELECT *
+        FROM shatter_parent(:input_document_id, :parent_geoids)"""
+    ).bindparams(
         bindparam(key="input_document_id", type_=UUIDType),
         bindparam(key="parent_geoids", type_=ARRAY(String)),
     )
@@ -255,6 +257,11 @@ async def get_projects(
     offset: int = 0,
     limit: int = Query(default=100, le=100),
 ):
+
+    # log database, username, password, and host
+    logger.info(f"Database: {settings.POSTGRES_DB}")
+    logger.info(f"Username: {settings.POSTGRES_USER}")
+    logger.info(f"host: {settings.POSTGRES_SERVER}")
     gerrydb_views = session.exec(
         select(DistrictrMap)
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
