@@ -49,7 +49,7 @@ jobs:
                 path: backend             
                 region: ewr
                 build_secrets: |
-                    NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} BACKEND_CORS_ORIGINS=${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev
+                    NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
 
             # attach the db to the api and set secrets
             # confirming that db can be hit via /db_is_alive
@@ -62,7 +62,8 @@ jobs:
                 POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
                 POSTGRES_USER="postgres" \
                 POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
-                POSTGRES_DB="postgres"                                                        
+                POSTGRES_DB="postgres" \
+                BACKEND_CORS_ORIGINS=${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev                                                 
 
 
             
