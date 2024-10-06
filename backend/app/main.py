@@ -257,11 +257,6 @@ async def get_projects(
     offset: int = 0,
     limit: int = Query(default=100, le=100),
 ):
-
-    # log database, username, password, and host
-    logger.info(f"Database: {settings.POSTGRES_DB}")
-    logger.info(f"Username: {settings.POSTGRES_USER}")
-    logger.info(f"host: {settings.POSTGRES_SERVER}")
     gerrydb_views = session.exec(
         select(DistrictrMap)
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
