@@ -62,20 +62,8 @@ jobs:
               run: |
                     flyctl deploy \
                     --config fly.toml --app pr-${{ github.event.number }}-api \
-                    --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256 \
-                    --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
-                    --build-arg POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
-                    --build-arg POSTGRES_USER="postgres" \
-                    --build-arg POSTGRES_PASSWORD=${{ steps.fork-db.outputs.password }} \
-                    --build-arg POSTGRES_DB="districtr_v2_api" \
-                    --build-arg BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000] \
-                    --build-secret POSTGRES_SCHEME="postgresql+psycopg" \
-                    --build-secret POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
-                    --build-secret POSTGRES_USER="postgres" \
-                    --build-secret POSTGRES_PASSWORD=${{ steps.fork-db.outputs.password }} \
-                    --build-secret POSTGRES_DB="districtr_v2_api" \
-                    --build-secret BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000]
-                    # also set secrets 
+                    --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256                   
+
                     flyctl secrets set \
                     -a pr-${{ github.event.number }}-api \
                     POSTGRES_SCHEME="postgresql+psycopg" \
@@ -87,32 +75,7 @@ jobs:
                     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable&options=-csearch_path%3Dpublic"
               working-directory: backend
 
-            # create copies of the app and api
-            # - name: Deploy API
-            #   id: deploy-api
-            #   uses: joeyrichter/fly-pr-review-apps@0.1
-            #   with: 
-            #     name: pr-${{ github.event.number }}-api
-            #     path: backend             
-            #     region: ewr
-            #     build_secrets: |
-            #         NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
-            #     postgres: ${{ steps.fork-db.outputs.name }}
-
-            # attach the db to the api and set secrets
-            # - name: Attach DB to API
-            #   run: |
-            #     flyctl secrets set \
-            #     -a pr-${{ github.event.number }}-api \
-            #     # POSTGRES_SCHEME="postgresql+psycopg" \
-            #     POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
-            #     POSTGRES_USER="postgres" \
-            #     POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
-            #     POSTGRES_DB="districtr_v2_api" \
-            #     BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000]
-
-
-            
+            # manually launch and deploy the app           
             - name: Launch Fly App
               id: launch
               run: |
