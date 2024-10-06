@@ -70,7 +70,7 @@ jobs:
               id: launch
               run: |
                 # Set the necessary variables
-                app="${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}"
+                app="${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
                 config="fly.toml"
 
                 # Run the flyctl launch command
@@ -83,7 +83,8 @@ jobs:
 
                 # Output app name for use in the deploy step
                 echo "app_name=$app" >> $GITHUB_ENV
-
+              working-directory: app
+                
             - name: Deploy Fly App
               run: |
                 app_name=${{ env.app_name }}
@@ -96,7 +97,7 @@ jobs:
                 --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
                 --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
-
+              working-directory: app
 
             # # guided app launch and deploy
             # - name: Deploy App
