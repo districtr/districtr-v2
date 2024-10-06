@@ -49,7 +49,7 @@ jobs:
                 path: backend             
                 region: ewr
                 build_secrets: |
-                    NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
+                    NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} BACKEND_CORS_ORIGINS=${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev
 
             # attach the db to the api and set secrets
             # confirming that db can be hit via /db_is_alive
