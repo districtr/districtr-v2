@@ -63,7 +63,7 @@ jobs:
                 POSTGRES_USER="postgres" \
                 POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                 POSTGRES_DB="postgres" \
-                BACKEND_CORS_ORIGINS=${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev                                                 
+                BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev]
 
 
             
