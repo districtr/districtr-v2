@@ -37,8 +37,8 @@ jobs:
                 -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
                 --org mggg \
                 --fork-from districtr-v2-db 
-                echo "::set-output name=name::pr-${{ github.event.number }}-db"
-                echo "::set-output name=password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"                
+                echo "db_name=$pr-${{ github.event.number }}-db" >> $GITHUB_ENV
+                echo "password=$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')" >> $GITHUB_ENV
 
             # create copies of the app and api
             - name: Deploy API
@@ -57,9 +57,9 @@ jobs:
               run: |
                 flyctl secrets set \
                 -a pr-${{ github.event.number }}-api \
-                DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable" \
+                DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ env.db_name }}.flycast:5432?sslmode=disable" \
                 POSTGRES_SCHEME="postgresql+psycopg" \
-                POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
+                POSTGRES_SERVER="${{ env.db_name }}.flycast" \
                 POSTGRES_USER="postgres" \
                 POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                 POSTGRES_DB="districtr_v2_api" \
