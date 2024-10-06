@@ -26,15 +26,6 @@ RUN npm ci --include=dev
 # Copy application code
 COPY --link . .
 
-# Build application
-RUN npm run build
-
-# Remove development dependencies
-RUN npm prune --omit=dev
-
-# Final stage for app image
-FROM base
-
 # add args for build-time variables from github actions secrets
 ARG NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ARG NEXT_PUBLIC_S3_BUCKET_URL=${NEXT_PUBLIC_S3_BUCKET_URL}
@@ -45,6 +36,15 @@ ENV NEXT_PUBLIC_S3_BUCKET_URL=${NEXT_PUBLIC_S3_BUCKET_URL}
 # echo env vars to check if they are set
 RUN echo $NEXT_PUBLIC_API_URL
 RUN echo $NEXT_PUBLIC_S3_BUCKET_URL
+
+# Build application
+RUN npm run build
+
+# Remove development dependencies
+RUN npm prune --omit=dev
+
+# Final stage for app image
+FROM base
 
 # Copy built application
 COPY --from=build /app /app
