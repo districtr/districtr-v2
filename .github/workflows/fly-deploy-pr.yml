@@ -24,8 +24,6 @@ jobs:
             
             
             # fork new db from existing db
-            # confirm view command line that tables are created, 
-            # and e.g. gerrydbtable has records that we would expect
             - name: Fork From DB
               id: fork-db
               run: |                
@@ -53,12 +51,11 @@ jobs:
                     NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
 
             # attach the db to the api and set secrets
-            # confirming that db can be hit via /db_is_alive
             - name: Attach DB to API
               run: |
                 flyctl secrets set \
                 -a pr-${{ github.event.number }}-api \
-                DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable" \
+                DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432?sslmode=disable&options=-csearch_path%3Dpublic" \
                 POSTGRES_SCHEME="postgresql+psycopg" \
                 POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
                 POSTGRES_USER="postgres" \
