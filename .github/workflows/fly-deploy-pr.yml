@@ -141,8 +141,9 @@ jobs:
             # set secrets for app
             - name: Set App Secrets
               run: |
+                app_name=${{ env.app_name }}
                 flyctl secrets set \
-                -a pr-${{ github.event.number }}-app \
+                -a "$app_name" \
                 NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
 
