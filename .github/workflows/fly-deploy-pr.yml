@@ -56,6 +56,11 @@ jobs:
               run: |
                 flyctl secrets set \
                 -a pr-${{ github.event.number }}-api \
+                POSTGRES_SCHEME="postgresql+psycopg" \
+                POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
+                POSTGRES_USER="postgres" \
+                POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
+                POSTGRES_DB="districtr_v2_api" \
                 BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000]
 
 
