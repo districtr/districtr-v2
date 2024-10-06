@@ -54,7 +54,8 @@ jobs:
             # attach the db to the api and set secrets
             - name: Attach DB to API
               run: |
-                flyctl secrets set \             
+                flyctl secrets set \
+                -a pr-${{ github.event.number }}-api \
                 BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000]
 
 
