@@ -122,7 +122,11 @@ export const useMapStore = create(
             state.recentZoneAssignments = state.recentZoneAssignments.slice(0, state.undoCursor);
           }
           state.recentZoneAssignments.push(changedAssignments);
-          state.undoCursor++;
+          if (state.recentZoneAssignments.length > 7) {
+            state.recentZoneAssignments.shift();
+          } else {
+            state.undoCursor++;
+          }
         }
         return {
           zoneAssignments: newZoneAssignments,

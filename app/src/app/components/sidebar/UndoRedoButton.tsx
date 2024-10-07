@@ -10,11 +10,12 @@ export function UndoRedoButton({ isRedo = false }) {
   const handleClickUndoRedo = () => {
     if (isRedo) {
       mapStore.undoCursor++;
-    } else {
+    }
+    const lastAction = mapStore.recentZoneAssignments[mapStore.undoCursor];
+    if (!isRedo) {
       mapStore.undoCursor--;
     }
     const sourceLayer = mapStore.selectedLayer?.name;
-    const lastAction = mapStore.recentZoneAssignments[mapStore.recentZoneAssignments.length - 1];
     const restoreMap: { [id: number]: Set<string> } = {};
     const nullList = new Set<string>();
     lastAction.forEach((zones, geoid) => {
@@ -38,19 +39,27 @@ export function UndoRedoButton({ isRedo = false }) {
     });
     mapStore.setZoneAssignments(null, nullList, true);
     Object.keys(restoreMap).forEach((numericZone: string) =>
-      mapStore.setZoneAssignments(Number(numericZone), restoreMap[Number(numericZone)], true));
+      mapStore.setZoneAssignments(
+        Number(numericZone),
+        restoreMap[Number(numericZone)],
+        true,
+      ),
+    );
   };
 
   return (
     <Button
       onClick={handleClickUndoRedo}
       variant="outline"
-      disabled={isRedo
-        ? ((mapStore.recentZoneAssignments.length === 0) || (mapStore.undoCursor >= mapStore.recentZoneAssignments.length - 1))
-        : (mapStore.undoCursor < 0)}
+      disabled={
+        isRedo
+          ? mapStore.recentZoneAssignments.length === 0 ||
+            mapStore.undoCursor >= mapStore.recentZoneAssignments.length - 1
+          : mapStore.undoCursor < 0
+      }
     >
       <div style={{ transform: isRedo ? "rotateY(180deg)" : "" }}>
-        <ResetIcon/>
+        <ResetIcon />
       </div>
       {isRedo ? "Redo" : "Undo"}
     </Button>
