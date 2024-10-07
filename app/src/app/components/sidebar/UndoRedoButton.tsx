@@ -2,16 +2,23 @@ import { BLOCK_SOURCE_ID } from "@/app/constants/layers";
 import { Zone } from "@/app/constants/types";
 import { useMapStore } from "@/app/store/mapStore";
 import { Button } from "@radix-ui/themes";
+import { ResetIcon } from "@radix-ui/react-icons";
 
-export function UndoButton() {
+export function UndoRedoButton({ isRedo = false }) {
   const mapStore = useMapStore.getState();
 
-  const handleClickUndo = () => {
+  const handleClickUndoRedo = () => {
+    if (isRedo) {
+      mapStore.undoCursor++;
+    } else {
+      mapStore.undoCursor--;
+    }
     const sourceLayer = mapStore.selectedLayer?.name;
     const lastAction = mapStore.recentZoneAssignments[mapStore.recentZoneAssignments.length - 1];
     const restoreMap: { [id: number]: Set<string> } = {};
     const nullList = new Set<string>();
-    lastAction.forEach((zone, geoid) => {
+    lastAction.forEach((zones, geoid) => {
+      const zone = zones[isRedo ? 1 : 0];
       mapStore.mapRef?.current?.setFeatureState(
         {
           source: BLOCK_SOURCE_ID,
@@ -30,19 +37,22 @@ export function UndoButton() {
       }
     });
     mapStore.setZoneAssignments(null, nullList, true);
-    for (const numericZone in Object.keys(restoreMap)) {
-      mapStore.setZoneAssignments(Number(numericZone), restoreMap[numericZone], true);
-    }
-    mapStore.recentZoneAssignments.pop();
+    Object.keys(restoreMap).forEach((numericZone: string) =>
+      mapStore.setZoneAssignments(Number(numericZone), restoreMap[Number(numericZone)], true));
   };
 
   return (
     <Button
-      onClick={handleClickUndo}
+      onClick={handleClickUndoRedo}
       variant="outline"
-      disabled={mapStore.recentZoneAssignments.length === 0}
+      disabled={isRedo
+        ? ((mapStore.recentZoneAssignments.length === 0) || (mapStore.undoCursor >= mapStore.recentZoneAssignments.length - 1))
+        : (mapStore.undoCursor < 0)}
     >
-      ↺ Undo
+      <div style={{ transform: isRedo ? "rotateY(180deg)" : "" }}>
+        <ResetIcon/>
+      </div>
+      {isRedo ? "Redo" : "Undo"}
     </Button>
   );
 }

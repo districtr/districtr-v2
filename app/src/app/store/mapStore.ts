@@ -39,7 +39,8 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   accumulatedBlockPopulations: Map<string, number>;
   resetAccumulatedBlockPopulations: () => void;
-  recentZoneAssignments: Map<string, Zone>[];
+  undoCursor: number;
+  recentZoneAssignments: Map<string, Zone[]>[];
   zoneAssignments: Map<string, Zone>; // geoid -> zone
   setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>, isUndo?: boolean) => void;
   resetZoneAssignments: () => void;
@@ -98,24 +99,30 @@ export const useMapStore = create(
     setSpatialUnit: (unit) => set({ spatialUnit: unit }),
     selectedZone: 1,
     setSelectedZone: (zone) => set({ selectedZone: zone }),
+    undoCursor: -1,
     recentZoneAssignments: [],
     zoneAssignments: new Map(),
     accumulatedGeoids: new Set<string>(),
     setZoneAssignments: (zone, geoids, isUndo = false) =>
       set((state) => {
         const newZoneAssignments = new Map(state.zoneAssignments);
-        const changedAssignments = new Map<string, Zone>();
+        const changedAssignments = new Map<string, Zone[]>();
         geoids.forEach((geoid) => {
           newZoneAssignments.set(geoid, zone);
           if (!isUndo) {
             const prevZone = state.zoneAssignments.get(geoid);
             if (prevZone !== zone) {
-              changedAssignments.set(geoid, prevZone ?? null);
+              changedAssignments.set(geoid, [prevZone ?? null, zone]);
             }
           }
         });
         if (changedAssignments.size > 0) {
+          if (state.undoCursor < state.recentZoneAssignments.length - 1) {
+            // this is not an undo action, so new drawing clears redo-able items
+            state.recentZoneAssignments = state.recentZoneAssignments.slice(0, state.undoCursor);
+          }
           state.recentZoneAssignments.push(changedAssignments);
+          state.undoCursor++;
         }
         return {
           zoneAssignments: newZoneAssignments,
