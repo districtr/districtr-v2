@@ -2,6 +2,7 @@ import { Box, Flex, Heading } from "@radix-ui/themes";
 import { MapModeSelector } from "./MapModeSelector";
 import { ColorPicker } from "./ColorPicker";
 import { ResetMapButton } from "./ResetMapButton";
+import { UndoButton } from "./UndoButton";
 import { GerryDBViewSelector } from "./GerryDBViewSelector";
 import { HorizontalBar } from "./charts/HorizontalBarChart";
 import { useMapStore } from "@/app/store/mapStore";
@@ -38,6 +39,7 @@ export default function SidebarComponent() {
           </div>
         ) : null}
         <ResetMapButton />
+        <UndoButton />
         <Tabs.Root defaultValue="layers">
           <Tabs.List>
             <Tabs.Trigger value="population"> Population </Tabs.Trigger>

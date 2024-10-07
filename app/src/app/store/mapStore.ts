@@ -39,8 +39,9 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   accumulatedBlockPopulations: Map<string, number>;
   resetAccumulatedBlockPopulations: () => void;
+  recentZoneAssignments: Map<string, Zone>[];
   zoneAssignments: Map<string, Zone>; // geoid -> zone
-  setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>) => void;
+  setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>, isUndo?: boolean) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
@@ -97,14 +98,25 @@ export const useMapStore = create(
     setSpatialUnit: (unit) => set({ spatialUnit: unit }),
     selectedZone: 1,
     setSelectedZone: (zone) => set({ selectedZone: zone }),
+    recentZoneAssignments: [],
     zoneAssignments: new Map(),
     accumulatedGeoids: new Set<string>(),
-    setZoneAssignments: (zone, geoids) =>
+    setZoneAssignments: (zone, geoids, isUndo = false) =>
       set((state) => {
         const newZoneAssignments = new Map(state.zoneAssignments);
+        const changedAssignments = new Map<string, Zone>();
         geoids.forEach((geoid) => {
           newZoneAssignments.set(geoid, zone);
+          if (!isUndo) {
+            const prevZone = state.zoneAssignments.get(geoid);
+            if (prevZone !== zone) {
+              changedAssignments.set(geoid, prevZone ?? null);
+            }
+          }
         });
+        if (changedAssignments.size > 0) {
+          state.recentZoneAssignments.push(changedAssignments);
+        }
         return {
           zoneAssignments: newZoneAssignments,
           accumulatedGeoids: new Set<string>(),
