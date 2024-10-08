@@ -27,17 +27,15 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     { equalityFn: shallowCompareArray }
   );
 
-  const _shatterMapSideEffectRender = useMapStore.subscribe(
-    (state) => state.shatterIds,
-    (shatterIds) => {
+  const _shatterMapSideEffectRender = useMapStore.subscribe<[MapStore['shatterIds'], MapStore['mapRef'], MapStore['mapRenderingState']]>(
+    (state) => [state.shatterIds, state.mapRef, state.mapRenderingState],
+    ([shatterIds, mapRef, mapRenderingState]) => {
       const state = useMapStore.getState();
-      const mapRef = state.mapRef;
       const setMapLock = state.setMapLock;
 
-      if (!mapRef?.current || state.mapRenderingState !== 'loaded') {
+      if (!mapRef?.current || mapRenderingState !== 'loaded') {
         return;
       }
-      console.log("Setting filter")
       
       PARENT_LAYERS.forEach((layerId) =>
         mapRef.current?.setFilter(layerId, [
@@ -58,7 +56,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         setMapLock(false);
         console.log(`Unlocked at`, performance.now());
       });
-    }
+    },
+    { equalityFn: shallowCompareArray }
   );
 
   const _hoverMapSideEffectRender = useMapStore.subscribe(
