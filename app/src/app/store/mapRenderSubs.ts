@@ -4,10 +4,12 @@ import {
   BLOCK_HOVER_LAYER_ID,
   PARENT_LAYERS,
   CHILD_LAYERS,
+  getLayerFilter,
 } from "../constants/layers";
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
+  getMap,
   shallowCompareArray,
 } from "../utils/helpers";
 import { useMapStore as _useMapStore, MapStore } from "./mapStore";
@@ -36,20 +38,9 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       if (!mapRef?.current || mapRenderingState !== 'loaded') {
         return;
       }
-      
-      PARENT_LAYERS.forEach((layerId) =>
-        mapRef.current?.setFilter(layerId, [
-          "!",
-          ["in", ["get", "path"], ["literal", Array.from(shatterIds.parents)]],
-        ])
-      );
 
-      CHILD_LAYERS.forEach((layerId) =>
-        mapRef.current?.setFilter(layerId, [
-          "in",
-          ["get", "path"],
-          ["literal", Array.from(shatterIds.children)],
-        ])
+      [...PARENT_LAYERS, ...CHILD_LAYERS].forEach((layerId) =>
+        mapRef.current?.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
 
       mapRef.current.once("render", () => {

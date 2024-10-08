@@ -1,10 +1,14 @@
-import { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
+import {
+  ExpressionSpecification,
+  FilterSpecification,
+  LayerSpecification,
+} from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
 import { getBlocksSource } from "./sources";
 import { DocumentObject } from "../utils/api/apiHandlers";
 import { color10 } from "./colors";
-import { useMapStore } from "../store/mapStore";
+import { MapStore, useMapStore } from "../store/mapStore";
 
 export const BLOCK_SOURCE_ID = "blocks";
 export const BLOCK_LAYER_ID = "blocks";
@@ -53,10 +57,32 @@ ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");
 export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
   ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
+export function getLayerFilter(
+  layerId: string,
+  _shatterIds?: MapStore["shatterIds"]
+) {
+  const shatterIds = _shatterIds || useMapStore.getState().shatterIds;
+  const isChildLayer = CHILD_LAYERS.includes(layerId);
+  const ids = isChildLayer ? shatterIds.children : shatterIds.parents;
+  const cleanIds = Boolean(ids) ? Array.from(ids) : [];
+  const filterBase: FilterSpecification = [
+    "in",
+    ["get", "path"],
+    ["literal", cleanIds],
+  ];
+
+  if (isChildLayer) {
+    return filterBase;
+  }
+  const parentFilter: FilterSpecification = ["!", filterBase];
+  return parentFilter;
+}
+
 export function getBlocksLayerSpecification(
   sourceLayer: string,
   layerId: string,
 ): LayerSpecification {
+  const shatterIds = useMapStore.getState().shatterIds;
   return {
     id: layerId,
     source: BLOCK_SOURCE_ID,
@@ -65,10 +91,7 @@ export function getBlocksLayerSpecification(
     layout: {
       visibility: "visible",
     },
-    filter:
-      layerId === BLOCK_LAYER_ID_CHILD
-        ? ["in", ["get", "path"], ["literal", []]]
-        : ["!", ["in", ["get", "path"], ["literal", []]]],
+    filter: getLayerFilter(layerId),
     paint: {
       "line-opacity": [
         "case",
@@ -93,10 +116,7 @@ export function getBlocksHoverLayerSpecification(
     layout: {
       visibility: "visible",
     },
-    filter:
-      layerId === BLOCK_HOVER_LAYER_ID_CHILD
-        ? ["in", ["get", "path"], ["literal", []]]
-        : ["!", ["in", ["get", "path"], ["literal", []]]],
+    filter: getLayerFilter(layerId),
     paint: {
       "fill-opacity": [
         "case",

@@ -10,6 +10,7 @@ import {
 import { MutableRefObject } from "react";
 import { Point } from "maplibre-gl";
 import {
+  BLOCK_HOVER_LAYER_ID,
   BLOCK_LAYER_ID,
   BLOCK_LAYER_ID_CHILD,
   BLOCK_SOURCE_ID,
@@ -243,6 +244,16 @@ export type ColorZoneAssignmentsState = [
   MapStore["appLoadingState"],
   MapStore["mapRenderingState"]
 ];
+
+export const getMap = (_mapRef?: MapStore['mapRef']) => {
+  const mapRef = _mapRef || useMapStore.getState().mapRef
+  if (mapRef?.current && mapRef.current?.getStyle().layers.findIndex((layer) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1) {
+    return null
+  }
+
+  return mapRef as MutableRefObject<maplibregl.Map>
+}
+
 /**
  * Assigns colors to zones on the map based on the current zone assignments.
  * This function updates the feature state of map features to reflect their assigned zones.
