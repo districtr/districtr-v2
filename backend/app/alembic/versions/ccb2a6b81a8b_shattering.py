@@ -93,7 +93,6 @@ def upgrade() -> None:
         "create_shatterable_gerrydb_view.sql",
         "create_districtr_map_udf.sql",
         "shatter_parent.sql",
-        "total_pop_udf.sql",
     ]:
         with open(SQL_PATH / file_name, "r") as f:
             sql = f.read()

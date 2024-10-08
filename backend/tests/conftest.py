@@ -21,9 +21,6 @@ def client_fixture(session: Session):
     def get_session_override():
         return session
 
-    def get_auth_result_override():
-        return True
-
     app.dependency_overrides[get_session] = get_session_override
 
     client = TestClient(app, headers={"origin": "http://localhost:5173"})
