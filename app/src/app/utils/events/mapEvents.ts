@@ -33,14 +33,11 @@ export const handleMapClick = (
   if (activeTool === "brush" || activeTool === "eraser") {
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
 
-    if (activeTool === "brush" && sourceLayer) {
+    if (sourceLayer) {
       // select on both the map object and the store
       SelectMapFeatures(selectedFeatures, map, mapStore).then(() => {
         SelectZoneAssignmentFeatures(mapStore);
       });
-    } else if (activeTool === "eraser") {
-      // erase features
-      // TODO: implement eraser
     }
   } else {
     // tbd, for pan mode - is there an info mode on click?
@@ -55,7 +52,7 @@ export const handleMapMouseUp = (
   const activeTool = mapStore.activeTool;
   const isPainting = mapStore.isPainting;
 
-  if (activeTool === "brush" && isPainting) {
+  if ((activeTool === "brush" || activeTool === "eraser") && isPainting) {
     // set isPainting to false
     mapStore.setIsPainting(false);
     SelectZoneAssignmentFeatures(mapStore);
@@ -75,12 +72,7 @@ export const handleMapMouseDown = (
   } else if (activeTool === "brush" || activeTool === "eraser") {
     // disable drag pan
     map.current?.dragPan.disable();
-    if (activeTool === "brush") {
-      mapStore.setIsPainting(true);
-      return;
-    } else if (activeTool === "eraser") {
-      // erase features tbd
-    }
+    mapStore.setIsPainting(true);
   }
 };
 

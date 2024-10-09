@@ -7,8 +7,8 @@ import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
 import { getBlocksSource } from "./sources";
 import { DocumentObject } from "../utils/api/apiHandlers";
-import { color10 } from "./colors";
 import { MapStore, useMapStore } from "../store/mapStore";
+import { colorScheme } from "./colors";
 
 export const BLOCK_SOURCE_ID = "blocks";
 export const BLOCK_LAYER_ID = "blocks";
@@ -46,10 +46,14 @@ export const COUNTY_LAYER_IDS: string[] = [
 export const LABELS_BREAK_LAYER_ID = "places_subplace";
 
 const colorStyleBaseline: any[] = ["case"];
-export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = color10.reduce((val, color, i) => {
-  val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
-  return val;
-}, colorStyleBaseline);
+
+export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = colorScheme.reduce(
+  (val, color, i) => {
+    val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
+    return val;
+  },
+  colorStyleBaseline
+);
 ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");
 
 // cast the above as an ExpressionSpecification
