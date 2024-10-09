@@ -10,7 +10,6 @@ import { Zone, GDBPath } from "../constants/types";
 import {
   Assignment,
   DocumentObject,
-  ShatterResult,
   ZonePopulation,
 } from "../utils/api/apiHandlers";
 import maplibregl from "maplibre-gl";
@@ -29,19 +28,7 @@ import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
 import { getMapMetricsSubs } from "./metricsSubs";
 import { getMapEditSubs } from "./mapEditSubs";
 import bbox from "@turf/bbox";
-
-const combineSetValues = (
-  setRecord: Record<string, Set<unknown>>,
-  keys?: string[]
-) => {
-  const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
-  for (const key in setRecord) {
-    if (setRecord.hasOwnProperty(key) && (!keys || keys?.includes(key))) {
-      setRecord[key].forEach((value) => combinedSet.add(value)); // Add each value to the combined set
-    }
-  }
-  return combinedSet; // Return the combined set
-};
+import { featureCollection } from "@turf/helpers";
 
 export interface MapStore {
   appLoadingState: "loaded" | "initializing" | "loading";
@@ -56,12 +43,11 @@ export interface MapStore {
   setMapDocument: (mapDocument: DocumentObject) => void;
   captiveIds: Set<string>;
   resetShatterView: () => void;
-  mapBbox: [number, number, number, number] | null;
+  mapBbox: [number, number, number, number] | null
   shatterIds: {
     parents: Set<string>;
     children: Set<string>;
   };
-  shatterMappings: Record<string, Set<string>>;
   setShatterIds: (
     existingParents: Set<string>,
     existingChildren: Set<string>,
@@ -73,7 +59,6 @@ export interface MapStore {
     document_id: string,
     feautres: Array<MapGeoJSONFeature>
   ) => void;
-  removeShatter: (parentId: string) => void;
   hoverFeatures: Array<MapFeatureInfo>;
   setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
   mapOptions: MapOptions;
@@ -151,9 +136,8 @@ export const useMapStore = create(
     resetShatterView: () => {
       set({
         captiveIds: new Set<string>(),
-        mapBbox: null,
-        shatterIds: { parents: new Set(), children: get().shatterIds.children },
-      });
+        mapBbox: null
+      })
     },
     mapBbox: null,
     shatterIds: {
@@ -166,64 +150,40 @@ export const useMapStore = create(
         .map((f) => f.id?.toString())
         .filter(Boolean) as string[];
 
-      const shatterMappings = get().shatterMappings;
-      const isAlreadyShattered = geoids.some((id) =>
-        shatterMappings.hasOwnProperty(id)
-      );
-
-      const shatterResult: ShatterResult = isAlreadyShattered
-        ? ({
-            parents: { geoids },
-            children: Array.from(combineSetValues(shatterMappings, geoids)).map(
-              (id) => ({
-                geo_id: id,
-                document_id,
-                parent_path: "",
-              })
-            ),
-          } as ShatterResult)
-        : await patchShatter.mutate({
-            document_id,
-            geoids,
-          });
+      const shatterResult = await patchShatter.mutate({
+        document_id,
+        geoids,
+      });
       // TODO Need to return child edges even if the parent is already shattered
       // currently returns nothing
+      const isAlreadyShattered = shatterResult.children.some(f => get().zoneAssignments.has(f.geo_id))
       const shatterIds = get().shatterIds;
-
+      
       let existingParents = new Set(shatterIds.parents);
       let existingChildren = new Set(shatterIds.children);
-
+      
       const newParent = shatterResult.parents.geoids;
       const newChildren = new Set(
         shatterResult.children.map((child) => child.geo_id)
       );
-
+      
       const zoneAssignments = new Map(get().zoneAssignments);
       const multipleShattered = shatterResult.parents.geoids.length > 1;
-      const featureBbox = bbox(features[0].geometry);
-      const mapBbox =
-        featureBbox?.length >= 4
-          ? (featureBbox.slice(0, 4) as MapStore["mapBbox"])
-          : undefined;
-
+      if (!isAlreadyShattered && !multipleShattered) {
+        setZones(zoneAssignments, newParent[0], newChildren);
+      } else if (multipleShattered){
+        // todo handle multiple shattered case
+      }
       newParent.forEach((parent) => existingParents.add(parent));
       // there may be a faster way to do this
       [newChildren].forEach(
         (children) => (existingChildren = existingChildren.union(children))
       );
-      if (!isAlreadyShattered && !multipleShattered) {
-        setZones(zoneAssignments, newParent[0], newChildren);
-        shatterMappings[newParent[0]] = newChildren;
-      } else if (multipleShattered) {
-        // todo handle multiple shattered case
-      } else if (isAlreadyShattered) {
-        set({
-          captiveIds: newChildren,
-          mapBbox,
-          mapLock: false,
-        });
-        return;
-      }
+      const featureBbox = bbox(features[0].geometry);
+      const mapBbox =
+        featureBbox?.length >= 4
+          ? (featureBbox.slice(0, 4) as MapStore["mapBbox"])
+          : undefined;
       set({
         shatterIds: {
           parents: existingParents,
@@ -234,32 +194,6 @@ export const useMapStore = create(
         zoneAssignments,
       });
     },
-    removeShatter: (parentId) => {
-      const { shatterIds, shatterMappings, zoneAssignments } = get();
-
-      const children = shatterMappings[parentId];
-      // Remove the parent from shatterMappings
-      delete shatterMappings[parentId];
-
-      // Remove the parent from shatterIds
-      shatterIds.parents.delete(parentId);
-
-      // Remove the children from shatterIds and zoneAssignments
-      children.forEach((child) => {
-        shatterIds.children.delete(child);
-        zoneAssignments.delete(child); // Remove child from zoneAssignments
-      });
-
-      set({
-        shatterIds: {
-          parents: new Set(shatterIds.parents),
-          children: new Set(shatterIds.children),
-        },
-        shatterMappings, // Update shatterMappings
-        zoneAssignments, // Update zoneAssignments
-      });
-    },
-    shatterMappings: {},
     setShatterIds: (
       existingParents,
       existingChildren,
@@ -333,15 +267,11 @@ export const useMapStore = create(
         parents: new Set<string>(),
         children: new Set<string>(),
       };
-      const shatterMappings: Record<string, Set<string>> = {};
       assignments.forEach((assignment) => {
         zoneAssignments.set(assignment.geo_id, assignment.zone);
         if (assignment.parent_path) {
           shatterIds.parents.add(assignment.parent_path);
           shatterIds.children.add(assignment.geo_id);
-          shatterMappings[assignment.parent_path] =
-            shatterMappings[assignment.parent_path] || new Set();
-          shatterMappings[assignment.parent_path].add(assignment.geo_id);
         }
       });
       set({ zoneAssignments, shatterIds, appLoadingState: "loaded" });

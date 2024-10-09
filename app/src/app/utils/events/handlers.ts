@@ -14,10 +14,6 @@ import { MapStore } from "@/app/store/mapStore";
 const debouncedSetZoneAssignments = debounce(
   (mapStoreRef: MapStore, selectedZone: Zone, geoids: Set<string>) => {
     mapStoreRef.setZoneAssignments(selectedZone, geoids);
-    // remove children when painting over
-    Array.from(geoids)
-      .filter((id: string) => mapStoreRef.shatterMappings.hasOwnProperty(id))
-      .forEach(mapStoreRef.removeShatter);
 
     const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
 
