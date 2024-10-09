@@ -83,8 +83,9 @@ export const getFeaturesInBbox = (
   layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
-
-  return map.current?.queryRenderedFeatures(bbox, { layers });
+  const features = map.current?.queryRenderedFeatures(bbox, { layers });
+  const captiveIds = useMapStore.getState().captiveIds
+  return captiveIds.size ? features?.filter(f=> captiveIds.has(f.id?.toString() || '')) : features
 };
 
 /**
