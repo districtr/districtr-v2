@@ -1,5 +1,4 @@
 import {
-  DataDrivenPropertyValueSpecification,
   ExpressionSpecification,
   FilterSpecification,
   LayerSpecification,
@@ -83,62 +82,6 @@ export function getLayerFilter(
   return parentFilter;
 }
 
-export function getLayerFill(
-  captiveIds?: Set<string>
-): DataDrivenPropertyValueSpecification<number>  {
-  const innerFillSpec =  [
-
-    "case",
-    // zone is selected and hover is true and hover is not null
-    [
-      "all",
-      // @ts-ignore
-      ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
-      [
-        "all",
-        // @ts-ignore
-        ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
-        ["boolean", ["feature-state", "hover"], true],
-      ],
-    ],
-    0.9,
-    // zone is selected and hover is false, and hover is not null
-    [
-      "all",
-      // @ts-ignore
-      ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
-      [
-        "all",
-        // @ts-ignore
-        ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
-        ["boolean", ["feature-state", "hover"], false],
-      ],
-    ],
-    0.7,
-    // zone is selected, fallback, regardless of hover state
-    // @ts-ignore
-    ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
-    0.7,
-    // hover is true, fallback, regardless of zone state
-    ["boolean", ["feature-state", "hover"], false],
-    0.6,
-    0.2,
-  ] as unknown as DataDrivenPropertyValueSpecification<number>
-  if (captiveIds?.size) {
-    return [
-      "case",
-      ['!', [
-        "in",
-        ["get", "path"],
-        ["literal", Array.from(captiveIds)],
-      ]],
-      0.4,
-      innerFillSpec
-    ] as DataDrivenPropertyValueSpecification<number>
-  } else {
-    return innerFillSpec
-  }
-}
 export function getBlocksLayerSpecification(
   sourceLayer: string,
   layerId: string,
@@ -160,7 +103,7 @@ export function getBlocksLayerSpecification(
         1,
         0.8,
       ],
-      "line-color": "#cecece"
+      "line-color": "#cecece",
     },
   };
 }
@@ -179,8 +122,44 @@ export function getBlocksHoverLayerSpecification(
     },
     filter: getLayerFilter(layerId),
     paint: {
-      "fill-opacity": getLayerFill(),
-      "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000"
+      "fill-opacity": [
+        "case",
+        // zone is selected and hover is true and hover is not null
+        [
+          "all",
+          // @ts-ignore
+          ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+          [
+            "all",
+            // @ts-ignore
+            ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
+            ["boolean", ["feature-state", "hover"], true],
+          ],
+        ],
+        0.9,
+        // zone is selected and hover is false, and hover is not null
+        [
+          "all",
+          // @ts-ignore
+          ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+          [
+            "all",
+            // @ts-ignore
+            ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
+            ["boolean", ["feature-state", "hover"], false],
+          ],
+        ],
+        0.7,
+        // zone is selected, fallback, regardless of hover state
+        // @ts-ignore
+        ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+        0.7,
+        // hover is true, fallback, regardless of zone state
+        ["boolean", ["feature-state", "hover"], false],
+        0.6,
+        0.2,
+      ],
+      "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
     },
   };
 }
