@@ -45,7 +45,7 @@ export const MapComponent: React.FC = () => {
     },
     onSuccess: (data: AssignmentsCreate) => {
       console.log(
-        `Successfully upserted ${data.assignments_upserted} assignments`,
+        `Successfully upserted ${data.assignments_upserted} assignments`
       );
       mapMetrics.refetch();
     },
@@ -70,6 +70,10 @@ export const MapComponent: React.FC = () => {
     setMapRef: state.setMapRef,
     setMapMetrics: state.setMapMetrics,
   }));
+
+  useEffect(() => {
+    console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
+  }, []);
 
   const mapMetrics = useQuery({
     queryKey: ["zonePopulations", mapDocument],
@@ -141,7 +145,7 @@ export const MapComponent: React.FC = () => {
               {
                 selected: true,
                 zone: assignment.zone,
-              },
+              }
             );
           });
         });
@@ -155,7 +159,7 @@ export const MapComponent: React.FC = () => {
           BLOCK_HOVER_LAYER_ID, // to be updated with the scale-agnostic layer id
           (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
             action.handler(e, map, hoverFeatureIds);
-          },
+          }
         );
       }
     });

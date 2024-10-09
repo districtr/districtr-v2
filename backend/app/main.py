@@ -112,12 +112,14 @@ async def update_document(
     document_id: UUID4, data: DocumentCreate, session: Session = Depends(get_session)
 ):
     # Validate that gerrydb_table exists?
-    stmt = text("""UPDATE document.document
+    stmt = text(
+        """UPDATE document.document
         SET
             gerrydb_table = :gerrydb_table_name,
             updated_at = now()
         WHERE document_id = :document_id
-        RETURNING *""")
+        RETURNING *"""
+    )
     results = session.execute(
         stmt, {"document_id": document_id, "gerrydb_table_name": data.gerrydb_table}
     )
@@ -174,7 +176,9 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
 async def get_total_population(
     document_id: str, session: Session = Depends(get_session)
 ):
-    stmt = text("SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL")
+    stmt = text(
+        "SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL"
+    )
     try:
         result = session.execute(stmt, {"document_id": document_id})
         return [
