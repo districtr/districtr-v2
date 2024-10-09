@@ -75,6 +75,13 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       });
 
       if (!mapRef?.current && !mapBbox && !previousMapBbox) {
+        CHILD_LAYERS.forEach(layerId => {
+          !layerId.includes("hover") &&  mapRef?.current?.setPaintProperty?.(
+            layerId,
+            "line-opacity",
+            0
+          );
+        })
         return;
       }
 
