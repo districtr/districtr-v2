@@ -11,7 +11,7 @@ import { useMapStore } from "@/app/store/mapStore";
 import { MutableRefObject } from "react";
 import { SelectMapFeatures, SelectZoneAssignmentFeatures } from "./handlers";
 import { ResetMapSelectState } from "@/app/utils/events/handlers";
-import { BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD, INTERACTIVE_LAYERS } from "@/app/constants/layers";
+import { INTERACTIVE_LAYERS } from "@/app/constants/layers";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -108,16 +108,12 @@ export const handleMapMouseMove = (
   map: MutableRefObject<MapLibreMap | null>
 ) => {
   const mapStore = useMapStore.getState();
-  const sourceLayer = mapStore.mapDocument?.parent_layer;
   const activeTool = mapStore.activeTool;
-  const isBrushingTool = sourceLayer && ["brush", "eraser"].includes(activeTool)
-  if (!isBrushingTool) {
-    return
-  }
-
   const setHoverFeatures = mapStore.setHoverFeatures;
   const isPainting = mapStore.isPainting;
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
   const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
+  const isBrushingTool = sourceLayer && ["brush", "eraser"].includes(activeTool)
   if (isBrushingTool) {
     setHoverFeatures(selectedFeatures);
   }
@@ -165,7 +161,6 @@ export const handleMapContextMenu = (
   }
   e.preventDefault();
   const setHoverFeatures = mapStore.setHoverFeatures;
-  const captiveIds = mapStore.captiveIds
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
@@ -173,9 +168,8 @@ export const handleMapContextMenu = (
     map,
     e,
     0,
-    captiveIds.size ? [BLOCK_HOVER_LAYER_ID_CHILD] : [BLOCK_HOVER_LAYER_ID]
+    INTERACTIVE_LAYERS
   );
-
   if (!selectedFeatures?.length || !map.current || !sourceLayer) return;
 
   setHoverFeatures(selectedFeatures.slice(0, 1));
