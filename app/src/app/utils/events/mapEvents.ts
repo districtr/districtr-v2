@@ -113,12 +113,12 @@ export const handleMapMouseMove = (
   const isPainting = mapStore.isPainting;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
-
-  if (sourceLayer && activeTool === "brush") {
+  const isBrushingTool = sourceLayer && ["brush", "eraser"].includes(activeTool)
+  if (isBrushingTool) {
     setHoverFeatures(selectedFeatures);
   }
 
-  if (activeTool === "brush" && isPainting && sourceLayer) {
+  if (isBrushingTool && isPainting) {
     // selects in the map object; the store object
     // is updated in the mouseup event
     SelectMapFeatures(selectedFeatures, map, mapStore);
