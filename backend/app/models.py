@@ -150,7 +150,7 @@ class AssignmentsCreate(BaseModel):
 
 class AssignmentsResponse(SQLModel):
     geo_id: str
-    zone: int
+    zone: int | None
     parent_path: str | None
     document_id: str
 
