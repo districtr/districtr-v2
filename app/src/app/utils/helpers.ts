@@ -80,11 +80,12 @@ export const getFeaturesInBbox = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
+  _layers?: string[]
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
-  const features = map.current?.queryRenderedFeatures(bbox, { layers });
   const captiveIds = useMapStore.getState().captiveIds
+  const layers = _layers?.length ? _layers : captiveIds.size ? [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] : [BLOCK_LAYER_ID]
+  const features = map.current?.queryRenderedFeatures(bbox, { layers });
   return captiveIds.size ? features?.filter(f=> captiveIds.has(f.id?.toString() || '')) : features
 };
 
