@@ -27,8 +27,6 @@ import { patchShatter } from "../utils/api/mutations";
 import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
 import { getMapMetricsSubs } from "./metricsSubs";
 import { getMapEditSubs } from "./mapEditSubs";
-import bbox from "@turf/bbox";
-import { featureCollection } from "@turf/helpers";
 
 export interface MapStore {
   appLoadingState: "loaded" | "initializing" | "loading";
@@ -41,9 +39,6 @@ export interface MapStore {
   setMapLock: (lock: boolean) => void;
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
-  captiveIds: Set<string>;
-  resetShatterView: () => void;
-  mapBbox: [number, number, number, number] | null
   shatterIds: {
     parents: Set<string>;
     children: Set<string>;
@@ -55,10 +50,7 @@ export interface MapStore {
     newChildren: Set<string>[],
     multipleShattered: boolean
   ) => void;
-  handleShatter: (
-    document_id: string,
-    feautres: Array<MapGeoJSONFeature>
-  ) => void;
+  handleShatter: (document_id: string, geoids: string[]) => void;
   hoverFeatures: Array<MapFeatureInfo>;
   setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
   mapOptions: MapOptions;
@@ -99,11 +91,11 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 }
 
-const initialLoadingState =
-  typeof window !== "undefined" &&
-  new URLSearchParams(window.location.search).has("document_id")
-    ? "loading"
-    : "initializing";
+const initialLoadingState = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has(
+  "document_id"
+)
+  ? "loading"
+  : "initializing";
 
 export const useMapStore = create(
   subscribeWithSelector<MapStore>((set, get) => ({
@@ -132,24 +124,12 @@ export const useMapStore = create(
           shatterIds: { parents: new Set(), children: new Set() },
         };
       }),
-    captiveIds: new Set<string>(),
-    resetShatterView: () => {
-      set({
-        captiveIds: new Set<string>(),
-        mapBbox: null
-      })
-    },
-    mapBbox: null,
     shatterIds: {
       parents: new Set(),
       children: new Set(),
     },
-    handleShatter: async (document_id, features) => {
+    handleShatter: async (document_id, geoids) => {
       set({ mapLock: true });
-      const geoids = features
-        .map((f) => f.id?.toString())
-        .filter(Boolean) as string[];
-
       const shatterResult = await patchShatter.mutate({
         document_id,
         geoids,
@@ -177,18 +157,12 @@ export const useMapStore = create(
       [newChildren].forEach(
         (children) => (existingChildren = existingChildren.union(children))
       );
-      const featureBbox = bbox(features[0].geometry);
-      const mapBbox =
-        featureBbox?.length >= 4
-          ? (featureBbox.slice(0, 4) as MapStore["mapBbox"])
-          : undefined;
+
       set({
         shatterIds: {
           parents: existingParents,
           children: existingChildren,
         },
-        captiveIds: newChildren,
-        mapBbox,
         zoneAssignments,
       });
     },
