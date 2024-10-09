@@ -9,7 +9,10 @@ export const MapContextMenu: React.FC = () => {
   if (!contextMenu) return null;
   const onClick = () => {
     if (!mapDocument || contextMenu?.data?.id === undefined) return;
-    handleShatter(mapDocument.document_id, [contextMenu.data.id.toString()]);
+    handleShatter(
+      mapDocument.document_id, 
+      [contextMenu.data]
+    );
     contextMenu.close();
   };
 
