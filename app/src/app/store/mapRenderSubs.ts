@@ -45,7 +45,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         return;
       }
 
-      [...PARENT_LAYERS, ...CHILD_LAYERS].forEach((layerId) => {
+      CHILD_LAYERS.forEach((layerId) => {
         mapRef.current?.setFilter(layerId, getLayerFilter(layerId, shatterIds));
       });
 
@@ -60,23 +60,38 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const lockBboxSub = useMapStore.subscribe(
     (state) => state.mapBbox,
     (mapBbox, previousMapBbox) => {
-      const { mapRef, captiveIds } = useMapStore.getState();
+      const { mapRef, captiveIds, shatterIds } = useMapStore.getState();
 
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach((layerId) => {
         layerId.includes("hover") &&
           mapRef?.current?.setPaintProperty?.(
             layerId,
             "fill-opacity",
-            getLayerFill(mapBbox ? captiveIds : undefined)
+            getLayerFill(
+              mapBbox ? captiveIds : undefined,
+              shatterIds.parents
+            )
           );
       });
 
-      console.log("!!!BBOX changed", mapBbox, previousMapBbox);
       if (!mapRef?.current && !mapBbox && !previousMapBbox) {
-        mapRef?.current?.setMaxBounds(undefined);
+        CHILD_LAYERS.forEach(layerId => {
+          !layerId.includes("hover") &&  mapRef?.current?.setPaintProperty?.(
+            layerId,
+            "line-opacity",
+            0
+          );
+        })
         return;
       }
 
+      CHILD_LAYERS.forEach(layerId => {
+        !layerId.includes("hover") &&  mapRef?.current?.setPaintProperty?.(
+          layerId,
+          "line-opacity",
+          1
+        );
+      })
       const _bounds = (mapBbox || previousMapBbox)!;
       const tolerance = mapBbox ? BBOX_TOLERANCE_DEG * 2 : BBOX_TOLERANCE_DEG * 5;
       const maxBounds = [
