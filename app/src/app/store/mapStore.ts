@@ -154,24 +154,22 @@ export const useMapStore = create(
         document_id,
         geoids,
       });
-      // TODO Need to return child edges even if the parent is already shattered
-      // currently returns nothing
-      const isAlreadyShattered = shatterResult.children.some(f => get().zoneAssignments.has(f.geo_id))
+
+      const zoneAssignments = new Map(get().zoneAssignments);
       const shatterIds = get().shatterIds;
-      
+
       let existingParents = new Set(shatterIds.parents);
       let existingChildren = new Set(shatterIds.children);
-      
+
       const newParent = shatterResult.parents.geoids;
       const newChildren = new Set(
         shatterResult.children.map((child) => child.geo_id)
       );
-      
-      const zoneAssignments = new Map(get().zoneAssignments);
+
       const multipleShattered = shatterResult.parents.geoids.length > 1;
-      if (!isAlreadyShattered && !multipleShattered) {
+      if (!multipleShattered) {
         setZones(zoneAssignments, newParent[0], newChildren);
-      } else if (multipleShattered){
+      } else {
         // todo handle multiple shattered case
       }
       newParent.forEach((parent) => existingParents.add(parent));

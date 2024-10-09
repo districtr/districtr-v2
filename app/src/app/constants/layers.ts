@@ -68,7 +68,7 @@ export function getLayerFilter(
 ) {
   const shatterIds = _shatterIds || useMapStore.getState().shatterIds;
   const isChildLayer = CHILD_LAYERS.includes(layerId);
-  const ids = shatterIds.children
+  const ids = isChildLayer ? shatterIds.children : shatterIds.parents;
   const cleanIds = Boolean(ids) ? Array.from(ids) : [];
   const filterBase: FilterSpecification = [
     "in",
@@ -84,8 +84,7 @@ export function getLayerFilter(
 }
 
 export function getLayerFill(
-  captiveIds?: Set<string>,
-  shatterIds?: Set<string>
+  captiveIds?: Set<string>
 ): DataDrivenPropertyValueSpecification<number>  {
   const innerFillSpec =  [
 
@@ -136,18 +135,7 @@ export function getLayerFill(
       0.4,
       innerFillSpec
     ] as DataDrivenPropertyValueSpecification<number>
-  } else if (shatterIds?.size) {
-    return [
-      "case",
-      ['!', [
-        "in",
-        ["get", "path"],
-        ["literal", Array.from(shatterIds)],
-      ]],
-      0,
-      innerFillSpec
-    ] as DataDrivenPropertyValueSpecification<number>
-  } else{
+  } else {
     return innerFillSpec
   }
 }
