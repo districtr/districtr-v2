@@ -117,3 +117,6 @@ jobs:
                 -a "$app_name" \
                 NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
+
+            # provision appropriately
+            # teardown after done
