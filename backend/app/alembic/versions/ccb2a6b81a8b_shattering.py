@@ -1,7 +1,7 @@
 """shattering
 
 Revision ID: ccb2a6b81a8b
-Revises: 8437ce954087
+Revises: 09d011c1b387
 Create Date: 2024-09-13 09:44:34.534198
 
 """
@@ -19,7 +19,7 @@ SQL_PATH = Path(__file__).parent.parent.parent / "sql"
 
 # revision identifiers, used by Alembic.
 revision: str = "ccb2a6b81a8b"
-down_revision: Union[str, None] = "8437ce954087"
+down_revision: Union[str, None] = "09d011c1b387"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
