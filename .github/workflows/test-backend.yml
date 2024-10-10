@@ -10,7 +10,7 @@ jobs:
   container-job:
     runs-on: ubuntu-latest
 
-    container: python:3.12
+    container: python:3.12.6
 
     services:
       postgres:
@@ -34,11 +34,6 @@ jobs:
       - name: Checkout repo code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
       - name: Install GDAL
         run: |
           apt-get update
@@ -51,7 +46,7 @@ jobs:
         working-directory: backend
 
       - name: Run tests
-        run: pytest -v --cov=app
+        run: pytest -v --cov=.
         working-directory: backend
         env:
           DOMAIN: postgres

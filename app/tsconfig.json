@@ -1,10 +1,6 @@
 {
   "compilerOptions": {
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -22,9 +18,12 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"],
+      "@components/*": ["./src/app/components/*"],
+      "@api/*": ["./src/app/api/*"],
+      "@constants/*": ["./src/app/constants/*"],
+      "@store/*": ["./src/app/store/*"],
+      "@utils/*": ["./src/app/utils/*"]
     },
     "target": "ES6"
   },
@@ -35,8 +34,9 @@
     ".next/types/**/*.ts",
     "src/app/components/Picker.jsx",
     "src/app/page.jsx",
-    "src/app/api/apiHandlers.test.js", "src/app/components/sidebar/MapModeSelector.jsx", "src/app/components/sidebar/ColorPicker.jsx", ],
-  "exclude": [
-    "node_modules"
-  ]
+    "src/app/api/apiHandlers.test.js",
+    "src/app/components/sidebar/MapModeSelector.jsx",
+    "src/app/components/sidebar/ColorPicker.jsx"
+  ],
+  "exclude": ["node_modules"]
 }

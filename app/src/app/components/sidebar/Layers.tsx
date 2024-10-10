@@ -16,13 +16,10 @@ import { toggleLayerVisibility } from "../../utils/helpers";
  * - Support tribes and communities
  */
 export default function Layers() {
-  const { mapRef, selectedLayer, visibleLayerIds, updateVisibleLayerIds } =
-    useMapStore((state) => ({
-      mapRef: state.mapRef,
-      selectedLayer: state.selectedLayer,
-      visibleLayerIds: state.visibleLayerIds,
-      updateVisibleLayerIds: state.updateVisibleLayerIds,
-    }));
+  const mapRef = useMapStore((state) => state.mapRef);
+  const mapDocument = useMapStore((state) => state.mapDocument);
+  const visibleLayerIds = useMapStore((state) => state.visibleLayerIds);
+  const updateVisibleLayerIds = useMapStore((state) => state.updateVisibleLayerIds);
 
   const toggleLayers = (layerIds: string[]) => {
     if (!mapRef || !mapRef?.current) return;
@@ -43,7 +40,7 @@ export default function Layers() {
         <CheckboxGroup.Item
           value="1"
           onClick={() => toggleLayers([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID])}
-          disabled={selectedLayer === null}
+          disabled={mapDocument === null}
         >
           Show painted districts
         </CheckboxGroup.Item>

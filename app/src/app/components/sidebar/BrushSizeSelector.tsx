@@ -11,10 +11,8 @@ import { useMapStore } from "../../store/mapStore";
  * @returns {JSX.Element} The component
  */
 export function BrushSizeSelector() {
-  const { brushSize, setBrushSize } = useMapStore((state) => ({
-    brushSize: state.brushSize,
-    setBrushSize: state.setBrushSize,
-  }));
+  const brushSize = useMapStore((state) => state.brushSize);
+  const setBrushSize = useMapStore((state) => state.setBrushSize);
 
   const handleChangeEnd = (value: Array<number>) => {
     console.log("the final value size is", value);

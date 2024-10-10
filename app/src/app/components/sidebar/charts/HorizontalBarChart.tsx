@@ -31,9 +31,7 @@ const CustomTooltip = ({ active, payload: items }: TooltipInput) => {
 };
 
 export const HorizontalBar = () => {
-  const { mapMetrics } = useMapStore((state) => ({
-    mapMetrics: state.mapMetrics,
-  }));
+  const mapMetrics = useMapStore((state) => state.mapMetrics);
 
   if (mapMetrics?.isPending) {
     return <div>Loading...</div>;

@@ -1,13 +1,36 @@
-import { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
+import {
+  ExpressionSpecification,
+  FilterSpecification,
+  LayerSpecification,
+} from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
 import { getBlocksSource } from "./sources";
-import { gerryDBView } from "../api/apiHandlers";
+import { DocumentObject } from "../utils/api/apiHandlers";
+import { MapStore, useMapStore } from "../store/mapStore";
 import { colorScheme } from "./colors";
 
 export const BLOCK_SOURCE_ID = "blocks";
 export const BLOCK_LAYER_ID = "blocks";
+export const BLOCK_LAYER_ID_CHILD = "blocks-child";
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
+export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
+
+export const INTERACTIVE_LAYERS = [
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+]
+
+export const PARENT_LAYERS = [
+  BLOCK_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID
+]
+
+export const CHILD_LAYERS = [
+  BLOCK_LAYER_ID_CHILD,
+  BLOCK_HOVER_LAYER_ID_CHILD
+]
+
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "case",
   ["boolean", ["feature-state", "hover"], false],
@@ -38,17 +61,41 @@ ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");
 export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
   ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
+export function getLayerFilter(
+  layerId: string,
+  _shatterIds?: MapStore["shatterIds"]
+) {
+  const shatterIds = _shatterIds || useMapStore.getState().shatterIds;
+  const isChildLayer = CHILD_LAYERS.includes(layerId);
+  const ids = isChildLayer ? shatterIds.children : shatterIds.parents;
+  const cleanIds = Boolean(ids) ? Array.from(ids) : [];
+  const filterBase: FilterSpecification = [
+    "in",
+    ["get", "path"],
+    ["literal", cleanIds],
+  ];
+
+  if (isChildLayer) {
+    return filterBase;
+  }
+  const parentFilter: FilterSpecification = ["!", filterBase];
+  return parentFilter;
+}
+
 export function getBlocksLayerSpecification(
-  sourceLayer: string
+  sourceLayer: string,
+  layerId: string,
 ): LayerSpecification {
+  const shatterIds = useMapStore.getState().shatterIds;
   return {
-    id: BLOCK_LAYER_ID,
+    id: layerId,
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "line",
     layout: {
       visibility: "visible",
     },
+    filter: getLayerFilter(layerId),
     paint: {
       "line-opacity": [
         "case",
@@ -62,16 +109,18 @@ export function getBlocksLayerSpecification(
 }
 
 export function getBlocksHoverLayerSpecification(
-  sourceLayer: string
+  sourceLayer: string,
+  layerId: string,
 ): LayerSpecification {
   return {
-    id: BLOCK_HOVER_LAYER_ID,
+    id: layerId,
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "fill",
     layout: {
       visibility: "visible",
     },
+    filter: getLayerFilter(layerId),
     paint: {
       "fill-opacity": [
         "case",
@@ -117,27 +166,58 @@ export function getBlocksHoverLayerSpecification(
 
 const addBlockLayers = (
   map: MutableRefObject<Map | null>,
-  gerryDBView: gerryDBView
+  mapDocument: DocumentObject,
 ) => {
-  const blockSource = getBlocksSource(gerryDBView.tiles_s3_path);
+  if (!map.current || !mapDocument.tiles_s3_path) {
+    console.log("map or mapDocument not ready", mapDocument);
+    return;
+  }
+  const blockSource = getBlocksSource(mapDocument.tiles_s3_path);
   removeBlockLayers(map);
   map.current?.addSource(BLOCK_SOURCE_ID, blockSource);
   map.current?.addLayer(
-    getBlocksLayerSpecification(gerryDBView.name),
-    LABELS_BREAK_LAYER_ID
+    getBlocksLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID),
+    LABELS_BREAK_LAYER_ID,
   );
   map.current?.addLayer(
-    getBlocksHoverLayerSpecification(gerryDBView.name),
-    LABELS_BREAK_LAYER_ID
+    getBlocksHoverLayerSpecification(
+      mapDocument.parent_layer,
+      BLOCK_HOVER_LAYER_ID,
+    ),
+    LABELS_BREAK_LAYER_ID,
   );
+  if (mapDocument.child_layer) {
+    map.current?.addLayer(
+      getBlocksLayerSpecification(
+        mapDocument.child_layer,
+        BLOCK_LAYER_ID_CHILD,
+      ),
+      LABELS_BREAK_LAYER_ID,
+    );
+    map.current?.addLayer(
+      getBlocksHoverLayerSpecification(
+        mapDocument.child_layer,
+        BLOCK_HOVER_LAYER_ID_CHILD,
+      ),
+      LABELS_BREAK_LAYER_ID,
+    );
+  }
+  useMapStore.getState().setMapRenderingState("loaded")
 };
 
 export function removeBlockLayers(map: MutableRefObject<Map | null>) {
+  useMapStore.getState().setMapRenderingState("loading")
   if (map.current?.getLayer(BLOCK_LAYER_ID)) {
     map.current?.removeLayer(BLOCK_LAYER_ID);
   }
   if (map.current?.getLayer(BLOCK_HOVER_LAYER_ID)) {
     map.current?.removeLayer(BLOCK_HOVER_LAYER_ID);
+  }
+  if (map.current?.getLayer(BLOCK_LAYER_ID_CHILD)) {
+    map.current?.removeLayer(BLOCK_LAYER_ID_CHILD);
+  }
+  if (map.current?.getLayer(BLOCK_HOVER_LAYER_ID_CHILD)) {
+    map.current?.removeLayer(BLOCK_HOVER_LAYER_ID_CHILD);
   }
   if (map.current?.getSource(BLOCK_SOURCE_ID)) {
     map.current?.removeSource(BLOCK_SOURCE_ID);

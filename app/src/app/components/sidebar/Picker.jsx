@@ -3,17 +3,10 @@ import { Select } from "@radix-ui/themes";
 import { useMapStore } from "../../store/mapStore";
 
 export function ZoneTypeSelector() {
-  const {
-    selectedZone,
-    setSelectedZone,
-    setZoneAssignments,
-    accumulatedGeoids,
-  } = useMapStore((state) => ({
-    selectedZone: state.selectedZone,
-    setSelectedZone: state.setSelectedZone,
-    setZoneAssignments: state.setZoneAssignments,
-    accumulatedGeoids: state.accumulatedGeoids,
-  }));
+  const selectedZone = useMapStore((state) => state.selectedZone);
+  const setSelectedZone = useMapStore((state) => state.setSelectedZone);
+  const setZoneAssignments = useMapStore((state) => state.setZoneAssignments);
+  const accumulatedGeoids = useMapStore((state) => state.accumulatedGeoids);
 
   const handlePickerValueChange = (value) => {
     console.log(

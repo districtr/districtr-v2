@@ -8,11 +8,9 @@ import { EraserIcon, Pencil2Icon, HandIcon } from "@radix-ui/react-icons";
 
 export function MapModeSelector() {
   const mapStore = useMapStore.getState();
-  const { activeTool, setActiveTool } = useMapStore((state) => ({
-    activeTool: state.activeTool,
-    setActiveTool: state.setActiveTool,
-  }));
-
+  const activeTool = useMapStore((state) => state.activeTool);
+  const setActiveTool = useMapStore((state) => state.setActiveTool);
+  
   if (!activeTool) return null;
   const activeTools = [
     { mode: "pan", disabled: false, label: "Pan", icon: <HandIcon /> },

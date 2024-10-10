@@ -46,7 +46,6 @@ export const SelectMapFeatures = (
     accumulatedGeoids,
     accumulatedBlockPopulations,
     activeTool,
-    selectedLayer,
     selectedZone,
   } = mapStoreRef;
   if (activeTool === "eraser") {
@@ -58,7 +57,7 @@ export const SelectMapFeatures = (
       {
         source: BLOCK_SOURCE_ID,
         id: feature?.id ?? undefined,
-        sourceLayer: selectedLayer?.name,
+        sourceLayer: feature.sourceLayer,
       },
       { selected: true, zone: selectedZone },
     );
@@ -103,6 +102,7 @@ export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
  * @param features - Array of MapGeoJSONFeature from QueryRenderedFeatures
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param hoverGeoids - MutableRefObject<Set<string>>, used to keep track of geoids that have been hovered over
+ * @deprecated This function is no longer in use and will be removed in a future version.
  */
 export const HighlightFeature = (
   features: Array<MapGeoJSONFeature> | undefined,
@@ -130,8 +130,8 @@ export const HighlightFeature = (
     map.current?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
-        id: feature?.id ?? undefined,
-        sourceLayer: sourceLayer,
+        id: feature.id ?? undefined,
+        sourceLayer: feature.sourceLayer,
       },
       { hover: true },
     );
@@ -151,6 +151,7 @@ export const HighlightFeature = (
  * called using `map.on("mouseleave", "blocks-hover", ...)` pattern.
  * @param map - MutableRefObject<Map | null>, the maplibre map instance
  * @param hoverFeatureIds - MutableRefObject<Set<string>>, used to keep track of geoids that have been hovered over
+ * @deprecated This function is no longer in use and will be removed in a future version.
  */
 export const UnhighlightFeature = (
   map: MutableRefObject<Map | null>,

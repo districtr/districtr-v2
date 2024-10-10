@@ -1,7 +1,9 @@
 import subprocess
-import sqlalchemy as sa
-from os import environ
-from glob import glob
+from os import environ, path
+import json  # Assuming this import is needed for the JSON operations
+import inspect
+
+currentdir = path.dirname(path.abspath(inspect.getfile(inspect.currentframe())))
 
 # Optionally, set a data directory to load in
 DATA_DIR = environ.get("GPKG_DATA_DIR", "sample_data")
@@ -9,40 +11,7 @@ DATA_DIR = environ.get("GPKG_DATA_DIR", "sample_data")
 LOAD_DATA = environ.get("LOAD_GERRY_DB_DATA", "true")
 
 
-def update_tile_column(engine):
-    """
-    Update the 'tiles_s3_path' column in the 'gerrydbtable' of the public schema.
-
-    This function connects to the database using the provided SQLAlchemy engine
-    and executes an UPDATE query. It sets the 'tiles_s3_path' column to a
-    concatenated string based on the 'name' column.
-
-    Args:
-        engine (sqlalchemy.engine.Engine): SQLAlchemy engine instance for database connection.
-
-    Prints:
-        Success message with the number of updated rows or an error message if the update fails.
-
-    Raises:
-        SQLAlchemyError: If there's an error during the database operation.
-    """
-    print("UPDATING GERRYDB COLUMN")
-    with engine.connect() as connection:
-        try:
-            result = connection.execute(
-                sa.text(
-                    "UPDATE public.gerrydbtable SET tiles_s3_path = CONCAT('tilesets/', name, '.pmtiles')"
-                )
-            )
-            updated_rows = result.rowcount
-            print(f"Successfully updated {updated_rows} rows in gerrydbtable.")
-            connection.commit()
-        except sa.exc.SQLAlchemyError as e:
-            print(f"Error updating gerrydbtable: {str(e)}")
-            connection.rollback()
-
-
-def load_sample_data():
+def load_sample_data(config):
     """
     Load sample data from the specified data directory.
 
@@ -55,12 +24,75 @@ def load_sample_data():
     Returns:
       None
     """
-    for gpkg in glob(f"{DATA_DIR}/*.gpkg"):
-        subprocess.run(["bash", "./scripts/load_gerrydb_view.sh", gpkg])
+
+    subprocess.run(["alembic", "upgrade", "head"], cwd=path.join(currentdir, ".."))
+    for view in config["gerrydb_views"]:
+        subprocess.run(
+            [
+                "python3",
+                "cli.py",
+                "import-gerrydb-view",
+                "--layer",
+                view["layer"],
+                "--gpkg",
+                path.join(DATA_DIR, view["gpkg"]),
+                "--replace",
+            ],
+            cwd=path.join(currentdir, ".."),
+        )
+
+    for view in config["shatterable_views"]:
+        subprocess.run(
+            [
+                "python3",
+                "cli.py",
+                "create-shatterable-districtr-view",
+                "--gerrydb-table-name",
+                view["gerrydb_table_name"],
+                "--parent-layer-name",
+                view["parent_layer_name"],
+                "--child-layer-name",
+                view["child_layer_name"],
+            ],
+            cwd=path.join(currentdir, ".."),
+        )
+
+    for view in config["districtr_map"]:
+        subprocess.run(
+            [
+                "python3",
+                "cli.py",
+                "create-districtr-map",
+                "--name",
+                view["name"],
+                "--parent-layer-name",
+                view["parent_layer_name"],
+                "--child-layer-name",
+                view["child_layer_name"],
+                "--gerrydb-table-name",
+                view["gerrydb_table_name"],
+                "--tiles-s3-path",
+                view["tiles_s3_path"],
+            ],
+            cwd=path.join(currentdir, ".."),
+        )
+
+        subprocess.run(
+            [
+                "python3",
+                "cli.py",
+                "create-parent-child-edges",
+                "--districtr-map",
+                view["gerrydb_table_name"],
+            ],
+            cwd=path.join(currentdir, ".."),
+        )  # Change working directory to parent
 
 
 if __name__ == "__main__":
-    if LOAD_DATA == "true":
-        load_sample_data()
-        engine = sa.create_engine(environ.get("DATABASE_URL"))
-        update_tile_column(engine)
+    # Correctly open the config.json file and read its contents
+    with open(path.join(DATA_DIR, "config.json")) as config_file:
+        config = json.load(config_file)
+
+    if LOAD_DATA:
+        load_sample_data(config)

@@ -1,9 +1,9 @@
 "use client";
 import { MapComponent } from "./components/Map";
 import SidebarComponent from "./components/sidebar/Sidebar";
-import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./utils/api/queryClient";
 
-const queryClient = new QueryClient();
 
 export default function Home() {
   return (
