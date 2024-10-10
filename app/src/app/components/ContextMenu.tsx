@@ -38,7 +38,12 @@ export const MapContextMenu: React.FC = () => {
             </Text>
           </ContextMenu.Label>
         )}
-        <ContextMenu.Item onClick={onClick}>Shatter</ContextMenu.Item>
+        <ContextMenu.Item
+          disabled={!mapDocument?.child_layer}
+          onClick={onClick}
+        >
+          Shatter
+        </ContextMenu.Item>
       </ContextMenu.Content>
     </ContextMenu.Root>
   );
