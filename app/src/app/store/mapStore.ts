@@ -42,7 +42,11 @@ export interface MapStore {
   undoCursor: number;
   recentZoneAssignments: Map<string, Zone[]>[];
   zoneAssignments: Map<string, Zone>; // geoid -> zone
-  setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>, isUndo?: boolean) => void;
+  setZoneAssignments: (
+    zone: Zone,
+    gdbPaths: Set<GDBPath>,
+    isUndo?: boolean,
+  ) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
@@ -80,7 +84,6 @@ export const useMapStore = create(
           });
         }
         state.setFreshMap(true);
-        state.resetZoneAssignments();
         return { mapDocument: mapDocument };
       }),
     selectedLayer: null,
@@ -119,7 +122,10 @@ export const useMapStore = create(
         if (changedAssignments.size > 0) {
           if (state.undoCursor < state.recentZoneAssignments.length - 1) {
             // this is not an undo action, so new drawing clears redo-able items
-            state.recentZoneAssignments = state.recentZoneAssignments.slice(0, state.undoCursor);
+            state.recentZoneAssignments = state.recentZoneAssignments.slice(
+              0,
+              state.undoCursor,
+            );
           }
           state.recentZoneAssignments.push(changedAssignments);
           if (state.recentZoneAssignments.length > 7) {
