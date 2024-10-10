@@ -7,15 +7,29 @@ import type {
   MapLayerMouseEvent,
   MapLayerTouchEvent,
 } from "maplibre-gl";
-import { useMapStore } from "@/app/store/mapStore";
+import { useMapStore } from "@store/mapStore";
 import { MutableRefObject } from "react";
 import { SelectMapFeatures, SelectZoneAssignmentFeatures } from "./handlers";
-import { ResetMapSelectState } from "@/app/utils/events/handlers";
-import { INTERACTIVE_LAYERS } from "@/app/constants/layers";
+import { ResetMapSelectState } from "@utils/events/handlers";
+import {
+  INTERACTIVE_LAYERS,
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_LAYER_ID,
+  BLOCK_LAYER_ID_CHILD,
+} from "@constants/layers";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
 */
+
+/**
+
+*/
+function getLayerIdsToPaint(child_layer: string | undefined | null) {
+  return child_layer
+    ? [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
+    : [BLOCK_LAYER_ID];
+}
 
 /**
  * What happens when the map is clicked on; incomplete implementation
@@ -24,14 +38,20 @@ MapEvent handling; these functions are called by the event listeners in the MapC
  */
 export const handleMapClick = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
 
   if (activeTool === "brush" || activeTool === "eraser") {
-    const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
+    const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer);
+    const selectedFeatures = mapStore.paintFunction(
+      map,
+      e,
+      mapStore.brushSize,
+      paintLayers,
+    );
 
     if (sourceLayer) {
       // select on both the map object and the store
@@ -46,7 +66,7 @@ export const handleMapClick = (
 
 export const handleMapMouseUp = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -61,7 +81,7 @@ export const handleMapMouseUp = (
 
 export const handleMapMouseDown = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -78,17 +98,17 @@ export const handleMapMouseDown = (
 
 export const handleMapMouseEnter = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {};
 
 export const handleMapMouseOver = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {};
 
 export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -99,21 +119,27 @@ export const handleMapMouseLeave = (
 
 export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
-) => {
-};
+  map: MutableRefObject<MapLibreMap | null>,
+) => {};
 
 export const handleMapMouseMove = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
   const setHoverFeatures = mapStore.setHoverFeatures;
   const isPainting = mapStore.isPainting;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
-  const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
-  const isBrushingTool = sourceLayer && ["brush", "eraser"].includes(activeTool)
+  const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer);
+  const selectedFeatures = mapStore.paintFunction(
+    map,
+    e,
+    mapStore.brushSize,
+    paintLayers,
+  );
+  const isBrushingTool =
+    sourceLayer && ["brush", "eraser"].includes(activeTool);
   if (isBrushingTool) {
     setHoverFeatures(selectedFeatures);
   }
@@ -127,7 +153,7 @@ export const handleMapMouseMove = (
 
 export const handleMapZoom = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {};
 
 export const handleMapIdle = () => {};
@@ -136,11 +162,11 @@ export const handleMapMoveEnd = () => {};
 
 export const handleMapZoomEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {};
 
 export const handleResetMapSelectState = (
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {
   const mapStore = useMapStore.getState();
   const sourceLayer = mapStore.mapDocument?.parent_layer;
@@ -153,23 +179,21 @@ export const handleResetMapSelectState = (
 
 export const handleMapContextMenu = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<MapLibreMap | null>
+  map: MutableRefObject<MapLibreMap | null>,
 ) => {
   const mapStore = useMapStore.getState();
-  if (mapStore.activeTool !== 'pan') {
-    return
+  if (mapStore.activeTool !== "pan") {
+    return;
   }
   e.preventDefault();
   const setHoverFeatures = mapStore.setHoverFeatures;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
-  const selectedFeatures = mapStore.paintFunction(
-    map,
-    e,
-    0,
-    INTERACTIVE_LAYERS
-  );
+  const paintLayers = mapStore.mapDocument?.child_layer
+    ? INTERACTIVE_LAYERS
+    : [BLOCK_HOVER_LAYER_ID];
+  const selectedFeatures = mapStore.paintFunction(map, e, 0, paintLayers);
   if (!selectedFeatures?.length || !map.current || !sourceLayer) return;
 
   setHoverFeatures(selectedFeatures.slice(0, 1));

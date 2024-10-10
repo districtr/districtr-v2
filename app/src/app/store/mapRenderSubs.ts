@@ -9,7 +9,6 @@ import {
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
-  getMap,
   shallowCompareArray,
 } from "../utils/helpers";
 import { useMapStore as _useMapStore, MapStore } from "./mapStore";
@@ -26,21 +25,27 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
       }
     },
-    { equalityFn: shallowCompareArray }
+    { equalityFn: shallowCompareArray },
   );
 
-  const _shatterMapSideEffectRender = useMapStore.subscribe<[MapStore['shatterIds'], MapStore['mapRef'], MapStore['mapRenderingState']]>(
+  const _shatterMapSideEffectRender = useMapStore.subscribe<
+    [MapStore["shatterIds"], MapStore["mapRef"], MapStore["mapRenderingState"]]
+  >(
     (state) => [state.shatterIds, state.mapRef, state.mapRenderingState],
     ([shatterIds, mapRef, mapRenderingState]) => {
       const state = useMapStore.getState();
       const setMapLock = state.setMapLock;
 
-      if (!mapRef?.current || mapRenderingState !== 'loaded') {
+      if (!mapRef?.current || mapRenderingState !== "loaded") {
         return;
       }
 
-      [...PARENT_LAYERS, ...CHILD_LAYERS].forEach((layerId) =>
-        mapRef.current?.setFilter(layerId, getLayerFilter(layerId, shatterIds))
+      const layersToFilter = PARENT_LAYERS;
+
+      if (state.mapDocument?.child_layer) layersToFilter.push(...CHILD_LAYERS);
+
+      layersToFilter.forEach((layerId) =>
+        mapRef.current?.setFilter(layerId, getLayerFilter(layerId, shatterIds)),
       );
 
       mapRef.current.once("render", () => {
@@ -48,7 +53,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         console.log(`Unlocked at`, performance.now());
       });
     },
-    { equalityFn: shallowCompareArray }
+    { equalityFn: shallowCompareArray },
   );
 
   const _hoverMapSideEffectRender = useMapStore.subscribe(
@@ -67,7 +72,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       hoverFeatures.forEach((feature) => {
         mapRef.current?.setFeatureState(feature, { hover: true });
       });
-    }
+    },
   );
 
   const _zoneAssignmentMapSideEffectRender =
@@ -81,7 +86,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         state.mapRenderingState,
       ],
       (curr, prev) => colorZoneAssignments(curr, prev),
-      { equalityFn: shallowCompareArray }
+      { equalityFn: shallowCompareArray },
     );
 
   return [
