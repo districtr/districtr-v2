@@ -155,7 +155,7 @@ export const useMapStore = create(
       newParent.forEach((parent) => existingParents.add(parent));
       // there may be a faster way to do this
       [newChildren].forEach(
-        (children) => existingChildren = new Set(...existingChildren, ...children)
+        (children) => existingChildren = new Set([...existingChildren, ...children])
       )
 
       set({
@@ -183,7 +183,7 @@ export const useMapStore = create(
       newParent.forEach((parent) => existingParents.add(parent));
       // there may be a faster way to do this
       newChildren.forEach(
-        (children) => existingChildren = new Set(...existingChildren, ...children)
+        (children) => existingChildren = new Set([...existingChildren, ...children])
       );
 
       set({
