@@ -55,7 +55,7 @@ jobs:
                 --build-secret POSTGRES_USER="postgres" \
                 --build-secret POSTGRES_PASSWORD=${{ steps.fork-db.outputs.password }} \
                 --build-secret POSTGRES_DB="districtr_v2_api" \
-                --build-secret BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000]
+                --build-secret BACKEND_CORS_ORIGINS="https://${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
               working-directory: backend
 
             - name: deploy fly api app
@@ -120,3 +120,5 @@ jobs:
 
             # provision appropriately, do not over-resource
             # teardown after done
+            # make volume like two gb
+            # if frontend only, only connect to stage db and stage api
