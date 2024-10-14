@@ -82,11 +82,11 @@ jobs:
             - name: deploy api app
               run: |
                     flyctl deploy \
-                    --config fly.toml --app ${{ github.env.api_app_name }} \
+                    --config fly.toml --app pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api \
                     --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256                   
 
                     flyctl secrets set \
-                    -a ${{ github.env.api_app_name }} \
+                    -a pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api \
                     POSTGRES_SCHEME="postgresql+psycopg" \
                     POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
                     POSTGRES_USER="postgres" \
