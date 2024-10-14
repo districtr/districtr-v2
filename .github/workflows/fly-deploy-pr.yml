@@ -26,21 +26,29 @@ jobs:
             # fork new db from existing db if it doesn't already exist
             - name: Fork From DB
               id: fork-db
-              run: |
-              
+              run: |              
                 if flyctl postgres list | grep -q pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db; then
                   echo "DB already exists"
                 else              
                   flyctl postgres create \
-                  --name pr-${{ github.event.number }}-db \
+                  --name pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db \
                   --region ewr \
                   --initial-cluster-size 1 \
                   --vm-size shared-cpu-2x \
                   -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
                   --org mggg \
-                  --fork-from districtr-v2-db 
-                  echo "::set-output name=name::${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
-                  echo "::set-output name=password::$(flyctl postgres credentials ${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db | grep Password | awk '{print $2}')"
+                  --fork-from districtr-v2-db
+                  
+                  if [ $? -eq 0 ]; then
+                    echo "Database created successfully."
+                    echo "name=${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db" >> $GITHUB_ENV
+                    echo "password=$(flyctl postgres credentials pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db | grep Password | awk '{print $2}')" >> $GITHUB_ENV
+                  else
+                    echo "Failed to create database."
+                    exit 1
+                  fi
+                fi
+
                 
 
             # manually launch and deploy the api app
