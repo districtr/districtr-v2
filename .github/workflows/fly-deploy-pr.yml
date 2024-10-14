@@ -95,6 +95,8 @@ jobs:
                     POSTGRES_DB="districtr_v2_api" \
                     BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
                     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
+
+                    echo "set $app secrets"
               working-directory: backend
 
             - name: Check and Launch Frontend App
