@@ -41,31 +41,29 @@ jobs:
                   
                   if [ $? -eq 0 ]; then
                     echo "Database created successfully."
-                    echo "name=${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db" >> $GITHUB_ENV
-                    echo "password=$(flyctl postgres credentials pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db | grep Password | awk '{print $2}')" >> $GITHUB_ENV
+                    echo "db_name=${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db" >> $GITHUB_ENV
+                    echo "db_password=$(flyctl postgres credentials pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db | grep Password | awk '{print $2}')" >> $GITHUB_ENV
                   else
                     echo "Failed to create database."
                     exit 1
                   fi
                 fi
 
-                
-
             # manually launch and deploy the api app
             - name: launch api app
               run: |
                 flyctl launch \
-                --no-deploy --copy-config --name pr-${{ github.event.number }}-api \
+                --no-deploy --copy-config --name pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api \
                 --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
-                --build-arg POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
+                --build-arg POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
                 --build-arg POSTGRES_USER="postgres" \
-                --build-arg POSTGRES_PASSWORD=${{ steps.fork-db.outputs.password }} \
+                --build-arg POSTGRES_PASSWORD=${{ github.env.db_password }} \
                 --build-arg POSTGRES_DB="districtr_v2_api" \
                 --build-arg BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000] \
                 --build-secret POSTGRES_SCHEME="postgresql+psycopg" \
-                --build-secret POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
+                --build-secret POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
                 --build-secret POSTGRES_USER="postgres" \
-                --build-secret POSTGRES_PASSWORD=${{ steps.fork-db.outputs.password }} \
+                --build-secret POSTGRES_PASSWORD=${{ github.env.db_password }} \
                 --build-secret POSTGRES_DB="districtr_v2_api" \
                 --build-secret BACKEND_CORS_ORIGINS="https://${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
               working-directory: backend
@@ -79,7 +77,7 @@ jobs:
                     flyctl secrets set \
                     -a pr-${{ github.event.number }}-api \
                     POSTGRES_SCHEME="postgresql+psycopg" \
-                    POSTGRES_SERVER="${{ steps.fork-db.outputs.name }}.flycast" \
+                    POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
                     POSTGRES_USER="postgres" \
                     POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                     POSTGRES_DB="districtr_v2_api" \
@@ -98,9 +96,9 @@ jobs:
                 # Run the flyctl launch command
                 flyctl launch \
                 --no-deploy --copy-config --name "$app" \
-                --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
+                --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
-                --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
+                --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
                 --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
 
                 # Output app name for use in the deploy step
@@ -127,13 +125,13 @@ jobs:
                 app_name=${{ env.app_name }}
                 flyctl secrets set \
                 -a "$app_name" \
-                NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
+                NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
 
 
             - name: run database migrations
               run: |
-                flyctl ssh connect --app pr-${{ github.event.number }}-api --command "cd /backend && alembic upgrade head"
+                flyctl ssh console --app pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api --command "cd /backend && alembic upgrade head"
               working-directory: backend
 
             # provision appropriately, do not over-resource
