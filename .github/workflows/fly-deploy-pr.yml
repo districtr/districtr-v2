@@ -40,14 +40,12 @@ jobs:
                   --fork-from districtr-v2-db
                   
                   if [ $? -eq 0 ]; then
-                    echo "Database created successfully."
-                    echo "::set-output name=name::pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
-                    echo "::set-output name=db_password::$(flyctl postgres credentials pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db | grep Password | awk '{print $2}')"
-                    
+                    echo "Database created successfully."                                      
                   else
                     echo "Failed to create database."
                     exit 1
                   fi
+                  echo "::set-output name=name::pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"                  
                 fi
 
             # manually launch and deploy the api app
@@ -66,12 +64,12 @@ jobs:
                   --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
                   --build-arg POSTGRES_SERVER="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db.flycast" \
                   --build-arg POSTGRES_USER="postgres" \
-                  --build-arg POSTGRES_PASSWORD=${{steps.fork-db.outputs.db_password}} \
+                  --build-arg POSTGRES_PASSWORD="${{ secrets.FLY_PR_PG_PASSWORD }}" \
                   --build-arg POSTGRES_DB="districtr_v2_api" \
                   --build-secret POSTGRES_SCHEME="postgresql+psycopg" \
                   --build-secret POSTGRES_SERVER="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db.flycast" \
                   --build-secret POSTGRES_USER="postgres" \
-                  --build-secret POSTGRES_PASSWORD="$db_password" \
+                  --build-secret POSTGRES_PASSWORD="${{ secrets.FLY_PR_PG_PASSWORD }}" \
                   --build-secret POSTGRES_DB="districtr_v2_api" \
                   --build-secret BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev"
                   echo "App $app launched successfully."
