@@ -9,13 +9,13 @@ import { useMapStore as _useMapStore, MapStore } from "./mapStore";
 import { shallowCompareArray } from "../utils/helpers";
 
 const zoneUpdates = ({
-  mapRef,
+  getMapRef,
   zoneAssignments,
   appLoadingState,
 }: Partial<MapStore>) => {
   if (
-    mapRef?.current &&
-    zoneAssignments?.size &&
+    getMapRef?.() &&
+    (zoneAssignments && Object.keys(zoneAssignments)?.length) &&
     appLoadingState === "loaded"
   ) {
     const assignments = FormatAssignments();
@@ -26,11 +26,11 @@ const debouncedZoneUpdate = debounce(zoneUpdates, 25);
 
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const sendZonesOnMapRefSub = useMapStore.subscribe(
-    (state) => [state.mapRef, state.zoneAssignments],
+    (state) => [state.getMapRef, state.zoneAssignments],
     () => {
-      const { mapRef, zoneAssignments, appLoadingState } =
+      const { getMapRef, zoneAssignments, appLoadingState } =
         useMapStore.getState();
-      debouncedZoneUpdate({ mapRef, zoneAssignments, appLoadingState });
+      debouncedZoneUpdate({ getMapRef, zoneAssignments, appLoadingState });
     },
     { equalityFn: shallowCompareArray}
   );

@@ -15,12 +15,13 @@ import { useMapStore as _useMapStore, MapStore } from "./mapStore";
 
 export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const addLayerSubMapDocument = useMapStore.subscribe<
-    [MapStore["mapDocument"], MapStore["mapRef"]]
+    [MapStore["mapDocument"], MapStore["getMapRef"]]
   >(
-    (state) => [state.mapDocument, state.mapRef],
-    ([mapDocument, mapRef]) => {
+    (state) => [state.mapDocument, state.getMapRef],
+    ([mapDocument, getMapRef]) => {
       const mapStore = useMapStore.getState();
-      if (mapRef?.current && mapDocument) {
+      const mapRef = getMapRef()
+      if (mapRef && mapDocument) {
         addBlockLayers(mapRef, mapDocument);
         mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
       }
@@ -29,14 +30,15 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   );
 
   const _shatterMapSideEffectRender = useMapStore.subscribe<
-    [MapStore["shatterIds"], MapStore["mapRef"], MapStore["mapRenderingState"]]
+    [MapStore["shatterIds"], MapStore["getMapRef"], MapStore["mapRenderingState"]]
   >(
-    (state) => [state.shatterIds, state.mapRef, state.mapRenderingState],
-    ([shatterIds, mapRef, mapRenderingState]) => {
+    (state) => [state.shatterIds, state.getMapRef, state.mapRenderingState],
+    ([shatterIds, getMapRef, mapRenderingState]) => {
       const state = useMapStore.getState();
+      const mapRef = getMapRef()
       const setMapLock = state.setMapLock;
 
-      if (!mapRef?.current || mapRenderingState !== "loaded") {
+      if (!mapRef || mapRenderingState !== "loaded") {
         return;
       }
 
@@ -45,10 +47,10 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       if (state.mapDocument?.child_layer) layersToFilter.push(...CHILD_LAYERS);
 
       layersToFilter.forEach((layerId) =>
-        mapRef.current?.setFilter(layerId, getLayerFilter(layerId, shatterIds)),
+        mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds)),
       );
 
-      mapRef.current.once("render", () => {
+      mapRef.once("render", () => {
         setMapLock(false);
         console.log(`Unlocked at`, performance.now());
       });
@@ -59,18 +61,18 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const _hoverMapSideEffectRender = useMapStore.subscribe(
     (state) => state.hoverFeatures,
     (hoverFeatures, previousHoverFeatures) => {
-      const mapRef = useMapStore.getState().mapRef;
+      const mapRef = useMapStore.getState().getMapRef();
 
-      if (!mapRef?.current) {
+      if (!mapRef) {
         return;
       }
 
       previousHoverFeatures.forEach((feature) => {
-        mapRef.current?.setFeatureState(feature, { hover: false });
+        mapRef.setFeatureState(feature, { hover: false });
       });
 
       hoverFeatures.forEach((feature) => {
-        mapRef.current?.setFeatureState(feature, { hover: true });
+        mapRef.setFeatureState(feature, { hover: true });
       });
     },
   );
@@ -80,7 +82,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       (state) => [
         state.zoneAssignments,
         state.mapDocument,
-        state.mapRef,
+        state.getMapRef,
         state.shatterIds,
         state.appLoadingState,
         state.mapRenderingState,
