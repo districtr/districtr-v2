@@ -41,7 +41,7 @@ jobs:
                   
                   if [ $? -eq 0 ]; then
                     echo "Database created successfully."
-                    echo "::set-output name=db_name::pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
+                    echo "::set-output name=name::pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
                     echo "::set-output name=db_password::$(flyctl postgres credentials pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db | grep Password | awk '{print $2}')"
                     
                   else
@@ -94,7 +94,7 @@ jobs:
                     POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                     POSTGRES_DB="districtr_v2_api" \
                     BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
-                    DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.db_name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
+                    DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
 
                     echo "set $app secrets"
               working-directory: backend
