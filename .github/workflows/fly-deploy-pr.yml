@@ -59,18 +59,7 @@ jobs:
                   echo "App $app already exists. Skipping launch."
                 else
                   flyctl launch \
-                  --no-deploy --copy-config --name "$app" \
-                  --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
-                  --build-arg POSTGRES_SERVER="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db.flycast" \
-                  --build-arg POSTGRES_USER="postgres" \
-                  --build-arg POSTGRES_PASSWORD="${{ secrets.FLY_PR_PG_PASSWORD }}" \
-                  --build-arg POSTGRES_DB="districtr_v2_api" \
-                  --build-secret POSTGRES_SCHEME="postgresql+psycopg" \
-                  --build-secret POSTGRES_SERVER="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db.flycast" \
-                  --build-secret POSTGRES_USER="postgres" \
-                  --build-secret POSTGRES_PASSWORD="${{ secrets.FLY_PR_PG_PASSWORD }}" \
-                  --build-secret POSTGRES_DB="districtr_v2_api" \
-                  --build-secret BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev"
+                  --no-deploy --copy-config --name "$app" 
                   echo "App $app launched successfully."
                 fi
                 # Output app name for use in the deploy step
