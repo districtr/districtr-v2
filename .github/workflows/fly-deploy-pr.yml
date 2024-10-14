@@ -100,6 +100,7 @@ jobs:
               id: launch
               run: |
                 app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
+                api_app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
                 config="fly.toml"
             
                 # Check if the app exists
@@ -110,9 +111,9 @@ jobs:
                   # Run the flyctl launch command
                   flyctl launch \
                   --no-deploy --copy-config --name "$app" \
-                  --build-arg NEXT_PUBLIC_API_URL=$api_app_name \
+                  --build-arg NEXT_PUBLIC_API_URL="$api_app" \
                   --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
-                  --build-secret NEXT_PUBLIC_API_URL=$api_app_name \
+                  --build-secret NEXT_PUBLIC_API_URL="$api_app" \
                   --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }}
             
                   echo "App $app launched successfully."
@@ -137,9 +138,10 @@ jobs:
             - name: Set App Secrets
               run: |
                 app_name="$frontend_app_name"
+                api_app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
                 flyctl secrets set \
                 -a "$app_name" \
-                NEXT_PUBLIC_API_URL="$api_app_name" \
+                NEXT_PUBLIC_API_URL="$api_app" \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
 
 
