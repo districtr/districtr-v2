@@ -52,20 +52,27 @@ jobs:
             # manually launch and deploy the api app
             - name: launch api app
               run: |
-                flyctl launch \
-                --no-deploy --copy-config --name pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api \
-                --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
-                --build-arg POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
-                --build-arg POSTGRES_USER="postgres" \
-                --build-arg POSTGRES_PASSWORD=${{ github.env.db_password }} \
-                --build-arg POSTGRES_DB="districtr_v2_api" \
-                --build-arg BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000] \
-                --build-secret POSTGRES_SCHEME="postgresql+psycopg" \
-                --build-secret POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
-                --build-secret POSTGRES_USER="postgres" \
-                --build-secret POSTGRES_PASSWORD=${{ github.env.db_password }} \
-                --build-secret POSTGRES_DB="districtr_v2_api" \
-                --build-secret BACKEND_CORS_ORIGINS="https://${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
+                app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
+                config="fly.toml"
+            
+                # Check if the app exists
+                if flyctl apps list | grep -q "$app"; then
+                  echo "App $app already exists. Skipping launch."
+                else
+                  flyctl launch \
+                  --no-deploy --copy-config --name pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api \
+                  --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
+                  --build-arg POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
+                  --build-arg POSTGRES_USER="postgres" \
+                  --build-arg POSTGRES_PASSWORD=${{ github.env.db_password }} \
+                  --build-arg POSTGRES_DB="districtr_v2_api" \
+                  --build-arg BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000] \
+                  --build-secret POSTGRES_SCHEME="postgresql+psycopg" \
+                  --build-secret POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
+                  --build-secret POSTGRES_USER="postgres" \
+                  --build-secret POSTGRES_PASSWORD=${{ github.env.db_password }} \
+                  --build-secret POSTGRES_DB="districtr_v2_api" \
+                  --build-secret BACKEND_CORS_ORIGINS="https://${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
               working-directory: backend
 
             - name: deploy api app
@@ -85,37 +92,44 @@ jobs:
                     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
               working-directory: backend
 
-            # manually launch and deploy the app           
-            - name: Launch frontend app
+            - name: Check and Launch Frontend App
               id: launch
               run: |
-                # Set the necessary variables
-                app="${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
+                app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
                 config="fly.toml"
-
-                # Run the flyctl launch command
-                flyctl launch \
-                --no-deploy --copy-config --name "$app" \
-                --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
-                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
-                --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
-                --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
-
+            
+                # Check if the app exists
+                if flyctl apps list | grep -q "$app"; then
+                  echo "App $app already exists. Skipping launch."
+                else
+                  echo "Launching app $app."
+                  # Run the flyctl launch command
+                  flyctl launch \
+                  --no-deploy --copy-config --name "$app" \
+                  --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
+                  --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
+                  --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
+                  --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }}
+            
+                  echo "App $app launched successfully."
+                fi
+            
                 # Output app name for use in the deploy step
                 echo "app_name=$app" >> $GITHUB_ENV
               working-directory: app
-                
-            - name: Deploy api app
+          
+            - name: Deploy API App
               run: |
                 app_name=${{ env.app_name }}
                 config="fly.toml"
-
+            
+                # Deploy the app
                 flyctl deploy --config "$config" --app "$app_name" \
                 --strategy immediate '--ha=false' \
                 --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
-                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
+                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
                 --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
-                --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} \
+                --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: app
           
