@@ -72,7 +72,7 @@ jobs:
                   --build-secret POSTGRES_USER="postgres" \
                   --build-secret POSTGRES_PASSWORD="$db_password" \
                   --build-secret POSTGRES_DB="districtr_v2_api" \
-                  --build-secret BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
+                  --build-secret BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev"
                   echo "App $app launched successfully."
                 fi
                 # Output app name for use in the deploy step
@@ -82,7 +82,7 @@ jobs:
             - name: deploy api app
               run: |
                     flyctl deploy \
-                    --config fly.toml --app "$api_app_name" \
+                    --config fly.toml --app "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" \
                     --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256                   
 
                     flyctl secrets set \
@@ -92,7 +92,7 @@ jobs:
                     POSTGRES_USER="postgres" \
                     POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                     POSTGRES_DB="districtr_v2_api" \
-                    BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000" \
+                    BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
                     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
               working-directory: backend
 
@@ -125,7 +125,7 @@ jobs:
           
             - name: Deploy Frontend App
               run: |
-                app_name="$frontend_app_name"
+                app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
                 config="fly.toml"
             
                 # Deploy the app
