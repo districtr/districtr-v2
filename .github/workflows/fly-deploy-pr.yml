@@ -27,8 +27,7 @@ jobs:
               id: fork-db
               run: |              
                 if flyctl postgres list | grep -q pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db; then
-                  echo "DB already exists"
-                  echo "::set-output name=name::pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"                  
+                  echo "DB already exists"                  
                 else              
                   flyctl postgres create \
                   --name pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db \
@@ -44,9 +43,9 @@ jobs:
                   else
                     echo "Failed to create database."
                     exit 1
-                  fi
-                  echo "::set-output name=name::pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"                  
+                  fi                                    
                 fi
+                echo "::set-output name=name::pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
 
             # manually launch and deploy the api app
             - name: launch api app
@@ -112,9 +111,9 @@ jobs:
                   # Run the flyctl launch command
                   flyctl launch \
                   --no-deploy --copy-config --name "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
-                  --build-arg NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" \
+                  --build-arg NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
                   --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
-                  --build-secret NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" \
+                  --build-secret NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
                   --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }}
             
                   echo "App $app launched successfully."
@@ -139,10 +138,10 @@ jobs:
             - name: Set App Secrets
               run: |
                 app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
-                api_app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
+                api_app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev"
                 flyctl secrets set \
                 -a "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
-                NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" \
+                NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
 
 
