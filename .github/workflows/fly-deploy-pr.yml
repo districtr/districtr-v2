@@ -16,7 +16,6 @@ jobs:
 
         environment:
             name: pr-${{ github.event.number }}
-            # url: ${{ steps.deploy-app.outputs.url }}
 
         steps:
             - uses: actions/checkout@v3
@@ -29,6 +28,7 @@ jobs:
               run: |              
                 if flyctl postgres list | grep -q pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db; then
                   echo "DB already exists"
+                  echo "::set-output name=name::pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"                  
                 else              
                   flyctl postgres create \
                   --name pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db \
