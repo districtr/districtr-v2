@@ -89,7 +89,7 @@ jobs:
                     flyctl secrets set \
                     -a pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api \
                     POSTGRES_SCHEME="postgresql+psycopg" \
-                    POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
+                    POSTGRES_SERVER="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db.flycast" \
                     POSTGRES_USER="postgres" \
                     POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                     POSTGRES_DB="districtr_v2_api" \
