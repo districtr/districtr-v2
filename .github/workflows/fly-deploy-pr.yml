@@ -126,18 +126,18 @@ jobs:
             # set secrets for app
             - name: Set App Secrets
               run: |
-                app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
-                api_app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
                 flyctl secrets set \
                 -a "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
                 NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
 
 
-            # - name: run database migrations
-            #   run: |
-            #     flyctl ssh console --app "$api_app_name" --command "alembic upgrade head"
-            #   working-directory: backend
+            - name: run database migrations
+              run: |
+                flyctl ssh console \
+                --app "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" \
+                --command "alembic upgrade head"
+              working-directory: backend
 
             # provision appropriately, do not over-resource
             # teardown after done
