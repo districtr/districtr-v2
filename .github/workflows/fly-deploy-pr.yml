@@ -142,10 +142,10 @@ jobs:
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
 
 
-            - name: run database migrations
-              run: |
-                flyctl ssh console --app "$api_app_name" --command "alembic upgrade head"
-              working-directory: backend
+            # - name: run database migrations
+            #   run: |
+            #     flyctl ssh console --app "$api_app_name" --command "alembic upgrade head"
+            #   working-directory: backend
 
             # provision appropriately, do not over-resource
             # teardown after done
