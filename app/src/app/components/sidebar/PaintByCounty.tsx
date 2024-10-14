@@ -8,17 +8,17 @@ import {
 } from "../../utils/helpers";
 
 export default function PaintByCounty() {
-  const mapRef = useMapStore((state) => state.mapRef);
+  const mapRef = useMapStore((state) => state.getMapRef());
   const addVisibleLayerIds = useMapStore((state) => state.addVisibleLayerIds);
   const setPaintFunction = useMapStore((state) => state.setPaintFunction);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (!mapRef || !mapRef.current) return;
+    if (!mapRef) return;
 
     if (checked) {
       COUNTY_LAYER_IDS.forEach((layerId) => {
-        mapRef.current?.setLayoutProperty(layerId, "visibility", "visible");
+        mapRef.setLayoutProperty(layerId, "visibility", "visible");
       });
       addVisibleLayerIds(COUNTY_LAYER_IDS);
       setPaintFunction(getFeaturesIntersectingCounties);

@@ -3,7 +3,6 @@ import {
   FilterSpecification,
   LayerSpecification,
 } from "maplibre-gl";
-import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
 import { getBlocksSource } from "./sources";
 import { DocumentObject } from "../utils/api/apiHandlers";
@@ -165,21 +164,21 @@ export function getBlocksHoverLayerSpecification(
 }
 
 const addBlockLayers = (
-  map: MutableRefObject<Map | null>,
+  map: Map | null,
   mapDocument: DocumentObject,
 ) => {
-  if (!map.current || !mapDocument.tiles_s3_path) {
+  if (!map || !mapDocument.tiles_s3_path) {
     console.log("map or mapDocument not ready", mapDocument);
     return;
   }
   const blockSource = getBlocksSource(mapDocument.tiles_s3_path);
   removeBlockLayers(map);
-  map.current?.addSource(BLOCK_SOURCE_ID, blockSource);
-  map.current?.addLayer(
+  map?.addSource(BLOCK_SOURCE_ID, blockSource);
+  map?.addLayer(
     getBlocksLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID),
     LABELS_BREAK_LAYER_ID,
   );
-  map.current?.addLayer(
+  map?.addLayer(
     getBlocksHoverLayerSpecification(
       mapDocument.parent_layer,
       BLOCK_HOVER_LAYER_ID,
@@ -187,14 +186,14 @@ const addBlockLayers = (
     LABELS_BREAK_LAYER_ID,
   );
   if (mapDocument.child_layer) {
-    map.current?.addLayer(
+    map?.addLayer(
       getBlocksLayerSpecification(
         mapDocument.child_layer,
         BLOCK_LAYER_ID_CHILD,
       ),
       LABELS_BREAK_LAYER_ID,
     );
-    map.current?.addLayer(
+    map?.addLayer(
       getBlocksHoverLayerSpecification(
         mapDocument.child_layer,
         BLOCK_HOVER_LAYER_ID_CHILD,
@@ -205,22 +204,22 @@ const addBlockLayers = (
   useMapStore.getState().setMapRenderingState("loaded")
 };
 
-export function removeBlockLayers(map: MutableRefObject<Map | null>) {
+export function removeBlockLayers(map: Map | null) {
   useMapStore.getState().setMapRenderingState("loading")
-  if (map.current?.getLayer(BLOCK_LAYER_ID)) {
-    map.current?.removeLayer(BLOCK_LAYER_ID);
+  if (map.getLayer(BLOCK_LAYER_ID)) {
+    map.removeLayer(BLOCK_LAYER_ID);
   }
-  if (map.current?.getLayer(BLOCK_HOVER_LAYER_ID)) {
-    map.current?.removeLayer(BLOCK_HOVER_LAYER_ID);
+  if (map.getLayer(BLOCK_HOVER_LAYER_ID)) {
+    map.removeLayer(BLOCK_HOVER_LAYER_ID);
   }
-  if (map.current?.getLayer(BLOCK_LAYER_ID_CHILD)) {
-    map.current?.removeLayer(BLOCK_LAYER_ID_CHILD);
+  if (map.getLayer(BLOCK_LAYER_ID_CHILD)) {
+    map.removeLayer(BLOCK_LAYER_ID_CHILD);
   }
-  if (map.current?.getLayer(BLOCK_HOVER_LAYER_ID_CHILD)) {
-    map.current?.removeLayer(BLOCK_HOVER_LAYER_ID_CHILD);
+  if (map.getLayer(BLOCK_HOVER_LAYER_ID_CHILD)) {
+    map.removeLayer(BLOCK_HOVER_LAYER_ID_CHILD);
   }
-  if (map.current?.getSource(BLOCK_SOURCE_ID)) {
-    map.current?.removeSource(BLOCK_SOURCE_ID);
+  if (map.getSource(BLOCK_SOURCE_ID)) {
+    map.removeSource(BLOCK_SOURCE_ID);
   }
 }
 

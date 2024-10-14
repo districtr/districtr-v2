@@ -7,7 +7,6 @@ import {
   LngLat,
   LngLatLike,
 } from "maplibre-gl";
-import { MutableRefObject } from "react";
 import { Point } from "maplibre-gl";
 import {
   BLOCK_HOVER_LAYER_ID,
@@ -23,12 +22,12 @@ import { MapStore, useMapStore } from "../store/mapStore";
 /**
  * PaintEventHandler
  * A function that takes a map reference, a map event object, and a brush size.
- * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param map - Map | null, the maplibre map instance
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @param brushSize - number, the size of the brush
  */
 export type PaintEventHandler = (
-  map: React.MutableRefObject<Map | null>,
+  map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
   layers?: string[],
@@ -71,39 +70,39 @@ export const boxAroundPoint = (
 /**
  * getFeaturesInBbox
  * Get the features in a bounding box on the map.
- * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param map - Map | null, the maplibre map instance
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @param brushSize - number, the size of the brush
  * @returns MapGeoJSONFeature[] | undefined - An array of map features or undefined
  */
 export const getFeaturesInBbox = (
-  map: MutableRefObject<Map | null>,
+  map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
   layers: string[] = [BLOCK_LAYER_ID],
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
 
-  return map.current?.queryRenderedFeatures(bbox, { layers });
+  return map?.queryRenderedFeatures(bbox, { layers });
 };
 
 /**
  * getFeaturesIntersectingCounties
  * Get the features intersecting counties on the map.
- * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param map - Map | null, the maplibre map instance
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @param brushSize - number, the size of the brush
  * @returns MapGeoJSONFeature[] | undefined - An array of map features or undefined
  */
 export const getFeaturesIntersectingCounties = (
-  map: MutableRefObject<Map | null>,
+  map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
   layers: string[] = [BLOCK_LAYER_ID],
 ): MapGeoJSONFeature[] | undefined => {
-  if (!map.current) return;
+  if (!map) return;
 
-  const countyFeatures = map.current.queryRenderedFeatures(e.point, {
+  const countyFeatures = map.queryRenderedFeatures(e.point, {
     layers: ["counties_fill"],
   });
 
@@ -113,10 +112,9 @@ export const getFeaturesIntersectingCounties = (
 
   if (!featureBbox) return;
 
-  const sw = map.current.project(featureBbox[0]);
-  const ne = map.current.project(featureBbox[1]);
-
-  const features = map.current?.queryRenderedFeatures([sw, ne], {
+  const sw = map.project(featureBbox[0]);
+  const ne = map.project(featureBbox[1]);
+  const features = map.queryRenderedFeatures([sw, ne], {
     layers,
   });
 
@@ -172,12 +170,12 @@ const getBoundingBoxFromFeatures = (
 /**
  * mousePos
  * Get the position of the mouse on the map.
- * @param map - MutableRefObject<Map | null>, the maplibre map instance
+ * @param map - Map | null, the maplibre map instance
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @returns Point - The position of the mouse on the map
  */
 export const mousePos = (
-  map: MutableRefObject<Map | null>,
+  map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
 ) => {
   const canvas = map.current?.getCanvasContainer();
@@ -207,18 +205,19 @@ export interface LayerVisibility {
  * @returns {LayerVisibility[]} - An array of objects containing the layer ID and the new visibility state.
  */
 export function toggleLayerVisibility(
-  mapRef: MutableRefObject<maplibregl.Map | null>,
+  mapRef: maplibregl.Map,
   layerIds: string[],
 ): LayerVisibility[] {
+
   const activeLayerIds = getVisibleLayers(mapRef)?.map((layer) => layer.id);
   if (!activeLayerIds) return [];
 
   return layerIds.map((layerId) => {
     if (activeLayerIds && activeLayerIds.includes(layerId)) {
-      mapRef.current?.setLayoutProperty(layerId, "visibility", "none");
+      mapRef.setLayoutProperty(layerId, "visibility", "none");
       return { layerId: layerId, visibility: "none" };
     } else {
-      mapRef.current?.setLayoutProperty(layerId, "visibility", "visible");
+      mapRef.setLayoutProperty(layerId, "visibility", "visible");
       return { layerId: layerId, visibility: "visible" };
     }
   }, {});
@@ -228,10 +227,10 @@ export function toggleLayerVisibility(
  * getVisibleLayers
  * Returning an array of visible layers on the map based on the visibility layout property.
  * i.e. it's not based on what the user actually sees.
- * @param {MutableRefObject<maplibregl.Map>} map - The map reference.
+ * @param {maplibregl.Map} map - The map reference.
  */
-export function getVisibleLayers(map: MutableRefObject<Map | null>) {
-  return map.current?.getStyle().layers.filter((layer) => {
+export function getVisibleLayers(map: Map | null) {
+  return map?.getStyle().layers.filter((layer) => {
     return layer.layout?.visibility === "visible";
   });
 }
@@ -239,24 +238,22 @@ export function getVisibleLayers(map: MutableRefObject<Map | null>) {
 export type ColorZoneAssignmentsState = [
   MapStore["zoneAssignments"],
   MapStore["mapDocument"],
-  MapStore["mapRef"],
+  MapStore["getMapRef"],
   MapStore["shatterIds"],
   MapStore["appLoadingState"],
   MapStore["mapRenderingState"],
 ];
 
-export const getMap = (_mapRef?: MapStore["mapRef"]) => {
-  const mapRef = _mapRef || useMapStore.getState().mapRef;
+export const getMap = (_getMapRef?: MapStore["getMapRef"]) => {
+  const mapRef = _getMapRef?.() || useMapStore.getState().getMapRef();
   if (
-    mapRef?.current &&
-    mapRef.current
-      ?.getStyle()
+    mapRef?.getStyle()
       .layers.findIndex((layer) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1
   ) {
     return null;
   }
 
-  return mapRef as MutableRefObject<maplibregl.Map>;
+  return mapRef as maplibregl.Map;
 };
 
 /**
@@ -285,15 +282,15 @@ export const colorZoneAssignments = (
   const [
     zoneAssignments,
     mapDocument,
-    mapRef,
+    getMapRef,
     _,
     appLoadingState,
     mapRenderingState,
   ] = state;
   const previousZoneAssignments = previousState?.[0] || null;
-
+  const mapRef = getMapRef()
   if (
-    !mapRef?.current ||
+    !mapRef ||
     !mapDocument ||
     appLoadingState !== "loaded" ||
     mapRenderingState !== "loaded"
@@ -303,17 +300,17 @@ export const colorZoneAssignments = (
   const isInitialRender =
     previousState?.[4] !== "loaded" || previousState?.[5] !== "loaded";
 
-  zoneAssignments.forEach((zone, id) => {
+  Object.entries(zoneAssignments).forEach(([id, zone]) => {
     if (
-      !isInitialRender &&
-      previousZoneAssignments?.get(id) === zoneAssignments.get(id)
+      (id && !isInitialRender &&
+      previousZoneAssignments?.[id] === zoneAssignments[id]) || (!id)
     ) {
       return;
     }
 
     // This is awful
     // we need information on whether an assignment is parent or child
-    const isParent = id.toString().includes("vtd");
+    const isParent = id?.toString().includes("vtd");
     const sourceLayer = isParent
       ? mapDocument.parent_layer
       : mapDocument.child_layer;
@@ -322,7 +319,7 @@ export const colorZoneAssignments = (
       return;
     }
 
-    mapRef.current?.setFeatureState(
+    mapRef?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
         id,
@@ -362,12 +359,12 @@ export const setZones = (
   parent: string,
   children: Set<string>,
 ) => {
-  const zone = zoneAssignments.get(parent);
+  const zone = zoneAssignments[parent]
   if (zone) {
     children.forEach((childId) => {
-      zoneAssignments.set(childId, zone);
+      zoneAssignments[childId] = zone
     });
-    zoneAssignments.delete(parent);
+    zoneAssignments[parent] = null
   }
 };
 

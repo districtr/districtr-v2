@@ -16,13 +16,13 @@ import { toggleLayerVisibility } from "../../utils/helpers";
  * - Support tribes and communities
  */
 export default function Layers() {
-  const mapRef = useMapStore((state) => state.mapRef);
+  const mapRef = useMapStore((state) => state.getMapRef());
   const mapDocument = useMapStore((state) => state.mapDocument);
   const visibleLayerIds = useMapStore((state) => state.visibleLayerIds);
   const updateVisibleLayerIds = useMapStore((state) => state.updateVisibleLayerIds);
 
   const toggleLayers = (layerIds: string[]) => {
-    if (!mapRef || !mapRef?.current) return;
+    if (!mapRef) return;
     const layerUpdates = toggleLayerVisibility(mapRef, layerIds);
     updateVisibleLayerIds(layerUpdates);
   };

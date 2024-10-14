@@ -54,7 +54,7 @@ export const MapComponent: React.FC = () => {
             action.action as keyof MapLayerEventType,
             layer, // to be updated with the scale-agnostic layer id
             (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-              action.handler(e, map);
+              action.handler(e, map.current);
             }
           );
         }
@@ -64,7 +64,7 @@ export const MapComponent: React.FC = () => {
     return () => {
       mapEvents.forEach((action) => {
         map.current?.off(action.action, (e) => {
-          action.handler(e, map);
+          action.handler(e, map.current);
         });
       });
     };
