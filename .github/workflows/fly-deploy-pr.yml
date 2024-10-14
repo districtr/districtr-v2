@@ -113,10 +113,10 @@ jobs:
                   echo "Launching app $app."
                   # Run the flyctl launch command
                   flyctl launch \
-                  --no-deploy --copy-config --name "$app" \
-                  --build-arg NEXT_PUBLIC_API_URL="$api_app" \
+                  --no-deploy --copy-config --name "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
+                  --build-arg NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" \
                   --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
-                  --build-secret NEXT_PUBLIC_API_URL="$api_app" \
+                  --build-secret NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" \
                   --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }}
             
                   echo "App $app launched successfully."
@@ -132,7 +132,7 @@ jobs:
                 config="fly.toml"
             
                 # Deploy the app
-                flyctl deploy --config "$config" --app "$app_name" \
+                flyctl deploy --config "$config" --app "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
                 --strategy immediate '--ha=false' \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: app
@@ -143,8 +143,8 @@ jobs:
                 app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
                 api_app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
                 flyctl secrets set \
-                -a "$app_name" \
-                NEXT_PUBLIC_API_URL="$api_app" \
+                -a "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
+                NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
 
 
