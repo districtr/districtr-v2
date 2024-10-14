@@ -322,6 +322,21 @@ def test_patch_assignments(client, document_id):
     assert response.json() == {"assignments_upserted": 3}
 
 
+def test_patch_assignments_nulls(client, document_id):
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": None},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    assert response.json() == {"assignments_upserted": 3}
+
+
 def test_patch_assignments_twice(client, document_id):
     response = client.patch(
         "/api/update_assignments",
@@ -359,6 +374,28 @@ def test_patch_assignments_twice(client, document_id):
     assert data[1]["geo_id"] == "202090434001003"
 
 
+def test_get_document_population_totals_null_assignments(
+    client, document_id, ks_demo_view_census_blocks
+):
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": None},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    assert response.json() == {"assignments_upserted": 3}
+    doc_uuid = str(uuid.UUID(document_id))
+    result = client.get(f"/api/document/{doc_uuid}/total_pop")
+    assert result.status_code == 200
+    data = result.json()
+    assert data == [{"zone": 1, "total_pop": 67}]
+
+
 def test_get_document_population_totals(
     client, assignments_document_id, ks_demo_view_census_blocks
 ):
@@ -367,6 +404,29 @@ def test_get_document_population_totals(
     assert result.status_code == 200
     data = result.json()
     assert data == [{"zone": 1, "total_pop": 67}, {"zone": 2, "total_pop": 130}]
+
+
+def test_get_document_population_totals_null_assignments(
+    client, document_id, ks_demo_view_census_blocks
+):
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": None},
+            ]
+        },
+    )
+    assert response.status_code == 200
+    assert response.json() == {"assignments_upserted": 3}
+
+    doc_uuid = str(uuid.UUID(document_id))
+    result = client.get(f"/api/document/{doc_uuid}/total_pop")
+    assert result.status_code == 200
+    data = result.json()
+    assert data == [{"zone": 1, "total_pop": 67}]
 
 
 def test_get_document_vap_totals(

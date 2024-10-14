@@ -181,12 +181,15 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
             Assignments.document_id,
             ParentChildEdges.parent_path,
         )
+        .join(Document, Assignments.document_id == Document.document_id)
         .join(
-            ParentChildEdges,
-            Assignments.geo_id == ParentChildEdges.child_path,
-            isouter=True,
+            DistrictrMap,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
         )
-        .where(Assignments.document_id == document_id)
+        .outerjoin(ParentChildEdges, Assignments.geo_id == ParentChildEdges.child_path)
+        .where(
+            Assignments.document_id == document_id,
+        )
     )
 
     results = session.exec(stmt)
@@ -222,7 +225,9 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
 async def get_total_population(
     document_id: str, session: Session = Depends(get_session)
 ):
-    stmt = text("SELECT * from get_total_population(:document_id)")
+    stmt = text(
+        "SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL"
+    )
     try:
         result = session.execute(stmt, {"document_id": document_id})
         return [

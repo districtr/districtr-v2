@@ -183,16 +183,16 @@ def delete_parent_child_edges(districtr_map: str):
 @click.option("--name", help="Name of the districtr map", required=True)
 @click.option("--parent-layer-name", help="Parent gerrydb layer name", required=True)
 @click.option("--child-layer-name", help="Child gerrydb layer name", required=False)
-@click.option("--gerrydb-table-name", help="Name of the GerryDB table", required=False)
+@click.option("--gerrydb-table-name", help="Name of the GerryDB table", required=True)
 @click.option("--num-districts", help="Number of districts", required=False)
 @click.option("--tiles-s3-path", help="S3 path to the tileset", required=False)
 def create_districtr_map(
     name: str,
     parent_layer_name: str,
-    child_layer_name: str,
+    child_layer_name: str | None,
     gerrydb_table_name: str,
-    num_districts: int,
-    tiles_s3_path: str,
+    num_districts: int | None,
+    tiles_s3_path: str | None,
 ):
     logger.info("Creating districtr map...")
     session = next(get_session())

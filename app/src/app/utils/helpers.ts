@@ -10,6 +10,7 @@ import {
 import { MutableRefObject } from "react";
 import { Point } from "maplibre-gl";
 import {
+  BLOCK_HOVER_LAYER_ID,
   BLOCK_LAYER_ID,
   BLOCK_LAYER_ID_CHILD,
   BLOCK_SOURCE_ID,
@@ -30,7 +31,7 @@ export type PaintEventHandler = (
   map: React.MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers?: string[]
+  layers?: string[],
 ) => MapGeoJSONFeature[] | undefined;
 
 /**
@@ -59,7 +60,7 @@ export type ContextMenuState = {
  */
 export const boxAroundPoint = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  radius: number
+  radius: number,
 ): [PointLike, PointLike] => {
   return [
     [e.point.x - radius, e.point.y - radius],
@@ -79,7 +80,7 @@ export const getFeaturesInBbox = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
+  layers: string[] = [BLOCK_LAYER_ID],
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
 
@@ -98,7 +99,7 @@ export const getFeaturesIntersectingCounties = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
+  layers: string[] = [BLOCK_LAYER_ID],
 ): MapGeoJSONFeature[] | undefined => {
   if (!map.current) return;
 
@@ -141,7 +142,7 @@ export const getFeaturesIntersectingCounties = (
  * @returns [PointLike, PointLike] - An array containing the SW and NE corners of the bounding box
  */
 const getBoundingBoxFromFeatures = (
-  features: MapGeoJSONFeature[]
+  features: MapGeoJSONFeature[],
 ): [LngLatLike, LngLatLike] | null => {
   if (!features || features.length === 0) {
     return null;
@@ -177,14 +178,14 @@ const getBoundingBoxFromFeatures = (
  */
 export const mousePos = (
   map: MutableRefObject<Map | null>,
-  e: MapLayerMouseEvent | MapLayerTouchEvent
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
 ) => {
   const canvas = map.current?.getCanvasContainer();
   if (!canvas) return new Point(0, 0);
   const rect = canvas.getBoundingClientRect();
   return new Point(
     e.point.x - rect.left - canvas.clientLeft,
-    e.point.y - rect.top - canvas.clientTop
+    e.point.y - rect.top - canvas.clientTop,
   );
 };
 
@@ -207,7 +208,7 @@ export interface LayerVisibility {
  */
 export function toggleLayerVisibility(
   mapRef: MutableRefObject<maplibregl.Map | null>,
-  layerIds: string[]
+  layerIds: string[],
 ): LayerVisibility[] {
   const activeLayerIds = getVisibleLayers(mapRef)?.map((layer) => layer.id);
   if (!activeLayerIds) return [];
@@ -239,8 +240,25 @@ export type ColorZoneAssignmentsState = [
   MapStore["zoneAssignments"],
   MapStore["mapDocument"],
   MapStore["mapRef"],
-  MapStore["shatterIds"]
-]
+  MapStore["shatterIds"],
+  MapStore["appLoadingState"],
+  MapStore["mapRenderingState"],
+];
+
+export const getMap = (_mapRef?: MapStore["mapRef"]) => {
+  const mapRef = _mapRef || useMapStore.getState().mapRef;
+  if (
+    mapRef?.current &&
+    mapRef.current
+      ?.getStyle()
+      .layers.findIndex((layer) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1
+  ) {
+    return null;
+  }
+
+  return mapRef as MutableRefObject<maplibregl.Map>;
+};
+
 /**
  * Assigns colors to zones on the map based on the current zone assignments.
  * This function updates the feature state of map features to reflect their assigned zones.
@@ -262,19 +280,37 @@ export type ColorZoneAssignmentsState = [
  */
 export const colorZoneAssignments = (
   state: ColorZoneAssignmentsState,
-  previousState?: ColorZoneAssignmentsState
+  previousState?: ColorZoneAssignmentsState,
 ) => {
-  const [ zoneAssignments, mapDocument, mapRef] = state
-  const previousZoneAssignments = previousState?.[0] || null
+  const [
+    zoneAssignments,
+    mapDocument,
+    mapRef,
+    _,
+    appLoadingState,
+    mapRenderingState,
+  ] = state;
+  const previousZoneAssignments = previousState?.[0] || null;
 
-  if (!mapRef?.current || !mapDocument) {
+  if (
+    !mapRef?.current ||
+    !mapDocument ||
+    appLoadingState !== "loaded" ||
+    mapRenderingState !== "loaded"
+  ) {
     return;
   }
+  const isInitialRender =
+    previousState?.[4] !== "loaded" || previousState?.[5] !== "loaded";
 
   zoneAssignments.forEach((zone, id) => {
-    if (previousZoneAssignments?.get(id) === zoneAssignments.get(id)){
-      return
+    if (
+      !isInitialRender &&
+      previousZoneAssignments?.get(id) === zoneAssignments.get(id)
+    ) {
+      return;
     }
+
     // This is awful
     // we need information on whether an assignment is parent or child
     const isParent = id.toString().includes("vtd");
@@ -295,7 +331,7 @@ export const colorZoneAssignments = (
       {
         selected: true,
         zone,
-      }
+      },
     );
   });
 };
@@ -310,11 +346,11 @@ export const colorZoneAssignmentTriggers = [
 
 /**
  * Sets zone assignments for child elements based on their parent's assignment.
- * 
+ *
  * @param {MapStore['zoneAssignments']} zoneAssignments - The current map of zone assignments.
  * @param {string} parent - The ID of the parent element.
  * @param {string[]} children - An array of child element IDs.
- * 
+ *
  * @description
  * This function checks if the parent has a zone assignment. If it does:
  * 1. It assigns the parent's zone to all the children.
@@ -322,14 +358,14 @@ export const colorZoneAssignmentTriggers = [
  * This is typically used when "shattering" a parent element into its constituent parts.
  */
 export const setZones = (
-  zoneAssignments: MapStore['zoneAssignments'],
+  zoneAssignments: MapStore["zoneAssignments"],
   parent: string,
-  children: Set<string>
+  children: Set<string>,
 ) => {
   const zone = zoneAssignments.get(parent);
   if (zone) {
     children.forEach((childId) => {
-      zoneAssignments.set(childId, zone)
+      zoneAssignments.set(childId, zone);
     });
     zoneAssignments.delete(parent);
   }
@@ -337,12 +373,12 @@ export const setZones = (
 
 export const shallowCompareArray = (curr: unknown[], prev: unknown[]) => {
   if (curr.length !== prev.length) {
-    return false
+    return false;
   }
-  for (let i=0; i<curr.length;i++){
+  for (let i = 0; i < curr.length; i++) {
     if (curr[i] !== prev[i]) {
-      return false
+      return false;
     }
   }
-  return true
-}
+  return true;
+};

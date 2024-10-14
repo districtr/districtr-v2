@@ -1,9 +1,14 @@
-import { ExpressionSpecification, LayerSpecification } from "maplibre-gl";
+import {
+  ExpressionSpecification,
+  FilterSpecification,
+  LayerSpecification,
+} from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Map } from "maplibre-gl";
 import { getBlocksSource } from "./sources";
-import { DocumentObject } from "../api/apiHandlers";
-import { color10 } from "./colors";
+import { DocumentObject } from "../utils/api/apiHandlers";
+import { MapStore, useMapStore } from "../store/mapStore";
+import { colorScheme } from "./colors";
 
 export const BLOCK_SOURCE_ID = "blocks";
 export const BLOCK_LAYER_ID = "blocks";
@@ -41,10 +46,14 @@ export const COUNTY_LAYER_IDS: string[] = [
 export const LABELS_BREAK_LAYER_ID = "places_subplace";
 
 const colorStyleBaseline: any[] = ["case"];
-export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = color10.reduce((val, color, i) => {
-  val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
-  return val;
-}, colorStyleBaseline);
+
+export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = colorScheme.reduce(
+  (val, color, i) => {
+    val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
+    return val;
+  },
+  colorStyleBaseline
+);
 ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");
 
 // cast the above as an ExpressionSpecification
@@ -52,10 +61,32 @@ ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");
 export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
   ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
+export function getLayerFilter(
+  layerId: string,
+  _shatterIds?: MapStore["shatterIds"]
+) {
+  const shatterIds = _shatterIds || useMapStore.getState().shatterIds;
+  const isChildLayer = CHILD_LAYERS.includes(layerId);
+  const ids = isChildLayer ? shatterIds.children : shatterIds.parents;
+  const cleanIds = Boolean(ids) ? Array.from(ids) : [];
+  const filterBase: FilterSpecification = [
+    "in",
+    ["get", "path"],
+    ["literal", cleanIds],
+  ];
+
+  if (isChildLayer) {
+    return filterBase;
+  }
+  const parentFilter: FilterSpecification = ["!", filterBase];
+  return parentFilter;
+}
+
 export function getBlocksLayerSpecification(
   sourceLayer: string,
   layerId: string,
 ): LayerSpecification {
+  const shatterIds = useMapStore.getState().shatterIds;
   return {
     id: layerId,
     source: BLOCK_SOURCE_ID,
@@ -64,10 +95,7 @@ export function getBlocksLayerSpecification(
     layout: {
       visibility: "visible",
     },
-    filter:
-      layerId === BLOCK_LAYER_ID_CHILD
-        ? ["in", ["get", "path"], ["literal", []]]
-        : ["!", ["in", ["get", "path"], ["literal", []]]],
+    filter: getLayerFilter(layerId),
     paint: {
       "line-opacity": [
         "case",
@@ -92,10 +120,7 @@ export function getBlocksHoverLayerSpecification(
     layout: {
       visibility: "visible",
     },
-    filter:
-      layerId === BLOCK_HOVER_LAYER_ID_CHILD
-        ? ["in", ["get", "path"], ["literal", []]]
-        : ["!", ["in", ["get", "path"], ["literal", []]]],
+    filter: getLayerFilter(layerId),
     paint: {
       "fill-opacity": [
         "case",
@@ -177,9 +202,11 @@ const addBlockLayers = (
       LABELS_BREAK_LAYER_ID,
     );
   }
+  useMapStore.getState().setMapRenderingState("loaded")
 };
 
 export function removeBlockLayers(map: MutableRefObject<Map | null>) {
+  useMapStore.getState().setMapRenderingState("loading")
   if (map.current?.getLayer(BLOCK_LAYER_ID)) {
     map.current?.removeLayer(BLOCK_LAYER_ID);
   }
