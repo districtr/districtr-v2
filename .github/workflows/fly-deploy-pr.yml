@@ -23,24 +23,28 @@ jobs:
             - uses: superfly/flyctl-actions/setup-flyctl@master
             
             
-            # fork new db from existing db
+            # fork new db from existing db if it doesn't already exist
             - name: Fork From DB
               id: fork-db
-              run: |                
-                flyctl postgres create \
-                --name pr-${{ github.event.number }}-db \
-                --region ewr \
-                --initial-cluster-size 1 \
-                --vm-size shared-cpu-2x \
-                -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
-                --org mggg \
-                --fork-from districtr-v2-db 
-                echo "::set-output name=name::pr-${{ github.event.number }}-db"
-                echo "::set-output name=password::$(flyctl postgres credentials pr-${{ github.event.number }}-db | grep Password | awk '{print $2}')"
+              run: |
+              
+                if flyctl postgres list | grep -q pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db; then
+                  echo "DB already exists"
+                else              
+                  flyctl postgres create \
+                  --name pr-${{ github.event.number }}-db \
+                  --region ewr \
+                  --initial-cluster-size 1 \
+                  --vm-size shared-cpu-2x \
+                  -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
+                  --org mggg \
+                  --fork-from districtr-v2-db 
+                  echo "::set-output name=name::${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
+                  echo "::set-output name=password::$(flyctl postgres credentials ${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db | grep Password | awk '{print $2}')"
                 
 
             # manually launch and deploy the api app
-            - name: launch fly api app
+            - name: launch api app
               run: |
                 flyctl launch \
                 --no-deploy --copy-config --name pr-${{ github.event.number }}-api \
@@ -58,7 +62,7 @@ jobs:
                 --build-secret BACKEND_CORS_ORIGINS="https://${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
               working-directory: backend
 
-            - name: deploy fly api app
+            - name: deploy api app
               run: |
                     flyctl deploy \
                     --config fly.toml --app pr-${{ github.event.number }}-api \
@@ -76,7 +80,7 @@ jobs:
               working-directory: backend
 
             # manually launch and deploy the app           
-            - name: Launch Fly App
+            - name: Launch frontend app
               id: launch
               run: |
                 # Set the necessary variables
@@ -95,7 +99,7 @@ jobs:
                 echo "app_name=$app" >> $GITHUB_ENV
               working-directory: app
                 
-            - name: Deploy Fly App
+            - name: Deploy api app
               run: |
                 app_name=${{ env.app_name }}
                 config="fly.toml"
@@ -117,6 +121,12 @@ jobs:
                 -a "$app_name" \
                 NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
+
+
+            - name: run database migrations
+              run: |
+                flyctl ssh connect --app pr-${{ github.event.number }}-api --command "cd /backend && alembic upgrade head"
+              working-directory: backend
 
             # provision appropriately, do not over-resource
             # teardown after done
