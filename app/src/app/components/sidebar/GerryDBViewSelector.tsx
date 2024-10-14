@@ -15,9 +15,9 @@ export function GerryDBViewSelector() {
     queryKey: ["views", limit, offset],
     queryFn: () => getAvailableDistrictrMaps(limit, offset),
   });
-  
+
   const selectedView = data?.find(
-    (view) => view.gerrydb_table_name === mapDocument?.gerrydb_table,
+    (view) => view.gerrydb_table_name === mapDocument?.gerrydb_table
   );
 
   const handleValueChange = (value: string) => {
@@ -40,20 +40,28 @@ export function GerryDBViewSelector() {
   if (isError) return <div>Error loading geographies: {error.message}</div>;
 
   return (
-    <Flex direction={"row"} width="100%" gap="3">
-<Select.Root size="3" onValueChange={handleValueChange} value={selectedView?.name}>
-      <Select.Trigger placeholder="Select a geography" />
-      <Select.Content>
-        <Select.Group>
-          <Select.Label>Districtr map options</Select.Label>
-          {data.map((view, index) => (
-            <Select.Item key={index} value={view.name}>
-              {view.name}
-            </Select.Item>
-          ))}
-        </Select.Group>
-      </Select.Content>
-    </Select.Root>
+    <Flex direction={"row"} width="100%" gap="3" align="center">
+      <Select.Root
+        size="3"
+        onValueChange={handleValueChange}
+        value={selectedView?.name}
+      >
+        <Select.Trigger
+          placeholder="Select a geography"
+          style={{flexGrow: 1}}
+          className="mr-1"
+        />
+        <Select.Content>
+          <Select.Group>
+            <Select.Label>Districtr map options</Select.Label>
+            {data.map((view, index) => (
+              <Select.Item key={index} value={view.name}>
+                {view.name}
+              </Select.Item>
+            ))}
+          </Select.Group>
+        </Select.Content>
+      </Select.Root>
       <RecentMapsModal />
     </Flex>
   );

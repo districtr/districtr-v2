@@ -1,11 +1,10 @@
 import { userMapsLocalStorageKey, useMapStore } from "@/app/store/mapStore";
 import { useLocalStorage } from "@/app/utils/hooks/useLocalStorage";
 import React from "react";
-import * as Dialog from "@radix-ui/react-dialog";
 import { Cross2Icon } from "@radix-ui/react-icons";
-import { Button, Flex, Text } from "@radix-ui/themes";
-import { DocumentObject } from "@/app/api/apiHandlers";
+import { Button, Flex, Text, Table, Dialog } from "@radix-ui/themes";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { DocumentObject } from "../../utils/api/apiHandlers";
 
 export const RecentMapsModal = () => {
   const router = useRouter();
@@ -13,13 +12,17 @@ export const RecentMapsModal = () => {
   const searchParams = useSearchParams();
   const mapDocument = useMapStore((store) => store.mapDocument);
   const setMapDocument = useMapStore((store) => store.setMapDocument);
+  const [dialogOpen, setDialogOpen] = React.useState(false)
 
   const handleMapDocument = (data: DocumentObject) => {
     setMapDocument(data);
     const urlParams = new URLSearchParams(searchParams.toString());
     urlParams.set("document_id", data.document_id);
     router.push(pathname + "?" + urlParams.toString());
+    // close dialog
+    setDialogOpen(false)
   };
+
 
   const [recentMaps] = useLocalStorage<any[]>(
     undefined as any,
@@ -32,16 +35,38 @@ export const RecentMapsModal = () => {
   }
 
   return (
-    <Dialog.Root>
-      <Dialog.Trigger asChild>
-        <Button variant="outline">Recent</Button>
+    <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}> 
+      <Dialog.Trigger>
+        <Button variant="ghost" size="3">
+          Recent
+        </Button>
       </Dialog.Trigger>
-      <Dialog.Portal>
-        <Dialog.Overlay className="bg-black/25 data-[state=open]:animate-overlayShow fixed inset-0" />
-        <Dialog.Content className="data-[state=open]:animate-contentShow fixed top-[50%] left-[50%] max-h-[85vh] w-[90vw] max-w-[450px] translate-x-[-50%] translate-y-[-50%] rounded-[6px] bg-white p-[25px] shadow-[hsl(206_22%_7%_/_35%)_0px_10px_38px_-10px,_hsl(206_22%_7%_/_20%)_0px_10px_20px_-15px] focus:outline-none">
-          <Dialog.Title className="m-0 font-medium">
+      <Dialog.Content>
+        <Flex align="center" className="mb-4">
+          <Dialog.Title className="m-0 text-xl font-bold flex-1">
             Recent Maps
           </Dialog.Title>
+
+          <Dialog.Close
+            className="rounded-full size-[24px] hover:bg-red-100 p-1"
+            aria-label="Close"
+          >
+            <Cross2Icon />
+          </Dialog.Close>
+        </Flex>
+        <Table.Root size="3" variant="surface">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeaderCell pl=".5rem">
+                Map Name
+              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>Last Updated</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>ID</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell></Table.ColumnHeaderCell>
+            </Table.Row>
+          </Table.Header>
+
+          <Table.Body>
             {recentMaps.map((recentMap) => (
               <RecentMapsRow
                 key={recentMap.document_id}
@@ -49,13 +74,9 @@ export const RecentMapsModal = () => {
                 onSelect={handleMapDocument}
               />
             ))}
-          <Dialog.Close asChild>
-            <Button>
-              <Cross2Icon />
-            </Button>
-          </Dialog.Close>
-        </Dialog.Content>
-      </Dialog.Portal>
+          </Table.Body>
+        </Table.Root>
+      </Dialog.Content>
     </Dialog.Root>
   );
 };
@@ -64,21 +85,28 @@ const RecentMapsRow: React.FC<{
   data: DocumentObject;
   onSelect: (data: DocumentObject) => void;
 }> = ({ data, onSelect }) => {
-  const updatedDate =new Date(data.updated_at as string)
-  const formattedData = updatedDate.toLocaleDateString()
+  const updatedDate = new Date(data.updated_at as string);
+  const formattedData = updatedDate.toLocaleDateString();
   return (
-    <Flex direction={"row"} gap="3" width="100%">
-      <div className="pr-4">
+    <Table.Row align="center">
+      <Table.Cell pl=".5rem">
         <Text>{data.gerrydb_table}</Text>
-      </div>
-      <div className="pr-4">
+      </Table.Cell>
+      <Table.Cell>
         <Text>{formattedData}</Text>
-      </div>
-      <div className="pr-4">
+      </Table.Cell>
+      <Table.Cell>
         <Text>{data.document_id.slice(0, 8)}...</Text>
-      </div>
-
-      <button onClick={() => onSelect(data)}>Load</button>
-    </Flex>
+      </Table.Cell>
+      <Table.Cell py=".5rem">
+        <Button
+          onClick={() => onSelect(data)}
+          variant="outline"
+          className="box-content size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
+        >
+          Load
+        </Button>
+      </Table.Cell>
+    </Table.Row>
   );
 };
