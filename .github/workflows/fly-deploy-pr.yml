@@ -75,16 +75,18 @@ jobs:
                   --build-secret BACKEND_CORS_ORIGINS="https://${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
                   echo "App $app launched successfully."
                 fi
+                # Output app name for use in the deploy step
+                echo "api_app_name=$app" >> $GITHUB_ENV
               working-directory: backend
 
             - name: deploy api app
               run: |
                     flyctl deploy \
-                    --config fly.toml --app pr-${{ github.event.number }}-api \
+                    --config fly.toml --app ${{ github.env.api_app_name }} \
                     --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256                   
 
                     flyctl secrets set \
-                    -a pr-${{ github.event.number }}-api \
+                    -a ${{ github.env.api_app_name }} \
                     POSTGRES_SCHEME="postgresql+psycopg" \
                     POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
                     POSTGRES_USER="postgres" \
@@ -117,12 +119,12 @@ jobs:
                 fi
             
                 # Output app name for use in the deploy step
-                echo "app_name=$app" >> $GITHUB_ENV
+                echo "frontend_app_name=$app" >> $GITHUB_ENV
               working-directory: app
           
             - name: Deploy API App
               run: |
-                app_name=${{ env.app_name }}
+                app_name=${{ github.env.frontend_app_name }}
                 config="fly.toml"
             
                 # Deploy the app
@@ -138,7 +140,7 @@ jobs:
             # set secrets for app
             - name: Set App Secrets
               run: |
-                app_name=${{ env.app_name }}
+                app_name=${{ github.env.frontend_app_name }}
                 flyctl secrets set \
                 -a "$app_name" \
                 NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
@@ -147,7 +149,7 @@ jobs:
 
             - name: run database migrations
               run: |
-                flyctl ssh console --app pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api --command "cd /backend && alembic upgrade head"
+                flyctl ssh console --app ${{ github.env.api_app_name }} --command "cd /backend && alembic upgrade head"
               working-directory: backend
 
             # provision appropriately, do not over-resource
