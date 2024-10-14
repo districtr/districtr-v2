@@ -82,7 +82,7 @@ jobs:
             - name: deploy api app
               run: |
                     flyctl deploy \
-                    --config fly.toml --app pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api \
+                    --config fly.toml --app $api_app_name \
                     --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256                   
 
                     flyctl secrets set \
@@ -110,9 +110,9 @@ jobs:
                   # Run the flyctl launch command
                   flyctl launch \
                   --no-deploy --copy-config --name "$app" \
-                  --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
+                  --build-arg NEXT_PUBLIC_API_URL=$api_app_name \
                   --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
-                  --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
+                  --build-secret NEXT_PUBLIC_API_URL=$api_app_name \
                   --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }}
             
                   echo "App $app launched successfully."
@@ -122,7 +122,7 @@ jobs:
                 echo "frontend_app_name=$app" >> $GITHUB_ENV
               working-directory: app
           
-            - name: Deploy API App
+            - name: Deploy Frontend App
               run: |
                 app_name=${{ github.env.frontend_app_name }}
                 config="fly.toml"
@@ -130,10 +130,6 @@ jobs:
                 # Deploy the app
                 flyctl deploy --config "$config" --app "$app_name" \
                 --strategy immediate '--ha=false' \
-                --build-arg NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
-                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
-                --build-secret NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-api.fly.dev \
-                --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: app
           
@@ -143,13 +139,13 @@ jobs:
                 app_name=$frontend_app_name
                 flyctl secrets set \
                 -a "$app_name" \
-                NEXT_PUBLIC_API_URL=https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev \
+                NEXT_PUBLIC_API_URL=$api_app_name \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
 
 
             - name: run database migrations
               run: |
-                flyctl ssh console --app ${{ github.env.api_app_name }} --command "cd /backend && alembic upgrade head"
+                flyctl ssh console --app $api_app_name --command "cd /backend && alembic upgrade head"
               working-directory: backend
 
             # provision appropriately, do not over-resource
