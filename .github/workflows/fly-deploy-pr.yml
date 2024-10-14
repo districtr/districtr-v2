@@ -68,7 +68,7 @@ jobs:
                   --build-arg POSTGRES_PASSWORD="$db_password" \
                   --build-arg POSTGRES_DB="districtr_v2_api" \
                   --build-secret POSTGRES_SCHEME="postgresql+psycopg" \
-                  --build-secret POSTGRES_SERVER="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db.flycast"
+                  --build-secret POSTGRES_SERVER="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db.flycast" \
                   --build-secret POSTGRES_USER="postgres" \
                   --build-secret POSTGRES_PASSWORD="$db_password" \
                   --build-secret POSTGRES_DB="districtr_v2_api" \
