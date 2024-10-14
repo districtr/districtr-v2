@@ -73,6 +73,8 @@ jobs:
                   --build-secret POSTGRES_PASSWORD=${{ github.env.db_password }} \
                   --build-secret POSTGRES_DB="districtr_v2_api" \
                   --build-secret BACKEND_CORS_ORIGINS="https://${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
+                  echo "App $app launched successfully."
+                fi
               working-directory: backend
 
             - name: deploy api app
