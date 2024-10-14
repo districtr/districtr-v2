@@ -41,8 +41,9 @@ jobs:
                   
                   if [ $? -eq 0 ]; then
                     echo "Database created successfully."
-                    echo "db_name=${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db" >> $GITHUB_ENV
-                    echo "db_password=$(flyctl postgres credentials pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db | grep Password | awk '{print $2}')" >> $GITHUB_ENV
+                    echo "::set-output name=db_name::pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
+                    echo "::set-output name=db_password::$(flyctl postgres credentials pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db | grep Password | awk '{print $2}')"
+                    
                   else
                     echo "Failed to create database."
                     exit 1
@@ -65,7 +66,7 @@ jobs:
                   --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
                   --build-arg POSTGRES_SERVER="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db.flycast" \
                   --build-arg POSTGRES_USER="postgres" \
-                  --build-arg POSTGRES_PASSWORD="$db_password" \
+                  --build-arg POSTGRES_PASSWORD=${{steps.fork-db.outputs.db_password}} \
                   --build-arg POSTGRES_DB="districtr_v2_api" \
                   --build-secret POSTGRES_SCHEME="postgresql+psycopg" \
                   --build-secret POSTGRES_SERVER="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db.flycast" \
@@ -137,7 +138,7 @@ jobs:
             # set secrets for app
             - name: Set App Secrets
               run: |
-                app_name="$frontend_app_name"
+                app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
                 api_app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
                 flyctl secrets set \
                 -a "$app_name" \
