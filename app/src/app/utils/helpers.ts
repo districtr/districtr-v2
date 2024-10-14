@@ -178,7 +178,7 @@ export const mousePos = (
   map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
 ) => {
-  const canvas = map.current?.getCanvasContainer();
+  const canvas = map?.getCanvasContainer();
   if (!canvas) return new Point(0, 0);
   const rect = canvas.getBoundingClientRect();
   return new Point(

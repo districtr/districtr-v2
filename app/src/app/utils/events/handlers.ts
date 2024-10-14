@@ -42,32 +42,30 @@ export const SelectMapFeatures = (
   map: Map | null,
   mapStoreRef: MapStore,
 ) => {
-  if (!map) {
-    return
-  }
+  if (map) {
+    let {
+      accumulatedGeoids,
+      accumulatedBlockPopulations,
+      activeTool,
+    } = mapStoreRef;
+    const selectedZone = activeTool === 'eraser' ? null : mapStoreRef.selectedZone
 
-  let {
-    accumulatedGeoids,
-    accumulatedBlockPopulations,
-    activeTool,
-  } = mapStoreRef;
-  const selectedZone = activeTool === 'eraser' ? null : mapStoreRef.selectedZone
-
-  features?.forEach((feature) => {
-    map.setFeatureState(
-      {
-        source: BLOCK_SOURCE_ID,
-        id: feature?.id ?? undefined,
-        sourceLayer: feature.sourceLayer,
-      },
-      { selected: true, zone: selectedZone },
-    );
-  });
-  if (features?.length) {
-    features.forEach((feature) => {
-      accumulatedGeoids.push(feature.properties?.path);
-      accumulatedBlockPopulations[feature.properties?.path] = feature.properties?.total_pop
+    features?.forEach((feature) => {
+      map.setFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          id: feature?.id ?? undefined,
+          sourceLayer: feature.sourceLayer,
+        },
+        { selected: true, zone: selectedZone },
+      );
     });
+    if (features?.length) {
+      features.forEach((feature) => {
+        accumulatedGeoids.push(feature.properties?.path);
+        accumulatedBlockPopulations[feature.properties?.path] = feature.properties?.total_pop
+      });
+    }
   }
   return new Promise<void>((resolve) => {
     // Resolve the Promise after the function completes

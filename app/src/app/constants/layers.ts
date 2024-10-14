@@ -164,7 +164,7 @@ export function getBlocksHoverLayerSpecification(
 }
 
 const addBlockLayers = (
-  map: Map | null,
+  map: Map,
   mapDocument: DocumentObject,
 ) => {
   if (!map || !mapDocument.tiles_s3_path) {
@@ -204,7 +204,7 @@ const addBlockLayers = (
   useMapStore.getState().setMapRenderingState("loaded")
 };
 
-export function removeBlockLayers(map: Map | null) {
+export function removeBlockLayers(map: Map) {
   useMapStore.getState().setMapRenderingState("loading")
   if (map.getLayer(BLOCK_LAYER_ID)) {
     map.removeLayer(BLOCK_LAYER_ID);

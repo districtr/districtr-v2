@@ -52,7 +52,7 @@ export const handleMapClick = (
       paintLayers,
     );
 
-    if (sourceLayer && selectedFeatures && map && mapStore) {
+    if (sourceLayer && selectedFeatures?.length && map && mapStore) {
       // select on both the map object and the store
       SelectMapFeatures(selectedFeatures, map, mapStore).then(() => {
         SelectZoneAssignmentFeatures(mapStore);
