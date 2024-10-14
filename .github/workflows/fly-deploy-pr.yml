@@ -62,17 +62,16 @@ jobs:
                   flyctl launch \
                   --no-deploy --copy-config --name pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api \
                   --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
-                  --build-arg POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
+                  --build-arg POSTGRES_SERVER="$db_name.flycast" \
                   --build-arg POSTGRES_USER="postgres" \
-                  --build-arg POSTGRES_PASSWORD=${{ github.env.db_password }} \
-                  --build-arg POSTGRES_DB="districtr_v2_api" \
-                  --build-arg BACKEND_CORS_ORIGINS=[${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000] \
+                  --build-arg POSTGRES_PASSWORD=$db_password \
+                  --build-arg POSTGRES_DB="districtr_v2_api" \                  
                   --build-secret POSTGRES_SCHEME="postgresql+psycopg" \
-                  --build-secret POSTGRES_SERVER="${{ github.env.db_name }}.flycast" \
+                  --build-secret POSTGRES_SERVER="$db_name.flycast" \
                   --build-secret POSTGRES_USER="postgres" \
-                  --build-secret POSTGRES_PASSWORD=${{ github.env.db_password }} \
+                  --build-secret POSTGRES_PASSWORD=$db_password \
                   --build-secret POSTGRES_DB="districtr_v2_api" \
-                  --build-secret BACKEND_CORS_ORIGINS="https://${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
+                  --build-secret BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
                   echo "App $app launched successfully."
                 fi
                 # Output app name for use in the deploy step
@@ -124,7 +123,7 @@ jobs:
           
             - name: Deploy Frontend App
               run: |
-                app_name=${{ github.env.frontend_app_name }}
+                app_name=$frontend_app_name
                 config="fly.toml"
             
                 # Deploy the app
@@ -145,7 +144,7 @@ jobs:
 
             - name: run database migrations
               run: |
-                flyctl ssh console --app $api_app_name --command "cd /backend && alembic upgrade head"
+                flyctl ssh console --app $api_app_name --command "alembic upgrade head"
               working-directory: backend
 
             # provision appropriately, do not over-resource
