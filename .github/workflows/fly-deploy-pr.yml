@@ -62,14 +62,14 @@ jobs:
                   flyctl launch \
                   --no-deploy --copy-config --name pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api \
                   --build-arg POSTGRES_SCHEME="postgresql+psycopg" \
-                  --build-arg POSTGRES_SERVER="$db_name.flycast" \
+                  --build-arg POSTGRES_SERVER="${{github.env.db_name}}.flycast" \
                   --build-arg POSTGRES_USER="postgres" \
-                  --build-arg POSTGRES_PASSWORD=$db_password \
+                  --build-arg POSTGRES_PASSWORD="$db_password" \
                   --build-arg POSTGRES_DB="districtr_v2_api" \                  
                   --build-secret POSTGRES_SCHEME="postgresql+psycopg" \
-                  --build-secret POSTGRES_SERVER="$db_name.flycast" \
+                  --build-secret POSTGRES_SERVER="${{github.env.db_name}}.flycast" \
                   --build-secret POSTGRES_USER="postgres" \
-                  --build-secret POSTGRES_PASSWORD=$db_password \
+                  --build-secret POSTGRES_PASSWORD="$db_password" \
                   --build-secret POSTGRES_DB="districtr_v2_api" \
                   --build-secret BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev,https://districtr-v2-api.fly.dev,http://localhost:3000"
                   echo "App $app launched successfully."
