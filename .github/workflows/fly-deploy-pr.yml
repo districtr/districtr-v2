@@ -138,7 +138,7 @@ jobs:
             - name: Set App Secrets
               run: |
                 app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
-                api_app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev"
+                api_app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
                 flyctl secrets set \
                 -a "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
                 NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
