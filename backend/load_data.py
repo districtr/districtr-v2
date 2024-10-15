@@ -1,7 +1,7 @@
 import subprocess
 from os import environ, path
 import json  # Assuming this import is needed for the JSON operations
-import inspect
+
 # TODO refactor to these utilities
 # from app.utils import create_parent_child_edges, create_districtr_map, create_shatterable_gerrydb_view
 from app.main import get_session
@@ -10,7 +10,7 @@ from sqlalchemy import text  # Add this import at the top of the file
 # Optionally, set a data directory to load in
 DATA_DIR = environ.get("GPKG_DATA_DIR", "sample_data")
 # flag to load data, by default, will load data
-LOAD_DATA = environ.get("LOAD_GERRY_DB_DATA", "false").lower() == 'true'
+LOAD_DATA = environ.get("LOAD_GERRY_DB_DATA", "false").lower() == "true"
 
 
 def load_sample_data(config):
@@ -45,10 +45,14 @@ def load_sample_data(config):
 
     for view in config["shatterable_views"]:
         session = next(get_session())
-        exists_query = text(f"SELECT EXISTS (SELECT 1 FROM pg_matviews WHERE matviewname = '{view['gerrydb_table_name']}')")
+        exists_query = text(
+            f"SELECT EXISTS (SELECT 1 FROM pg_matviews WHERE matviewname = '{view['gerrydb_table_name']}')"
+        )
         result = session.execute(exists_query).scalar()
         if result:
-            print(f"###\nMaterialized view {view['gerrydb_table_name']} already exists.\n###")
+            print(
+                f"###\nMaterialized view {view['gerrydb_table_name']} already exists.\n###"
+            )
         else:
             subprocess.run(
                 [
@@ -66,8 +70,10 @@ def load_sample_data(config):
 
     for view in config["districtr_map"]:
         session = next(get_session())
-        name = view['name']
-        exists_query = text(f"SELECT count(*) FROM public.districtrmap WHERE name = '{name}'")
+        name = view["name"]
+        exists_query = text(
+            f"SELECT count(*) FROM public.districtrmap WHERE name = '{name}'"
+        )
         result = session.execute(exists_query).scalar()
 
         if result > 0:
@@ -100,6 +106,7 @@ def load_sample_data(config):
                 ]
             )
 
+
 if __name__ == "__main__":
     # Correctly open the config.json file and read its contents
     with open(path.join(DATA_DIR, "config.json")) as config_file:
@@ -108,4 +115,6 @@ if __name__ == "__main__":
     if LOAD_DATA:
         load_sample_data(config)
     else:
-        print("App startup will not perform data loading.\nTo load, run `export LOAD_GERRY_DB_DATA='True' && python3 load_data.py`\nor change the environment variable in `docker-compose.yml`")
+        print(
+            "App startup will not perform data loading.\nTo load, run `export LOAD_GERRY_DB_DATA='True' && python3 load_data.py`\nor change the environment variable in `docker-compose.yml`"
+        )
