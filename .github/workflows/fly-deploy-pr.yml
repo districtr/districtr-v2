@@ -22,6 +22,26 @@ jobs:
             - uses: superfly/flyctl-actions/setup-flyctl@master
             
             
+            - name: Destroy Resources
+              if: github.event.action == 'closed'
+              run: |
+                app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
+                frontend_app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
+                db_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
+                
+                echo "Destroying app $app_name"
+                flyctl apps destroy "$app_name"
+
+                echo "Destroying frontend app $frontend_app_name"
+                flyctl apps destroy "$frontend_app_name"
+
+                echo "Destroying database $db_name"
+                flyctl postgres destroy "$db_name"
+                
+                echo "Resources for PR #${{ github.event.number }} have been destroyed."
+              env:
+                FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOKEN }}
+
             # fork new db from existing db if it doesn't already exist
             - name: Fork From DB
               id: fork-db
@@ -140,6 +160,4 @@ jobs:
               working-directory: backend
 
             # provision appropriately, do not over-resource
-            # teardown after done
             # make volume like two gb
-            # if frontend only, only connect to stage db and stage api
