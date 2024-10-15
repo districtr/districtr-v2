@@ -1,6 +1,7 @@
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { MapModeSelector } from "./MapModeSelector";
 import { ColorPicker } from "./ColorPicker";
+import { MobileColorPicker } from "./MobileColorPicker"
 import { ResetMapButton } from "./ResetMapButton";
 import { GerryDBViewSelector } from "./GerryDBViewSelector";
 import { useMapStore } from "@/app/store/mapStore";
@@ -26,15 +27,22 @@ export default function SidebarComponent() {
         <GerryDBViewSelector />
         <MapModeSelector />
         {activeTool === "brush" || activeTool === "eraser" ? (
-          <div>
+          <Flex gap={{initial: "4", md: "0"}} direction={{initial: "row-reverse", md: "column"}} content="around">
+            <div className="flex-grow">
             <BrushSizeSelector />
             <PaintByCounty />{" "}
-          </div>
-        ) : null}
-        {activeTool === "brush" ? (
-          <div>
-            <ColorPicker />
-          </div>
+            </div>
+            {activeTool === "brush" ? (
+              <div className="flex-grow-0">
+              <span className="hidden md:block">
+                <ColorPicker />
+              </span>
+              <span className="md:hidden">
+                <MobileColorPicker />
+              </span>
+              </div>
+            ) : null}
+          </Flex>
         ) : null}
         <ResetMapButton />
         <Box
