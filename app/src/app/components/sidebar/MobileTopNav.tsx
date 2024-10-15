@@ -13,7 +13,7 @@ const MobileTopNav = () => {
 
   return (
     <Box
-      className="w-full z-10 shadow-md flex-none relative"
+      className="w-full bg-white z-10 shadow-md flex-none relative landscape:w-0"
       ref={boxRef}
       display={{
         initial: "block",
@@ -21,14 +21,25 @@ const MobileTopNav = () => {
       }}
     >
       <Flex direction="row" gap="1" align="center" justify={"between"} pr="3">
-        <Heading as="h3" size="3" className="border-r-2 p-3 flex-none">
+        <Heading
+          as="h3"
+          size="3"
+          className="border-r-2 p-3 flex-none landscape:hidden"
+        >
           Districtr
         </Heading>
-        <Flex align="center">
+        <Flex
+          align="center"
+          className="landscape:z-50 landscape:bg-white landscape:absolute landscape:top-1 landscape:left-1 landscape:w-auto"
+        >
           <Button
             onClick={handleToggleDataPanel}
             variant="outline"
             color={dataPanelOpen ? "indigo" : "gray"}
+            className="landscape:bg-white"
+            style={{
+              background: "white",
+            }}
           >
             <GearIcon fill={dataPanelOpen ? "indigo" : "gray"} />
             Reports & Settings
@@ -49,13 +60,7 @@ const MobileTopNav = () => {
       </Flex>
       {dataPanelOpen && (
         <Box
-          width={"100%"}
-          height={`calc(100vh - ${topBarHeight}px`}
-          top={`100%`}
-          position={"absolute"}
-          p="3"
-          className="z-20 bg-white border-t-2"
-          overflowY={"auto"}
+          className={`absolute p-4 z-20 bg-white border-t-2 w-full top-[100%] h-[calc(100vh - ${topBarHeight}px] overflow-y-auto landscape:w-[100vw] landscape:top-0 landscape:pt-12`}
         >
           <DataPanels />
         </Box>
