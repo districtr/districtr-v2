@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { document } from "@/app/utils/api/mutations";
 
 export function GerryDBViewSelector() {
-  const [limit, setLimit] = useState<number>(20);
+  const [limit, setLimit] = useState<number>(30);
   const [offset, setOffset] = useState<number>(0);
   const mapDocument = useMapStore((state) => state.mapDocument);
 
