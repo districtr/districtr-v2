@@ -1,12 +1,17 @@
 import { QueryObserver, skipToken } from "@tanstack/react-query";
 import { queryClient } from "./queryClient";
 import {
+  DistrictrMap,
   DocumentObject,
+  getAvailableDistrictrMaps,
   getDocument,
   getZonePopulations,
   ZonePopulation,
 } from "./apiHandlers";
 import { useMapStore } from "@/app/store/mapStore";
+
+const INITIAL_VIEW_LIMIT = 30
+const INITIAL_VIEW_OFFSET = 0
 
 export const mapMetrics = new QueryObserver<ZonePopulation[]>(queryClient, {
   queryKey: ["_zonePopulations"],
@@ -20,9 +25,31 @@ export const updateMapMetrics = (mapDocument: DocumentObject) => {
   });
 };
 
+
 mapMetrics.subscribe((result) => {
   useMapStore.getState().setMapMetrics(result);
 });
+
+export const mapViewsQuery = new QueryObserver<DistrictrMap[]>(queryClient, {
+  queryKey: ["views", INITIAL_VIEW_LIMIT, INITIAL_VIEW_OFFSET],
+  queryFn: () => getAvailableDistrictrMaps(INITIAL_VIEW_LIMIT, INITIAL_VIEW_OFFSET),
+});
+
+export const updateMapViews = (limit: number, offset: number) => {
+  mapViewsQuery.setOptions({
+    queryKey: ["views", limit, offset],
+    queryFn: () => getAvailableDistrictrMaps(limit, offset),
+  });
+};
+
+export const getMapViewsSubs = (_useMapStore: typeof useMapStore) => {
+  mapViewsQuery.subscribe((result) => {
+    if (result) {
+      _useMapStore.getState().setMapViews(result)
+    }
+  })
+}
+
 
 export const updateDocumentFromId = new QueryObserver<DocumentObject | null>(
   queryClient,
