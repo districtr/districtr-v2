@@ -21,7 +21,13 @@ jobs:
             - uses: actions/checkout@v3
             - uses: superfly/flyctl-actions/setup-flyctl@master
             
-            
+            # Set up common variables
+            - name: Set Variables
+              run: |
+                echo "db_name=pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db" >> $GITHUB_ENV
+                echo "api_app_name=pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" >> $GITHUB_ENV
+                echo "frontend_app_name=pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" >> $GITHUB_ENV
+
             - name: Destroy Resources
               if: github.event.action == 'closed'
               run: |
@@ -120,9 +126,9 @@ jobs:
                   # Run the flyctl launch command
                   flyctl launch \
                   --no-deploy --copy-config --name "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
-                  --build-arg NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
+                  --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
                   --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
-                  --build-secret NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
+                  --build-secret NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
                   --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }}
             
                   echo "App $app launched successfully."
@@ -148,7 +154,7 @@ jobs:
               run: |
                 flyctl secrets set \
                 -a "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
-                NEXT_PUBLIC_API_URL="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
+                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
 
 
