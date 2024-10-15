@@ -59,7 +59,7 @@ jobs:
                   --name pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db \
                   --region ewr \
                   --initial-cluster-size 1 \
-                  --vm-size shared-cpu-2x \        
+                  --vm-size shared-cpu-2x \
                   -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
                   --org mggg \
                   --fork-from districtr-v2-db
