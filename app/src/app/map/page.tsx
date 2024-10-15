@@ -12,7 +12,7 @@ export default function Map() {
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
-        <div className="h-screen w-screen flex justify-between p flex-col-reverse lg:flex-row-reverse">
+        <div className="h-screen w-screen flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
           <SidebarComponent />
           <MapComponent />
           <MobileTopNav />
