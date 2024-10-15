@@ -10,6 +10,7 @@ const MobileTopNav = () => {
   const boxRef = useRef<HTMLDivElement>(null);
   const topBarHeight =
     boxRef.current?.getClientRects()?.[0]?.height || 44.90625;
+  const isLandscape = window.matchMedia("(orientation: landscape)").matches;
 
   return (
     <Box
@@ -60,7 +61,10 @@ const MobileTopNav = () => {
       </Flex>
       {dataPanelOpen && (
         <Box
-          className={`absolute p-4 z-20 bg-white border-t-2 w-full top-[100%] h-[calc(100vh - ${topBarHeight}px] overflow-y-auto landscape:w-[100vw] landscape:top-0 landscape:pt-12`}
+          className={`absolute p-4 z-20 bg-white border-t-2 w-full top-[100%] overflow-y-auto landscape:w-[100vw] landscape:top-0 landscape:pt-12 landscape:h-[100vh]`}
+          style={{
+            height: isLandscape ? undefined : `calc(100vh - ${topBarHeight}px)`,
+          }}
         >
           <DataPanels />
         </Box>
