@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Flex, Select } from "@radix-ui/themes";
 import { getAvailableDistrictrMaps } from "../../utils/api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
@@ -10,11 +10,8 @@ export function GerryDBViewSelector() {
   const [limit, setLimit] = useState<number>(20);
   const [offset, setOffset] = useState<number>(0);
   const mapDocument = useMapStore((state) => state.mapDocument);
-
-  const { isPending, isError, data, error } = useQuery({
-    queryKey: ["views", limit, offset],
-    queryFn: () => getAvailableDistrictrMaps(limit, offset),
-  });
+  const mapViews = useMapStore((state) => state.mapViews);
+  const { isPending, isError, data, error } = mapViews || {};
 
   const selectedView = data?.find(
     (view) => view.gerrydb_table_name === mapDocument?.gerrydb_table
@@ -37,7 +34,7 @@ export function GerryDBViewSelector() {
 
   if (isPending) return <div>Loading geographies... 🌎</div>;
 
-  if (isError) return <div>Error loading geographies: {error.message}</div>;
+  if (isError) return <div>Error loading geographies: {error?.message}</div>;
 
   return (
     <Flex direction={"row"} width="100%" gap="3" align="center">
@@ -48,13 +45,13 @@ export function GerryDBViewSelector() {
       >
         <Select.Trigger
           placeholder="Select a geography"
-          style={{flexGrow: 1}}
+          style={{ flexGrow: 1 }}
           className="mr-1"
         />
         <Select.Content>
           <Select.Group>
             <Select.Label>Districtr map options</Select.Label>
-            {data.map((view, index) => (
+            {data?.map((view, index) => (
               <Select.Item key={index} value={view.name}>
                 {view.name}
               </Select.Item>

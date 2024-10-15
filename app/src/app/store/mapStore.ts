@@ -9,12 +9,13 @@ import type {
 import { Zone, GDBPath } from "../constants/types";
 import {
   Assignment,
+  DistrictrMap,
   DocumentObject,
   ZonePopulation,
 } from "../utils/api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
-import { UseQueryResult } from "@tanstack/react-query";
+import { QueryObserverResult, UseQueryResult } from "@tanstack/react-query";
 import {
   ContextMenuState,
   LayerVisibility,
@@ -27,6 +28,8 @@ import { patchShatter } from "../utils/api/mutations";
 import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
 import { getMapMetricsSubs } from "./metricsSubs";
 import { getMapEditSubs } from "./mapEditSubs";
+import { getMapViewsSubs } from "../utils/api/queries";
+import { getLocalCacheSubs } from "./localCacheSubs";
 
 export interface MapStore {
   appLoadingState: "loaded" | "initializing" | "loading";
@@ -37,6 +40,8 @@ export interface MapStore {
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
+  mapViews: Partial<QueryObserverResult<DistrictrMap[], Error>>;
+  setMapViews: (maps: MapStore["mapViews"]) => void;
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
   shatterIds: {
@@ -91,11 +96,11 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 }
 
-const initialLoadingState = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has(
-  "document_id"
-)
-  ? "loading"
-  : "initializing";
+const initialLoadingState =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).has("document_id")
+    ? "loading"
+    : "initializing";
 
 export const useMapStore = create(
   subscribeWithSelector<MapStore>((set, get) => ({
@@ -114,6 +119,8 @@ export const useMapStore = create(
       }),
     mapLock: false,
     setMapLock: (mapLock) => set({ mapLock }),
+    mapViews: { isPending: true },
+    setMapViews: (mapViews) => set({ mapViews }),
     mapDocument: null,
     setMapDocument: (mapDocument) =>
       set((state) => {
@@ -155,8 +162,9 @@ export const useMapStore = create(
       newParent.forEach((parent) => existingParents.add(parent));
       // there may be a faster way to do this
       [newChildren].forEach(
-        (children) => existingChildren = new Set([...existingChildren, ...children])
-      )
+        (children) =>
+          (existingChildren = new Set([...existingChildren, ...children]))
+      );
 
       set({
         shatterIds: {
@@ -183,7 +191,8 @@ export const useMapStore = create(
       newParent.forEach((parent) => existingParents.add(parent));
       // there may be a faster way to do this
       newChildren.forEach(
-        (children) => existingChildren = new Set([...existingChildren, ...children])
+        (children) =>
+          (existingChildren = new Set([...existingChildren, ...children]))
       );
 
       set({
@@ -309,35 +318,7 @@ export const useMapStore = create(
 // these need to initialize after the map store
 getRenderSubscriptions(useMapStore);
 getMapMetricsSubs(useMapStore);
+getMapViewsSubs(useMapStore);
 getMapEditSubs(useMapStore);
+getLocalCacheSubs(useMapStore);
 getSearchParamsObersver();
-
-
-export const userMapsLocalStorageKey = "districtr-maps";
-const _localStorageMapDocuments = useMapStore.subscribe<
-  MapStore["mapDocument"]
->(
-  (state) => state.mapDocument,
-  (mapDocument) => {
-    if (!mapDocument || !mapDocument.document_id) {
-      return;
-    }
-
-    let districtrMaps = JSON.parse(
-      localStorage.getItem(userMapsLocalStorageKey) || "[]"
-    ) as DocumentObject[];
-
-    const documentIndex = districtrMaps.findIndex(
-      (f) => f.document_id === mapDocument.document_id
-    );
-    if (documentIndex !== -1) {
-      districtrMaps[documentIndex] = mapDocument;
-    } else {
-      districtrMaps = [mapDocument, ...districtrMaps];
-    }
-    localStorage.setItem(
-      userMapsLocalStorageKey,
-      JSON.stringify(districtrMaps)
-    );
-  }
-);
