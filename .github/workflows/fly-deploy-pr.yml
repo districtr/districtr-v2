@@ -60,6 +60,7 @@ jobs:
                   --region ewr \
                   --initial-cluster-size 1 \
                   --vm-size shared-cpu-2x \
+                  --volume-size 1 \
                   -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
                   --org mggg \
                   --fork-from districtr-v2-db
@@ -149,7 +150,7 @@ jobs:
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: app
           
-            # set secrets for app
+            # set secrets for f/e app
             - name: Set App Secrets
               run: |
                 flyctl secrets set \
@@ -167,4 +168,3 @@ jobs:
 
             # provision appropriately, do not over-resource
             # make volume like two gb
-            
