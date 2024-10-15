@@ -31,9 +31,9 @@ BEGIN
 
     sql_query := format('
         CREATE MATERIALIZED VIEW gerrydb.%I AS
-        SELECT %L FROM gerrydb.%I
+        SELECT %s FROM gerrydb.%I
         UNION ALL
-        SELECT %L
+        SELECT %s
         FROM gerrydb.%I
     ', gerrydb_table_name, col_list, parent_gerrydb_table_name, col_list, child_gerrydb_table_name);
 

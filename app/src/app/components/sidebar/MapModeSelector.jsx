@@ -15,7 +15,7 @@ export function MapModeSelector() {
   const activeTools = [
     { mode: "pan", disabled: false, label: "Pan", icon: <HandIcon /> },
     { mode: "brush", disabled: false, label: "Brush", icon: <Pencil2Icon /> },
-    { mode: "erase", disabled: true, label: "Erase", icon: <EraserIcon /> },
+    { mode: "eraser", disabled: false, label: "Erase", icon: <EraserIcon /> },
   ];
 
   const handleRadioChange = (value) => {

@@ -4,12 +4,10 @@ import { MapContextMenu } from "../components/ContextMenu";
 import { MapComponent } from "../components/Map";
 import SidebarComponent from "../components/sidebar/Sidebar";
 import MobileTopNav from "../components/sidebar/MobileTopNav";
-import { QueryClient } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Portal } from "@radix-ui/themes";
+import { queryClient } from "../utils/api/queryClient";
 
 export default function Map() {
-  const queryClient = new QueryClient();
 
   if (queryClient) {
     return (

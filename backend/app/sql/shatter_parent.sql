@@ -26,12 +26,12 @@ BEGIN
         INSERT INTO document.assignments (document_id, geo_id, zone)
         SELECT $1, child_geoids.child_path, child_geoids.zone
         FROM (
-            SELECT a.document_id, edges.child_path, a.zone
-            FROM document.assignments a
-            INNER JOIN parentchildedges edges
+            SELECT $1 as document_id, edges.child_path, a.zone
+            FROM parentchildedges edges
+            LEFT JOIN document.assignments a
             ON edges.parent_path = a.geo_id
-            WHERE a.document_id = $1
-                AND a.geo_id = ANY(parent_geoids)
+                AND a.document_id = $1
+            WHERE edges.parent_path = ANY(parent_geoids)
                 AND edges.districtr_map = districtr_map_uuid
         ) child_geoids
         ON CONFLICT (document_id, geo_id) DO UPDATE SET zone = EXCLUDED.zone
