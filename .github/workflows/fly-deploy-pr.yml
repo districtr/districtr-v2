@@ -148,7 +148,7 @@ jobs:
                 --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
                 --build-secret NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
-                --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }}
+                --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
                 --strategy immediate '--ha=false' \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: app
