@@ -7,7 +7,8 @@ export const MapContextMenu: React.FC = () => {
   const contextMenu = useMapStore((state) => state.contextMenu);
   const handleShatter = useMapStore((state) => state.handleShatter);
   if (!contextMenu) return null;
-  const onClick = () => {
+
+  const handleSelect = () => {
     if (!mapDocument || contextMenu?.data?.id === undefined) return;
     handleShatter(mapDocument.document_id, [contextMenu.data.id.toString()]);
     contextMenu.close();
@@ -40,7 +41,7 @@ export const MapContextMenu: React.FC = () => {
         )}
         <ContextMenu.Item
           disabled={!mapDocument?.child_layer}
-          onClick={onClick}
+          onSelect={handleSelect}
         >
           Shatter
         </ContextMenu.Item>
