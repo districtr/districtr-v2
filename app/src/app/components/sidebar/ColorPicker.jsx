@@ -30,7 +30,7 @@ export function ColorPicker() {
     <div>
       <RadioGroupRoot
         onValueChange={handleRadioChange}
-        defaultValue={colorArray[0]}
+        defaultValue={selectedZone}
       >
         {colorArray.map((color, i) => (
           <RadioGroupItem
