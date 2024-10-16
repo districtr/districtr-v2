@@ -198,6 +198,17 @@ export interface AssignmentsCreate {
 }
 
 /**
+ * Reset assignments response
+ *   @interface
+*    @property {boolean} success - Confirming if the operation succeeded
+ *   @property {string} document_id - Document ID where assignments were dropped
+ */
+export interface AssignmentsReset {
+  success: boolean;
+  document_id: string;
+}
+
+/**
  *
  * @param assignments
  * @returns server object containing the updated assignments per geoid
@@ -208,6 +219,23 @@ export const patchUpdateAssignments: (
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
+    })
+    .then((res) => {
+      return res.data;
+    });
+};
+
+/**
+ *
+ * @param assignments
+ * @returns server object containing the updated assignments per geoid
+ */
+export const patchUpdateReset: (
+  document_id: string,
+) => Promise<AssignmentsReset> = async (document_id) => {
+  return await axios
+    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/reset`, {
+      document_id
     })
     .then((res) => {
       return res.data;
