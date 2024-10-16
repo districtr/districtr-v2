@@ -4,7 +4,7 @@ import { useMapStore } from "@/app/store/mapStore";
 
 export const FormatAssignments = () => {
   const assignments = Array.from(
-    Object.entries(useMapStore.getState().zoneAssignments),
+    useMapStore.getState().zoneAssignments.entries(),
   ).map(
     // @ts-ignore
     ([geo_id, zone]: [string, number]): {

@@ -12,7 +12,7 @@ import { MapStore } from "@/app/store/mapStore";
  * @returns void - but updates the zoneAssignments and zonePopulations in the store
  */
 const debouncedSetZoneAssignments = debounce(
-  (mapStoreRef: MapStore, selectedZone: NullableZone, geoids: Array<string>) => {
+  (mapStoreRef: MapStore, selectedZone: NullableZone, geoids: Set<string>) => {
     mapStoreRef.setZoneAssignments(selectedZone, geoids);
 
     const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
@@ -60,9 +60,8 @@ export const SelectMapFeatures = (
     });
     if (features?.length) {
       features.forEach((feature) => {
-        accumulatedGeoids.push(feature.properties?.path);
-        accumulatedBlockPopulations[feature.properties?.path] =
-          feature.properties?.total_pop;
+        accumulatedGeoids.add(feature.properties?.path);
+        accumulatedBlockPopulations.set(feature.properties?.path, feature.properties?.total_pop)
       });
     }
   }
@@ -82,7 +81,7 @@ export const SelectMapFeatures = (
  * */
 export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
   const accumulatedGeoids = mapStoreRef.accumulatedGeoids;
-  if (accumulatedGeoids?.length) {
+  if (accumulatedGeoids?.size) {
     debouncedSetZoneAssignments(
       mapStoreRef,
       mapStoreRef.activeTool === "brush" ? mapStoreRef.selectedZone : null,

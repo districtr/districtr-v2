@@ -15,7 +15,7 @@ const zoneUpdates = ({
 }: Partial<MapStore>) => {
   if (
     getMapRef?.() &&
-    (zoneAssignments && Object.keys(zoneAssignments)?.length) &&
+    (zoneAssignments?.size) &&
     appLoadingState === "loaded"
   ) {
     const assignments = FormatAssignments();
