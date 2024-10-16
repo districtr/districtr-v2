@@ -70,7 +70,12 @@ export const RecentMapsModal = () => {
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <Dialog.Trigger>
-        <Button variant="ghost" size="3">
+        <Button
+          variant="ghost"
+          size="3"
+          // weird negative margin happening.
+          style={{ margin: 0 }}
+        >
           Recent
         </Button>
       </Dialog.Trigger>
