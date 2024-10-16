@@ -289,6 +289,7 @@ export const colorZoneAssignments = (
   ] = state;
   const previousZoneAssignments = previousState?.[0] || null;
   const mapRef = getMapRef()
+  const shatterIds = useMapStore.getState().shatterIds
   if (
     !mapRef ||
     !mapDocument ||
@@ -308,10 +309,8 @@ export const colorZoneAssignments = (
       return;
     }
 
-    // This is awful
-    // we need information on whether an assignment is parent or child
-    const isParent = id?.toString().includes("vtd");
-    const sourceLayer = isParent
+    const isChild = shatterIds.children.has(id)
+    const sourceLayer = isChild
       ? mapDocument.parent_layer
       : mapDocument.child_layer;
 
@@ -359,12 +358,12 @@ export const setZones = (
   parent: string,
   children: Set<string>,
 ) => {
-  const zone = zoneAssignments.get(parent)
+  const zone = zoneAssignments.get(parent);
   if (zone) {
     children.forEach((childId) => {
-      zoneAssignments.set(childId, zone)
+      zoneAssignments.set(childId, zone);
     });
-    zoneAssignments.set(parent, null)
+    zoneAssignments.delete(parent);
   }
 };
 
