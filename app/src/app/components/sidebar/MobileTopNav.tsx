@@ -10,7 +10,7 @@ const MobileTopNav = () => {
   const boxRef = useRef<HTMLDivElement>(null);
   const topBarHeight =
     boxRef.current?.getClientRects()?.[0]?.height || 44.90625;
-  const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+  const isLandscape = typeof window !== 'undefined' && window.matchMedia("(orientation: landscape)").matches;
 
   return (
     <Box
