@@ -9,10 +9,16 @@ import {
 } from "maplibre-gl";
 import { MutableRefObject } from "react";
 import { Point } from "maplibre-gl";
-import { BLOCK_LAYER_ID } from "@/app/constants/layers";
+import {
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_LAYER_ID,
+  BLOCK_LAYER_ID_CHILD,
+  BLOCK_SOURCE_ID,
+} from "@/app/constants/layers";
 import { polygon, multiPolygon } from "@turf/helpers";
 import { booleanWithin } from "@turf/boolean-within";
 import { pointOnFeature } from "@turf/point-on-feature";
+import { MapStore, useMapStore } from "../store/mapStore";
 
 /**
  * PaintEventHandler
@@ -25,7 +31,25 @@ export type PaintEventHandler = (
   map: React.MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
+  layers?: string[],
 ) => MapGeoJSONFeature[] | undefined;
+
+/**
+ * ContextMenuState
+ * Represents the state of the context menu.
+ * @typedef {Object} ContextMenuState
+ * @property {number} x - The x-coordinate of the context menu.
+ * @property {number} y - The y-coordinate of the context menu.
+ * @property {Object} data - The data associated with the context menu.
+ * @property {string} data.geoid - The geographic ID.
+ * @property {string} data.name - The name associated with the geographic ID.
+ */
+export type ContextMenuState = {
+  x: number;
+  y: number;
+  data: MapGeoJSONFeature;
+  close: () => void;
+};
 
 /**
  * boxAroundPoint
@@ -56,12 +80,11 @@ export const getFeaturesInBbox = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
+  layers: string[] = [BLOCK_LAYER_ID],
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
 
-  return map.current?.queryRenderedFeatures(bbox, {
-    layers: [BLOCK_LAYER_ID],
-  });
+  return map.current?.queryRenderedFeatures(bbox, { layers });
 };
 
 /**
@@ -76,6 +99,7 @@ export const getFeaturesIntersectingCounties = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
+  layers: string[] = [BLOCK_LAYER_ID],
 ): MapGeoJSONFeature[] | undefined => {
   if (!map.current) return;
 
@@ -93,7 +117,7 @@ export const getFeaturesIntersectingCounties = (
   const ne = map.current.project(featureBbox[1]);
 
   const features = map.current?.queryRenderedFeatures([sw, ne], {
-    layers: [BLOCK_LAYER_ID],
+    layers,
   });
 
   let countyPoly;
@@ -144,6 +168,7 @@ const getBoundingBoxFromFeatures = (
 
   return [sw, ne];
 };
+
 /**
  * mousePos
  * Get the position of the mouse on the map.
@@ -210,3 +235,150 @@ export function getVisibleLayers(map: MutableRefObject<Map | null>) {
     return layer.layout?.visibility === "visible";
   });
 }
+
+export type ColorZoneAssignmentsState = [
+  MapStore["zoneAssignments"],
+  MapStore["mapDocument"],
+  MapStore["mapRef"],
+  MapStore["shatterIds"],
+  MapStore["appLoadingState"],
+  MapStore["mapRenderingState"],
+];
+
+export const getMap = (_mapRef?: MapStore["mapRef"]) => {
+  const mapRef = _mapRef || useMapStore.getState().mapRef;
+  if (
+    mapRef?.current &&
+    mapRef.current
+      ?.getStyle()
+      .layers.findIndex((layer) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1
+  ) {
+    return null;
+  }
+
+  return mapRef as MutableRefObject<maplibregl.Map>;
+};
+
+/**
+ * Assigns colors to zones on the map based on the current zone assignments.
+ * This function updates the feature state of map features to reflect their assigned zones.
+ *
+ * @function
+ * @name colorZoneAssignments
+ * @returns {void}
+ *
+ * @requires useMapStore
+ * @requires BLOCK_SOURCE_ID
+ *
+ * @description
+ * This function does the following:
+ * 1. Retrieves the current state from the map store.
+ * 2. Checks if the map reference and map document are available.
+ * 3. Iterates through the zone assignments.
+ * 4. Determines whether each assignment is for a parent or child layer.
+ * 5. Sets the feature state for each assigned feature on the map.
+ */
+export const colorZoneAssignments = (
+  state: ColorZoneAssignmentsState,
+  previousState?: ColorZoneAssignmentsState,
+) => {
+  const [
+    zoneAssignments,
+    mapDocument,
+    mapRef,
+    _,
+    appLoadingState,
+    mapRenderingState,
+  ] = state;
+  const previousZoneAssignments = previousState?.[0] || null;
+
+  if (
+    !mapRef?.current ||
+    !mapDocument ||
+    appLoadingState !== "loaded" ||
+    mapRenderingState !== "loaded"
+  ) {
+    return;
+  }
+  const isInitialRender =
+    previousState?.[4] !== "loaded" || previousState?.[5] !== "loaded";
+
+  zoneAssignments.forEach((zone, id) => {
+    if (
+      !isInitialRender &&
+      previousZoneAssignments?.get(id) === zoneAssignments.get(id)
+    ) {
+      return;
+    }
+
+    // This is awful
+    // we need information on whether an assignment is parent or child
+    const isParent = id.toString().includes("vtd");
+    const sourceLayer = isParent
+      ? mapDocument.parent_layer
+      : mapDocument.child_layer;
+
+    if (!sourceLayer) {
+      return;
+    }
+
+    mapRef.current?.setFeatureState(
+      {
+        source: BLOCK_SOURCE_ID,
+        id,
+        sourceLayer,
+      },
+      {
+        selected: true,
+        zone,
+      },
+    );
+  });
+};
+
+// property changes on which to re-color assignments
+export const colorZoneAssignmentTriggers = [
+  "zoneAssignments",
+  "mapDocument",
+  "mapRef",
+  "shatterIds",
+] as Array<keyof MapStore>;
+
+/**
+ * Sets zone assignments for child elements based on their parent's assignment.
+ *
+ * @param {MapStore['zoneAssignments']} zoneAssignments - The current map of zone assignments.
+ * @param {string} parent - The ID of the parent element.
+ * @param {string[]} children - An array of child element IDs.
+ *
+ * @description
+ * This function checks if the parent has a zone assignment. If it does:
+ * 1. It assigns the parent's zone to all the children.
+ * 2. It removes the parent's zone assignment.
+ * This is typically used when "shattering" a parent element into its constituent parts.
+ */
+export const setZones = (
+  zoneAssignments: MapStore["zoneAssignments"],
+  parent: string,
+  children: Set<string>,
+) => {
+  const zone = zoneAssignments.get(parent);
+  if (zone) {
+    children.forEach((childId) => {
+      zoneAssignments.set(childId, zone);
+    });
+    zoneAssignments.delete(parent);
+  }
+};
+
+export const shallowCompareArray = (curr: unknown[], prev: unknown[]) => {
+  if (curr.length !== prev.length) {
+    return false;
+  }
+  for (let i = 0; i < curr.length; i++) {
+    if (curr[i] !== prev[i]) {
+      return false;
+    }
+  }
+  return true;
+};

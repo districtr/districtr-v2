@@ -5,8 +5,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: backend
     volumes:
-      - ./backend/app:/districtr-backend/app # Adjust volumes to point to the backend folder
-      - ./backend/scripts:/districtr-backend/scripts # Ensure scripts are mounted from backend directory
+      - ./backend:/districtr-backend # Adjust volumes to point to the backend folder
       - ./sample_data:/districtr-backend/sample_data
 
     env_file:
@@ -18,11 +17,7 @@ services:
       db:
         condition: service_healthy
     command: bash -c "
-      until alembic upgrade head; do
-      echo 'Alembic failed, retrying in 5 seconds...'
-      sleep 5;
-      done &&
-      python3 scripts/load_data.py &&
+      python3 load_data.py &&
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/**/*.py'
       "
     ports:
