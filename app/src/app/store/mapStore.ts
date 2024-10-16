@@ -280,7 +280,7 @@ export const useMapStore = create(
         set({
           zonePopulations: initialState.zonePopulations,
           zoneAssignments: initialState.zoneAssignments,
-          appLoadingState: "loaded",
+          appLoadingState: "reset",
           shatterIds: initialState.shatterIds,
           mapLock: false,
         });
@@ -337,3 +337,5 @@ getRenderSubscriptions(useMapStore);
 getMapMetricsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
+
+window.getState = useMapStore.getState

@@ -295,13 +295,20 @@ export const colorZoneAssignments = (
   if (
     !mapRef?.current ||
     !mapDocument ||
-    appLoadingState !== "loaded" ||
+    !["loaded", "reset"].includes(appLoadingState) ||
     mapRenderingState !== "loaded"
   ) {
     return;
   }
   const isInitialRender =
     previousState?.[4] !== "loaded" || previousState?.[5] !== "loaded";
+  const getSourceLayer = (id: string) => {
+    // This is awful
+    // we need information on whether an assignment is parent or child
+    return id.toString().includes("vtd")
+      ? mapDocument.parent_layer
+      : mapDocument.child_layer;
+  };
 
   zoneAssignments.forEach((zone, id) => {
     if (
@@ -311,16 +318,8 @@ export const colorZoneAssignments = (
       return;
     }
 
-    // This is awful
-    // we need information on whether an assignment is parent or child
-    const isParent = id.toString().includes("vtd");
-    const sourceLayer = isParent
-      ? mapDocument.parent_layer
-      : mapDocument.child_layer;
-
-    if (!sourceLayer) {
-      return;
-    }
+    const sourceLayer = getSourceLayer(id);
+    if (!sourceLayer) return
 
     mapRef.current?.setFeatureState(
       {
@@ -331,11 +330,26 @@ export const colorZoneAssignments = (
       {
         selected: true,
         zone,
-      },
+      }
     );
   });
-};
 
+  if (appLoadingState === "reset") {
+    previousZoneAssignments?.forEach((_, id) => {
+      const sourceLayer = getSourceLayer(id);
+      if (!sourceLayer) return
+
+      mapRef.current?.removeFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          id,
+          sourceLayer,
+        }
+      );
+    });
+    useMapStore.getState().setAppLoadingState("loaded")
+  }
+};
 // property changes on which to re-color assignments
 export const colorZoneAssignmentTriggers = [
   "zoneAssignments",
