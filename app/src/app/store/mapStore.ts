@@ -23,13 +23,13 @@ import {
   setZones,
 } from "../utils/helpers";
 import { getRenderSubscriptions } from "./mapRenderSubs";
-import { patchShatter } from "../utils/api/mutations";
+import { patchReset, patchShatter } from "../utils/api/mutations";
 import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
 import { getMapMetricsSubs } from "./metricsSubs";
 import { getMapEditSubs } from "./mapEditSubs";
 
 export interface MapStore {
-  appLoadingState: "loaded" | "initializing" | "loading";
+  appLoadingState: "loaded" | "initializing" | "loading" | "reset";
   setAppLoadingState: (state: MapStore["appLoadingState"]) => void;
   mapRenderingState: "loaded" | "initializing" | "loading";
   setMapRenderingState: (state: MapStore["mapRenderingState"]) => void;
@@ -69,6 +69,7 @@ export interface MapStore {
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
+  handleReset: () => void;
   accumulatedGeoids: Set<string>;
   brushSize: number;
   setBrushSize: (size: number) => void;
@@ -91,11 +92,11 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 }
 
-const initialLoadingState = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has(
-  "document_id"
-)
-  ? "loading"
-  : "initializing";
+const initialLoadingState =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).has("document_id")
+    ? "loading"
+    : "initializing";
 
 export const useMapStore = create(
   subscribeWithSelector<MapStore>((set, get) => ({
@@ -155,8 +156,9 @@ export const useMapStore = create(
       newParent.forEach((parent) => existingParents.add(parent));
       // there may be a faster way to do this
       [newChildren].forEach(
-        (children) => existingChildren = new Set([...existingChildren, ...children])
-      )
+        (children) =>
+          (existingChildren = new Set([...existingChildren, ...children]))
+      );
 
       set({
         shatterIds: {
@@ -183,7 +185,8 @@ export const useMapStore = create(
       newParent.forEach((parent) => existingParents.add(parent));
       // there may be a faster way to do this
       newChildren.forEach(
-        (children) => existingChildren = new Set([...existingChildren, ...children])
+        (children) =>
+          (existingChildren = new Set([...existingChildren, ...children]))
       );
 
       set({
@@ -260,6 +263,29 @@ export const useMapStore = create(
           zonePopulations: newZonePopulations,
         };
       }),
+    handleReset: async () => {
+      const document_id = get().mapDocument?.document_id;
+      if (!document_id) {
+        console.log("No document ID to reset.");
+        return;
+      }
+      set({
+        mapLock: true,
+        appLoadingState: "loading",
+      });
+      const resetResponse = await patchReset.mutate(document_id);
+
+      if (resetResponse.document_id === document_id) {
+        const initialState = useMapStore.getInitialState();
+        set({
+          zonePopulations: initialState.zonePopulations,
+          zoneAssignments: initialState.zoneAssignments,
+          appLoadingState: "loaded",
+          shatterIds: initialState.shatterIds,
+          mapLock: false,
+        });
+      }
+    },
     resetZoneAssignments: () => set({ zoneAssignments: new Map() }),
     brushSize: 50,
     setBrushSize: (size) => set({ brushSize: size }),
