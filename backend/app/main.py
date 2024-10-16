@@ -1,7 +1,7 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
-from sqlmodel import Session, String, select
+from sqlmodel import Session, String, select, delete
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
@@ -169,6 +169,18 @@ async def shatter_parent(
     result = ShatterResult(parents=data, children=assignments)
     session.commit()
     return result
+
+
+@app.patch(
+    "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
+)
+async def reset_map(document_id: str, session: Session = Depends(get_session)):
+    # drop all rows in assignments
+    stmt = delete(Assignments).where(Assignments.document_id == document_id)
+    session.execute(stmt)
+    session.commit()  # Commit the changes to the database
+
+    return {"message": "Assignments deleted", "document_id": document_id}
 
 
 # called by getAssignments in apiHandlers.ts
