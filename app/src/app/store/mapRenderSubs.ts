@@ -2,10 +2,12 @@ import { LngLatBoundsLike } from "maplibre-gl";
 import {
   addBlockLayers,
   BLOCK_LAYER_ID,
+  BLOCK_SOURCE_ID,
   BLOCK_HOVER_LAYER_ID,
   PARENT_LAYERS,
   CHILD_LAYERS,
   getLayerFilter,
+  getLayerFill,
 } from "../constants/layers";
 import {
   ColorZoneAssignmentsState,
