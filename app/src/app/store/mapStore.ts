@@ -38,9 +38,7 @@ export interface MapStore {
   setAppLoadingState: (state: MapStore["appLoadingState"]) => void;
   mapRenderingState: "loaded" | "initializing" | "loading";
   setMapRenderingState: (state: MapStore["mapRenderingState"]) => void;
-
   getMapRef: () => maplibregl.Map | null;
-
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
@@ -167,8 +165,8 @@ export const useMapStore = create(devwrapper(
 
       set({
         shatterIds: {
-          parents: existingParents,
-          children: existingChildren,
+          parents: existingParents.filter(onlyUnique),
+          children: existingChildren.filter(onlyUnique),
         },
         zoneAssignments,
       });
@@ -229,7 +227,7 @@ export const useMapStore = create(devwrapper(
     setSelectedZone: (zone) => set({ selectedZone: zone }),
     zoneAssignments: {},
     accumulatedGeoids: [],
-    setAccumulatedGeoids: (geoids: MapStore['accumulatedGeoids']) => set({accumulatedGeoids: geoids}),
+    setAccumulatedGeoids: (geoids: MapStore['accumulatedGeoids']) => set({accumulatedGeoids: geoids.filter(onlyUnique)}),
     setZoneAssignments: (zone, geoids) => {
       const zoneAssignments = get().zoneAssignments;
       const newZoneAssignments = {...zoneAssignments}
@@ -243,21 +241,24 @@ export const useMapStore = create(devwrapper(
     },
     loadZoneAssignments: (assignments) => {
       const zoneAssignments: MapStore['zoneAssignments'] = {}
-      const shatterIds: MapStore['shatterIds'] = {
-        parents: [],
-        children: []
-      };
+      const [parents,children]: Array<Array<string>> = [[],[]]
+
       assignments.forEach((assignment) => {
         zoneAssignments[assignment.geo_id] = assignment.zone
         if (assignment.parent_path) {
-          shatterIds.parents.push(assignment.parent_path);
-          shatterIds.children.push(assignment.geo_id);
+          parents.push(assignment.parent_path);
+          children.push(assignment.geo_id);
         }
       });
-      shatterIds.parents = shatterIds.parents.filter(onlyUnique)
-      shatterIds.children = shatterIds.children.filter(onlyUnique)
 
-      set({ zoneAssignments, shatterIds, appLoadingState: "loaded" });
+      set({ 
+        zoneAssignments, 
+        shatterIds: {
+          parents: parents.filter(onlyUnique),
+          children: children.filter(onlyUnique)
+        }, 
+        appLoadingState: "loaded" 
+      });
     },
     accumulatedBlockPopulations: {},
     resetAccumulatedBlockPopulations: () =>
