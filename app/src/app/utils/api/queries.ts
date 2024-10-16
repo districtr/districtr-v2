@@ -50,25 +50,32 @@ export const getMapViewsSubs = (_useMapStore: typeof useMapStore) => {
   })
 }
 
+const getDocumentFunction = (documentId?: string) => {
+  return async () => {
+    const currentId = useMapStore.getState().mapDocument?.document_id;
+    if (documentId && documentId !== currentId) {
+      useMapStore.getState().setAppLoadingState('loading');
+      return await getDocument(documentId);
+    } else {
+      return null;
+    }
+}
+}
 
 export const updateDocumentFromId = new QueryObserver<DocumentObject | null>(
   queryClient,
   {
-    queryKey: ["mapDocument"],
-    queryFn: async () => {
-      const document_id = new URL(window.location.href).searchParams.get(
-        "document_id"
-      );
-      const mapDocument = useMapStore.getState().mapDocument;
-      if (document_id && mapDocument?.document_id !== document_id) {
-        useMapStore.getState().setAppLoadingState('loading');
-        return await getDocument(document_id);
-      } else {
-        return null;
-      }
-    },
-  }
+    queryKey: ["mapDocument", undefined],
+    queryFn: getDocumentFunction()
+  },
 );
+
+export const updateGetDocumentFromId = (documentId:string) => {
+  updateDocumentFromId.setOptions({
+    queryKey: ["mapDocument", documentId],
+    queryFn: getDocumentFunction(documentId)
+  });
+}
 
 updateDocumentFromId.subscribe((mapDocument) => {
   if (mapDocument.data) {
