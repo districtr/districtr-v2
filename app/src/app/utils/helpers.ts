@@ -311,8 +311,8 @@ export const colorZoneAssignments = (
 
     const isChild = shatterIds.children.has(id)
     const sourceLayer = isChild
-      ? mapDocument.parent_layer
-      : mapDocument.child_layer;
+      ? mapDocument.child_layer
+      : mapDocument.parent_layer;
 
     if (!sourceLayer) {
       return;
