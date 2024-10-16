@@ -302,12 +302,11 @@ export const colorZoneAssignments = (
   }
   const isInitialRender =
     previousState?.[4] !== "loaded" || previousState?.[5] !== "loaded";
+  const childIds = useMapStore.getState().shatterIds.children
   const getSourceLayer = (id: string) => {
-    // This is awful
-    // we need information on whether an assignment is parent or child
-    return id.toString().includes("vtd")
-      ? mapDocument.parent_layer
-      : mapDocument.child_layer;
+    return childIds.has(id.toString())
+      ? mapDocument.child_layer
+      : mapDocument.parent_layer
   };
 
   zoneAssignments.forEach((zone, id) => {
