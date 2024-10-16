@@ -38,9 +38,7 @@ export interface MapStore {
   setAppLoadingState: (state: MapStore["appLoadingState"]) => void;
   mapRenderingState: "loaded" | "initializing" | "loading";
   setMapRenderingState: (state: MapStore["mapRenderingState"]) => void;
-
   getMapRef: () => maplibregl.Map | null;
-
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
