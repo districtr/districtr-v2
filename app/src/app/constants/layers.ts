@@ -205,6 +205,9 @@ const addBlockLayers = (
 };
 
 export function removeBlockLayers(map: Map | null) {
+  if (!map) {
+    return
+  }
   useMapStore.getState().setMapRenderingState("loading")
   if (map.getLayer(BLOCK_LAYER_ID)) {
     map.removeLayer(BLOCK_LAYER_ID);
