@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Flex, Select } from "@radix-ui/themes";
-import { getAvailableDistrictrMaps } from "../../utils/api/apiHandlers";
 import { useMapStore } from "../../store/mapStore";
-import { useQuery } from "@tanstack/react-query";
 import { document } from "@/app/utils/api/mutations";
 import { RecentMapsModal } from "./RecentMapsModal";
 
