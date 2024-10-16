@@ -5,6 +5,7 @@ import {
   PARENT_LAYERS,
   CHILD_LAYERS,
   getLayerFilter,
+  BLOCK_SOURCE_ID,
 } from "../constants/layers";
 import {
   ColorZoneAssignmentsState,
@@ -45,8 +46,15 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       if (state.mapDocument?.child_layer) layersToFilter.push(...CHILD_LAYERS);
 
       layersToFilter.forEach((layerId) =>
-        mapRef.current?.setFilter(layerId, getLayerFilter(layerId, shatterIds)),
+        mapRef.current?.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
+      shatterIds.parents.forEach((id) => {
+        mapRef.current?.removeFeatureState({
+          source: BLOCK_SOURCE_ID,
+          id,
+          sourceLayer: state.mapDocument?.parent_layer,
+        });
+      });
 
       mapRef.current.once("render", () => {
         setMapLock(false);
