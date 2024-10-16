@@ -68,13 +68,14 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   accumulatedBlockPopulations: Map<string, number>;
   resetAccumulatedBlockPopulations: () => void;
-  zoneAssignments: Map<string, Zone>; // geoid -> zone
+  zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
   accumulatedGeoids: Set<string>;
+  setAccumulatedGeoids: (geoids: MapStore['accumulatedGeoids']) => void;
   brushSize: number;
   setBrushSize: (size: number) => void;
   isPainting: boolean;
@@ -232,6 +233,7 @@ export const useMapStore = create(devtools(
     setSelectedZone: (zone) => set({ selectedZone: zone }),
     zoneAssignments: new Map(),
     accumulatedGeoids: new Set<string>(),
+    setAccumulatedGeoids: (accumulatedGeoids) => set({accumulatedGeoids}),
     setZoneAssignments: (zone, geoids) => {
       const zoneAssignments = get().zoneAssignments;
       const newZoneAssignments = new Map(zoneAssignments);

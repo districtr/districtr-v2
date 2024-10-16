@@ -300,10 +300,10 @@ export const colorZoneAssignments = (
   const isInitialRender =
     previousState?.[4] !== "loaded" || previousState?.[5] !== "loaded";
 
-  Object.entries(zoneAssignments).forEach(([id, zone]) => {
+  zoneAssignments.forEach((zone, id) => {
     if (
       (id && !isInitialRender &&
-      previousZoneAssignments?.[id] === zoneAssignments[id]) || (!id)
+      previousZoneAssignments?.get(id) === zoneAssignments.get(id)) || (!id)
     ) {
       return;
     }
@@ -359,12 +359,12 @@ export const setZones = (
   parent: string,
   children: Set<string>,
 ) => {
-  const zone = zoneAssignments[parent]
+  const zone = zoneAssignments.get(parent)
   if (zone) {
     children.forEach((childId) => {
-      zoneAssignments[childId] = zone
+      zoneAssignments.set(childId, zone)
     });
-    zoneAssignments[parent] = null
+    zoneAssignments.set(parent, null)
   }
 };
 

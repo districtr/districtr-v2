@@ -107,7 +107,7 @@ export const ResetMapSelectState = (
       sourceLayer: sourceLayer,
     });
 
-    mapStoreRef.setAccumulatedGeoids([])
+    mapStoreRef.setAccumulatedGeoids(new Set())
     // reset zoneAssignments
     mapStoreRef.resetZoneAssignments();
     // confirm the map has been reset
