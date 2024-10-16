@@ -1,4 +1,4 @@
-import { LngLat, LngLatBounds, LngLatBoundsLike } from "maplibre-gl";
+import { LngLatBoundsLike } from "maplibre-gl";
 import {
   addBlockLayers,
   BLOCK_LAYER_ID,
@@ -6,13 +6,10 @@ import {
   PARENT_LAYERS,
   CHILD_LAYERS,
   getLayerFilter,
-  BLOCK_SOURCE_ID,
-  getLayerFill,
 } from "../constants/layers";
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
-  getMap,
   shallowCompareArray,
 } from "../utils/helpers";
 import { useMapStore as _useMapStore, MapStore } from "./mapStore";
@@ -31,7 +28,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
       }
     },
-    { equalityFn: shallowCompareArray }
+    { equalityFn: shallowCompareArray },
   );
 
   const _shatterMapSideEffectRender = useMapStore.subscribe<
@@ -53,6 +50,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       layersToFilter.forEach((layerId) =>
         mapRef.current?.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
+      
       shatterIds.parents.forEach((id) => {
         mapRef.current?.removeFeatureState({
           source: BLOCK_SOURCE_ID,

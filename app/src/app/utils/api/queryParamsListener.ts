@@ -1,6 +1,10 @@
 import { updateDocumentFromId } from "./queries";
 
 export const getSearchParamsObersver = () => {
+  // next ssr safety
+  if (typeof window === "undefined") {
+    return
+  }
   let previousDocumentID = "";
   const observer = new MutationObserver(() => {
     const documentId = new URLSearchParams(window.location.search).get(

@@ -114,11 +114,11 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 }
 
-const initialLoadingState =
-  typeof window !== "undefined" &&
-  new URLSearchParams(window.location.search).has("document_id")
-    ? "loading"
-    : "initializing";
+const initialLoadingState = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has(
+  "document_id"
+)
+  ? "loading"
+  : "initializing";
 
 export const useMapStore = create(
   subscribeWithSelector<MapStore>((set, get) => ({
@@ -208,8 +208,8 @@ export const useMapStore = create(
 
       newParent.forEach((parent) => existingParents.add(parent));
       // there may be a faster way to do this
-      [newChildren].forEach(
-        (children) => (existingChildren = existingChildren.union(children))
+      newChildren.forEach(
+        (children) => existingChildren = new Set([...existingChildren, ...children])
       );
       if (!isAlreadyShattered && !multipleShattered) {
         setZones(zoneAssignments, newParent[0], newChildren);
@@ -277,7 +277,7 @@ export const useMapStore = create(
       newParent.forEach((parent) => existingParents.add(parent));
       // there may be a faster way to do this
       newChildren.forEach(
-        (children) => (existingChildren = existingChildren.union(children))
+        (children) => existingChildren = new Set([...existingChildren, ...children])
       );
 
       set({

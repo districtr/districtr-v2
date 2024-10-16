@@ -68,7 +68,7 @@ export function getLayerFilter(
 ) {
   const shatterIds = _shatterIds || useMapStore.getState().shatterIds;
   const isChildLayer = CHILD_LAYERS.includes(layerId);
-  const ids = shatterIds.children
+  const ids = isChildLayer ? shatterIds.children : shatterIds.parents;
   const cleanIds = Boolean(ids) ? Array.from(ids) : [];
   const filterBase: FilterSpecification = [
     "in",
@@ -161,7 +161,7 @@ export function getBlocksLayerSpecification(
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
     type: "line",
-    layout: {
+  layout: {
       visibility: "visible",
     },
     filter: getLayerFilter(layerId),

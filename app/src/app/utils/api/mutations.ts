@@ -50,12 +50,15 @@ export const document = new MutationObserver(queryClient, {
   mutationFn: createMapDocument,
   onMutate: () => {
     console.log("Creating document");
+    useMapStore.getState().setAppLoadingState('loading')
+    useMapStore.getState().resetZoneAssignments()
   },
   onError: (error) => {
     console.error("Error creating map document: ", error);
   },
   onSuccess: (data) => {
     useMapStore.getState().setMapDocument(data);
+    useMapStore.getState().setAppLoadingState('loaded')
     const documentUrl = new URL(window.location.toString())
     documentUrl.searchParams.set("document_id", data.document_id);
     history.pushState({}, "", documentUrl.toString());

@@ -31,7 +31,7 @@ export type PaintEventHandler = (
   map: React.MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers?: string[]
+  layers?: string[],
 ) => MapGeoJSONFeature[] | undefined;
 
 /**
@@ -101,7 +101,7 @@ export const getFeaturesIntersectingCounties = (
   map: MutableRefObject<Map | null>,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
+  layers: string[] = [BLOCK_LAYER_ID],
 ): MapGeoJSONFeature[] | undefined => {
   if (!map.current) return;
 
@@ -244,17 +244,22 @@ export type ColorZoneAssignmentsState = [
   MapStore["mapRef"],
   MapStore["shatterIds"],
   MapStore["appLoadingState"],
-  MapStore["mapRenderingState"]
+  MapStore["mapRenderingState"],
 ];
 
-export const getMap = (_mapRef?: MapStore['mapRef']) => {
-  const mapRef = _mapRef || useMapStore.getState().mapRef
-  if (mapRef?.current && mapRef.current?.getStyle().layers.findIndex((layer) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1) {
-    return null
+export const getMap = (_mapRef?: MapStore["mapRef"]) => {
+  const mapRef = _mapRef || useMapStore.getState().mapRef;
+  if (
+    mapRef?.current &&
+    mapRef.current
+      ?.getStyle()
+      .layers.findIndex((layer) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1
+  ) {
+    return null;
   }
 
-  return mapRef as MutableRefObject<maplibregl.Map>
-}
+  return mapRef as MutableRefObject<maplibregl.Map>;
+};
 
 /**
  * Assigns colors to zones on the map based on the current zone assignments.
@@ -277,7 +282,7 @@ export const getMap = (_mapRef?: MapStore['mapRef']) => {
  */
 export const colorZoneAssignments = (
   state: ColorZoneAssignmentsState,
-  previousState?: ColorZoneAssignmentsState
+  previousState?: ColorZoneAssignmentsState,
 ) => {
   const [
     zoneAssignments,
@@ -328,7 +333,7 @@ export const colorZoneAssignments = (
       {
         selected: true,
         zone,
-      }
+      },
     );
   });
 };
@@ -357,7 +362,7 @@ export const colorZoneAssignmentTriggers = [
 export const setZones = (
   zoneAssignments: MapStore["zoneAssignments"],
   parent: string,
-  children: Set<string>
+  children: Set<string>,
 ) => {
   const zone = zoneAssignments.get(parent);
   if (zone) {
