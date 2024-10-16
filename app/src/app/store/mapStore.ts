@@ -337,5 +337,3 @@ getRenderSubscriptions(useMapStore);
 getMapMetricsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
-
-window.getState = useMapStore.getState
