@@ -6,6 +6,7 @@ import {
   PARENT_LAYERS,
   CHILD_LAYERS,
   getLayerFilter,
+  BLOCK_SOURCE_ID,
   getLayerFill,
 } from "../constants/layers";
 import {
@@ -45,8 +46,19 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         return;
       }
 
-      CHILD_LAYERS.forEach((layerId) => {
-        mapRef.current?.setFilter(layerId, getLayerFilter(layerId, shatterIds));
+      const layersToFilter = PARENT_LAYERS;
+
+      if (state.mapDocument?.child_layer) layersToFilter.push(...CHILD_LAYERS);
+
+      layersToFilter.forEach((layerId) =>
+        mapRef.current?.setFilter(layerId, getLayerFilter(layerId, shatterIds))
+      );
+      shatterIds.parents.forEach((id) => {
+        mapRef.current?.removeFeatureState({
+          source: BLOCK_SOURCE_ID,
+          id,
+          sourceLayer: state.mapDocument?.parent_layer,
+        });
       });
 
       mapRef.current.once("render", () => {
@@ -57,7 +69,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     { equalityFn: shallowCompareArray }
   );
 
-  const lockBboxSub = useMapStore.subscribe(
+  const _lockBboxSub = useMapStore.subscribe(
     (state) => state.mapBbox,
     (mapBbox, previousMapBbox) => {
       const { mapRef, captiveIds, shatterIds } = useMapStore.getState();
