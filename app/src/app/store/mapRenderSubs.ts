@@ -51,11 +51,9 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         return;
       }
 
-      const layersToFilter = state.mapDocument?.child_layer
-        ? CHILD_LAYERS
-        : [];
-      
-      layersToFilter.forEach((layerId) => 
+      const layersToFilter = state.mapDocument?.child_layer ? CHILD_LAYERS : [];
+
+      layersToFilter.forEach((layerId) =>
         mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
 
@@ -106,22 +104,22 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       ],
       (curr, prev) => {
         colorZoneAssignments(curr, prev);
-        const { mapBbox, captiveIds, shatterIds, getMapRef } = useMapStore.getState();
+        const { mapBbox, captiveIds, shatterIds, getMapRef } =
+          useMapStore.getState();
 
         [...PARENT_LAYERS, ...CHILD_LAYERS].forEach((layerId) => {
-          const isHover = layerId.includes("hover")
-          const isParent = PARENT_LAYERS.includes(layerId)
-          isHover  &&
+          const isHover = layerId.includes("hover");
+          const isParent = PARENT_LAYERS.includes(layerId);
+          isHover &&
             getMapRef()?.setPaintProperty(
               layerId,
               "fill-opacity",
               getLayerFill(
-                mapBbox ? captiveIds : undefined, 
+                mapBbox ? captiveIds : undefined,
                 isParent ? shatterIds.parents : undefined
               )
             );
         });
-        
       },
       { equalityFn: shallowCompareArray }
     );
@@ -134,14 +132,14 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       if (!mapRef) return;
 
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach((layerId) => {
-        const isHover = layerId.includes("hover")
-        const isParent = PARENT_LAYERS.includes(layerId)
-        isHover  &&
+        const isHover = layerId.includes("hover");
+        const isParent = PARENT_LAYERS.includes(layerId);
+        isHover &&
           mapRef.setPaintProperty(
             layerId,
             "fill-opacity",
             getLayerFill(
-              mapBbox ? captiveIds : undefined, 
+              mapBbox ? captiveIds : undefined,
               isParent ? shatterIds.parents : undefined
             )
           );
@@ -168,6 +166,54 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       if (mapBbox) {
         mapRef.fitBounds(maxBounds);
       }
+    }
+  );
+
+  const lockFeaturesSub = useMapStore.subscribe(
+    (state) => state.lockedFeatures,
+    (lockedFeatures, previousLockedFeatures) => {
+      console.log("LOCKING")
+      const { getMapRef, shatterIds, mapDocument } = useMapStore.getState();
+      const mapRef = getMapRef();
+      if (!mapRef || !mapDocument) return;
+      const getLayer = (id: string) => {
+        const isChild = shatterIds.children.has(id);
+        if (isChild && mapDocument.child_layer) {
+          return mapDocument.child_layer;
+        }
+        return mapDocument.parent_layer;
+      };
+
+      lockedFeatures.forEach((id) => {
+        if (!previousLockedFeatures.has(id)) {
+          mapRef.setFeatureState(
+            {
+              id,
+              source: BLOCK_SOURCE_ID,
+              sourceLayer: getLayer(id),
+            },
+            {
+              locked: true,
+            }
+          );
+        }
+      });
+      
+      previousLockedFeatures.forEach((id) => {
+        if (!lockedFeatures.has(id)) {
+          console.log("!!!", id, lockedFeatures, previousLockedFeatures)
+          mapRef.setFeatureState(
+            {
+              id,
+              source: BLOCK_SOURCE_ID,
+              sourceLayer: getLayer(id),
+            },
+            {
+              locked: false,
+            }
+          );
+        }
+      });
     }
   );
 
