@@ -31,6 +31,7 @@ export type PaintEventHandler = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
   layers?: string[],
+  filterLocked?: boolean
 ) => MapGeoJSONFeature[] | undefined;
 
 /**
@@ -80,6 +81,7 @@ export const getFeaturesInBbox = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
   _layers: string[] = [BLOCK_LAYER_ID],
+  filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
   const {captiveIds, lockedFeatures} = useMapStore.getState()
@@ -88,7 +90,7 @@ export const getFeaturesInBbox = (
   if (captiveIds.size) {
     features = features.filter(f => captiveIds.has(f.id?.toString() || ''))
   }
-  if (lockedFeatures.size) {
+  if (filterLocked && lockedFeatures.size) {
     features = features.filter(f => !lockedFeatures.has(f.id?.toString() || ''))
   }
 

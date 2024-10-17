@@ -198,8 +198,10 @@ export const handleMapContextMenu = (
     map,
     e,
     0,
-    paintLayers
+    paintLayers,
+    false
   );
+
   if (!selectedFeatures?.length || !map || !sourceLayer) return;
 
   setHoverFeatures(selectedFeatures.slice(0, 1));
