@@ -81,7 +81,11 @@ export function getLayerFill(
   shatterIds?: Set<string>
 ): DataDrivenPropertyValueSpecification<number> {
   const innerFillSpec = [
+    
     "case",
+    // geography is locked
+    ["boolean", ["feature-state", "locked"], false],
+    0.4,
     // zone is selected and hover is true and hover is not null
     [
       "all",
@@ -179,14 +183,7 @@ export function getBlocksHoverLayerSpecification(
     },
     paint: {
       "fill-opacity": getLayerFill(),
-      "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
-      'fill-pattern': [
-        // Check if feature state 'locked' is true
-        "case", 
-          ["boolean", ["feature-state", "locked"], true],
-           "lock-pattern", 
-           'no-pattern'
-        ]
+      "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000"
     },
   };
   if (CHILD_LAYERS.includes(layerId)){
