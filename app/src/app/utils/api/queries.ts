@@ -2,13 +2,15 @@ import { QueryObserver, skipToken } from "@tanstack/react-query";
 import { queryClient } from "./queryClient";
 import {
   DistrictrMap,
-  DocumentObject,
   getAvailableDistrictrMaps,
+  Assignment,
+  DocumentObject,
+  getAssignments,
   getDocument,
   getZonePopulations,
   ZonePopulation,
 } from "./apiHandlers";
-import { useMapStore } from "@/app/store/mapStore";
+import { MapStore, useMapStore } from "@/app/store/mapStore";
 
 const INITIAL_VIEW_LIMIT = 30
 const INITIAL_VIEW_OFFSET = 0
@@ -83,3 +85,29 @@ updateDocumentFromId.subscribe((mapDocument) => {
   }
 });
 
+const getFetchAssignmentsQuery = (mapDocument?: MapStore['mapDocument']) => {
+  if (!mapDocument) return () => null     
+  return async () => await getAssignments(mapDocument)
+}
+
+export const fetchAssignments = new QueryObserver<null | Assignment[]>(
+  queryClient,
+  {
+    queryKey: ["assignments"],
+    queryFn: getFetchAssignmentsQuery(),
+  }
+)
+
+export const updateAssignments = (mapDocument: DocumentObject) => {
+  fetchAssignments.setOptions({
+    queryFn: getFetchAssignmentsQuery(mapDocument),
+    queryKey: ['assignments', performance.now()]
+  })
+}
+
+
+fetchAssignments.subscribe((assignments) => {
+  if (assignments.data) {
+    useMapStore.getState().loadZoneAssignments(assignments.data);
+  }
+});

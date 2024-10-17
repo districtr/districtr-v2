@@ -1,5 +1,4 @@
-import { useMapStore } from "@/app/store/mapStore";
-import { updateGetDocumentFromId } from "./queries";
+import { updateDocumentFromId, updateGetDocumentFromId } from "./queries";
 export let previousDocumentID = ''
 
 export const getSearchParamsObersver = () => {
@@ -8,6 +7,16 @@ export const getSearchParamsObersver = () => {
     return
   }
 
+  // listener for tab refocus
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      updateDocumentFromId.refetch();
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  let previousDocumentID = "";
   const observer = new MutationObserver(() => {
     const documentId = new URLSearchParams(window.location.search).get(
       "document_id"

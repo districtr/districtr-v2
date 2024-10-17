@@ -1,9 +1,10 @@
 import type { MapGeoJSONFeature, MapOptions } from "maplibre-gl";
 import { create } from "zustand";
-import { subscribeWithSelector } from "zustand/middleware";
+import { devtools, subscribeWithSelector } from "zustand/middleware";
 import type {
   ActiveTool,
   MapFeatureInfo,
+  NullableZone,
   SpatialUnit,
 } from "../constants/types";
 import { Zone, GDBPath } from "../constants/types";
@@ -31,12 +32,16 @@ import { getMapEditSubs } from "./mapEditSubs";
 import { getMapViewsSubs } from "../utils/api/queries";
 import { getLocalCacheSubs } from "./localCacheSubs";
 
+
+const prodWrapper: typeof devtools = (store: any) => store
+const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper
+
 export interface MapStore {
   appLoadingState: "loaded" | "initializing" | "loading";
   setAppLoadingState: (state: MapStore["appLoadingState"]) => void;
   mapRenderingState: "loaded" | "initializing" | "loading";
   setMapRenderingState: (state: MapStore["mapRenderingState"]) => void;
-  mapRef: MutableRefObject<maplibregl.Map | null> | null;
+  getMapRef: () => maplibregl.Map | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
@@ -68,13 +73,14 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   accumulatedBlockPopulations: Map<string, number>;
   resetAccumulatedBlockPopulations: () => void;
-  zoneAssignments: Map<string, Zone>; // geoid -> zone
-  setZoneAssignments: (zone: Zone, gdbPaths: Set<GDBPath>) => void;
+  zoneAssignments: Map<string, NullableZone>; // geoid -> zone
+  setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
   accumulatedGeoids: Set<string>;
+  setAccumulatedGeoids: (geoids: MapStore['accumulatedGeoids']) => void;
   brushSize: number;
   setBrushSize: (size: number) => void;
   isPainting: boolean;
@@ -102,35 +108,40 @@ const initialLoadingState =
     ? "loading"
     : "initializing";
 
-export const useMapStore = create(
+export const useMapStore = create(devtools(
   subscribeWithSelector<MapStore>((set, get) => ({
     appLoadingState: initialLoadingState,
     setAppLoadingState: (appLoadingState) => set({ appLoadingState }),
     mapRenderingState: "initializing",
     setMapRenderingState: (mapRenderingState) => set({ mapRenderingState }),
-    mapRef: null,
-    setMapRef: (mapRef) =>
+    getMapRef: () => null,
+    setMapRef: (mapRef) => {
       set({
-        mapRef,
+        getMapRef: () => mapRef.current,
         appLoadingState:
-          initialLoadingState === "initializing"
+        initialLoadingState === "initializing"
             ? "loaded"
             : get().appLoadingState,
-      }),
+      })
+    },
     mapLock: false,
     setMapLock: (mapLock) => set({ mapLock }),
     mapViews: { isPending: true },
     setMapViews: (mapViews) => set({ mapViews }),
     mapDocument: null,
-    setMapDocument: (mapDocument) =>
-      set((state) => {
-        state.setFreshMap(true);
-        state.resetZoneAssignments();
-        return {
-          mapDocument: mapDocument,
-          shatterIds: { parents: new Set(), children: new Set() },
-        };
-      }),
+    setMapDocument: (mapDocument) => {
+      const currentMapDocument = get().mapDocument
+      if (currentMapDocument?.document_id === mapDocument.document_id) {
+        return
+      }
+      get().setFreshMap(true);
+      get().resetZoneAssignments();
+
+      set({
+        mapDocument: mapDocument,
+        shatterIds: { parents: new Set(), children: new Set() },
+      });
+    },
     shatterIds: {
       parents: new Set(),
       children: new Set(),
@@ -231,6 +242,7 @@ export const useMapStore = create(
     setSelectedZone: (zone) => set({ selectedZone: zone }),
     zoneAssignments: new Map(),
     accumulatedGeoids: new Set<string>(),
+    setAccumulatedGeoids: (accumulatedGeoids) => set({accumulatedGeoids}),
     setZoneAssignments: (zone, geoids) => {
       const zoneAssignments = get().zoneAssignments;
       const newZoneAssignments = new Map(zoneAssignments);
@@ -313,7 +325,7 @@ export const useMapStore = create(
     contextMenu: null,
     setContextMenu: (contextMenu) => set({ contextMenu }),
   }))
-);
+));
 
 // these need to initialize after the map store
 getRenderSubscriptions(useMapStore);
