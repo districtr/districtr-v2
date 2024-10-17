@@ -186,8 +186,6 @@ export const useMapStore = create(
         const isAlreadyShattered = geoids.some((id) =>
           shatterMappings.hasOwnProperty(id)
         );
-        console.log('!!!ALREADY', isAlreadyShattered)
-
         const shatterResult: ShatterResult = isAlreadyShattered
           ? ({
               parents: { geoids },
@@ -204,7 +202,6 @@ export const useMapStore = create(
               geoids,
             });
 
-        console.log("!!!SHATTER RESULT", shatterResult)
         // TODO Need to return child edges even if the parent is already shattered
         // currently returns nothing
         const shatterIds = get().shatterIds;

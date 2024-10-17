@@ -1,11 +1,17 @@
 import React from "react";
 import { ContextMenu, Text } from "@radix-ui/themes";
 import { useMapStore } from "@/app/store/mapStore";
+import { PARENT_LAYERS } from "../constants/layers";
 
 export const MapContextMenu: React.FC = () => {
   const mapDocument = useMapStore((state) => state.mapDocument);
   const contextMenu = useMapStore((state) => state.contextMenu);
   const handleShatter = useMapStore((state) => state.handleShatter);
+  const canShatter =
+    Boolean(mapDocument?.parent_layer &&
+    mapDocument.child_layer &&
+    mapDocument.child_layer !== contextMenu?.data.sourceLayer)
+    
   if (!contextMenu) return null;
 
   const handleSelect = () => {
@@ -40,7 +46,7 @@ export const MapContextMenu: React.FC = () => {
           </ContextMenu.Label>
         )}
         <ContextMenu.Item
-          disabled={!mapDocument?.child_layer}
+          disabled={!canShatter}
           onSelect={handleSelect}
         >
           Shatter
