@@ -7,15 +7,11 @@ import type {
   MapLayerMouseEvent,
   MapLayerTouchEvent,
 } from "maplibre-gl";
-import { useMapStore } from "@store/mapStore";
+import { useMapStore } from "@/app/store/mapStore";
+import { MutableRefObject } from "react";
 import { SelectMapFeatures, SelectZoneAssignmentFeatures } from "./handlers";
-import { ResetMapSelectState } from "@utils/events/handlers";
-import {
-  INTERACTIVE_LAYERS,
-  BLOCK_HOVER_LAYER_ID,
-  BLOCK_LAYER_ID,
-  BLOCK_LAYER_ID_CHILD,
-} from "@constants/layers";
+import { ResetMapSelectState } from "@/app/utils/events/handlers";
+import { BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD, BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD, INTERACTIVE_LAYERS } from "@/app/constants/layers";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -186,13 +182,19 @@ export const handleMapContextMenu = (
   }
   e.preventDefault();
   const setHoverFeatures = mapStore.setHoverFeatures;
+  const captiveIds = mapStore.captiveIds
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
   const paintLayers = mapStore.mapDocument?.child_layer
     ? INTERACTIVE_LAYERS
     : [BLOCK_HOVER_LAYER_ID];
-  const selectedFeatures = mapStore.paintFunction(map, e, 0, paintLayers);
+  const selectedFeatures = mapStore.paintFunction(
+    map,
+    e,
+    0,
+    captiveIds.size ? [BLOCK_HOVER_LAYER_ID_CHILD] : [BLOCK_HOVER_LAYER_ID]
+  );
   if (!selectedFeatures?.length || !map || !sourceLayer) return;
 
   setHoverFeatures(selectedFeatures.slice(0, 1));
