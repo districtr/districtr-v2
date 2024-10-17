@@ -311,7 +311,7 @@ export const useMapStore = create(
       },
       lockedFeatures: new Set(),
       upcertLockedFeature: (id, lock) => {
-        const lockedFeatures = get().lockedFeatures
+        const lockedFeatures = new Set(get().lockedFeatures)
         switch (lock){
           case true:
             lockedFeatures.add(id)
@@ -476,3 +476,5 @@ getRenderSubscriptions(useMapStore);
 getMapMetricsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
+
+// window.getState = useMapStore.getState
