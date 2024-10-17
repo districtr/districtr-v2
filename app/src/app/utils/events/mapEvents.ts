@@ -20,8 +20,8 @@ MapEvent handling; these functions are called by the event listeners in the MapC
 /**
 
 */
-function getLayerIdsToPaint(child_layer: string | undefined | null) {
-  return child_layer
+function getLayerIdsToPaint(includeChildLayer: boolean) {
+  return includeChildLayer
     ? [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
     : [BLOCK_LAYER_ID];
 }
@@ -40,7 +40,9 @@ export const handleMapClick = (
   const sourceLayer = mapStore.mapDocument?.parent_layer;
 
   if (activeTool === "brush" || activeTool === "eraser") {
-    const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer);
+    const paintLayers = getLayerIdsToPaint(
+      Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size)
+    );
     const selectedFeatures = mapStore.paintFunction(
       map,
       e,
@@ -126,7 +128,9 @@ export const handleMapMouseMove = (
   const setHoverFeatures = mapStore.setHoverFeatures;
   const isPainting = mapStore.isPainting;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
-  const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer);
+  const paintLayers = getLayerIdsToPaint(
+    Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size)
+  );
   const selectedFeatures = mapStore.paintFunction(
     map,
     e,

@@ -30,6 +30,7 @@ import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
 import { getMapMetricsSubs } from "./metricsSubs";
 import { getMapEditSubs } from "./mapEditSubs";
 import bbox from "@turf/bbox";
+import { BLOCK_SOURCE_ID } from "../constants/layers";
 
 const combineSetValues = (
   setRecord: Record<string, Set<unknown>>,
@@ -306,14 +307,39 @@ export const useMapStore = create(
       },
       hoverFeatures: [],
       setHoverFeatures: (_features) => {
-        const hoverFeatures = _features
-          ? _features.map((f) => ({
-              source: f.source,
-              sourceLayer: f.sourceLayer,
-              id: f.id,
-            }))
-          : [];
-
+        let hoverFeatures: MapFeatureInfo[] = [];
+        const shatterMappings = get().shatterMappings;
+        const mapDocument = get().mapDocument;
+        if (!_features) {
+          // do nothing
+        } else if (
+          Object.keys(shatterMappings).length &&
+          mapDocument?.child_layer
+        ) {
+          hoverFeatures = _features
+            .map((f) => {
+              if (f.id && shatterMappings.hasOwnProperty(f.id)) {
+                return Array.from(shatterMappings[f.id]).map((id) => ({
+                  id,
+                  sourceLayer: mapDocument.child_layer,
+                  source: BLOCK_SOURCE_ID,
+                }));
+              } else {
+                return {
+                  source: f.source,
+                  sourceLayer: f.sourceLayer,
+                  id: f.id,
+                };
+              }
+            })
+            .flat() as MapFeatureInfo[];
+        } else {
+          hoverFeatures = _features.map((f) => ({
+            source: f.source,
+            sourceLayer: f.sourceLayer,
+            id: f.id,
+          }));
+        }
         set({ hoverFeatures });
       },
       mapOptions: {
