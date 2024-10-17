@@ -169,7 +169,7 @@ export function getBlocksHoverLayerSpecification(
   sourceLayer: string,
   layerId: string
 ): LayerSpecification {
-  return {
+  const layerSpec: LayerSpecification =  {
     id: layerId,
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
@@ -177,12 +177,15 @@ export function getBlocksHoverLayerSpecification(
     layout: {
       visibility: "visible",
     },
-    filter: getLayerFilter(layerId),
     paint: {
       "fill-opacity": getLayerFill(),
       "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
     },
   };
+  if (CHILD_LAYERS.includes(layerId)){
+    layerSpec.filter = getLayerFilter(layerId)
+  }
+  return layerSpec
 }
 
 const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {

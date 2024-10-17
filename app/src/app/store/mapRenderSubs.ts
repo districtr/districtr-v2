@@ -52,8 +52,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       }
 
       const layersToFilter = state.mapDocument?.child_layer
-        ? [...PARENT_LAYERS, ...CHILD_LAYERS]
-        : PARENT_LAYERS;
+        ? CHILD_LAYERS
+        : [];
       
       layersToFilter.forEach((layerId) => 
         mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
