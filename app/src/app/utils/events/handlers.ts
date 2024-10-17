@@ -13,19 +13,35 @@ import { MapStore } from "@/app/store/mapStore";
  */
 const debouncedSetZoneAssignments = debounce(
   (mapStoreRef: MapStore, selectedZone: NullableZone, geoids: Set<string>) => {
-    mapStoreRef.setZoneAssignments(selectedZone, geoids);
+    const shatterMappings = mapStoreRef.shatterMappings
+    let mappedGeoids = geoids
+    if (Object.keys(shatterMappings)) {
+      geoids.forEach(id => {
+        if (shatterMappings.hasOwnProperty(id)){
+          mappedGeoids.delete(id)
+          const children = shatterMappings[id]
+          mappedGeoids = new Set([...mappedGeoids, ...children])
+        }
+    })}
+    
+    mapStoreRef.setZoneAssignments(selectedZone, mappedGeoids);
 
     const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
 
-    const population = Array.from(Object.values(accumulatedBlockPopulations)).reduce(
-      (acc, val) => acc + Number(val),
-      0,
-    );
+    const population = Array.from(
+      Object.values(accumulatedBlockPopulations)
+    ).reduce((acc, val) => acc + Number(val), 0);
+
     selectedZone && mapStoreRef.setZonePopulations(selectedZone, population);
   },
-  1, // 1ms debounce
+  1 // 1ms debounce
 );
 
+const mapShatterableFeatures = (
+  features: Array<MapGeoJSONFeature>,
+  shatterMappings: MapStore["shatterMappings"],
+  child_layer: string
+) => {};
 /**
  * Select features based on given mouseEvent.
  * called using mapEvent handlers.
@@ -40,28 +56,61 @@ const debouncedSetZoneAssignments = debounce(
 export const SelectMapFeatures = (
   features: Array<MapGeoJSONFeature> | undefined,
   map: Map | null,
-  mapStoreRef: MapStore,
+  mapStoreRef: MapStore
 ) => {
   if (map) {
-    let { accumulatedGeoids, accumulatedBlockPopulations, activeTool } =
-      mapStoreRef;
+    let {
+      accumulatedGeoids,
+      accumulatedBlockPopulations,
+      activeTool,
+      shatterMappings,
+      mapDocument,
+      lockedFeatures
+    } = mapStoreRef;
     const selectedZone =
       activeTool === "eraser" ? null : mapStoreRef.selectedZone;
-
     features?.forEach((feature) => {
-      map.setFeatureState(
-        {
-          source: BLOCK_SOURCE_ID,
-          id: feature?.id ?? undefined,
-          sourceLayer: feature.sourceLayer,
-        },
-        { selected: true, zone: selectedZone }
-      );
+      const id = feature?.id?.toString() ?? undefined
+      if (!id) return
+      const isLocked = lockedFeatures.size && lockedFeatures.has(id)
+      if (isLocked) return
+      const childLayer = mapDocument?.child_layer;
+
+      if (shatterMappings.hasOwnProperty(id) && childLayer) {
+        const children = shatterMappings[id];
+
+        children.forEach((childId) => {
+          if (lockedFeatures.size && lockedFeatures.has(childId)){
+            return
+          }
+          map.setFeatureState(
+            {
+              source: BLOCK_SOURCE_ID,
+              id: childId,
+              sourceLayer: childLayer,
+            },
+            { selected: true, zone: selectedZone }
+          );
+        });
+      } else {
+        map.setFeatureState(
+          {
+            source: BLOCK_SOURCE_ID,
+            id: feature?.id ?? undefined,
+            sourceLayer: feature.sourceLayer,
+          },
+          { selected: true, zone: selectedZone }
+        );
+      }
     });
+
     if (features?.length) {
       features.forEach((feature) => {
         accumulatedGeoids.add(feature.properties?.path);
-        accumulatedBlockPopulations.set(feature.properties?.path, feature.properties?.total_pop)
+        accumulatedBlockPopulations.set(
+          feature.properties?.path,
+          feature.properties?.total_pop
+        );
       });
     }
   }
@@ -85,7 +134,7 @@ export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
     debouncedSetZoneAssignments(
       mapStoreRef,
       mapStoreRef.activeTool === "brush" ? mapStoreRef.selectedZone : null,
-      mapStoreRef.accumulatedGeoids,
+      mapStoreRef.accumulatedGeoids
     );
   }
 };
@@ -99,7 +148,7 @@ export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
 export const ResetMapSelectState = (
   map: Map | null,
   mapStoreRef: MapStore,
-  sourceLayer: string,
+  sourceLayer: string
 ) => {
   if (map && Object.keys(mapStoreRef.zoneAssignments).length) {
     map.removeFeatureState({
@@ -107,7 +156,7 @@ export const ResetMapSelectState = (
       sourceLayer: sourceLayer,
     });
 
-    mapStoreRef.setAccumulatedGeoids(new Set())
+    mapStoreRef.setAccumulatedGeoids(new Set());
     // reset zoneAssignments
     mapStoreRef.resetZoneAssignments();
     // confirm the map has been reset
