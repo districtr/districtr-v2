@@ -65,17 +65,24 @@ export const SelectMapFeatures = (
       activeTool,
       shatterMappings,
       mapDocument,
+      lockedFeatures
     } = mapStoreRef;
     const selectedZone =
       activeTool === "eraser" ? null : mapStoreRef.selectedZone;
     features?.forEach((feature) => {
-      const id = feature?.id ?? undefined;
+      const id = feature?.id?.toString() ?? undefined
+      if (!id) return
+      const isLocked = lockedFeatures.size && lockedFeatures.has(id)
+      if (isLocked) return
       const childLayer = mapDocument?.child_layer;
 
-      if (id && shatterMappings.hasOwnProperty(id) && childLayer) {
+      if (shatterMappings.hasOwnProperty(id) && childLayer) {
         const children = shatterMappings[id];
 
         children.forEach((childId) => {
+          if (lockedFeatures.size && lockedFeatures.has(childId)){
+            return
+          }
           map.setFeatureState(
             {
               source: BLOCK_SOURCE_ID,

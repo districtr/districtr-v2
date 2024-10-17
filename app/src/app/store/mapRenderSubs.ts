@@ -201,7 +201,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       
       previousLockedFeatures.forEach((id) => {
         if (!lockedFeatures.has(id)) {
-          console.log("!!!", id, lockedFeatures, previousLockedFeatures)
           mapRef.setFeatureState(
             {
               id,

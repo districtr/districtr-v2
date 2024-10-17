@@ -326,8 +326,8 @@ export const useMapStore = create(
       hoverFeatures: [],
       setHoverFeatures: (_features) => {
         let hoverFeatures: MapFeatureInfo[] = [];
-        const shatterMappings = get().shatterMappings;
-        const mapDocument = get().mapDocument;
+        const {shatterMappings, mapDocument, lockedFeatures} = get();
+
         if (!_features) {
           // do nothing
         } else if (
@@ -358,6 +358,9 @@ export const useMapStore = create(
             id: f.id,
           }));
         }
+        if (lockedFeatures.size) {
+          hoverFeatures = hoverFeatures.filter(f => f.id && !lockedFeatures.has(f.id.toString()))
+        }
         set({ hoverFeatures });
       },
       mapOptions: {
@@ -378,10 +381,12 @@ export const useMapStore = create(
       accumulatedGeoids: new Set<string>(),
       setAccumulatedGeoids: (accumulatedGeoids) => set({ accumulatedGeoids }),
       setZoneAssignments: (zone, geoids) => {
-        const zoneAssignments = get().zoneAssignments;
+        const {zoneAssignments, lockedFeatures} = get();
         const newZoneAssignments = new Map(zoneAssignments);
         geoids.forEach((geoid) => {
-          newZoneAssignments.set(geoid, zone);
+          if (!lockedFeatures || !lockedFeatures.has(geoid)){
+            newZoneAssignments.set(geoid, zone);
+          }
         });
         set({
           zoneAssignments: newZoneAssignments,

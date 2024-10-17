@@ -301,7 +301,7 @@ export const colorZoneAssignments = (
   ] = state;
   const previousZoneAssignments = previousState?.[0] || null;
   const mapRef = getMapRef()
-  const shatterIds = useMapStore.getState().shatterIds
+  const {shatterIds, lockedFeatures} = useMapStore.getState()
   if (
     !mapRef ||
     !mapDocument ||
@@ -314,10 +314,15 @@ export const colorZoneAssignments = (
     previousState?.[4] !== "loaded" || previousState?.[5] !== "loaded";
 
   zoneAssignments.forEach((zone, id) => {
-    if (
-      (id && !isInitialRender &&
-      previousZoneAssignments?.get(id) === zoneAssignments.get(id)) || (!id)
-    ) {
+    const hasNoId = !id
+    const isRepeated = (
+      id && 
+      !isInitialRender &&
+      previousZoneAssignments?.get(id) === zoneAssignments.get(id)
+    )
+    const isLocked = lockedFeatures.size && lockedFeatures.has(id)
+
+    if (hasNoId || isRepeated || isLocked) {
       return;
     }
 
