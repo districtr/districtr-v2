@@ -9,6 +9,7 @@ import { Tabs, Text } from "@radix-ui/themes";
 import Layers from "./Layers";
 import PaintByCounty from "./PaintByCounty";
 import { BrushSizeSelector } from "./BrushSizeSelector";
+import { ExitShatterButton } from "./ExitShatterButton";
 
 export default function SidebarComponent() {
   const activeTool = useMapStore((state) => state.activeTool);
@@ -36,6 +37,7 @@ export default function SidebarComponent() {
           </div>
         ) : null}
         <ResetMapButton />
+        <ExitShatterButton />
         <Tabs.Root defaultValue="layers">
           <Tabs.List>
             <Tabs.Trigger value="population"> Population </Tabs.Trigger>
