@@ -71,10 +71,6 @@ export const MapComponent: React.FC = () => {
     setMapMetrics: state.setMapMetrics,
   }));
 
-  useEffect(() => {
-    console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
-  }, []);
-
   const mapMetrics = useQuery({
     queryKey: ["zonePopulations", mapDocument],
     queryFn: mapDocument ? () => getZonePopulations(mapDocument) : skipToken,
