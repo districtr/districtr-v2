@@ -104,7 +104,25 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         state.appLoadingState,
         state.mapRenderingState,
       ],
-      (curr, prev) => colorZoneAssignments(curr, prev),
+      (curr, prev) => {
+        colorZoneAssignments(curr, prev);
+        const { mapBbox, captiveIds, shatterIds, getMapRef } = useMapStore.getState();
+
+        [...PARENT_LAYERS, ...CHILD_LAYERS].forEach((layerId) => {
+          const isHover = layerId.includes("hover")
+          const isParent = PARENT_LAYERS.includes(layerId)
+          isHover  &&
+            getMapRef()?.setPaintProperty(
+              layerId,
+              "fill-opacity",
+              getLayerFill(
+                mapBbox ? captiveIds : undefined, 
+                isParent ? shatterIds.parents : undefined
+              )
+            );
+        });
+        
+      },
       { equalityFn: shallowCompareArray }
     );
 
