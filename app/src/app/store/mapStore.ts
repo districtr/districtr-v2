@@ -84,6 +84,10 @@ export interface MapStore {
     feautres: Array<MapGeoJSONFeature>
   ) => void;  
   removeShatter: (parentId: string) => void;
+  // LOCK
+  lockedFeatures: Set<string>
+  upcertLockedFeature: (id:string, lock: boolean) => void;
+  setLockedFeatures: (lockedFeatures: MapStore['lockedFeatures']) => void;
   // HOVERING
   hoverFeatures: Array<MapFeatureInfo>;
   setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
@@ -305,6 +309,20 @@ export const useMapStore = create(
           zoneAssignments,
         });
       },
+      lockedFeatures: new Set(),
+      upcertLockedFeature: (id, lock) => {
+        const lockedFeatures = get().lockedFeatures
+        switch (lock){
+          case true:
+            lockedFeatures.add(id)
+            break
+          case false:
+            lockedFeatures.delete(id)
+            break
+        }
+        set({lockedFeatures})
+      },
+      setLockedFeatures: (lockedFeatures) => set({lockedFeatures}),
       hoverFeatures: [],
       setHoverFeatures: (_features) => {
         let hoverFeatures: MapFeatureInfo[] = [];

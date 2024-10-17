@@ -180,6 +180,13 @@ export function getBlocksHoverLayerSpecification(
     paint: {
       "fill-opacity": getLayerFill(),
       "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
+      'fill-pattern': [
+        // Check if feature state 'locked' is true
+        "case", 
+          ["boolean", ["feature-state", "locked"], true],
+           "lock-pattern", 
+           'no-pattern'
+        ]
     },
   };
   if (CHILD_LAYERS.includes(layerId)){
