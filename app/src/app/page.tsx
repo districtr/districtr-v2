@@ -8,8 +8,12 @@ import { queryClient } from "./utils/api/queryClient";
 export default function Home() {
   return (
     <QueryClientProvider client={queryClient}>
-      <main>
-        <div className="h-screen w-screen flex justify-between p">
+      <main style={{background:"red"}} id="test">
+        <div className="h-screen w-screen flex justify-between p"
+         style={{
+          flexDirection:"column",
+          background: "red"
+         }}>
           <MapComponent />
           <SidebarComponent />
         </div>
