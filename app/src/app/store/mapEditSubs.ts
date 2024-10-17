@@ -7,15 +7,16 @@ import {
 import { patchUpdates } from "../utils/api/mutations";
 import { useMapStore as _useMapStore, MapStore } from "./mapStore";
 import { shallowCompareArray } from "../utils/helpers";
+import { updateAssignments } from "../utils/api/queries";
 
 const zoneUpdates = ({
-  mapRef,
+  getMapRef,
   zoneAssignments,
   appLoadingState,
 }: Partial<MapStore>) => {
   if (
-    mapRef?.current &&
-    zoneAssignments?.size &&
+    getMapRef?.() &&
+    (zoneAssignments?.size) &&
     appLoadingState === "loaded"
   ) {
     const assignments = FormatAssignments();
@@ -26,24 +27,18 @@ const debouncedZoneUpdate = debounce(zoneUpdates, 25);
 
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const sendZonesOnMapRefSub = useMapStore.subscribe(
-    (state) => [state.mapRef, state.zoneAssignments],
+    (state) => [state.getMapRef, state.zoneAssignments],
     () => {
-      const { mapRef, zoneAssignments, appLoadingState } =
+      const { getMapRef, zoneAssignments, appLoadingState } =
         useMapStore.getState();
-      debouncedZoneUpdate({ mapRef, zoneAssignments, appLoadingState });
+      debouncedZoneUpdate({ getMapRef, zoneAssignments, appLoadingState });
     },
     { equalityFn: shallowCompareArray}
   );
 
   const fetchAssignmentsSub = useMapStore.subscribe(
     (state) => state.mapDocument,
-    (mapDocument) => {
-      if (mapDocument) {
-        getAssignments(mapDocument).then((res: Assignment[]) => {
-          useMapStore.getState().loadZoneAssignments(res);
-        });
-      }
-    }
+    (mapDocument) => mapDocument && updateAssignments(mapDocument)
   );
 
   return [sendZonesOnMapRefSub, fetchAssignmentsSub];

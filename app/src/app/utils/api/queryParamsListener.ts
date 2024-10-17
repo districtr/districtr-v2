@@ -5,6 +5,16 @@ export const getSearchParamsObersver = () => {
   if (typeof window === "undefined") {
     return
   }
+
+  // listener for tab refocus
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      updateDocumentFromId.refetch();
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
   let previousDocumentID = "";
   const observer = new MutationObserver(() => {
     const documentId = new URLSearchParams(window.location.search).get(

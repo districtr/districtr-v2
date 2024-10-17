@@ -1,6 +1,7 @@
 import type { MapOptions, MapLibreEvent } from "maplibre-gl";
 
-export type Zone = number | null;
+export type Zone = number;
+export type NullableZone = Zone | null
 
 export type GEOID = string;
 
