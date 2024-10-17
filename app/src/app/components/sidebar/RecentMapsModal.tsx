@@ -1,5 +1,4 @@
-import { useMapStore } from "@/app/store/mapStore";;
-import { useLocalStorage } from "@/app/utils/hooks/useLocalStorage";
+import { useMapStore } from "@/app/store/mapStore";
 import React from "react";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import {
@@ -10,17 +9,18 @@ import {
   Dialog,
   Box,
   TextField,
-  IconButton
+  IconButton,
 } from "@radix-ui/themes";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { DocumentObject } from "../../utils/api/apiHandlers";
-import { userMapsLocalStorageKey } from "@/app/store/localCacheSubs";
 type NamedDocumentObject = DocumentObject & { name?: string };
 export const RecentMapsModal = () => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const mapDocument = useMapStore((store) => store.mapDocument);
+  const userMaps = useMapStore((store) => store.userMaps);
+  const upcertUserMap = useMapStore((store) => store.upcertUserMap);
   const setMapDocument = useMapStore((store) => store.setMapDocument);
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
@@ -33,37 +33,7 @@ export const RecentMapsModal = () => {
     setDialogOpen(false);
   };
 
-  const [recentMaps, setRecentMaps] = useLocalStorage<NamedDocumentObject[]>(
-    undefined as any,
-    userMapsLocalStorageKey,
-    mapDocument
-  );
-
-  const getHandleChange = (i: number) => {
-    const handleChange = (data: NamedDocumentObject | null) => {
-      setRecentMaps((previous) => {
-        const updatedMaps = [...previous]; // Create a copy of the previous maps
-        if (data) {
-          updatedMaps.splice(i, 1, data); // Replace the map at index i with the new data
-        } else {
-          if (
-            previous[i].document_id === mapDocument?.document_id
-          ) {
-            // remove document_id query param
-            const urlParams = new URLSearchParams(searchParams.toString());
-            urlParams.delete("document_id"); // Remove the document_id parameter
-            router.push(pathname + "?" + urlParams.toString()); // Update the URL without document_id
-          }
-          // remove entry if null
-          updatedMaps.splice(i, 1); // Remove the entry at index i
-        }
-        return updatedMaps; // Return the updated array
-      });
-    };
-    return handleChange; // Return the handleChange function
-  };
-
-  if (!recentMaps?.length) {
+  if (!userMaps?.length) {
     return null;
   }
 
@@ -99,22 +69,23 @@ export const RecentMapsModal = () => {
                 Map Name
               </Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Last Updated</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>
-                {/* load */}
-              </Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>
-                {/* delete */}
-              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>{/* load */}</Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>{/* delete */}</Table.ColumnHeaderCell>
             </Table.Row>
           </Table.Header>
 
           <Table.Body>
-            {recentMaps.map((recentMap, i) => (
+            {userMaps.map((userMap, i) => (
               <RecentMapsRow
                 key={i}
-                active={mapDocument?.document_id === recentMap.document_id}
-                onChange={getHandleChange(i)}
-                data={recentMap}
+                active={mapDocument?.document_id === userMap.document_id}
+                onChange={(userMapData) =>
+                  upcertUserMap({
+                    userMapData,
+                    userMapDocumentId: userMap.document_id,
+                  })
+                }
+                data={userMap}
                 onSelect={handleMapDocument}
               />
             ))}
@@ -129,17 +100,15 @@ const RecentMapsRow: React.FC<{
   data: NamedDocumentObject;
   onSelect: (data: NamedDocumentObject) => void;
   active: boolean;
-  onChange?: (data: NamedDocumentObject | null) => void;
+  onChange?: (data?: NamedDocumentObject) => void;
 }> = ({ data, onSelect, active, onChange }) => {
   const updatedDate = new Date(data.updated_at as string);
   const formattedData = updatedDate.toLocaleDateString();
   const name = data?.name || data.gerrydb_table;
 
-  const handleChangeName = (data: NamedDocumentObject) => {
-    if (onChange && data.name?.length) {
-      onChange?.(data);
-    }
-  }
+  const handleChangeName = (name?: string) => {
+    name?.length && onChange?.({ ...data, name });
+  };
 
   return (
     <Table.Row align="center" className={`${active ? "bg-yellow-100" : ""}`}>
@@ -150,9 +119,8 @@ const RecentMapsRow: React.FC<{
               placeholder={name}
               size="3"
               value={name}
-              onChange={(e) => handleChangeName({...data, name:e.target.value})}
-            >
-            </TextField.Root>
+              onChange={(e) => handleChangeName(e.target.value)}
+            ></TextField.Root>
           </Box>
         ) : (
           <Text>{name}</Text>
@@ -175,12 +143,12 @@ const RecentMapsRow: React.FC<{
       <Table.Cell py=".5rem">
         {!active && (
           <IconButton
-            onClick={() => onChange?.(null)}
+            onClick={() => onChange?.()}
             variant="ghost"
             color="ruby"
             className="size-full"
           >
-            <Cross2Icon/>
+            <Cross2Icon />
           </IconButton>
         )}
       </Table.Cell>
