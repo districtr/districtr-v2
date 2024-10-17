@@ -140,8 +140,7 @@ export function getBlocksLayerSpecification(
   sourceLayer: string,
   layerId: string
 ): LayerSpecification {
-  const shatterIds = useMapStore.getState().shatterIds;
-  return {
+  const layerSpec: LayerSpecification = {
     id: layerId,
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
@@ -149,7 +148,6 @@ export function getBlocksLayerSpecification(
     layout: {
       visibility: "visible",
     },
-    filter: getLayerFilter(layerId),
     paint: {
       "line-opacity": [
         "case",
@@ -160,6 +158,11 @@ export function getBlocksLayerSpecification(
       "line-color": "#cecece",
     },
   };
+  if (CHILD_LAYERS.includes(layerId)) {
+    layerSpec.filter = getLayerFilter(layerId);
+  }
+
+  return layerSpec;
 }
 
 export function getBlocksHoverLayerSpecification(
