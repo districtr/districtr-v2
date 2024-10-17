@@ -186,14 +186,15 @@ export const handleMapContextMenu = (
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
-  const paintLayers = mapStore.mapDocument?.child_layer
+  const paintLayers = mapStore.mapDocument?.child_layer && captiveIds.size
     ? INTERACTIVE_LAYERS
     : [BLOCK_HOVER_LAYER_ID];
-  const selectedFeatures = mapStore.paintFunction(
+
+    const selectedFeatures = mapStore.paintFunction(
     map,
     e,
     0,
-    captiveIds.size ? [BLOCK_HOVER_LAYER_ID_CHILD] : [BLOCK_HOVER_LAYER_ID]
+    paintLayers
   );
   if (!selectedFeatures?.length || !map || !sourceLayer) return;
 
