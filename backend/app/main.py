@@ -142,37 +142,6 @@ async def update_assignments(
     return {"assignments_upserted": len(data.assignments)}
 
 
-@app.patch(
-    "/api/update_assignments/{document_id}/shatter_parents",
-    response_model=ShatterResult,
-)
-async def shatter_parent(
-    document_id: str, data: GEOIDS, session: Session = Depends(get_session)
-):
-    stmt = text(
-        """SELECT *
-        FROM shatter_parent(:input_document_id, :parent_geoids)"""
-    ).bindparams(
-        bindparam(key="input_document_id", type_=UUIDType),
-        bindparam(key="parent_geoids", type_=ARRAY(String)),
-    )
-    results = session.execute(
-        statement=stmt,
-        params={
-            "input_document_id": document_id,
-            "parent_geoids": data.geoids,
-        },
-    )
-    # :( was getting validation errors so am just going to loop
-    assignments = [
-        Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
-        for document_id, geo_id, zone in results
-    ]
-    result = ShatterResult(parents=data, children=assignments)
-    session.commit()
-    return result
-
-
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
