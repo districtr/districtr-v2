@@ -66,6 +66,8 @@ When reviewing a PR, use the "HIPPO" method to provide feedback:
 
 Open PRs will spin up a set of test apps for review, following the convention `pr-<pr number>-districtr-districtr-v2-<sub app>`, and would be available for testing at e.g. `https://pr-116-districtr-districtr-v2-app.fly.dev/map`. This behavior can be tweaks via `.github/workflows/fly-deploy-pr.yml`
 
+Updates to PRs will trigger updates to staging apps, including re-running of migrations on the testing db.
+
 ### CI/CD
 
 Deployments are managed with GitHub Actions.
