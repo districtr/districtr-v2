@@ -8,8 +8,13 @@ import { Protocol } from "pmtiles";
 import type { MutableRefObject } from "react";
 import React, { useEffect, useRef, useState } from "react";
 import { MAP_OPTIONS } from "../constants/configuration";
-import { mapEvents } from "../utils/events/mapEvents";
-import { INTERACTIVE_LAYERS } from "../constants/layers";
+import {
+  mapEvents,
+  useHoverFeatureIds,
+  handleResetMapSelectState,
+} from "../utils/events/mapEvents";
+import { BLOCK_HOVER_LAYER_ID, BLOCK_SOURCE_ID } from "../constants/layers";
+import { useSearchParams } from "next/navigation";
 import { useMapStore } from "../store/mapStore";
 import {
   FormatAssignments,
@@ -27,8 +32,49 @@ export const MapComponent: React.FC = () => {
   const searchParams = useSearchParams();
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
-  const mapLock = useMapStore((state) => state.mapLock);
-  const setMapRef = useMapStore((state) => state.setMapRef);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const hoverFeatureIds = useHoverFeatureIds();
+
+  const patchUpdates = useMutation({
+    mutationFn: patchUpdateAssignments,
+    onMutate: () => {
+      console.log("Updating assignments");
+    },
+    onError: (error) => {
+      console.log("Error updating assignments: ", error);
+    },
+    onSuccess: (data: AssignmentsCreate) => {
+      console.log(
+        `Successfully upserted ${data.assignments_upserted} assignments`
+      );
+      mapMetrics.refetch();
+    },
+  });
+
+  const {
+    activeTool,
+    freshMap,
+    zoneAssignments,
+    mapDocument,
+    setMapDocument,
+    setSelectedLayer,
+    setMapRef,
+    setMapMetrics,
+  } = useMapStore((state) => ({
+    activeTool: state.activeTool,
+    freshMap: state.freshMap,
+    zoneAssignments: state.zoneAssignments,
+    mapDocument: state.mapDocument,
+    setMapDocument: state.setMapDocument,
+    setSelectedLayer: state.setSelectedLayer,
+    setMapRef: state.setMapRef,
+    setMapMetrics: state.setMapMetrics,
+  }));
+
+  const mapMetrics = useQuery({
+    queryKey: ["zonePopulations", mapDocument],
+    queryFn: mapDocument ? () => getZonePopulations(mapDocument) : skipToken,
+  });
 
   useEffect(() => {
     let protocol = new Protocol();

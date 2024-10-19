@@ -150,7 +150,7 @@ export interface gerryDBView {
 export const getGerryDBViews: (
   limit?: number,
   offset?: number
-) => Promise<DistrictrMap[]> = async (limit = 10, offset = 0) => {
+) => Promise<gerryDBView[]> = async (limit = 10, offset = 0) => {
   return await axios
     .get(
       `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`
@@ -171,7 +171,6 @@ export interface Assignment {
   document_id: string;
   geo_id: string;
   zone: number;
-  parent_path?: string;
 }
 
 /**
@@ -195,40 +194,6 @@ export const patchUpdateAssignments: (
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
     })
-    .then((res) => {
-      return res.data;
-    });
-};
-
-/**
- * Shatter result
- *   @interface
- *   @property {string[]} parents - The parents.
- *   @property {Assignment[]} children - The children.
- */
-export interface ShatterResult {
-  parents: { geoids: string[] };
-  children: Assignment[];
-}
-
-/**
- * Shatter parents
- *
- * @param document_id - string, the document id
- * @param geoids - string[], the geoids to shatter
- * @returns list of child assignments results from shattered parents
- */
-export const patchShatterParents: (params: {
-  document_id: string;
-  geoids: string[];
-}) => Promise<ShatterResult> = async ({ document_id, geoids }) => {
-  return await axios
-    .patch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/shatter_parents`,
-      {
-        geoids: geoids,
-      }
-    )
     .then((res) => {
       return res.data;
     });
