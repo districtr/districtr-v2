@@ -16,7 +16,6 @@ export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore((state) => state.mapLock);
-
   const setMapRef = useMapStore((state) => state.setMapRef);
 
   useEffect(() => {
