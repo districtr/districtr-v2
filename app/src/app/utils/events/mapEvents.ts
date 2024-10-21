@@ -13,8 +13,7 @@ import { ResetMapSelectState } from "@utils/events/handlers";
 import {
   INTERACTIVE_LAYERS,
   BLOCK_HOVER_LAYER_ID,
-  BLOCK_LAYER_ID,
-  BLOCK_LAYER_ID_CHILD,
+  BLOCK_HOVER_LAYER_ID_CHILD,
 } from "@constants/layers";
 
 /*
@@ -26,8 +25,8 @@ MapEvent handling; these functions are called by the event listeners in the MapC
 */
 function getLayerIdsToPaint(child_layer: string | undefined | null) {
   return child_layer
-    ? [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
-    : [BLOCK_LAYER_ID];
+    ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+    : [BLOCK_HOVER_LAYER_ID];
 }
 
 /**
@@ -164,9 +163,7 @@ export const handleMapZoomEnd = (
   map: MapLibreMap | null,
 ) => {};
 
-export const handleResetMapSelectState = (
-  map: MapLibreMap | null,
-) => {
+export const handleResetMapSelectState = (map: MapLibreMap | null) => {
   const mapStore = useMapStore.getState();
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (sourceLayer) {
