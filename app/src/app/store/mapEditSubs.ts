@@ -25,12 +25,21 @@ const zoneUpdates = ({
 };
 const debouncedZoneUpdate = debounce(zoneUpdates, 25);
 
+type zoneSubState = [
+  MapStore['getMapRef'],
+  MapStore['zoneAssignments'],
+  MapStore['appLoadingState'],
+  MapStore['mapRenderingState']
+]
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
-  const sendZonesOnMapRefSub = useMapStore.subscribe(
-    (state) => [state.getMapRef, state.zoneAssignments],
-    () => {
-      const { getMapRef, zoneAssignments, appLoadingState } =
-        useMapStore.getState();
+  const sendZonesOnMapRefSub = useMapStore.subscribe<zoneSubState>(
+    (state) => [state.getMapRef, state.zoneAssignments, state.appLoadingState, state.mapRenderingState],
+    ([getMapRef, zoneAssignments, appLoadingState, mapRenderingState], [ _prevMapRef, _prevZoneAssignments, prevAppLoadingState, prevMapRenderingState]) => {
+      const previousNotLoaded = [appLoadingState, mapRenderingState, prevAppLoadingState, prevMapRenderingState].some(state => state !== 'loaded')
+      if (!getMapRef() || previousNotLoaded) {
+        return
+      }
+      console.log("!!!SENDING UPDATES", appLoadingState, mapRenderingState, prevAppLoadingState, prevMapRenderingState)
       debouncedZoneUpdate({ getMapRef, zoneAssignments, appLoadingState });
     },
     { equalityFn: shallowCompareArray}
