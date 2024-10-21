@@ -36,13 +36,13 @@ jobs:
                 db_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
                 
                 echo "Destroying app $app_name"
-                flyctl apps destroy "$app_name"
+                flyctl apps destroy "$app_name" -y
 
                 echo "Destroying frontend app $frontend_app_name"
-                flyctl apps destroy "$frontend_app_name"
+                flyctl apps destroy "$frontend_app_name" -y
 
                 echo "Destroying database $db_name"
-                flyctl postgres destroy "$db_name"
+                flyctl postgres destroy "$db_name" -y
                 
                 echo "Resources for PR #${{ github.event.number }} have been destroyed."
               env:
