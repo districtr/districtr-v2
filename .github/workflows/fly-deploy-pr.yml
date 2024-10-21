@@ -46,7 +46,7 @@ jobs:
                 
                 echo "Resources for PR #${{ github.event.number }} have been destroyed."
               env:
-                FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOKEN }}
+                FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOTKEN }}
 
             # fork new db from existing db if it doesn't already exist
             - name: Fork From DB
