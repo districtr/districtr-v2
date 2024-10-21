@@ -31,6 +31,7 @@ export type PaintEventHandler = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
   layers?: string[],
+  filterLocked?: boolean
 ) => MapGeoJSONFeature[] | undefined;
 
 /**
@@ -79,11 +80,22 @@ export const getFeaturesInBbox = (
   map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_LAYER_ID],
+  _layers: string[] = [BLOCK_LAYER_ID],
+  filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
+  const {captiveIds, lockedFeatures} = useMapStore.getState()
+  const layers = _layers?.length ? _layers : captiveIds.size ? [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] : [BLOCK_LAYER_ID]
+  let features = map?.queryRenderedFeatures(bbox, { layers }) || []
+  if (captiveIds.size) {
+    features = features.filter(f => captiveIds.has(f.id?.toString() || ''))
+  }
+  if (filterLocked && lockedFeatures.size) {
+    features = features.filter(f => !lockedFeatures.has(f.id?.toString() || ''))
+  }
 
-  return map?.queryRenderedFeatures(bbox, { layers });
+
+  return features
 };
 
 /**
@@ -289,7 +301,7 @@ export const colorZoneAssignments = (
   ] = state;
   const previousZoneAssignments = previousState?.[0] || null;
   const mapRef = getMapRef()
-  const shatterIds = useMapStore.getState().shatterIds
+  const {shatterIds, lockedFeatures} = useMapStore.getState()
   if (
     !mapRef ||
     !mapDocument ||
@@ -302,10 +314,15 @@ export const colorZoneAssignments = (
     previousState?.[4] !== "loaded" || previousState?.[5] !== "loaded";
 
   zoneAssignments.forEach((zone, id) => {
-    if (
-      (id && !isInitialRender &&
-      previousZoneAssignments?.get(id) === zoneAssignments.get(id)) || (!id)
-    ) {
+    const hasNoId = !id
+    const isRepeated = (
+      id && 
+      !isInitialRender &&
+      previousZoneAssignments?.get(id) === zoneAssignments.get(id)
+    )
+    const isLocked = lockedFeatures.size && lockedFeatures.has(id)
+
+    if (hasNoId || isRepeated || isLocked) {
       return;
     }
 
