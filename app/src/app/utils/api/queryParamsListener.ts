@@ -1,4 +1,5 @@
-import { updateDocumentFromId } from "./queries";
+import { updateDocumentFromId, updateGetDocumentFromId } from "./queries";
+export let previousDocumentID = ''
 
 export const getSearchParamsObersver = () => {
   // next ssr safety
@@ -21,8 +22,8 @@ export const getSearchParamsObersver = () => {
       "document_id"
     );
     if (documentId && documentId !== previousDocumentID) {
-      previousDocumentID = documentId;
-      updateDocumentFromId.refetch();
+      previousDocumentID = documentId
+      updateGetDocumentFromId(documentId)
     }
   });
   const config = { subtree: true, childList: true };
