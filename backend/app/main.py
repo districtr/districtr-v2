@@ -149,8 +149,10 @@ async def update_assignments(
 async def shatter_parent(
     document_id: str, data: GEOIDS, session: Session = Depends(get_session)
 ):
-    stmt = text("""SELECT *
-        FROM shatter_parent(:input_document_id, :parent_geoids)""").bindparams(
+    stmt = text(
+        """SELECT *
+        FROM shatter_parent(:input_document_id, :parent_geoids)"""
+    ).bindparams(
         bindparam(key="input_document_id", type_=UUIDType),
         bindparam(key="parent_geoids", type_=ARRAY(String)),
     )

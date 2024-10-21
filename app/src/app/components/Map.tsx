@@ -8,9 +8,7 @@ import { Protocol } from "pmtiles";
 import type { MutableRefObject } from "react";
 import React, { useEffect, useRef } from "react";
 import { MAP_OPTIONS } from "../constants/configuration";
-import {
-  mapEvents,
-} from "../utils/events/mapEvents";
+import { mapEvents } from "../utils/events/mapEvents";
 import { INTERACTIVE_LAYERS } from "../constants/layers";
 import { useMapStore } from "../store/mapStore";
 
