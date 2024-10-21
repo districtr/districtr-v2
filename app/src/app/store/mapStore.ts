@@ -1,6 +1,7 @@
+"use client";
 import type { MapGeoJSONFeature, MapOptions } from "maplibre-gl";
 import { create } from "zustand";
-import { devtools, subscribeWithSelector } from "zustand/middleware";
+import { devtools, subscribeWithSelector, persist } from "zustand/middleware";
 import type {
   ActiveTool,
   MapFeatureInfo,
@@ -10,13 +11,14 @@ import type {
 import { Zone, GDBPath } from "../constants/types";
 import {
   Assignment,
+  DistrictrMap,
   DocumentObject,
   ShatterResult,
   ZonePopulation,
 } from "../utils/api/apiHandlers";
 import maplibregl from "maplibre-gl";
 import type { MutableRefObject } from "react";
-import { UseQueryResult } from "@tanstack/react-query";
+import { QueryObserverResult, UseQueryResult } from "@tanstack/react-query";
 import {
   ContextMenuState,
   LayerVisibility,
@@ -31,10 +33,12 @@ import { getMapMetricsSubs } from "./metricsSubs";
 import { getMapEditSubs } from "./mapEditSubs";
 import bbox from "@turf/bbox";
 import { BLOCK_SOURCE_ID } from "../constants/layers";
+import { getMapViewsSubs } from "../utils/api/queries";
+import { persistOptions } from "./persistConfig";
 
 const combineSetValues = (
   setRecord: Record<string, Set<unknown>>,
-  keys?: string[]
+  keys?: string[],
 ) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
   for (const key in setRecord) {
@@ -61,6 +65,8 @@ export interface MapStore {
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
   // MAP DOCUMENT
+  mapViews: Partial<QueryObserverResult<DistrictrMap[], Error>>;
+  setMapViews: (maps: MapStore["mapViews"]) => void;
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
   // SHATTERING
@@ -77,17 +83,17 @@ export interface MapStore {
     existingChildren: Set<string>,
     newParent: string[],
     newChildren: Set<string>[],
-    multipleShattered: boolean
+    multipleShattered: boolean,
   ) => void;
   handleShatter: (
     document_id: string,
-    feautres: Array<MapGeoJSONFeature>
-  ) => void;  
+    feautres: Array<MapGeoJSONFeature>,
+  ) => void;
   removeShatter: (parentId: string) => void;
   // LOCK
-  lockedFeatures: Set<string>
-  upcertLockedFeature: (id:string, lock: boolean) => void;
-  setLockedFeatures: (lockedFeatures: MapStore['lockedFeatures']) => void;
+  lockedFeatures: Set<string>;
+  upcertLockedFeature: (id: string, lock: boolean) => void;
+  setLockedFeatures: (lockedFeatures: MapStore["lockedFeatures"]) => void;
   // HOVERING
   hoverFeatures: Array<MapFeatureInfo>;
   setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
@@ -120,7 +126,7 @@ export interface MapStore {
   setFreshMap: (resetMap: boolean) => void;
   mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
   setMapMetrics: (
-    metrics: UseQueryResult<ZonePopulation[], Error> | null
+    metrics: UseQueryResult<ZonePopulation[], Error> | null,
   ) => void;
   visibleLayerIds: string[];
   setVisibleLayerIds: (layerIds: string[]) => void;
@@ -128,6 +134,14 @@ export interface MapStore {
   updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
+  userMaps: Array<DocumentObject & { name?: string }>;
+  setUserMaps: (userMaps: MapStore["userMaps"]) => void;
+  upcertUserMap: (props: {
+    documentId?: string;
+    mapDocument?: MapStore["mapDocument"];
+    userMapDocumentId?: string;
+    userMapData?: MapStore["userMaps"][number];
+  }) => void;
 }
 
 const initialLoadingState =
@@ -137,349 +151,358 @@ const initialLoadingState =
     : "initializing";
 
 export const useMapStore = create(
-  devtools(
-    subscribeWithSelector<MapStore>((set, get) => ({
-      appLoadingState: initialLoadingState,
-      setAppLoadingState: (appLoadingState) => set({ appLoadingState }),
-      mapRenderingState: "initializing",
-      setMapRenderingState: (mapRenderingState) => set({ mapRenderingState }),
-      getMapRef: () => null,
-      setMapRef: (mapRef) => {
-        set({
-          getMapRef: () => mapRef.current,
-          appLoadingState:
-            initialLoadingState === "initializing"
-              ? "loaded"
-              : get().appLoadingState,
-        });
-      },
-      mapLock: false,
-      setMapLock: (mapLock) => set({ mapLock }),
-      mapDocument: null,
-      setMapDocument: (mapDocument) => {
-        const currentMapDocument = get().mapDocument;
-        if (currentMapDocument?.document_id === mapDocument.document_id) {
-          return;
-        }
-        get().setFreshMap(true);
-        get().resetZoneAssignments();
-
-        set({
-          mapDocument: mapDocument,
-          shatterIds: { parents: new Set(), children: new Set() },
-        });
-      },
-      shatterIds: {
-        parents: new Set(),
-        children: new Set(),
-      },
-      captiveIds: new Set<string>(),
-      resetShatterView: () => {
-        set({
-          captiveIds: new Set<string>(),
-          mapBbox: null,
-        });
-      },
-      mapBbox: null,
-      handleShatter: async (document_id, features) => {
-        set({ mapLock: true });
-        const geoids = features
-          .map((f) => f.id?.toString())
-          .filter(Boolean) as string[];
-
-        const shatterMappings = get().shatterMappings;
-        const isAlreadyShattered = geoids.some((id) =>
-          shatterMappings.hasOwnProperty(id)
-        );
-        const shatterResult: ShatterResult = isAlreadyShattered
-          ? ({
-              parents: { geoids },
-              children: Array.from(
-                combineSetValues(shatterMappings, geoids)
-              ).map((id) => ({
-                geo_id: id,
-                document_id,
-                parent_path: "",
-              })),
-            } as ShatterResult)
-          : await patchShatter.mutate({
-              document_id,
-              geoids,
-            });
-
-        // TODO Need to return child edges even if the parent is already shattered
-        // currently returns nothing
-        const shatterIds = get().shatterIds;
-
-        let existingParents = new Set(shatterIds.parents);
-        let existingChildren = new Set(shatterIds.children);
-        const newParent = shatterResult.parents.geoids;
-        const newChildren = new Set(
-          shatterResult.children.map((child) => child.geo_id)
-        );
-
-        const zoneAssignments = new Map(get().zoneAssignments);
-        const multipleShattered = shatterResult.parents.geoids.length > 1;
-        const featureBbox = bbox(features[0].geometry);
-        const mapBbox =
-          featureBbox?.length >= 4
-            ? (featureBbox.slice(0, 4) as MapStore["mapBbox"])
-            : undefined;
-
-        newParent.forEach((parent) => existingParents.add(parent));
-        existingChildren = new Set([...existingChildren, ...newChildren])
-
-        if (!isAlreadyShattered && !multipleShattered) {
-          setZones(zoneAssignments, newParent[0], newChildren);
-          shatterMappings[newParent[0]] = newChildren;
-        } else if (multipleShattered) {
-          // todo handle multiple shattered case
-        } else if (isAlreadyShattered) {
+  persist(
+    devwrapper(
+      subscribeWithSelector<MapStore>((set, get) => ({
+        appLoadingState: initialLoadingState,
+        setAppLoadingState: (appLoadingState) => set({ appLoadingState }),
+        mapRenderingState: "initializing",
+        setMapRenderingState: (mapRenderingState) => set({ mapRenderingState }),
+        captiveIds: new Set<string>(),
+        resetShatterView: () => {
           set({
+            captiveIds: new Set<string>(),
+            mapBbox: null,
+          });
+        },
+        mapBbox: null,
+        getMapRef: () => null,
+        setMapRef: (mapRef) => {
+          set({
+            getMapRef: () => mapRef.current,
+            appLoadingState:
+              initialLoadingState === "initializing"
+                ? "loaded"
+                : get().appLoadingState,
+          });
+        },
+        mapLock: false,
+        setMapLock: (mapLock) => set({ mapLock }),
+        mapViews: { isPending: true },
+        setMapViews: (mapViews) => set({ mapViews }),
+        mapDocument: null,
+        setMapDocument: (mapDocument) => {
+          const currentMapDocument = get().mapDocument;
+          if (currentMapDocument?.document_id === mapDocument.document_id) {
+            return;
+          }
+          get().setFreshMap(true);
+          get().resetZoneAssignments();
+          get().upcertUserMap({
+            mapDocument,
+          });
+          set({
+            mapDocument: mapDocument,
+            shatterIds: { parents: new Set(), children: new Set() },
+          });
+        },
+        lockedFeatures: new Set(),
+        upcertLockedFeature: (id, lock) => {
+          const lockedFeatures = new Set(get().lockedFeatures);
+          switch (lock) {
+            case true:
+              lockedFeatures.add(id);
+              break;
+            case false:
+              lockedFeatures.delete(id);
+              break;
+          }
+          set({ lockedFeatures });
+        },
+        setLockedFeatures: (lockedFeatures) => set({ lockedFeatures }),
+        handleShatter: async (document_id, features) => {
+          set({ mapLock: true });
+          const geoids = features
+            .map((f) => f.id?.toString())
+            .filter(Boolean) as string[];
+
+          const shatterMappings = get().shatterMappings;
+          const isAlreadyShattered = geoids.some((id) =>
+            shatterMappings.hasOwnProperty(id),
+          );
+          const shatterResult: ShatterResult = isAlreadyShattered
+            ? ({
+                parents: { geoids },
+                children: Array.from(
+                  combineSetValues(shatterMappings, geoids),
+                ).map((id) => ({
+                  geo_id: id,
+                  document_id,
+                  parent_path: "",
+                })),
+              } as ShatterResult)
+            : await patchShatter.mutate({
+                document_id,
+                geoids,
+              });
+
+          // TODO Need to return child edges even if the parent is already shattered
+          // currently returns nothing
+          const shatterIds = get().shatterIds;
+
+          let existingParents = new Set(shatterIds.parents);
+          let existingChildren = new Set(shatterIds.children);
+          const newParent = shatterResult.parents.geoids;
+          const newChildren = new Set(
+            shatterResult.children.map((child) => child.geo_id),
+          );
+
+          const zoneAssignments = new Map(get().zoneAssignments);
+          const multipleShattered = shatterResult.parents.geoids.length > 1;
+          const featureBbox = bbox(features[0].geometry);
+          const mapBbox =
+            featureBbox?.length >= 4
+              ? (featureBbox.slice(0, 4) as MapStore["mapBbox"])
+              : undefined;
+
+          newParent.forEach((parent) => existingParents.add(parent));
+          existingChildren = new Set([...existingChildren, ...newChildren]);
+
+          if (!isAlreadyShattered && !multipleShattered) {
+            setZones(zoneAssignments, newParent[0], newChildren);
+            shatterMappings[newParent[0]] = newChildren;
+          } else if (multipleShattered) {
+            // todo handle multiple shattered case
+          } else if (isAlreadyShattered) {
+            set({
+              captiveIds: newChildren,
+              mapBbox,
+              mapLock: false,
+            });
+            return;
+          }
+
+          set({
+            shatterIds: {
+              parents: existingParents,
+              children: existingChildren,
+            },
+            mapLock: false,
             captiveIds: newChildren,
             mapBbox,
-            mapLock: false,
+            zoneAssignments,
           });
-          return;
-        }
+        },
+        removeShatter: (parentId) => {
+          const { shatterIds, shatterMappings, zoneAssignments } = get();
 
-        set({
-          shatterIds: {
-            parents: existingParents,
-            children: existingChildren,
-          },
-          mapLock: false,
-          captiveIds: newChildren,
-          mapBbox,
-          zoneAssignments,
-        });
-      },
-      removeShatter: (parentId) => {
-        const { shatterIds, shatterMappings, zoneAssignments } = get();
+          const children = shatterMappings[parentId];
+          // Remove the parent from shatterMappings
+          delete shatterMappings[parentId];
 
-        const children = shatterMappings[parentId];
-        // Remove the parent from shatterMappings
-        delete shatterMappings[parentId];
+          // Remove the parent from shatterIds
+          shatterIds.parents.delete(parentId);
 
-        // Remove the parent from shatterIds
-        shatterIds.parents.delete(parentId);
-
-        // Remove the children from shatterIds and zoneAssignments
-        children.forEach((child) => {
-          shatterIds.children.delete(child);
-          zoneAssignments.delete(child); // Remove child from zoneAssignments
-        });
-
-        set({
-          shatterIds: {
-            parents: new Set(shatterIds.parents),
-            children: new Set(shatterIds.children),
-          },
-          shatterMappings, // Update shatterMappings
-          zoneAssignments, // Update zoneAssignments
-        });
-      },
-      shatterMappings: {},
-      setShatterIds: (
-        existingParents,
-        existingChildren,
-        newParent,
-        newChildren,
-        multipleShattered
-      ) => {
-        const zoneAssignments = new Map(get().zoneAssignments);
-
-        if (!multipleShattered) {
-          setZones(zoneAssignments, newParent[0], newChildren[0]);
-        } else {
-          // todo handle multiple shattered case
-        }
-        newParent.forEach((parent) => existingParents.add(parent));
-        // there may be a faster way to do this
-        newChildren.forEach(
-          (children) =>
-            (existingChildren = new Set([...existingChildren, ...children]))
-        );
-
-        set({
-          shatterIds: {
-            parents: existingParents,
-            children: existingChildren,
-          },
-          zoneAssignments,
-        });
-      },
-      lockedFeatures: new Set(),
-      upcertLockedFeature: (id, lock) => {
-        const lockedFeatures = new Set(get().lockedFeatures)
-        switch (lock){
-          case true:
-            lockedFeatures.add(id)
-            break
-          case false:
-            lockedFeatures.delete(id)
-            break
-        }
-        set({lockedFeatures})
-      },
-      setLockedFeatures: (lockedFeatures) => set({lockedFeatures}),
-      hoverFeatures: [],
-      setHoverFeatures: (_features) => {
-        let hoverFeatures: MapFeatureInfo[] = [];
-        const {shatterMappings, mapDocument, lockedFeatures} = get();
-
-        if (!_features) {
-          // do nothing
-        } else if (
-          Object.keys(shatterMappings).length &&
-          mapDocument?.child_layer
-        ) {
-          hoverFeatures = _features
-            .map((f) => {
-              if (f.id && shatterMappings.hasOwnProperty(f.id)) {
-                return Array.from(shatterMappings[f.id]).map((id) => ({
-                  id,
-                  sourceLayer: mapDocument.child_layer,
-                  source: BLOCK_SOURCE_ID,
-                }));
-              } else {
-                return {
-                  source: f.source,
-                  sourceLayer: f.sourceLayer,
-                  id: f.id,
-                };
-              }
-            })
-            .flat() as MapFeatureInfo[];
-        } else {
-          hoverFeatures = _features.map((f) => ({
-            source: f.source,
-            sourceLayer: f.sourceLayer,
-            id: f.id,
-          }));
-        }
-        if (lockedFeatures.size) {
-          hoverFeatures = hoverFeatures.filter(f => f.id && !lockedFeatures.has(f.id.toString()))
-        }
-        set({ hoverFeatures });
-      },
-      mapOptions: {
-        center: [-98.5795, 39.8283],
-        zoom: 3,
-        pitch: 0,
-        bearing: 0,
-        container: "",
-      },
-      setMapOptions: (options) => set({ mapOptions: options }),
-      activeTool: "pan",
-      setActiveTool: (tool) => set({ activeTool: tool }),
-      spatialUnit: "tract",
-      setSpatialUnit: (unit) => set({ spatialUnit: unit }),
-      selectedZone: 1,
-      setSelectedZone: (zone) => set({ selectedZone: zone }),
-      zoneAssignments: new Map(),
-      accumulatedGeoids: new Set<string>(),
-      setAccumulatedGeoids: (accumulatedGeoids) => set({ accumulatedGeoids }),
-      setZoneAssignments: (zone, geoids) => {
-        const {zoneAssignments, lockedFeatures} = get();
-        const newZoneAssignments = new Map(zoneAssignments);
-        geoids.forEach((geoid) => {
-          if (!lockedFeatures || !lockedFeatures.has(geoid)){
-            newZoneAssignments.set(geoid, zone);
-          }
-        });
-        set({
-          zoneAssignments: newZoneAssignments,
-          accumulatedGeoids: new Set<string>(),
-        });
-      },
-      loadZoneAssignments: (assignments) => {
-        const zoneAssignments = new Map<string, number>();
-        const shatterIds = {
-          parents: new Set<string>(),
-          children: new Set<string>(),
-        };
-        const shatterMappings: Record<string, Set<string>> = {};
-        assignments.forEach((assignment) => {
-          zoneAssignments.set(assignment.geo_id, assignment.zone);
-          if (assignment.parent_path) {
-            shatterIds.parents.add(assignment.parent_path);
-            shatterIds.children.add(assignment.geo_id);
-            shatterMappings[assignment.parent_path] =
-              shatterMappings[assignment.parent_path] || new Set();
-            shatterMappings[assignment.parent_path].add(assignment.geo_id);
-          }
-        });
-        set({
-          shatterMappings,
-          zoneAssignments,
-          shatterIds,
-          appLoadingState: "loaded",
-        });
-      },
-      accumulatedBlockPopulations: new Map<string, number>(),
-      resetAccumulatedBlockPopulations: () =>
-        set({ accumulatedBlockPopulations: new Map<string, number>() }),
-      zonePopulations: new Map(),
-      setZonePopulations: (zone, population) =>
-        set((state) => {
-          const newZonePopulations = new Map(state.zonePopulations);
-          newZonePopulations.set(zone, population);
-          return {
-            zonePopulations: newZonePopulations,
-          };
-        }),
-      resetZoneAssignments: () => set({ zoneAssignments: new Map() }),
-      brushSize: 50,
-      setBrushSize: (size) => set({ brushSize: size }),
-      isPainting: false,
-      setIsPainting: (isPainting) => set({ isPainting }),
-      paintFunction: getFeaturesInBbox,
-      setPaintFunction: (paintFunction) => set({ paintFunction }),
-      clearMapEdits: () =>
-        set({
-          zoneAssignments: new Map(),
-          accumulatedGeoids: new Set<string>(),
-          selectedZone: 1,
-        }),
-      freshMap: false,
-      setFreshMap: (resetMap) => set({ freshMap: resetMap }),
-      mapMetrics: null,
-      setMapMetrics: (metrics) => set({ mapMetrics: metrics }),
-      visibleLayerIds: ["counties_boundary", "counties_labels"],
-      setVisibleLayerIds: (layerIds) => set({ visibleLayerIds: layerIds }),
-      addVisibleLayerIds: (layerIds: string[]) => {
-        set((state) => {
-          const newVisibleLayerIds = new Set(state.visibleLayerIds);
-          layerIds.forEach((layerId) => {
-            newVisibleLayerIds.add(layerId);
+          // Remove the children from shatterIds and zoneAssignments
+          children.forEach((child) => {
+            shatterIds.children.delete(child);
+            zoneAssignments.delete(child); // Remove child from zoneAssignments
           });
-          return { visibleLayerIds: Array.from(newVisibleLayerIds) };
-        });
-      },
-      updateVisibleLayerIds: (layerVisibilities: LayerVisibility[]) => {
-        set((state) => {
-          const newVisibleLayerIds = new Set(state.visibleLayerIds);
-          layerVisibilities.forEach((layerVisibility) => {
-            if (layerVisibility.visibility === "visible") {
-              newVisibleLayerIds.add(layerVisibility.layerId);
+
+          set({
+            shatterIds: {
+              parents: new Set(shatterIds.parents),
+              children: new Set(shatterIds.children),
+            },
+            shatterMappings, // Update shatterMappings
+            zoneAssignments, // Update zoneAssignments
+          });
+        },
+        shatterMappings: {},
+        upcertUserMap: ({ mapDocument, userMapData, userMapDocumentId }) => {
+          let userMaps = [...get().userMaps];
+          const mapViews = get().mapViews.data;
+          if (mapDocument?.document_id && mapViews) {
+            const documentIndex = userMaps.findIndex(
+              (f) => f.document_id === mapDocument?.document_id,
+            );
+            const documentInfo = mapViews.find(
+              (view) => view.gerrydb_table_name === mapDocument.gerrydb_table,
+            );
+            if (documentIndex !== -1) {
+              userMaps[documentIndex] = {
+                ...documentInfo,
+                ...userMaps[documentIndex],
+                ...mapDocument,
+              };
             } else {
-              newVisibleLayerIds.delete(layerVisibility.layerId);
+              userMaps = [{ ...mapDocument, ...documentInfo }, ...userMaps];
+            }
+          } else if (userMapDocumentId) {
+            const i = userMaps.findIndex(
+              (map) => map.document_id === userMapDocumentId,
+            );
+            if (userMapData) {
+              userMaps.splice(i, 1, userMapData); // Replace the map at index i with the new data
+            } else {
+              const urlParams = new URL(window.location.href).searchParams;
+              urlParams.delete("document_id"); // Remove the document_id parameter
+              window.history.pushState(
+                {},
+                "",
+                window.location.pathname + "?" + urlParams.toString(),
+              ); // Update the URL without document_id
+              userMaps.splice(i, 1);
+            }
+          }
+          set({
+            userMaps,
+          });
+        },
+        shatterIds: {
+          parents: new Set(),
+          children: new Set(),
+        },
+        setShatterIds: (
+          existingParents,
+          existingChildren,
+          newParent,
+          newChildren,
+          multipleShattered,
+        ) => {
+          const zoneAssignments = new Map(get().zoneAssignments);
+
+          if (!multipleShattered) {
+            setZones(zoneAssignments, newParent[0], newChildren[0]);
+          } else {
+            // todo handle multiple shattered case
+          }
+          newParent.forEach((parent) => existingParents.add(parent));
+          // there may be a faster way to do this
+          newChildren.forEach(
+            (children) =>
+              (existingChildren = new Set([...existingChildren, ...children])),
+          );
+
+          set({
+            shatterIds: {
+              parents: existingParents,
+              children: existingChildren,
+            },
+            zoneAssignments,
+          });
+        },
+        hoverFeatures: [],
+        setHoverFeatures: (_features) => {
+          const hoverFeatures = _features
+            ? _features.map((f) => ({
+                source: f.source,
+                sourceLayer: f.sourceLayer,
+                id: f.id,
+              }))
+            : [];
+
+          set({ hoverFeatures });
+        },
+        mapOptions: {
+          center: [-98.5795, 39.8283],
+          zoom: 3,
+          pitch: 0,
+          bearing: 0,
+          container: "",
+        },
+        setMapOptions: (options) => set({ mapOptions: options }),
+        activeTool: "pan",
+        setActiveTool: (tool) => set({ activeTool: tool }),
+        spatialUnit: "tract",
+        setSpatialUnit: (unit) => set({ spatialUnit: unit }),
+        selectedZone: 1,
+        setSelectedZone: (zone) => set({ selectedZone: zone }),
+        zoneAssignments: new Map(),
+        accumulatedGeoids: new Set<string>(),
+        setAccumulatedGeoids: (accumulatedGeoids) => set({ accumulatedGeoids }),
+        setZoneAssignments: (zone, geoids) => {
+          const zoneAssignments = get().zoneAssignments;
+          const newZoneAssignments = new Map(zoneAssignments);
+          geoids.forEach((geoid) => {
+            newZoneAssignments.set(geoid, zone);
+          });
+          set({
+            zoneAssignments: newZoneAssignments,
+            accumulatedGeoids: new Set<string>(),
+          });
+        },
+        loadZoneAssignments: (assignments) => {
+          const zoneAssignments = new Map<string, number>();
+          const shatterIds = {
+            parents: new Set<string>(),
+            children: new Set<string>(),
+          };
+          assignments.forEach((assignment) => {
+            zoneAssignments.set(assignment.geo_id, assignment.zone);
+            if (assignment.parent_path) {
+              shatterIds.parents.add(assignment.parent_path);
+              shatterIds.children.add(assignment.geo_id);
             }
           });
-          return { visibleLayerIds: Array.from(newVisibleLayerIds) };
-        });
-      },
-      contextMenu: null,
-      setContextMenu: (contextMenu) => set({ contextMenu }),
-    }))
-  )
+          set({ zoneAssignments, shatterIds, appLoadingState: "loaded" });
+        },
+        accumulatedBlockPopulations: new Map<string, number>(),
+        resetAccumulatedBlockPopulations: () =>
+          set({ accumulatedBlockPopulations: new Map<string, number>() }),
+        zonePopulations: new Map(),
+        setZonePopulations: (zone, population) =>
+          set((state) => {
+            const newZonePopulations = new Map(state.zonePopulations);
+            newZonePopulations.set(zone, population);
+            return {
+              zonePopulations: newZonePopulations,
+            };
+          }),
+        resetZoneAssignments: () => set({ zoneAssignments: new Map() }),
+        brushSize: 50,
+        setBrushSize: (size) => set({ brushSize: size }),
+        isPainting: false,
+        setIsPainting: (isPainting) => set({ isPainting }),
+        paintFunction: getFeaturesInBbox,
+        setPaintFunction: (paintFunction) => set({ paintFunction }),
+        clearMapEdits: () =>
+          set({
+            zoneAssignments: new Map(),
+            accumulatedGeoids: new Set<string>(),
+            selectedZone: 1,
+          }),
+        freshMap: false,
+        setFreshMap: (resetMap) => set({ freshMap: resetMap }),
+        mapMetrics: null,
+        setMapMetrics: (metrics) => set({ mapMetrics: metrics }),
+        visibleLayerIds: ["counties_boundary", "counties_labels"],
+        setVisibleLayerIds: (layerIds) => set({ visibleLayerIds: layerIds }),
+        addVisibleLayerIds: (layerIds: string[]) => {
+          set((state) => {
+            const newVisibleLayerIds = new Set(state.visibleLayerIds);
+            layerIds.forEach((layerId) => {
+              newVisibleLayerIds.add(layerId);
+            });
+            return { visibleLayerIds: Array.from(newVisibleLayerIds) };
+          });
+        },
+        updateVisibleLayerIds: (layerVisibilities: LayerVisibility[]) => {
+          set((state) => {
+            const newVisibleLayerIds = new Set(state.visibleLayerIds);
+            layerVisibilities.forEach((layerVisibility) => {
+              if (layerVisibility.visibility === "visible") {
+                newVisibleLayerIds.add(layerVisibility.layerId);
+              } else {
+                newVisibleLayerIds.delete(layerVisibility.layerId);
+              }
+            });
+            return { visibleLayerIds: Array.from(newVisibleLayerIds) };
+          });
+        },
+        contextMenu: null,
+        setContextMenu: (contextMenu) => set({ contextMenu }),
+        userMaps: [],
+        setUserMaps: (userMaps) => set({ userMaps }),
+      })),
+    ),
+    persistOptions,
+  ),
 );
 
 // these need to initialize after the map store
 getRenderSubscriptions(useMapStore);
 getMapMetricsSubs(useMapStore);
+getMapViewsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
-
-// window.getState = useMapStore.getState

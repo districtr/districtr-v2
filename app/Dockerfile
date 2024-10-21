@@ -26,6 +26,15 @@ RUN npm ci --include=dev
 # Copy application code
 COPY --link . .
 
+# add args for build-time variables from github actions secrets
+ARG NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_S3_BUCKET_URL=${NEXT_PUBLIC_S3_BUCKET_URL}
+
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_S3_BUCKET_URL=${NEXT_PUBLIC_S3_BUCKET_URL}
+
+
+
 # Build application
 RUN npm run build
 
