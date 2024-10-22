@@ -23,26 +23,8 @@ export function ExportMapImage() {
           }
         });
       }
-    }, 1000);
+    }, 100);
   };
-
-  //     if (mapRef) {
-  //       console.log("there is a map");
-  //       mapRef.once("render", () => {
-  //         const canvas = document.querySelector("canvas");
-  //         if (canvas) {
-  //           const strDownloadMime = "image/octet-stream";
-  //           const imgData = mapRef._canvas.toDataURL();
-  //           console.log(mapRef._canvas);
-  //           console.log(imgData);
-  //           const a = document.createElement("a");
-  //           a.href = imgData;
-  //           a.download = `mapa.png`;
-  //           a.click();
-  //         }
-  //       });
-  //     }
-  //   };
 
   return (
     <Button onClick={handleClickExportMapImage} variant={"outline"}>
