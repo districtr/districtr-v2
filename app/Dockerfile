@@ -22,6 +22,8 @@ RUN apt-get update -qq && \
 # Install node modules
 COPY --link package-lock.json package.json ./
 RUN npm ci --include=dev
+RUN echo NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL\\nNEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com
+RUN echo NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL\\nNEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com > .env.production
 
 # Copy application code
 COPY --link . .
