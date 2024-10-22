@@ -8,22 +8,28 @@ import type {
   MapLayerTouchEvent,
 } from "maplibre-gl";
 import { useMapStore } from "@/app/store/mapStore";
-import { MutableRefObject } from "react";
 import { SelectMapFeatures, SelectZoneAssignmentFeatures } from "./handlers";
-import { ResetMapSelectState } from "@/app/utils/events/handlers";
-import { BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD, BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD, INTERACTIVE_LAYERS } from "@/app/constants/layers";
+import {
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  INTERACTIVE_LAYERS,
+} from "@/app/constants/layers";
+import { ResetMapSelectState } from "@utils/events/handlers";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
 */
 
 /**
-
-*/
+ * Get the layer ids to paint on the map. Should _always_ use the hover layers
+ * as the layer to query rendered features
+ * @param includeChildLayer - boolean, whether to include the child layer
+ * @returns string[], the layer ids to paint on
+ */
 function getLayerIdsToPaint(includeChildLayer: boolean) {
   return includeChildLayer
-    ? [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD]
-    : [BLOCK_LAYER_ID];
+    ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+    : [BLOCK_HOVER_LAYER_ID];
 }
 
 /**
@@ -41,7 +47,7 @@ export const handleMapClick = (
 
   if (activeTool === "brush" || activeTool === "eraser") {
     const paintLayers = getLayerIdsToPaint(
-      Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size)
+      Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
     );
     const selectedFeatures = mapStore.paintFunction(
       map,
@@ -129,7 +135,7 @@ export const handleMapMouseMove = (
   const isPainting = mapStore.isPainting;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
-    Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size)
+    Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
   );
   const selectedFeatures = mapStore.paintFunction(
     map,
@@ -164,9 +170,7 @@ export const handleMapZoomEnd = (
   map: MapLibreMap | null,
 ) => {};
 
-export const handleResetMapSelectState = (
-  map: MapLibreMap | null,
-) => {
+export const handleResetMapSelectState = (map: MapLibreMap | null) => {
   const mapStore = useMapStore.getState();
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (sourceLayer) {
@@ -186,20 +190,21 @@ export const handleMapContextMenu = (
   }
   e.preventDefault();
   const setHoverFeatures = mapStore.setHoverFeatures;
-  const captiveIds = mapStore.captiveIds
+  const captiveIds = mapStore.captiveIds;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
-  const paintLayers = mapStore.mapDocument?.child_layer && captiveIds.size
-    ? INTERACTIVE_LAYERS
-    : [BLOCK_HOVER_LAYER_ID];
+  const paintLayers =
+    mapStore.mapDocument?.child_layer && captiveIds.size
+      ? INTERACTIVE_LAYERS
+      : [BLOCK_HOVER_LAYER_ID];
 
-    const selectedFeatures = mapStore.paintFunction(
+  const selectedFeatures = mapStore.paintFunction(
     map,
     e,
     0,
     paintLayers,
-    false
+    false,
   );
 
   if (!selectedFeatures?.length || !map || !sourceLayer) return;
