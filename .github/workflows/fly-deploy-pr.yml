@@ -95,6 +95,7 @@ jobs:
               working-directory: backend
 
             - name: deploy api app
+              if: github.event.action != 'closed'
               run: |
                     flyctl secrets set \
                     -a ${{ github.event.repository.name }}-${{ github.event.number }}-api \
