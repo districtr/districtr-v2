@@ -5,7 +5,7 @@ on:
 env:
     FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOTKEN }}
     SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-    FLY_REGION: "iad"
+    FLY_REGION: "ewr"
     FLY_ORG: "mggg"
 jobs:
     pr_review_app:
@@ -24,25 +24,25 @@ jobs:
             # Set up common variables
             - name: Set Variables
               run: |
-                echo "db_name=pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db" >> $GITHUB_ENV
-                echo "api_app_name=pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" >> $GITHUB_ENV
-                echo "frontend_app_name=pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" >> $GITHUB_ENV
+                echo "db_name=${{ github.event.repository.name }}-${{ github.event.number }}-db" >> $GITHUB_ENV
+                echo "api_app_name=${{ github.event.repository.name }}-${{ github.event.number }}-api" >> $GITHUB_ENV
+                echo "frontend_app_name=${{ github.event.repository.name }}-${{ github.event.number }}-app" >> $GITHUB_ENV
 
             - name: Destroy Resources
               if: github.event.action == 'closed'
               run: |
-                app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
-                frontend_app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
-                db_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
+                app_name="${{ github.event.repository.name }}-${{ github.event.number }}-api"
+                frontend_app_name="${{ github.event.repository.name }}-${{ github.event.number }}-app"
+                db_name="${{ github.event.repository.name }}-${{ github.event.number }}-db"
                 
                 echo "Destroying app $app_name"
-                flyctl apps destroy "$app_name" -y
+                fly apps destroy "$app_name" -y
 
                 echo "Destroying frontend app $frontend_app_name"
-                flyctl apps destroy "$frontend_app_name" -y
+                fly apps destroy "$frontend_app_name" -y
 
                 echo "Destroying database $db_name"
-                flyctl postgres destroy "$db_name" -y
+                fly apps destroy "$db_name" -y
                 
                 echo "Resources for PR #${{ github.event.number }} have been destroyed."
               env:
@@ -52,11 +52,11 @@ jobs:
             - name: Fork From DB
               id: fork-db
               run: |              
-                if flyctl postgres list | grep -q pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db; then
+                if flyctl postgres list | grep -q ${{ github.event.repository.name }}-${{ github.event.number }}-db; then
                   echo "DB already exists"                  
                 else              
                   flyctl postgres create \
-                  --name pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db \
+                  --name ${{ github.event.repository.name }}-${{ github.event.number }}-db \
                   --region ewr \
                   --initial-cluster-size 1 \
                   --vm-size shared-cpu-2x \
@@ -71,13 +71,13 @@ jobs:
                     exit 1
                   fi                                    
                 fi
-                echo "::set-output name=name::pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
+                echo "::set-output name=name::${{ github.event.repository.name }}-${{ github.event.number }}-db"
 
             # manually launch and deploy the api app
             - name: launch api app
               run: |
-                app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
-                db_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db"
+                app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
+                db_name="${{ github.event.repository.name }}-${{ github.event.number }}-db"
                 config="fly.toml"
             
                 # Check if the app exists
@@ -94,19 +94,21 @@ jobs:
 
             - name: deploy api app
               run: |
-                    flyctl deploy \
-                    --config fly.toml --app "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" \
-                    --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256                   
+                    fly deploy \
+                    --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
+                    --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
 
-                    flyctl secrets set \
-                    -a pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api \
+                    fly secrets set \
+                    -a ${{ github.event.repository.name }}-${{ github.event.number }}-api \
                     POSTGRES_SCHEME="postgresql+psycopg" \
-                    POSTGRES_SERVER="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-db.flycast" \
+                    POSTGRES_SERVER="${{ github.event.repository.name }}-${{ github.event.number }}-db.flycast" \
                     POSTGRES_USER="postgres" \
                     POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                     POSTGRES_DB="districtr_v2_api" \
-                    BACKEND_CORS_ORIGINS="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
+                    BACKEND_CORS_ORIGINS="https://${{ github.event.repository.name }}-${{ github.event.number }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
                     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
+                    
+                    fly secrets deploy -a ${{ github.event.repository.name }}-${{ github.event.number }}-api
 
                     echo "set $app secrets"
               working-directory: backend
@@ -114,8 +116,8 @@ jobs:
             - name: Check and Launch Frontend App
               id: launch
               run: |
-                app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
-                api_app="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api"
+                app="${{ github.event.repository.name }}-${{ github.event.number }}-app"
+                api_app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
                 config="fly.toml"
             
                 # Check if the app exists
@@ -125,10 +127,10 @@ jobs:
                   echo "Launching app $app."
                   # Run the flyctl launch command
                   flyctl launch \
-                  --no-deploy --copy-config --name "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
-                  --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
+                  --no-deploy --copy-config --name "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
+                  --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
                   --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
-                  --build-secret NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
+                  --build-secret NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
                   --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }}
             
                   echo "App $app launched successfully."
@@ -140,34 +142,31 @@ jobs:
           
             - name: Deploy Frontend App
               run: |
-                app_name="pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app"
+                app_name="${{ github.event.repository.name }}-${{ github.event.number }}-app"
                 config="fly.toml"
             
                 # Deploy the app
-                flyctl deploy --config "$config" --app "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
-                --build-arg NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
+                flyctl deploy --config "$config" --app "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
+                --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
-                --build-secret NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
+                --build-secret NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
                 --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
                 --strategy immediate '--ha=false' \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: app
           
-            # set secrets for f/e app
             - name: Set App Secrets
               run: |
-                flyctl secrets set \
-                -a "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-app" \
-                NEXT_PUBLIC_API_URL="https://pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api.fly.dev" \
-                NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}} 
-
+                fly secrets set \
+                -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
+                NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
+                NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
+                
+                fly secrets deploy -a "${{ github.event.repository.name }}-${{ github.event.number }}-app"
 
             - name: run database migrations
               run: |
                 flyctl ssh console \
-                --app "pr-${{ github.event.number }}-${{ github.repository_owner }}-${{ github.event.repository.name }}-api" \
+                --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
                 --command "alembic upgrade head"
               working-directory: backend
-
-            # provision appropriately, do not over-resource
-            # make volume like two gb
