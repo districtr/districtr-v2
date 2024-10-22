@@ -1,7 +1,7 @@
 import React from "react";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import { styled } from "@stitches/react";
-import { useMapStore } from "../../store/mapStore";
+import { useMapStore } from "@store/mapStore";
 import { RadioCards, Box } from "@radix-ui/themes";
 import {
   EraserIcon,
@@ -9,7 +9,7 @@ import {
   HandIcon,
   BorderSplitIcon,
 } from "@radix-ui/react-icons";
-import { RecentMapsModal } from "./RecentMapsModal";
+import { RecentMapsModal } from "@components/sidebar/RecentMapsModal";
 
 export function MapModeSelector() {
   const activeTool = useMapStore((state) => state.activeTool);

@@ -41,6 +41,7 @@ export const handleMapClick = (
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
+  const handleShatter = mapStore.handleShatter;
 
   if (activeTool === "brush" || activeTool === "eraser") {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer);
@@ -56,6 +57,12 @@ export const handleMapClick = (
       SelectMapFeatures(selectedFeatures, map, mapStore).then(() => {
         SelectZoneAssignmentFeatures(mapStore);
       });
+    }
+  } else if (activeTool === "shatter") {
+    const documentId = mapStore.mapDocument?.document_id;
+    const featureId = e.features?.[0].id?.toString();
+    if (documentId && featureId) {
+      handleShatter(documentId, [featureId]);
     }
   } else {
     // tbd, for pan mode - is there an info mode on click?
