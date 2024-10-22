@@ -1,4 +1,4 @@
-name: Fly Deploy Disctictr V2 PR
+name: Fly Deploy Disctictr V2 Pull Request app
 on:
     pull_request:
         types: [opened, reopened, synchronize, closed]
@@ -94,10 +94,6 @@ jobs:
 
             - name: deploy api app
               run: |
-                    flyctl deploy \
-                    --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
-                    --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
-
                     flyctl secrets set \
                     -a ${{ github.event.repository.name }}-${{ github.event.number }}-api \
                     POSTGRES_SCHEME="postgresql+psycopg" \
@@ -107,6 +103,10 @@ jobs:
                     POSTGRES_DB="districtr_v2_api" \
                     BACKEND_CORS_ORIGINS="https://${{ github.event.repository.name }}-${{ github.event.number }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
                     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
+                    
+                    flyctl deploy \
+                    --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
+                    --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: backend
 
             - name: Check and Launch Frontend App
@@ -140,6 +140,11 @@ jobs:
               run: |
                 app_name="${{ github.event.repository.name }}-${{ github.event.number }}-app"
                 config="fly.toml"
+                
+                flyctl secrets set \
+                -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
+                NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
+                NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
             
                 # Deploy the app
                 flyctl deploy --config "$config" --app "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
@@ -150,20 +155,4 @@ jobs:
                 --strategy immediate '--ha=false' \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
                 
-                flyctl secrets set \
-                -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
-                NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
-                NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
               working-directory: app
-          
-            - name: Deploy App Secrets
-              run: |
-                flyctl secrets deploy -a ${{ github.event.repository.name }}-${{ github.event.number }}-api
-                flyctl secrets deploy -a "${{ github.event.repository.name }}-${{ github.event.number }}-app"
-
-            - name: run database migrations
-              run: |
-                flyctl ssh console \
-                --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
-                --command "alembic upgrade head"
-              working-directory: backend
