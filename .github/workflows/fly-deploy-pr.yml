@@ -36,13 +36,13 @@ jobs:
                 db_name="${{ github.event.repository.name }}-${{ github.event.number }}-db"
                 
                 echo "Destroying app $app_name"
-                fly apps destroy "$app_name" -y
+                flyctl apps destroy "$app_name" -y
 
                 echo "Destroying frontend app $frontend_app_name"
-                fly apps destroy "$frontend_app_name" -y
+                flyctl apps destroy "$frontend_app_name" -y
 
                 echo "Destroying database $db_name"
-                fly apps destroy "$db_name" -y
+                flyctl apps destroy "$db_name" -y
                 
                 echo "Resources for PR #${{ github.event.number }} have been destroyed."
               env:
@@ -94,11 +94,11 @@ jobs:
 
             - name: deploy api app
               run: |
-                    fly deploy \
+                    flyctl deploy \
                     --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
                     --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
 
-                    fly secrets set \
+                    flyctl secrets set \
                     -a ${{ github.event.repository.name }}-${{ github.event.number }}-api \
                     POSTGRES_SCHEME="postgresql+psycopg" \
                     POSTGRES_SERVER="${{ github.event.repository.name }}-${{ github.event.number }}-db.flycast" \
@@ -108,7 +108,7 @@ jobs:
                     BACKEND_CORS_ORIGINS="https://${{ github.event.repository.name }}-${{ github.event.number }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
                     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
                     
-                    fly secrets deploy -a ${{ github.event.repository.name }}-${{ github.event.number }}-api
+                    flyctl secrets deploy -a ${{ github.event.repository.name }}-${{ github.event.number }}-api
 
                     echo "set $app secrets"
               working-directory: backend
@@ -157,12 +157,12 @@ jobs:
           
             - name: Set App Secrets
               run: |
-                fly secrets set \
+                flyctl secrets set \
                 -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
                 NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
                 
-                fly secrets deploy -a "${{ github.event.repository.name }}-${{ github.event.number }}-app"
+                flyctl secrets deploy -a "${{ github.event.repository.name }}-${{ github.event.number }}-app"
 
             - name: run database migrations
               run: |
