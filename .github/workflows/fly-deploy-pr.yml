@@ -21,8 +21,7 @@ jobs:
             - uses: actions/checkout@v3
             - uses: superfly/flyctl-actions/setup-flyctl@master
             
-            # Set up common variables
-            - name: Set Variables
+            - name: Set shared environment variables
               run: |
                 echo "db_name=${{ github.event.repository.name }}-${{ github.event.number }}-db" >> $GITHUB_ENV
                 echo "api_app_name=${{ github.event.repository.name }}-${{ github.event.number }}-api" >> $GITHUB_ENV
@@ -48,9 +47,11 @@ jobs:
               env:
                 FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOTKEN }}
 
-            # fork new db from existing db if it doesn't already exist
+            # fork new db from existing production db if it doesn't already exist
+            # eventually we may want to maintain a stage and only fork that
             - name: Fork From DB
               id: fork-db
+              if: github.event.action != 'closed'
               run: |              
                 if flyctl postgres list | grep -q ${{ github.event.repository.name }}-${{ github.event.number }}-db; then
                   echo "DB already exists"                  
@@ -75,6 +76,7 @@ jobs:
 
             # manually launch and deploy the api app
             - name: launch api app
+              if: github.event.action != 'closed'
               run: |
                 app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
                 db_name="${{ github.event.repository.name }}-${{ github.event.number }}-db"
@@ -111,6 +113,7 @@ jobs:
 
             - name: Check and Launch Frontend App
               id: launch
+              if: github.event.action != 'closed'
               run: |
                 app="${{ github.event.repository.name }}-${{ github.event.number }}-app"
                 api_app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
@@ -135,6 +138,7 @@ jobs:
               working-directory: app
           
             - name: Deploy Frontend App
+              if: github.event.action != 'closed'
               run: |
                 app_name="${{ github.event.repository.name }}-${{ github.event.number }}-app"
                 config="fly.toml"
@@ -150,5 +154,4 @@ jobs:
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com \
                 --strategy immediate '--ha=false' \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
-                
               working-directory: app
