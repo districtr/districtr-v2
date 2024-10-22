@@ -14,6 +14,8 @@ ENV NODE_ENV="production"
 
 # Throw-away build stage to reduce size of final image
 FROM base as build
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_S3_BUCKET_URL
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
@@ -23,17 +25,12 @@ RUN apt-get update -qq && \
 COPY --link package-lock.json package.json ./
 RUN npm ci --include=dev
 
+RUN echo NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL && \
+    echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" > .env.production && \
+    echo "NEXT_PUBLIC_S3_BUCKET_URL=$NEXT_PUBLIC_S3_BUCKET_URL" >> .env.production
+
 # Copy application code
 COPY --link . .
-
-# add args for build-time variables from github actions secrets
-ARG NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ARG NEXT_PUBLIC_S3_BUCKET_URL=${NEXT_PUBLIC_S3_BUCKET_URL}
-
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ENV NEXT_PUBLIC_S3_BUCKET_URL=${NEXT_PUBLIC_S3_BUCKET_URL}
-
-
 
 # Build application
 RUN npm run build
