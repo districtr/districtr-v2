@@ -107,10 +107,6 @@ jobs:
                     POSTGRES_DB="districtr_v2_api" \
                     BACKEND_CORS_ORIGINS="https://${{ github.event.repository.name }}-${{ github.event.number }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
                     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
-                    
-                    flyctl secrets deploy -a ${{ github.event.repository.name }}-${{ github.event.number }}-api
-
-                    echo "set $app secrets"
               working-directory: backend
 
             - name: Check and Launch Frontend App
@@ -153,15 +149,16 @@ jobs:
                 --build-secret NEXT_PUBLIC_S3_BUCKET_URL=${{ secrets.NEXT_PUBLIC_S3_BUCKET_URL }} \
                 --strategy immediate '--ha=false' \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
-              working-directory: app
-          
-            - name: Set App Secrets
-              run: |
+                
                 flyctl secrets set \
                 -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
                 NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
                 NEXT_PUBLIC_S3_BUCKET_URL=${{secrets.NEXT_PUBLIC_S3_BUCKET_URL}}
-                
+              working-directory: app
+          
+            - name: Deploy App Secrets
+              run: |
+                flyctl secrets deploy -a ${{ github.event.repository.name }}-${{ github.event.number }}-api
                 flyctl secrets deploy -a "${{ github.event.repository.name }}-${{ github.event.number }}-app"
 
             - name: run database migrations
