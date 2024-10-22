@@ -1,7 +1,7 @@
 import type { MapOptions, MapLibreEvent } from "maplibre-gl";
 
 export type Zone = number;
-export type NullableZone = Zone | null
+export type NullableZone = Zone | null;
 
 export type GEOID = string;
 
@@ -9,7 +9,7 @@ export type GDBPath = string;
 
 export type ZoneDict = Map<GEOID, Zone>;
 
-export type ActiveTool = "pan" | "brush" | "eraser"; // others?
+export type ActiveTool = "pan" | "brush" | "eraser" | "shatter"; // others?
 
 export type SpatialUnit =
   | "county"
