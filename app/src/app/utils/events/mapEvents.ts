@@ -15,15 +15,30 @@ import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
 } from "@constants/layers";
+import { ActiveTool } from "@/app/constants/types";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
 */
 
 /**
+ * Get the layer IDs to paint based on whether we have
+ * a shatterable map (based on whether a child layer is
+ * present) and the active tool. If the active tool is
+ * shatter, we only want to paint the shatterable layer.
+ *
+ * @param child_layer - string | undefined | null, the child layer
+ * @param activeTool - ActiveTool, the active tool
+ * @returns string[], the layer IDs to paint
+ */
+function getLayerIdsToPaint(
+  child_layer: string | undefined | null,
+  activeTool: ActiveTool,
+) {
+  if (activeTool === "shatter") {
+    return [BLOCK_HOVER_LAYER_ID];
+  }
 
-*/
-function getLayerIdsToPaint(child_layer: string | undefined | null) {
   return child_layer
     ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
     : [BLOCK_HOVER_LAYER_ID];
@@ -44,7 +59,10 @@ export const handleMapClick = (
   const handleShatter = mapStore.handleShatter;
 
   if (activeTool === "brush" || activeTool === "eraser") {
-    const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer);
+    const paintLayers = getLayerIdsToPaint(
+      mapStore.mapDocument?.child_layer,
+      activeTool,
+    );
     const selectedFeatures = mapStore.paintFunction(
       map,
       e,
@@ -136,7 +154,10 @@ export const handleMapMouseMove = (
   const setHoverFeatures = mapStore.setHoverFeatures;
   const isPainting = mapStore.isPainting;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
-  const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer);
+  const paintLayers = getLayerIdsToPaint(
+    mapStore.mapDocument?.child_layer,
+    activeTool,
+  );
   const selectedFeatures = mapStore.paintFunction(
     map,
     e,
