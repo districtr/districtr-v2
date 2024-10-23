@@ -75,12 +75,12 @@ jobs:
                 echo "::set-output name=name::${{ github.event.repository.name }}-${{ github.event.number }}-db"
 
             # manually launch and deploy the api app
-            - name: launch api app
+            - name: Launch API
               if: github.event.action != 'closed'
               run: |
                 app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
                 db_name="${{ github.event.repository.name }}-${{ github.event.number }}-db"
-                config="fly-pr.toml"
+                config="fly.toml"
             
                 # Check if the app exists
                 if flyctl apps list | grep -q "$app"; then
@@ -94,7 +94,7 @@ jobs:
                 echo "api_app_name=$app" >> $GITHUB_ENV
               working-directory: backend
 
-            - name: deploy api app
+            - name: Deploy API
               if: github.event.action != 'closed'
               run: |
                     flyctl secrets set \
@@ -108,7 +108,7 @@ jobs:
                     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
                     
                     flyctl deploy \
-                    --config fly-pr.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
+                    --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
                     --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: backend
 
@@ -118,7 +118,7 @@ jobs:
               run: |
                 app="${{ github.event.repository.name }}-${{ github.event.number }}-app"
                 api_app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
-                config="fly-pr.toml"
+                config="fly.toml"
             
                 # Check if the app exists
                 if flyctl apps list | grep -q "$app"; then
@@ -138,11 +138,11 @@ jobs:
                 echo "frontend_app_name=$app" >> $GITHUB_ENV
               working-directory: app
           
-            - name: Deploy Frontend App
+            - name: Deploy frontend
               if: github.event.action != 'closed'
               run: |
                 app_name="${{ github.event.repository.name }}-${{ github.event.number }}-app"
-                config="fly-pr.toml"
+                config="fly.toml"
                 
                 flyctl secrets set \
                 -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
