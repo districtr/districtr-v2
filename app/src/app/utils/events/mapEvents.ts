@@ -144,7 +144,7 @@ export const handleMapMouseMove = (
     paintLayers,
   );
   const isBrushingTool =
-    sourceLayer && ["brush", "eraser"].includes(activeTool);
+    sourceLayer && ["brush", "eraser", "shatter"].includes(activeTool);
   if (isBrushingTool) {
     setHoverFeatures(selectedFeatures);
   }
