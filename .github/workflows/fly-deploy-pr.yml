@@ -80,7 +80,7 @@ jobs:
               run: |
                 app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
                 db_name="${{ github.event.repository.name }}-${{ github.event.number }}-db"
-                config="fly.toml"
+                config="fly-pr.toml"
             
                 # Check if the app exists
                 if flyctl apps list | grep -q "$app"; then
@@ -108,7 +108,7 @@ jobs:
                     DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
                     
                     flyctl deploy \
-                    --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
+                    --config fly-pr.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
                     --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: backend
 
@@ -118,7 +118,7 @@ jobs:
               run: |
                 app="${{ github.event.repository.name }}-${{ github.event.number }}-app"
                 api_app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
-                config="fly.toml"
+                config="fly-pr.toml"
             
                 # Check if the app exists
                 if flyctl apps list | grep -q "$app"; then
@@ -142,7 +142,7 @@ jobs:
               if: github.event.action != 'closed'
               run: |
                 app_name="${{ github.event.repository.name }}-${{ github.event.number }}-app"
-                config="fly.toml"
+                config="fly-pr.toml"
                 
                 flyctl secrets set \
                 -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
