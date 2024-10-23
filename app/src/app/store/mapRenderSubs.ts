@@ -5,13 +5,14 @@ import {
   PARENT_LAYERS,
   CHILD_LAYERS,
   getLayerFilter,
-} from "../constants/layers";
+} from "@constants/layers";
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
   shallowCompareArray,
 } from "../utils/helpers";
-import { useMapStore as _useMapStore, MapStore } from "./mapStore";
+import { useMapStore as _useMapStore, MapStore } from "@store/mapStore";
+import { getFeatureUnderCursor } from "@utils/helpers";
 
 export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const addLayerSubMapDocument = useMapStore.subscribe<
@@ -114,6 +115,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           break;
         case "shatter":
           cursor = "crosshair";
+          useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
           break;
         default:
           cursor = "";
