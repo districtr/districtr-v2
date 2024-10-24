@@ -15,15 +15,30 @@ import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
 } from "@constants/layers";
+import { ActiveTool } from "@/app/constants/types";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
 */
 
 /**
+ * Get the layer IDs to paint based on whether we have
+ * a shatterable map (based on whether a child layer is
+ * present) and the active tool. If the active tool is
+ * shatter, we only want to paint the shatterable layer.
+ *
+ * @param child_layer - string | undefined | null, the child layer
+ * @param activeTool - ActiveTool, the active tool
+ * @returns string[], the layer IDs to paint
+ */
+function getLayerIdsToPaint(
+  child_layer: string | undefined | null,
+  activeTool: ActiveTool,
+) {
+  if (activeTool === "shatter") {
+    return [BLOCK_HOVER_LAYER_ID];
+  }
 
-*/
-function getLayerIdsToPaint(child_layer: string | undefined | null) {
   return child_layer
     ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
     : [BLOCK_HOVER_LAYER_ID];
@@ -41,9 +56,13 @@ export const handleMapClick = (
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
+  const handleShatter = mapStore.handleShatter;
 
   if (activeTool === "brush" || activeTool === "eraser") {
-    const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer);
+    const paintLayers = getLayerIdsToPaint(
+      mapStore.mapDocument?.child_layer,
+      activeTool,
+    );
     const selectedFeatures = mapStore.paintFunction(
       map,
       e,
@@ -56,6 +75,12 @@ export const handleMapClick = (
       SelectMapFeatures(selectedFeatures, map, mapStore).then(() => {
         SelectZoneAssignmentFeatures(mapStore);
       });
+    }
+  } else if (activeTool === "shatter") {
+    const documentId = mapStore.mapDocument?.document_id;
+    const featureId = e.features?.[0].id?.toString();
+    if (documentId && featureId) {
+      handleShatter(documentId, [featureId]);
     }
   } else {
     // tbd, for pan mode - is there an info mode on click?
@@ -129,7 +154,10 @@ export const handleMapMouseMove = (
   const setHoverFeatures = mapStore.setHoverFeatures;
   const isPainting = mapStore.isPainting;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
-  const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer);
+  const paintLayers = getLayerIdsToPaint(
+    mapStore.mapDocument?.child_layer,
+    activeTool,
+  );
   const selectedFeatures = mapStore.paintFunction(
     map,
     e,
@@ -137,7 +165,7 @@ export const handleMapMouseMove = (
     paintLayers,
   );
   const isBrushingTool =
-    sourceLayer && ["brush", "eraser"].includes(activeTool);
+    sourceLayer && ["brush", "eraser", "shatter"].includes(activeTool);
   if (isBrushingTool) {
     setHoverFeatures(selectedFeatures);
   }

@@ -1,6 +1,6 @@
 import { useMapStore } from "@/app/store/mapStore";
 import React from "react";
-import { Cross2Icon } from "@radix-ui/react-icons";
+import { Cross2Icon, CounterClockwiseClockIcon } from "@radix-ui/react-icons";
 import {
   Button,
   Flex,
@@ -10,6 +10,7 @@ import {
   Box,
   TextField,
   IconButton,
+  RadioCards,
 } from "@radix-ui/themes";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { DocumentObject } from "../../utils/api/apiHandlers";
@@ -40,14 +41,10 @@ export const RecentMapsModal = () => {
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <Dialog.Trigger>
-        <Button
-          variant="ghost"
-          size="3"
-          // weird negative margin happening.
-          style={{ margin: 0 }}
-        >
-          Recent
-        </Button>
+        <RadioCards.Item value="recents">
+          <CounterClockwiseClockIcon />
+          Recents
+        </RadioCards.Item>
       </Dialog.Trigger>
       <Dialog.Content className="max-w-[75vw]">
         <Flex align="center" className="mb-4">
