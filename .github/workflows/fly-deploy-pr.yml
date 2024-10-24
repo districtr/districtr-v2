@@ -75,7 +75,7 @@ jobs:
                 echo "::set-output name=name::${{ github.event.repository.name }}-${{ github.event.number }}-db"
 
             # manually launch and deploy the api app
-            - name: launch api app
+            - name: Launch API
               if: github.event.action != 'closed'
               run: |
                 app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
@@ -94,7 +94,7 @@ jobs:
                 echo "api_app_name=$app" >> $GITHUB_ENV
               working-directory: backend
 
-            - name: deploy api app
+            - name: Deploy API
               if: github.event.action != 'closed'
               run: |
                     flyctl secrets set \
@@ -138,7 +138,7 @@ jobs:
                 echo "frontend_app_name=$app" >> $GITHUB_ENV
               working-directory: app
           
-            - name: Deploy Frontend App
+            - name: Deploy frontend
               if: github.event.action != 'closed'
               run: |
                 app_name="${{ github.event.repository.name }}-${{ github.event.number }}-app"
