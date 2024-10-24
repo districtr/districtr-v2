@@ -1,4 +1,5 @@
 import {
+  DataDrivenPropertyValueSpecification,
   ExpressionSpecification,
   FilterSpecification,
   LayerSpecification,
@@ -18,17 +19,11 @@ export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 export const INTERACTIVE_LAYERS = [
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
-]
+];
 
-export const PARENT_LAYERS = [
-  BLOCK_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID
-]
+export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 
-export const CHILD_LAYERS = [
-  BLOCK_LAYER_ID_CHILD,
-  BLOCK_HOVER_LAYER_ID_CHILD
-]
+export const CHILD_LAYERS = [BLOCK_LAYER_ID_CHILD, BLOCK_HOVER_LAYER_ID_CHILD];
 
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "case",
@@ -81,12 +76,75 @@ export function getLayerFilter(
   return parentFilter;
 }
 
+export function getLayerFill(
+  captiveIds?: Set<string>,
+  shatterIds?: Set<string>
+): DataDrivenPropertyValueSpecification<number> {
+  const innerFillSpec = [
+    
+    "case",
+    // geography is locked
+    ["boolean", ["feature-state", "locked"], false],
+    0.4,
+    // zone is selected and hover is true and hover is not null
+    [
+      "all",
+      // @ts-ignore
+      ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+      [
+        "all",
+        // @ts-ignore
+        ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
+        ["boolean", ["feature-state", "hover"], true],
+      ],
+    ],
+    0.9,
+    // zone is selected and hover is false, and hover is not null
+    [
+      "all",
+      // @ts-ignore
+      ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+      [
+        "all",
+        // @ts-ignore
+        ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
+        ["boolean", ["feature-state", "hover"], false],
+      ],
+    ],
+    0.7,
+    // zone is selected, fallback, regardless of hover state
+    // @ts-ignore
+    ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+    0.7,
+    // hover is true, fallback, regardless of zone state
+    ["boolean", ["feature-state", "hover"], false],
+    0.6,
+    0.2,
+  ] as unknown as DataDrivenPropertyValueSpecification<number>;
+  if (captiveIds?.size) {
+    return [
+      "case",
+      ["!", ["in", ["get", "path"], ["literal", Array.from(captiveIds)]]],
+      0.4,
+      innerFillSpec,
+    ] as DataDrivenPropertyValueSpecification<number>;
+  } else if (shatterIds?.size) {
+    return [
+      "case",
+      ["in", ["get", "path"], ["literal", Array.from(shatterIds)]],
+      0,
+      innerFillSpec,
+    ] as DataDrivenPropertyValueSpecification<number>;
+  } else {
+    return innerFillSpec;
+  }
+}
+
 export function getBlocksLayerSpecification(
   sourceLayer: string,
-  layerId: string,
+  layerId: string
 ): LayerSpecification {
-  const shatterIds = useMapStore.getState().shatterIds;
-  return {
+  const layerSpec: LayerSpecification = {
     id: layerId,
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
@@ -94,7 +152,6 @@ export function getBlocksLayerSpecification(
     layout: {
       visibility: "visible",
     },
-    filter: getLayerFilter(layerId),
     paint: {
       "line-opacity": [
         "case",
@@ -105,13 +162,18 @@ export function getBlocksLayerSpecification(
       "line-color": "#cecece",
     },
   };
+  if (CHILD_LAYERS.includes(layerId)) {
+    layerSpec.filter = getLayerFilter(layerId);
+  }
+
+  return layerSpec;
 }
 
 export function getBlocksHoverLayerSpecification(
   sourceLayer: string,
-  layerId: string,
+  layerId: string
 ): LayerSpecification {
-  return {
+  const layerSpec: LayerSpecification =  {
     id: layerId,
     source: BLOCK_SOURCE_ID,
     "source-layer": sourceLayer,
@@ -119,54 +181,18 @@ export function getBlocksHoverLayerSpecification(
     layout: {
       visibility: "visible",
     },
-    filter: getLayerFilter(layerId),
     paint: {
-      "fill-opacity": [
-        "case",
-        // zone is selected and hover is true and hover is not null
-        [
-          "all",
-          // @ts-ignore
-          ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
-          [
-            "all",
-            // @ts-ignore
-            ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
-            ["boolean", ["feature-state", "hover"], true],
-          ],
-        ],
-        0.9,
-        // zone is selected and hover is false, and hover is not null
-        [
-          "all",
-          // @ts-ignore
-          ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
-          [
-            "all",
-            // @ts-ignore
-            ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
-            ["boolean", ["feature-state", "hover"], false],
-          ],
-        ],
-        0.7,
-        // zone is selected, fallback, regardless of hover state
-        // @ts-ignore
-        ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
-        0.7,
-        // hover is true, fallback, regardless of zone state
-        ["boolean", ["feature-state", "hover"], false],
-        0.6,
-        0.2,
-      ],
-      "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000",
+      "fill-opacity": getLayerFill(),
+      "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000"
     },
   };
+  if (CHILD_LAYERS.includes(layerId)){
+    layerSpec.filter = getLayerFilter(layerId)
+  }
+  return layerSpec
 }
 
-const addBlockLayers = (
-  map: Map | null,
-  mapDocument: DocumentObject,
-) => {
+const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
   if (!map || !mapDocument.tiles_s3_path) {
     console.log("map or mapDocument not ready", mapDocument);
     return;
@@ -176,39 +202,39 @@ const addBlockLayers = (
   map?.addSource(BLOCK_SOURCE_ID, blockSource);
   map?.addLayer(
     getBlocksLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID),
-    LABELS_BREAK_LAYER_ID,
+    LABELS_BREAK_LAYER_ID
   );
   map?.addLayer(
     getBlocksHoverLayerSpecification(
       mapDocument.parent_layer,
-      BLOCK_HOVER_LAYER_ID,
+      BLOCK_HOVER_LAYER_ID
     ),
-    LABELS_BREAK_LAYER_ID,
+    LABELS_BREAK_LAYER_ID
   );
   if (mapDocument.child_layer) {
     map?.addLayer(
       getBlocksLayerSpecification(
         mapDocument.child_layer,
-        BLOCK_LAYER_ID_CHILD,
+        BLOCK_LAYER_ID_CHILD
       ),
-      LABELS_BREAK_LAYER_ID,
+      LABELS_BREAK_LAYER_ID
     );
     map?.addLayer(
       getBlocksHoverLayerSpecification(
         mapDocument.child_layer,
-        BLOCK_HOVER_LAYER_ID_CHILD,
+        BLOCK_HOVER_LAYER_ID_CHILD
       ),
-      LABELS_BREAK_LAYER_ID,
+      LABELS_BREAK_LAYER_ID
     );
   }
-  useMapStore.getState().setMapRenderingState("loaded")
+  useMapStore.getState().setMapRenderingState("loaded");
 };
 
 export function removeBlockLayers(map: Map | null) {
   if (!map) {
-    return
+    return;
   }
-  useMapStore.getState().setMapRenderingState("loading")
+  useMapStore.getState().setMapRenderingState("loading");
   if (map.getLayer(BLOCK_LAYER_ID)) {
     map.removeLayer(BLOCK_LAYER_ID);
   }
