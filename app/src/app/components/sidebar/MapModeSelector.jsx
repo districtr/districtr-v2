@@ -23,7 +23,7 @@ export function MapModeSelector() {
     { mode: "eraser", disabled: false, label: "Erase", icon: <EraserIcon /> },
     {
       mode: "shatter",
-      disabled: !mapDocument.child_layer,
+      disabled: !mapDocument?.child_layer,
       label: "Shatter",
       icon: <BorderSplitIcon />,
     },
