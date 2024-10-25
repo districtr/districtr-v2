@@ -5,13 +5,14 @@ import {
   PARENT_LAYERS,
   CHILD_LAYERS,
   getLayerFilter,
-} from "../constants/layers";
+} from "@constants/layers";
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
   shallowCompareArray,
 } from "../utils/helpers";
-import { useMapStore as _useMapStore, MapStore } from "./mapStore";
+import { useMapStore as _useMapStore, MapStore } from "@store/mapStore";
+import { getFeatureUnderCursor } from "@utils/helpers";
 
 export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const addLayerSubMapDocument = useMapStore.subscribe<
@@ -20,7 +21,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     (state) => [state.mapDocument, state.getMapRef],
     ([mapDocument, getMapRef]) => {
       const mapStore = useMapStore.getState();
-      const mapRef = getMapRef()
+      const mapRef = getMapRef();
       if (mapRef && mapDocument) {
         addBlockLayers(mapRef, mapDocument);
         mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
@@ -30,12 +31,16 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   );
 
   const _shatterMapSideEffectRender = useMapStore.subscribe<
-    [MapStore["shatterIds"], MapStore["getMapRef"], MapStore["mapRenderingState"]]
+    [
+      MapStore["shatterIds"],
+      MapStore["getMapRef"],
+      MapStore["mapRenderingState"],
+    ]
   >(
     (state) => [state.shatterIds, state.getMapRef, state.mapRenderingState],
     ([shatterIds, getMapRef, mapRenderingState]) => {
       const state = useMapStore.getState();
-      const mapRef = getMapRef()
+      const mapRef = getMapRef();
       const setMapLock = state.setMapLock;
 
       if (!mapRef || mapRenderingState !== "loaded") {
@@ -91,10 +96,39 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       { equalityFn: shallowCompareArray },
     );
 
+  const _updateMapCursor = useMapStore.subscribe<MapStore["activeTool"]>(
+    (state) => state.activeTool,
+    (activeTool) => {
+      const mapRef = useMapStore.getState().getMapRef();
+      if (!mapRef) return;
+
+      let cursor;
+      switch (activeTool) {
+        case "pan":
+          cursor = "";
+          break;
+        case "brush":
+          cursor = "pointer";
+          break;
+        case "eraser":
+          cursor = "pointer";
+          break;
+        case "shatter":
+          cursor = "crosshair";
+          useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
+          break;
+        default:
+          cursor = "";
+      }
+      mapRef.getCanvas().style.cursor = cursor;
+    },
+  );
+
   return [
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
     _hoverMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,
+    _updateMapCursor,
   ];
 };

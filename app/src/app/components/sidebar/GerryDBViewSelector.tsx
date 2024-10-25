@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Flex, Select } from "@radix-ui/themes";
 import { useMapStore } from "../../store/mapStore";
 import { document } from "@/app/utils/api/mutations";
-import { RecentMapsModal } from "./RecentMapsModal";
 
 export function GerryDBViewSelector() {
   const [limit, setLimit] = useState<number>(30);
@@ -57,7 +56,6 @@ export function GerryDBViewSelector() {
           </Select.Group>
         </Select.Content>
       </Select.Root>
-      <RecentMapsModal />
     </Flex>
   );
 }
