@@ -218,6 +218,8 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            # get the extent from the gerrydb table for the parent layer
+            GerryDBTable.extent.label("extent"),  # pyright: ignore
         )  # pyright: ignore
         .where(
             Document.document_id == document_id
@@ -226,6 +228,11 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
         .join(
             DistrictrMap,
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            isouter=True,
+        )
+        .join(
+            GerryDBTable,
+            DistrictrMap.parent_layer == GerryDBTable.name,
             isouter=True,
         )
         .limit(1)
