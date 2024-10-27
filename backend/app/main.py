@@ -19,6 +19,7 @@ from app.models import (
     Document,
     DocumentCreate,
     DocumentPublic,
+    GerryDBTable,
     GEOIDS,
     UUIDType,
     ZonePopulation,
@@ -99,11 +100,18 @@ async def create_document(
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            # get the extent from the gerrydb table for the parent layer
+            GerryDBTable.extent.label("extent"),  # pyright: ignore
         )
         .where(Document.document_id == document_id)
         .join(
             DistrictrMap,
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            isouter=True,
+        )
+        .join(
+            GerryDBTable,
+            DistrictrMap.parent_layer == GerryDBTable.name,
             isouter=True,
         )
         .limit(1)
@@ -211,7 +219,10 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
         )  # pyright: ignore
-        .where(Document.document_id == document_id)
+        .where(
+            Document.document_id == document_id
+            and DistrictrMap.parent_layer == GerryDBTable.name
+        )
         .join(
             DistrictrMap,
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
@@ -220,6 +231,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
         .limit(1)
     )
     result = session.exec(stmt)
+    print(result)
     return result.one()
 
 

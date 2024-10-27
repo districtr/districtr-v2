@@ -131,6 +131,7 @@ class DocumentPublic(BaseModel):
     num_districts: int | None = None
     created_at: datetime
     updated_at: datetime
+    extent: list[float]
 
 
 class AssignmentsBase(SQLModel):

@@ -8,6 +8,7 @@ import {
 } from "@/app/utils/api/apiHandlers";
 import { useMapStore } from "@/app/store/mapStore";
 import { mapMetrics } from "./queries";
+import { use } from "react";
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -50,16 +51,26 @@ export const document = new MutationObserver(queryClient, {
   mutationFn: createMapDocument,
   onMutate: () => {
     console.log("Creating document");
-    useMapStore.getState().setAppLoadingState('loading')
-    useMapStore.getState().resetZoneAssignments()
+    useMapStore.getState().setAppLoadingState("loading");
+    useMapStore.getState().resetZoneAssignments();
   },
   onError: (error) => {
     console.error("Error creating map document: ", error);
   },
   onSuccess: (data) => {
     useMapStore.getState().setMapDocument(data);
-    useMapStore.getState().setAppLoadingState('loaded')
-    const documentUrl = new URL(window.location.toString())
+    if (data.extent.length === 4) {
+      useMapStore
+        .getState()
+        .getMapRef()
+        ?.fitBounds(data.extent as [number, number, number, number], {
+          padding: 20,
+        });
+    } else {
+      console.error("Invalid extent data:", data.extent);
+    }
+    useMapStore.getState().setAppLoadingState("loaded");
+    const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.set("document_id", data.document_id);
     history.pushState({}, "", documentUrl.toString());
   },
