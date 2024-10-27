@@ -12,6 +12,7 @@ from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
     create_parent_child_edges as _create_parent_child_edges,
+    transform_bounding_box,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,25 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
         ],
     )
 
+    # calculate layer extent to store in gerrydbtable
+    result = subprocess.run(
+        args=[
+            "ogrinfo",
+            "-so",
+            path,
+            layer,
+        ],
+        capture_output=True,
+    )
+
+    extent = result.stdout.decode("utf-8")["layers"][0]["geometryFields"]["extent"]
+    crs = result.stdout.decode("utf-8")["layers"][0]["geometryFields"][
+        "coordinateSystem"
+    ]["id"]["code"]
+
+    # convert extent bbox to epsg 4326
+    extent = transform_bounding_box(extent, crs, "4326")
+
     if result.returncode != 0:
         logger.error("ogr2ogr failed. Got %s", result)
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
@@ -111,19 +131,22 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
     _session = get_session()
     session = next(_session)
 
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
-        VALUES (gen_random_uuid(), :name, now())
+        VALUES (gen_random_uuid(), :name, :extent, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     try:
         session.execute(
             upsert_query,
             {
                 "name": layer,
+                "extent": extent,
             },
         )
         session.commit()
@@ -163,10 +186,12 @@ def delete_parent_child_edges(districtr_map: str):
 
     session = next(get_session())
 
-    delete_query = text("""
+    delete_query = text(
+        """
         DELETE FROM parentchildedges
         WHERE districtr_map = :districtr_map
-    """)
+    """
+    )
     session.execute(
         delete_query,
         {

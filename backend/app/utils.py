@@ -1,6 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy import bindparam, Integer, String, Text
 from sqlmodel import Session
+from osgeo import ogr, osr
 
 from app.models import UUIDType
 
@@ -29,7 +30,8 @@ def create_districtr_map(
     Returns:
         The UUID of the inserted map.
     """
-    stmt = text("""
+    stmt = text(
+        """
     SELECT *
     FROM create_districtr_map(
         :map_name,
@@ -38,7 +40,8 @@ def create_districtr_map(
         :tiles_s3_path,
         :parent_layer_name,
         :child_layer_name
-    )""").bindparams(
+    )"""
+    ).bindparams(
         bindparam(key="map_name", type_=String),
         bindparam(key="gerrydb_table_name", type_=String),
         bindparam(key="num_districts", type_=Integer),
@@ -104,3 +107,45 @@ def create_parent_child_edges(
             "districtr_map_uuid": districtr_map_uuid,
         },
     )
+
+
+def transform_bounding_box(bbox: list, source_epsg: str, target_epsg: str) -> list:
+    """
+    Transform a bounding box from one spatial reference to another.
+    For use in transforming gerrydb view bboxes before loading extents to db
+    """
+    # Create source and target spatial references
+    source_srs = osr.SpatialReference()
+    source_srs.ImportFromEPSG(source_epsg)
+
+    target_srs = osr.SpatialReference()
+    target_srs.ImportFromEPSG(target_epsg)
+
+    # Create transformation object
+    transform = osr.CoordinateTransformation(source_srs, target_srs)
+
+    # Create a polygon geometry from the bounding box
+    minx, miny, maxx, maxy = bbox
+    ring = ogr.Geometry(ogr.wkbLinearRing)
+    ring.AddPoint(minx, miny)
+    ring.AddPoint(maxx, miny)
+    ring.AddPoint(maxx, maxy)
+    ring.AddPoint(minx, maxy)
+    ring.AddPoint(minx, miny)
+
+    polygon = ogr.Geometry(ogr.wkbPolygon)
+    polygon.AddGeometry(ring)
+
+    # Transform the geometry
+    polygon.Transform(transform)
+
+    # Get the transformed bounding box
+    transformed_ring = polygon.GetGeometryRef(0)
+    transformed_bbox = [
+        transformed_ring.GetX(0),
+        transformed_ring.GetY(0),  # MinX, MinY
+        transformed_ring.GetX(2),
+        transformed_ring.GetY(2),  # MaxX, MaxY
+    ]
+
+    return transformed_bbox
