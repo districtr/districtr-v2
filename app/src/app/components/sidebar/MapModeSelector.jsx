@@ -14,6 +14,7 @@ import { RecentMapsModal } from "@components/sidebar/RecentMapsModal";
 export function MapModeSelector() {
   const activeTool = useMapStore((state) => state.activeTool);
   const setActiveTool = useMapStore((state) => state.setActiveTool);
+  const mapDocument = useMapStore((state) => state.mapDocument);
 
   if (!activeTool) return null;
   const activeTools = [
@@ -22,7 +23,7 @@ export function MapModeSelector() {
     { mode: "eraser", disabled: false, label: "Erase", icon: <EraserIcon /> },
     {
       mode: "shatter",
-      disabled: false,
+      disabled: !mapDocument?.child_layer,
       label: "Shatter",
       icon: <BorderSplitIcon />,
     },
