@@ -63,7 +63,7 @@ export interface DocumentObject {
   num_districts: number | null;
   created_at: string;
   updated_at: string | null;
-  extent: number[]; // [minx, miny, maxx, maxy]
+  extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
 }
 
 /**
