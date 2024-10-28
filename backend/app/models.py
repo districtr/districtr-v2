@@ -64,6 +64,9 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
             String, ForeignKey("gerrydbtable.name"), default=None, nullable=True
         )
     )
+    extent: list[float] = Field(
+        sa_column=Column(ARRAY(Float), nullable=False)
+    )  # at the gdb table level and not the doc level
     # schema? will need to contrain the schema
     # where does this go?
     # when you create the view, pull the columns that you need
@@ -83,9 +86,6 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     # Must correspond to the layer name in the tileset
     name: str = Field(nullable=False, unique=True)
-    extent: list[float] = Field(
-        sa_column=Column(ARRAY(Float), nullable=False)
-    )  # at the gdb table level and not the doc level
 
 
 class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
