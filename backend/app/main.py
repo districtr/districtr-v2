@@ -6,7 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
-from sqlmodel import ARRAY
+from sqlmodel import ARRAY, INT
 
 import sentry_sdk
 from app.core.db import engine
@@ -20,11 +20,13 @@ from app.models import (
     DocumentCreate,
     DocumentPublic,
     GEOIDS,
+    ZoneAndGEOIDS,
     UUIDType,
     ZonePopulation,
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
+    UnShatterResult,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -149,6 +151,7 @@ async def update_assignments(
 async def shatter_parent(
     document_id: str, data: GEOIDS, session: Session = Depends(get_session)
 ):
+    print("!!!unshattering", document_id, data)
     stmt = text(
         """SELECT *
         FROM shatter_parent(:input_document_id, :parent_geoids)"""
@@ -170,6 +173,34 @@ async def shatter_parent(
     ]
     result = ShatterResult(parents=data, children=assignments)
     session.commit()
+    return result
+
+
+@app.patch(
+    "/api/update_assignments/{document_id}/unshatter_parents",
+    response_model=UnShatterResult,
+)
+async def unshatter_parent(
+    document_id: str, data: ZoneAndGEOIDS, session: Session = Depends(get_session)
+):
+    stmt = text(
+        """SELECT *
+        FROM unshatter_parent(:input_document_id, :parent_geoids, :input_zone)"""
+    ).bindparams(
+        bindparam(key="input_document_id", type_=UUIDType),
+        bindparam(key="parent_geoids", type_=ARRAY(String)),
+        bindparam(key="input_zone", type_=INT),
+    )
+    results = session.execute(
+        statement=stmt,
+        params={
+            "input_document_id": document_id,
+            "parent_geoids": data.geoids,
+            "input_zone": data.zone,
+        },
+    )
+    session.commit()
+    result = UnShatterResult(parents=GEOIDS(geoids=data.geoids))
     return result
 
 

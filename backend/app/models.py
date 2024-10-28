@@ -159,9 +159,17 @@ class GEOIDS(BaseModel):
     geoids: list[str]
 
 
+class ZoneAndGEOIDS(GEOIDS):
+    zone: int | None
+
+
 class ShatterResult(BaseModel):
     parents: GEOIDS
     children: list[Assignments]
+
+
+class UnShatterResult(BaseModel):
+    parents: GEOIDS
 
 
 class ZonePopulation(BaseModel):
