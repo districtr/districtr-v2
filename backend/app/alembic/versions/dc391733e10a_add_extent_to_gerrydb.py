@@ -17,6 +17,7 @@ revision: str = "dc391733e10a"
 down_revision: Union[str, None] = "5ab466c5650a"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on = ("167892041d95",)  # geometry col renaming
+down_revision = "167892041d95"
 
 
 def upgrade() -> None:
