@@ -13,18 +13,8 @@ import { MapStore } from "@/app/store/mapStore";
  */
 const debouncedSetZoneAssignments = debounce(
   (mapStoreRef: MapStore, selectedZone: NullableZone, geoids: Set<string>) => {
-    const shatterMappings = mapStoreRef.shatterMappings
-    let mappedGeoids = geoids
-    if (Object.keys(shatterMappings)) {
-      geoids.forEach(id => {
-        if (shatterMappings.hasOwnProperty(id)){
-          mappedGeoids.delete(id)
-          const children = shatterMappings[id]
-          mappedGeoids = new Set([...mappedGeoids, ...children])
-        }
-    })}
     
-    mapStoreRef.setZoneAssignments(selectedZone, mappedGeoids);
+    mapStoreRef.setZoneAssignments(selectedZone, geoids);
 
     const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
 
