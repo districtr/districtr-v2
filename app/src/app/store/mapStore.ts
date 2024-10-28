@@ -90,6 +90,7 @@ export interface MapStore {
     feautres: Array<MapGeoJSONFeature>,
   ) => void;
   removeShatter: (parentId: string) => void;
+  removeShatters: (parentId: string[]) => void;
   // LOCK
   lockedFeatures: Set<string>;
   upcertLockedFeature: (id: string, lock: boolean) => void;
@@ -283,6 +284,9 @@ export const useMapStore = create(
             zoneAssignments,
           });
         },
+        removeShatters: (parentIds) => {
+          parentIds.forEach(parentId => get().removeShatter(parentId))
+        },
         removeShatter: (parentId) => {
           const { shatterIds, shatterMappings, zoneAssignments } = get();
 
@@ -428,14 +432,21 @@ export const useMapStore = create(
             parents: new Set<string>(),
             children: new Set<string>(),
           };
+          const shatterMappings: MapStore['shatterMappings'] = {}
+
           assignments.forEach((assignment) => {
             zoneAssignments.set(assignment.geo_id, assignment.zone);
             if (assignment.parent_path) {
+              if (!shatterMappings[assignment.parent_path]) {
+                shatterMappings[assignment.parent_path] = new Set([assignment.geo_id])
+              } else {
+                shatterMappings[assignment.parent_path].add(assignment.geo_id)
+              }
               shatterIds.parents.add(assignment.parent_path);
               shatterIds.children.add(assignment.geo_id);
             }
           });
-          set({ zoneAssignments, shatterIds, appLoadingState: "loaded" });
+          set({ zoneAssignments, shatterIds, shatterMappings, appLoadingState: "loaded" });
         },
         accumulatedBlockPopulations: new Map<string, number>(),
         resetAccumulatedBlockPopulations: () =>
