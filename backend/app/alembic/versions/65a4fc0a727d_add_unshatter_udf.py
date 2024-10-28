@@ -20,7 +20,7 @@ SQL_PATH = Path(__file__).parent.parent.parent / "sql"
 
 # revision identifiers, used by Alembic.
 revision: str = '65a4fc0a727d'
-down_revision: Union[str, None] = '5ab466c5650a'
+down_revision: Union[str, None] = '167892041d95'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
