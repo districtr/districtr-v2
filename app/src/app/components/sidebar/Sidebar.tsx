@@ -4,6 +4,7 @@ import {Box, Flex, Heading} from '@radix-ui/themes';
 import {MapModeSelector} from './MapModeSelector';
 import {ColorPicker} from './ColorPicker';
 import {ResetMapButton} from './ResetMapButton';
+import { UndoRedoButton } from "./UndoRedoButton";
 import {GerryDBViewSelector} from './GerryDBViewSelector';
 import {useMapStore} from '@/app/store/mapStore';
 import PaintByCounty from './PaintByCounty';
