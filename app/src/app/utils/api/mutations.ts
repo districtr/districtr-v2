@@ -4,6 +4,7 @@ import {
   AssignmentsCreate,
   createMapDocument,
   patchShatterParents,
+  patchUnShatterParents,
   patchUpdateAssignments,
 } from "@/app/utils/api/apiHandlers";
 import { useMapStore } from "@/app/store/mapStore";
@@ -25,6 +26,28 @@ export const patchShatter = new MutationObserver(queryClient, {
   onSuccess: (data) => {
     console.log(
       `Successfully shattered parents into ${data.children.length} children`
+    );
+    return data;
+  },
+});
+
+
+export const patchUnShatter = new MutationObserver(queryClient, {
+  mutationFn: patchUnShatterParents,
+  onMutate: ({ document_id, geoids }) => {
+    useMapStore.getState().setMapLock(true);
+    console.log(
+      `Unshattering parents ${geoids} in document ${document_id}...`,
+      `Locked at `,
+      performance.now()
+    );
+  },
+  onError: (error) => {
+    console.log("Error updating assignments: ", error);
+  },
+  onSuccess: (data) => {
+    console.log(
+      `Successfully un-shattered parents ${data.parents.geoids.join(", ")} from children`
     );
     return data;
   },
