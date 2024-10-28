@@ -64,9 +64,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
             String, ForeignKey("gerrydbtable.name"), default=None, nullable=True
         )
     )
-    extent: list[float] = Field(
-        sa_column=Column(ARRAY(Float), nullable=False)
-    )  # at the gdb table level and not the doc level
+    extent: list[float] = Field(sa_column=Column(ARRAY(Float), nullable=False))
     # schema? will need to contrain the schema
     # where does this go?
     # when you create the view, pull the columns that you need
