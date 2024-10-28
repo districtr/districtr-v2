@@ -2,6 +2,7 @@
 import type { MapGeoJSONFeature, MapOptions } from "maplibre-gl";
 import { create } from "zustand";
 import { devtools, subscribeWithSelector, persist } from "zustand/middleware";
+import { temporal } from "zundo";
 import type {
   ActiveTool,
   MapFeatureInfo,
@@ -119,6 +120,7 @@ const initialLoadingState =
 
 export const useMapStore = create(
   persist(
+    temporal(
     devwrapper(
       subscribeWithSelector<MapStore>((set, get) => ({
         appLoadingState: initialLoadingState,
@@ -146,7 +148,7 @@ export const useMapStore = create(
             return;
           }
           get().setFreshMap(true);
-          get().resetZoneAssignments();
+          //get().resetZoneAssignments();
           get().upcertUserMap({
             mapDocument,
           })
@@ -373,10 +375,15 @@ export const useMapStore = create(
         setContextMenu: (contextMenu) => set({ contextMenu }),
         userMaps: [],
         setUserMaps: (userMaps) => set({ userMaps }),
-      }))
+      }),
+   ),
+  { onSave: console.log, limit: 7, partialize: (state) => {
+  const { zoneAssignments } = state;
+  return { zoneAssignments };
+}}
     ),
     persistOptions
-  )
+)  )
 );
 
 // these need to initialize after the map store

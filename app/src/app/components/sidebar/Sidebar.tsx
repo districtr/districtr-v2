@@ -16,12 +16,12 @@ export default function SidebarComponent() {
   return (
     <Box
       p="3"
-      className="w-full z-10 shadow-md flex-none overflow-y-auto 
+      className="w-full z-10 shadow-md flex-none overflow-y-auto
       border-t lg:border-t-0
       lg:h-screen lg:max-w-sidebar lg:w-sidebar
        landscape:border-t-0
       landscape:h-screen landscape:max-w-[40vw] landscape:w-[40vw]
-      
+
       "
     >
       <Flex direction="column" gap="3">
@@ -31,7 +31,7 @@ export default function SidebarComponent() {
         <GerryDBViewSelector />
         <MapModeSelector />
         {activeTool === "brush" || activeTool === "eraser" ? (
-          <div 
+          <div
           className="gap-4 lg:gap-0 landscape:gap-0
           flex flex-row-reverse lg:flex-col landscape:flex-col
           justify-around
@@ -53,6 +53,10 @@ export default function SidebarComponent() {
           </div>
         ) : null}
         <ResetMapButton />
+        <Flex direction="row" gap="3">
+          <UndoRedoButton isRedo={false} />
+          <UndoRedoButton isRedo />
+        </Flex>
         <Box
           display={{
             initial: "none",
