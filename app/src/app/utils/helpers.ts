@@ -8,12 +8,7 @@ import {
   LngLatLike,
 } from "maplibre-gl";
 import { Point } from "maplibre-gl";
-import {
-  BLOCK_HOVER_LAYER_ID,
-  BLOCK_LAYER_ID,
-  BLOCK_LAYER_ID_CHILD,
-  BLOCK_SOURCE_ID,
-} from "@/app/constants/layers";
+import { BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD, BLOCK_SOURCE_ID } from "@/app/constants/layers";
 import { polygon, multiPolygon } from "@turf/helpers";
 import { booleanWithin } from "@turf/boolean-within";
 import { pointOnFeature } from "@turf/point-on-feature";
@@ -80,12 +75,12 @@ export const getFeaturesInBbox = (
   map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  _layers: string[] = [BLOCK_LAYER_ID],
+  _layers: string[] = [BLOCK_HOVER_LAYER_ID],
   filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
   const {captiveIds, lockedFeatures} = useMapStore.getState()
-  const layers = _layers?.length ? _layers : captiveIds.size ? [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] : [BLOCK_LAYER_ID]
+  const layers = _layers?.length ? _layers : captiveIds.size ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD] : [BLOCK_HOVER_LAYER_ID]
   let features = map?.queryRenderedFeatures(bbox, { layers }) || []
   if (captiveIds.size) {
     features = features.filter(f => captiveIds.has(f.id?.toString() || ''))
@@ -96,6 +91,23 @@ export const getFeaturesInBbox = (
 
 
   return features
+};
+
+/**
+ * getFeatureUnderCursor
+ * Get the feature under the cursor on the map.
+ * @param map - Map | null, the maplibre map instance
+ * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
+ * @param brushSize - number, the size of the brush
+ * @returns MapGeoJSONFeature | undefined - A map feature or undefined
+ */
+export const getFeatureUnderCursor = (
+  map: Map | null,
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
+  brushSize: number,
+  layers: string[] = [BLOCK_HOVER_LAYER_ID],
+): MapGeoJSONFeature[] | undefined => {
+  return map?.queryRenderedFeatures(e.point, { layers });
 };
 
 /**
@@ -110,7 +122,7 @@ export const getFeaturesIntersectingCounties = (
   map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_LAYER_ID],
+  layers: string[] = [BLOCK_HOVER_LAYER_ID],
 ): MapGeoJSONFeature[] | undefined => {
   if (!map) return;
 
@@ -220,7 +232,6 @@ export function toggleLayerVisibility(
   mapRef: maplibregl.Map,
   layerIds: string[],
 ): LayerVisibility[] {
-
   const activeLayerIds = getVisibleLayers(mapRef)?.map((layer) => layer.id);
   if (!activeLayerIds) return [];
 
@@ -259,7 +270,8 @@ export type ColorZoneAssignmentsState = [
 export const getMap = (_getMapRef?: MapStore["getMapRef"]) => {
   const mapRef = _getMapRef?.() || useMapStore.getState().getMapRef();
   if (
-    mapRef?.getStyle()
+    mapRef
+      ?.getStyle()
       .layers.findIndex((layer) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1
   ) {
     return null;
@@ -326,7 +338,7 @@ export const colorZoneAssignments = (
       return;
     }
 
-    const isChild = shatterIds.children.has(id)
+    const isChild = shatterIds.children.has(id);
     const sourceLayer = isChild
       ? mapDocument.child_layer
       : mapDocument.parent_layer;

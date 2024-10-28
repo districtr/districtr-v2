@@ -1,4 +1,4 @@
-import { LngLatBoundsLike } from "maplibre-gl";
+import {LngLatBoundsLike} from 'maplibre-gl';
 import {
   addBlockLayers,
   BLOCK_LAYER_ID,
@@ -8,21 +8,23 @@ import {
   getLayerFilter,
   getLayerFill,
   BLOCK_SOURCE_ID,
-} from "../constants/layers";
+} from '../constants/layers';
+
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
   shallowCompareArray,
-} from "../utils/helpers";
-import { useMapStore as _useMapStore, MapStore } from "./mapStore";
+} from '../utils/helpers';
+import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
+import {getFeatureUnderCursor} from '@utils/helpers';
 
 const BBOX_TOLERANCE_DEG = 0.02;
 
 export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const addLayerSubMapDocument = useMapStore.subscribe<
-    [MapStore["mapDocument"], MapStore["getMapRef"]]
+    [MapStore['mapDocument'], MapStore['getMapRef']]
   >(
-    (state) => [state.mapDocument, state.getMapRef],
+    state => [state.mapDocument, state.getMapRef],
     ([mapDocument, getMapRef]) => {
       const mapStore = useMapStore.getState();
       const mapRef = getMapRef();
@@ -31,33 +33,29 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
       }
     },
-    { equalityFn: shallowCompareArray }
+    {equalityFn: shallowCompareArray}
   );
 
   const _shatterMapSideEffectRender = useMapStore.subscribe<
-    [
-      MapStore["shatterIds"],
-      MapStore["getMapRef"],
-      MapStore["mapRenderingState"]
-    ]
+    [MapStore['shatterIds'], MapStore['getMapRef'], MapStore['mapRenderingState']]
   >(
-    (state) => [state.shatterIds, state.getMapRef, state.mapRenderingState],
+    state => [state.shatterIds, state.getMapRef, state.mapRenderingState],
     ([shatterIds, getMapRef, mapRenderingState]) => {
       const state = useMapStore.getState();
       const mapRef = getMapRef();
       const setMapLock = state.setMapLock;
 
-      if (!mapRef || mapRenderingState !== "loaded") {
+      if (!mapRef || mapRenderingState !== 'loaded') {
         return;
       }
 
       const layersToFilter = state.mapDocument?.child_layer ? CHILD_LAYERS : [];
 
-      layersToFilter.forEach((layerId) =>
+      layersToFilter.forEach(layerId =>
         mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
 
-      shatterIds.parents.forEach((id) => {
+      shatterIds.parents.forEach(id => {
         mapRef.removeFeatureState({
           source: BLOCK_SOURCE_ID,
           id,
@@ -65,16 +63,16 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         });
       });
 
-      mapRef.once("render", () => {
+      mapRef.once('render', () => {
         setMapLock(false);
         console.log(`Unlocked at`, performance.now());
       });
     },
-    { equalityFn: shallowCompareArray }
+    {equalityFn: shallowCompareArray}
   );
 
   const _hoverMapSideEffectRender = useMapStore.subscribe(
-    (state) => state.hoverFeatures,
+    state => state.hoverFeatures,
     (hoverFeatures, previousHoverFeatures) => {
       const mapRef = useMapStore.getState().getMapRef();
 
@@ -82,62 +80,60 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         return;
       }
 
-      previousHoverFeatures.forEach((feature) => {
-        mapRef.setFeatureState(feature, { hover: false });
+      previousHoverFeatures.forEach(feature => {
+        mapRef.setFeatureState(feature, {hover: false});
       });
 
-      hoverFeatures.forEach((feature) => {
-        mapRef.setFeatureState(feature, { hover: true });
+      hoverFeatures.forEach(feature => {
+        mapRef.setFeatureState(feature, {hover: true});
       });
     }
   );
 
-  const _zoneAssignmentMapSideEffectRender =
-    useMapStore.subscribe<ColorZoneAssignmentsState>(
-      (state) => [
-        state.zoneAssignments,
-        state.mapDocument,
-        state.getMapRef,
-        state.shatterIds,
-        state.appLoadingState,
-        state.mapRenderingState,
-      ],
-      (curr, prev) => {
-        colorZoneAssignments(curr, prev);
-        const { mapBbox, captiveIds, shatterIds, getMapRef } =
-          useMapStore.getState();
+  const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe<ColorZoneAssignmentsState>(
+    state => [
+      state.zoneAssignments,
+      state.mapDocument,
+      state.getMapRef,
+      state.shatterIds,
+      state.appLoadingState,
+      state.mapRenderingState,
+    ],
+    (curr, prev) => {
+      colorZoneAssignments(curr, prev);
+      const {mapBbox, captiveIds, shatterIds, getMapRef} = useMapStore.getState();
 
-        [...PARENT_LAYERS, ...CHILD_LAYERS].forEach((layerId) => {
-          const isHover = layerId.includes("hover");
-          const isParent = PARENT_LAYERS.includes(layerId);
-          isHover &&
-            getMapRef()?.setPaintProperty(
-              layerId,
-              "fill-opacity",
-              getLayerFill(
-                mapBbox ? captiveIds : undefined,
-                isParent ? shatterIds.parents : undefined
-              )
-            );
-        });
-      },
-      { equalityFn: shallowCompareArray }
-    );
+      [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
+        const isHover = layerId.includes('hover');
+        const isParent = PARENT_LAYERS.includes(layerId);
+        isHover &&
+          getMapRef()?.setPaintProperty(
+            layerId,
+            'fill-opacity',
+            getLayerFill(
+              mapBbox ? captiveIds : undefined,
+              isParent ? shatterIds.parents : undefined
+            )
+          );
+      });
+    },
+    {equalityFn: shallowCompareArray}
+  );
 
   const _lockBboxSub = useMapStore.subscribe(
-    (state) => state.mapBbox,
+    state => state.mapBbox,
     (mapBbox, previousMapBbox) => {
-      const { getMapRef, captiveIds, shatterIds } = useMapStore.getState();
+      const {getMapRef, captiveIds, shatterIds} = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef) return;
 
-      [...PARENT_LAYERS, ...CHILD_LAYERS].forEach((layerId) => {
-        const isHover = layerId.includes("hover");
+      [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
+        const isHover = layerId.includes('hover');
         const isParent = PARENT_LAYERS.includes(layerId);
         isHover &&
           mapRef.setPaintProperty(
             layerId,
-            "fill-opacity",
+            'fill-opacity',
             getLayerFill(
               mapBbox ? captiveIds : undefined,
               isParent ? shatterIds.parents : undefined
@@ -149,15 +145,12 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         return;
       }
 
-      CHILD_LAYERS.forEach((layerId) => {
-        !layerId.includes("hover") &&
-          mapRef.setPaintProperty(layerId, "line-opacity", 1);
+      CHILD_LAYERS.forEach(layerId => {
+        !layerId.includes('hover') && mapRef.setPaintProperty(layerId, 'line-opacity', 1);
       });
 
       const _bounds = (mapBbox || previousMapBbox)!;
-      const tolerance = mapBbox
-        ? BBOX_TOLERANCE_DEG * 2
-        : BBOX_TOLERANCE_DEG * 5;
+      const tolerance = mapBbox ? BBOX_TOLERANCE_DEG * 2 : BBOX_TOLERANCE_DEG * 5;
       const maxBounds = [
         [_bounds[0] - tolerance, _bounds[1] - tolerance],
         [_bounds[2] + tolerance, _bounds[3] + tolerance],
@@ -170,12 +163,13 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   );
 
   const lockFeaturesSub = useMapStore.subscribe(
-    (state) => state.lockedFeatures,
+    state => state.lockedFeatures,
     (lockedFeatures, previousLockedFeatures) => {
-      console.log("LOCKING")
-      const { getMapRef, shatterIds, mapDocument } = useMapStore.getState();
+      console.log('LOCKING');
+      const {getMapRef, shatterIds, mapDocument} = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef || !mapDocument) return;
+
       const getLayer = (id: string) => {
         const isChild = shatterIds.children.has(id);
         if (isChild && mapDocument.child_layer) {
@@ -184,7 +178,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         return mapDocument.parent_layer;
       };
 
-      lockedFeatures.forEach((id) => {
+      lockedFeatures.forEach(id => {
         if (!previousLockedFeatures.has(id)) {
           mapRef.setFeatureState(
             {
@@ -198,8 +192,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           );
         }
       });
-      
-      previousLockedFeatures.forEach((id) => {
+
+      previousLockedFeatures.forEach(id => {
         if (!lockedFeatures.has(id)) {
           mapRef.setFeatureState(
             {
@@ -213,13 +207,42 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           );
         }
       });
+
+      const _updateMapCursor = useMapStore.subscribe<MapStore['activeTool']>(
+        state => state.activeTool,
+        activeTool => {
+          const mapRef = useMapStore.getState().getMapRef();
+          if (!mapRef) return;
+
+          let cursor;
+          switch (activeTool) {
+            case 'pan':
+              cursor = '';
+              break;
+            case 'brush':
+              cursor = 'pointer';
+              break;
+            case 'eraser':
+              cursor = 'pointer';
+              break;
+            case 'shatter':
+              cursor = 'crosshair';
+              useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
+              break;
+            default:
+              cursor = '';
+          }
+          mapRef.getCanvas().style.cursor = cursor;
+        }
+      );
+
+      return [
+        addLayerSubMapDocument,
+        _shatterMapSideEffectRender,
+        _hoverMapSideEffectRender,
+        _zoneAssignmentMapSideEffectRender,
+        _updateMapCursor,
+      ];
     }
   );
-
-  return [
-    addLayerSubMapDocument,
-    _shatterMapSideEffectRender,
-    _hoverMapSideEffectRender,
-    _zoneAssignmentMapSideEffectRender,
-  ];
 };
