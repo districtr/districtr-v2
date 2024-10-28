@@ -86,6 +86,9 @@ class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     # Must correspond to the layer name in the tileset
     name: str = Field(nullable=False, unique=True)
+    extent: list[float] = Field(
+        sa_column=Column(ARRAY(Float), nullable=False)
+    )  # at the gdb table level and not the doc level
 
 
 class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
