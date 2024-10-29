@@ -7,7 +7,7 @@ export function ExitShatterButton() {
 
   return captiveIds.size ? (
     <Button onClick={resetShatterView} variant={"solid"} >
-      Close Shatter View
+      Close Shatter Mode
     </Button>
   ) : null
 }
