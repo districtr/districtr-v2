@@ -63,8 +63,10 @@ def upgrade() -> None:
         UPDATE districtrmap
         SET extent = CASE
             {case_statement}
-        -- ELSE ARRAY[0, 0, 0, 0] if this fails, there is no
-        -- matching table from parent_layer and that's a problem
+        ELSE ARRAY[-102.0517,36.99301,-94.5883,40.0031]
+        -- if this fails, there is no
+        -- matching table from parent_layer
+        -- and that's a problem
         END;
     """
     )

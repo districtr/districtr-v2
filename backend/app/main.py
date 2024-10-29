@@ -19,7 +19,6 @@ from app.models import (
     Document,
     DocumentCreate,
     DocumentPublic,
-    GerryDBTable,
     GEOIDS,
     UUIDType,
     ZonePopulation,
@@ -214,10 +213,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
         )  # pyright: ignore
-        .where(
-            Document.document_id == document_id
-            and DistrictrMap.parent_layer == GerryDBTable.name
-        )
+        .where(Document.document_id == document_id)
         .join(
             DistrictrMap,
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
@@ -226,7 +222,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
         .limit(1)
     )
     result = session.exec(stmt)
-    print(result)
+
     return result.one()
 
 

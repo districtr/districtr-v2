@@ -110,7 +110,7 @@ jobs:
                     flyctl deploy \
                     --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
                     --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256 \
-                    --release-command-timeout 'none'
+                    
               working-directory: backend
 
             - name: Check and Launch Frontend App

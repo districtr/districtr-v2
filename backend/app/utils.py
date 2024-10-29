@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy import bindparam, Integer, String, Text
 from sqlmodel import Session
-from osgeo import ogr, osr
+
 
 from app.models import UUIDType
 
