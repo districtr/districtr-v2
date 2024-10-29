@@ -125,7 +125,7 @@ export function getLayerFill(
     return [
       "case",
       ["!", ["in", ["get", "path"], ["literal", Array.from(captiveIds)]]],
-      0.4,
+      0.1,
       innerFillSpec,
     ] as DataDrivenPropertyValueSpecification<number>;
   } else if (shatterIds?.size) {
