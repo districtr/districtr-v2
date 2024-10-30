@@ -36,6 +36,7 @@ import { BLOCK_LAYER_ID, BLOCK_SOURCE_ID } from "../constants/layers";
 import { getMapViewsSubs } from "../utils/api/queries";
 import { persistOptions } from "./persistConfig";
 import { TemporaryLayerManager } from "../utils/MapLayerManager";
+import { uniqueId } from "lodash";
 
 const combineSetValues = (
   setRecord: Record<string, Set<unknown>>,
@@ -78,6 +79,10 @@ export interface MapStore {
     children: Set<string>;
   };
   shatterMappings: Record<string, Set<string>>;
+  shatterGroups: {
+    groups: Record<string, string[]>,
+    members: Record<string, string>,
+  },
   resetShatterView: () => void;
   setShatterIds: (
     existingParents: Set<string>,
@@ -177,7 +182,8 @@ export const useMapStore = create(
           const captiveIdEntries = captiveIds.entries()
           // @ts-ignore
           let zone: any = undefined;
-          let shouldUnshatter = true
+          let shouldUnshatter = true;
+          let zoneGroups: Map<NullableZone, Array<string>> = new Map()
           captiveIds.forEach((id) => {
             const assigment = zoneAssignments.get(id)
             if (zone === undefined) {
@@ -186,6 +192,12 @@ export const useMapStore = create(
             if (assigment !== null && assigment !== zone) {
               shouldUnshatter = false
             }
+            if (assigment !== undefined){
+              if (!zoneGroups.has(assigment)){
+                zoneGroups.set(assigment, [])
+              }
+              zoneGroups.get(assigment)?.push(id)
+            }
           })
           const removeShatterQueue: MapStore['removeShatterQueue'] = 
           shouldUnshatter ? [{
@@ -193,12 +205,32 @@ export const useMapStore = create(
             zone: zone || null
           }]: []
 
-          console.log('close shatter', removeShatterQueue)
+          const zoneIds = new Map()
+          let shatterGroups: MapStore['shatterGroups'] = {
+            groups: {
+              ...get().shatterGroups.groups
+            },
+            members: {
+              ...get().shatterGroups.members
+            }
+          }
+          for (let [zone, members] of zoneGroups) {
+            console.log("ZONE", members, zone)
+            if (!zoneIds.has(zone)){
+              zoneIds.set(zone, uniqueId('SHATTER-GROUP'))
+            }
+            const groupId = zoneIds.get(zone)
+            console.log('groupId', groupId)
+            shatterGroups.groups[groupId] = members
+            members.forEach(childId => shatterGroups.members[childId] = groupId)
+          }
+
           set({
             captiveIds: new Set<string>(),
             mapBbox: null,
             focusFeatures: [],
-            removeShatterQueue
+            removeShatterQueue,
+            shatterGroups
           });
           get().unShatter()
         },
@@ -398,6 +430,10 @@ export const useMapStore = create(
           })
         },
         shatterMappings: {},
+        shatterGroups: {
+          groups: {},
+          members: {}
+        },
         upcertUserMap: ({ mapDocument, userMapData, userMapDocumentId }) => {
           let userMaps = [...get().userMaps];
           const mapViews = get().mapViews.data;

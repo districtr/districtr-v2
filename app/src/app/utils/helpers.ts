@@ -13,6 +13,7 @@ import { polygon, multiPolygon } from "@turf/helpers";
 import { booleanWithin } from "@turf/boolean-within";
 import { pointOnFeature } from "@turf/point-on-feature";
 import { MapStore, useMapStore } from "../store/mapStore";
+import { MapFeatureInfo } from "../constants/types";
 
 /**
  * PaintEventHandler
@@ -79,7 +80,7 @@ export const getFeaturesInBbox = (
   filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
-  const {captiveIds, lockedFeatures} = useMapStore.getState()
+  const {captiveIds, lockedFeatures, shatterGroups} = useMapStore.getState()
   const layers = _layers?.length ? _layers : captiveIds.size ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD] : [BLOCK_HOVER_LAYER_ID]
   let features = map?.queryRenderedFeatures(bbox, { layers }) || []
   if (captiveIds.size) {
@@ -88,7 +89,31 @@ export const getFeaturesInBbox = (
   if (filterLocked && lockedFeatures.size) {
     features = features.filter(f => !lockedFeatures.has(f.id?.toString() || ''))
   }
-
+  const shatterMembers = Object.keys(shatterGroups.members)
+  const additionalFeatures: MapFeatureInfo[] = []
+  const shatterGroupsAdded: string[] = []
+  if (shatterMembers.length) {
+    features.forEach(feature => {
+      const id = feature.id?.toString()
+      if (!id) return
+      if (shatterMembers.includes(id)){
+        const groupId = shatterGroups.members[id]
+        if (shatterGroupsAdded.includes(groupId)) return
+        shatterGroupsAdded.push(groupId)
+        const group = shatterGroups.groups[groupId]
+        group?.forEach(member => {
+          additionalFeatures.push({
+            id: member,
+            source: BLOCK_SOURCE_ID,
+            sourceLayer: feature.sourceLayer
+          })
+        })
+      }
+    })
+  }
+  if (additionalFeatures.length){
+    features = [...features, ...(additionalFeatures as MapGeoJSONFeature[])]
+  }
 
   return features
 };
