@@ -207,42 +207,45 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           );
         }
       });
+      
 
-      const _updateMapCursor = useMapStore.subscribe<MapStore['activeTool']>(
-        state => state.activeTool,
-        activeTool => {
-          const mapRef = useMapStore.getState().getMapRef();
-          if (!mapRef) return;
-
-          let cursor;
-          switch (activeTool) {
-            case 'pan':
-              cursor = '';
-              break;
-            case 'brush':
-              cursor = 'pointer';
-              break;
-            case 'eraser':
-              cursor = 'pointer';
-              break;
-            case 'shatter':
-              cursor = 'crosshair';
-              useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
-              break;
-            default:
-              cursor = '';
-          }
-          mapRef.getCanvas().style.cursor = cursor;
-        }
-      );
-
-      return [
-        addLayerSubMapDocument,
-        _shatterMapSideEffectRender,
-        _hoverMapSideEffectRender,
-        _zoneAssignmentMapSideEffectRender,
-        _updateMapCursor,
-      ];
     }
   );
+  const _updateMapCursor = useMapStore.subscribe<MapStore['activeTool']>(
+    state => state.activeTool,
+    activeTool => {
+      const mapRef = useMapStore.getState().getMapRef();
+      if (!mapRef) return;
+      let cursor;
+      switch (activeTool) {
+        case 'pan':
+          cursor = '';
+          break;
+        case 'brush':
+          cursor = 'pointer';
+          break;
+        case 'eraser':
+          cursor = 'pointer';
+          break;
+        case 'shatter':
+          cursor = 'crosshair';
+          useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
+          break;
+        case 'lock':
+          cursor = 'crosshair';
+          useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
+          break;
+        default:
+          cursor = '';
+      }
+      mapRef.getCanvas().style.cursor = cursor;
+    }
+  );
+  return [
+    addLayerSubMapDocument,
+    _shatterMapSideEffectRender,
+    _hoverMapSideEffectRender,
+    _zoneAssignmentMapSideEffectRender,
+    _updateMapCursor,
+  ];
 };

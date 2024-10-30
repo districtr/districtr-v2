@@ -81,6 +81,15 @@ export const handleMapClick = (
     if (documentId && e.features?.length) {
       handleShatter(documentId, e.features);
     }
+  } else if (activeTool === 'lock'){
+    const documentId = mapStore.mapDocument?.document_id;
+    if (documentId && e.features?.length) {
+      const feature = e.features[0]
+      const id = feature.id?.toString() || "";
+      const { lockedFeatures, upcertLockedFeature} = useMapStore.getState()
+      const featureIsLocked = lockedFeatures.has(id);
+      upcertLockedFeature(id, !featureIsLocked);
+    }
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
@@ -165,7 +174,7 @@ export const handleMapMouseMove = (
     paintLayers,
   );
   const isBrushingTool =
-    sourceLayer && ["brush", "eraser", "shatter"].includes(activeTool);
+    sourceLayer && ["brush", "eraser", "shatter", 'lock'].includes(activeTool);
   if (isBrushingTool) {
     setHoverFeatures(selectedFeatures);
   }

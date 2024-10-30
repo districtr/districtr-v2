@@ -8,6 +8,7 @@ import {
   Pencil2Icon,
   HandIcon,
   BorderSplitIcon,
+  LockOpen1Icon,
 } from "@radix-ui/react-icons";
 import { RecentMapsModal } from "@components/sidebar/RecentMapsModal";
 
@@ -26,6 +27,12 @@ export function MapModeSelector() {
       disabled: !mapDocument?.child_layer,
       label: "Shatter",
       icon: <BorderSplitIcon />,
+    },
+    {
+      mode: "lock",
+      disabled: false,
+      label: "Lock",
+      icon: <LockOpen1Icon />,
     },
   ];
 
