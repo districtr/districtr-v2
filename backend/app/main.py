@@ -151,7 +151,6 @@ async def update_assignments(
 async def shatter_parent(
     document_id: str, data: GEOIDS, session: Session = Depends(get_session)
 ):
-    print("!!!unshattering", document_id, data)
     stmt = text(
         """SELECT *
         FROM shatter_parent(:input_document_id, :parent_geoids)"""
