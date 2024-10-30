@@ -159,7 +159,18 @@ export function getBlocksLayerSpecification(
         1,
         0.8,
       ],
-      "line-color": "#cecece",
+      "line-color": [
+        "case",
+        ["==", ["feature-state", "focused"], true],
+        "#000000", // Black color when focused
+        "#cecece"  // Default color
+      ],
+      "line-width": [
+        "case",
+        ["==", ["feature-state", "focused"], true],
+        10, // Width of 10 when focused
+        1   // Default width
+      ],
     },
   };
   if (CHILD_LAYERS.includes(layerId)) {
