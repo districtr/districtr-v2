@@ -189,7 +189,7 @@ export const useMapStore = create(
           })
           const removeShatterQueue: MapStore['removeShatterQueue'] = 
           shouldUnshatter ? [{
-            parentId: parentId?.toString(),
+            parentId: parentId?.toString() || '',
             zone: zone || null
           }]: []
 
