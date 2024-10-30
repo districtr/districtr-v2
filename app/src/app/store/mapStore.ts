@@ -307,10 +307,16 @@ export const useMapStore = create(
               captiveIds: newChildren,
               mapBbox,
               mapLock: false,
+              focusFeatures: [
+                {
+                  id: features[0].id,
+                  source: BLOCK_SOURCE_ID,
+                  sourceLayer: get().mapDocument?.parent_layer
+                }
+              ],
             });
             return;
           }
-
           set({
             shatterIds: {
               parents: existingParents,
