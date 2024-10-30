@@ -172,11 +172,35 @@ export const useMapStore = create(
         setMapRenderingState: (mapRenderingState) => set({ mapRenderingState }),
         captiveIds: new Set<string>(),
         resetShatterView: () => {
+          const {zoneAssignments, focusFeatures, captiveIds} = get();
+          const parentId = focusFeatures?.[0].id
+          const captiveIdEntries = captiveIds.entries()
+          // @ts-ignore
+          let zone: any = undefined;
+          let shouldUnshatter = true
+          captiveIds.forEach((id) => {
+            const assigment = zoneAssignments.get(id)
+            if (zone === undefined) {
+              zone = assigment
+            }
+            if (assigment !== null && assigment !== zone) {
+              shouldUnshatter = false
+            }
+          })
+          const removeShatterQueue: MapStore['removeShatterQueue'] = 
+          shouldUnshatter ? [{
+            parentId: parentId?.toString(),
+            zone: zone || null
+          }]: []
+
+          console.log('close shatter', removeShatterQueue)
           set({
             captiveIds: new Set<string>(),
             mapBbox: null,
-            focusFeatures: []
+            focusFeatures: [],
+            removeShatterQueue
           });
+          get().unShatter()
         },
         mapBbox: null,
         getMapRef: () => null,
