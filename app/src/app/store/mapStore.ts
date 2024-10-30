@@ -37,6 +37,7 @@ import { getMapViewsSubs } from "../utils/api/queries";
 import { persistOptions } from "./persistConfig";
 import { TemporaryLayerManager } from "../utils/MapLayerManager";
 import { uniqueId } from "lodash";
+import { onlyUnique } from "../utils/arrays";
 
 const combineSetValues = (
   setRecord: Record<string, Set<unknown>>,
@@ -372,17 +373,35 @@ export const useMapStore = create(
             isPainting, 
             removeShatterQueue, 
             mapDocument,
+            shatterMappings,
+            zoneAssignments
           } = get();
           if (isPainting || !removeShatterQueue.length || !mapDocument){
             return
           }
-          set({mapLock: true})
-          const parentsToUnshatter = removeShatterQueue.map(f=>f.parentId)
-          patchUnShatter.mutate({
-            geoids: parentsToUnshatter,
-            zone: removeShatterQueue[0].zone as any,
-            document_id: mapDocument?.document_id
+          const parentsToUnshatter: string[] = [] 
+          removeShatterQueue.forEach(parent => {
+            const parentId = parent.parentId
+            const children = shatterMappings[parentId]
+            const childZones = Array.from(children)
+              .map(childId => zoneAssignments.get(childId))
+              .filter(onlyUnique)
+            if (childZones.length === 1){
+              parentsToUnshatter.push(parentId)
+            }
           })
+          const newRemoveShatterQueue = removeShatterQueue.filter(f => parentsToUnshatter.includes(f.parentId))
+          set({
+            removeShatterQueue: newRemoveShatterQueue
+          })
+          if (newRemoveShatterQueue.length) {
+            set({mapLock: true })
+            patchUnShatter.mutate({
+              geoids: parentsToUnshatter,
+              zone: removeShatterQueue[0].zone as any,
+              document_id: mapDocument?.document_id
+            })
+          }
         },
         removeShatterData: () => {
           const { 
