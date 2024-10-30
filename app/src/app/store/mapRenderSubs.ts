@@ -241,11 +241,35 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       mapRef.getCanvas().style.cursor = cursor;
     }
   );
+
+  const _applyFocusFeatureState = useMapStore.subscribe(
+    store => store.focusFeatures,
+    (focusFeatures, previousFocusFeatures) => {
+      const mapRef = useMapStore.getState().getMapRef()
+      if (!mapRef) return
+
+      focusFeatures.forEach(feature => {
+        mapRef.setFeatureState(
+         feature,
+            { focused: true }
+          );
+      })
+      previousFocusFeatures.forEach(feature => {
+        if (!focusFeatures.find(f => f.id === feature.id)) {
+          mapRef.setFeatureState(
+            feature,
+            { focused: false }
+          );
+        }
+      })
+    }
+  )
   return [
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
     _hoverMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,
     _updateMapCursor,
+    _applyFocusFeatureState
   ];
 };
