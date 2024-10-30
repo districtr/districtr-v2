@@ -30,9 +30,11 @@ class MapLayerManager {
   public get map() {
     return useMapStore.getState().getMapRef();
   }
+
   public get visibleLayers() {
     return this.map?.getStyle().layers.filter(layer => layer.layout?.visibility === 'visible');
   }
+
   addSource(id: string, source: SourceSpecification) {
     if (this.map) {
       this.map.addSource(id, source);
@@ -79,7 +81,7 @@ class MapLayerManager {
   }
 }
 
-class BlockLayerManager extends MapLayerManager{
+class BlockSpecificLayerManager extends MapLayerManager{
   getLayerFilter(
     layerId: string,
     _shatterIds?: MapStore["shatterIds"]
@@ -257,5 +259,5 @@ class BlockLayerManager extends MapLayerManager{
   }
 }
 
-export const LayerManager = new BlockLayerManager()
+export const BlockLayerManager = new BlockSpecificLayerManager()
 export const TemporaryLayerManager = new MapLayerManager()
