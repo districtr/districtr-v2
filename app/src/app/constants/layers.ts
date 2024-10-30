@@ -85,7 +85,7 @@ export function getLayerFill(
     "case",
     // geography is locked
     ["boolean", ["feature-state", "locked"], false],
-    0.4,
+    0.2,
     // zone is selected and hover is true and hover is not null
     [
       "all",
