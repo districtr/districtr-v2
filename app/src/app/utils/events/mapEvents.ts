@@ -103,10 +103,12 @@ export const handleMapMouseUp = (
   const activeTool = mapStore.activeTool;
   const isPainting = mapStore.isPainting;
 
+  
   if ((activeTool === "brush" || activeTool === "eraser") && isPainting) {
     // set isPainting to false
     mapStore.setIsPainting(false);
     SelectZoneAssignmentFeatures(mapStore);
+    setTimeout(() => mapStore.removeShatters(), 25)
   }
 };
 

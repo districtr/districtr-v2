@@ -1,8 +1,7 @@
 import { BLOCK_SOURCE_ID } from "@/app/constants/layers";
-import { MutableRefObject } from "react";
 import { Map, MapGeoJSONFeature } from "maplibre-gl";
 import { debounce } from "lodash";
-import { NullableZone, Zone } from "@/app/constants/types";
+import { NullableZone } from "@/app/constants/types";
 import { MapStore } from "@/app/store/mapStore";
 
 /**
@@ -44,7 +43,7 @@ const mapShatterableFeatures = (
  * Does not modify the store; that is done in the SelectZoneAssignmentFeatures function.
  * */
 export const SelectMapFeatures = (
-  features: Array<MapGeoJSONFeature> | undefined,
+  _features: Array<MapGeoJSONFeature> | undefined,
   map: Map | null,
   mapStoreRef: MapStore
 ) => {
@@ -55,10 +54,35 @@ export const SelectMapFeatures = (
       activeTool,
       shatterMappings,
       mapDocument,
-      lockedFeatures
+      lockedFeatures,
+      queueRemoveShatters,
+      zoneAssignments
     } = mapStoreRef;
     const selectedZone =
       activeTool === "eraser" ? null : mapStoreRef.selectedZone;
+
+
+      if (!mapDocument?.document_id){
+        return
+      }
+    const removeShatters: MapStore['removeShatterQueue'] = _features?.map(feature => {
+      const key = feature.id?.toString() || ''
+      const isShattered  = shatterMappings.hasOwnProperty(key)
+      if (!isShattered){
+        return {
+          parentId: "",
+          zone: 0
+        }
+      }
+      return {
+        parentId: key,
+        zone: selectedZone
+      }
+    })?.filter(f => f.parentId.length) || []
+    mapStoreRef.queueRemoveShatters(removeShatters.filter(Boolean))
+    const features = _features?.filter(f=> !removeShatters.find(shatter => shatter.parentId === f.id))
+    
+    // PAINT
     features?.forEach((feature) => {
       const id = feature?.id?.toString() ?? undefined
       if (!id) return
@@ -153,3 +177,5 @@ export const ResetMapSelectState = (
     mapStoreRef.setFreshMap(false);
   }
 };
+
+

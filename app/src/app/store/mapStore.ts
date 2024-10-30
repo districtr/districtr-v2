@@ -27,7 +27,7 @@ import {
   setZones,
 } from "../utils/helpers";
 import { getRenderSubscriptions } from "./mapRenderSubs";
-import { patchShatter } from "../utils/api/mutations";
+import { patchShatter, patchUnShatter } from "../utils/api/mutations";
 import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
 import { getMapMetricsSubs } from "./metricsSubs";
 import { getMapEditSubs } from "./mapEditSubs";
@@ -90,8 +90,12 @@ export interface MapStore {
     document_id: string,
     feautres: Array<MapGeoJSONFeature>,
   ) => void;
-  removeShatter: (parentId: string) => void;
-  removeShatters: (parentId: string[]) => void;
+  removeShatters: () => void;
+  queueRemoveShatters: (shattersToRemove: MapStore['removeShatterQueue']) => void
+  removeShatterQueue: Array<{
+    parentId: string
+    zone: NullableZone
+  }>
   // LOCK
   lockedFeatures: Set<string>;
   upcertLockedFeature: (id: string, lock: boolean) => void;
@@ -297,33 +301,55 @@ export const useMapStore = create(
             zoneAssignments,
           });
         },
-        removeShatters: (parentIds) => {
-          parentIds.forEach(parentId => get().removeShatter(parentId))
+        removeShatters: () => {
+          const { 
+            shatterIds, 
+            shatterMappings, 
+            zoneAssignments, 
+            isPainting, 
+            removeShatterQueue, 
+            mapDocument,
+          } = get();
+          const newZoneAssignments = new Map(zoneAssignments)
+          const newShatterIds = {
+            parents: new Set(shatterIds.parents),
+            children: new Set(shatterIds.children)
+          }
+          if (isPainting || !removeShatterQueue.length || !mapDocument){
+            return
+          }
+          set({mapLock: true})
+          const parentsToUnshatter = removeShatterQueue.map(f=>f.parentId)
+          const childrenToRemove = parentsToUnshatter.map(f => shatterMappings[f])
+          patchUnShatter.mutate({
+            geoids: parentsToUnshatter,
+            zone: removeShatterQueue[0].zone as any,
+            document_id: mapDocument?.document_id
+          }).then(r => {
+            childrenToRemove.forEach(childSet => childSet.forEach(childId => {
+              newZoneAssignments.delete(childId)
+              newShatterIds.children.delete(childId)
+            }))
+            removeShatterQueue.forEach(parent => {
+              delete shatterMappings[parent.parentId]
+              newShatterIds.parents.delete(parent.parentId)
+              newZoneAssignments.set(parent.parentId, parent.zone)
+            })
+            set({
+              shatterIds: newShatterIds,
+              mapLock: false,
+              shatterMappings: {...shatterMappings}, // Update shatterMappings
+              zoneAssignments: newZoneAssignments,
+              removeShatterQueue: []
+            });
+          })
+          
         },
-        removeShatter: (parentId) => {
-          const { shatterIds, shatterMappings, zoneAssignments } = get();
-
-          const children = shatterMappings[parentId];
-          // Remove the parent from shatterMappings
-          delete shatterMappings[parentId];
-
-          // Remove the parent from shatterIds
-          shatterIds.parents.delete(parentId);
-
-          // Remove the children from shatterIds and zoneAssignments
-          children.forEach((child) => {
-            shatterIds.children.delete(child);
-            zoneAssignments.delete(child); // Remove child from zoneAssignments
-          });
-
+        removeShatterQueue: [],
+        queueRemoveShatters: (removeShatterQueue) => {
           set({
-            shatterIds: {
-              parents: new Set(shatterIds.parents),
-              children: new Set(shatterIds.children),
-            },
-            shatterMappings, // Update shatterMappings
-            zoneAssignments, // Update zoneAssignments
-          });
+            removeShatterQueue: [...get().removeShatterQueue, ...removeShatterQueue].filter((value, index, arr) => arr.findIndex(f => f.parentId === value.parentId) === index)
+          })
         },
         shatterMappings: {},
         upcertUserMap: ({ mapDocument, userMapData, userMapDocumentId }) => {
