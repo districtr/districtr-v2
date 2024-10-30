@@ -32,7 +32,7 @@ import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
 import { getMapMetricsSubs } from "./metricsSubs";
 import { getMapEditSubs } from "./mapEditSubs";
 import bbox from "@turf/bbox";
-import { BLOCK_SOURCE_ID } from "../constants/layers";
+import { BLOCK_LAYER_ID, BLOCK_SOURCE_ID } from "../constants/layers";
 import { getMapViewsSubs } from "../utils/api/queries";
 import { persistOptions } from "./persistConfig";
 import { TemporaryLayerManager } from "../utils/MapLayerManager";
@@ -99,6 +99,8 @@ export interface MapStore {
   // HOVERING
   hoverFeatures: Array<MapFeatureInfo>;
   setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
+  // FOCUS
+  focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions;
   setMapOptions: (options: MapOptions) => void;
   activeTool: ActiveTool;
@@ -162,11 +164,10 @@ export const useMapStore = create(
         setMapRenderingState: (mapRenderingState) => set({ mapRenderingState }),
         captiveIds: new Set<string>(),
         resetShatterView: () => {
-          TemporaryLayerManager.removeLayer('SHATTER-OUTLINE')
-          TemporaryLayerManager.removeSource('SHATTER-OUTLINE')
           set({
             captiveIds: new Set<string>(),
             mapBbox: null,
+            focusFeatures: []
           });
         },
         mapBbox: null,
@@ -216,26 +217,8 @@ export const useMapStore = create(
         setLockedFeatures: (lockedFeatures) => set({ lockedFeatures }),
         handleShatter: async (document_id, features) => {
           set({ mapLock: true });
-          TemporaryLayerManager.addSource('SHATTER-OUTLINE', {
-            type: 'geojson',
-            data: {
-              type: 'FeatureCollection',
-              features
-            },
-          });
-          TemporaryLayerManager.addLayer({
-            id: 'SHATTER-OUTLINE',
-            source: 'SHATTER-OUTLINE',
-            type: 'line',
-            layout: {
-              visibility: 'visible',
-            },
-            paint: {
-              'line-opacity': 1,
-              'line-width': 10,
-              'line-color': '#000000',
-            },
-          });
+          // set BLOCK_LAYER_ID based on features[0] to focused true
+          
           const geoids = features
             .map((f) => f.id?.toString())
             .filter(Boolean) as string[];
@@ -303,6 +286,13 @@ export const useMapStore = create(
             },
             mapLock: false,
             captiveIds: newChildren,
+            focusFeatures: [
+              {
+                id: features[0].id,
+                source: BLOCK_SOURCE_ID,
+                sourceLayer: get().mapDocument?.parent_layer
+              }
+            ],
             mapBbox,
             zoneAssignments,
           });
@@ -421,6 +411,7 @@ export const useMapStore = create(
 
           set({ hoverFeatures });
         },
+        focusFeatures: [],
         mapOptions: {
           center: [-98.5795, 39.8283],
           zoom: 3,
