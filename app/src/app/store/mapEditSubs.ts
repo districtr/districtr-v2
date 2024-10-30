@@ -1,15 +1,11 @@
 import { debounce } from "lodash";
 import {
-  Assignment,
   FormatAssignments,
-  getAssignments,
-  patchUnShatterParents,
 } from "../utils/api/apiHandlers";
-import { patchUnShatter, patchUpdates } from "../utils/api/mutations";
+import { patchUpdates } from "../utils/api/mutations";
 import { useMapStore as _useMapStore, MapStore } from "./mapStore";
 import { shallowCompareArray } from "../utils/helpers";
 import { updateAssignments } from "../utils/api/queries";
-import { NullableZone } from "../constants/types";
 
 const zoneUpdates = ({
   getMapRef,

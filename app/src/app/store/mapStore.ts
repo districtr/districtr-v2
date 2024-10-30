@@ -90,7 +90,11 @@ export interface MapStore {
     document_id: string,
     feautres: Array<MapGeoJSONFeature>,
   ) => void;
-  removeShatters: () => void;
+  // Sends unshatter patches to server that remove the child assignments
+  // and add parents under the specified zone
+  unShatter: () => void;
+  // Removes local shatter data and updates map view
+  removeShatterData: () => void;
   queueRemoveShatters: (shattersToRemove: MapStore['removeShatterQueue']) => void
   removeShatterQueue: Array<{
     parentId: string
@@ -301,31 +305,43 @@ export const useMapStore = create(
             zoneAssignments,
           });
         },
-        removeShatters: () => {
+        unShatter: () => {
           const { 
-            shatterIds, 
-            shatterMappings, 
-            zoneAssignments, 
             isPainting, 
             removeShatterQueue, 
             mapDocument,
           } = get();
-          const newZoneAssignments = new Map(zoneAssignments)
-          const newShatterIds = {
-            parents: new Set(shatterIds.parents),
-            children: new Set(shatterIds.children)
-          }
           if (isPainting || !removeShatterQueue.length || !mapDocument){
             return
           }
           set({mapLock: true})
           const parentsToUnshatter = removeShatterQueue.map(f=>f.parentId)
-          const childrenToRemove = parentsToUnshatter.map(f => shatterMappings[f])
           patchUnShatter.mutate({
             geoids: parentsToUnshatter,
             zone: removeShatterQueue[0].zone as any,
             document_id: mapDocument?.document_id
-          }).then(r => {
+          })
+        },
+        removeShatterData: () => {
+          const { 
+            shatterIds, 
+            shatterMappings, 
+            zoneAssignments, 
+            removeShatterQueue, 
+          } = get();
+
+          const newZoneAssignments = new Map(zoneAssignments)
+          const newShatterIds = {
+            parents: new Set(shatterIds.parents),
+            children: new Set(shatterIds.children)
+          }
+
+          if (!removeShatterQueue.length){
+            return
+          }
+
+          const parentsToUnshatter = removeShatterQueue.map(f=>f.parentId)
+          const childrenToRemove = parentsToUnshatter.map(f => shatterMappings[f])
             childrenToRemove.forEach(childSet => childSet.forEach(childId => {
               newZoneAssignments.delete(childId)
               newShatterIds.children.delete(childId)
@@ -335,6 +351,7 @@ export const useMapStore = create(
               newShatterIds.parents.delete(parent.parentId)
               newZoneAssignments.set(parent.parentId, parent.zone)
             })
+
             set({
               shatterIds: newShatterIds,
               mapLock: false,
@@ -342,7 +359,6 @@ export const useMapStore = create(
               zoneAssignments: newZoneAssignments,
               removeShatterQueue: []
             });
-          })
           
         },
         removeShatterQueue: [],

@@ -72,6 +72,7 @@ export const handleMapClick = (
 
     if (sourceLayer && selectedFeatures && map && mapStore) {
       // select on both the map object and the store
+      // @ts-ignore TODO fix typing on this function
       SelectMapFeatures(selectedFeatures, map, mapStore).then(() => {
         SelectZoneAssignmentFeatures(mapStore);
       });
@@ -108,7 +109,6 @@ export const handleMapMouseUp = (
     // set isPainting to false
     mapStore.setIsPainting(false);
     SelectZoneAssignmentFeatures(mapStore);
-    setTimeout(() => mapStore.removeShatters(), 25)
   }
 };
 
