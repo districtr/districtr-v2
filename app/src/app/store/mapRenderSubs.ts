@@ -5,20 +5,20 @@ import {
   PARENT_LAYERS,
   CHILD_LAYERS,
   getLayerFilter,
-} from "@constants/layers";
+} from '@constants/layers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
   shallowCompareArray,
-} from "../utils/helpers";
-import { useMapStore as _useMapStore, MapStore } from "@store/mapStore";
-import { getFeatureUnderCursor } from "@utils/helpers";
+} from '../utils/helpers';
+import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
+import {getFeatureUnderCursor} from '@utils/helpers';
 
 export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const addLayerSubMapDocument = useMapStore.subscribe<
-    [MapStore["mapDocument"], MapStore["getMapRef"]]
+    [MapStore['mapDocument'], MapStore['getMapRef']]
   >(
-    (state) => [state.mapDocument, state.getMapRef],
+    state => [state.mapDocument, state.getMapRef],
     ([mapDocument, getMapRef]) => {
       const mapStore = useMapStore.getState();
       const mapRef = getMapRef();
@@ -27,23 +27,19 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
       }
     },
-    { equalityFn: shallowCompareArray },
+    {equalityFn: shallowCompareArray}
   );
 
   const _shatterMapSideEffectRender = useMapStore.subscribe<
-    [
-      MapStore["shatterIds"],
-      MapStore["getMapRef"],
-      MapStore["mapRenderingState"],
-    ]
+    [MapStore['shatterIds'], MapStore['getMapRef'], MapStore['mapRenderingState']]
   >(
-    (state) => [state.shatterIds, state.getMapRef, state.mapRenderingState],
+    state => [state.shatterIds, state.getMapRef, state.mapRenderingState],
     ([shatterIds, getMapRef, mapRenderingState]) => {
       const state = useMapStore.getState();
       const mapRef = getMapRef();
       const setMapLock = state.setMapLock;
 
-      if (!mapRef || mapRenderingState !== "loaded") {
+      if (!mapRef || mapRenderingState !== 'loaded') {
         return;
       }
 
@@ -51,20 +47,20 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
 
       if (state.mapDocument?.child_layer) layersToFilter.push(...CHILD_LAYERS);
 
-      layersToFilter.forEach((layerId) =>
-        mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds)),
+      layersToFilter.forEach(layerId =>
+        mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
 
-      mapRef.once("render", () => {
+      mapRef.once('render', () => {
         setMapLock(false);
         console.log(`Unlocked at`, performance.now());
       });
     },
-    { equalityFn: shallowCompareArray },
+    {equalityFn: shallowCompareArray}
   );
 
   const _hoverMapSideEffectRender = useMapStore.subscribe(
-    (state) => state.hoverFeatures,
+    state => state.hoverFeatures,
     (hoverFeatures, previousHoverFeatures) => {
       const mapRef = useMapStore.getState().getMapRef();
 
@@ -72,56 +68,55 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         return;
       }
 
-      previousHoverFeatures.forEach((feature) => {
-        mapRef.setFeatureState(feature, { hover: false });
+      previousHoverFeatures.forEach(feature => {
+        mapRef.setFeatureState(feature, {hover: false});
       });
 
-      hoverFeatures.forEach((feature) => {
-        mapRef.setFeatureState(feature, { hover: true });
+      hoverFeatures.forEach(feature => {
+        mapRef.setFeatureState(feature, {hover: true});
       });
-    },
+    }
   );
 
-  const _zoneAssignmentMapSideEffectRender =
-    useMapStore.subscribe<ColorZoneAssignmentsState>(
-      (state) => [
-        state.zoneAssignments,
-        state.mapDocument,
-        state.getMapRef,
-        state.shatterIds,
-        state.appLoadingState,
-        state.mapRenderingState,
-      ],
-      (curr, prev) => colorZoneAssignments(curr, prev),
-      { equalityFn: shallowCompareArray },
-    );
+  const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe<ColorZoneAssignmentsState>(
+    state => [
+      state.zoneAssignments,
+      state.mapDocument,
+      state.getMapRef,
+      state.shatterIds,
+      state.appLoadingState,
+      state.mapRenderingState,
+    ],
+    (curr, prev) => colorZoneAssignments(curr, prev),
+    {equalityFn: shallowCompareArray}
+  );
 
-  const _updateMapCursor = useMapStore.subscribe<MapStore["activeTool"]>(
-    (state) => state.activeTool,
-    (activeTool) => {
+  const _updateMapCursor = useMapStore.subscribe<MapStore['activeTool']>(
+    state => state.activeTool,
+    activeTool => {
       const mapRef = useMapStore.getState().getMapRef();
       if (!mapRef) return;
 
       let cursor;
       switch (activeTool) {
-        case "pan":
-          cursor = "";
+        case 'pan':
+          cursor = '';
           break;
-        case "brush":
-          cursor = "pointer";
+        case 'brush':
+          cursor = 'pointer';
           break;
-        case "eraser":
-          cursor = "pointer";
+        case 'eraser':
+          cursor = 'pointer';
           break;
-        case "shatter":
-          cursor = "crosshair";
+        case 'shatter':
+          cursor = 'crosshair';
           useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
           break;
         default:
-          cursor = "";
+          cursor = '';
       }
       mapRef.getCanvas().style.cursor = cursor;
-    },
+    }
   );
 
   return [

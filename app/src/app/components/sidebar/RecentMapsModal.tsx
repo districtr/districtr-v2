@@ -1,6 +1,6 @@
-import { useMapStore } from "@/app/store/mapStore";
-import React from "react";
-import { Cross2Icon, CounterClockwiseClockIcon } from "@radix-ui/react-icons";
+import {useMapStore} from '@/app/store/mapStore';
+import React from 'react';
+import {Cross2Icon, CounterClockwiseClockIcon} from '@radix-ui/react-icons';
 import {
   Button,
   Flex,
@@ -11,25 +11,25 @@ import {
   TextField,
   IconButton,
   RadioCards,
-} from "@radix-ui/themes";
-import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { DocumentObject } from "../../utils/api/apiHandlers";
-type NamedDocumentObject = DocumentObject & { name?: string };
+} from '@radix-ui/themes';
+import {usePathname, useSearchParams, useRouter} from 'next/navigation';
+import {DocumentObject} from '../../utils/api/apiHandlers';
+type NamedDocumentObject = DocumentObject & {name?: string};
 export const RecentMapsModal = () => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const mapDocument = useMapStore((store) => store.mapDocument);
-  const userMaps = useMapStore((store) => store.userMaps);
-  const upcertUserMap = useMapStore((store) => store.upcertUserMap);
-  const setMapDocument = useMapStore((store) => store.setMapDocument);
+  const mapDocument = useMapStore(store => store.mapDocument);
+  const userMaps = useMapStore(store => store.userMaps);
+  const upcertUserMap = useMapStore(store => store.upcertUserMap);
+  const setMapDocument = useMapStore(store => store.setMapDocument);
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
   const handleMapDocument = (data: NamedDocumentObject) => {
     setMapDocument(data);
     const urlParams = new URLSearchParams(searchParams.toString());
-    urlParams.set("document_id", data.document_id);
-    router.push(pathname + "?" + urlParams.toString());
+    urlParams.set('document_id', data.document_id);
+    router.push(pathname + '?' + urlParams.toString());
     // close dialog
     setDialogOpen(false);
   };
@@ -48,9 +48,7 @@ export const RecentMapsModal = () => {
       </Dialog.Trigger>
       <Dialog.Content className="max-w-[75vw]">
         <Flex align="center" className="mb-4">
-          <Dialog.Title className="m-0 text-xl font-bold flex-1">
-            Recent Maps
-          </Dialog.Title>
+          <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
 
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
@@ -62,9 +60,7 @@ export const RecentMapsModal = () => {
         <Table.Root size="3" variant="surface">
           <Table.Header>
             <Table.Row>
-              <Table.ColumnHeaderCell pl=".5rem">
-                Map Name
-              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell pl=".5rem">Map Name</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>Last Updated</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>{/* load */}</Table.ColumnHeaderCell>
               <Table.ColumnHeaderCell>{/* delete */}</Table.ColumnHeaderCell>
@@ -76,7 +72,7 @@ export const RecentMapsModal = () => {
               <RecentMapsRow
                 key={i}
                 active={mapDocument?.document_id === userMap.document_id}
-                onChange={(userMapData) =>
+                onChange={userMapData =>
                   upcertUserMap({
                     userMapData,
                     userMapDocumentId: userMap.document_id,
@@ -98,17 +94,17 @@ const RecentMapsRow: React.FC<{
   onSelect: (data: NamedDocumentObject) => void;
   active: boolean;
   onChange?: (data?: NamedDocumentObject) => void;
-}> = ({ data, onSelect, active, onChange }) => {
+}> = ({data, onSelect, active, onChange}) => {
   const updatedDate = new Date(data.updated_at as string);
   const formattedData = updatedDate.toLocaleDateString();
   const name = data?.name || data.gerrydb_table;
 
   const handleChangeName = (name?: string) => {
-    name?.length && onChange?.({ ...data, name });
+    name?.length && onChange?.({...data, name});
   };
 
   return (
-    <Table.Row align="center" className={`${active ? "bg-yellow-100" : ""}`}>
+    <Table.Row align="center" className={`${active ? 'bg-yellow-100' : ''}`}>
       <Table.Cell pl=".5rem">
         {!!(active && onChange) ? (
           <Box maxWidth="200px">
@@ -116,7 +112,7 @@ const RecentMapsRow: React.FC<{
               placeholder={name}
               size="3"
               value={name}
-              onChange={(e) => handleChangeName(e.target.value)}
+              onChange={e => handleChangeName(e.target.value)}
             ></TextField.Root>
           </Box>
         ) : (
