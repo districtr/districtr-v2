@@ -193,12 +193,12 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
     );
   }
   useMapStore.getState().setMapRenderingState("loaded");
-  useMapStore
-    .getState()
-    .getMapRef()
-    ?.fitBounds(mapDocument.extent as [number, number, number, number], {
-      padding: 20,
-    });
+  
+  // update map bounds based on document extent
+  useMapStore.getState().setMapOptions({
+    bounds: mapDocument.extent as [number, number, number, number],
+    container: useMapStore.getState().mapOptions.container,
+  });
 };
 
 export function removeBlockLayers(map: Map | null) {

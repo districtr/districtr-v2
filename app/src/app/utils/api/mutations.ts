@@ -59,16 +59,6 @@ export const document = new MutationObserver(queryClient, {
   },
   onSuccess: (data) => {
     useMapStore.getState().setMapDocument(data);
-    if (data.extent.length === 4) {
-      useMapStore
-        .getState()
-        .getMapRef()
-        ?.fitBounds(data.extent as [number, number, number, number], {
-          padding: 20,
-        });
-    } else {
-      console.error("Invalid extent data:", data.extent);
-    }
     useMapStore.getState().setAppLoadingState("loaded");
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.set("document_id", data.document_id);

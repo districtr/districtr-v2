@@ -16,8 +16,8 @@ export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore((state) => state.mapLock);
-
   const setMapRef = useMapStore((state) => state.setMapRef);
+  const mapOptions = useMapStore((state) => state.mapOptions);
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -28,8 +28,18 @@ export const MapComponent: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (map.current || !mapContainer.current) return;
+    if (map.current && mapOptions.bounds) {
+      if (mapOptions.bounds) {
+        map.current.fitBounds(mapOptions.bounds, {
+          padding: 20,
+        });
+      }
+    }
+  }, [mapOptions]);
 
+  useEffect(() => {
+    if (map.current || !mapContainer.current) return;
+    
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_OPTIONS.style,
