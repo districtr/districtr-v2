@@ -52,15 +52,6 @@ export const MapContextMenu: React.FC = () => {
             {id}
           </Text>
         </ContextMenu.Label>
-        <ContextMenu.Item disabled={!canShatter} onSelect={handleSelect}>
-        {contextMenu.data.id && (
-          <ContextMenu.Label>
-            <Text size="1" color="gray">
-              {contextMenu.data.id}
-            </Text>
-          </ContextMenu.Label>
-        )}
-        </ContextMenu.Item>
         <ContextMenu.Item disabled={!mapDocument?.child_layer} onSelect={handleSelect}>
           Shatter
         </ContextMenu.Item>
