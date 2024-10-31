@@ -99,6 +99,7 @@ async def create_document(
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            DistrictrMap.extent.label("extent"),  # pyright: ignore
         )
         .where(Document.document_id == document_id)
         .join(
@@ -210,6 +211,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            DistrictrMap.extent.label("extent"),  # pyright: ignore
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
@@ -220,6 +222,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
         .limit(1)
     )
     result = session.exec(stmt)
+
     return result.one()
 
 

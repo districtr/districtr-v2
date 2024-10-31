@@ -2,6 +2,7 @@ from sqlalchemy import text
 from sqlalchemy import bindparam, Integer, String, Text
 from sqlmodel import Session
 
+
 from app.models import UUIDType
 
 
@@ -29,7 +30,8 @@ def create_districtr_map(
     Returns:
         The UUID of the inserted map.
     """
-    stmt = text("""
+    stmt = text(
+        """
     SELECT *
     FROM create_districtr_map(
         :map_name,
@@ -38,7 +40,8 @@ def create_districtr_map(
         :tiles_s3_path,
         :parent_layer_name,
         :child_layer_name
-    )""").bindparams(
+    )"""
+    ).bindparams(
         bindparam(key="map_name", type_=String),
         bindparam(key="gerrydb_table_name", type_=String),
         bindparam(key="num_districts", type_=Integer),

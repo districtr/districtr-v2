@@ -18,17 +18,11 @@ export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 export const INTERACTIVE_LAYERS = [
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
-]
+];
 
-export const PARENT_LAYERS = [
-  BLOCK_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID
-]
+export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 
-export const CHILD_LAYERS = [
-  BLOCK_LAYER_ID_CHILD,
-  BLOCK_HOVER_LAYER_ID_CHILD
-]
+export const CHILD_LAYERS = [BLOCK_LAYER_ID_CHILD, BLOCK_HOVER_LAYER_ID_CHILD];
 
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   "case",
@@ -83,7 +77,7 @@ export function getLayerFilter(
 
 export function getBlocksLayerSpecification(
   sourceLayer: string,
-  layerId: string,
+  layerId: string
 ): LayerSpecification {
   const shatterIds = useMapStore.getState().shatterIds;
   return {
@@ -109,7 +103,7 @@ export function getBlocksLayerSpecification(
 
 export function getBlocksHoverLayerSpecification(
   sourceLayer: string,
-  layerId: string,
+  layerId: string
 ): LayerSpecification {
   return {
     id: layerId,
@@ -163,10 +157,7 @@ export function getBlocksHoverLayerSpecification(
   };
 }
 
-const addBlockLayers = (
-  map: Map | null,
-  mapDocument: DocumentObject,
-) => {
+const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
   if (!map || !mapDocument.tiles_s3_path) {
     console.log("map or mapDocument not ready", mapDocument);
     return;
@@ -176,39 +167,45 @@ const addBlockLayers = (
   map?.addSource(BLOCK_SOURCE_ID, blockSource);
   map?.addLayer(
     getBlocksLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID),
-    LABELS_BREAK_LAYER_ID,
+    LABELS_BREAK_LAYER_ID
   );
   map?.addLayer(
     getBlocksHoverLayerSpecification(
       mapDocument.parent_layer,
-      BLOCK_HOVER_LAYER_ID,
+      BLOCK_HOVER_LAYER_ID
     ),
-    LABELS_BREAK_LAYER_ID,
+    LABELS_BREAK_LAYER_ID
   );
   if (mapDocument.child_layer) {
     map?.addLayer(
       getBlocksLayerSpecification(
         mapDocument.child_layer,
-        BLOCK_LAYER_ID_CHILD,
+        BLOCK_LAYER_ID_CHILD
       ),
-      LABELS_BREAK_LAYER_ID,
+      LABELS_BREAK_LAYER_ID
     );
     map?.addLayer(
       getBlocksHoverLayerSpecification(
         mapDocument.child_layer,
-        BLOCK_HOVER_LAYER_ID_CHILD,
+        BLOCK_HOVER_LAYER_ID_CHILD
       ),
-      LABELS_BREAK_LAYER_ID,
+      LABELS_BREAK_LAYER_ID
     );
   }
-  useMapStore.getState().setMapRenderingState("loaded")
+  useMapStore.getState().setMapRenderingState("loaded");
+  
+  // update map bounds based on document extent
+  useMapStore.getState().setMapOptions({
+    bounds: mapDocument.extent as [number, number, number, number],
+    container: useMapStore.getState().mapOptions.container,
+  });
 };
 
 export function removeBlockLayers(map: Map | null) {
   if (!map) {
-    return
+    return;
   }
-  useMapStore.getState().setMapRenderingState("loading")
+  useMapStore.getState().setMapRenderingState("loading");
   if (map.getLayer(BLOCK_LAYER_ID)) {
     map.removeLayer(BLOCK_LAYER_ID);
   }
