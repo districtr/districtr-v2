@@ -1,24 +1,16 @@
-import { useMapStore } from "@/app/store/mapStore";
-import { Card, Flex, Heading, Text } from "@radix-ui/themes";
-import {
-  BarChart,
-  Bar,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  Cell,
-} from "recharts";
-import { colorScheme } from "@/app/constants/colors";
+import {useMapStore} from '@/app/store/mapStore';
+import {Card, Flex, Heading, Text} from '@radix-ui/themes';
+import {BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell} from 'recharts';
+import {colorScheme} from '@/app/constants/colors';
 
 type TooltipInput = {
   active?: boolean;
-  payload?: [{ payload: { total_pop: number; zone: number } }];
+  payload?: [{payload: {total_pop: number; zone: number}}];
 };
 
-const numberFormat = new Intl.NumberFormat("en-US");
+const numberFormat = new Intl.NumberFormat('en-US');
 
-const CustomTooltip = ({ active, payload: items }: TooltipInput) => {
+const CustomTooltip = ({active, payload: items}: TooltipInput) => {
   if (active && items && items.length) {
     const payload = items[0].payload;
     return (
@@ -31,7 +23,7 @@ const CustomTooltip = ({ active, payload: items }: TooltipInput) => {
 };
 
 export const HorizontalBar = () => {
-  const mapMetrics = useMapStore((state) => state.mapMetrics);
+  const mapMetrics = useMapStore(state => state.mapMetrics);
 
   if (mapMetrics?.isPending) {
     return <div>Loading...</div>;
@@ -60,18 +52,12 @@ export const HorizontalBar = () => {
         height={colorScheme.length * 18}
         minHeight="200px"
       >
-        <BarChart
-          width={500}
-          data={mapMetrics.data}
-          layout="vertical"
-          barGap={0.5}
-          maxBarSize={50}
-        >
+        <BarChart width={500} data={mapMetrics.data} layout="vertical" barGap={0.5} maxBarSize={50}>
           <XAxis
             allowDataOverflow={true}
             type="number"
-            domain={[0, "maxData"]}
-            tickFormatter={(value) => numberFormat.format(value)}
+            domain={[0, 'maxData']}
+            tickFormatter={value => numberFormat.format(value)}
           />
           <YAxis type="category" hide />
           <Tooltip content={<CustomTooltip />} />
@@ -79,10 +65,7 @@ export const HorizontalBar = () => {
             {mapMetrics.data
               .sort((a, b) => a.zone - b.zone)
               .map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={colorScheme[entry.zone - 1]}
-                />
+                <Cell key={`cell-${index}`} fill={colorScheme[entry.zone - 1]} />
               ))}
           </Bar>
         </BarChart>

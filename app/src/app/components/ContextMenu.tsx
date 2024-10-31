@@ -1,11 +1,11 @@
-import React from "react";
-import { ContextMenu, Text } from "@radix-ui/themes";
-import { useMapStore } from "@/app/store/mapStore";
+import React from 'react';
+import {ContextMenu, Text} from '@radix-ui/themes';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const MapContextMenu: React.FC = () => {
-  const mapDocument = useMapStore((state) => state.mapDocument);
-  const contextMenu = useMapStore((state) => state.contextMenu);
-  const handleShatter = useMapStore((state) => state.handleShatter);
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const contextMenu = useMapStore(state => state.contextMenu);
+  const handleShatter = useMapStore(state => state.handleShatter);
   if (!contextMenu) return null;
 
   const handleSelect = () => {
@@ -27,7 +27,7 @@ export const MapContextMenu: React.FC = () => {
         // also, if in the future we need the context menu outside of the map,
         // this sets us up to do that
         style={{
-          position: "fixed",
+          position: 'fixed',
           top: contextMenu.y,
           left: contextMenu.x,
         }}
@@ -39,10 +39,7 @@ export const MapContextMenu: React.FC = () => {
             </Text>
           </ContextMenu.Label>
         )}
-        <ContextMenu.Item
-          disabled={!mapDocument?.child_layer}
-          onSelect={handleSelect}
-        >
+        <ContextMenu.Item disabled={!mapDocument?.child_layer} onSelect={handleSelect}>
           Shatter
         </ContextMenu.Item>
       </ContextMenu.Content>

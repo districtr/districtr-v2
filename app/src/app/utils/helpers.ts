@@ -6,13 +6,13 @@ import {
   MapGeoJSONFeature,
   LngLat,
   LngLatLike,
-} from "maplibre-gl";
-import { Point } from "maplibre-gl";
-import { BLOCK_HOVER_LAYER_ID, BLOCK_SOURCE_ID } from "@/app/constants/layers";
-import { polygon, multiPolygon } from "@turf/helpers";
-import { booleanWithin } from "@turf/boolean-within";
-import { pointOnFeature } from "@turf/point-on-feature";
-import { MapStore, useMapStore } from "../store/mapStore";
+} from 'maplibre-gl';
+import {Point} from 'maplibre-gl';
+import {BLOCK_HOVER_LAYER_ID, BLOCK_SOURCE_ID} from '@/app/constants/layers';
+import {polygon, multiPolygon} from '@turf/helpers';
+import {booleanWithin} from '@turf/boolean-within';
+import {pointOnFeature} from '@turf/point-on-feature';
+import {MapStore, useMapStore} from '../store/mapStore';
 
 /**
  * PaintEventHandler
@@ -25,7 +25,7 @@ export type PaintEventHandler = (
   map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers?: string[],
+  layers?: string[]
 ) => MapGeoJSONFeature[] | undefined;
 
 /**
@@ -54,7 +54,7 @@ export type ContextMenuState = {
  */
 export const boxAroundPoint = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  radius: number,
+  radius: number
 ): [PointLike, PointLike] => {
   return [
     [e.point.x - radius, e.point.y - radius],
@@ -74,11 +74,11 @@ export const getFeaturesInBbox = (
   map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_HOVER_LAYER_ID],
+  layers: string[] = [BLOCK_HOVER_LAYER_ID]
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
 
-  return map?.queryRenderedFeatures(bbox, { layers });
+  return map?.queryRenderedFeatures(bbox, {layers});
 };
 
 /**
@@ -93,9 +93,9 @@ export const getFeatureUnderCursor = (
   map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_HOVER_LAYER_ID],
+  layers: string[] = [BLOCK_HOVER_LAYER_ID]
 ): MapGeoJSONFeature[] | undefined => {
-  return map?.queryRenderedFeatures(e.point, { layers });
+  return map?.queryRenderedFeatures(e.point, {layers});
 };
 
 /**
@@ -110,12 +110,12 @@ export const getFeaturesIntersectingCounties = (
   map: Map | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_HOVER_LAYER_ID],
+  layers: string[] = [BLOCK_HOVER_LAYER_ID]
 ): MapGeoJSONFeature[] | undefined => {
   if (!map) return;
 
   const countyFeatures = map.queryRenderedFeatures(e.point, {
-    layers: ["counties_fill"],
+    layers: ['counties_fill'],
   });
 
   if (!countyFeatures) return;
@@ -139,7 +139,7 @@ export const getFeaturesIntersectingCounties = (
     countyPoly = multiPolygon(countyFeatures[0].geometry.coordinates);
   }
 
-  return features.filter((p) => {
+  return features.filter(p => {
     const point = pointOnFeature(p);
     return booleanWithin(point, countyPoly);
   });
@@ -152,7 +152,7 @@ export const getFeaturesIntersectingCounties = (
  * @returns [PointLike, PointLike] - An array containing the SW and NE corners of the bounding box
  */
 const getBoundingBoxFromFeatures = (
-  features: MapGeoJSONFeature[],
+  features: MapGeoJSONFeature[]
 ): [LngLatLike, LngLatLike] | null => {
   if (!features || features.length === 0) {
     return null;
@@ -161,7 +161,7 @@ const getBoundingBoxFromFeatures = (
   const sw = new LngLat(180, 90);
   const ne = new LngLat(-180, -90);
 
-  features.forEach((feature) => {
+  features.forEach(feature => {
     // this will always have an even number of coordinates
     // iterating over the coordinates in pairs yields (lng, lat)
     // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
@@ -186,22 +186,19 @@ const getBoundingBoxFromFeatures = (
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @returns Point - The position of the mouse on the map
  */
-export const mousePos = (
-  map: Map | null,
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-) => {
+export const mousePos = (map: Map | null, e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const canvas = map?.getCanvasContainer();
   if (!canvas) return new Point(0, 0);
   const rect = canvas.getBoundingClientRect();
   return new Point(
     e.point.x - rect.left - canvas.clientLeft,
-    e.point.y - rect.top - canvas.clientTop,
+    e.point.y - rect.top - canvas.clientTop
   );
 };
 
 export interface LayerVisibility {
   layerId: string;
-  visibility: "none" | "visible";
+  visibility: 'none' | 'visible';
 }
 
 /**
@@ -218,18 +215,18 @@ export interface LayerVisibility {
  */
 export function toggleLayerVisibility(
   mapRef: maplibregl.Map,
-  layerIds: string[],
+  layerIds: string[]
 ): LayerVisibility[] {
-  const activeLayerIds = getVisibleLayers(mapRef)?.map((layer) => layer.id);
+  const activeLayerIds = getVisibleLayers(mapRef)?.map(layer => layer.id);
   if (!activeLayerIds) return [];
 
-  return layerIds.map((layerId) => {
+  return layerIds.map(layerId => {
     if (activeLayerIds && activeLayerIds.includes(layerId)) {
-      mapRef.setLayoutProperty(layerId, "visibility", "none");
-      return { layerId: layerId, visibility: "none" };
+      mapRef.setLayoutProperty(layerId, 'visibility', 'none');
+      return {layerId: layerId, visibility: 'none'};
     } else {
-      mapRef.setLayoutProperty(layerId, "visibility", "visible");
-      return { layerId: layerId, visibility: "visible" };
+      mapRef.setLayoutProperty(layerId, 'visibility', 'visible');
+      return {layerId: layerId, visibility: 'visible'};
     }
   }, {});
 }
@@ -241,27 +238,23 @@ export function toggleLayerVisibility(
  * @param {maplibregl.Map} map - The map reference.
  */
 export function getVisibleLayers(map: Map | null) {
-  return map?.getStyle().layers.filter((layer) => {
-    return layer.layout?.visibility === "visible";
+  return map?.getStyle().layers.filter(layer => {
+    return layer.layout?.visibility === 'visible';
   });
 }
 
 export type ColorZoneAssignmentsState = [
-  MapStore["zoneAssignments"],
-  MapStore["mapDocument"],
-  MapStore["getMapRef"],
-  MapStore["shatterIds"],
-  MapStore["appLoadingState"],
-  MapStore["mapRenderingState"],
+  MapStore['zoneAssignments'],
+  MapStore['mapDocument'],
+  MapStore['getMapRef'],
+  MapStore['shatterIds'],
+  MapStore['appLoadingState'],
+  MapStore['mapRenderingState']
 ];
 
-export const getMap = (_getMapRef?: MapStore["getMapRef"]) => {
+export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
   const mapRef = _getMapRef?.() || useMapStore.getState().getMapRef();
-  if (
-    mapRef
-      ?.getStyle()
-      .layers.findIndex((layer) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1
-  ) {
+  if (mapRef?.getStyle().layers.findIndex(layer => layer.id === BLOCK_HOVER_LAYER_ID) !== -1) {
     return null;
   }
 
@@ -289,44 +282,27 @@ export const getMap = (_getMapRef?: MapStore["getMapRef"]) => {
  */
 export const colorZoneAssignments = (
   state: ColorZoneAssignmentsState,
-  previousState?: ColorZoneAssignmentsState,
+  previousState?: ColorZoneAssignmentsState
 ) => {
-  const [
-    zoneAssignments,
-    mapDocument,
-    getMapRef,
-    _,
-    appLoadingState,
-    mapRenderingState,
-  ] = state;
+  const [zoneAssignments, mapDocument, getMapRef, _, appLoadingState, mapRenderingState] = state;
   const previousZoneAssignments = previousState?.[0] || null;
   const mapRef = getMapRef();
   const shatterIds = useMapStore.getState().shatterIds;
-  if (
-    !mapRef ||
-    !mapDocument ||
-    appLoadingState !== "loaded" ||
-    mapRenderingState !== "loaded"
-  ) {
+  if (!mapRef || !mapDocument || appLoadingState !== 'loaded' || mapRenderingState !== 'loaded') {
     return;
   }
-  const isInitialRender =
-    previousState?.[4] !== "loaded" || previousState?.[5] !== "loaded";
+  const isInitialRender = previousState?.[4] !== 'loaded' || previousState?.[5] !== 'loaded';
 
   zoneAssignments.forEach((zone, id) => {
     if (
-      (id &&
-        !isInitialRender &&
-        previousZoneAssignments?.get(id) === zoneAssignments.get(id)) ||
+      (id && !isInitialRender && previousZoneAssignments?.get(id) === zoneAssignments.get(id)) ||
       !id
     ) {
       return;
     }
 
     const isChild = shatterIds.children.has(id);
-    const sourceLayer = isChild
-      ? mapDocument.child_layer
-      : mapDocument.parent_layer;
+    const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
 
     if (!sourceLayer) {
       return;
@@ -341,17 +317,17 @@ export const colorZoneAssignments = (
       {
         selected: true,
         zone,
-      },
+      }
     );
   });
 };
 
 // property changes on which to re-color assignments
 export const colorZoneAssignmentTriggers = [
-  "zoneAssignments",
-  "mapDocument",
-  "mapRef",
-  "shatterIds",
+  'zoneAssignments',
+  'mapDocument',
+  'mapRef',
+  'shatterIds',
 ] as Array<keyof MapStore>;
 
 /**
@@ -368,13 +344,13 @@ export const colorZoneAssignmentTriggers = [
  * This is typically used when "shattering" a parent element into its constituent parts.
  */
 export const setZones = (
-  zoneAssignments: MapStore["zoneAssignments"],
+  zoneAssignments: MapStore['zoneAssignments'],
   parent: string,
-  children: Set<string>,
+  children: Set<string>
 ) => {
   const zone = zoneAssignments.get(parent);
   if (zone) {
-    children.forEach((childId) => {
+    children.forEach(childId => {
       zoneAssignments.set(childId, zone);
     });
     zoneAssignments.delete(parent);
