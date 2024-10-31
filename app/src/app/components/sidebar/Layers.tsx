@@ -1,6 +1,12 @@
 import {Heading, CheckboxGroup, Flex} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
-import {COUNTY_LAYER_IDS, BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID} from '../../constants/layers';
+import {
+  COUNTY_LAYER_IDS,
+  BLOCK_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_LAYER_ID_CHILD,
+} from '../../constants/layers';
 import {toggleLayerVisibility} from '../../utils/helpers';
 
 /** Layers
@@ -35,7 +41,14 @@ export default function Layers() {
       >
         <CheckboxGroup.Item
           value="1"
-          onClick={() => toggleLayers([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID])}
+          onClick={() =>
+            toggleLayers([
+              BLOCK_LAYER_ID,
+              BLOCK_HOVER_LAYER_ID,
+              BLOCK_HOVER_LAYER_ID_CHILD,
+              BLOCK_LAYER_ID_CHILD,
+            ])
+          }
           disabled={mapDocument === null}
         >
           Show painted districts
