@@ -12,6 +12,7 @@ from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
     create_parent_child_edges as _create_parent_child_edges,
+    transform_bounding_box,
 )
 
 logger = logging.getLogger(__name__)
@@ -111,13 +112,15 @@ def import_gerrydb_view(layer: str, gpkg: str, replace: bool, rm: bool):
     _session = get_session()
     session = next(_session)
 
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     try:
         session.execute(
@@ -163,10 +166,12 @@ def delete_parent_child_edges(districtr_map: str):
 
     session = next(get_session())
 
-    delete_query = text("""
+    delete_query = text(
+        """
         DELETE FROM parentchildedges
         WHERE districtr_map = :districtr_map
-    """)
+    """
+    )
     session.execute(
         delete_query,
         {

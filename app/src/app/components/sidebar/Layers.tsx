@@ -1,11 +1,7 @@
-import { Heading, CheckboxGroup, Flex } from "@radix-ui/themes";
-import { useMapStore } from "@/app/store/mapStore";
-import {
-  COUNTY_LAYER_IDS,
-  BLOCK_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID,
-} from "../../constants/layers";
-import { toggleLayerVisibility } from "../../utils/helpers";
+import {Heading, CheckboxGroup, Flex} from '@radix-ui/themes';
+import {useMapStore} from '@/app/store/mapStore';
+import {COUNTY_LAYER_IDS, BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID} from '../../constants/layers';
+import {toggleLayerVisibility} from '../../utils/helpers';
 
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
@@ -16,10 +12,10 @@ import { toggleLayerVisibility } from "../../utils/helpers";
  * - Support tribes and communities
  */
 export default function Layers() {
-  const mapRef = useMapStore((state) => state.getMapRef());
-  const mapDocument = useMapStore((state) => state.mapDocument);
-  const visibleLayerIds = useMapStore((state) => state.visibleLayerIds);
-  const updateVisibleLayerIds = useMapStore((state) => state.updateVisibleLayerIds);
+  const mapRef = useMapStore(state => state.getMapRef());
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const visibleLayerIds = useMapStore(state => state.visibleLayerIds);
+  const updateVisibleLayerIds = useMapStore(state => state.updateVisibleLayerIds);
 
   const toggleLayers = (layerIds: string[]) => {
     if (!mapRef) return;
@@ -35,7 +31,7 @@ export default function Layers() {
       <CheckboxGroup.Root
         defaultValue={[]}
         name="districts"
-        value={visibleLayerIds.includes(BLOCK_LAYER_ID) ? ["1"] : []}
+        value={visibleLayerIds.includes(BLOCK_LAYER_ID) ? ['1'] : []}
       >
         <CheckboxGroup.Item
           value="1"
@@ -53,16 +49,9 @@ export default function Layers() {
       </Heading>
       <CheckboxGroup.Root
         name="contextualLayers"
-        value={
-          COUNTY_LAYER_IDS.every((layerId) => visibleLayerIds.includes(layerId))
-            ? ["1"]
-            : []
-        }
+        value={COUNTY_LAYER_IDS.every(layerId => visibleLayerIds.includes(layerId)) ? ['1'] : []}
       >
-        <CheckboxGroup.Item
-          value="1"
-          onClick={() => toggleLayers(COUNTY_LAYER_IDS)}
-        >
+        <CheckboxGroup.Item value="1" onClick={() => toggleLayers(COUNTY_LAYER_IDS)}>
           Show county boundaries
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>

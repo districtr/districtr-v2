@@ -18,7 +18,18 @@ BEGIN
         num_districts,
         tiles_s3_path,
         parent_layer,
-        child_layer
+        child_layer,
+        -- calculate extent based on parent_layer extent 
+        select(
+            ARRAY[
+                ST_XMin(ST_Extent(ST_Transform(geometry, 4326))),
+                ST_YMin(ST_Extent(ST_Transform(geometry, 4326))),
+                ST_XMax(ST_Extent(ST_Transform(geometry, 4326))),
+                ST_YMax(ST_Extent(ST_Transform(geometry, 4326)))
+            ]
+            FROM gerrydb.$5, public.districtrmap
+            WHERE districtrmap.parent_layer = $5
+        )
     )
     VALUES (now(), gen_random_uuid(), $1, $2, $3, $4, $5, $6)
     RETURNING uuid INTO inserted_districtr_uuid;

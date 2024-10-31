@@ -1,10 +1,10 @@
-import { updateDocumentFromId, updateGetDocumentFromId } from "./queries";
-export let previousDocumentID = ''
+import {updateDocumentFromId, updateGetDocumentFromId} from './queries';
+export let previousDocumentID = '';
 
 export const getSearchParamsObersver = () => {
   // next ssr safety
-  if (typeof window === "undefined") {
-    return
+  if (typeof window === 'undefined') {
+    return;
   }
 
   // listener for tab refocus
@@ -16,17 +16,15 @@ export const getSearchParamsObersver = () => {
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
-  let previousDocumentID = "";
+  let previousDocumentID = '';
   const observer = new MutationObserver(() => {
-    const documentId = new URLSearchParams(window.location.search).get(
-      "document_id"
-    );
+    const documentId = new URLSearchParams(window.location.search).get('document_id');
     if (documentId && documentId !== previousDocumentID) {
-      previousDocumentID = documentId
-      updateGetDocumentFromId(documentId)
+      previousDocumentID = documentId;
+      updateGetDocumentFromId(documentId);
     }
   });
-  const config = { subtree: true, childList: true };
+  const config = {subtree: true, childList: true};
   // start listening to changes
   observer.observe(document, config);
   return observer;

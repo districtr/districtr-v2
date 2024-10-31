@@ -1,8 +1,8 @@
-import { BLOCK_SOURCE_ID } from "@/app/constants/layers";
-import { Map, MapGeoJSONFeature } from "maplibre-gl";
-import { debounce } from "lodash";
-import { NullableZone } from "@/app/constants/types";
-import { MapStore } from "@/app/store/mapStore";
+import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
+import {Map, MapGeoJSONFeature} from 'maplibre-gl';
+import {debounce} from 'lodash';
+import {NullableZone} from '@/app/constants/types';
+import {MapStore} from '@/app/store/mapStore';
 
 /**
  * Debounced function to set zone assignments in the store without resetting the state every time the mouse moves (assuming onhover event).
@@ -12,15 +12,14 @@ import { MapStore } from "@/app/store/mapStore";
  */
 const debouncedSetZoneAssignments = debounce(
   (mapStoreRef: MapStore, selectedZone: NullableZone, geoids: Set<string>) => {
-    
     mapStoreRef.setZoneAssignments(selectedZone, geoids);
 
     const accumulatedBlockPopulations = mapStoreRef.accumulatedBlockPopulations;
 
-    const population = Array.from(
-      Object.values(accumulatedBlockPopulations)
-    ).reduce((acc, val) => acc + Number(val), 0);
-
+    const population = Array.from(Object.values(accumulatedBlockPopulations)).reduce(
+      (acc, val) => acc + Number(val),
+      0
+    );
     selectedZone && mapStoreRef.setZonePopulations(selectedZone, population);
   },
   1 // 1ms debounce
@@ -28,7 +27,7 @@ const debouncedSetZoneAssignments = debounce(
 
 const mapShatterableFeatures = (
   features: Array<MapGeoJSONFeature>,
-  shatterMappings: MapStore["shatterMappings"],
+  shatterMappings: MapStore['shatterMappings'],
   child_layer: string
 ) => {};
 /**
@@ -56,46 +55,49 @@ export const SelectMapFeatures = (
       mapDocument,
       lockedFeatures,
       queueRemoveShatters,
-      zoneAssignments
+      zoneAssignments,
     } = mapStoreRef;
-    const selectedZone =
-      activeTool === "eraser" ? null : mapStoreRef.selectedZone;
+    const selectedZone = activeTool === 'eraser' ? null : mapStoreRef.selectedZone;
 
+    if (!mapDocument?.document_id) {
+      return;
+    }
+    const removeShatters: MapStore['removeShatterQueue'] =
+      _features
+        ?.map(feature => {
+          const key = feature.id?.toString() || '';
+          const isShattered = shatterMappings.hasOwnProperty(key);
+          if (!isShattered) {
+            return {
+              parentId: '',
+              zone: 0,
+            };
+          }
+          return {
+            parentId: key,
+            zone: selectedZone,
+          };
+        })
+        ?.filter(f => f.parentId.length) || [];
+    mapStoreRef.queueRemoveShatters(removeShatters.filter(Boolean));
+    const features = _features?.filter(
+      f => !removeShatters.find(shatter => shatter.parentId === f.id)
+    );
 
-      if (!mapDocument?.document_id){
-        return
-      }
-    const removeShatters: MapStore['removeShatterQueue'] = _features?.map(feature => {
-      const key = feature.id?.toString() || ''
-      const isShattered  = shatterMappings.hasOwnProperty(key)
-      if (!isShattered){
-        return {
-          parentId: "",
-          zone: 0
-        }
-      }
-      return {
-        parentId: key,
-        zone: selectedZone
-      }
-    })?.filter(f => f.parentId.length) || []
-    mapStoreRef.queueRemoveShatters(removeShatters.filter(Boolean))
-    const features = _features?.filter(f=> !removeShatters.find(shatter => shatter.parentId === f.id))
-    
     // PAINT
-    features?.forEach((feature) => {
-      const id = feature?.id?.toString() ?? undefined
-      if (!id) return
-      const isLocked = lockedFeatures.size && lockedFeatures.has(id)
-      if (isLocked) return
+    features?.forEach(feature => {
+      const id = feature?.id?.toString() ?? undefined;
+      if (!id) return;
+      const isLocked = lockedFeatures.size && lockedFeatures.has(id);
+      if (isLocked) return;
       const childLayer = mapDocument?.child_layer;
 
       if (shatterMappings.hasOwnProperty(id) && childLayer) {
         const children = shatterMappings[id];
 
-        children.forEach((childId) => {
-          if (lockedFeatures.size && lockedFeatures.has(childId)){
-            return
+        children.forEach(childId => {
+          if (lockedFeatures.size && lockedFeatures.has(childId)) {
+            return;
           }
           map.setFeatureState(
             {
@@ -103,7 +105,7 @@ export const SelectMapFeatures = (
               id: childId,
               sourceLayer: childLayer,
             },
-            { selected: true, zone: selectedZone }
+            {selected: true, zone: selectedZone}
           );
         });
       } else {
@@ -113,22 +115,19 @@ export const SelectMapFeatures = (
             id: feature?.id ?? undefined,
             sourceLayer: feature.sourceLayer,
           },
-          { selected: true, zone: selectedZone }
+          {selected: true, zone: selectedZone}
         );
       }
     });
 
     if (features?.length) {
-      features.forEach((feature) => {
+      features.forEach(feature => {
         accumulatedGeoids.add(feature.properties?.path);
-        accumulatedBlockPopulations.set(
-          feature.properties?.path,
-          feature.properties?.total_pop
-        );
+        accumulatedBlockPopulations.set(feature.properties?.path, feature.properties?.total_pop);
       });
     }
   }
-  return new Promise<void>((resolve) => {
+  return new Promise<void>(resolve => {
     // Resolve the Promise after the function completes
     // this is so we can chain the function and call the next one
     resolve();
@@ -147,7 +146,7 @@ export const SelectZoneAssignmentFeatures = (mapStoreRef: MapStore) => {
   if (accumulatedGeoids?.size) {
     debouncedSetZoneAssignments(
       mapStoreRef,
-      mapStoreRef.activeTool === "brush" ? mapStoreRef.selectedZone : null,
+      mapStoreRef.activeTool === 'brush' ? mapStoreRef.selectedZone : null,
       mapStoreRef.accumulatedGeoids
     );
   }
@@ -177,5 +176,3 @@ export const ResetMapSelectState = (
     mapStoreRef.setFreshMap(false);
   }
 };
-
-

@@ -51,6 +51,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
 
       const layersToFilter = state.mapDocument?.child_layer ? CHILD_LAYERS : [];
 
+      if (state.mapDocument?.child_layer) layersToFilter.push(...CHILD_LAYERS);
+
       layersToFilter.forEach(layerId =>
         mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
@@ -207,8 +209,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           );
         }
       });
-      
-
     }
   );
   const _updateMapCursor = useMapStore.subscribe<MapStore['activeTool']>(
@@ -245,31 +245,25 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const _applyFocusFeatureState = useMapStore.subscribe(
     store => store.focusFeatures,
     (focusFeatures, previousFocusFeatures) => {
-      const mapRef = useMapStore.getState().getMapRef()
-      if (!mapRef) return
+      const mapRef = useMapStore.getState().getMapRef();
+      if (!mapRef) return;
 
       focusFeatures.forEach(feature => {
-        mapRef.setFeatureState(
-         feature,
-            { focused: true }
-          );
-      })
+        mapRef.setFeatureState(feature, {focused: true});
+      });
       previousFocusFeatures.forEach(feature => {
         if (!focusFeatures.find(f => f.id === feature.id)) {
-          mapRef.setFeatureState(
-            feature,
-            { focused: false }
-          );
+          mapRef.setFeatureState(feature, {focused: false});
         }
-      })
+      });
     }
-  )
+  );
   return [
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
     _hoverMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,
     _updateMapCursor,
-    _applyFocusFeatureState
+    _applyFocusFeatureState,
   ];
 };

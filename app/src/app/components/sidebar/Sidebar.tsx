@@ -12,26 +12,23 @@ import { BrushSizeSelector } from "./BrushSizeSelector";
 import { ExitShatterButton } from "./ExitShatterButton";
 
 export default function SidebarComponent() {
-  const activeTool = useMapStore((state) => state.activeTool);
+  const activeTool = useMapStore(state => state.activeTool);
 
   return (
-    <Box
-      p="3"
-      className="max-w-sidebar w-sidebar z-10 shadow-md h-screen overflow-y-auto"
-    >
+    <Box p="3" className="max-w-sidebar w-sidebar z-10 shadow-md h-screen overflow-y-auto">
       <Flex direction="column" gap="3">
         <Heading as="h3" size="3">
           Districtr
         </Heading>
         <GerryDBViewSelector />
         <MapModeSelector />
-        {activeTool === "brush" || activeTool === "eraser" ? (
+        {activeTool === 'brush' || activeTool === 'eraser' ? (
           <div>
             <BrushSizeSelector />
-            <PaintByCounty />{" "}
+            <PaintByCounty />{' '}
           </div>
         ) : null}
-        {activeTool === "brush" ? (
+        {activeTool === 'brush' ? (
           <div>
             <ColorPicker />
           </div>

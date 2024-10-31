@@ -1,18 +1,19 @@
-import { MutationObserver } from "@tanstack/query-core";
-import { queryClient } from "./queryClient";
+import {MutationObserver} from '@tanstack/query-core';
+import {queryClient} from './queryClient';
 import {
   AssignmentsCreate,
   createMapDocument,
   patchShatterParents,
   patchUnShatterParents,
   patchUpdateAssignments,
-} from "@/app/utils/api/apiHandlers";
-import { useMapStore } from "@/app/store/mapStore";
-import { mapMetrics } from "./queries";
+} from '@/app/utils/api/apiHandlers';
+import {useMapStore} from '@/app/store/mapStore';
+import {mapMetrics} from './queries';
+import {use} from 'react';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
-  onMutate: ({ document_id, geoids }) => {
+  onMutate: ({document_id, geoids}) => {
     useMapStore.getState().setMapLock(true);
     console.log(
       `Shattering parents for ${geoids} in document ${document_id}...`,
@@ -20,13 +21,11 @@ export const patchShatter = new MutationObserver(queryClient, {
       performance.now()
     );
   },
-  onError: (error) => {
-    console.log("Error updating assignments: ", error);
+  onError: error => {
+    console.log('Error updating assignments: ', error);
   },
-  onSuccess: (data) => {
-    console.log(
-      `Successfully shattered parents into ${data.children.length} children`
-    );
+  onSuccess: data => {
+    console.log(`Successfully shattered parents into ${data.children.length} children`);
     return data;
   },
 });
@@ -57,38 +56,35 @@ export const patchUnShatter = new MutationObserver(queryClient, {
 export const patchUpdates = new MutationObserver(queryClient, {
   mutationFn: patchUpdateAssignments,
   onMutate: () => {
-    console.log("Updating assignments");
+    console.log('Updating assignments');
   },
-  onError: (error) => {
-    console.log("Error updating assignments: ", error);
+  onError: error => {
+    console.log('Error updating assignments: ', error);
   },
   onSuccess: (data: AssignmentsCreate) => {
-    console.log(
-      `Successfully upserted ${data.assignments_upserted} assignments`
-    );
+    console.log(`Successfully upserted ${data.assignments_upserted} assignments`);
+    mapMetrics.refetch();
     // remove trailing shattered features
     // This needs to happen AFTER the updates are done
     useMapStore.getState().unShatter()
-
-    mapMetrics.refetch();
   },
 });
 
 export const document = new MutationObserver(queryClient, {
   mutationFn: createMapDocument,
   onMutate: () => {
-    console.log("Creating document");
-    useMapStore.getState().setAppLoadingState('loading')
-    useMapStore.getState().resetZoneAssignments()
+    console.log('Creating document');
+    useMapStore.getState().setAppLoadingState('loading');
+    useMapStore.getState().resetZoneAssignments();
   },
-  onError: (error) => {
-    console.error("Error creating map document: ", error);
+  onError: error => {
+    console.error('Error creating map document: ', error);
   },
-  onSuccess: (data) => {
+  onSuccess: data => {
     useMapStore.getState().setMapDocument(data);
-    useMapStore.getState().setAppLoadingState('loaded')
-    const documentUrl = new URL(window.location.toString())
-    documentUrl.searchParams.set("document_id", data.document_id);
-    history.pushState({}, "", documentUrl.toString());
+    useMapStore.getState().setAppLoadingState('loaded');
+    const documentUrl = new URL(window.location.toString());
+    documentUrl.searchParams.set('document_id', data.document_id);
+    history.pushState({}, '', documentUrl.toString());
   },
 });

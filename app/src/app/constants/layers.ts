@@ -10,69 +10,52 @@ import { DocumentObject } from "../utils/api/apiHandlers";
 import { MapStore, useMapStore } from "../store/mapStore";
 import { colorScheme } from "./colors";
 
-export const BLOCK_SOURCE_ID = "blocks";
-export const BLOCK_LAYER_ID = "blocks";
-export const BLOCK_LAYER_ID_CHILD = "blocks-child";
+export const BLOCK_SOURCE_ID = 'blocks';
+export const BLOCK_LAYER_ID = 'blocks';
+export const BLOCK_LAYER_ID_CHILD = 'blocks-child';
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 
-export const INTERACTIVE_LAYERS = [
-  BLOCK_HOVER_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID_CHILD,
-];
+export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD];
 
 export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 
 export const CHILD_LAYERS = [BLOCK_LAYER_ID_CHILD, BLOCK_HOVER_LAYER_ID_CHILD];
 
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
-  "case",
-  ["boolean", ["feature-state", "hover"], false],
-  "#FF0000",
-  "#000000",
+  'case',
+  ['boolean', ['feature-state', 'hover'], false],
+  '#FF0000',
+  '#000000',
 ];
 
-export const COUNTY_LAYER_IDS: string[] = [
-  "counties_boundary",
-  "counties_labels",
-];
+export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels'];
 
-export const LABELS_BREAK_LAYER_ID = "places_subplace";
+export const LABELS_BREAK_LAYER_ID = 'places_subplace';
 
-const colorStyleBaseline: any[] = ["case"];
+const colorStyleBaseline: any[] = ['case'];
 
-export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = colorScheme.reduce(
-  (val, color, i) => {
-    val.push(["==", ["feature-state", "zone"], i + 1], color); // 1-indexed per mapStore.ts
-    return val;
-  },
-  colorStyleBaseline
-);
-ZONE_ASSIGNMENT_STYLE_DYNAMIC.push("#cecece");
+export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = colorScheme.reduce((val, color, i) => {
+  val.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+  return val;
+}, colorStyleBaseline);
+ZONE_ASSIGNMENT_STYLE_DYNAMIC.push('#cecece');
 
 // cast the above as an ExpressionSpecification
 // @ts-ignore
-export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification =
-  ZONE_ASSIGNMENT_STYLE_DYNAMIC;
+export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
-export function getLayerFilter(
-  layerId: string,
-  _shatterIds?: MapStore["shatterIds"]
-) {
+export function getLayerFilter(layerId: string, _shatterIds?: MapStore['shatterIds']) {
   const shatterIds = _shatterIds || useMapStore.getState().shatterIds;
   const isChildLayer = CHILD_LAYERS.includes(layerId);
   const ids = isChildLayer ? shatterIds.children : shatterIds.parents;
   const cleanIds = Boolean(ids) ? Array.from(ids) : [];
-  const filterBase: FilterSpecification = [
-    "in",
-    ["get", "path"],
-    ["literal", cleanIds],
-  ];
+  const filterBase: FilterSpecification = ['in', ['get', 'path'], ['literal', cleanIds]];
 
   if (isChildLayer) {
     return filterBase;
   }
-  const parentFilter: FilterSpecification = ["!", filterBase];
+  const parentFilter: FilterSpecification = ['!', filterBase];
   return parentFilter;
 }
 
@@ -147,18 +130,13 @@ export function getBlocksLayerSpecification(
   const layerSpec: LayerSpecification = {
     id: layerId,
     source: BLOCK_SOURCE_ID,
-    "source-layer": sourceLayer,
-    type: "line",
+    'source-layer': sourceLayer,
+    type: 'line',
     layout: {
-      visibility: "visible",
+      visibility: 'visible',
     },
     paint: {
-      "line-opacity": [
-        "case",
-        ["boolean", ["feature-state", "hover"], false],
-        1,
-        0.8,
-      ],
+      'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.8],
       "line-color": [
         "case",
         ["==", ["feature-state", "focused"], true],
@@ -187,10 +165,10 @@ export function getBlocksHoverLayerSpecification(
   const layerSpec: LayerSpecification =  {
     id: layerId,
     source: BLOCK_SOURCE_ID,
-    "source-layer": sourceLayer,
-    type: "fill",
+    'source-layer': sourceLayer,
+    type: 'fill',
     layout: {
-      visibility: "visible",
+      visibility: 'visible',
     },
     paint: {
       "fill-opacity": getLayerFill(),
@@ -205,7 +183,7 @@ export function getBlocksHoverLayerSpecification(
 
 const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
   if (!map || !mapDocument.tiles_s3_path) {
-    console.log("map or mapDocument not ready", mapDocument);
+    console.log('map or mapDocument not ready', mapDocument);
     return;
   }
   const blockSource = getBlocksSource(mapDocument.tiles_s3_path);
@@ -216,36 +194,33 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
     LABELS_BREAK_LAYER_ID
   );
   map?.addLayer(
-    getBlocksHoverLayerSpecification(
-      mapDocument.parent_layer,
-      BLOCK_HOVER_LAYER_ID
-    ),
+    getBlocksHoverLayerSpecification(mapDocument.parent_layer, BLOCK_HOVER_LAYER_ID),
     LABELS_BREAK_LAYER_ID
   );
   if (mapDocument.child_layer) {
     map?.addLayer(
-      getBlocksLayerSpecification(
-        mapDocument.child_layer,
-        BLOCK_LAYER_ID_CHILD
-      ),
+      getBlocksLayerSpecification(mapDocument.child_layer, BLOCK_LAYER_ID_CHILD),
       LABELS_BREAK_LAYER_ID
     );
     map?.addLayer(
-      getBlocksHoverLayerSpecification(
-        mapDocument.child_layer,
-        BLOCK_HOVER_LAYER_ID_CHILD
-      ),
+      getBlocksHoverLayerSpecification(mapDocument.child_layer, BLOCK_HOVER_LAYER_ID_CHILD),
       LABELS_BREAK_LAYER_ID
     );
   }
-  useMapStore.getState().setMapRenderingState("loaded");
+  useMapStore.getState().setMapRenderingState('loaded');
+
+  // update map bounds based on document extent
+  useMapStore.getState().setMapOptions({
+    bounds: mapDocument.extent as [number, number, number, number],
+    container: useMapStore.getState().mapOptions.container,
+  });
 };
 
 export function removeBlockLayers(map: Map | null) {
   if (!map) {
     return;
   }
-  useMapStore.getState().setMapRenderingState("loading");
+  useMapStore.getState().setMapRenderingState('loading');
   if (map.getLayer(BLOCK_LAYER_ID)) {
     map.removeLayer(BLOCK_LAYER_ID);
   }
@@ -263,4 +238,4 @@ export function removeBlockLayers(map: Map | null) {
   }
 }
 
-export { addBlockLayers };
+export {addBlockLayers};
