@@ -12,7 +12,6 @@ from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
     create_parent_child_edges as _create_parent_child_edges,
-    transform_bounding_box,
 )
 
 logger = logging.getLogger(__name__)
