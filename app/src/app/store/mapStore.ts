@@ -13,6 +13,7 @@ import {
   Assignment,
   DistrictrMap,
   DocumentObject,
+  patchUnShatterParents,
   ShatterResult,
   ZonePopulation,
 } from "../utils/api/apiHandlers";
@@ -335,7 +336,7 @@ export const useMapStore = create(
             zoneAssignments,
           });
         },
-        unShatter: () => {
+        unShatter: async () => {
           const { 
             isPainting, 
             removeShatterQueue, 
@@ -346,11 +347,14 @@ export const useMapStore = create(
           }
           set({mapLock: true})
           const parentsToUnshatter = removeShatterQueue.map(f=>f.parentId)
-          patchUnShatter.mutate({
+          const unshatterResponse = await patchUnShatterParents({
             geoids: parentsToUnshatter,
             zone: removeShatterQueue[0].zone as any,
             document_id: mapDocument?.document_id
           })
+          if (unshatterResponse.parents){
+            get().removeShatterData()
+          }
         },
         removeShatterData: () => {
           const { 
