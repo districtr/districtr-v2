@@ -54,15 +54,13 @@ export const SelectMapFeatures = (
       shatterMappings,
       mapDocument,
       lockedFeatures,
-      queueRemoveShatters,
-      zoneAssignments,
     } = mapStoreRef;
     const selectedZone = activeTool === 'eraser' ? null : mapStoreRef.selectedZone;
 
     if (!mapDocument?.document_id) {
       return;
     }
-    const removeShatters: MapStore['removeShatterQueue'] =
+    const parentInfo: MapStore['parentsToHeal'] =
       _features
         ?.map(feature => {
           const key = feature.id?.toString() || '';
@@ -79,10 +77,8 @@ export const SelectMapFeatures = (
           };
         })
         ?.filter(f => f.parentId.length) || [];
-    mapStoreRef.queueRemoveShatters(removeShatters.filter(Boolean));
-    const features = _features?.filter(
-      f => !removeShatters.find(shatter => shatter.parentId === f.id)
-    );
+    mapStoreRef.healParents(parentInfo.filter(Boolean));
+    const features = _features?.filter(f => !parentInfo.find(parent => parent.parentId === f.id));
 
     // PAINT
     features?.forEach(feature => {
