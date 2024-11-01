@@ -72,7 +72,7 @@ export interface MapStore {
     children: Set<string>;
   };
   shatterMappings: Record<string, Set<string>>;
-  resetShatterView: () => void;
+  exitBlockView: (lock?: boolean) => void;
   setShatterIds: (
     existingParents: Set<string>,
     existingChildren: Set<string>,
@@ -157,10 +157,10 @@ export const useMapStore = create(
         mapRenderingState: 'initializing',
         setMapRenderingState: mapRenderingState => set({mapRenderingState}),
         captiveIds: new Set<string>(),
-        resetShatterView: (lock?: boolean) => {
+        exitBlockView: (lock: boolean = false) => {
           const {zoneAssignments, focusFeatures, captiveIds} = get();
           const parentId = focusFeatures?.[0].id?.toString();
-          let shouldHeal = parentId && checkIfSameZone(captiveIds, zoneAssignments);
+          let shouldHeal = parentId && checkIfSameZone(captiveIds, zoneAssignments).shouldHeal;
           set({
             captiveIds: new Set<string>(),
             mapBbox: null,
