@@ -1,13 +1,9 @@
-import { debounce } from "lodash";
-import {
-  Assignment,
-  FormatAssignments,
-  getAssignments
-} from "../utils/api/apiHandlers";
-import { patchUpdates } from "../utils/api/mutations";
-import { useMapStore as _useMapStore, MapStore } from "./mapStore";
-import { shallowCompareArray } from "../utils/helpers";
-import { updateAssignments } from "../utils/api/queries";
+import {debounce} from 'lodash';
+import {Assignment, FormatAssignments, getAssignments} from '../utils/api/apiHandlers';
+import {patchUpdates} from '../utils/api/mutations';
+import {useMapStore as _useMapStore, MapStore} from './mapStore';
+import {shallowCompareArray} from '../utils/helpers';
+import {updateAssignments} from '../utils/api/queries';
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
   if (getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
@@ -21,7 +17,7 @@ type zoneSubState = [
   MapStore['getMapRef'],
   MapStore['zoneAssignments'],
   MapStore['appLoadingState'],
-  MapStore['mapRenderingState']
+  MapStore['mapRenderingState'],
 ];
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const sendZonesOnMapRefSub = useMapStore.subscribe<zoneSubState>(

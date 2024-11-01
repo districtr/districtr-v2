@@ -3,12 +3,12 @@ import {
   ExpressionSpecification,
   FilterSpecification,
   LayerSpecification,
-} from "maplibre-gl";
-import { Map } from "maplibre-gl";
-import { getBlocksSource } from "./sources";
-import { DocumentObject } from "../utils/api/apiHandlers";
-import { MapStore, useMapStore } from "../store/mapStore";
-import { colorScheme } from "./colors";
+} from 'maplibre-gl';
+import {Map} from 'maplibre-gl';
+import {getBlocksSource} from './sources';
+import {DocumentObject} from '../utils/api/apiHandlers';
+import {MapStore, useMapStore} from '../store/mapStore';
+import {colorScheme} from './colors';
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -64,57 +64,56 @@ export function getLayerFill(
   shatterIds?: Set<string>
 ): DataDrivenPropertyValueSpecification<number> {
   const innerFillSpec = [
-    
-    "case",
+    'case',
     // geography is locked
-    ["boolean", ["feature-state", "locked"], false],
+    ['boolean', ['feature-state', 'locked'], false],
     0.2,
     // zone is selected and hover is true and hover is not null
     [
-      "all",
+      'all',
       // @ts-ignore
-      ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+      ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
       [
-        "all",
+        'all',
         // @ts-ignore
-        ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
-        ["boolean", ["feature-state", "hover"], true],
+        ['!', ['==', ['feature-state', 'hover'], null]], //< desired behavior but typerror
+        ['boolean', ['feature-state', 'hover'], true],
       ],
     ],
     0.9,
     // zone is selected and hover is false, and hover is not null
     [
-      "all",
+      'all',
       // @ts-ignore
-      ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+      ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
       [
-        "all",
+        'all',
         // @ts-ignore
-        ["!", ["==", ["feature-state", "hover"], null]], //< desired behavior but typerror
-        ["boolean", ["feature-state", "hover"], false],
+        ['!', ['==', ['feature-state', 'hover'], null]], //< desired behavior but typerror
+        ['boolean', ['feature-state', 'hover'], false],
       ],
     ],
     0.7,
     // zone is selected, fallback, regardless of hover state
     // @ts-ignore
-    ["!", ["==", ["feature-state", "zone"], null]], //< desired behavior but typerror
+    ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
     0.7,
     // hover is true, fallback, regardless of zone state
-    ["boolean", ["feature-state", "hover"], false],
+    ['boolean', ['feature-state', 'hover'], false],
     0.6,
     0.2,
   ] as unknown as DataDrivenPropertyValueSpecification<number>;
   if (captiveIds?.size) {
     return [
-      "case",
-      ["!", ["in", ["get", "path"], ["literal", Array.from(captiveIds)]]],
+      'case',
+      ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
       0.1,
       innerFillSpec,
     ] as DataDrivenPropertyValueSpecification<number>;
   } else if (shatterIds?.size) {
     return [
-      "case",
-      ["in", ["get", "path"], ["literal", Array.from(shatterIds)]],
+      'case',
+      ['in', ['get', 'path'], ['literal', Array.from(shatterIds)]],
       0,
       innerFillSpec,
     ] as DataDrivenPropertyValueSpecification<number>;
@@ -137,17 +136,17 @@ export function getBlocksLayerSpecification(
     },
     paint: {
       'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.8],
-      "line-color": [
-        "case",
-        ["==", ["feature-state", "focused"], true],
-        "#000000", // Black color when focused
-        "#cecece"  // Default color
+      'line-color': [
+        'case',
+        ['==', ['feature-state', 'focused'], true],
+        '#000000', // Black color when focused
+        '#cecece', // Default color
       ],
-      "line-width": [
-        "case",
-        ["==", ["feature-state", "focused"], true],
+      'line-width': [
+        'case',
+        ['==', ['feature-state', 'focused'], true],
         10, // Width of 10 when focused
-        1   // Default width
+        1, // Default width
       ],
     },
   };
@@ -162,7 +161,7 @@ export function getBlocksHoverLayerSpecification(
   sourceLayer: string,
   layerId: string
 ): LayerSpecification {
-  const layerSpec: LayerSpecification =  {
+  const layerSpec: LayerSpecification = {
     id: layerId,
     source: BLOCK_SOURCE_ID,
     'source-layer': sourceLayer,
@@ -171,14 +170,14 @@ export function getBlocksHoverLayerSpecification(
       visibility: 'visible',
     },
     paint: {
-      "fill-opacity": getLayerFill(),
-      "fill-color": ZONE_ASSIGNMENT_STYLE || "#000000"
+      'fill-opacity': getLayerFill(),
+      'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
     },
   };
-  if (CHILD_LAYERS.includes(layerId)){
-    layerSpec.filter = getLayerFilter(layerId)
+  if (CHILD_LAYERS.includes(layerId)) {
+    layerSpec.filter = getLayerFilter(layerId);
   }
-  return layerSpec
+  return layerSpec;
 }
 
 const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {

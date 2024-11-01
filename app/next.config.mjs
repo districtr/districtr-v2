@@ -1,12 +1,12 @@
-import { withSentryConfig } from "@sentry/nextjs";
+import {withSentryConfig} from '@sentry/nextjs';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async redirects() {
     return [
       // Basic redirect
       {
-        source: "/",
-        destination: "/map",
+        source: '/',
+        destination: '/map',
         permanent: true,
       },
     ];
@@ -16,12 +16,12 @@ const nextConfig = {
   },
   resolve: {
     alias: {
-      "@src": "app/src",
-      "@components": "app/src/components",
-      "@utils": "app/src/utils",
-      "@api": "app/src/api",
-      "@store": "app/src/store",
-      "@constants": "app/src/constants",
+      '@src': 'app/src',
+      '@components': 'app/src/components',
+      '@utils': 'app/src/utils',
+      '@api': 'app/src/api',
+      '@store': 'app/src/store',
+      '@constants': 'app/src/constants',
     },
   },
 };
@@ -30,8 +30,8 @@ export default withSentryConfig(nextConfig, {
   // For all available options, see:
   // https://github.com/getsentry/sentry-webpack-plugin#options
 
-  org: "mggg-districtr",
-  project: "districtr-v2-app",
+  org: 'mggg-districtr',
+  project: 'districtr-v2-app',
 
   // Only print logs for uploading source maps in CI
   silent: !process.env.CI,
@@ -51,7 +51,7 @@ export default withSentryConfig(nextConfig, {
   // This can increase your server load as well as your hosting bill.
   // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
   // side errors will fail.
-  tunnelRoute: "/monitoring",
+  tunnelRoute: '/monitoring',
 
   // Hides source maps from generated client bundles
   hideSourceMaps: true,

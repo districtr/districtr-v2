@@ -87,8 +87,8 @@ export const getFeaturesInBbox = (
   const layers = _layers?.length
     ? _layers
     : captiveIds.size
-    ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
-    : [BLOCK_HOVER_LAYER_ID];
+      ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+      : [BLOCK_HOVER_LAYER_ID];
   let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
   if (captiveIds.size) {
     features = features.filter(f => captiveIds.has(f.id?.toString() || ''));
@@ -268,7 +268,7 @@ export type ColorZoneAssignmentsState = [
   MapStore['getMapRef'],
   MapStore['shatterIds'],
   MapStore['appLoadingState'],
-  MapStore['mapRenderingState']
+  MapStore['mapRenderingState'],
 ];
 
 export const getMap = (_getMapRef?: MapStore['getMapRef']) => {

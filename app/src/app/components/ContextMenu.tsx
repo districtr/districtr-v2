@@ -1,14 +1,14 @@
-import React from "react";
-import { ContextMenu, Text } from "@radix-ui/themes";
-import { useMapStore } from "@/app/store/mapStore";
-import { PARENT_LAYERS } from "../constants/layers";
+import React from 'react';
+import {ContextMenu, Text} from '@radix-ui/themes';
+import {useMapStore} from '@/app/store/mapStore';
+import {PARENT_LAYERS} from '../constants/layers';
 
 export const MapContextMenu: React.FC = () => {
-  const mapDocument = useMapStore((state) => state.mapDocument);
-  const contextMenu = useMapStore((state) => state.contextMenu);
-  const handleShatter = useMapStore((state) => state.handleShatter);
-  const lockedFeatures = useMapStore((state) => state.lockedFeatures);
-  const upcertLockedFeature = useMapStore((state) => state.upcertLockedFeature);
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const contextMenu = useMapStore(state => state.contextMenu);
+  const handleShatter = useMapStore(state => state.handleShatter);
+  const lockedFeatures = useMapStore(state => state.lockedFeatures);
+  const upcertLockedFeature = useMapStore(state => state.upcertLockedFeature);
 
   const canShatter = Boolean(
     mapDocument?.parent_layer &&
@@ -17,7 +17,7 @@ export const MapContextMenu: React.FC = () => {
   );
 
   if (!contextMenu) return null;
-  const id = contextMenu.data.id?.toString() || "";
+  const id = contextMenu.data.id?.toString() || '';
   const featureIsLocked = lockedFeatures.has(id);
 
   const handleSelect = () => {
@@ -56,7 +56,7 @@ export const MapContextMenu: React.FC = () => {
           Shatter
         </ContextMenu.Item>
         <ContextMenu.Item onSelect={handleLock}>
-          {featureIsLocked ? "Unlock" : "Lock"}
+          {featureIsLocked ? 'Unlock' : 'Lock'}
         </ContextMenu.Item>
       </ContextMenu.Content>
     </ContextMenu.Root>

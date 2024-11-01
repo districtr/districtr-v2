@@ -1,41 +1,35 @@
-import React, { useState } from "react";
-import { _colorScheme, colorScheme } from "../../constants/colors";
-import { Button } from "@radix-ui/themes";
-import { styled } from "@stitches/react";
-import * as RadioGroup from "@radix-ui/react-radio-group";
-import { blackA } from "@radix-ui/colors";
-import { useMapStore } from "../../store/mapStore";
+import React, {useState} from 'react';
+import {_colorScheme, colorScheme} from '../../constants/colors';
+import {Button} from '@radix-ui/themes';
+import {styled} from '@stitches/react';
+import * as RadioGroup from '@radix-ui/react-radio-group';
+import {blackA} from '@radix-ui/colors';
+import {useMapStore} from '../../store/mapStore';
 
 export function ColorPicker() {
-  const selectedZone = useMapStore((state) => state.selectedZone);
-  const setSelectedZone = useMapStore((state) => state.setSelectedZone);
-  const setZoneAssignments = useMapStore((state) => state.setZoneAssignments);
-  const accumulatedGeoids = useMapStore((state) => state.accumulatedGeoids);
-  const resetAccumulatedBlockPopulations = useMapStore((state) => state.resetAccumulatedBlockPopulations);
-  
+  const selectedZone = useMapStore(state => state.selectedZone);
+  const setSelectedZone = useMapStore(state => state.setSelectedZone);
+  const setZoneAssignments = useMapStore(state => state.setZoneAssignments);
+  const accumulatedGeoids = useMapStore(state => state.accumulatedGeoids);
+  const resetAccumulatedBlockPopulations = useMapStore(
+    state => state.resetAccumulatedBlockPopulations
+  );
+
   const colorArray = colorScheme;
   if (!colorArray) return null;
-  const handleRadioChange = (value) => {
-    console.log(
-      "setting accumulated geoids to old zone",
-      selectedZone,
-      "new zone is",
-      value,
-    );
+  const handleRadioChange = value => {
+    console.log('setting accumulated geoids to old zone', selectedZone, 'new zone is', value);
     setZoneAssignments(selectedZone, accumulatedGeoids);
     setSelectedZone(value);
     resetAccumulatedBlockPopulations();
   };
   return (
     <div>
-      <RadioGroupRoot
-        onValueChange={handleRadioChange}
-        defaultValue={colorArray[0]}
-      >
+      <RadioGroupRoot onValueChange={handleRadioChange} defaultValue={colorArray[0]}>
         {colorArray.map((color, i) => (
           <RadioGroupItem
             key={i}
-            style={{ backgroundColor: color }}
+            style={{backgroundColor: color}}
             value={i + 1} // 1-indexed based on mapStore
           >
             <RadioGroupIndicator />
@@ -51,39 +45,39 @@ const StyledColorPicker = styled(Button, {
   height: 25,
   borderRadius: 10,
   margin: 5,
-  "&:selected": {
-    border: "2px solid",
+  '&:selected': {
+    border: '2px solid',
   },
 });
 
 const RadioGroupItem = styled(RadioGroup.Item, {
   width: 20,
   height: 20,
-  borderRadius: "100%",
-  "&:hover": { backgroundColor: blackA.blackA4 },
-  "&:focus": { boxShadow: `0 0 0 2px black` },
+  borderRadius: '100%',
+  '&:hover': {backgroundColor: blackA.blackA4},
+  '&:focus': {boxShadow: `0 0 0 2px black`},
   margin: 2.5,
-  alignItems: "center",
-  border: "1px solid #ccc",
-  borderRadius: "8px",
-  cursor: "pointer",
+  alignItems: 'center',
+  border: '1px solid #ccc',
+  borderRadius: '8px',
+  cursor: 'pointer',
 });
 
 const RadioGroupIndicator = styled(RadioGroup.Indicator, {
   // display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: "100%",
-  height: "100%",
-  position: "relative",
-  textAlign: "-webkit-center",
-  "&::after": {
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: '100%',
+  height: '100%',
+  position: 'relative',
+  textAlign: '-webkit-center',
+  '&::after': {
     content: '""',
-    display: "block",
+    display: 'block',
     width: 7,
     height: 7,
-    borderRadius: "50%",
-    backgroundColor: "#fff",
+    borderRadius: '50%',
+    backgroundColor: '#fff',
   },
 });
 

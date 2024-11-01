@@ -1,29 +1,26 @@
-import type { Map, MapLayerEventType } from "maplibre-gl";
-import maplibregl, {
-  MapLayerMouseEvent,
-  MapLayerTouchEvent,
-} from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { Protocol } from "pmtiles";
-import type { MutableRefObject } from "react";
-import React, { useEffect, useRef } from "react";
-import { MAP_OPTIONS } from "../constants/configuration";
-import { mapEvents } from "../utils/events/mapEvents";
-import { INTERACTIVE_LAYERS } from "../constants/layers";
-import { useMapStore } from "../store/mapStore";
+import type {Map, MapLayerEventType} from 'maplibre-gl';
+import maplibregl, {MapLayerMouseEvent, MapLayerTouchEvent} from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import {Protocol} from 'pmtiles';
+import type {MutableRefObject} from 'react';
+import React, {useEffect, useRef} from 'react';
+import {MAP_OPTIONS} from '../constants/configuration';
+import {mapEvents} from '../utils/events/mapEvents';
+import {INTERACTIVE_LAYERS} from '../constants/layers';
+import {useMapStore} from '../store/mapStore';
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
-  const mapLock = useMapStore((state) => state.mapLock);
-  const setMapRef = useMapStore((state) => state.setMapRef);
-  const mapOptions = useMapStore((state) => state.mapOptions);
+  const mapLock = useMapStore(state => state.mapLock);
+  const setMapRef = useMapStore(state => state.setMapRef);
+  const mapOptions = useMapStore(state => state.mapOptions);
 
   useEffect(() => {
     let protocol = new Protocol();
-    maplibregl.addProtocol("pmtiles", protocol.tile);
+    maplibregl.addProtocol('pmtiles', protocol.tile);
     return () => {
-      maplibregl.removeProtocol("pmtiles");
+      maplibregl.removeProtocol('pmtiles');
     };
   }, []);
 
@@ -39,7 +36,7 @@ export const MapComponent: React.FC = () => {
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
-    
+
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_OPTIONS.style,
@@ -52,11 +49,11 @@ export const MapComponent: React.FC = () => {
 
     map.current.addControl(new maplibregl.NavigationControl());
 
-    map.current.on("load", () => {
+    map.current.on('load', () => {
       setMapRef(map);
     });
-    INTERACTIVE_LAYERS.forEach((layer) => {
-      mapEvents.forEach((action) => {
+    INTERACTIVE_LAYERS.forEach(layer => {
+      mapEvents.forEach(action => {
         if (map.current) {
           map.current?.on(
             action.action as keyof MapLayerEventType,
@@ -70,8 +67,8 @@ export const MapComponent: React.FC = () => {
     });
 
     return () => {
-      mapEvents.forEach((action) => {
-        map.current?.off(action.action, (e) => {
+      mapEvents.forEach(action => {
+        map.current?.off(action.action, e => {
           action.handler(e, map.current);
         });
       });
@@ -81,7 +78,7 @@ export const MapComponent: React.FC = () => {
   return (
     <div
       className={`h-full w-full-minus-sidebar relative
-    ${mapLock ? "pointer-events-none" : ""}
+    ${mapLock ? 'pointer-events-none' : ''}
     `}
       ref={mapContainer}
     />
