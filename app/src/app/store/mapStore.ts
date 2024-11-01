@@ -18,6 +18,7 @@ import {
   ContextMenuState,
   LayerVisibility,
   PaintEventHandler,
+  checkIfSameZone,
   getFeaturesInBbox,
   setZones,
 } from '../utils/helpers';
@@ -27,10 +28,9 @@ import {getSearchParamsObersver} from '../utils/api/queryParamsListener';
 import {getMapMetricsSubs} from './metricsSubs';
 import {getMapEditSubs} from './mapEditSubs';
 import bbox from '@turf/bbox';
-import {BLOCK_LAYER_ID, BLOCK_SOURCE_ID} from '../constants/layers';
+import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {getMapViewsSubs} from '../utils/api/queries';
 import {persistOptions} from './persistConfig';
-import {TemporaryLayerManager} from '../utils/MapLayerManager';
 import {onlyUnique} from '../utils/arrays';
 const z = 'test';
 const x = 'test';
@@ -86,14 +86,12 @@ export interface MapStore {
   processHealParentsQueue: () => void;
   // Removes local shatter data and updates map view
   cleanUpBreakData: () => void;
-  healParents: (parentsToHeal: MapStore['parentsToHeal']) => void;
-  parentsToHeal: Array<{
-    parentId: string;
-    zone: NullableZone;
-  }>;
+  checkParentsToHeal: (parentsToHeal: MapStore['parentsToHeal']) => void;
+  parentsToHeal: string[];
   // LOCK
   lockedFeatures: Set<string>;
-  upcertLockedFeature: (id: string, lock: boolean) => void;
+  lockFeature: (id: string, lock: boolean) => void;
+  lockFeatures: (ids: Set<string>, lock: boolean) => void;
   setLockedFeatures: (lockedFeatures: MapStore['lockedFeatures']) => void;
   // HOVERING
   hoverFeatures: Array<MapFeatureInfo>;
@@ -137,7 +135,7 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
   userMaps: Array<DocumentObject & {name?: string}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
-  upcertUserMap: (props: {
+  upsertUserMap: (props: {
     documentId?: string;
     mapDocument?: MapStore['mapDocument'];
     userMapDocumentId?: string;
@@ -159,38 +157,21 @@ export const useMapStore = create(
         mapRenderingState: 'initializing',
         setMapRenderingState: mapRenderingState => set({mapRenderingState}),
         captiveIds: new Set<string>(),
-        resetShatterView: () => {
+        resetShatterView: (lock?: boolean) => {
           const {zoneAssignments, focusFeatures, captiveIds} = get();
-          const parentId = focusFeatures?.[0].id;
-          const captiveIdEntries = captiveIds.entries();
-          // @ts-ignore
-          let zone: any = undefined;
-          let shouldUnshatter = true;
-          captiveIds.forEach(id => {
-            const assigment = zoneAssignments.get(id);
-            if (zone === undefined) {
-              zone = assigment;
-            }
-            if (assigment !== null && assigment !== zone) {
-              shouldUnshatter = false;
-            }
-          });
-          const parentsToHeal: MapStore['parentsToHeal'] = shouldUnshatter
-            ? [
-                {
-                  parentId: parentId?.toString() || '',
-                  zone: zone || null,
-                },
-              ]
-            : [];
-
+          const parentId = focusFeatures?.[0].id?.toString();
+          let shouldHeal = parentId && checkIfSameZone(captiveIds, zoneAssignments);
           set({
             captiveIds: new Set<string>(),
             mapBbox: null,
             focusFeatures: [],
-            parentsToHeal,
+            parentsToHeal: shouldHeal ? [parentId!] : [],
           });
-          get().processHealParentsQueue();
+          if (shouldHeal) {
+            get().processHealParentsQueue();
+          } else if (lock) {
+            get().lockFeatures(captiveIds, true);
+          }
         },
         mapBbox: null,
         getMapRef: () => null,
@@ -213,7 +194,7 @@ export const useMapStore = create(
           }
           get().setFreshMap(true);
           get().resetZoneAssignments();
-          get().upcertUserMap({
+          get().upsertUserMap({
             mapDocument,
           });
           set({
@@ -222,16 +203,14 @@ export const useMapStore = create(
           });
         },
         lockedFeatures: new Set(),
-        upcertLockedFeature: (id, lock) => {
+        lockFeature: (id, lock) => {
           const lockedFeatures = new Set(get().lockedFeatures);
-          switch (lock) {
-            case true:
-              lockedFeatures.add(id);
-              break;
-            case false:
-              lockedFeatures.delete(id);
-              break;
-          }
+          lock ? lockedFeatures.add(id) : lockedFeatures.delete(id);
+          set({lockedFeatures});
+        },
+        lockFeatures: (featuresToLock, lock) => {
+          const lockedFeatures = new Set(get().lockedFeatures);
+          featuresToLock.forEach(id => (lock ? lockedFeatures.add(id) : lockedFeatures.delete(id)));
           set({lockedFeatures});
         },
         setLockedFeatures: lockedFeatures => set({lockedFeatures}),
@@ -328,23 +307,18 @@ export const useMapStore = create(
             return;
           }
 
-          const parentsToHeal = _parentsToHeal.filter(parent => {
-            const children = shatterMappings[parent.parentId];
-            const childZones = Array.from(children)
-              .map(childId => zoneAssignments.get(childId))
-              .filter(onlyUnique);
-            return childZones.length === 1;
-          });
-
-          set({
-            parentsToHeal,
-          });
+          const parentsToHeal = _parentsToHeal
+            .filter(parentId => shatterMappings.hasOwnProperty(parentId))
+            .map(parentId => ({
+              parentId,
+              ...checkIfSameZone(shatterMappings[parentId], zoneAssignments),
+            }))
+            .filter(f => f.shouldHeal && f.zone !== undefined);
 
           if (parentsToHeal.length) {
             set({mapLock: true});
-            const parentGeoids = parentsToHeal.map(f => f.parentId);
             const r = await patchUnShatter.mutate({
-              geoids: parentGeoids,
+              geoids: parentsToHeal.map(f => f.parentId),
               zone: parentsToHeal[0].zone as any,
               document_id: mapDocument?.document_id,
             });
@@ -353,7 +327,7 @@ export const useMapStore = create(
               parents: new Set(shatterIds.parents),
               children: new Set(shatterIds.children),
             };
-            const childrenToRemove = parentGeoids.map(f => shatterMappings[f]);
+            const childrenToRemove = parentsToHeal.map(f => shatterMappings[f.parentId]);
             childrenToRemove.forEach(childSet =>
               childSet.forEach(childId => {
                 newZoneAssignments.delete(childId);
@@ -363,7 +337,7 @@ export const useMapStore = create(
             parentsToHeal.forEach(parent => {
               delete shatterMappings[parent.parentId];
               newShatterIds.parents.delete(parent.parentId);
-              newZoneAssignments.set(parent.parentId, parent.zone);
+              newZoneAssignments.set(parent.parentId, parent.zone!);
             });
 
             set({
@@ -376,15 +350,13 @@ export const useMapStore = create(
           }
         },
         cleanUpBreakData: () => {},
-        healParents: parentsToHeal => {
+        checkParentsToHeal: parentsToHeal => {
           set({
-            parentsToHeal: [...get().parentsToHeal, ...parentsToHeal].filter(
-              (value, index, arr) => arr.findIndex(f => f.parentId === value.parentId) === index
-            ),
+            parentsToHeal: [...get().parentsToHeal, ...parentsToHeal].filter(onlyUnique),
           });
         },
         shatterMappings: {},
-        upcertUserMap: ({mapDocument, userMapData, userMapDocumentId}) => {
+        upsertUserMap: ({mapDocument, userMapData, userMapDocumentId}) => {
           let userMaps = [...get().userMaps];
           const mapViews = get().mapViews.data;
           if (mapDocument?.document_id && mapViews) {

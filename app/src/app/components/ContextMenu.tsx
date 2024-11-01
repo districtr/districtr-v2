@@ -8,7 +8,7 @@ export const MapContextMenu: React.FC = () => {
   const contextMenu = useMapStore(state => state.contextMenu);
   const handleShatter = useMapStore(state => state.handleShatter);
   const lockedFeatures = useMapStore(state => state.lockedFeatures);
-  const upcertLockedFeature = useMapStore(state => state.upcertLockedFeature);
+  const lockFeature = useMapStore(state => state.lockFeature);
 
   const canShatter = Boolean(
     mapDocument?.parent_layer &&
@@ -26,7 +26,7 @@ export const MapContextMenu: React.FC = () => {
     contextMenu.close();
   };
   const handleLock = () => {
-    upcertLockedFeature(id, !featureIsLocked);
+    lockFeature(id, !featureIsLocked);
   };
 
   return (

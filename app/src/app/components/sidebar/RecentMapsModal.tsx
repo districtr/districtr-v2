@@ -21,7 +21,7 @@ export const RecentMapsModal = () => {
   const searchParams = useSearchParams();
   const mapDocument = useMapStore(store => store.mapDocument);
   const userMaps = useMapStore(store => store.userMaps);
-  const upcertUserMap = useMapStore(store => store.upcertUserMap);
+  const upsertUserMap = useMapStore(store => store.upsertUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
@@ -73,7 +73,7 @@ export const RecentMapsModal = () => {
                 key={i}
                 active={mapDocument?.document_id === userMap.document_id}
                 onChange={userMapData =>
-                  upcertUserMap({
+                  upsertUserMap({
                     userMapData,
                     userMapDocumentId: userMap.document_id,
                   })

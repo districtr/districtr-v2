@@ -45,9 +45,8 @@ export const handleMapClick = (
   map: MapLibreMap | null
 ) => {
   const mapStore = useMapStore.getState();
-  const activeTool = mapStore.activeTool;
+  const {activeTool, handleShatter, lockedFeatures, lockFeature} = mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
-  const handleShatter = mapStore.handleShatter;
 
   if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
@@ -70,9 +69,7 @@ export const handleMapClick = (
     if (documentId && e.features?.length) {
       const feature = e.features[0];
       const id = feature.id?.toString() || '';
-      const {lockedFeatures, upcertLockedFeature} = useMapStore.getState();
-      const featureIsLocked = lockedFeatures.has(id);
-      upcertLockedFeature(id, !featureIsLocked);
+      lockFeature(id, !lockedFeatures.has(id));
     }
   } else {
     // tbd, for pan mode - is there an info mode on click?

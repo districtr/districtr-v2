@@ -42,7 +42,7 @@ const mapShatterableFeatures = (
  * Does not modify the store; that is done in the SelectZoneAssignmentFeatures function.
  * */
 export const SelectMapFeatures = (
-  _features: Array<MapGeoJSONFeature> | undefined,
+  features: Array<MapGeoJSONFeature> | undefined,
   map: Map | null,
   mapStoreRef: MapStore
 ) => {
@@ -60,25 +60,6 @@ export const SelectMapFeatures = (
     if (!mapDocument?.document_id) {
       return;
     }
-    const parentInfo: MapStore['parentsToHeal'] =
-      _features
-        ?.map(feature => {
-          const key = feature.id?.toString() || '';
-          const isShattered = shatterMappings.hasOwnProperty(key);
-          if (!isShattered) {
-            return {
-              parentId: '',
-              zone: 0,
-            };
-          }
-          return {
-            parentId: key,
-            zone: selectedZone,
-          };
-        })
-        ?.filter(f => f.parentId.length) || [];
-    mapStoreRef.healParents(parentInfo.filter(Boolean));
-    const features = _features?.filter(f => !parentInfo.find(parent => parent.parentId === f.id));
 
     // PAINT
     features?.forEach(feature => {
