@@ -47,7 +47,23 @@ def engine_fixture(request):
     except (OperationalError, ProgrammingError):
         pass
 
-    subprocess.run(["alembic", "upgrade", "head"], check=True, env=my_env)
+    try:
+        subprocess.run(
+            ["alembic", "upgrade", "head"],
+            check=True,
+            env=my_env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print("Alembic upgrade failed:")
+        print("Return code:", e.returncode)
+        print(
+            "Standard Output:", e.output or e.stdout
+        )  # Prints any general output from the command
+        print("Error Output:", e.stderr)  # Prints only the error output
+        raise e
 
     def teardown():
         if TEARDOWN_TEST_DB:
