@@ -38,14 +38,12 @@ def upgrade() -> None:
                 FROM districtrmap
             LOOP
                 BEGIN
-                    -- Dynamically calculate extent for each parent_layer table
                     EXECUTE format('
                         SELECT ST_Extent(ST_Transform(geometry, 4326))
                         FROM gerrydb.%I',
                         rec.parent_layer
                     ) INTO layer_extent;
 
-                    -- Update districtrmap with calculated extent
                     UPDATE districtrmap
                     SET extent = ARRAY[
                         ST_XMin(layer_extent),
@@ -53,11 +51,10 @@ def upgrade() -> None:
                         ST_XMax(layer_extent),
                         ST_YMax(layer_extent)
                     ]
-                    WHERE name = rec.name;
+                    WHERE uuid = rec.uuid;
 
                 EXCEPTION WHEN undefined_table THEN
                     RAISE NOTICE 'Table % does not exist for layer %', rec.parent_layer, rec.name;
-                    -- You can handle missing tables here if needed.
                 END;
             END LOOP;
         END $$;

@@ -12,6 +12,7 @@ from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
     create_parent_child_edges as _create_parent_child_edges,
+    add_extent_to_districtrmap as _add_extent_to_districtrmap,
 )
 
 logger = logging.getLogger(__name__)
@@ -190,6 +191,18 @@ def delete_parent_child_edges(districtr_map: str):
 @click.option("--gerrydb-table-name", help="Name of the GerryDB table", required=True)
 @click.option("--num-districts", help="Number of districts", required=False)
 @click.option("--tiles-s3-path", help="S3 path to the tileset", required=False)
+@click.option(
+    "--no-extent", help="Do not calculate extent", is_flag=True, default=False
+)
+@click.option(
+    "--bounds",
+    "-b",
+    help="Bounds of the extent as `--bounds x_min y_min x_max y_max`",
+    required=False,
+    type=float,
+    default=None,
+    nargs=4,
+)
 def create_districtr_map(
     name: str,
     parent_layer_name: str,
@@ -197,10 +210,12 @@ def create_districtr_map(
     gerrydb_table_name: str,
     num_districts: int | None,
     tiles_s3_path: str | None,
+    no_extent: bool = False,
+    bounds: list[float] | None = None,
 ):
     logger.info("Creating districtr map...")
     session = next(get_session())
-    districtr_map_uuid = _create_districtr_map(
+    (districtr_map_uuid,) = _create_districtr_map(
         session=session,
         name=name,
         parent_layer_name=parent_layer_name,
@@ -209,6 +224,15 @@ def create_districtr_map(
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
     )
+
+    if not no_extent:
+        logger.info(
+            f"Calculating extent... bounds received: {bounds}. If none will use parent layer extent."
+        )
+        _add_extent_to_districtrmap(
+            session=session, districtr_map_uuid=districtr_map_uuid, bounds=bounds
+        )
+
     session.commit()
     logger.info(f"Districtr map created successfully {districtr_map_uuid}")
 
@@ -234,6 +258,38 @@ def create_shatterable_gerrydb_view(
     logger.info(
         f"Materialized shatterable gerrydb view created successfully {inserted_uuid}"
     )
+
+
+@cli.command("add-extent-to-districtr-map")
+@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
+@click.option(
+    "--bounds",
+    "-b",
+    help="Bounds of the extent as `--bounds x_min y_min x_max y_max`",
+    required=False,
+    type=float,
+    default=None,
+    nargs=4,
+)
+def add_extent_to_districtr_map(districtr_map: str, bounds: list[float] | None = None):
+    logger.info(f"User provided bounds: {bounds}")
+
+    session = next(get_session())
+    stmt = text(
+        "SELECT uuid FROM districtrmap WHERE gerrydb_table_name = :districtrmap_name"
+    )
+    (districtr_map_uuid,) = session.execute(
+        stmt, params={"districtrmap_name": districtr_map}
+    ).one()
+    print(f"Found districtmap uuid: {districtr_map_uuid}")
+
+    _add_extent_to_districtrmap(
+        session=session, districtr_map_uuid=districtr_map_uuid, bounds=bounds
+    )
+    session.commit()
+    logger.info("Updated extent successfully.")
+
+    session.close()
 
 
 if __name__ == "__main__":
