@@ -4,6 +4,7 @@ from app.utils import (
     create_districtr_map,
     create_shatterable_gerrydb_view,
     create_parent_child_edges,
+    add_extent_to_districtrmap,
 )
 from sqlmodel import Session
 import subprocess
@@ -143,9 +144,7 @@ def test_create_districtr_map(
     session.commit()
 
 
-def test_create_districtr_map_some_nulls(
-    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
-):
+def test_create_districtr_map_some_nulls(session: Session, simple_parent_geos_gerrydb):
     # This is also an example of a districtr map before other set-up operations
     # are performed, such as creating a tileset and a shatterable view
     (inserted_districtr_map,) = create_districtr_map(
@@ -155,6 +154,34 @@ def test_create_districtr_map_some_nulls(
         parent_layer_name="simple_parent_geos",
     )
     session.commit()
+
+
+def test_add_extent_to_districtrmap(session: Session, simple_parent_geos_gerrydb):
+    (inserted_districtr_map,) = create_districtr_map(
+        session,
+        name="Simple non-shatterable layer 2",
+        gerrydb_table_name="simple_parent_geos_some_nulls2",
+        parent_layer_name="simple_parent_geos",
+    )
+    add_extent_to_districtrmap(
+        session=session, districtr_map_uuid=inserted_districtr_map
+    )
+
+
+def test_add_extent_to_districtrmap_manual_bounds(
+    session: Session, simple_parent_geos_gerrydb
+):
+    (inserted_districtr_map,) = create_districtr_map(
+        session,
+        name="Simple non-shatterable layer 2",
+        gerrydb_table_name="simple_parent_geos_some_nulls2",
+        parent_layer_name="simple_parent_geos",
+    )
+    add_extent_to_districtrmap(
+        session=session,
+        districtr_map_uuid=inserted_districtr_map,
+        bounds=[-109.06, 36.99, -102.04, 41.00],
+    )
 
 
 def test_create_shatterable_gerrydb_view(
