@@ -34,7 +34,7 @@ def upgrade() -> None:
             layer_extent GEOMETRY;
         BEGIN
             FOR rec IN
-                SELECT name, parent_layer
+                SELECT uuid, parent_layer
                 FROM districtrmap
             LOOP
                 BEGIN
