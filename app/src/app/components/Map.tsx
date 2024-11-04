@@ -24,7 +24,7 @@ export const MapComponent: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
+  const fitMapToBounds = () => {
     if (map.current && mapOptions.bounds) {
       if (mapOptions.bounds) {
         map.current.fitBounds(mapOptions.bounds, {
@@ -32,7 +32,8 @@ export const MapComponent: React.FC = () => {
         });
       }
     }
-  }, [mapOptions.bounds]);
+  }
+  useEffect(fitMapToBounds, [mapOptions.bounds]);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
@@ -44,6 +45,7 @@ export const MapComponent: React.FC = () => {
       zoom: MAP_OPTIONS.zoom,
       maxZoom: MAP_OPTIONS.maxZoom,
     });
+    fitMapToBounds()
     map.current.scrollZoom.setWheelZoomRate(1 / 300);
     map.current.scrollZoom.setZoomRate(1 / 300);
 

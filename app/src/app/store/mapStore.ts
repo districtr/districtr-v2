@@ -65,7 +65,6 @@ export interface MapStore {
   setMapDocument: (mapDocument: DocumentObject) => void;
   // SHATTERING
   captiveIds: Set<string>;
-  mapBbox: [number, number, number, number] | null;
   shatterIds: {
     parents: Set<string>;
     children: Set<string>;
@@ -184,7 +183,6 @@ export const useMapStore = create(
 
           set({
             captiveIds: new Set<string>(),
-            mapBbox: null,
             focusFeatures: [],
             mapOptions: {
               ...mapOptions,
@@ -203,7 +201,6 @@ export const useMapStore = create(
             }
           }
         },
-        mapBbox: null,
         getMapRef: () => null,
         setMapRef: mapRef => {
           set({
@@ -294,18 +291,22 @@ export const useMapStore = create(
           const zoneAssignments = new Map(get().zoneAssignments);
           const multipleShattered = shatterResult.parents.geoids.length > 1;
           const featureBbox = features[0].geometry && bbox(features[0].geometry);
-          const mapBbox = featureBbox?.length && featureBbox?.length >= 4 ? (featureBbox.slice(0, 4) as MapStore['mapBbox']) : undefined;
-
-          newParent.forEach(parent => existingParents.add(parent));
-          existingChildren = new Set([...existingChildren, ...newChildren]);
+          const mapBbox =
+            featureBbox?.length && featureBbox?.length >= 4
+              ? (featureBbox.slice(0, 4) as MapStore['mapOptions']['bounds'])
+              : undefined;
 
           if (!isAlreadyShattered && !multipleShattered) {
+            newParent.forEach(parent => existingParents.add(parent));
+            existingChildren = new Set([...existingChildren, ...newChildren]);
+
             setZones(zoneAssignments, newParent[0], newChildren);
             shatterMappings[newParent[0]] = newChildren;
           } else if (multipleShattered) {
             // todo handle multiple shattered case
           } else if (isAlreadyShattered) {
           }
+
           set({
             shatterIds: {
               parents: existingParents,
@@ -320,13 +321,15 @@ export const useMapStore = create(
                 sourceLayer: get().mapDocument?.parent_layer,
               },
             ],
-            mapBbox,
             zoneAssignments,
-            parentsToHeal: [...get().parentsToHeal, features?.[0]?.id?.toString() || ''],
+            parentsToHeal: [...get().parentsToHeal, features?.[0]?.id?.toString() || '']
+              .filter(onlyUnique)
+              .filter(f => f.length),
             mapOptions: {
               ...get().mapOptions,
-              mode: "break"
-            }
+              mode: 'break',
+              bounds: mapBbox
+            },
           });
         },
         parentsToHeal: [],
@@ -363,7 +366,10 @@ export const useMapStore = create(
               parents: new Set(shatterIds.parents),
               children: new Set(shatterIds.children),
             };
-            const childrenToRemove = parentsToHeal.map(f => shatterMappings[f.parentId]);
+            const childrenToRemove = parentsToHeal
+              .map(f => shatterMappings[f.parentId])
+              .filter(Boolean);
+
             childrenToRemove.forEach(childSet =>
               childSet.forEach(childId => {
                 newZoneAssignments.delete(childId);
@@ -485,7 +491,7 @@ export const useMapStore = create(
           mode: "default",
           lockPaintedAreas: false
         },
-        setMapOptions: options => set({mapOptions: options}),
+        setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
           const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
           const mapRef = getMapRef();
