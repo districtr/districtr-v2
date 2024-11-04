@@ -104,8 +104,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     ],
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
-      const {mapBbox, captiveIds, shatterIds, getMapRef, setLockedFeatures} =
-        useMapStore.getState();
+      const {captiveIds, shatterIds, getMapRef, setLockedFeatures} = useMapStore.getState();
 
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
         const isHover = layerId.includes('hover');
@@ -115,7 +114,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
             layerId,
             'fill-opacity',
             getLayerFill(
-              mapBbox ? captiveIds : undefined,
+              captiveIds.size ? captiveIds : undefined,
               isParent ? shatterIds.parents : undefined
             )
           );
@@ -131,48 +130,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       }
     },
     {equalityFn: shallowCompareArray}
-  );
-
-  const _lockBboxSub = useMapStore.subscribe(
-    state => state.mapBbox,
-    (mapBbox, previousMapBbox) => {
-      const {getMapRef, captiveIds, shatterIds} = useMapStore.getState();
-      const mapRef = getMapRef();
-      if (!mapRef) return;
-
-      [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
-        const isHover = layerId.includes('hover');
-        const isParent = PARENT_LAYERS.includes(layerId);
-        isHover &&
-          mapRef.setPaintProperty(
-            layerId,
-            'fill-opacity',
-            getLayerFill(
-              mapBbox ? captiveIds : undefined,
-              isParent ? shatterIds.parents : undefined
-            )
-          );
-      });
-
-      if (!mapBbox && !previousMapBbox) {
-        return;
-      }
-
-      CHILD_LAYERS.forEach(layerId => {
-        !layerId.includes('hover') && mapRef.setPaintProperty(layerId, 'line-opacity', 1);
-      });
-
-      const _bounds = (mapBbox || previousMapBbox)!;
-      const tolerance = mapBbox ? BBOX_TOLERANCE_DEG * 2 : BBOX_TOLERANCE_DEG * 5;
-      const maxBounds = [
-        [_bounds[0] - tolerance, _bounds[1] - tolerance],
-        [_bounds[2] + tolerance, _bounds[3] + tolerance],
-      ] as LngLatBoundsLike;
-
-      if (mapBbox) {
-        mapRef.fitBounds(maxBounds);
-      }
-    }
   );
 
   const lockFeaturesSub = useMapStore.subscribe(
@@ -256,7 +213,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const _applyFocusFeatureState = useMapStore.subscribe(
     store => store.focusFeatures,
     (focusFeatures, previousFocusFeatures) => {
-      const mapRef = useMapStore.getState().getMapRef();
+      const {getMapRef, captiveIds, shatterIds} = useMapStore.getState();
+      const mapRef = getMapRef();
       if (!mapRef) return;
 
       focusFeatures.forEach(feature => {
@@ -266,6 +224,24 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         if (!focusFeatures.find(f => f.id === feature.id)) {
           mapRef.setFeatureState(feature, {focused: false});
         }
+      });
+
+      [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
+        const isHover = layerId.includes('hover');
+        const isParent = PARENT_LAYERS.includes(layerId);
+        isHover &&
+          mapRef.setPaintProperty(
+            layerId,
+            'fill-opacity',
+            getLayerFill(
+              captiveIds.size ? captiveIds : undefined,
+              isParent ? shatterIds.parents : undefined
+            )
+          );
+      });
+
+      CHILD_LAYERS.forEach(layerId => {
+        !layerId.includes('hover') && mapRef.setPaintProperty(layerId, 'line-opacity', 1);
       });
     }
   );
