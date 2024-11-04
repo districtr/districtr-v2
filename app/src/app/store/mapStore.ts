@@ -79,7 +79,7 @@ export interface MapStore {
     newChildren: Set<string>[],
     multipleShattered: boolean
   ) => void;
-  handleShatter: (document_id: string, feautres: Array<MapGeoJSONFeature>) => void;
+  handleShatter: (document_id: string, feautres: Array<Partial<MapGeoJSONFeature>>) => void;
   // Sends unshatter patches to server that remove the child assignments
   // and add parents under the specified zone
   processHealParentsQueue: (additionalIds?: string[]) => void;
@@ -292,7 +292,7 @@ export const useMapStore = create(
 
           const zoneAssignments = new Map(get().zoneAssignments);
           const multipleShattered = shatterResult.parents.geoids.length > 1;
-          const featureBbox = bbox(features[0].geometry);
+          const featureBbox = features[0].geometry && bbox(features[0].geometry);
           const mapBbox =
             featureBbox?.length >= 4 ? (featureBbox.slice(0, 4) as MapStore['mapBbox']) : undefined;
 
