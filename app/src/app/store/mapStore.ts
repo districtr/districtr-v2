@@ -340,7 +340,6 @@ export const useMapStore = create(
             shatterIds,
           } = get();
           const idsToCheck = [..._parentsToHeal, ...additionalIds];
-          console.log('!!!CHECKING HEAL', idsToCheck)
           if (isPainting || !idsToCheck.length || !mapDocument) {
             return;
           }
