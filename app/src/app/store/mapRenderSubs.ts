@@ -100,10 +100,12 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       state.shatterIds,
       state.appLoadingState,
       state.mapRenderingState,
+      state.mapOptions.lockPaintedAreas,
     ],
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
-      const {mapBbox, captiveIds, shatterIds, getMapRef} = useMapStore.getState();
+      const {mapBbox, captiveIds, shatterIds, getMapRef, setLockedFeatures} =
+        useMapStore.getState();
 
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
         const isHover = layerId.includes('hover');
@@ -118,6 +120,15 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
             )
           );
       });
+      const [lockPaintedAreas, prevLockPaintedAreas] = [curr[6], prev[6]];
+      const zoneAssignments = curr[0];
+      // if lockPaintedAreas, lock all zones
+      if (lockPaintedAreas) {
+        setLockedFeatures(new Set(zoneAssignments.keys()));
+        // now unlocked, was previously locked
+      } else if (!lockPaintedAreas && prevLockPaintedAreas) {
+        setLockedFeatures(new Set());
+      }
     },
     {equalityFn: shallowCompareArray}
   );

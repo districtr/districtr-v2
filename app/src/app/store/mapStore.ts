@@ -110,9 +110,10 @@ export interface MapStore {
   // FOCUS
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
-  setMapOptions: (options: MapStore['mapOptions']) => void;
+  setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
   // HIGHLIGHT
   toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
+  toggleLockPaintedAreas: () => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   spatialUnit: SpatialUnit;
@@ -293,8 +294,7 @@ export const useMapStore = create(
           const zoneAssignments = new Map(get().zoneAssignments);
           const multipleShattered = shatterResult.parents.geoids.length > 1;
           const featureBbox = features[0].geometry && bbox(features[0].geometry);
-          const mapBbox =
-            featureBbox?.length >= 4 ? (featureBbox.slice(0, 4) as MapStore['mapBbox']) : undefined;
+          const mapBbox = featureBbox?.length && featureBbox?.length >= 4 ? (featureBbox.slice(0, 4) as MapStore['mapBbox']) : undefined;
 
           newParent.forEach(parent => existingParents.add(parent));
           existingChildren = new Set([...existingChildren, ...newChildren]);
@@ -482,7 +482,8 @@ export const useMapStore = create(
           bearing: 0,
           container: '',
           showBrokenDistricts: false,
-          mode: "default"
+          mode: "default",
+          lockPaintedAreas: false
         },
         setMapOptions: options => set({mapOptions: options}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
@@ -511,6 +512,15 @@ export const useMapStore = create(
               showBrokenDistricts: highlighted,
             },
           });
+        },
+        toggleLockPaintedAreas: () => {
+          const { mapOptions} = get()
+          set({
+            mapOptions: {
+              ...mapOptions,
+              lockPaintedAreas: !mapOptions.lockPaintedAreas
+            }
+          })
         },
         activeTool: 'pan',
         setActiveTool: tool => set({activeTool: tool}),

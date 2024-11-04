@@ -287,6 +287,7 @@ export type ColorZoneAssignmentsState = [
   MapStore['shatterIds'],
   MapStore['appLoadingState'],
   MapStore['mapRenderingState'],
+  MapStore['mapOptions']['lockPaintedAreas']
 ];
 
 export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
