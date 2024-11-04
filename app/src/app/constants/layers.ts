@@ -12,6 +12,7 @@ import {colorScheme} from './colors';
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
+export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';
 export const BLOCK_LAYER_ID_CHILD = 'blocks-child';
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
@@ -121,7 +122,39 @@ export function getLayerFill(
     return innerFillSpec;
   }
 }
-
+export function getHighlightLayerSpecification(
+  sourceLayer: string,
+  layerId: string
+): LayerSpecification {
+  return {
+    id: layerId,
+    source: BLOCK_SOURCE_ID,
+    'source-layer': sourceLayer,
+    type: 'line',
+    layout: {
+      visibility: 'visible',
+    },
+    paint: {
+      'line-opacity': 1,
+      'line-color': [
+        'case',
+        ['boolean', ['feature-state', 'focused'], false],
+        '#000000', // Black color when focused
+        ['boolean', ['feature-state', 'highlighted'], false],
+        '#e5ff00', // yellow color when highlighted
+        '#000000', // Default color
+      ],
+      'line-width': [
+        'case',
+        ['boolean', ['feature-state', 'focused'], false],
+        10, // Width of 10 when focused
+        ['boolean', ['feature-state', 'highlighted'], false],
+        10, // Width of 5 when highlighted
+        0, // Default width
+      ],
+    },
+  };
+}
 export function getBlocksLayerSpecification(
   sourceLayer: string,
   layerId: string
@@ -135,19 +168,9 @@ export function getBlocksLayerSpecification(
       visibility: 'visible',
     },
     paint: {
-      'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.8],
-      'line-color': [
-        'case',
-        ['==', ['feature-state', 'focused'], true],
-        '#000000', // Black color when focused
-        '#cecece', // Default color
-      ],
-      'line-width': [
-        'case',
-        ['==', ['feature-state', 'focused'], true],
-        10, // Width of 10 when focused
-        1, // Default width
-      ],
+      'line-opacity': 0.8,
+      'line-color': '#cecece', // Default color
+      'line-width': 1, // Default width
     },
   };
   if (CHILD_LAYERS.includes(layerId)) {
@@ -206,6 +229,7 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
       LABELS_BREAK_LAYER_ID
     );
   }
+  map?.addLayer(getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT));
   useMapStore.getState().setMapRenderingState('loaded');
 
   // update map bounds based on document extent
@@ -222,6 +246,9 @@ export function removeBlockLayers(map: Map | null) {
   useMapStore.getState().setMapRenderingState('loading');
   if (map.getLayer(BLOCK_LAYER_ID)) {
     map.removeLayer(BLOCK_LAYER_ID);
+  }
+  if (map.getLayer(BLOCK_LAYER_ID_HIGHLIGHT)) {
+    map.removeLayer(BLOCK_LAYER_ID_HIGHLIGHT);
   }
   if (map.getLayer(BLOCK_HOVER_LAYER_ID)) {
     map.removeLayer(BLOCK_HOVER_LAYER_ID);

@@ -1,4 +1,4 @@
-import type {MapOptions, MapLibreEvent} from 'maplibre-gl';
+import type {MapOptions, MapLibreEvent, MapGeoJSONFeature} from 'maplibre-gl';
 
 export type Zone = number;
 export type NullableZone = Zone | null;
@@ -37,4 +37,4 @@ export type MapFeatureInfo = {
   source: string;
   sourceLayer?: string;
   id?: string | number;
-};
+} & Partial<MapGeoJSONFeature>;

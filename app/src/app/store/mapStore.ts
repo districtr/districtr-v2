@@ -32,8 +32,7 @@ import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {getMapViewsSubs} from '../utils/api/queries';
 import {persistOptions} from './persistConfig';
 import {onlyUnique} from '../utils/arrays';
-const z = 'test';
-const x = 'test';
+import {DistrictrMapOptions} from './types';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -89,6 +88,18 @@ export interface MapStore {
   checkParentsToHeal: (parentsToHeal: MapStore['parentsToHeal']) => void;
   parentsToHeal: string[];
   // LOCK
+  // TODO: Refactor to something like this
+  // featureStates: {
+  //   locked: Array<MapFeatureInfo>,
+  //   hovered: Array<MapFeatureInfo>,
+  //   focused: Array<MapFeatureInfo>,
+  //   highlighted: Array<MapFeatureInfo>
+  // },
+  // setFeatureStates: (
+  //   features: Array<MapFeatureInfo>,
+  //   state: keyof MapStore['featureStates'],
+  //   action: "add" | "remove" | "toggle"
+  // ) => void,
   lockedFeatures: Set<string>;
   lockFeature: (id: string, lock: boolean) => void;
   lockFeatures: (ids: Set<string>, lock: boolean) => void;
@@ -98,8 +109,10 @@ export interface MapStore {
   setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
   // FOCUS
   focusFeatures: Array<MapFeatureInfo>;
-  mapOptions: MapOptions;
-  setMapOptions: (options: MapOptions) => void;
+  mapOptions: MapOptions & DistrictrMapOptions;
+  setMapOptions: (options: MapStore['mapOptions']) => void;
+  // HIGHLIGHT
+  toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   spatialUnit: SpatialUnit;
@@ -158,9 +171,17 @@ export const useMapStore = create(
         setMapRenderingState: mapRenderingState => set({mapRenderingState}),
         captiveIds: new Set<string>(),
         exitBlockView: (lock: boolean = false) => {
-          const {zoneAssignments, focusFeatures, captiveIds} = get();
+          const {
+            zoneAssignments,
+            focusFeatures,
+            captiveIds,
+            mapOptions,
+            toggleHighlightBrokenDistricts,
+          } = get();
           const parentId = focusFeatures?.[0].id?.toString();
           let shouldHeal = parentId && checkIfSameZone(captiveIds, zoneAssignments).shouldHeal;
+          if (parentId && mapOptions.showBrokenDistricts)
+            toggleHighlightBrokenDistricts([parentId], true);
           set({
             captiveIds: new Set<string>(),
             mapBbox: null,
@@ -202,6 +223,18 @@ export const useMapStore = create(
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
+        // TODO: Refactor to something like this
+        // featureStates: {
+        //   locked: [],
+        //   hovered: [],
+        //   focused: [],
+        //   highlighted: []
+        // },
+        // setFeatureStates: (
+        //   features, state, action
+        // ) => {
+        //   if
+        // },
         lockedFeatures: new Set(),
         lockFeature: (id, lock) => {
           const lockedFeatures = new Set(get().lockedFeatures);
@@ -445,8 +478,36 @@ export const useMapStore = create(
           pitch: 0,
           bearing: 0,
           container: '',
+          showBrokenDistricts: false,
         },
         setMapOptions: options => set({mapOptions: options}),
+        toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
+          const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
+          const mapRef = getMapRef();
+          if (!mapRef || !mapDocument) return;
+          const highlighted =
+            _higlighted !== undefined ? _higlighted : !mapOptions?.showBrokenDistricts;
+          const ids = _ids ? _ids : shatterIds.parents;
+          // previous state - hide and set option to false
+          ids.forEach((parentId: string) => {
+            mapRef.setFeatureState(
+              {
+                id: parentId,
+                source: BLOCK_SOURCE_ID,
+                sourceLayer: mapDocument.parent_layer,
+              },
+              {
+                highlighted,
+              }
+            );
+          });
+          set({
+            mapOptions: {
+              ...mapOptions,
+              showBrokenDistricts: highlighted,
+            },
+          });
+        },
         activeTool: 'pan',
         setActiveTool: tool => set({activeTool: tool}),
         spatialUnit: 'tract',

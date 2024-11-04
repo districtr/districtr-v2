@@ -32,7 +32,7 @@ export const MapComponent: React.FC = () => {
         });
       }
     }
-  }, [mapOptions]);
+  }, [mapOptions.bounds]);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
