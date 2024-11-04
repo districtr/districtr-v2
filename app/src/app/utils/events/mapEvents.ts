@@ -47,7 +47,6 @@ export const handleMapClick = (
   const mapStore = useMapStore.getState();
   const {activeTool, handleShatter, lockedFeatures, lockFeature} = mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
-
   if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
@@ -62,7 +61,7 @@ export const handleMapClick = (
   } else if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
     if (documentId && e.features?.length) {
-      handleShatter(documentId, e.features);
+      handleShatter(documentId, e.features.filter(f => f.layer.id === BLOCK_HOVER_LAYER_ID));
     }
   } else if (activeTool === 'lock') {
     const documentId = mapStore.mapDocument?.document_id;
