@@ -186,8 +186,8 @@ export const useMapStore = create(
             focusFeatures: [],
             mapOptions: {
               ...mapOptions,
-              mode: "default"
-            }
+              mode: 'default',
+            },
           });
 
           const parentId = focusFeatures?.[0].id?.toString();
@@ -488,8 +488,8 @@ export const useMapStore = create(
           bearing: 0,
           container: '',
           showBrokenDistricts: false,
-          mode: "default",
-          lockPaintedAreas: false
+          mode: 'default',
+          lockPaintedAreas: false,
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
@@ -520,13 +520,13 @@ export const useMapStore = create(
           });
         },
         toggleLockPaintedAreas: () => {
-          const { mapOptions} = get()
+          const {mapOptions} = get();
           set({
             mapOptions: {
               ...mapOptions,
-              lockPaintedAreas: !mapOptions.lockPaintedAreas
-            }
-          })
+              lockPaintedAreas: !mapOptions.lockPaintedAreas,
+            },
+          });
         },
         activeTool: 'pan',
         setActiveTool: tool => set({activeTool: tool}),
