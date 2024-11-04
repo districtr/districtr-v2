@@ -84,7 +84,7 @@ export const getFeaturesInBbox = (
   filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
-  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterMappings} =
+  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds} =
     useMapStore.getState();
 
   const layers = _layers?.length
@@ -101,12 +101,19 @@ export const getFeaturesInBbox = (
     features = features.filter(f => !lockedFeatures.has(f.id?.toString() || ''));
   }
   if (mapDocument?.child_layer) {
-    const parentIds: MapStore['parentsToHeal'] = features
-      .filter(f => f.id && shatterMappings.hasOwnProperty(f.id))
-      .map(f => f.id!.toString());
-
+    const parentIds: MapStore['parentsToHeal'] = [];
+    features = features.filter(f => {
+      const id = f.id?.toString();
+      if (!id) return false;
+      const isParent = shatterIds.parents.has(id);
+      if (isParent) {
+        parentIds.push(id);
+        return false;
+      } else {
+        return true;
+      }
+    });
     parentIds.length && checkParentsToHeal(parentIds);
-    features = features.filter(f => !parentIds.includes(f.id?.toString() || ''));
   }
   return features;
 };
@@ -429,6 +436,6 @@ export const checkIfSameZone = (
   });
   return {
     shouldHeal,
-    zone,
+    zone: zone || null,
   };
 };
