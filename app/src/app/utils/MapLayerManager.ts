@@ -230,5 +230,6 @@ class BlockSpecificLayerManager extends MapLayerManager {
   }
 }
 
+// TODO: Refactor to use these instead of ad-hoc functions
 export const BlockLayerManager = new BlockSpecificLayerManager();
 export const TemporaryLayerManager = new MapLayerManager();
