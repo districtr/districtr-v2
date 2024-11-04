@@ -2,7 +2,7 @@ import {debounce} from 'lodash';
 import {Assignment, FormatAssignments, getAssignments} from '../utils/api/apiHandlers';
 import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
-import {shallowCompareArray} from '../utils/helpers';
+import {checkIfSameZone, shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
@@ -40,13 +40,6 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
       if (!getMapRef() || previousNotLoaded) {
         return;
       }
-      console.log(
-        '!!!SENDING UPDATES',
-        appLoadingState,
-        mapRenderingState,
-        prevAppLoadingState,
-        prevMapRenderingState
-      );
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
     },
     {equalityFn: shallowCompareArray}
@@ -57,5 +50,16 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     mapDocument => mapDocument && updateAssignments(mapDocument)
   );
 
-  return [sendZonesOnMapRefSub, fetchAssignmentsSub];
+  const healAfterEdits = useMapStore.subscribe<[MapStore['parentsToHeal'], MapStore['mapOptions']]>(
+    state => [state.parentsToHeal, state.mapOptions],
+    ([parentsToHeal, mapOptions]) => {
+      const {processHealParentsQueue} = useMapStore.getState();
+      if (parentsToHeal.length && mapOptions.mode === 'default') {
+        processHealParentsQueue();
+      }
+    },
+    {equalityFn: shallowCompareArray}
+  );
+
+  return [sendZonesOnMapRefSub, fetchAssignmentsSub, healAfterEdits];
 };

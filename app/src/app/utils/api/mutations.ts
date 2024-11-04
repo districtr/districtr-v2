@@ -63,7 +63,10 @@ export const patchUpdates = new MutationObserver(queryClient, {
     mapMetrics.refetch();
     // remove trailing shattered features
     // This needs to happen AFTER the updates are done
-    useMapStore.getState().processHealParentsQueue();
+    const { processHealParentsQueue, mapOptions, parentsToHeal } = useMapStore.getState()
+    if (mapOptions.mode === 'default' && parentsToHeal.length){
+      processHealParentsQueue()
+    }
   },
 });
 

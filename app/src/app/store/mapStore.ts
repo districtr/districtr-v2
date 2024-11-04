@@ -82,7 +82,7 @@ export interface MapStore {
   handleShatter: (document_id: string, feautres: Array<MapGeoJSONFeature>) => void;
   // Sends unshatter patches to server that remove the child assignments
   // and add parents under the specified zone
-  processHealParentsQueue: () => void;
+  processHealParentsQueue: (additionalIds?: string[]) => void;
   // Removes local shatter data and updates map view
   cleanUpBreakData: () => void;
   checkParentsToHeal: (parentsToHeal: MapStore['parentsToHeal']) => void;
@@ -172,26 +172,34 @@ export const useMapStore = create(
         captiveIds: new Set<string>(),
         exitBlockView: (lock: boolean = false) => {
           const {
-            zoneAssignments,
             focusFeatures,
             captiveIds,
             mapOptions,
+            zoneAssignments,
+            shatterMappings,
             toggleHighlightBrokenDistricts,
+            lockFeatures,
           } = get();
-          const parentId = focusFeatures?.[0].id?.toString();
-          let shouldHeal = parentId && checkIfSameZone(captiveIds, zoneAssignments).shouldHeal;
-          if (parentId && mapOptions.showBrokenDistricts)
-            toggleHighlightBrokenDistricts([parentId], true);
+
           set({
             captiveIds: new Set<string>(),
             mapBbox: null,
             focusFeatures: [],
-            parentsToHeal: shouldHeal ? [parentId!] : [],
+            mapOptions: {
+              ...mapOptions,
+              mode: "default"
+            }
           });
-          if (shouldHeal) {
-            get().processHealParentsQueue();
-          } else if (lock) {
-            get().lockFeatures(captiveIds, true);
+
+          const parentId = focusFeatures?.[0].id?.toString();
+          if (lock && parentId) {
+            const hasDrawn = Array.from(shatterMappings[parentId]).some(
+              id => !!zoneAssignments.get(id)
+            );
+            if (hasDrawn) {
+              hasDrawn && lockFeatures(captiveIds, true);
+              mapOptions.showBrokenDistricts && toggleHighlightBrokenDistricts([parentId], true);
+            }
           }
         },
         mapBbox: null,
@@ -248,6 +256,10 @@ export const useMapStore = create(
         },
         setLockedFeatures: lockedFeatures => set({lockedFeatures}),
         handleShatter: async (document_id, features) => {
+          if (!features.length) {
+            console.log('NO FEATURES');
+            return;
+          }
           set({mapLock: true});
           // set BLOCK_LAYER_ID based on features[0] to focused true
 
@@ -293,19 +305,6 @@ export const useMapStore = create(
           } else if (multipleShattered) {
             // todo handle multiple shattered case
           } else if (isAlreadyShattered) {
-            set({
-              captiveIds: newChildren,
-              mapBbox,
-              mapLock: false,
-              focusFeatures: [
-                {
-                  id: features[0].id,
-                  source: BLOCK_SOURCE_ID,
-                  sourceLayer: get().mapDocument?.parent_layer,
-                },
-              ],
-            });
-            return;
           }
           set({
             shatterIds: {
@@ -323,10 +322,15 @@ export const useMapStore = create(
             ],
             mapBbox,
             zoneAssignments,
+            parentsToHeal: [...get().parentsToHeal, features?.[0]?.id?.toString() || ''],
+            mapOptions: {
+              ...get().mapOptions,
+              mode: "break"
+            }
           });
         },
         parentsToHeal: [],
-        processHealParentsQueue: async () => {
+        processHealParentsQueue: async (additionalIds = []) => {
           const {
             isPainting,
             parentsToHeal: _parentsToHeal,
@@ -335,18 +339,18 @@ export const useMapStore = create(
             zoneAssignments,
             shatterIds,
           } = get();
-
-          if (isPainting || !_parentsToHeal.length || !mapDocument) {
+          const idsToCheck = [..._parentsToHeal, ...additionalIds];
+          console.log('!!!CHECKING HEAL', idsToCheck)
+          if (isPainting || !idsToCheck.length || !mapDocument) {
             return;
           }
-
-          const parentsToHeal = _parentsToHeal
+          const parentsToHeal = idsToCheck
             .filter(parentId => shatterMappings.hasOwnProperty(parentId))
             .map(parentId => ({
               parentId,
               ...checkIfSameZone(shatterMappings[parentId], zoneAssignments),
             }))
-            .filter(f => f.shouldHeal && f.zone !== undefined);
+            .filter(f => f.shouldHeal);
 
           if (parentsToHeal.length) {
             set({mapLock: true});
@@ -479,6 +483,7 @@ export const useMapStore = create(
           bearing: 0,
           container: '',
           showBrokenDistricts: false,
+          mode: "default"
         },
         setMapOptions: options => set({mapOptions: options}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
