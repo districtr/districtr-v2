@@ -290,11 +290,9 @@ export const useMapStore = create(
 
           const parentId = focusFeatures?.[0].id?.toString();
           if (lock && parentId) {
-            const hasDrawn = Array.from(shatterMappings[parentId]).some(
-              id => !!zoneAssignments.get(id)
-            );
-            if (hasDrawn) {
-              hasDrawn && lockFeatures(captiveIds, true);
+            const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal
+            if (!willHeal) {
+              lockFeatures(captiveIds, true);
               mapOptions.showBrokenDistricts && toggleHighlightBrokenDistricts([parentId], true);
             }
           }
@@ -486,6 +484,7 @@ export const useMapStore = create(
             zoneAssignments,
             shatterIds,
             mapLock,
+            toggleHighlightBrokenDistricts
           } = get();
           const idsToCheck = [..._parentsToHeal, ...additionalIds];
 
@@ -508,11 +507,13 @@ export const useMapStore = create(
 
           if (parentsToHeal.length) {
             set({mapLock: true});
+            
             const r = await patchUnShatter.mutate({
               geoids: parentsToHeal.map(f => f.parentId),
               zone: parentsToHeal[0].zone as any,
               document_id: mapDocument?.document_id,
             });
+            toggleHighlightBrokenDistricts(r.parents.geoids, false)
             const newZoneAssignments = new Map(zoneAssignments);
             const newShatterIds = {
               parents: new Set(shatterIds.parents),
