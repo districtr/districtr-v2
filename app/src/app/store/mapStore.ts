@@ -289,13 +289,10 @@ export const useMapStore = create(
           });
 
           const parentId = focusFeatures?.[0].id?.toString();
-          if (lock && parentId) {
-            const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal
-            if (!willHeal) {
-              lockFeatures(captiveIds, true);
-              mapOptions.showBrokenDistricts && toggleHighlightBrokenDistricts([parentId], true);
-            }
-          }
+          if (!parentId) return
+          mapOptions.showBrokenDistricts && toggleHighlightBrokenDistricts([parentId], true);
+          const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal
+          lock && !willHeal && lockFeatures
         },
         getMapRef: () => null,
         setMapRef: mapRef => {
