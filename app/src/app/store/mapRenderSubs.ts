@@ -41,27 +41,28 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   >(
     state => [state.shatterIds, state.getMapRef, state.mapRenderingState],
     ([shatterIds, getMapRef, mapRenderingState]) => {
-      const state = useMapStore.getState();
+      const {mapDocument, appLoadingState, setMapLock} = useMapStore.getState();
       const mapRef = getMapRef();
-      const setMapLock = state.setMapLock;
-
-      if (!mapRef || mapRenderingState !== 'loaded') {
+      if (!mapRef || mapRenderingState !== 'loaded' || appLoadingState !== 'loaded') {
         return;
       }
 
-      const layersToFilter = state.mapDocument?.child_layer ? CHILD_LAYERS : [];
+      const layersToFilter = mapDocument?.child_layer ? CHILD_LAYERS : [];
 
-      if (state.mapDocument?.child_layer) layersToFilter.push(...CHILD_LAYERS);
-
+      if (mapDocument?.child_layer) layersToFilter.push(...CHILD_LAYERS);
+      // Hide broken parents on parent layer
+      // Show broken children on child layer
       layersToFilter.forEach(layerId =>
         mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
-
+      // remove zone from parents
       shatterIds.parents.forEach(id => {
-        mapRef.removeFeatureState({
+        mapRef.setFeatureState({
           source: BLOCK_SOURCE_ID,
           id,
-          sourceLayer: state.mapDocument?.parent_layer,
+          sourceLayer: mapDocument?.parent_layer,
+        }, {
+          zone: null
         });
       });
 
@@ -104,13 +105,14 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     ],
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
-      const {captiveIds, shatterIds, getMapRef, setLockedFeatures} = useMapStore.getState();
-
+      const {captiveIds, shatterIds, getMapRef, setLockedFeatures, mapRenderingState} = useMapStore.getState();
+      const mapRef = getMapRef()
+      if (!mapRef || mapRenderingState !== 'loaded') return
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
         const isHover = layerId.includes('hover');
         const isParent = PARENT_LAYERS.includes(layerId);
         isHover &&
-          getMapRef()?.setPaintProperty(
+          mapRef.setPaintProperty(
             layerId,
             'fill-opacity',
             getLayerFill(
