@@ -59,19 +59,50 @@ export interface MapStore {
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
+  /**
+   * Selects map features and updates the zone assignments accordingly.
+   * Debounced zone updates will be sent to backend after a delay.
+   * @param {Array<MapGeoJSONFeature>} features - The features to select on the map.
+   */
   selectMapFeatures: (features: Array<MapGeoJSONFeature>) => void;
   // MAP DOCUMENT
+  /**
+   * Available districtr views
+   */
   mapViews: Partial<QueryObserverResult<DistrictrMap[], Error>>;
   setMapViews: (maps: MapStore['mapViews']) => void;
+  /**
+   * Current map that the user is working on
+   */
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
   // SHATTERING
+  /**
+   * A subset of IDs that a user is working on in a focused view.
+   * When shattering, the view focuses on only the parent area,
+   * and painting only occurs on the captive IDs.
+   * Map render effects in `mapRenderSubs` -> `_applyFocusFeatureState`
+   * Feature logic in `helpers` -> `getFeaturesInBbox`
+   */
   captiveIds: Set<string>;
+  /**
+   * All broken parent and child IDs. Used to filter data source level
+   * map tiles.
+   */
   shatterIds: {
     parents: Set<string>;
     children: Set<string>;
   };
+  /**
+   * An object with parents and their child geometries.
+   * When a broken parent is painted over, this mapping is used to check if all children are in the same zone.
+   * Additionally, it is used when re-entering captive break blocks mode on an already-broken parent.
+   */
   shatterMappings: Record<string, Set<string>>;
+  /**
+   * Leave the captive blocks view and return to the default painting mode.
+   * @param {boolean} lock - On exit, optionally lock the features
+   */
   exitBlockView: (lock?: boolean) => void;
   setShatterIds: (
     existingParents: Set<string>,
@@ -80,14 +111,52 @@ export interface MapStore {
     newChildren: Set<string>[],
     multipleShattered: boolean
   ) => void;
-  handleShatter: (document_id: string, feautres: Array<Partial<MapGeoJSONFeature>>) => void;
-  // Sends unshatter patches to server that remove the child assignments
-  // and add parents under the specified zone
+  /**
+   * Handles the business logic of fetching the child edges from the backend,
+   * breaking the parent into its children, and then entering a focused work mode 
+   * to draw on just those areas.
+   *
+   * This function performs the following steps:
+   * 1. Checks if there are any features to shatter.
+   * 2. If features exist, it locks the map to prevent further modifications.
+   * 3. Determines if the specified features are already shattered.
+   * 4. If not, it sends a request to the backend to shatter the parent feature.
+   * 5. Updates the state with the new child features and prepares the map for focused editing.
+   *
+   * @param {string} document_id - The ID of the document associated with the parent feature.
+   * @param {Array<Partial<MapGeoJSONFeature>} features - An array of features to be shattered. Each feature should contain at least an ID and geometry.
+   * 
+   * TODO: Multiple break/shatter is not yet implemented.
+   */
+  handleShatter: (document_id: string, features: Array<Partial<MapGeoJSONFeature>>) => void;
+  /**
+   * Sends unshatter patches to the server that remove the child assignments
+   * and add parents under the specified zone.
+   * This function processes the queue of parents to heal and updates the state accordingly.
+   * This WILL NOT fire off if there is another server interaction happening (eg. assignment patch updates.)
+   * 
+   * @param {string[]} [additionalIds] - Optional array of additional IDs to include in the healing process.
+   */
   processHealParentsQueue: (additionalIds?: string[]) => void;
-  // Removes local shatter data and updates map view
+  /**
+   * Removes local shatter data and updates the map view based on the provided parents to heal.
+   * This function checks the current state of parents and determines if any need to be healed,
+   * updating the relevant state and sending necessary requests to the server.
+   * 
+   * @param {MapStore['parentsToHeal']} parentsToHeal - An array of additional parent IDs that need to be checked for healing.
+   */
   checkParentsToHeal: (parentsToHeal: MapStore['parentsToHeal']) => void;
+    /**
+   * A list of parent IDs that are queued for healing.
+   * This property tracks the parents that need to be processed for healing,
+   * allowing the application to manage state effectively during the healing process.
+   * Healing occurs on exit from break mode, or after a zone assignment update is complete
+   * and the application is idle.
+   * 
+   * @type {string[]}
+   */
   parentsToHeal: string[];
-  // LOCK
+  // LOCK  
   // TODO: Refactor to something like this
   // featureStates: {
   //   locked: Array<MapFeatureInfo>,
@@ -100,14 +169,41 @@ export interface MapStore {
   //   state: keyof MapStore['featureStates'],
   //   action: "add" | "remove" | "toggle"
   // ) => void,
+  /**
+   * A set of feature IDs that are currently locked, preventing any modifications to them.
+   * Map render effects in `mapRenderSubs` -> `lockFeaturesSub`
+   * Lock feature logic in `helpers` -> `getFeaturesInBbox`
+   */
   lockedFeatures: Set<string>;
+  /**
+   * Locks or unlocks a specific feature by its ID.
+   * @param {string} id - The ID of the feature to lock or unlock.
+   * @param {boolean} lock - If true, the feature will be locked; if false, it will be unlocked.
+   */
   lockFeature: (id: string, lock: boolean) => void;
+  /**
+   * Locks or unlocks multiple features at once based on their IDs.
+   * @param {Set<string>} ids - A set of feature IDs to lock or unlock.
+   * @param {boolean} lock - If true, the features will be locked; if false, they will be unlocked.
+   */
   lockFeatures: (ids: Set<string>, lock: boolean) => void;
+  /**
+   * Sets the locked features to a new set of locked features.
+   * @param {Set<string>} lockedFeatures - The new set of locked features.
+   */
   setLockedFeatures: (lockedFeatures: MapStore['lockedFeatures']) => void;
   // HOVERING
+  /**
+   * Features that area highlighted and hovered. 
+   * Map render effects in `mapRenderSubs` -> `_hoverMapSideEffectRender`
+   */
   hoverFeatures: Array<MapFeatureInfo>;
   setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
   // FOCUS
+  /**
+   * Parent IDs that a user is working on in break mode.
+   * Map render effects in `mapRenderSubs` -> `_applyFocusFeatureState`
+   */
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
@@ -147,6 +243,7 @@ export interface MapStore {
   updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
+  // USER MAPS / RECENT MAPS
   userMaps: Array<DocumentObject & {name?: string}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
   upsertUserMap: (props: {
@@ -255,7 +352,7 @@ export const useMapStore = create(
           set({
             accumulatedGeoids,
             accumulatedBlockPopulations,
-            zoneAssignments: new Map(zoneAssignments)
+            zoneAssignments: new Map(zoneAssignments),
           });
         },
         mapViews: {isPending: true},
@@ -408,7 +505,7 @@ export const useMapStore = create(
               ...checkIfSameZone(shatterMappings[parentId], zoneAssignments),
             }))
             .filter(f => f.shouldHeal);
-            
+
           if (parentsToHeal.length) {
             set({mapLock: true});
             const r = await patchUnShatter.mutate({
