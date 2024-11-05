@@ -1,38 +1,33 @@
-import { Box, Flex, Heading } from "@radix-ui/themes";
-import { MapModeSelector } from "./MapModeSelector";
-import { ColorPicker } from "./ColorPicker";
-import { ResetMapButton } from "./ResetMapButton";
-import { GerryDBViewSelector } from "./GerryDBViewSelector";
-import { HorizontalBar } from "./charts/HorizontalBarChart";
-import { useMapStore } from "@/app/store/mapStore";
-import { Tabs, Text } from "@radix-ui/themes";
-import Layers from "./Layers";
-import PaintByCounty from "./PaintByCounty";
-import { BrushSizeSelector } from "./BrushSizeSelector";
+import {Box, Flex, Heading} from '@radix-ui/themes';
+import {MapModeSelector} from './MapModeSelector';
+import {ColorPicker} from './ColorPicker';
+import {ResetMapButton} from './ResetMapButton';
+import {GerryDBViewSelector} from './GerryDBViewSelector';
+import {HorizontalBar} from './charts/HorizontalBarChart';
+import {useMapStore} from '@/app/store/mapStore';
+import {Tabs, Text} from '@radix-ui/themes';
+import Layers from './Layers';
+import PaintByCounty from './PaintByCounty';
+import {BrushSizeSelector} from './BrushSizeSelector';
 
 export default function SidebarComponent() {
-  const { activeTool } = useMapStore((state) => ({
-    activeTool: state.activeTool,
-  }));
+  const activeTool = useMapStore(state => state.activeTool);
 
   return (
-    <Box
-      p="3"
-      className="max-w-sidebar w-sidebar z-10 shadow-md h-screen overflow-y-auto"
-    >
+    <Box p="3" className="max-w-sidebar w-sidebar z-10 shadow-md h-screen overflow-y-auto">
       <Flex direction="column" gap="3">
         <Heading as="h3" size="3">
           Districtr
         </Heading>
         <GerryDBViewSelector />
         <MapModeSelector />
-        {activeTool === "brush" || activeTool === "eraser" ? (
+        {activeTool === 'brush' || activeTool === 'eraser' ? (
           <div>
             <BrushSizeSelector />
-            <PaintByCounty />{" "}
+            <PaintByCounty />{' '}
           </div>
         ) : null}
-        {activeTool === "brush" ? (
+        {activeTool === 'brush' ? (
           <div>
             <ColorPicker />
           </div>

@@ -1,11 +1,12 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
-from pydantic import UUID4
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
-from sqlmodel import Session, select
+from sqlmodel import Session, String, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
+from sqlalchemy import bindparam
+from sqlmodel import ARRAY
 
 import sentry_sdk
 from app.core.db import engine
@@ -13,12 +14,17 @@ from app.core.config import settings
 from app.models import (
     Assignments,
     AssignmentsCreate,
+    AssignmentsResponse,
+    DistrictrMap,
     Document,
     DocumentCreate,
     DocumentPublic,
+    GEOIDS,
+    UUIDType,
     ZonePopulation,
-    GerryDBTable,
-    GerryDBViewPublic,
+    DistrictrMapPublic,
+    ParentChildEdges,
+    ShatterResult,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -86,17 +92,34 @@ async def create_document(
         select(
             Document.document_id,
             Document.created_at,
-            Document.updated_at,
             Document.gerrydb_table,
-            GerryDBTable.tiles_s3_path,
+            Document.updated_at,
+            DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
+            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
+            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
+            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            DistrictrMap.extent.label("extent"),  # pyright: ignore
         )
         .where(Document.document_id == document_id)
-        .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
+        .join(
+            DistrictrMap,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            isouter=True,
+        )
         .limit(1)
     )
+    # Document id has a unique constraint so I'm not sure we need to hit the DB again here
+    # more valuable would be to check that the assignments table
     doc = session.exec(
         stmt
     ).one()  # again if we've got more than one, we have problems.
+    if not doc.map_uuid:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"DistrictrMap matching {data.gerrydb_table} does not exist.",
+        )
     if not doc.document_id:
         session.rollback()
         raise HTTPException(
@@ -107,30 +130,6 @@ async def create_document(
     return doc
 
 
-@app.patch("/api/update_document/{document_id}", response_model=DocumentPublic)
-async def update_document(
-    document_id: UUID4, data: DocumentCreate, session: Session = Depends(get_session)
-):
-    # Validate that gerrydb_table exists?
-    stmt = text("""UPDATE document.document
-        SET
-            gerrydb_table = :gerrydb_table_name,
-            updated_at = now()
-        WHERE document_id = :document_id
-        RETURNING *""")
-    results = session.execute(
-        stmt, {"document_id": document_id, "gerrydb_table_name": data.gerrydb_table}
-    )
-    db_document = results.first()
-    if not db_document:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found"
-        )
-    session.commit()
-    return db_document
-
-
 @app.patch("/api/update_assignments")
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
@@ -139,15 +138,63 @@ async def update_assignments(
     stmt = stmt.on_conflict_do_update(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
-    session.exec(stmt)
+    session.execute(stmt)
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
 
 
+@app.patch(
+    "/api/update_assignments/{document_id}/shatter_parents",
+    response_model=ShatterResult,
+)
+async def shatter_parent(
+    document_id: str, data: GEOIDS, session: Session = Depends(get_session)
+):
+    stmt = text(
+        """SELECT *
+        FROM shatter_parent(:input_document_id, :parent_geoids)"""
+    ).bindparams(
+        bindparam(key="input_document_id", type_=UUIDType),
+        bindparam(key="parent_geoids", type_=ARRAY(String)),
+    )
+    results = session.execute(
+        statement=stmt,
+        params={
+            "input_document_id": document_id,
+            "parent_geoids": data.geoids,
+        },
+    )
+    # :( was getting validation errors so am just going to loop
+    assignments = [
+        Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
+        for document_id, geo_id, zone in results
+    ]
+    result = ShatterResult(parents=data, children=assignments)
+    session.commit()
+    return result
+
+
 # called by getAssignments in apiHandlers.ts
-@app.get("/api/get_assignments/{document_id}", response_model=list[Assignments])
+@app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
-    stmt = select(Assignments).where(Assignments.document_id == document_id)
+    stmt = (
+        select(
+            Assignments.geo_id,
+            Assignments.zone,
+            Assignments.document_id,
+            ParentChildEdges.parent_path,
+        )
+        .join(Document, Assignments.document_id == Document.document_id)
+        .join(
+            DistrictrMap,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+        )
+        .outerjoin(ParentChildEdges, Assignments.geo_id == ParentChildEdges.child_path)
+        .where(
+            Assignments.document_id == document_id,
+        )
+    )
+
     results = session.exec(stmt)
     return results
 
@@ -160,13 +207,22 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             Document.created_at,
             Document.gerrydb_table,
             Document.updated_at,
-            GerryDBTable.tiles_s3_path.label("tiles_s3_path"),
-        )
+            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
+            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
+            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            DistrictrMap.extent.label("extent"),  # pyright: ignore
+        )  # pyright: ignore
         .where(Document.document_id == document_id)
-        .join(GerryDBTable, Document.gerrydb_table == GerryDBTable.name, isouter=True)
+        .join(
+            DistrictrMap,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            isouter=True,
+        )
         .limit(1)
     )
     result = session.exec(stmt)
+
     return result.one()
 
 
@@ -174,7 +230,9 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
 async def get_total_population(
     document_id: str, session: Session = Depends(get_session)
 ):
-    stmt = text("SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL")
+    stmt = text(
+        "SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL"
+    )
     try:
         result = session.execute(stmt, {"document_id": document_id})
         return [
@@ -195,7 +253,7 @@ async def get_total_population(
             )
 
 
-@app.get("/api/gerrydb/views", response_model=list[GerryDBViewPublic])
+@app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
 async def get_projects(
     *,
     session: Session = Depends(get_session),
@@ -203,8 +261,8 @@ async def get_projects(
     limit: int = Query(default=100, le=100),
 ):
     gerrydb_views = session.exec(
-        select(GerryDBTable)
-        .order_by(GerryDBTable.created_at.asc())
+        select(DistrictrMap)
+        .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)
     ).all()

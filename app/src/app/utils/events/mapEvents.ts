@@ -2,45 +2,85 @@
  Port over from map events declared at: https://github.com/uchicago-dsi/districtr-components/blob/2e8f9e5657b9f0fd2419b6f3258efd74ae310f32/src/Districtr/Districtr.tsx#L230
  */
 "use client";
-import type { Map, MapLayerMouseEvent, MapLayerTouchEvent } from "maplibre-gl";
-import { useMapStore } from "@/app/store/mapStore";
-import { MutableRefObject, useRef } from "react";
-import React from "react";
+import type {
+  Map as MapLibreMap,
+  MapLayerMouseEvent,
+  MapLayerTouchEvent,
+} from "maplibre-gl";
+import { useMapStore } from "@store/mapStore";
+import { SelectMapFeatures, SelectZoneAssignmentFeatures } from "./handlers";
+import { ResetMapSelectState } from "@utils/events/handlers";
 import {
-  HighlightFeature,
-  SelectMapFeatures,
-  SelectZoneAssignmentFeatures,
-  UnhighlightFeature,
-} from "./handlers";
-import { ResetMapSelectState } from "@/app/utils/events/handlers";
+  INTERACTIVE_LAYERS,
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+} from "@constants/layers";
+import { ActiveTool } from "@/app/constants/types";
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
 */
 
 /**
+ * Get the layer IDs to paint based on whether we have
+ * a shatterable map (based on whether a child layer is
+ * present) and the active tool. If the active tool is
+ * shatter, we only want to paint the shatterable layer.
+ *
+ * @param child_layer - string | undefined | null, the child layer
+ * @param activeTool - ActiveTool, the active tool
+ * @returns string[], the layer IDs to paint
+ */
+function getLayerIdsToPaint(
+  child_layer: string | undefined | null,
+  activeTool: ActiveTool,
+) {
+  if (activeTool === "shatter") {
+    return [BLOCK_HOVER_LAYER_ID];
+  }
+
+  return child_layer
+    ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+    : [BLOCK_HOVER_LAYER_ID];
+}
+
+/**
  * What happens when the map is clicked on; incomplete implementation
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
- * @param map - MutableRefObject<Map | null>, the maplibre map instance
- * @param hoverFeatureIds - React.MutableRefObject<Set<string>>, used to keep track of geoids that have been hovered over
+ * @param map - Map | null, the maplibre map instance
  */
 export const handleMapClick = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>
+  map: MapLibreMap | null,
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
-  const sourceLayer = mapStore.selectedLayer?.name;
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
+  const handleShatter = mapStore.handleShatter;
 
   if (activeTool === "brush" || activeTool === "eraser") {
-    const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
+    const paintLayers = getLayerIdsToPaint(
+      mapStore.mapDocument?.child_layer,
+      activeTool,
+    );
+    const selectedFeatures = mapStore.paintFunction(
+      map,
+      e,
+      mapStore.brushSize,
+      paintLayers,
+    );
 
-    if (sourceLayer) {
+    if (sourceLayer && selectedFeatures && map && mapStore) {
       // select on both the map object and the store
       SelectMapFeatures(selectedFeatures, map, mapStore).then(() => {
         SelectZoneAssignmentFeatures(mapStore);
       });
+    }
+  } else if (activeTool === "shatter") {
+    const documentId = mapStore.mapDocument?.document_id;
+    const featureId = e.features?.[0].id?.toString();
+    if (documentId && featureId) {
+      handleShatter(documentId, [featureId]);
     }
   } else {
     // tbd, for pan mode - is there an info mode on click?
@@ -49,8 +89,7 @@ export const handleMapClick = (
 
 export const handleMapMouseUp = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>
+  map: MapLibreMap | null,
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
@@ -65,77 +104,73 @@ export const handleMapMouseUp = (
 
 export const handleMapMouseDown = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>
+  map: MapLibreMap | null,
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
 
   if (activeTool === "pan") {
     // enable drag pan
-    map.current?.dragPan.enable();
+    map?.dragPan.enable();
   } else if (activeTool === "brush" || activeTool === "eraser") {
     // disable drag pan
-    map.current?.dragPan.disable();
+    map?.dragPan.disable();
     mapStore.setIsPainting(true);
   }
 };
 
 export const handleMapMouseEnter = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>
+  map: MapLibreMap | null,
 ) => {};
 
 export const handleMapMouseOver = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>
+  map: MapLibreMap | null,
 ) => {};
 
 export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>
+  map: MapLibreMap | null,
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
-  const sourceLayer = mapStore.selectedLayer?.name;
-  if (
-    sourceLayer &&
-    hoverFeatureIds.current.size &&
-    (activeTool === "brush" || activeTool === "eraser")
-  ) {
-    UnhighlightFeature(map, hoverFeatureIds, sourceLayer);
-  }
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
+  const setHoverFeatures = mapStore.setHoverFeatures;
+  setHoverFeatures([]);
 };
 
 export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>
-) => {
-  // console.log("mouse out");
-};
+  map: MapLibreMap | null,
+) => {};
 
 export const handleMapMouseMove = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>
+  map: MapLibreMap | null,
 ) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
+  const setHoverFeatures = mapStore.setHoverFeatures;
   const isPainting = mapStore.isPainting;
-  const sourceLayer = mapStore.selectedLayer?.name;
-  const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize);
-  if (sourceLayer && (activeTool === "brush" || activeTool === "eraser")) {
-    HighlightFeature(selectedFeatures, map, hoverFeatureIds, sourceLayer);
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
+  const paintLayers = getLayerIdsToPaint(
+    mapStore.mapDocument?.child_layer,
+    activeTool,
+  );
+  const selectedFeatures = mapStore.paintFunction(
+    map,
+    e,
+    mapStore.brushSize,
+    paintLayers,
+  );
+  const isBrushingTool =
+    sourceLayer && ["brush", "eraser", "shatter"].includes(activeTool);
+  if (isBrushingTool) {
+    setHoverFeatures(selectedFeatures);
   }
-  if (
-    (activeTool === "brush" || activeTool === "eraser") &&
-    isPainting &&
-    sourceLayer
-  ) {
+
+  if (isBrushingTool && isPainting) {
     // selects in the map object; the store object
     // is updated in the mouseup event
     SelectMapFeatures(selectedFeatures, map, mapStore);
@@ -144,8 +179,7 @@ export const handleMapMouseMove = (
 
 export const handleMapZoom = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>
+  map: MapLibreMap | null,
 ) => {};
 
 export const handleMapIdle = () => {};
@@ -154,15 +188,12 @@ export const handleMapMoveEnd = () => {};
 
 export const handleMapZoomEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MutableRefObject<Map | null>,
-  hoverFeatureIds: React.MutableRefObject<Set<string>>
+  map: MapLibreMap | null,
 ) => {};
 
-export const handleResetMapSelectState = (
-  map: MutableRefObject<Map | null>
-) => {
+export const handleResetMapSelectState = (map: MapLibreMap | null) => {
   const mapStore = useMapStore.getState();
-  const sourceLayer = mapStore.selectedLayer?.name;
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (sourceLayer) {
     ResetMapSelectState(map, mapStore, sourceLayer);
   } else {
@@ -170,9 +201,40 @@ export const handleResetMapSelectState = (
   }
 };
 
-export const useHoverFeatureIds = () => {
-  const hoverFeatureIds = useRef(new Set<string>());
-  return hoverFeatureIds;
+export const handleMapContextMenu = (
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
+  map: MapLibreMap | null,
+) => {
+  const mapStore = useMapStore.getState();
+  if (mapStore.activeTool !== "pan") {
+    return;
+  }
+  e.preventDefault();
+  const setHoverFeatures = mapStore.setHoverFeatures;
+  const sourceLayer = mapStore.mapDocument?.parent_layer;
+  // Selects from the hover layers instead of the points
+  // Otherwise, its hard to select precisely
+  const paintLayers = mapStore.mapDocument?.child_layer
+    ? INTERACTIVE_LAYERS
+    : [BLOCK_HOVER_LAYER_ID];
+  const selectedFeatures = mapStore.paintFunction(map, e, 0, paintLayers);
+  if (!selectedFeatures?.length || !map || !sourceLayer) return;
+
+  setHoverFeatures(selectedFeatures.slice(0, 1));
+
+  const handleClose = () => {
+    mapStore.setContextMenu(null);
+    setHoverFeatures([]);
+  };
+
+  map.once("movestart", handleClose);
+
+  mapStore.setContextMenu({
+    x: e.point.x,
+    y: e.point.y,
+    data: selectedFeatures[0],
+    close: handleClose,
+  });
 };
 
 export const mapEvents = [
@@ -191,4 +253,5 @@ export const mapEvents = [
   { action: "idle", handler: handleMapIdle },
   { action: "moveend", handler: handleMapMoveEnd },
   { action: "zoomend", handler: handleMapZoomEnd },
+  { action: "contextmenu", handler: handleMapContextMenu },
 ];

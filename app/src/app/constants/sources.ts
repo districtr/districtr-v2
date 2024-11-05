@@ -1,4 +1,4 @@
-import { VectorSourceSpecification } from "maplibre-gl";
+import {VectorSourceSpecification} from 'maplibre-gl';
 
 export function getBlocksSource(
   layer_subpath: string
