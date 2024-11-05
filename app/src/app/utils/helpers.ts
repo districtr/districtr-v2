@@ -94,22 +94,30 @@ export const getFeaturesInBbox = (
       : [BLOCK_HOVER_LAYER_ID];
 
   let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
+  // If captiveIds exist (eg. block view mode) only select those IDs
   if (captiveIds.size) {
     features = features.filter(f => captiveIds.has(f.id?.toString() || ''));
   }
+  // if filtering locked feature, remove those
   if (filterLocked && lockedFeatures.size) {
     features = features.filter(f => !lockedFeatures.has(f.id?.toString() || ''));
   }
-  if (mapDocument?.child_layer) {
+
+  // if there is a child layer and parents have been shattered
+  // check if any of the selected IDs are parents
+  if (mapDocument?.child_layer && shatterIds.parents.size) {
     const parentIds: MapStore['parentsToHeal'] = [];
     features = features.filter(f => {
       const id = f.id?.toString();
       if (!id) return false;
       const isParent = shatterIds.parents.has(id);
       if (isParent) {
+        // check if parent IDs have been painted solid
         parentIds.push(id);
+        // don't paint parents with children
         return false;
       } else {
+        // do paint everything else
         return true;
       }
     });
