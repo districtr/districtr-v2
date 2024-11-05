@@ -7,8 +7,8 @@ import {
   EraserIcon,
   Pencil2Icon,
   HandIcon,
-  BorderSplitIcon,
   LockOpen1Icon,
+  ViewGridIcon,
 } from '@radix-ui/react-icons';
 import {RecentMapsModal} from '@components/sidebar/RecentMapsModal';
 
@@ -25,8 +25,8 @@ export function MapModeSelector() {
     {
       mode: 'shatter',
       disabled: !mapDocument?.child_layer,
-      label: 'Shatter',
-      icon: <BorderSplitIcon />,
+      label: 'Break',
+      icon: <ViewGridIcon />,
     },
     {
       mode: 'lock',

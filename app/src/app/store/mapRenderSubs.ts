@@ -123,7 +123,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       const zoneAssignments = curr[0];
       // if lockPaintedAreas, lock all zones
       if (lockPaintedAreas) {
-        setLockedFeatures(new Set(zoneAssignments.keys()));
+        const nonNullZones = new Set([...zoneAssignments.entries()].filter(([key, value]) => value !== null).map(([key]) => key))
+        setLockedFeatures(new Set(nonNullZones));
         // now unlocked, was previously locked
       } else if (!lockPaintedAreas && prevLockPaintedAreas) {
         setLockedFeatures(new Set());
@@ -135,7 +136,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const lockFeaturesSub = useMapStore.subscribe(
     state => state.lockedFeatures,
     (lockedFeatures, previousLockedFeatures) => {
-      console.log('LOCKING');
       const {getMapRef, shatterIds, mapDocument} = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef || !mapDocument) return;

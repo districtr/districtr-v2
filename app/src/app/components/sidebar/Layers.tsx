@@ -43,7 +43,7 @@ export default function Layers() {
         name="districts"
         value={[
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
-          mapOptions.showBrokenDistricts ? '3' : '',
+          parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
           mapOptions.lockPaintedAreas ? '4' : '',
         ]}
       >
