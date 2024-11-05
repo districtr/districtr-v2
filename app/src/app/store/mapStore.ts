@@ -85,7 +85,6 @@ export interface MapStore {
   // and add parents under the specified zone
   processHealParentsQueue: (additionalIds?: string[]) => void;
   // Removes local shatter data and updates map view
-  cleanUpBreakData: () => void;
   checkParentsToHeal: (parentsToHeal: MapStore['parentsToHeal']) => void;
   parentsToHeal: string[];
   // LOCK
@@ -409,7 +408,7 @@ export const useMapStore = create(
               ...checkIfSameZone(shatterMappings[parentId], zoneAssignments),
             }))
             .filter(f => f.shouldHeal);
-          console.log('!!! HEALING PARENTS', parentsToHeal);
+            
           if (parentsToHeal.length) {
             set({mapLock: true});
             const r = await patchUnShatter.mutate({
@@ -449,7 +448,6 @@ export const useMapStore = create(
             });
           }
         },
-        cleanUpBreakData: () => {},
         checkParentsToHeal: parentsToHeal => {
           set({
             parentsToHeal: [...get().parentsToHeal, ...parentsToHeal].filter(onlyUnique),
