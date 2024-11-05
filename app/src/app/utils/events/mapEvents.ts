@@ -4,7 +4,6 @@
 'use client';
 import type {Map as MapLibreMap, MapLayerMouseEvent, MapLayerTouchEvent} from 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
-import {SelectMapFeatures, SelectZoneAssignmentFeatures} from './handlers';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
@@ -45,7 +44,7 @@ export const handleMapClick = (
   map: MapLibreMap | null
 ) => {
   const mapStore = useMapStore.getState();
-  const {activeTool, handleShatter, lockedFeatures, lockFeature} = mapStore;
+  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures} = mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
@@ -54,9 +53,7 @@ export const handleMapClick = (
     if (sourceLayer && selectedFeatures && map && mapStore) {
       // select on both the map object and the store
       // @ts-ignore TODO fix typing on this function
-      SelectMapFeatures(selectedFeatures, map, mapStore).then(() => {
-        SelectZoneAssignmentFeatures(mapStore);
-      });
+      selectMapFeatures(selectedFeatures)
     }
   } else if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
@@ -86,7 +83,6 @@ export const handleMapMouseUp = (
   if ((activeTool === 'brush' || activeTool === 'eraser') && isPainting) {
     // set isPainting to false
     mapStore.setIsPainting(false);
-    SelectZoneAssignmentFeatures(mapStore);
   }
 };
 
@@ -138,25 +134,24 @@ export const handleMapMouseMove = (
   map: MapLibreMap | null
 ) => {
   const mapStore = useMapStore.getState();
-  const activeTool = mapStore.activeTool;
-  const setHoverFeatures = mapStore.setHoverFeatures;
-  const isPainting = mapStore.isPainting;
-  const sourceLayer = mapStore.mapDocument?.parent_layer;
+  const {activeTool, setHoverFeatures, isPainting, mapDocument, selectMapFeatures} = mapStore;
+  const sourceLayer = mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
     // Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
     mapStore.mapDocument?.child_layer,
     activeTool
   );
+
   const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
   const isBrushingTool = sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
   if (isBrushingTool) {
     setHoverFeatures(selectedFeatures);
   }
 
-  if (isBrushingTool && isPainting) {
+  if (selectedFeatures && isBrushingTool && isPainting) {
     // selects in the map object; the store object
     // is updated in the mouseup event
-    SelectMapFeatures(selectedFeatures, map, mapStore);
+    selectMapFeatures(selectedFeatures);
   }
 };
 

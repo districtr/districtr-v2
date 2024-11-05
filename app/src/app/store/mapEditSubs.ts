@@ -7,42 +7,23 @@ import {updateAssignments} from '../utils/api/queries';
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
   if (getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
+    console.log('!!!UPDATING ZONES');
     const assignments = FormatAssignments();
     patchUpdates.mutate(assignments);
   }
 };
+
 const debouncedZoneUpdate = debounce(zoneUpdates, 25);
 
-type zoneSubState = [
-  MapStore['getMapRef'],
-  MapStore['zoneAssignments'],
-  MapStore['appLoadingState'],
-  MapStore['mapRenderingState'],
-];
+type zoneSubState = [MapStore['zoneAssignments'], MapStore['appLoadingState']];
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
-  const sendZonesOnMapRefSub = useMapStore.subscribe<zoneSubState>(
-    state => [
-      state.getMapRef,
-      state.zoneAssignments,
-      state.appLoadingState,
-      state.mapRenderingState,
-    ],
-    (
-      [getMapRef, zoneAssignments, appLoadingState, mapRenderingState],
-      [_prevMapRef, _prevZoneAssignments, prevAppLoadingState, prevMapRenderingState]
-    ) => {
-      const previousNotLoaded = [
-        appLoadingState,
-        mapRenderingState,
-        prevAppLoadingState,
-        prevMapRenderingState,
-      ].some(state => state !== 'loaded');
-      if (!getMapRef() || previousNotLoaded) {
-        return;
-      }
+  const sendZoneUpdatesOnUpdate = useMapStore.subscribe(
+    state => state.zoneAssignments,
+    zoneAssignments => {
+      const {getMapRef, appLoadingState} = useMapStore.getState();
+
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
-    },
-    {equalityFn: shallowCompareArray}
+    }
   );
 
   const fetchAssignmentsSub = useMapStore.subscribe(
@@ -61,5 +42,5 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     {equalityFn: shallowCompareArray}
   );
 
-  return [sendZonesOnMapRefSub, fetchAssignmentsSub, healAfterEdits];
+  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits];
 };

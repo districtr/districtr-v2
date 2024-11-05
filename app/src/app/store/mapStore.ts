@@ -33,7 +33,7 @@ import {getMapViewsSubs} from '../utils/api/queries';
 import {persistOptions} from './persistConfig';
 import {onlyUnique} from '../utils/arrays';
 import {DistrictrMapOptions} from './types';
-import { queryClient } from '../utils/api/queryClient';
+import {queryClient} from '../utils/api/queryClient';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -59,6 +59,7 @@ export interface MapStore {
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
+  selectMapFeatures: (features: Array<MapGeoJSONFeature>) => void;
   // MAP DOCUMENT
   mapViews: Partial<QueryObserverResult<DistrictrMap[], Error>>;
   setMapViews: (maps: MapStore['mapViews']) => void;
@@ -212,6 +213,52 @@ export const useMapStore = create(
         },
         mapLock: false,
         setMapLock: mapLock => set({mapLock}),
+        selectMapFeatures: features => {
+          let {
+            accumulatedGeoids,
+            accumulatedBlockPopulations,
+            activeTool,
+            shatterMappings,
+            mapDocument,
+            lockedFeatures,
+            getMapRef,
+            selectedZone: _selectedZone,
+            zoneAssignments,
+          } = get();
+
+          const map = getMapRef();
+          const selectedZone = activeTool === 'eraser' ? null : _selectedZone;
+          if (!map || !mapDocument?.document_id) {
+            return;
+          }
+          // PAINT
+          features?.forEach(feature => {
+            const id = feature?.id?.toString() ?? undefined;
+            if (!id) return;
+            const isLocked = lockedFeatures.size && lockedFeatures.has(id);
+            if (isLocked) return;
+
+            accumulatedGeoids.add(feature.properties?.path);
+            accumulatedBlockPopulations.set(
+              feature.properties?.path,
+              feature.properties?.total_pop
+            );
+            zoneAssignments.set(id, selectedZone);
+            map.setFeatureState(
+              {
+                source: BLOCK_SOURCE_ID,
+                id: feature?.id ?? undefined,
+                sourceLayer: feature.sourceLayer,
+              },
+              {selected: true, zone: selectedZone}
+            );
+          });
+          set({
+            accumulatedGeoids,
+            accumulatedBlockPopulations,
+            zoneAssignments: new Map(zoneAssignments)
+          });
+        },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
         mapDocument: null,
@@ -329,7 +376,7 @@ export const useMapStore = create(
             mapOptions: {
               ...get().mapOptions,
               mode: 'break',
-              bounds: mapBbox
+              bounds: mapBbox,
             },
           });
         },
@@ -342,11 +389,17 @@ export const useMapStore = create(
             shatterMappings,
             zoneAssignments,
             shatterIds,
-            mapLock
+            mapLock,
           } = get();
           const idsToCheck = [..._parentsToHeal, ...additionalIds];
 
-          if (mapLock || isPainting || !idsToCheck.length || !mapDocument || queryClient.isMutating()) {
+          if (
+            mapLock ||
+            isPainting ||
+            !idsToCheck.length ||
+            !mapDocument ||
+            queryClient.isMutating()
+          ) {
             return;
           }
           const parentsToHeal = idsToCheck
@@ -356,7 +409,7 @@ export const useMapStore = create(
               ...checkIfSameZone(shatterMappings[parentId], zoneAssignments),
             }))
             .filter(f => f.shouldHeal);
-
+          console.log('!!! HEALING PARENTS', parentsToHeal);
           if (parentsToHeal.length) {
             set({mapLock: true});
             const r = await patchUnShatter.mutate({

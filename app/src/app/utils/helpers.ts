@@ -100,7 +100,7 @@ export const getFeaturesInBbox = (
   if (filterLocked && lockedFeatures.size) {
     features = features.filter(f => !lockedFeatures.has(f.id?.toString() || ''));
   }
-  if (isPainting && mapDocument?.child_layer) {
+  if (mapDocument?.child_layer) {
     const parentIds: MapStore['parentsToHeal'] = [];
     features = features.filter(f => {
       const id = f.id?.toString();
