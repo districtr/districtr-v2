@@ -12,13 +12,13 @@ export const BASEMAP_STYLE: StyleSpecification = {
       attribution:
         '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
       tiles: [
-        `${window.location.origin}/api/tiles/${encodeURIComponent("basemaps/20240325.pmtiles")}/{z}/{x}/{y}`
+        typeof window === 'undefined' ? '' : `${window.location.origin}/api/tiles/${encodeURIComponent("basemaps/20240325.pmtiles")}/{z}/{x}/{y}`
       ]
     },
     counties: {
       type: "vector",
       tiles: [
-        `${window.location.origin}/api/tiles/${encodeURIComponent("basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles")}/{z}/{x}/{y}`
+        typeof window === 'undefined' ? '' : `${window.location.origin}/api/tiles/${encodeURIComponent("basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles")}/{z}/{x}/{y}`
       ]
     },
   },
