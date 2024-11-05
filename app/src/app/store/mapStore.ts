@@ -33,6 +33,7 @@ import {getMapViewsSubs} from '../utils/api/queries';
 import {persistOptions} from './persistConfig';
 import {onlyUnique} from '../utils/arrays';
 import {DistrictrMapOptions} from './types';
+import { queryClient } from '../utils/api/queryClient';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -341,9 +342,11 @@ export const useMapStore = create(
             shatterMappings,
             zoneAssignments,
             shatterIds,
+            mapLock
           } = get();
           const idsToCheck = [..._parentsToHeal, ...additionalIds];
-          if (isPainting || !idsToCheck.length || !mapDocument) {
+
+          if (mapLock || isPainting || !idsToCheck.length || !mapDocument || queryClient.isMutating()) {
             return;
           }
           const parentsToHeal = idsToCheck
@@ -385,9 +388,11 @@ export const useMapStore = create(
             set({
               shatterIds: newShatterIds,
               mapLock: false,
-              shatterMappings: {...shatterMappings}, // Update shatterMappings
+              shatterMappings: {...shatterMappings},
               zoneAssignments: newZoneAssignments,
-              parentsToHeal: [],
+              // parents may have been added while this is firing off
+              // get curernt, and filter for any that were removed by this event
+              parentsToHeal: get().parentsToHeal.filter(f => !r.parents.geoids.includes(f)),
             });
           }
         },

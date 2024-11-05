@@ -84,7 +84,7 @@ export const getFeaturesInBbox = (
   filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
-  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds} =
+  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds, isPainting} =
     useMapStore.getState();
 
   const layers = _layers?.length
@@ -100,7 +100,7 @@ export const getFeaturesInBbox = (
   if (filterLocked && lockedFeatures.size) {
     features = features.filter(f => !lockedFeatures.has(f.id?.toString() || ''));
   }
-  if (mapDocument?.child_layer) {
+  if (isPainting && mapDocument?.child_layer) {
     const parentIds: MapStore['parentsToHeal'] = [];
     features = features.filter(f => {
       const id = f.id?.toString();
