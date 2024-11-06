@@ -1,6 +1,8 @@
+"use client"
 import { LngLatLike } from "maplibre-gl";
 import type { MapOptions, StyleSpecification } from "maplibre-gl";
 import { BASEMAP_LAYERS } from "./basemapLayers";
+import { getBlocksSource } from "./sources";
 
 export const MAP_CENTER: LngLatLike = [-98.5556199, 39.8097343]; // kansas
 
@@ -8,18 +10,12 @@ export const BASEMAP_STYLE: StyleSpecification = {
   version: 8,
   sources: {
     protomaps: {
-      type: "vector",
+      ...getBlocksSource("basemaps/20240325.pmtiles"),
       attribution:
-        '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
-      tiles: [
-        typeof window === 'undefined' ? '' : `${window.location.origin}/api/tiles/${encodeURIComponent("basemaps/20240325.pmtiles")}/{z}/{x}/{y}`
-      ]
+      '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
     },
     counties: {
-      type: "vector",
-      tiles: [
-        typeof window === 'undefined' ? '' : `${window.location.origin}/api/tiles/${encodeURIComponent("basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles")}/{z}/{x}/{y}`
-      ]
+      ...getBlocksSource("basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles"),
     },
   },
   layers: BASEMAP_LAYERS,
