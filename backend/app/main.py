@@ -1,7 +1,7 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
-from sqlmodel import Session, String, select, delete
+from sqlmodel import Session, String, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
@@ -178,12 +178,22 @@ async def shatter_parent(
     "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
 )
 async def reset_map(document_id: str, session: Session = Depends(get_session)):
-    # drop all rows in assignments
-    stmt = delete(Assignments).where(Assignments.document_id == document_id)
-    session.execute(stmt)
-    session.commit()  # Commit the changes to the database
+    # Drop the partition for the given assignments
+    partition_name = (
+        f'"document.assignments_{document_id}"'
+    )
+    session.execute(text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;"))
 
-    return {"message": "Assignments deleted", "document_id": document_id}
+    # Recreate the partition
+    session.execute(
+        text(f"""
+        CREATE TABLE {partition_name} PARTITION OF document.assignments
+        FOR VALUES IN ('{document_id}');
+    """)
+    )
+    session.commit() 
+
+    return {"message": "Assignments partition reset", "document_id": document_id}
 
 
 # called by getAssignments in apiHandlers.ts
