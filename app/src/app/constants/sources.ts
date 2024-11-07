@@ -1,11 +1,9 @@
-import { VectorSourceSpecification } from "maplibre-gl";
+import {VectorSourceSpecification} from 'maplibre-gl';
 
-export function getBlocksSource(
-  layer_subpath: string
-): VectorSourceSpecification {
+export function getBlocksSource(layer_subpath: string): VectorSourceSpecification {
   return {
-    type: "vector",
+    type: 'vector',
     url: `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${layer_subpath}`,
-    promoteId: "path",
+    promoteId: 'path',
   };
 }

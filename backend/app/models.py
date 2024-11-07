@@ -13,6 +13,8 @@ from sqlmodel import (
     MetaData,
     String,
 )
+from sqlalchemy.types import ARRAY
+from sqlalchemy import Float
 from app.constants import DOCUMENT_SCHEMA
 
 
@@ -62,6 +64,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
             String, ForeignKey("gerrydbtable.name"), default=None, nullable=True
         )
     )
+    extent: list[float] = Field(sa_column=Column(ARRAY(Float), nullable=True))
     # schema? will need to contrain the schema
     # where does this go?
     # when you create the view, pull the columns that you need
@@ -126,6 +129,7 @@ class DocumentPublic(BaseModel):
     num_districts: int | None = None
     created_at: datetime
     updated_at: datetime
+    extent: list[float] | None = None
 
 
 class AssignmentsBase(SQLModel):

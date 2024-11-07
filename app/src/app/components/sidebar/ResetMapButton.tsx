@@ -1,11 +1,11 @@
-import { useMapStore } from "@/app/store/mapStore";
-import { Button } from "@radix-ui/themes";
+import {useMapStore} from '@/app/store/mapStore';
+import {Button} from '@radix-ui/themes';
 
 export function ResetMapButton() {
-  const handleReset = useMapStore(state => state.handleReset)
+  const handleClickResetMap = useMapStore(state => state.handleReset)
 
   return (
-    <Button onClick={handleReset} variant={"outline"}>
+    <Button onClick={handleClickResetMap} variant={'outline'} disabled>
       Reset Map
     </Button>
   );

@@ -99,6 +99,7 @@ async def create_document(
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            DistrictrMap.extent.label("extent"),  # pyright: ignore
         )
         .where(Document.document_id == document_id)
         .join(
@@ -149,8 +150,10 @@ async def update_assignments(
 async def shatter_parent(
     document_id: str, data: GEOIDS, session: Session = Depends(get_session)
 ):
-    stmt = text("""SELECT *
-        FROM shatter_parent(:input_document_id, :parent_geoids)""").bindparams(
+    stmt = text(
+        """SELECT *
+        FROM shatter_parent(:input_document_id, :parent_geoids)"""
+    ).bindparams(
         bindparam(key="input_document_id", type_=UUIDType),
         bindparam(key="parent_geoids", type_=ARRAY(String)),
     )
@@ -220,6 +223,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            DistrictrMap.extent.label("extent"),  # pyright: ignore
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
@@ -230,6 +234,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
         .limit(1)
     )
     result = session.exec(stmt)
+
     return result.one()
 
 

@@ -1,24 +1,21 @@
-import { Box, Text, Checkbox, Flex } from "@radix-ui/themes";
-import { useMapStore } from "@/app/store/mapStore";
-import { COUNTY_LAYER_IDS } from "../../constants/layers";
-import { useState, useEffect } from "react";
-import {
-  getFeaturesInBbox,
-  getFeaturesIntersectingCounties,
-} from "../../utils/helpers";
+import {Box, Text, Checkbox, Flex} from '@radix-ui/themes';
+import {useMapStore} from '@/app/store/mapStore';
+import {COUNTY_LAYER_IDS} from '../../constants/layers';
+import {useState, useEffect} from 'react';
+import {getFeaturesInBbox, getFeaturesIntersectingCounties} from '../../utils/helpers';
 
 export default function PaintByCounty() {
-  const mapRef = useMapStore((state) => state.mapRef);
-  const addVisibleLayerIds = useMapStore((state) => state.addVisibleLayerIds);
-  const setPaintFunction = useMapStore((state) => state.setPaintFunction);
+  const mapRef = useMapStore(state => state.getMapRef());
+  const addVisibleLayerIds = useMapStore(state => state.addVisibleLayerIds);
+  const setPaintFunction = useMapStore(state => state.setPaintFunction);
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (!mapRef || !mapRef.current) return;
+    if (!mapRef) return;
 
     if (checked) {
-      COUNTY_LAYER_IDS.forEach((layerId) => {
-        mapRef.current?.setLayoutProperty(layerId, "visibility", "visible");
+      COUNTY_LAYER_IDS.forEach(layerId => {
+        mapRef.setLayoutProperty(layerId, 'visibility', 'visible');
       });
       addVisibleLayerIds(COUNTY_LAYER_IDS);
       setPaintFunction(getFeaturesIntersectingCounties);
@@ -34,7 +31,7 @@ export default function PaintByCounty() {
           <Checkbox
             checked={checked}
             defaultChecked={false}
-            onClick={() => setChecked((prevIsChecked) => !prevIsChecked)}
+            onClick={() => setChecked(prevIsChecked => !prevIsChecked)}
           />
           Paint by County
         </Flex>
