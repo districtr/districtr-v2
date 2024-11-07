@@ -179,9 +179,7 @@ async def shatter_parent(
 )
 async def reset_map(document_id: str, session: Session = Depends(get_session)):
     # Drop the partition for the given assignments
-    partition_name = (
-        f'"document.assignments_{document_id}"'
-    )
+    partition_name = f'"document.assignments_{document_id}"'
     session.execute(text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;"))
 
     # Recreate the partition
@@ -191,7 +189,7 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
         FOR VALUES IN ('{document_id}');
     """)
     )
-    session.commit() 
+    session.commit()
 
     return {"message": "Assignments partition reset", "document_id": document_id}
 
