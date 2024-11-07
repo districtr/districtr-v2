@@ -6,6 +6,7 @@ import {
   createMapDocument,
   patchShatterParents,
   patchUpdateAssignments,
+  patchUpdateReset,
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
