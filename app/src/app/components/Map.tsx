@@ -8,9 +8,7 @@ import { Protocol } from "pmtiles";
 import type { MutableRefObject } from "react";
 import React, { useEffect, useRef } from "react";
 import { MAP_OPTIONS } from "../constants/configuration";
-import {
-  mapEvents,
-} from "../utils/events/mapEvents";
+import { mapEvents } from "../utils/events/mapEvents";
 import { INTERACTIVE_LAYERS } from "../constants/layers";
 import { useMapStore } from "../store/mapStore";
 
@@ -18,8 +16,8 @@ export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore((state) => state.mapLock);
-
   const setMapRef = useMapStore((state) => state.setMapRef);
+  const mapOptions = useMapStore((state) => state.mapOptions);
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -30,8 +28,18 @@ export const MapComponent: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (map.current || !mapContainer.current) return;
+    if (map.current && mapOptions.bounds) {
+      if (mapOptions.bounds) {
+        map.current.fitBounds(mapOptions.bounds, {
+          padding: 20,
+        });
+      }
+    }
+  }, [mapOptions]);
 
+  useEffect(() => {
+    if (map.current || !mapContainer.current) return;
+    
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: MAP_OPTIONS.style,
@@ -54,7 +62,7 @@ export const MapComponent: React.FC = () => {
             action.action as keyof MapLayerEventType,
             layer, // to be updated with the scale-agnostic layer id
             (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-              action.handler(e, map);
+              action.handler(e, map.current);
             }
           );
         }
@@ -64,7 +72,7 @@ export const MapComponent: React.FC = () => {
     return () => {
       mapEvents.forEach((action) => {
         map.current?.off(action.action, (e) => {
-          action.handler(e, map);
+          action.handler(e, map.current);
         });
       });
     };

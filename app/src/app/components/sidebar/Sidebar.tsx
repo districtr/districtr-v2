@@ -1,17 +1,17 @@
-import { Box, Flex, Heading } from "@radix-ui/themes";
-import { MapModeSelector } from "./MapModeSelector";
-import { ColorPicker } from "./ColorPicker";
-import { MobileColorPicker } from "./MobileColorPicker"
-import { ResetMapButton } from "./ResetMapButton";
-import { GerryDBViewSelector } from "./GerryDBViewSelector";
-import { useMapStore } from "@/app/store/mapStore";
-import PaintByCounty from "./PaintByCounty";
-import { BrushSizeSelector } from "./BrushSizeSelector";
 import React from "react";
 import DataPanels from "./DataPanels";
+import {Box, Flex, Heading} from '@radix-ui/themes';
+import {MapModeSelector} from './MapModeSelector';
+import {ColorPicker} from './ColorPicker';
+import {ResetMapButton} from './ResetMapButton';
+import {GerryDBViewSelector} from './GerryDBViewSelector';
+import {useMapStore} from '@/app/store/mapStore';
+import PaintByCounty from './PaintByCounty';
+import {BrushSizeSelector} from './BrushSizeSelector';
+import {MobileColorPicker} from "./MobileColorPicker"
 
 export default function SidebarComponent() {
-  const activeTool = useMapStore((state) => state.activeTool);
+  const activeTool = useMapStore(state => state.activeTool);
 
   return (
     <Box

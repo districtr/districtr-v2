@@ -9,7 +9,14 @@ CREATE OR REPLACE FUNCTION create_districtr_map(
 RETURNS UUID AS $$
 DECLARE
     inserted_districtr_uuid UUID;
+    extent GEOMETRY;
 BEGIN
+    EXECUTE format('
+        SELECT ST_Extent(ST_Transform(geometry, 4326))
+        FROM gerrydb.%I',
+        parent_layer_name
+    ) INTO extent;
+
     INSERT INTO districtrmap (
         created_at,
         uuid,
@@ -18,10 +25,27 @@ BEGIN
         num_districts,
         tiles_s3_path,
         parent_layer,
-        child_layer
+        child_layer,
+        extent
     )
-    VALUES (now(), gen_random_uuid(), $1, $2, $3, $4, $5, $6)
+    VALUES (
+        now(),
+        gen_random_uuid(),
+        map_name,
+        gerrydb_table_name,
+        num_districts,
+        tiles_s3_path,
+        parent_layer_name,
+        child_layer_name,
+        ARRAY[
+            ST_XMin(extent),
+            ST_YMin(extent),
+            ST_XMax(extent),
+            ST_YMax(extent)
+        ]
+    )
     RETURNING uuid INTO inserted_districtr_uuid;
+
     RETURN inserted_districtr_uuid;
 END;
 $$ LANGUAGE plpgsql;

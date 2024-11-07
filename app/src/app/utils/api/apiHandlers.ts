@@ -1,22 +1,19 @@
-import axios from "axios";
-import "maplibre-gl";
-import { useMapStore } from "@/app/store/mapStore";
+import axios from 'axios';
+import 'maplibre-gl';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const FormatAssignments = () => {
-  const assignments = Array.from(
-    useMapStore.getState().zoneAssignments.entries(),
-  ).map(
+  const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
     // @ts-ignore
     ([geo_id, zone]: [string, number]): {
       document_id: string;
       geo_id: string;
       zone: number;
     } => ({
-      document_id:
-        useMapStore.getState().mapDocument?.document_id.toString() ?? "",
+      document_id: useMapStore.getState().mapDocument?.document_id.toString() ?? '',
       geo_id,
       zone,
-    }),
+    })
   );
   return assignments;
 };
@@ -63,6 +60,7 @@ export interface DocumentObject {
   num_districts: number | null;
   created_at: string;
   updated_at: string | null;
+  extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
 }
 
 /**
@@ -75,14 +73,14 @@ export interface DocumentCreate {
   gerrydb_table: string;
 }
 
-export const createMapDocument: (
-  document: DocumentCreate,
-) => Promise<DocumentObject> = async (document: DocumentCreate) => {
+export const createMapDocument: (document: DocumentCreate) => Promise<DocumentObject> = async (
+  document: DocumentCreate
+) => {
   return await axios
     .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
       gerrydb_table: document.gerrydb_table,
     })
-    .then((res) => {
+    .then(res => {
       return res.data;
     });
 };
@@ -92,33 +90,31 @@ export const createMapDocument: (
  * @param document_id - string, the document id
  * @returns Promise<DocumentObject>
  */
-export const getDocument: (
-  document_id: string,
-) => Promise<DocumentObject> = async (document_id: string) => {
+export const getDocument: (document_id: string) => Promise<DocumentObject> = async (
+  document_id: string
+) => {
   if (document_id) {
     return await axios
       .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`)
-      .then((res) => {
+      .then(res => {
         return res.data;
       });
   } else {
-    throw new Error("No document id found");
+    throw new Error('No document id found');
   }
 };
 
 export const getAssignments: (
-  mapDocument: DocumentObject,
-) => Promise<Assignment[]> = async (mapDocument) => {
+  mapDocument: DocumentObject
+) => Promise<Assignment[]> = async mapDocument => {
   if (mapDocument) {
     return await axios
-      .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument.document_id}`,
-      )
-      .then((res) => {
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument.document_id}`)
+      .then(res => {
         return res.data;
       });
   } else {
-    throw new Error("No document provided");
+    throw new Error('No document provided');
   }
 };
 
@@ -140,18 +136,16 @@ export interface ZonePopulation {
  * @returns Promise<ZonePopulation[]>
  */
 export const getZonePopulations: (
-  mapDocument: DocumentObject,
-) => Promise<ZonePopulation[]> = async (mapDocument) => {
+  mapDocument: DocumentObject
+) => Promise<ZonePopulation[]> = async mapDocument => {
   if (mapDocument) {
     return await axios
-      .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`,
-      )
-      .then((res) => {
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`)
+      .then(res => {
         return res.data;
       });
   } else {
-    throw new Error("No document provided");
+    throw new Error('No document provided');
   }
 };
 
@@ -163,13 +157,11 @@ export const getZonePopulations: (
  */
 export const getAvailableDistrictrMaps: (
   limit?: number,
-  offset?: number,
+  offset?: number
 ) => Promise<DistrictrMap[]> = async (limit = 10, offset = 0) => {
   return await axios
-    .get(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`,
-    )
-    .then((res) => {
+    .get(`${process.env.NEXT_PUBLIC_API_URL}/api/gerrydb/views?limit=${limit}&offset=${offset}`)
+    .then(res => {
       return res.data;
     });
 };
@@ -185,7 +177,7 @@ export interface Assignment {
   document_id: string;
   geo_id: string;
   zone: number;
-  parent_path?: string
+  parent_path?: string;
 }
 
 /**
@@ -203,13 +195,13 @@ export interface AssignmentsCreate {
  * @returns server object containing the updated assignments per geoid
  */
 export const patchUpdateAssignments: (
-  assignments: Assignment[],
+  assignments: Assignment[]
 ) => Promise<AssignmentsCreate> = async (assignments: Assignment[]) => {
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
     })
-    .then((res) => {
+    .then(res => {
       return res.data;
     });
 };
@@ -221,7 +213,7 @@ export const patchUpdateAssignments: (
  *   @property {Assignment[]} children - The children.
  */
 export interface ShatterResult {
-  parents: { geoids: string[] };
+  parents: {geoids: string[]};
   children: Assignment[];
 }
 
@@ -235,15 +227,15 @@ export interface ShatterResult {
 export const patchShatterParents: (params: {
   document_id: string;
   geoids: string[];
-}) => Promise<ShatterResult> = async ({ document_id, geoids }) => {
+}) => Promise<ShatterResult> = async ({document_id, geoids}) => {
   return await axios
     .patch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/shatter_parents`,
       {
         geoids: geoids,
-      },
+      }
     )
-    .then((res) => {
+    .then(res => {
       return res.data;
     });
 };

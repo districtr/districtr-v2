@@ -2,7 +2,7 @@ import { LngLatLike } from "maplibre-gl";
 import type { MapOptions, StyleSpecification } from "maplibre-gl";
 import { BASEMAP_LAYERS } from "./basemapLayers";
 
-export const MAP_CENTER: LngLatLike = [-105.358887, 39.113014]; // colorado
+export const MAP_CENTER: LngLatLike = [-98.5556199, 39.8097343]; // kansas
 
 export const BASEMAP_STYLE: StyleSpecification = {
   version: 8,
@@ -25,7 +25,7 @@ export const BASEMAP_STYLE: StyleSpecification = {
 
 export const MAP_OPTIONS: MapOptions = {
   style: BASEMAP_STYLE,
-  zoom: 6.75,
+  zoom: 3.75,
   center: MAP_CENTER,
   maxZoom: 22,
   minZoom: 3,
