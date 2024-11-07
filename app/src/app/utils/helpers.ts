@@ -333,7 +333,7 @@ export const colorZoneAssignments = (
   const [zoneAssignments, mapDocument, getMapRef, _, appLoadingState, mapRenderingState] = state;
   const previousZoneAssignments = previousState?.[0] || null;
   const mapRef = getMapRef();
-  const {shatterIds, lockedFeatures} = useMapStore.getState();
+  const {shatterIds} = useMapStore.getState();
   if (!mapRef || !mapDocument || appLoadingState !== 'loaded' || mapRenderingState !== 'loaded') {
     return;
   }
