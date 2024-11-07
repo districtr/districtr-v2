@@ -482,7 +482,8 @@ export const useMapStore = create(
             zoneAssignments,
             shatterIds,
             mapLock,
-            toggleHighlightBrokenDistricts
+            toggleHighlightBrokenDistricts,
+            lockedFeatures
           } = get();
           const idsToCheck = [..._parentsToHeal, ...additionalIds];
 
@@ -517,6 +518,7 @@ export const useMapStore = create(
               parents: new Set(shatterIds.parents),
               children: new Set(shatterIds.children),
             };
+            const newLockedFeatures = new Set(lockedFeatures)
             const childrenToRemove = parentsToHeal
               .map(f => shatterMappings[f.parentId])
               .filter(Boolean);
@@ -525,8 +527,10 @@ export const useMapStore = create(
               childSet.forEach(childId => {
                 newZoneAssignments.delete(childId);
                 newShatterIds.children.delete(childId);
+                newLockedFeatures.delete(childId)
               })
             );
+
             parentsToHeal.forEach(parent => {
               delete shatterMappings[parent.parentId];
               newShatterIds.parents.delete(parent.parentId);
@@ -538,6 +542,7 @@ export const useMapStore = create(
               mapLock: false,
               shatterMappings: {...shatterMappings},
               zoneAssignments: newZoneAssignments,
+              lockedFeatures: newLockedFeatures,
               // parents may have been added while this is firing off
               // get curernt, and filter for any that were removed by this event
               parentsToHeal: get().parentsToHeal.filter(f => !r.parents.geoids.includes(f)),
