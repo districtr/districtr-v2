@@ -23,6 +23,7 @@ import {
   LayerVisibility,
   PaintEventHandler,
   getFeaturesInBbox,
+  resetZoneColors,
   setZones,
 } from "../utils/helpers";
 import { getRenderSubscriptions } from "./mapRenderSubs";
@@ -38,7 +39,7 @@ const prodWrapper: typeof devtools = (store: any) => store
 const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper
 
 export interface MapStore {
-  appLoadingState: "loaded" | "initializing" | "loading" | "reset";
+  appLoadingState: "loaded" | "initializing" | "loading";
   setAppLoadingState: (state: MapStore["appLoadingState"]) => void;
   mapRenderingState: "loaded" | "initializing" | "loading";
   setMapRenderingState: (state: MapStore["mapRenderingState"]) => void;
@@ -234,7 +235,9 @@ export const useMapStore = create(
           });
         },
         handleReset: async () => {
-          const document_id = get().mapDocument?.document_id;
+          const {mapDocument, getMapRef, zoneAssignments, shatterIds} = get();
+          const document_id = mapDocument?.document_id
+
           if (!document_id) {
             console.log("No document ID to reset.");
             return;
@@ -244,14 +247,21 @@ export const useMapStore = create(
             appLoadingState: "loading",
           });
           const resetResponse = await patchReset.mutate(document_id);
-    
+          
           if (resetResponse.document_id === document_id) {
             const initialState = useMapStore.getInitialState();
+            resetZoneColors({
+              zoneAssignments,
+              mapRef: getMapRef(),
+              mapDocument,
+              shatterIds
+            })
+            
             set({
               zonePopulations: initialState.zonePopulations,
               zoneAssignments: initialState.zoneAssignments,
-              appLoadingState: "reset",
               shatterIds: initialState.shatterIds,
+              appLoadingState: "loaded",
               mapLock: false,
             });
           }
