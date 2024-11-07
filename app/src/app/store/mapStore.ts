@@ -290,9 +290,10 @@ export const useMapStore = create(
 
           const parentId = focusFeatures?.[0].id?.toString();
           if (!parentId) return
-          mapOptions.showBrokenDistricts && toggleHighlightBrokenDistricts([parentId], true);
+          if (mapOptions.showBrokenDistricts) toggleHighlightBrokenDistricts([parentId], true);
           const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal
-          lock && !willHeal && lockFeatures
+          const children = shatterMappings[parentId]
+          if (lock && !willHeal && children?.size) lockFeatures(children, true)
         },
         getMapRef: () => null,
         setMapRef: mapRef => {
