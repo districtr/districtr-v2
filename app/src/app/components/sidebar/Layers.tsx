@@ -23,7 +23,7 @@ export default function Layers() {
   const visibleLayerIds = useMapStore(state => state.visibleLayerIds);
   const updateVisibleLayerIds = useMapStore(state => state.updateVisibleLayerIds);
   const toggleHighlightBrokenDistricts = useMapStore(state => state.toggleHighlightBrokenDistricts);
-  const toggleLockPaintedAreas = useMapStore(state => state.toggleLockPaintedAreas);
+  const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
   const parentsAreBroken = useMapStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapStore(state => state.mapOptions);
 
@@ -44,7 +44,7 @@ export default function Layers() {
         value={[
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
-          mapOptions.lockPaintedAreas ? '4' : '',
+          mapOptions.lockPaintedAreas === true ? '4' : '',
         ]}
       >
         <CheckboxGroup.Item
@@ -73,7 +73,7 @@ export default function Layers() {
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="4"
-          onClick={() => toggleLockPaintedAreas()}
+          onClick={() => toggleLockAllAreas()}
         >
           Lock All Painted Areas
         </CheckboxGroup.Item>

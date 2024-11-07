@@ -192,6 +192,8 @@ export interface MapStore {
    * @param {Set<string>} lockedFeatures - The new set of locked features.
    */
   setLockedFeatures: (lockedFeatures: MapStore['lockedFeatures']) => void;
+  setLockedZones: (areas: MapStore['mapOptions']['lockPaintedAreas']) => void;
+  toggleLockAllAreas: () => void;
   // HOVERING
   /**
    * Features that area highlighted and hovered. 
@@ -209,7 +211,6 @@ export interface MapStore {
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
   // HIGHLIGHT
   toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
-  toggleLockPaintedAreas: () => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   spatialUnit: SpatialUnit;
@@ -676,12 +677,21 @@ export const useMapStore = create(
             },
           });
         },
-        toggleLockPaintedAreas: () => {
+        toggleLockAllAreas: () => {
           const {mapOptions} = get();
           set({
             mapOptions: {
               ...mapOptions,
-              lockPaintedAreas: !mapOptions.lockPaintedAreas,
+              lockPaintedAreas: !mapOptions.lockPaintedAreas
+            },
+          });
+        },
+        setLockedZones: (areas) => {
+          const {mapOptions} = get();
+          set({
+            mapOptions: {
+              ...mapOptions,
+              lockPaintedAreas: areas
             },
           });
         },

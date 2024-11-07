@@ -1,12 +1,13 @@
 import React, {useState} from 'react';
-import {_colorScheme, colorScheme} from '../../constants/colors';
+import {colorScheme} from '../../constants/colors';
 import {Button} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import {blackA} from '@radix-ui/colors';
 import {useMapStore} from '../../store/mapStore';
+import {ColorPicker} from './ColorPicker';
 
-export function ColorPicker() {
+export function ZonePicker() {
   const selectedZone = useMapStore(state => state.selectedZone);
   const setSelectedZone = useMapStore(state => state.setSelectedZone);
   const setZoneAssignments = useMapStore(state => state.setZoneAssignments);
@@ -15,27 +16,22 @@ export function ColorPicker() {
     state => state.resetAccumulatedBlockPopulations
   );
 
-  const colorArray = colorScheme;
-  if (!colorArray) return null;
-  const handleRadioChange = value => {
+  const handleRadioChange = (index: number, _color: string) => {
+    const value = index + 1;
     console.log('setting accumulated geoids to old zone', selectedZone, 'new zone is', value);
     setZoneAssignments(selectedZone, accumulatedGeoids);
     setSelectedZone(value);
     resetAccumulatedBlockPopulations();
   };
+
   return (
     <div>
-      <RadioGroupRoot onValueChange={handleRadioChange} defaultValue={colorArray[0]}>
-        {colorArray.map((color, i) => (
-          <RadioGroupItem
-            key={i}
-            style={{backgroundColor: color}}
-            value={i + 1} // 1-indexed based on mapStore
-          >
-            <RadioGroupIndicator />
-          </RadioGroupItem>
-        ))}
-      </RadioGroupRoot>
+      <ColorPicker
+        onValueChange={handleRadioChange}
+        colorArray={colorScheme}
+        defaultValue={0}
+        value={selectedZone - 1}
+      />
     </div>
   );
 }
@@ -53,7 +49,6 @@ const StyledColorPicker = styled(Button, {
 const RadioGroupItem = styled(RadioGroup.Item, {
   width: 20,
   height: 20,
-  borderRadius: '100%',
   '&:hover': {backgroundColor: blackA.blackA4},
   '&:focus': {boxShadow: `0 0 0 2px black`},
   margin: 2.5,

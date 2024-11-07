@@ -124,10 +124,13 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       const [lockPaintedAreas, prevLockPaintedAreas] = [curr[6], prev[6]];
       const zoneAssignments = curr[0];
       // if lockPaintedAreas, lock all zones
-      if (lockPaintedAreas) {
+      if (lockPaintedAreas === true) {
         const nonNullZones = new Set([...zoneAssignments.entries()].filter(([key, value]) => value !== null).map(([key]) => key))
         setLockedFeatures(new Set(nonNullZones));
         // now unlocked, was previously locked
+      } else if (Array.isArray(lockPaintedAreas)) {
+        const nonNullZones = new Set([...zoneAssignments.entries()].filter(([key, value]) => lockPaintedAreas.includes(value)).map(([key]) => key))
+        setLockedFeatures(new Set(nonNullZones));
       } else if (!lockPaintedAreas && prevLockPaintedAreas) {
         setLockedFeatures(new Set());
       }

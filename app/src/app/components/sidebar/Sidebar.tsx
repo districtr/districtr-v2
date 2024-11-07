@@ -1,6 +1,5 @@
 import {Box, Flex, Heading} from '@radix-ui/themes';
 import {MapModeSelector} from './MapModeSelector';
-import {ColorPicker} from './ColorPicker';
 import {ResetMapButton} from './ResetMapButton';
 import {GerryDBViewSelector} from './GerryDBViewSelector';
 import {HorizontalBar} from './charts/HorizontalBarChart';
@@ -10,6 +9,8 @@ import Layers from './Layers';
 import PaintByCounty from './PaintByCounty';
 import {BrushSizeSelector} from './BrushSizeSelector';
 import {ExitBlockViewButtons} from './ExitBlockViewButtons';
+import { ZonePicker } from './ZonePicker';
+import { ZoneLockPicker } from './ZoneLockPicker';
 
 export default function SidebarComponent() {
   const activeTool = useMapStore(state => state.activeTool);
@@ -30,7 +31,12 @@ export default function SidebarComponent() {
         ) : null}
         {activeTool === 'brush' ? (
           <div>
-            <ColorPicker />
+            <ZonePicker />
+          </div>
+        ) : null}
+        {activeTool === 'lock' ? (
+          <div>
+            <ZoneLockPicker />
           </div>
         ) : null}
         <ResetMapButton />
