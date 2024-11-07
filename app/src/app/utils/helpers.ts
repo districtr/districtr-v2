@@ -343,9 +343,8 @@ export const colorZoneAssignments = (
     const hasNoId = !id;
     const isRepeated =
       id && !isInitialRender && previousZoneAssignments?.get(id) === zoneAssignments.get(id);
-    const isLocked = lockedFeatures.size && lockedFeatures.has(id);
-
-    if (hasNoId || isRepeated || isLocked) {
+    // const isLocked = lockedFeatures.size && lockedFeatures.has(id);
+    if (hasNoId || isRepeated) {
       return;
     }
 
