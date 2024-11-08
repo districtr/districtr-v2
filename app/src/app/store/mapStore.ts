@@ -819,5 +819,3 @@ getMapMetricsSubs(useMapStore);
 getMapViewsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
-
-window.getState = useMapStore.getState;
