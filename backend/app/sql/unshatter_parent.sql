@@ -37,9 +37,8 @@ BEGIN
     -- Insert the unshattered parent into the assignments table with the designated zone
     INSERT INTO document.assignments (document_id, geo_id, zone)
     SELECT input_document_id, unnest(parent_geoids), input_zone  -- Insert all parent geoids
-    ON CONFLICT (document_id, geo_id) DO UPDATE SET zone = EXCLUDED.zone
-    RETURNING parent_geoids INTO returned_geoids;  -- Capture the geoids
+    ON CONFLICT (document_id, geo_id) DO UPDATE SET zone = EXCLUDED.zone;
 
-    RETURN returned_geoids;  -- Return the geoids
+    RETURN parent_geoids;  -- Return the geoids
 END;
 $$ LANGUAGE plpgsql;
