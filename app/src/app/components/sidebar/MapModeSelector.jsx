@@ -39,7 +39,7 @@ export function MapModeSelector() {
         defaultValue="default"
         value={activeTool}
         onValueChange={handleRadioChange}
-        columns={{ initial: "1", sm: "3" }}
+        columns={{ initial: "3" }}
       >
         {activeTools.map((tool) => (
           <Flex key={`${tool.mode}-flex`}>

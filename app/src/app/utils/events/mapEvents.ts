@@ -164,9 +164,14 @@ export const handleMapMouseMove = (
     mapStore.brushSize,
     paintLayers,
   );
+  // sourceCapabilities exists on the UIEvent constructor, which does not appear
+  // properly tpyed in the default map events
+  // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
+  const isTouchEvent = 'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents
+
   const isBrushingTool =
     sourceLayer && ["brush", "eraser", "shatter"].includes(activeTool);
-  if (isBrushingTool) {
+    if (isBrushingTool && !isTouchEvent) {
     setHoverFeatures(selectedFeatures);
   }
 
@@ -246,6 +251,8 @@ export const mapEvents = [
   { action: "mouseover", handler: handleMapMouseOver },
   { action: "mouseleave", handler: handleMapMouseLeave },
   { action: "touchleave", handler: handleMapMouseLeave },
+  { action: "touchend", handler: handleMapMouseUp },
+  { action: "touchcancel", handler: handleMapMouseUp },
   { action: "mouseout", handler: handleMapMouseOut },
   { action: "mousemove", handler: handleMapMouseMove },
   { action: "touchmove", handler: handleMapMouseMove },

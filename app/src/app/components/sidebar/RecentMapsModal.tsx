@@ -14,7 +14,14 @@ import {
 } from '@radix-ui/themes';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
+import { styled } from '@stitches/react';
 type NamedDocumentObject = DocumentObject & {name?: string};
+
+const DialogContentContainer = styled(Dialog.Content, {
+  maxWidth: "calc(100vw - 2rem)",
+  maxHeight: "calc(100vh-2rem)"
+})
+
 export const RecentMapsModal = () => {
   const router = useRouter();
   const pathname = usePathname();
@@ -46,7 +53,7 @@ export const RecentMapsModal = () => {
           Recents
         </RadioCards.Item>
       </Dialog.Trigger>
-      <Dialog.Content className="max-w-[75vw]">
+      <DialogContentContainer className="max-w-[75vw]">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
 
@@ -84,7 +91,7 @@ export const RecentMapsModal = () => {
             ))}
           </Table.Body>
         </Table.Root>
-      </Dialog.Content>
+      </DialogContentContainer>
     </Dialog.Root>
   );
 };
