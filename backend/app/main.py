@@ -26,7 +26,6 @@ from app.models import (
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
-    UnShatterResult,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -178,7 +177,7 @@ async def shatter_parent(
 
 @app.patch(
     "/api/update_assignments/{document_id}/unshatter_parents",
-    response_model=UnShatterResult,
+    response_model=GEOIDS,
 )
 async def unshatter_parent(
     document_id: str, data: ZoneAndGEOIDS, session: Session = Depends(get_session)
@@ -198,10 +197,9 @@ async def unshatter_parent(
             "parent_geoids": data.geoids,
             "input_zone": data.zone,
         },
-    )
+    ).first()
     session.commit()
-    result = UnShatterResult(parents=GEOIDS(geoids=data.geoids))
-    return result
+    return {"geoids": results[0]}
 
 
 # called by getAssignments in apiHandlers.ts

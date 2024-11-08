@@ -1,12 +1,13 @@
-
-CREATE OR REPLACE FUNCTION unshatter_parent(
+DROP FUNCTION IF EXISTS unshatter_parent; --If DB has an old version with old types
+CREATE FUNCTION unshatter_parent(
     input_document_id UUID,
     parent_geoids VARCHAR[],
     input_zone INTEGER
-) RETURNS void
+) RETURNS VARCHAR[]
 AS $$
 DECLARE
     districtr_map_uuid UUID;
+	returned_geoids VARCHAR[];  -- Declare a variable to hold the returned geoids
 
 
 BEGIN
@@ -36,7 +37,9 @@ BEGIN
     -- Insert the unshattered parent into the assignments table with the designated zone
     INSERT INTO document.assignments (document_id, geo_id, zone)
     SELECT input_document_id, unnest(parent_geoids), input_zone  -- Insert all parent geoids
-    ON CONFLICT (document_id, geo_id) DO UPDATE SET zone = EXCLUDED.zone;
+    ON CONFLICT (document_id, geo_id) DO UPDATE SET zone = EXCLUDED.zone
+    RETURNING parent_geoids INTO returned_geoids;  -- Capture the geoids
 
+    RETURN returned_geoids;  -- Return the geoids
 END;
 $$ LANGUAGE plpgsql;
