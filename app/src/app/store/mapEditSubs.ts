@@ -17,12 +17,14 @@ const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapS
 const debouncedZoneUpdate = debounce(zoneUpdates, 25);
 
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
-  const sendZoneUpdatesOnUpdate = useMapStore.subscribe(
-    state => state.zoneAssignments,
-    zoneAssignments => {
-      const {getMapRef, appLoadingState} = useMapStore.getState();
+  const sendZoneUpdatesOnUpdate = useMapStore.subscribe<[MapStore['zoneAssignments'], MapStore['appLoadingState']]>(
+    state => [state.zoneAssignments, state.appLoadingState],
+    ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
+      if (previousAppLoadingState !== 'loaded') return
+      const {getMapRef} = useMapStore.getState();
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
-    }
+    },
+    { equalityFn: shallowCompareArray}
   );
 
   const fetchAssignmentsSub = useMapStore.subscribe(
