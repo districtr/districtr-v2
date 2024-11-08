@@ -68,7 +68,7 @@ export function getLayerFill(
     'case',
     // geography is locked
     ['boolean', ['feature-state', 'locked'], false],
-    0.2,
+    0.35,
     // zone is selected and hover is true and hover is not null
     [
       'all',
@@ -108,7 +108,7 @@ export function getLayerFill(
     return [
       'case',
       ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
-      0.1,
+      0.35,
       innerFillSpec,
     ] as DataDrivenPropertyValueSpecification<number>;
   } else if (shatterIds?.size) {
