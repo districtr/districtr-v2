@@ -43,17 +43,16 @@ export default function SidebarComponent() {
               <BrushSizeSelector />
               <PaintByCounty />{' '}
             </div>
-          </div>
-        ) : null}
-
-        {activeTool === 'brush' ? (
-          <div className="flex-grow-0">
-            <span className="hidden md:block landscape:block">
-              <ZonePicker />
-            </span>
-            <span className="md:hidden landscape:hidden">
-              <MobileColorPicker />
-            </span>
+            {activeTool === 'brush' ? (
+              <div className="flex-grow-0 flex-row">
+                <span className="hidden md:block landscape:block">
+                  <ZonePicker />
+                </span>
+                <span className="md:hidden landscape:hidden">
+                  <MobileColorPicker />
+                </span>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
