@@ -163,7 +163,7 @@ class GEOIDS(BaseModel):
     geoids: list[str]
 
 
-class ZoneAndGEOIDS(GEOIDS):
+class AssignedGEOIDS(GEOIDS):
     zone: int | None
 
 

@@ -20,7 +20,7 @@ from app.models import (
     DocumentCreate,
     DocumentPublic,
     GEOIDS,
-    ZoneAndGEOIDS,
+    AssignedGEOIDS,
     UUIDType,
     ZonePopulation,
     DistrictrMapPublic,
@@ -180,7 +180,7 @@ async def shatter_parent(
     response_model=GEOIDS,
 )
 async def unshatter_parent(
-    document_id: str, data: ZoneAndGEOIDS, session: Session = Depends(get_session)
+    document_id: str, data: AssignedGEOIDS, session: Session = Depends(get_session)
 ):
     stmt = text(
         """SELECT *
