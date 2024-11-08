@@ -172,10 +172,6 @@ class ShatterResult(BaseModel):
     children: list[Assignments]
 
 
-class UnShatterResult(BaseModel):
-    parents: GEOIDS
-
-
 class ZonePopulation(BaseModel):
     zone: int
     total_pop: int
