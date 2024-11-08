@@ -513,7 +513,7 @@ export const useMapStore = create(
               zone: parentsToHeal[0].zone as any,
               document_id: mapDocument?.document_id,
             });
-            toggleHighlightBrokenDistricts(r.parents.geoids, false)
+            toggleHighlightBrokenDistricts(r.geoids, false)
             const newZoneAssignments = new Map(zoneAssignments);
             const newShatterIds = {
               parents: new Set(shatterIds.parents),
@@ -546,7 +546,7 @@ export const useMapStore = create(
               lockedFeatures: newLockedFeatures,
               // parents may have been added while this is firing off
               // get curernt, and filter for any that were removed by this event
-              parentsToHeal: get().parentsToHeal.filter(f => !r.parents.geoids.includes(f)),
+              parentsToHeal: get().parentsToHeal.filter(f => !r.geoids.includes(f)),
             });
           }
         },

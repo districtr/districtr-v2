@@ -44,7 +44,7 @@ export const patchUnShatter = new MutationObserver(queryClient, {
   },
   onSuccess: data => {
     console.log(
-      `Successfully un-shattered parents ${data.parents.geoids.join(', ')} from children`
+      `Successfully un-shattered parents ${data.geoids.join(', ')} from children`
     );
     return data;
   },
