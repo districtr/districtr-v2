@@ -50,7 +50,7 @@ const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapp
 
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
-  appLoadingState: 'loaded' | 'initializing' | 'loading';
+  appLoadingState: 'loaded' | 'initializing' | 'loading' | 'blurred';
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
   mapRenderingState: 'loaded' | 'initializing' | 'loading';
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
@@ -484,15 +484,18 @@ export const useMapStore = create(
             shatterIds,
             mapLock,
             toggleHighlightBrokenDistricts,
-            lockedFeatures
+            lockedFeatures,
+            getMapRef
           } = get();
           const idsToCheck = [..._parentsToHeal, ...additionalIds];
-
+          const mapRef = getMapRef()
           if (
-            mapLock ||
+            !mapRef ||
             isPainting ||
+            mapLock ||
             !idsToCheck.length ||
             !mapDocument ||
+            !mapDocument.child_layer ||
             queryClient.isMutating()
           ) {
             return;
@@ -524,12 +527,21 @@ export const useMapStore = create(
               .map(f => shatterMappings[f.parentId])
               .filter(Boolean);
 
-            childrenToRemove.forEach(childSet =>
+            childrenToRemove.forEach(childSet => {
+
               childSet.forEach(childId => {
                 newZoneAssignments.delete(childId);
                 newShatterIds.children.delete(childId);
                 newLockedFeatures.delete(childId)
+                mapRef.setFeatureState({
+                  id: childId,
+                  source: BLOCK_SOURCE_ID,
+                  sourceLayer: mapDocument.child_layer || '' 
+                }, {
+                  zone: null
+                })
               })
+            }
             );
 
             parentsToHeal.forEach(parent => {
