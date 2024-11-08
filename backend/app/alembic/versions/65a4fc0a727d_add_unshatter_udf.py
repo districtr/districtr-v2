@@ -1,7 +1,7 @@
 """Add unshatter UDF
 
 Revision ID: 65a4fc0a727d
-Revises: 5ab466c5650a
+Revises: dc391733e10a
 Create Date: 2024-10-28 14:59:54.506026
 
 """
@@ -20,7 +20,6 @@ revision: str = "65a4fc0a727d"
 down_revision: Union[str, None] = "dc391733e10a"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
-
 
 def upgrade() -> None:
     for file_name in [
