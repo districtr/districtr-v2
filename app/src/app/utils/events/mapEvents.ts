@@ -53,12 +53,15 @@ export const handleMapClick = (
     if (sourceLayer && selectedFeatures && map && mapStore) {
       // select on both the map object and the store
       // @ts-ignore TODO fix typing on this function
-      selectMapFeatures(selectedFeatures)
+      selectMapFeatures(selectedFeatures);
     }
   } else if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
     if (documentId && e.features?.length) {
-      handleShatter(documentId, e.features.filter(f => f.layer.id === BLOCK_HOVER_LAYER_ID));
+      handleShatter(
+        documentId,
+        e.features.filter(f => f.layer.id === BLOCK_HOVER_LAYER_ID)
+      );
     }
   } else if (activeTool === 'lock') {
     const documentId = mapStore.mapDocument?.document_id;
@@ -144,7 +147,12 @@ export const handleMapMouseMove = (
 
   const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
   const isBrushingTool = sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
-  if (isBrushingTool) {
+  // sourceCapabilities exists on the UIEvent constructor, which does not appear
+  // properly tpyed in the default map events
+  // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
+  const isTouchEvent =
+    'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
+  if (isBrushingTool && !isTouchEvent) {
     setHoverFeatures(selectedFeatures);
   }
 
@@ -193,8 +201,8 @@ export const handleMapContextMenu = (
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
   const paintLayers = mapStore.mapDocument?.child_layer
-      ? INTERACTIVE_LAYERS
-      : [BLOCK_HOVER_LAYER_ID];
+    ? INTERACTIVE_LAYERS
+    : [BLOCK_HOVER_LAYER_ID];
 
   const selectedFeatures = mapStore.paintFunction(map, e, 0, paintLayers, false);
 
@@ -229,6 +237,8 @@ export const mapEvents = [
   {action: 'mouseout', handler: handleMapMouseOut},
   {action: 'mousemove', handler: handleMapMouseMove},
   {action: 'touchmove', handler: handleMapMouseMove},
+  {action: 'touchend', handler: handleMapMouseUp},
+  {action: 'touchcancel', handler: handleMapMouseUp},
   {action: 'zoom', handler: handleMapZoom},
   {action: 'idle', handler: handleMapIdle},
   {action: 'moveend', handler: handleMapMoveEnd},

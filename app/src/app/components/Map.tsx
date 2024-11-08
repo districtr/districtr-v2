@@ -32,7 +32,7 @@ export const MapComponent: React.FC = () => {
         });
       }
     }
-  }
+  };
   useEffect(fitMapToBounds, [mapOptions.bounds]);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export const MapComponent: React.FC = () => {
       zoom: MAP_OPTIONS.zoom,
       maxZoom: MAP_OPTIONS.maxZoom,
     });
-    fitMapToBounds()
+    fitMapToBounds();
     map.current.scrollZoom.setWheelZoomRate(1 / 300);
     map.current.scrollZoom.setZoomRate(1 / 300);
 
@@ -79,7 +79,7 @@ export const MapComponent: React.FC = () => {
 
   return (
     <div
-      className={`h-full w-full-minus-sidebar relative
+      className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen
     ${mapLock ? 'pointer-events-none' : ''}
     `}
       ref={mapContainer}
