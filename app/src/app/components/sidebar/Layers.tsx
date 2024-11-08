@@ -71,10 +71,7 @@ export default function Layers() {
         >
           Highlight Broken Voter Districts
         </CheckboxGroup.Item>
-        <CheckboxGroup.Item
-          value="4"
-          onClick={() => toggleLockAllAreas()}
-        >
+        <CheckboxGroup.Item value="4" onClick={() => toggleLockAllAreas()}>
           Lock All Painted Areas
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>

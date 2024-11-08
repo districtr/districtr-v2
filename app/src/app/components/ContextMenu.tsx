@@ -16,23 +16,26 @@ export const MapContextMenu: React.FC = () => {
       mapDocument.child_layer &&
       mapDocument.child_layer !== contextMenu?.data.sourceLayer
   );
-  
+
   if (!contextMenu) return null;
-  const isChild = CHILD_LAYERS.includes(contextMenu.data.layer.id)
+  const isChild = CHILD_LAYERS.includes(contextMenu.data.layer.id);
   const id = contextMenu.data.id?.toString() || '';
-  const parent = isChild && Object.entries(shatterMappings).find(([key, value]) => {
-    return value.has(id)
-  })?.[0] || false
-  const shatterableId = isChild && parent ? parent : contextMenu?.data?.id
+  const parent =
+    (isChild &&
+      Object.entries(shatterMappings).find(([key, value]) => {
+        return value.has(id);
+      })?.[0]) ||
+    false;
+  const shatterableId = isChild && parent ? parent : contextMenu?.data?.id;
   const featureIsLocked = lockedFeatures.has(id);
 
   const handleSelect = () => {
     if (!mapDocument || !shatterableId) return;
-    const shatterData = isChild ? {id: shatterableId} : contextMenu.data
+    const shatterData = isChild ? {id: shatterableId} : contextMenu.data;
     handleShatter(mapDocument.document_id, [shatterData]);
     contextMenu.close();
   };
-  
+
   const handleLock = () => {
     lockFeature(id, !featureIsLocked);
   };
@@ -60,24 +63,27 @@ export const MapContextMenu: React.FC = () => {
             {id}
           </Text>
         </ContextMenu.Label>
-        {!isChild && <ContextMenu.Item disabled={!mapDocument?.child_layer} onSelect={handleSelect}>
-          Break to Blocks
-        </ContextMenu.Item>}
+        {!isChild && (
+          <ContextMenu.Item disabled={!mapDocument?.child_layer} onSelect={handleSelect}>
+            Break to Blocks
+          </ContextMenu.Item>
+        )}
         <ContextMenu.Item onSelect={handleLock}>
           {featureIsLocked ? 'Unlock' : 'Lock'}
         </ContextMenu.Item>
 
-        {!!parent && <>
-        <ContextMenu.Label>
-          <Text size="1" color="gray">
-            Parent: {parent}
-          </Text>
-        </ContextMenu.Label>
-        <ContextMenu.Item disabled={!mapDocument?.child_layer} onSelect={handleSelect}>
-          Break Parent to Blocks
-        </ContextMenu.Item>
-        </>
-        }
+        {!!parent && (
+          <>
+            <ContextMenu.Label>
+              <Text size="1" color="gray">
+                Parent: {parent}
+              </Text>
+            </ContextMenu.Label>
+            <ContextMenu.Item disabled={!mapDocument?.child_layer} onSelect={handleSelect}>
+              Break Parent to Blocks
+            </ContextMenu.Item>
+          </>
+        )}
       </ContextMenu.Content>
     </ContextMenu.Root>
   );

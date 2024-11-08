@@ -113,7 +113,7 @@ export interface MapStore {
   ) => void;
   /**
    * Handles the business logic of fetching the child edges from the backend,
-   * breaking the parent into its children, and then entering a focused work mode 
+   * breaking the parent into its children, and then entering a focused work mode
    * to draw on just those areas.
    *
    * This function performs the following steps:
@@ -125,7 +125,7 @@ export interface MapStore {
    *
    * @param {string} document_id - The ID of the document associated with the parent feature.
    * @param {Array<Partial<MapGeoJSONFeature>} features - An array of features to be shattered. Each feature should contain at least an ID and geometry.
-   * 
+   *
    * TODO: Multiple break/shatter is not yet implemented.
    */
   handleShatter: (document_id: string, features: Array<Partial<MapGeoJSONFeature>>) => void;
@@ -134,7 +134,7 @@ export interface MapStore {
    * and add parents under the specified zone.
    * This function processes the queue of parents to heal and updates the state accordingly.
    * This WILL NOT fire off if there is another server interaction happening (eg. assignment patch updates.)
-   * 
+   *
    * @param {string[]} [additionalIds] - Optional array of additional IDs to include in the healing process.
    */
   processHealParentsQueue: (additionalIds?: string[]) => void;
@@ -142,21 +142,21 @@ export interface MapStore {
    * Removes local shatter data and updates the map view based on the provided parents to heal.
    * This function checks the current state of parents and determines if any need to be healed,
    * updating the relevant state and sending necessary requests to the server.
-   * 
+   *
    * @param {MapStore['parentsToHeal']} parentsToHeal - An array of additional parent IDs that need to be checked for healing.
    */
   checkParentsToHeal: (parentsToHeal: MapStore['parentsToHeal']) => void;
-    /**
+  /**
    * A list of parent IDs that are queued for healing.
    * This property tracks the parents that need to be processed for healing,
    * allowing the application to manage state effectively during the healing process.
    * Healing occurs on exit from break mode, or after a zone assignment update is complete
    * and the application is idle.
-   * 
+   *
    * @type {string[]}
    */
   parentsToHeal: string[];
-  // LOCK  
+  // LOCK
   // TODO: Refactor to something like this
   // featureStates: {
   //   locked: Array<MapFeatureInfo>,
@@ -196,7 +196,7 @@ export interface MapStore {
   toggleLockAllAreas: () => void;
   // HOVERING
   /**
-   * Features that area highlighted and hovered. 
+   * Features that area highlighted and hovered.
    * Map render effects in `mapRenderSubs` -> `_hoverMapSideEffectRender`
    */
   hoverFeatures: Array<MapFeatureInfo>;
@@ -290,11 +290,11 @@ export const useMapStore = create(
           });
 
           const parentId = focusFeatures?.[0].id?.toString();
-          if (!parentId) return
+          if (!parentId) return;
           if (mapOptions.showBrokenDistricts) toggleHighlightBrokenDistricts([parentId], true);
-          const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal
-          const children = shatterMappings[parentId]
-          if (lock && !willHeal && children?.size) lockFeatures(children, true)
+          const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal;
+          const children = shatterMappings[parentId];
+          if (lock && !willHeal && children?.size) lockFeatures(children, true);
         },
         getMapRef: () => null,
         setMapRef: mapRef => {
@@ -485,10 +485,10 @@ export const useMapStore = create(
             mapLock,
             toggleHighlightBrokenDistricts,
             lockedFeatures,
-            getMapRef
+            getMapRef,
           } = get();
           const idsToCheck = [..._parentsToHeal, ...additionalIds];
-          const mapRef = getMapRef()
+          const mapRef = getMapRef();
           if (
             !mapRef ||
             isPainting ||
@@ -510,39 +510,40 @@ export const useMapStore = create(
 
           if (parentsToHeal.length) {
             set({mapLock: true});
-            
+
             const r = await patchUnShatter.mutate({
               geoids: parentsToHeal.map(f => f.parentId),
               zone: parentsToHeal[0].zone as any,
               document_id: mapDocument?.document_id,
             });
-            toggleHighlightBrokenDistricts(r.geoids, false)
+            toggleHighlightBrokenDistricts(r.geoids, false);
             const newZoneAssignments = new Map(zoneAssignments);
             const newShatterIds = {
               parents: new Set(shatterIds.parents),
               children: new Set(shatterIds.children),
             };
-            const newLockedFeatures = new Set(lockedFeatures)
+            const newLockedFeatures = new Set(lockedFeatures);
             const childrenToRemove = parentsToHeal
               .map(f => shatterMappings[f.parentId])
               .filter(Boolean);
 
             childrenToRemove.forEach(childSet => {
-
               childSet.forEach(childId => {
                 newZoneAssignments.delete(childId);
                 newShatterIds.children.delete(childId);
-                newLockedFeatures.delete(childId)
-                mapRef.setFeatureState({
-                  id: childId,
-                  source: BLOCK_SOURCE_ID,
-                  sourceLayer: mapDocument.child_layer || '' 
-                }, {
-                  zone: null
-                })
-              })
-            }
-            );
+                newLockedFeatures.delete(childId);
+                mapRef.setFeatureState(
+                  {
+                    id: childId,
+                    source: BLOCK_SOURCE_ID,
+                    sourceLayer: mapDocument.child_layer || '',
+                  },
+                  {
+                    zone: null,
+                  }
+                );
+              });
+            });
 
             parentsToHeal.forEach(parent => {
               delete shatterMappings[parent.parentId];
@@ -694,16 +695,16 @@ export const useMapStore = create(
           set({
             mapOptions: {
               ...mapOptions,
-              lockPaintedAreas: !mapOptions.lockPaintedAreas
+              lockPaintedAreas: !mapOptions.lockPaintedAreas,
             },
           });
         },
-        setLockedZones: (areas) => {
+        setLockedZones: areas => {
           const {mapOptions} = get();
           set({
             mapOptions: {
               ...mapOptions,
-              lockPaintedAreas: areas
+              lockPaintedAreas: areas,
             },
           });
         },
@@ -818,3 +819,5 @@ getMapMetricsSubs(useMapStore);
 getMapViewsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
+
+window.getState = useMapStore.getState;

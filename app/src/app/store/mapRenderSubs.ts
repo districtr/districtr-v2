@@ -57,13 +57,16 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       );
       // remove zone from parents
       shatterIds.parents.forEach(id => {
-        mapRef.setFeatureState({
-          source: BLOCK_SOURCE_ID,
-          id,
-          sourceLayer: mapDocument?.parent_layer,
-        }, {
-          zone: null
-        });
+        mapRef.setFeatureState(
+          {
+            source: BLOCK_SOURCE_ID,
+            id,
+            sourceLayer: mapDocument?.parent_layer,
+          },
+          {
+            zone: null,
+          }
+        );
       });
 
       mapRef.once('render', () => {
@@ -105,9 +108,10 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     ],
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
-      const {captiveIds, shatterIds, getMapRef, setLockedFeatures, mapRenderingState} = useMapStore.getState();
-      const mapRef = getMapRef()
-      if (!mapRef || mapRenderingState !== 'loaded') return
+      const {captiveIds, shatterIds, getMapRef, setLockedFeatures, mapRenderingState} =
+        useMapStore.getState();
+      const mapRef = getMapRef();
+      if (!mapRef || mapRenderingState !== 'loaded') return;
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
         const isHover = layerId.includes('hover');
         const isParent = PARENT_LAYERS.includes(layerId);
@@ -125,11 +129,19 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       const zoneAssignments = curr[0];
       // if lockPaintedAreas, lock all zones
       if (lockPaintedAreas === true) {
-        const nonNullZones = new Set([...zoneAssignments.entries()].filter(([key, value]) => value !== null).map(([key]) => key))
+        const nonNullZones = new Set(
+          [...zoneAssignments.entries()]
+            .filter(([key, value]) => value !== null)
+            .map(([key]) => key)
+        );
         setLockedFeatures(new Set(nonNullZones));
         // now unlocked, was previously locked
       } else if (Array.isArray(lockPaintedAreas)) {
-        const nonNullZones = new Set([...zoneAssignments.entries()].filter(([key, value]) => lockPaintedAreas.includes(value)).map(([key]) => key))
+        const nonNullZones = new Set(
+          [...zoneAssignments.entries()]
+            .filter(([key, value]) => lockPaintedAreas.includes(value))
+            .map(([key]) => key)
+        );
         setLockedFeatures(new Set(nonNullZones));
       } else if (!lockPaintedAreas && prevLockPaintedAreas) {
         setLockedFeatures(new Set());

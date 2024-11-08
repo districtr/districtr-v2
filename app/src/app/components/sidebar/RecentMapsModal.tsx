@@ -14,13 +14,13 @@ import {
 } from '@radix-ui/themes';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
-import { styled } from '@stitches/react';
+import {styled} from '@stitches/react';
 type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {
-  maxWidth: "calc(100vw - 2rem)",
-  maxHeight: "calc(100vh-2rem)"
-})
+  maxWidth: 'calc(100vw - 2rem)',
+  maxHeight: 'calc(100vh-2rem)',
+});
 
 export const RecentMapsModal = () => {
   const router = useRouter();

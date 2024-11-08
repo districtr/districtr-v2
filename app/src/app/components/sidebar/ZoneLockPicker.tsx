@@ -10,10 +10,10 @@ import {ColorPicker} from './ColorPicker';
 export function ZoneLockPicker() {
   const lockedZones = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const pickerValue = Array.isArray(lockedZones)
-    ? lockedZones.map(f => null === f ? 0 : f - 1)
+    ? lockedZones.map(f => (null === f ? 0 : f - 1))
     : lockedZones === true
-    ? colorScheme.map((_,i) => i)
-    : [];
+      ? colorScheme.map((_, i) => i)
+      : [];
 
   const setLockedZones = useMapStore(state => state.setLockedZones);
 

@@ -39,11 +39,12 @@ export const ColorPicker = <T extends boolean>({
           }}
         >
           {colorArray.map((color, i) => (
-            <CheckboxGroupItem 
-              key={i} 
-              // @ts-ignore Correct behavior, global CSS variables need to be extended 
-              style={{ "--accent-indicator": color}}
-              value={color}>
+            <CheckboxGroupItem
+              key={i}
+              // @ts-ignore Correct behavior, global CSS variables need to be extended
+              style={{'--accent-indicator': color}}
+              value={color}
+            >
               {/* <RadioGroupIndicator /> */}
             </CheckboxGroupItem>
           ))}
@@ -129,5 +130,5 @@ const CheckboxGroupRoot = styled(CheckboxGroup.Root, {
   ...groupRootCSS,
   flexDirection: 'row',
   flexWrap: 'wrap',
-  justifyContent: "center"
+  justifyContent: 'center',
 });

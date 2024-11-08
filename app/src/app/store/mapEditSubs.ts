@@ -4,10 +4,10 @@ import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
-import { queryClient } from '../utils/api/queryClient';
+import {queryClient} from '../utils/api/queryClient';
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
-  const isMutating = queryClient.isMutating()
+  const isMutating = queryClient.isMutating();
   if (!isMutating && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
     const assignments = FormatAssignments();
     patchUpdates.mutate(assignments);
@@ -17,14 +17,16 @@ const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapS
 const debouncedZoneUpdate = debounce(zoneUpdates, 25);
 
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
-  const sendZoneUpdatesOnUpdate = useMapStore.subscribe<[MapStore['zoneAssignments'], MapStore['appLoadingState']]>(
+  const sendZoneUpdatesOnUpdate = useMapStore.subscribe<
+    [MapStore['zoneAssignments'], MapStore['appLoadingState']]
+  >(
     state => [state.zoneAssignments, state.appLoadingState],
     ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
-      if (previousAppLoadingState !== 'loaded') return
+      if (previousAppLoadingState !== 'loaded') return;
       const {getMapRef} = useMapStore.getState();
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
     },
-    { equalityFn: shallowCompareArray}
+    {equalityFn: shallowCompareArray}
   );
 
   const fetchAssignmentsSub = useMapStore.subscribe(

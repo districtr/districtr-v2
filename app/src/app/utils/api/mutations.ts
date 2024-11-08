@@ -43,9 +43,7 @@ export const patchUnShatter = new MutationObserver(queryClient, {
     console.log('Error updating assignments: ', error);
   },
   onSuccess: data => {
-    console.log(
-      `Successfully un-shattered parents ${data.geoids.join(', ')} from children`
-    );
+    console.log(`Successfully un-shattered parents ${data.geoids.join(', ')} from children`);
     return data;
   },
 });
@@ -63,9 +61,9 @@ export const patchUpdates = new MutationObserver(queryClient, {
     mapMetrics.refetch();
     // remove trailing shattered features
     // This needs to happen AFTER the updates are done
-    const { processHealParentsQueue, mapOptions, parentsToHeal } = useMapStore.getState()
-    if (mapOptions.mode === 'default' && parentsToHeal.length){
-      processHealParentsQueue()
+    const {processHealParentsQueue, mapOptions, parentsToHeal} = useMapStore.getState();
+    if (mapOptions.mode === 'default' && parentsToHeal.length) {
+      processHealParentsQueue();
     }
   },
 });
