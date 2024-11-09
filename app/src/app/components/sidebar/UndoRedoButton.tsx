@@ -3,14 +3,16 @@ import { Button } from "@radix-ui/themes";
 import { ResetIcon } from "@radix-ui/react-icons";
 import type { TemporalState } from "zundo";
 
+import type { MapStore } from "../../store/mapStore";
+
 export function UndoRedoButton({ isRedo = false }) {
-  const mapStore = useMapStore.getState() as TemporalState;
+  const mapStore = useMapStore.temporal.getState() as TemporalState<MapStore>;
 
   const handleClickUndoRedo = () => {
     if (isRedo) {
-      mapStore.redo(1);
+      mapStore.redo();
     } else {
-      mapStore.undo(1);
+      mapStore.undo();
     }
   };
 
