@@ -65,6 +65,13 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
         )
     )
     extent: list[float] = Field(sa_column=Column(ARRAY(Float), nullable=True))
+    districtr_place_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("districtrplace.uuid"),
+            nullable=False,
+        )
+    )
     # schema? will need to contrain the schema
     # where does this go?
     # when you create the view, pull the columns that you need
@@ -171,3 +178,36 @@ class ShatterResult(BaseModel):
 class ZonePopulation(BaseModel):
     zone: int
     total_pop: int
+
+
+class DistrictrProblems(BaseModel):
+    """
+    eligible redistricting problem types (e.g. congressional districts, city council districts, etc.)
+    """
+
+    name: str
+    numberOfParts: int
+    pluralNoun: str
+    districtr_place_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("districtrplace.uuid"),
+            nullable=False,
+        )
+    )
+
+
+class DistrictrPlace(BaseModel):
+    """
+    places for which we have redistricting problems (e.g. states, counties, cities, etc.)
+    Setup initially to match places from districtr v1
+    """
+
+    uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
+    name: str
+    id: str  # human readable; should match districtr_v1
+    place_type: str  # human readable; should match districtr_v1, e.g. statewide, county, city, zone
+    state: str
+    districtr_problems: list[DistrictrProblems] = Field(
+        sa_column=Column(ARRAY(UUIDType), nullable=True)
+    )
