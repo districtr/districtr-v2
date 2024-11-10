@@ -1,20 +1,20 @@
-import { useMapStore } from "@/app/store/mapStore";
+import { useCallback } from "react";
+import { useMapStore, type MapStore } from "@/app/store/mapStore";
 import { Button } from "@radix-ui/themes";
 import { ResetIcon } from "@radix-ui/react-icons";
 import type { TemporalState } from "zundo";
 
-import type { MapStore } from "../../store/mapStore";
-
 export function UndoRedoButton({ isRedo = false }) {
-  const mapStore = useMapStore.temporal.getState() as TemporalState<MapStore>;
+  const { futureStates, pastStates, redo, undo } = useMapStore.temporal.getState();
+  // as TemporalState<MapStore>
 
-  const handleClickUndoRedo = () => {
+  const handleClickUndoRedo = useCallback(() => {
     if (isRedo) {
-      mapStore.redo();
+      redo();
     } else {
-      mapStore.undo();
+      undo();
     }
-  };
+  }, [redo, undo, isRedo]);
 
   return (
     <Button
@@ -22,8 +22,8 @@ export function UndoRedoButton({ isRedo = false }) {
       variant="outline"
       disabled={
         isRedo
-          ? mapStore.futureStates.length === 0
-          : mapStore.pastStates.length === 0
+          ? futureStates.length === 0
+          : pastStates.length === 0
       }
     >
       <div style={{ transform: isRedo ? "rotateY(180deg)" : "" }}>
