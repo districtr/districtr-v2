@@ -524,7 +524,7 @@ def test_get_p1_summary_stats(client, document_id_p1_summary_stats):
     assert results is not None
     assert len(results) == 2
     record_1, record_2 = data.get("results")
-    assert record_1.get("zone") == "1"
-    assert record_2.get("zone") == "2"
+    assert record_1.get("zone") == 1
+    assert record_2.get("zone") == 2
     assert record_1.get("other_pop") == 13
     assert record_2.get("other_pop") == 24

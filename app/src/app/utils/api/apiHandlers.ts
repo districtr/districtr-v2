@@ -61,6 +61,7 @@ export interface DocumentObject {
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
+  available_summary_stats: string[];
 }
 
 /**
@@ -141,6 +142,47 @@ export const getZonePopulations: (
   if (mapDocument) {
     return await axios
       .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`)
+      .then(res => {
+        return res.data;
+      });
+  } else {
+    throw new Error('No document provided');
+  }
+};
+
+export interface P1SummaryStats {
+  summary_stat: string;
+  results: P1ZoneSummaryStats[];
+}
+
+/**
+ * P1ZoneSummaryStats
+ *
+ * @interface
+ * @property {number} zone - The zone.
+ * @property {number} total_pop - The total population.
+ */
+export interface P1ZoneSummaryStats {
+  zone: number;
+  other_pop: number;
+  asian_pop: number;
+  amin_pop: number;
+  nhpi_pop: number;
+  black_pop: number;
+  white_pop: number;
+}
+
+/**
+ * Get P1 zone stats from the server.
+ * @param mapDocument - DocumentObject, the document object
+ * @returns Promise<P1SummaryStats[]>
+ */
+export const getP1SummaryStats: (
+  mapDocument: DocumentObject
+) => Promise<P1SummaryStats> = async mapDocument => {
+  if (mapDocument) {
+    return await axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`)
       .then(res => {
         return res.data;
       });
