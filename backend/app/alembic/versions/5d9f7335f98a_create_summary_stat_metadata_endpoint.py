@@ -9,7 +9,7 @@ Create Date: 2024-09-11 10:15:07.929311
 from typing import Sequence, Union
 
 from alembic import op
-from pathlib import Path
+from app.constants import SQL_DIR
 
 
 # revision identifiers, used by Alembic.
@@ -18,11 +18,9 @@ down_revision: Union[str, None] = "dc391733e10a"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-SQL_PATH = Path(__file__).parent.parent.parent / "sql"
-
 
 def upgrade() -> None:
-    with open(SQL_PATH / "available_summary_stat_udf.sql", "r") as f:
+    with open(SQL_DIR / "available_summary_stat_udf.sql", "r") as f:
         sql = f.read()
         op.execute(sql)
 

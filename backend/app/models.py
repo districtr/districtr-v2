@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4, BaseModel, ConfigDict
 from sqlmodel import (
     Field,
     ForeignKey,
@@ -17,6 +17,7 @@ from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
 from app.constants import DOCUMENT_SCHEMA
 from enum import Enum
+from typing import Any
 
 
 class UUIDType(UUID):
@@ -183,3 +184,20 @@ class ShatterResult(BaseModel):
 class ZonePopulation(BaseModel):
     zone: int
     total_pop: int
+
+
+class SummaryStats(BaseModel):
+    summary_stat: SummaryStatisticType
+    results: list[Any]
+
+
+class SummaryStatsP1(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    zone: str
+    other_pop: int
+    asian_pop: int
+    amin_pop: int
+    nhpi_pop: int
+    black_pop: int
+    white_pop: int

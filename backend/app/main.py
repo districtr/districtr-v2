@@ -25,6 +25,8 @@ from app.models import (
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
+    SummaryStatisticType,
+    SummaryStatsP1,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -250,6 +252,47 @@ async def get_total_population(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Population column not found in GerryDB view",
+            )
+
+
+@app.get("/api/document/{document_id}/{summary_stat}")
+async def get_summary_stat(
+    document_id: str, summary_stat: str, session: Session = Depends(get_session)
+):
+    try:
+        _summary_stat = SummaryStatisticType[summary_stat]
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid summary_stat: {summary_stat}",
+        )
+
+    try:
+        summary_stat_udf, SummaryStatsModel = {
+            "P1": ("get_summary_stats_p1", SummaryStatsP1)
+        }[summary_stat]
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Summary stats not implemented for {summary_stat}",
+        )
+
+    stmt = text(
+        f"SELECT * from {summary_stat_udf}(:document_id) WHERE zone IS NOT NULL"
+    )
+    try:
+        results = session.execute(stmt, {"document_id": document_id}).fetchall()
+        return {
+            "summary_stat": _summary_stat.value,
+            "results": [SummaryStatsModel.from_orm(row) for row in results],
+        }
+    except ProgrammingError as e:
+        logger.error(e)
+        error_text = str(e)
+        if f"Table name not found for document_id: {document_id}" in error_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document with ID {document_id} not found",
             )
 
 
