@@ -83,6 +83,12 @@ def engine_fixture(request):
     return create_engine(str(TEST_SQLALCHEMY_DATABASE_URI), echo=True)
 
 
+@pytest.fixture(name="persistent_session")
+def session_with_persist_fixture(engine):
+    with Session(engine, expire_on_commit=True) as session:
+        yield session
+
+
 # https://github.com/fastapi/sqlmodel/discussions/940
 @pytest.fixture(name="session")
 def session_fixture(engine):
