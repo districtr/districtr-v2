@@ -143,6 +143,7 @@ class DocumentPublic(BaseModel):
     created_at: datetime
     updated_at: datetime
     extent: list[float] | None = None
+    available_summary_stats: list[str] | None = None
 
 
 class AssignmentsBase(SQLModel):
