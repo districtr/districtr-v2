@@ -65,13 +65,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
         )
     )
     extent: list[float] = Field(sa_column=Column(ARRAY(Float), nullable=True))
-    districtr_place_id: str = Field(
-        sa_column=Column(
-            UUIDType,
-            ForeignKey("districtrplace.uuid"),
-            nullable=False,
-        )
-    )
+    districtr_place_id: str | None = Field(nullable=True)
     # schema? will need to contrain the schema
     # where does this go?
     # when you create the view, pull the columns that you need
@@ -185,15 +179,19 @@ class DistrictrProblems(BaseModel):
     eligible redistricting problem types (e.g. congressional districts, city council districts, etc.)
     """
 
+    uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str
-    numberOfParts: int
-    pluralNoun: str
+    num_parts: int
+    plural_noun: str
     districtr_place_id: str = Field(
         sa_column=Column(
-            UUIDType,
+            UUID,
             ForeignKey("districtrplace.uuid"),
             nullable=False,
         )
+    )
+    __table_args__ = (
+        UniqueConstraint("name", "districtr_place_id", name="unique_name_place_id"),
     )
 
 
@@ -207,7 +205,7 @@ class DistrictrPlace(BaseModel):
     name: str
     id: str  # human readable; should match districtr_v1
     place_type: str  # human readable; should match districtr_v1, e.g. statewide, county, city, zone
-    state: str
+    state: str  # two-digit code
     districtr_problems: list[DistrictrProblems] = Field(
         sa_column=Column(ARRAY(UUIDType), nullable=True)
     )
