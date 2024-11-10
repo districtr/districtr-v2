@@ -164,29 +164,16 @@ export const getFeaturesIntersectingCounties = (
   });
 
   if (!countyFeatures) return;
+  const fips = new Set<string>(countyFeatures.map(c => c.properties.STATEFP + c.properties.COUNTYFP));
 
-  const featureBbox = getBoundingBoxFromFeatures(countyFeatures);
-
-  if (!featureBbox) return;
-
-  const sw = map.project(featureBbox[0]);
-  const ne = map.project(featureBbox[1]);
-  const features = map.queryRenderedFeatures([sw, ne], {
+  const features = map.queryRenderedFeatures(undefined, {
     layers,
   });
 
-  let countyPoly;
-  try {
-    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
-    countyPoly = polygon(countyFeatures[0].geometry.coordinates);
-  } catch {
-    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
-    countyPoly = multiPolygon(countyFeatures[0].geometry.coordinates);
-  }
-
   return features.filter(p => {
-    const point = pointOnFeature(p);
-    return booleanWithin(point, countyPoly);
+    const myFips = p.id.split(':')[1].substring(0, 5);
+    // console.log([p, myFips]);
+    return fips.has(myFips);
   });
 };
 
