@@ -2,6 +2,4 @@
 exclude = [".venv"]
 
 [tool.coverage.run]
-omit = [
-    "app/**/test_*.py",
-]
+omit = ["app/**/test_*.py", "app/alembic/**", "**/__init__.py", "tests/**"]

@@ -1,21 +1,12 @@
-CREATE OR REPLACE FUNCTION get_available_summary_stats(document_id UUID)
+CREATE OR REPLACE FUNCTION get_available_summary_stats(gerrydb_table_name TEXT)
 RETURNS TABLE (summary_stat TEXT) AS $$
 DECLARE
-    gerrydb_table_name TEXT;
     p1 BOOLEAN;
     p2 BOOLEAN;
     p3 BOOLEAN;
     p4 BOOLEAN;
 BEGIN
-    SELECT gerrydb_table INTO gerrydb_table_name
-    FROM document.document
-    WHERE document.document_id = $1;
-
-    IF gerrydb_table_name IS NULL THEN
-        RAISE EXCEPTION 'Table name not found for document_id: %', $1;
-    END IF;
-
-    SELECT count(column_name)==6 INTO p1
+    SELECT count(column_name) = 6 INTO p1
     FROM INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = gerrydb_table_name
         AND table_schema = 'gerrydb'
@@ -27,7 +18,7 @@ BEGIN
                             'white_pop')
     ;
 
-    SELECT count(column_name)==6 INTO p3
+    SELECT count(column_name) = 6 INTO p3
     FROM INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = gerrydb_table_name
         AND table_schema = 'gerrydb'
@@ -39,7 +30,7 @@ BEGIN
                             'white_vap')
     ;
 
-    SELECT count(colum_name)==7 INTO p2
+    SELECT count(column_name) = 7 INTO p2
     FROM INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = gerrydb_table_name
         AND table_schema = 'gerrydb'
@@ -53,7 +44,7 @@ BEGIN
                             )
     ;
 
-    SELECT count(colum_name)==7 INTO p4
+    SELECT count(column_name) = 7 INTO p4
     FROM INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = gerrydb_table_name
         AND table_schema = 'gerrydb'
@@ -68,22 +59,22 @@ BEGIN
     ;
 
     RETURN QUERY
-    
+
     SELECT 'P1' as summary_stat
     WHERE p1
 
-    UNION 
+    UNION
 
-    SELECT 'P2' 
+    SELECT 'P2'
     WHERE p2
-    
-    UNION 
+
+    UNION
 
     SELECT 'P3'
     WHERE p3
 
-    UNION 
-    
+    UNION
+
     SELECT 'P4'
     WHERE p4;
 

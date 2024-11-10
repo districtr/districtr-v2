@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { palette, color10 } from "../../constants/colors";
+import { _colorScheme, colorScheme } from "../../constants/colors";
 import { Button } from "@radix-ui/themes";
 import { styled } from "@stitches/react";
 import * as RadioGroup from "@radix-ui/react-radio-group";
@@ -7,22 +7,13 @@ import { blackA } from "@radix-ui/colors";
 import { useMapStore } from "../../store/mapStore";
 
 export function ColorPicker() {
-  const [color, setColor] = useState(null);
-  const [open, setOpen] = useState(false);
-  const {
-    selectedZone,
-    setSelectedZone,
-    setZoneAssignments,
-    accumulatedGeoids,
-    resetAccumulatedBlockPopulations,
-  } = useMapStore((state) => ({
-    selectedZone: state.selectedZone,
-    setSelectedZone: state.setSelectedZone,
-    setZoneAssignments: state.setZoneAssignments,
-    accumulatedGeoids: state.accumulatedGeoids,
-    resetAccumulatedBlockPopulations: state.resetAccumulatedBlockPopulations,
-  }));
-  const colorArray = color10;
+  const selectedZone = useMapStore((state) => state.selectedZone);
+  const setSelectedZone = useMapStore((state) => state.setSelectedZone);
+  const setZoneAssignments = useMapStore((state) => state.setZoneAssignments);
+  const accumulatedGeoids = useMapStore((state) => state.accumulatedGeoids);
+  const resetAccumulatedBlockPopulations = useMapStore((state) => state.resetAccumulatedBlockPopulations);
+  
+  const colorArray = colorScheme;
   if (!colorArray) return null;
   const handleRadioChange = (value) => {
     console.log(
@@ -39,7 +30,7 @@ export function ColorPicker() {
     <div>
       <RadioGroupRoot
         onValueChange={handleRadioChange}
-        defaultValue={colorArray[0]}
+        defaultValue={selectedZone}
       >
         {colorArray.map((color, i) => (
           <RadioGroupItem

@@ -9,6 +9,14 @@ The Districtr reboot monorepo.
 - [`pipelines`](pipelines/): Data pipelines, ETL. Not a main focus of the reboot. For now, will mostly contain scratch data transformation scripts before being integrated into the backend CLI.
 - [`prototypes`](prototypes/): Prototypes conducted as part of the reboot.
 
+## Quickstart
+
+The backend (Python), frontend (NextJS), and database (postgres) can be run locally using Docker.
+
+- Install and configure [Docker](https://www.docker.com/) for your machine
+- From the repo root, run `docker-compose up --build`
+- To load in data, add data to a folder `sample_data` in the repo root, and in `docker-compose.yml` set `services > backend > environment > LOAD_GERRY_DB_DATA` to `true`. You can change where the script looks for available data with the `GPKG_DATA_DIR` variable.
+
 ## Districtr reboot architecture
 
 After experimenting with various technologies (see [`prototypes`](prototypes/)) we landed on the following architecture for the Districtr reboot:
@@ -16,11 +24,13 @@ After experimenting with various technologies (see [`prototypes`](prototypes/)) 
 ![Districtr architecture](docs/images/districtr-architecture.png "Districtr architecture")
 
 The redesign aims to principally to address three key pain points in the Districtr application’s performance and maintainability:
+
 1. Slow tile rendering
 1. Cumbersome use of tiles as global state for tile rendering and most metric calculation
 1. Complexity and poor interoperability in architecture without slow copies
 
 And two key feature additions
+
 1. Block “shattering”
 1. A headless CMS (this will be added in a later phase of work / is not currently a focus of the reboot)
 
@@ -53,6 +63,10 @@ When reviewing a PR, use the "HIPPO" method to provide feedback:
 | **I** - Important or improvement | Changes requested. Possibly blocking but more opinion-based than **H**. Reviewer should provide specifics as to why this is an improvement. |
 | **PP** - Personal preference | Possible changes requested. Something the reviewer would do but is non-blocking. |
 | **O** - Opinion | Comment for discussion. Non-blocking. Could be a bigger idea that's relevant to the PR. |
+
+Open PRs will spin up a set of test apps for review, following the convention `pr-<pr number>-districtr-districtr-v2-<sub app>`, and would be available for testing at e.g. `https://pr-116-districtr-districtr-v2-app.fly.dev/map`. This behavior can be tweaks via `.github/workflows/fly-deploy-pr.yml`
+
+Updates to PRs will trigger updates to staging apps, including re-running of migrations on the testing db.
 
 ### CI/CD
 

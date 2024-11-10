@@ -1,23 +1,32 @@
 import React from "react";
 import * as RadioGroup from "@radix-ui/react-radio-group";
 import { styled } from "@stitches/react";
-import { blackA } from "@radix-ui/colors";
-import { useMapStore } from "../../store/mapStore";
+import { useMapStore } from "@store/mapStore";
 import { RadioCards, Box } from "@radix-ui/themes";
-import { EraserIcon, Pencil2Icon, HandIcon } from "@radix-ui/react-icons";
+import {
+  EraserIcon,
+  Pencil2Icon,
+  HandIcon,
+  BorderSplitIcon,
+} from "@radix-ui/react-icons";
+import { RecentMapsModal } from "@components/sidebar/RecentMapsModal";
 
 export function MapModeSelector() {
-  const mapStore = useMapStore.getState();
-  const { activeTool, setActiveTool } = useMapStore((state) => ({
-    activeTool: state.activeTool,
-    setActiveTool: state.setActiveTool,
-  }));
+  const activeTool = useMapStore((state) => state.activeTool);
+  const setActiveTool = useMapStore((state) => state.setActiveTool);
+  const mapDocument = useMapStore((state) => state.mapDocument);
 
   if (!activeTool) return null;
   const activeTools = [
     { mode: "pan", disabled: false, label: "Pan", icon: <HandIcon /> },
     { mode: "brush", disabled: false, label: "Brush", icon: <Pencil2Icon /> },
     { mode: "eraser", disabled: false, label: "Erase", icon: <EraserIcon /> },
+    {
+      mode: "shatter",
+      disabled: !mapDocument?.child_layer,
+      label: "Shatter",
+      icon: <BorderSplitIcon />,
+    },
   ];
 
   const handleRadioChange = (value) => {
@@ -30,7 +39,7 @@ export function MapModeSelector() {
         defaultValue="default"
         value={activeTool}
         onValueChange={handleRadioChange}
-        columns={{ initial: "1", sm: "3" }}
+        columns={{ initial: "3" }}
       >
         {activeTools.map((tool) => (
           <Flex key={`${tool.mode}-flex`}>
@@ -44,6 +53,7 @@ export function MapModeSelector() {
             </RadioCards.Item>
           </Flex>
         ))}
+        <RecentMapsModal />
       </RadioCards.Root>
     </Box>
   );

@@ -1,5 +1,5 @@
-import { Slider, Flex, Heading, Text } from "@radix-ui/themes";
-import { useMapStore } from "../../store/mapStore";
+import {Slider, Flex, Heading, Text} from '@radix-ui/themes';
+import {useMapStore} from '../../store/mapStore';
 
 /**
  * BrushSizeSelector
@@ -11,24 +11,17 @@ import { useMapStore } from "../../store/mapStore";
  * @returns {JSX.Element} The component
  */
 export function BrushSizeSelector() {
-  const { brushSize, setBrushSize } = useMapStore((state) => ({
-    brushSize: state.brushSize,
-    setBrushSize: state.setBrushSize,
-  }));
+  const brushSize = useMapStore(state => state.brushSize);
+  const setBrushSize = useMapStore(state => state.setBrushSize);
 
   const handleChangeEnd = (value: Array<number>) => {
-    console.log("the final value size is", value);
+    console.log('the final value size is', value);
     setBrushSize(value.length ? value[0] : 0);
   };
 
   return (
     <Flex direction="row" gap="4" maxWidth="300px" mb="3" align="center">
-      <Heading
-        as="h4"
-        size="2"
-        weight="regular"
-        style={{ whiteSpace: "nowrap" }}
-      >
+      <Heading as="h4" size="2" weight="regular" style={{whiteSpace: 'nowrap'}}>
         Brush Size
       </Heading>
       <Slider
