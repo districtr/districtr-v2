@@ -13,7 +13,7 @@ from sqlmodel import (
     MetaData,
     String,
 )
-from sqlalchemy.types import ARRAY
+from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
 from app.constants import DOCUMENT_SCHEMA
 from enum import Enum
@@ -45,6 +45,13 @@ class TimeStampMixin(SQLModel):
     )
 
 
+class SummaryStatisticType(Enum):
+    P1 = "Population by Race"
+    P2 = "Hispanic or Latino, and Not Hispanic or Latino by Race"
+    P3 = "Voting Age Population by Race"
+    P4 = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+
+
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
@@ -65,11 +72,14 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
             String, ForeignKey("gerrydbtable.name"), default=None, nullable=True
         )
     )
-    extent: list[float] = Field(sa_column=Column(ARRAY(Float), nullable=True))
+    extent: list[float] | None = Field(sa_column=Column(ARRAY(Float), nullable=True))
     # schema? will need to contrain the schema
     # where does this go?
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
+    available_summary_stats: list[SummaryStatisticType] | None = Field(
+        sa_column=Column(ARRAY(TEXT), nullable=True, default=[])
+    )
 
 
 class DistrictrMapPublic(BaseModel):
@@ -79,6 +89,7 @@ class DistrictrMapPublic(BaseModel):
     child_layer: str | None = None
     tiles_s3_path: str | None = None
     num_districts: int | None = None
+    available_summary_stats: list[str] | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -172,10 +183,3 @@ class ShatterResult(BaseModel):
 class ZonePopulation(BaseModel):
     zone: int
     total_pop: int
-
-
-class SummaryStatisticType(Enum):
-    P1 = "Population by Race"
-    P2 = "Hispanic or Latino, and Not Hispanic or Latino by Race"
-    P3 = "Voting Age Population by Race"
-    P4 = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
