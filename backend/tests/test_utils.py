@@ -203,8 +203,9 @@ def test_create_parent_child_edges(
     session.commit()
 
 
-def test_shattering(client):
+def test_shattering(client, session: Session, districtr_map, gerrydb_simple_geos_view):
     # Set-up
+    create_parent_child_edges(session=session, districtr_map_uuid=districtr_map)
     response = client.post(
         "/api/create_document",
         json={
