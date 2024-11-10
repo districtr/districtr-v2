@@ -2,6 +2,8 @@ from uuid import uuid4
 import requests
 from app.main import get_session
 from app.models import UUIDType
+from alembic import op
+from sqlalchemy.sql import text
 from sqlalchemy import text, bindparam
 from sqlmodel import (
     UUID,
@@ -168,6 +170,95 @@ def upsert_places_and_problems(places):
             else:
                 print(f"Skipping place {place['id']} in {state['state']}")
     session.commit()
+
+
+def populate_existing_districtr_maps():
+    """
+    Pretty hacky way to assign a random problem to each existing map in the database based
+    on the matching state-level place id. in practice we will want to refine the place->problem->map
+    pipeline based on user flow.
+    """
+    state_abbr_to_name = {
+        "co": "Colorado",
+        "ri": "Rhode Island",
+        "de": "Delaware",
+        "ks": "Kansas",
+        "ga": "Georgia",
+        "pa": "Pennsylvania",
+    }
+    session = next(get_session())
+
+    # Retrieve all entries from districtrmaps
+    maps_entries = session.execute(
+        text("SELECT uuid, gerrydb_table_name FROM public.districtrmap")
+    ).fetchall()
+
+    for entry in maps_entries:
+        map_id = entry.uuid
+        gerrydb_table_name = entry.gerrydb_table_name
+
+        # Extract the state abbreviation from the table_name prefix
+        state_abbr = gerrydb_table_name.split("_")[0]
+
+        # Map the abbreviation to the full state name
+        state_name = state_abbr_to_name.get(state_abbr.lower())
+        if not state_name:
+            print(
+                f"Skipping unknown state abbreviation for table_name {gerrydb_table_name}"
+            )
+            continue
+
+        # Find the place ID for the full state name
+        place_result = session.execute(
+            text(
+                """
+                SELECT uuid FROM public.districtrplace
+                WHERE state = :state_name AND place_type = 'state'
+            """
+            ),
+            {"state_name": state_name},
+        ).fetchone()
+
+        if not place_result:
+            print(f"No place found for state {state_name}")
+            continue
+
+        place_id = place_result.uuid
+
+        # Retrieve a random problem for the selected place_id
+        problem_result = session.execute(
+            text(
+                """
+                SELECT num_parts FROM public.districtrproblems
+                WHERE districtr_place_id = :place_id
+                ORDER BY random()
+                LIMIT 1
+            """
+            ),
+            {"place_id": place_id},
+        ).fetchone()
+
+        if not problem_result:
+            print(f"No problems found for place ID {place_id}")
+            continue
+
+        problem_num_parts = problem_result.num_parts
+
+        # Associate the place_id and problem_id with the current map entry
+        session.execute(
+            text(
+                """
+                UPDATE public.districtrmap
+                SET districtr_place_id = :place_id, num_districts = :num_parts
+                WHERE uuid = :map_id
+            """
+            ),
+            {"place_id": place_id, "num_parts": problem_num_parts, "map_id": map_id},
+        )
+        print(
+            f"Updated map entry {map_id} with place_id {place_id} with {problem_num_parts} target districts"
+        )
+        session.commit()
 
 
 if __name__ == "__main__":
