@@ -209,3 +209,9 @@ class DistrictrPlace(BaseModel):
     districtr_problems: list[DistrictrProblems] = Field(
         sa_column=Column(ARRAY(UUIDType), nullable=True)
     )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "id", "place_type", "state", name="unique_id_place_type_state"
+        ),
+    )
