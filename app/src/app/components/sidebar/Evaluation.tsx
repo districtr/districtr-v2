@@ -3,16 +3,20 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useQuery} from '@tanstack/react-query';
 import {getP1SummaryStats} from '@/app/utils/api/apiHandlers';
 import {Heading} from '@radix-ui/themes';
+import {queryClient} from '@utils/api/queryClient';
 
 export default function Evaluation() {
   const mapDocument = useMapStore.getState().mapDocument;
-  const zoneAssignments = useMapStore.getState().zoneAssignments;
 
-  const {data, error} = useQuery({
-    queryKey: ['p1SummaryStats', mapDocument?.document_id, zoneAssignments],
-    queryFn: () => mapDocument && getP1SummaryStats(mapDocument),
-    enabled: !!mapDocument,
-  });
+  // Doesn't update properly reacively
+  const {data, error} = useQuery(
+    {
+      queryKey: ['p1SummaryStats', mapDocument],
+      queryFn: () => mapDocument && getP1SummaryStats(mapDocument),
+      enabled: !!mapDocument,
+    },
+    queryClient
+  );
 
   if (mapDocument && !mapDocument.available_summary_stats) {
     return (
