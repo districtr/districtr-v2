@@ -174,6 +174,7 @@ async def shatter_parent(
     session.commit()
     return result
 
+
 @app.patch(
     "/api/update_assignments/{document_id}/unshatter_parents",
     response_model=GEOIDS,
@@ -199,6 +200,7 @@ async def unshatter_parent(
     ).first()
     session.commit()
     return {"geoids": results[0]}
+
 
 @app.patch(
     "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
