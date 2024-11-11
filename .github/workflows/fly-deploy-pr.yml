@@ -1,4 +1,4 @@
-name: Fly Deploy Disctictr V2 Pull Request app
+name: Fly Deploy Districtr V2 Pull Request app
 on:
     pull_request:
         types: [opened, reopened, synchronize, closed]
