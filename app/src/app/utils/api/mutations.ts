@@ -2,10 +2,12 @@ import {MutationObserver} from '@tanstack/query-core';
 import {queryClient} from './queryClient';
 import {
   AssignmentsCreate,
+  AssignmentsReset,
   createMapDocument,
   patchShatterParents,
   patchUnShatterParents,
   patchUpdateAssignments,
+  patchUpdateReset,
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
@@ -65,6 +67,23 @@ export const patchUpdates = new MutationObserver(queryClient, {
     if (mapOptions.mode === 'default' && parentsToHeal.length) {
       processHealParentsQueue();
     }
+  },
+});
+
+
+export const patchReset = new MutationObserver(queryClient, {
+  mutationFn: patchUpdateReset,
+  onMutate: () => {
+    console.log("Reseting map");
+  },
+  onError: (error) => {
+    console.log("Error reseting map: ", error);
+  },
+  onSuccess: (data: AssignmentsReset) => {
+    console.log(
+      `Successfully reset ${data.document_id}`
+    );
+    mapMetrics.refetch();
   },
 });
 

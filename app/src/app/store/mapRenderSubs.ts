@@ -9,7 +9,6 @@ import {
   getLayerFill,
   BLOCK_SOURCE_ID,
 } from '../constants/layers';
-
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
@@ -57,17 +56,11 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       );
       // remove zone from parents
       shatterIds.parents.forEach(id => {
-        mapRef.setFeatureState(
-          {
-            source: BLOCK_SOURCE_ID,
-            id,
-            sourceLayer: mapDocument?.parent_layer,
-          },
-          {
-            zone: null,
-          }
-        );
-      });
+        mapRef?.removeFeatureState({
+          source: BLOCK_SOURCE_ID,
+          id,
+          sourceLayer: mapDocument?.parent_layer,
+        })})
 
       mapRef.once('render', () => {
         setMapLock(false);
