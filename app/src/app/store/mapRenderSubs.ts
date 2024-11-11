@@ -60,7 +60,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           source: BLOCK_SOURCE_ID,
           id,
           sourceLayer: mapDocument?.parent_layer,
-        })})
+        });
+      });
 
       mapRef.once('render', () => {
         setMapLock(false);

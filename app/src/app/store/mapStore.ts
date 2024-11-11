@@ -616,32 +616,32 @@ export const useMapStore = create(
 
         handleReset: async () => {
           const {mapDocument, getMapRef, zoneAssignments, shatterIds} = get();
-          const document_id = mapDocument?.document_id
+          const document_id = mapDocument?.document_id;
 
           if (!document_id) {
-            console.log("No document ID to reset.");
+            console.log('No document ID to reset.');
             return;
           }
           set({
             mapLock: true,
-            appLoadingState: "loading",
+            appLoadingState: 'loading',
           });
           const resetResponse = await patchReset.mutate(document_id);
-          
+
           if (resetResponse.document_id === document_id) {
             const initialState = useMapStore.getInitialState();
             resetZoneColors({
               zoneAssignments,
               mapRef: getMapRef(),
               mapDocument,
-              shatterIds
-            })
-            
+              shatterIds,
+            });
+
             set({
               zonePopulations: initialState.zonePopulations,
               zoneAssignments: initialState.zoneAssignments,
               shatterIds: initialState.shatterIds,
-              appLoadingState: "loaded",
+              appLoadingState: 'loaded',
               mapLock: false,
             });
           }

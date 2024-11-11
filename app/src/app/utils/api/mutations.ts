@@ -70,19 +70,16 @@ export const patchUpdates = new MutationObserver(queryClient, {
   },
 });
 
-
 export const patchReset = new MutationObserver(queryClient, {
   mutationFn: patchUpdateReset,
   onMutate: () => {
-    console.log("Reseting map");
+    console.log('Reseting map');
   },
-  onError: (error) => {
-    console.log("Error reseting map: ", error);
+  onError: error => {
+    console.log('Error reseting map: ', error);
   },
   onSuccess: (data: AssignmentsReset) => {
-    console.log(
-      `Successfully reset ${data.document_id}`
-    );
+    console.log(`Successfully reset ${data.document_id}`);
     mapMetrics.refetch();
   },
 });
