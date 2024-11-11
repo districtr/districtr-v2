@@ -164,11 +164,9 @@ export const getFeaturesIntersectingCounties = (
   });
 
   return features.filter(p => {
-    if (!p || !p.id) return false;
-    const myID = p.id.toString().split(':');
-    const myFips = myID[myID.length - 1].substring(0, 5);
-    // console.log([p, myFips]);
-    return fips.has(myFips);
+    if (!(p?.id)) return false;
+    const myFips = p.id.toString().match(/\d{5}/);
+    return myFips && fips.has(myFips[0]);
   });
 };
 
