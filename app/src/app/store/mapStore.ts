@@ -149,7 +149,7 @@ export const useMapStore = create(
               return;
             }
             get().setFreshMap(true);
-            //get().resetZoneAssignments();
+            get().resetZoneAssignments();
             get().upcertUserMap({
               mapDocument,
             })
@@ -381,14 +381,22 @@ export const useMapStore = create(
       persistOptions
     ),
     {
+      diff: (pastState: Partial<MapStore>, currentState: Partial<MapStore>) => {
+        currentState.zoneAssignments.keys().forEach((geoid) => {
+          if (!pastState.zoneAssignments.has(geoid)) {
+            pastState.zoneAssignments.set(geoid, null);
+          }
+        });
+        return pastState as Partial<MapStore>;
+      },
       equality: (pastState, currentState) => {
         return (pastState.zoneAssignments === currentState.zoneAssignments) &&
         (pastState.zoneAssignments.size === currentState.zoneAssignments.size);
       },
       limit: 7,
-      partialize: (state) => {
+      partialize: (state: Partial<MapStore>) => {
         const { zoneAssignments } = state;
-        return { zoneAssignments };
+        return { zoneAssignments } as Partial<MapStore>;
       }
     }
   )
