@@ -24,6 +24,7 @@ export const patchShatter = new MutationObserver(queryClient, {
   },
   onSuccess: data => {
     console.log(`Successfully shattered parents into ${data.children.length} children`);
+    useMapStore.getState().setAssignmentsHash(performance.now().toString());
     return data;
   },
 });
@@ -55,6 +56,7 @@ export const document = new MutationObserver(queryClient, {
   },
   onSuccess: data => {
     useMapStore.getState().setMapDocument(data);
+    useMapStore.getState().setAssignmentsHash(performance.now().toString());
     useMapStore.getState().setAppLoadingState('loaded');
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.set('document_id', data.document_id);

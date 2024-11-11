@@ -57,26 +57,6 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     mapDocument => mapDocument && updateAssignments(mapDocument)
   );
 
-  // const assignmentsHashSub = useMapStore.subscribe(
-  //   state => state.zoneAssignments,
-  //   zoneAssignments => {
-  //     const setAssignmentsHash = useMapStore.getState().setAssignmentsHash;
-  //     let assignments = "";
-  //     zoneAssignments.forEach(
-  //       (nullableZone, zoneId) => assignments += zoneId + (nullableZone?.toString() || '')
-  //     );
-
-  //     let hash = 5381;
-  //     for (let i = 0; i < assignments.length; i++) {
-  //       hash = ((hash << 5) + hash) + assignments.charCodeAt(i);
-  //       hash = hash & hash;
-  //     }
-
-  //     console.log(hash.toString(36));
-  //     setAssignmentsHash(hash.toString(36));
-  //   }
-  // );
-
 
   return [sendZonesOnMapRefSub, fetchAssignmentsSub];
 };
