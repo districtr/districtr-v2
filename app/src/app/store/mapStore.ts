@@ -382,37 +382,13 @@ export const useMapStore = create(
     ),
     {
       equality: (pastState, currentState) => {
-        return (pastState.mapDocument?.parent_layer === currentState.mapDocument?.parent_layer) &&
-        (pastState.zoneAssignments === currentState.zoneAssignments);
+        return (pastState.zoneAssignments === currentState.zoneAssignments) &&
+        (pastState.zoneAssignments.size === currentState.zoneAssignments.size);
       },
       limit: 7,
-      onSave: (pastState, currentState) => {
-        if (currentState.isDrawing) {
-          return;
-        }
-
-        const map = currentState.getMapRef();
-        const sourceLayer = currentState.mapDocument?.parent_layer;
-
-        const changedAssignments = new Map<string, Zone[]>();
-        currentState.zoneAssignments.keys().forEach((geoid) => {
-          const prevZone = pastState.zoneAssignments.get(geoid);
-          const currentZone = currentState.zoneAssignments.get(geoid);
-          if (prevZone !== currentZone) {
-            map?.setFeatureState(
-              {
-                source: BLOCK_SOURCE_ID,
-                id: geoid,
-                sourceLayer,
-              },
-              { zone: currentZone },
-            );
-          }
-        });
-      },
       partialize: (state) => {
-        const { getMapRef, isDrawing, mapDocument, zoneAssignments } = state;
-        return { getMapRef, isDrawing, mapDocument, zoneAssignments };
+        const { zoneAssignments } = state;
+        return { zoneAssignments };
       }
     }
   )
