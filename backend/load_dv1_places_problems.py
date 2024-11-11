@@ -71,14 +71,17 @@ def upsert_places_and_problems(places):
     for state in places:
         for place in state["data"]:
             # Check if place already exists and retrieve its UUID if so
-            existing_place = session.execute(
-                text(
-                    """
-                    SELECT uuid FROM districtrplace WHERE id = :id AND state = :state
-                    """
-                ),
-                {"id": place["id"], "state": state["state"]},
-            ).fetchone()
+            try:
+                existing_place = session.execute(
+                    text(
+                        """
+                        SELECT uuid FROM districtrplace WHERE id = :id AND state = :state
+                        """
+                    ),
+                    {"id": place["id"], "state": state["state"]},
+                ).fetchone()
+            except Exception as e:
+                print(f"No places found for place {place['name']}: {e}")
 
             # If place exists, use its UUID; otherwise, create a new UUID
             place_uuid = UUID(existing_place[0]) if existing_place else uuid4()
