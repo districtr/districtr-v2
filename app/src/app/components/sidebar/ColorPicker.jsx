@@ -12,7 +12,8 @@ export function ColorPicker() {
   const setZoneAssignments = useMapStore((state) => state.setZoneAssignments);
   const accumulatedGeoids = useMapStore((state) => state.accumulatedGeoids);
   const resetAccumulatedBlockPopulations = useMapStore((state) => state.resetAccumulatedBlockPopulations);
-  
+  const mapDocument = useMapStore((state) => state.mapDocument);
+
   const colorArray = colorScheme;
   if (!colorArray) return null;
   const handleRadioChange = (value) => {
@@ -32,7 +33,7 @@ export function ColorPicker() {
         onValueChange={handleRadioChange}
         defaultValue={colorArray[0]}
       >
-        {colorArray.map((color, i) => (
+        {colorArray.slice(0,mapDocument.num_districts).map((color, i) => (
           <RadioGroupItem
             key={i}
             style={{ backgroundColor: color }}

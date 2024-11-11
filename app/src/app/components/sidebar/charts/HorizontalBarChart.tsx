@@ -69,7 +69,6 @@ export const HorizontalBar = () => {
       <ResponsiveContainer
         width="100%"
         // should this instead be set based on the target number of zones? see https://github.com/districtr/districtr-v2/issues/92
-
         minHeight="200px"
       >
         <BarChart width={500} data={mapMetrics.data} layout="vertical" barGap={0.5} maxBarSize={50}>
@@ -95,7 +94,7 @@ export const HorizontalBar = () => {
           <ReferenceLine
             x={idealPopulation ?? 0}
             stroke="black"
-            label={`Ideal ${new Intl.NumberFormat('en-US').format(idealPopulation ?? 0)}`}
+            label={`Ideal: ${new Intl.NumberFormat('en-US').format(idealPopulation ?? 0)}`}
             strokeDasharray="3 3"
           />
         </BarChart>
