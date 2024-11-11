@@ -6,7 +6,7 @@ import { useStore } from "zustand";
 
 /* convert zundo to a React hook */
 const useTemporalStore = <T,>(
-  selector: (state: TemporalState<StoreState>) => T,
+  selector: (state: TemporalState<MapStore>) => T,
   equality?: (a: T, b: T) => boolean,
 ) => useStore(useMapStore.temporal, selector, equality);
 
