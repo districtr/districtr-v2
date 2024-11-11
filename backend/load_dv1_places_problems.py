@@ -141,13 +141,16 @@ def upsert_places_and_problems(places):
                                 """
                                 SELECT uuid
                                 FROM public.districtrproblems
-                                WHERE name = :name AND districtr_place_id = :districtr_place_id
+                                WHERE name = :name AND districtr_place_id = :districtr_place_id::text
                                 """
                             ).bindparams(
                                 bindparam(key="name", type_=String),
                                 bindparam(key="districtr_place_id", type_=String),
                             ),
-                            {"name": problem["name"], "districtr_place_id": place_uuid},
+                            {
+                                "name": problem["name"],
+                                "districtr_place_id": str(place_uuid),
+                            },
                         ).fetchone()[0]
                         problem_uuids.append(problem_uuid_result)
             except Exception as e:
