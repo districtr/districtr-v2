@@ -133,6 +133,7 @@ export function getHighlightLayerSpecification(
     type: 'line',
     layout: {
       visibility: 'visible',
+      'line-cap': 'round',
     },
     paint: {
       'line-opacity': 1,
@@ -147,9 +148,9 @@ export function getHighlightLayerSpecification(
       'line-width': [
         'case',
         ['boolean', ['feature-state', 'focused'], false],
-        10, // Width of 10 when focused
+        5, // Width of 5 when focused
         ['boolean', ['feature-state', 'highlighted'], false],
-        10, // Width of 5 when highlighted
+        5, // Width of 5 when highlighted
         0, // Default width
       ],
     },
