@@ -69,14 +69,18 @@ export const HorizontalBar = () => {
       <ResponsiveContainer
         width="100%"
         // should this instead be set based on the target number of zones? see https://github.com/districtr/districtr-v2/issues/92
-        height={colorScheme.length * 18}
+
         minHeight="200px"
       >
         <BarChart width={500} data={mapMetrics.data} layout="vertical" barGap={0.5} maxBarSize={50}>
           <XAxis
             allowDataOverflow={true}
             type="number"
-            domain={[0, (dataMax: number) => (idealPopulation ? idealPopulation * 2 : dataMax)]}
+            domain={[
+              0,
+              (dataMax: number) =>
+                idealPopulation ? Math.max(idealPopulation * 2, dataMax + 1000) : dataMax,
+            ]}
             tickFormatter={value => numberFormat.format(value)}
           />
           <YAxis type="category" hide />
