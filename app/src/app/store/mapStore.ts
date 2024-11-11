@@ -382,11 +382,12 @@ export const useMapStore = create(
     ),
     {
       diff: (pastState: Partial<MapStore>, currentState: Partial<MapStore>) => {
-        currentState.zoneAssignments.keys().forEach((geoid) => {
+        if (!currentState.zoneAssignments || !pastState.zoneAssignments) return pastState;
+        for (const geoid of currentState.zoneAssignments.keys()) {
           if (!pastState.zoneAssignments.has(geoid)) {
             pastState.zoneAssignments.set(geoid, null);
           }
-        });
+        }
         return pastState as Partial<MapStore>;
       },
       equality: (pastState, currentState) => {
@@ -394,7 +395,8 @@ export const useMapStore = create(
         (pastState.zoneAssignments.size === currentState.zoneAssignments.size);
       },
       limit: 7,
-      partialize: (state: Partial<MapStore>) => {
+      // @ts-ignore: save only partial store
+      partialize: (state) => {
         const { zoneAssignments } = state;
         return { zoneAssignments } as Partial<MapStore>;
       }
