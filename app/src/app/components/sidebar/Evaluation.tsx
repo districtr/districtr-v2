@@ -2,29 +2,26 @@ import React from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useQuery} from '@tanstack/react-query';
 import {getP1SummaryStats} from '@/app/utils/api/apiHandlers';
-import {Heading} from '@radix-ui/themes';
+import {Heading, Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 
 export default function Evaluation() {
-  const mapDocument = useMapStore.getState().mapDocument;
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const assignmentsHash = useMapStore(state => state.assignmentsHash);
 
-  // Doesn't update properly reacively
-  const {data, error} = useQuery(
+  const {data, error, isLoading} = useQuery(
     {
-      queryKey: ['p1SummaryStats', mapDocument],
+      queryKey: ['p1SummaryStats', mapDocument, assignmentsHash],
       queryFn: () => mapDocument && getP1SummaryStats(mapDocument),
       enabled: !!mapDocument,
+      staleTime: 0,
+      placeholderData: previousData => previousData,
     },
     queryClient
   );
 
   if (mapDocument && !mapDocument.available_summary_stats) {
-    return (
-      <div>
-        <h1>Summary Statistics</h1>
-        <p>Summary statistics are not available for this map.</p>
-      </div>
-    );
+    return <Text>Summary statistics are not available for this map.</Text>;
   }
 
   if (error) {
@@ -36,18 +33,17 @@ export default function Evaluation() {
     );
   }
 
-  if (!data?.results) {
-    return <div>Loading...</div>;
-  }
-
   const formatNumber = (num: number) => num.toLocaleString();
 
   return (
-    <div className="w-full p-4">
-      <Heading as="h2" size="2" mb="2">
-        {data.summary_stat}
-      </Heading>
-      <div className="overflow-x-auto">
+    <div className="w-full">
+      <Flex align="center" gap="3">
+        <Heading as="h2" size="2" mb="2">
+          {data?.summary_stat}
+        </Heading>
+        {isLoading && <Spinner />}
+      </Flex>
+      <div className="overflow-x-auto text-sm">
         <table className="min-w-full border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b">
@@ -61,17 +57,19 @@ export default function Evaluation() {
             </tr>
           </thead>
           <tbody>
-            {data.results.map(row => (
-              <tr key={row.zone} className="border-b hover:bg-gray-50">
-                <td className="py-2 px-4 font-medium">{row.zone}</td>
-                <td className="py-2 px-4 text-right">{formatNumber(row.white_pop)}</td>
-                <td className="py-2 px-4 text-right">{formatNumber(row.black_pop)}</td>
-                <td className="py-2 px-4 text-right">{formatNumber(row.asian_pop)}</td>
-                <td className="py-2 px-4 text-right">{formatNumber(row.amin_pop)}</td>
-                <td className="py-2 px-4 text-right">{formatNumber(row.nhpi_pop)}</td>
-                <td className="py-2 px-4 text-right">{formatNumber(row.other_pop)}</td>
-              </tr>
-            ))}
+            {data?.results
+              .sort((a, b) => a.zone - b.zone)
+              .map(row => (
+                <tr key={row.zone} className="border-b hover:bg-gray-50">
+                  <td className="py-2 px-4 font-medium">{row.zone}</td>
+                  <td className="py-2 px-4 text-right">{formatNumber(row.white_pop)}</td>
+                  <td className="py-2 px-4 text-right">{formatNumber(row.black_pop)}</td>
+                  <td className="py-2 px-4 text-right">{formatNumber(row.asian_pop)}</td>
+                  <td className="py-2 px-4 text-right">{formatNumber(row.amin_pop)}</td>
+                  <td className="py-2 px-4 text-right">{formatNumber(row.nhpi_pop)}</td>
+                  <td className="py-2 px-4 text-right">{formatNumber(row.other_pop)}</td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>

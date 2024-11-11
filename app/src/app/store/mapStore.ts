@@ -76,6 +76,8 @@ export interface MapStore {
   resetAccumulatedBlockPopulations: () => void;
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
+  assignmentsHash: string;
+  setAssignmentsHash: (hash: string) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
@@ -182,7 +184,7 @@ export const useMapStore = create(
               const urlParams = new URL(window.location.href).searchParams;
               urlParams.delete("document_id"); // Remove the document_id parameter
               window.history.pushState({}, '', window.location.pathname + '?' + urlParams.toString()); // Update the URL without document_id
-              userMaps.splice(i, 1); 
+              userMaps.splice(i, 1);
             }
           }
           set({
@@ -288,6 +290,8 @@ export const useMapStore = create(
         selectedZone: 1,
         setSelectedZone: (zone) => set({ selectedZone: zone }),
         zoneAssignments: new Map(),
+        assignmentsHash: "",
+        setAssignmentsHash: (hash) => set({ assignmentsHash: hash }),
         accumulatedGeoids: new Set<string>(),
         setAccumulatedGeoids: (accumulatedGeoids) => set({ accumulatedGeoids }),
         setZoneAssignments: (zone, geoids) => {
