@@ -142,7 +142,7 @@ def upsert_places_and_problems(places):
                                 """
                             ).bindparams(
                                 bindparam(key="name", type_=String),
-                                bindparam(key="districtr_place_id", type_=String),
+                                bindparam(key="districtr_place_id", type_=UUIDType),
                             ),
                             {"name": problem["name"], "districtr_place_id": place_uuid},
                         ).fetchone()[0]
