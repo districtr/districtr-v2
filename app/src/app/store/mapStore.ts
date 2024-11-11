@@ -23,10 +23,11 @@ import {
   LayerVisibility,
   PaintEventHandler,
   getFeaturesInBbox,
+  resetZoneColors,
   setZones,
 } from "../utils/helpers";
 import { getRenderSubscriptions } from "./mapRenderSubs";
-import { patchShatter } from "../utils/api/mutations";
+import { patchReset, patchShatter } from "../utils/api/mutations";
 import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
 import { getMapMetricsSubs } from "./metricsSubs";
 import { getMapEditSubs } from "./mapEditSubs";
@@ -80,6 +81,7 @@ export interface MapStore {
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
+  handleReset: () => void;
   accumulatedGeoids: Set<string>;
   setAccumulatedGeoids: (geoids: MapStore["accumulatedGeoids"]) => void;
   brushSize: number;
@@ -231,6 +233,38 @@ export const useMapStore = create(
             },
             zoneAssignments,
           });
+        },
+        handleReset: async () => {
+          const {mapDocument, getMapRef, zoneAssignments, shatterIds} = get();
+          const document_id = mapDocument?.document_id
+
+          if (!document_id) {
+            console.log("No document ID to reset.");
+            return;
+          }
+          set({
+            mapLock: true,
+            appLoadingState: "loading",
+          });
+          const resetResponse = await patchReset.mutate(document_id);
+          
+          if (resetResponse.document_id === document_id) {
+            const initialState = useMapStore.getInitialState();
+            resetZoneColors({
+              zoneAssignments,
+              mapRef: getMapRef(),
+              mapDocument,
+              shatterIds
+            })
+            
+            set({
+              zonePopulations: initialState.zonePopulations,
+              zoneAssignments: initialState.zoneAssignments,
+              shatterIds: initialState.shatterIds,
+              appLoadingState: "loaded",
+              mapLock: false,
+            });
+          }
         },
         setShatterIds: (
           existingParents,

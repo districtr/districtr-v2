@@ -174,6 +174,26 @@ async def shatter_parent(
     return result
 
 
+@app.patch(
+    "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
+)
+async def reset_map(document_id: str, session: Session = Depends(get_session)):
+    # Drop the partition for the given assignments
+    partition_name = f'"document.assignments_{document_id}"'
+    session.execute(text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;"))
+
+    # Recreate the partition
+    session.execute(
+        text(f"""
+        CREATE TABLE {partition_name} PARTITION OF document.assignments
+        FOR VALUES IN ('{document_id}');
+    """)
+    )
+    session.commit()
+
+    return {"message": "Assignments partition reset", "document_id": document_id}
+
+
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):

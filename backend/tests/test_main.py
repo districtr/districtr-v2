@@ -374,6 +374,15 @@ def test_patch_assignments_twice(client, document_id):
     assert data[1]["geo_id"] == "202090434001003"
 
 
+def test_patch_reset_assignments(client, document_id):
+    test_patch_assignments(client, document_id)
+    response = client.patch(f"/api/update_assignments/{document_id}/reset")
+    assert response.status_code == 200
+    assignments = client.get(f"/api/get_assignments/{document_id}")
+    assert assignments.status_code == 200
+    assert len(assignments.json()) == 0
+
+
 def test_get_document_population_totals_null_assignments(
     client, document_id, ks_demo_view_census_blocks
 ):
