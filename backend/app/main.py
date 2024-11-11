@@ -228,6 +228,41 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document(document_id: str, session: Session = Depends(get_session)):
+
+    # TODO: make this whole thing a function like get_total_population()
+    # get gerrydb name based on doc id
+    gerrydb_table_name = session.execute(
+        text(
+            """
+        SELECT gerrydb_table
+        FROM document.document
+        WHERE document_id = :document_id
+        """
+        ),
+        {"document_id": document_id},
+    ).scalar()
+
+    column_name_result = session.execute(
+        text(
+            """
+        SELECT column_name
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE table_name = :table_name
+          AND table_schema = 'gerrydb'
+          AND column_name IN ('total_pop', 'total_vap')
+        ORDER BY column_name ASC
+        LIMIT 1;
+        """
+        ),
+        {"table_name": gerrydb_table_name},
+    ).scalar()
+    if column_name_result:
+        population_subquery = select(
+            func.sum(text(column_name_result)).label("total_population")
+        ).select_from(text(f"gerrydb.{gerrydb_table_name}"))
+    else:
+        # neither column exists, this should never happen
+        population_subquery = select(text("NULL").label("total_population"))
     stmt = (
         select(
             Document.document_id,
@@ -239,6 +274,8 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
+            # get total population based on parent layer
+            population_subquery.as_scalar().label("total_population"),
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(

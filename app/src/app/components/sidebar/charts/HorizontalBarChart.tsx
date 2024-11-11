@@ -1,7 +1,17 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {Card, Flex, Heading, Text} from '@radix-ui/themes';
-import {BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell} from 'recharts';
+import {
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Cell,
+  ReferenceLine,
+} from 'recharts';
 import {colorScheme} from '@/app/constants/colors';
+import {useEffect, useState} from 'react';
 
 type TooltipInput = {
   active?: boolean;
@@ -24,6 +34,16 @@ const CustomTooltip = ({active, payload: items}: TooltipInput) => {
 
 export const HorizontalBar = () => {
   const mapMetrics = useMapStore(state => state.mapMetrics);
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const [idealPopulation, setIdealPopulation] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (mapDocument) {
+      if (mapDocument.num_districts) {
+        setIdealPopulation(mapDocument.total_population / mapDocument.num_districts);
+      }
+    }
+  }, [mapDocument]);
 
   if (mapMetrics?.isPending) {
     return <div>Loading...</div>;
@@ -56,7 +76,7 @@ export const HorizontalBar = () => {
           <XAxis
             allowDataOverflow={true}
             type="number"
-            domain={[0, 'maxData']}
+            domain={[0, (dataMax: number) => (idealPopulation ? idealPopulation * 2 : dataMax)]}
             tickFormatter={value => numberFormat.format(value)}
           />
           <YAxis type="category" hide />
@@ -68,6 +88,12 @@ export const HorizontalBar = () => {
                 <Cell key={`cell-${index}`} fill={colorScheme[entry.zone - 1]} />
               ))}
           </Bar>
+          <ReferenceLine
+            x={idealPopulation ?? 0}
+            stroke="black"
+            label={`Ideal ${new Intl.NumberFormat('en-US').format(idealPopulation ?? 0)}`}
+            strokeDasharray="3 3"
+          />
         </BarChart>
       </ResponsiveContainer>
     </Flex>

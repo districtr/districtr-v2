@@ -61,6 +61,7 @@ export interface DocumentObject {
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
+  total_population: number;
 }
 
 /**
