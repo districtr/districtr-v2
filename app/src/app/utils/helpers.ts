@@ -383,27 +383,34 @@ export const colorZoneAssignments = (
  * @param {MapStore['shatterIds']} shatterIds - The shatter IDs used to determine layer types.
  */
 export const resetZoneColors = ({
-  ids, zoneAssignments, mapRef, mapDocument, shatterIds
+  ids,
+  zoneAssignments,
+  mapRef,
+  mapDocument,
+  shatterIds,
 }: {
-  ids?: Set<string> | string[],
-  zoneAssignments?: MapStore['zoneAssignments']
-  mapRef: ReturnType<MapStore['getMapRef']>,
-  mapDocument: MapStore['mapDocument'],
-  shatterIds: MapStore['shatterIds']
+  ids?: Set<string> | string[];
+  zoneAssignments?: MapStore['zoneAssignments'];
+  mapRef: ReturnType<MapStore['getMapRef']>;
+  mapDocument: MapStore['mapDocument'];
+  shatterIds: MapStore['shatterIds'];
 }) => {
-  const idsToReset = ids ? Array.from(ids) : zoneAssignments ? Array.from(zoneAssignments.keys()) : null
-  if (!mapDocument || !mapRef || !idsToReset) return
-  const childLayerExists = mapDocument?.child_layer
-  const shatterIdsExist = shatterIds.parents.size
-  const getSourceLayer = childLayerExists && shatterIdsExist
-    ? (id: string) => {
-      return shatterIds.children.has(id) 
-        ? mapDocument.child_layer! 
-        : mapDocument.parent_layer
-    }
-    : (_: string) => mapDocument.parent_layer
-    idsToReset.forEach(id => {
-    const sourceLayer = getSourceLayer(id)
+  const idsToReset = ids
+    ? Array.from(ids)
+    : zoneAssignments
+      ? Array.from(zoneAssignments.keys())
+      : null;
+  if (!mapDocument || !mapRef || !idsToReset) return;
+  const childLayerExists = mapDocument?.child_layer;
+  const shatterIdsExist = shatterIds.parents.size;
+  const getSourceLayer =
+    childLayerExists && shatterIdsExist
+      ? (id: string) => {
+          return shatterIds.children.has(id) ? mapDocument.child_layer! : mapDocument.parent_layer;
+        }
+      : (_: string) => mapDocument.parent_layer;
+  idsToReset.forEach(id => {
+    const sourceLayer = getSourceLayer(id);
     mapRef?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
@@ -415,8 +422,8 @@ export const resetZoneColors = ({
         zone: null,
       }
     );
-  })
-}
+  });
+};
 
 // property changes on which to re-color assignments
 export const colorZoneAssignmentTriggers = [
