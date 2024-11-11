@@ -5,7 +5,7 @@ from sqlmodel import Session, String, select
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam
+from sqlalchemy import bindparam, func
 from sqlmodel import ARRAY
 
 import sentry_sdk
@@ -88,6 +88,30 @@ async def create_document(
         {"gerrydb_table_name": data.gerrydb_table},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
+
+    # TODO: make this whole thing a function like get_total_population()
+    column_name_result = session.execute(
+        text(
+            """
+        SELECT column_name
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE table_name = :table_name
+          AND table_schema = 'gerrydb'
+          AND column_name IN ('total_pop', 'total_vap')
+        ORDER BY column_name ASC
+        LIMIT 1;
+        """
+        ),
+        {"table_name": data.gerrydb_table},
+    ).scalar()
+    if column_name_result:
+        population_subquery = select(
+            func.sum(text(column_name_result)).label("total_population")
+        ).select_from(text(f"gerrydb.{data.gerrydb_table}"))
+    else:
+        # neither column exists, this should never happen
+        population_subquery = select(text("NULL").label("total_population"))
+
     stmt = (
         select(
             Document.document_id,
@@ -100,6 +124,8 @@ async def create_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
+            # get total population based on parent layer
+            population_subquery.as_scalar().label("total_population"),
         )
         .where(Document.document_id == document_id)
         .join(
@@ -112,7 +138,7 @@ async def create_document(
     # Document id has a unique constraint so I'm not sure we need to hit the DB again here
     # more valuable would be to check that the assignments table
     doc = session.exec(
-        stmt
+        stmt,
     ).one()  # again if we've got more than one, we have problems.
     if not doc.map_uuid:
         session.rollback()
@@ -127,6 +153,7 @@ async def create_document(
             detail="Document creation failed",
         )
     session.commit()
+
     return doc
 
 

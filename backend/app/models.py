@@ -131,6 +131,7 @@ class DocumentPublic(BaseModel):
     created_at: datetime
     updated_at: datetime
     extent: list[float] | None = None
+    total_population: int | None = None
 
 
 class AssignmentsBase(SQLModel):
