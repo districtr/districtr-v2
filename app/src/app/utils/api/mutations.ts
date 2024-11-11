@@ -8,7 +8,6 @@ import {
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
-import {use} from 'react';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -39,6 +38,7 @@ export const patchUpdates = new MutationObserver(queryClient, {
   },
   onSuccess: (data: AssignmentsCreate) => {
     console.log(`Successfully upserted ${data.assignments_upserted} assignments`);
+    useMapStore.getState().setAssignmentsHash(performance.now().toString());
     mapMetrics.refetch();
   },
 });

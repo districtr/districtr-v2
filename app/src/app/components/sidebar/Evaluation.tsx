@@ -9,6 +9,10 @@ export default function Evaluation() {
   const mapDocument = useMapStore(state => state.mapDocument);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
 
+  React.useEffect(() => {
+    console.log('IN COMPONENT', mapDocument, assignmentsHash);
+  }, [mapDocument, assignmentsHash]);
+
   const {data, error, isLoading} = useQuery(
     {
       queryKey: ['p1SummaryStats', mapDocument, assignmentsHash],
