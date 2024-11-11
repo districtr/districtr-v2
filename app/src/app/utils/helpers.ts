@@ -157,17 +157,13 @@ export const getFeaturesIntersectingCounties = (
   });
 
   if (!countyFeatures) return;
-  const fips = new Set<string>(countyFeatures.map(c => c.properties.STATEFP + c.properties.COUNTYFP));
+  const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
 
   const features = map.queryRenderedFeatures(undefined, {
     layers,
   });
-
-  return features.filter(p => {
-    if (!(p?.id)) return false;
-    const myFips = p.id.toString().match(/\d{5}/);
-    return myFips && fips.has(myFips[0]);
-  });
+  return features.filter(p => (p?.id) &&
+    p.id.toString().match(/\d{5}/)?.[0] === fips);
 };
 
 /**
