@@ -207,7 +207,7 @@ class DistrictrPlace(BaseModel):
     id: str  # human readable; should match districtr_v1
     place_type: str  # human readable; should match districtr_v1, e.g. statewide, county, city, zone
     state: str  # two-digit code
-    districtr_problems: list[DistrictrProblems] = Field(
+    districtr_problems: list[UUIDType] = Field(
         sa_column=Column(ARRAY(UUIDType), nullable=True)
     )
 

@@ -11,6 +11,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from app.models import UUIDType
 
 # revision identifiers, used by Alembic.
 revision: str = "091eb9a26a92"
@@ -28,22 +29,20 @@ def upgrade() -> None:
             "created_at",
             postgresql.TIMESTAMP(timezone=True),
             server_default=sa.text("CURRENT_TIMESTAMP"),
-            autoincrement=False,
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             postgresql.TIMESTAMP(timezone=True),
             server_default=sa.text("CURRENT_TIMESTAMP"),
-            autoincrement=False,
             nullable=False,
         ),
-        sa.Column("uuid", sa.String(), nullable=False, primary_key=True),
+        sa.Column("uuid", UUIDType(), nullable=False, primary_key=True),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("id", sa.String(), nullable=True),
         sa.Column("place_type", sa.String(), nullable=False),
         sa.Column("state", sa.String(), nullable=False),
-        sa.Column("districtr_problems", postgresql.ARRAY(sa.String()), nullable=True),
+        sa.Column("districtr_problems", postgresql.ARRAY(UUIDType()), nullable=True),
         sa.PrimaryKeyConstraint("uuid"),
         schema="public",
     )
@@ -58,23 +57,27 @@ def upgrade() -> None:
             "created_at",
             postgresql.TIMESTAMP(timezone=True),
             server_default=sa.text("CURRENT_TIMESTAMP"),
-            autoincrement=False,
             nullable=False,
         ),
         sa.Column(
             "updated_at",
             postgresql.TIMESTAMP(timezone=True),
             server_default=sa.text("CURRENT_TIMESTAMP"),
-            autoincrement=False,
             nullable=False,
         ),
-        sa.Column("uuid", sa.String(), nullable=False, primary_key=True),
+        sa.Column("uuid", UUIDType(), nullable=False, primary_key=True),
         sa.Column("name", sa.String(), nullable=False),
         sa.Column("num_parts", sa.Integer(), nullable=False),
         sa.Column("plural_noun", sa.String(), nullable=False),
-        sa.Column("districtr_place_id", sa.String(), nullable=False),
+        sa.Column("districtr_place_id", UUIDType(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["districtr_place_id"],
+            ["public.districtrplace.uuid"],
+            ondelete="CASCADE",
+        ),
         schema="public",
     )
+
     op.create_unique_constraint(
         "unique_name_place_id", "districtrproblems", ["name", "districtr_place_id"]
     )

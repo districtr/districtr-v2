@@ -141,7 +141,7 @@ def upsert_places_and_problems(places):
                                 """
                                 SELECT uuid
                                 FROM public.districtrproblems
-                                WHERE name = :name AND districtr_place_id = :districtr_place_id::text
+                                WHERE name = :name AND districtr_place_id = :districtr_place_id
                                 """
                             ).bindparams(
                                 bindparam(key="name", type_=String),
