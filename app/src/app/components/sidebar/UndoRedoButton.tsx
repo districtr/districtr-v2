@@ -1,20 +1,27 @@
-import { useCallback } from "react";
 import { useMapStore, type MapStore } from "@/app/store/mapStore";
 import { Button } from "@radix-ui/themes";
 import { ResetIcon } from "@radix-ui/react-icons";
 import type { TemporalState } from "zundo";
+import { useStore } from "zustand";
+
+/* convert zundo to a React hook */
+const useTemporalStore = <T,>(
+  selector: (state: TemporalState<StoreState>) => T,
+  equality?: (a: T, b: T) => boolean,
+) => useStore(useMapStore.temporal, selector, equality);
 
 export function UndoRedoButton({ isRedo = false }) {
-  const { futureStates, pastStates, redo, undo } = useMapStore.temporal.getState();
-  // as TemporalState<MapStore>
+  const { futureStates, pastStates, redo, undo } = useTemporalStore(
+    (state) => state,
+  ); // TemporalState<MapStore>
 
-  const handleClickUndoRedo = useCallback(() => {
+  const handleClickUndoRedo = () => {
     if (isRedo) {
       redo();
     } else {
       undo();
     }
-  }, [redo, undo, isRedo]);
+  };
 
   return (
     <Button

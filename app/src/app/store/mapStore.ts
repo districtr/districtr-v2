@@ -26,6 +26,7 @@ import {
   getFeaturesInBbox,
   setZones,
 } from "../utils/helpers";
+import { BLOCK_SOURCE_ID } from "@/app/constants/layers";
 import { getRenderSubscriptions } from "./mapRenderSubs";
 import { patchShatter } from "../utils/api/mutations";
 import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
@@ -380,11 +381,38 @@ export const useMapStore = create(
       persistOptions
     ),
     {
+      equality: (pastState, currentState) => {
+        return (pastState.mapDocument?.parent_layer === currentState.mapDocument?.parent_layer) &&
+        (pastState.zoneAssignments === currentState.zoneAssignments);
+      },
       limit: 7,
-      onSave: (s) => console.log(s),
+      onSave: (pastState, currentState) => {
+        if (currentState.isDrawing) {
+          return;
+        }
+
+        const map = currentState.getMapRef();
+        const sourceLayer = currentState.mapDocument?.parent_layer;
+
+        const changedAssignments = new Map<string, Zone[]>();
+        currentState.zoneAssignments.keys().forEach((geoid) => {
+          const prevZone = pastState.zoneAssignments.get(geoid);
+          const currentZone = currentState.zoneAssignments.get(geoid);
+          if (prevZone !== currentZone) {
+            map?.setFeatureState(
+              {
+                source: BLOCK_SOURCE_ID,
+                id: geoid,
+                sourceLayer,
+              },
+              { zone: currentZone },
+            );
+          }
+        });
+      },
       partialize: (state) => {
-        const { zoneAssignments } = state;
-        return { zoneAssignments };
+        const { getMapRef, isDrawing, mapDocument, zoneAssignments } = state;
+        return { getMapRef, isDrawing, mapDocument, zoneAssignments };
       }
     }
   )
