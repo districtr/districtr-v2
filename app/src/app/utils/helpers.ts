@@ -156,7 +156,7 @@ export const getFeaturesIntersectingCounties = (
     layers: ['counties_fill'],
   });
 
-  if (!countyFeatures) return;
+  if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
 
   const features = map.queryRenderedFeatures(undefined, {
