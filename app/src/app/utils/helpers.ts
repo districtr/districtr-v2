@@ -137,8 +137,11 @@ export const getFeaturesIntersectingCounties = (
   const features = map.queryRenderedFeatures(undefined, {
     layers,
   });
+
   return filterFeatures(
-    features.filter(p => p?.id && p.id.toString().match(/\d{5}/)?.[0] === fips)
+    features,
+    true,
+    [(feature) => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips)]
   );
 };
 
@@ -440,7 +443,11 @@ export const checkIfSameZone = (
  *
  * The function returns an array of features that pass all the filtering criteria.
  */
-const filterFeatures = (features: MapGeoJSONFeature[], filterLocked: boolean = true) => {
+const filterFeatures = (
+  features: MapGeoJSONFeature[], 
+  filterLocked: boolean = true,
+  additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = []
+) => {
   const {
     captiveIds,
     lockedFeatures,
@@ -449,7 +456,7 @@ const filterFeatures = (features: MapGeoJSONFeature[], filterLocked: boolean = t
     shatterIds,
   } = useMapStore.getState();
   const parentIdsToHeal: MapStore['parentsToHeal'] = [];
-  const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [];
+  const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
   if (captiveIds.size) {
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
