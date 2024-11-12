@@ -424,7 +424,24 @@ export const checkIfSameZone = (
 };
 
 
-
+/**
+ * filterFeatures
+ * Filters the provided features based on certain criteria, such as locked features and captive IDs.
+ *
+ * @param {MapGeoJSONFeature[]} features - An array of features to be filtered.
+ * @param {boolean} [filterLocked=true] - A flag indicating whether to filter out locked features.
+ * @returns {MapGeoJSONFeature[]} - An array of filtered features.
+ *
+ * @description
+ * This function applies multiple filtering criteria to the input features:
+ * 1. If captive IDs are present in the state, filters out features that are in the captive IDs set.
+ * 2. Optionally filters out features that are in the locked features set.
+ * 3. If the map document has a child layer and there are parent shatter IDs, it will:
+ *    - Exclude parent features from the results.
+ *    - Track parent IDs that need to be healed.
+ * 
+ * The function returns an array of features that pass all the filtering criteria.
+ */
 const filterFeatures = (features: MapGeoJSONFeature[], filterLocked: boolean = true) => {
   const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds} = useMapStore.getState();
   const parentIdsToHeal: MapStore['parentsToHeal'] = [];
