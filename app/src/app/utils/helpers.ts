@@ -81,7 +81,7 @@ export const getFeaturesInBbox = (
   filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
-  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds, isPainting} =
+  const {captiveIds} =
     useMapStore.getState();
 
   const layers = _layers?.length
@@ -91,36 +91,8 @@ export const getFeaturesInBbox = (
       : [BLOCK_HOVER_LAYER_ID];
 
   let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
-  // If captiveIds exist (eg. block view mode) only select those IDs
-  if (captiveIds.size) {
-    features = features.filter(f => captiveIds.has(f.id?.toString() || ''));
-  }
-  // if filtering locked feature, remove those
-  if (filterLocked && lockedFeatures.size) {
-    features = features.filter(f => !lockedFeatures.has(f.id?.toString() || ''));
-  }
 
-  // if there is a child layer and parents have been shattered
-  // check if any of the selected IDs are parents
-  if (mapDocument?.child_layer && shatterIds.parents.size) {
-    const parentIds: MapStore['parentsToHeal'] = [];
-    features = features.filter(f => {
-      const id = f.id?.toString();
-      if (!id) return false;
-      const isParent = shatterIds.parents.has(id);
-      if (isParent) {
-        // check if parent IDs have been painted solid
-        parentIds.push(id);
-        // don't paint parents with children
-        return false;
-      } else {
-        // do paint everything else
-        return true;
-      }
-    });
-    parentIds.length && checkParentsToHeal(parentIds);
-  }
-  return features;
+  return filterFeatures(features, filterLocked);
 };
 
 /**
@@ -137,7 +109,7 @@ export const getFeatureUnderCursor = (
   brushSize: number,
   layers: string[] = [BLOCK_HOVER_LAYER_ID]
 ): MapGeoJSONFeature[] | undefined => {
-  return map?.queryRenderedFeatures(e.point, {layers});
+  return filterFeatures(map?.queryRenderedFeatures(e.point, {layers}) || []);
 };
 
 /**
@@ -166,8 +138,9 @@ export const getFeaturesIntersectingCounties = (
   const features = map.queryRenderedFeatures(undefined, {
     layers,
   });
-  return features.filter(p => (p?.id) &&
-    p.id.toString().match(/\d{5}/)?.[0] === fips);
+  return filterFeatures(features.filter(p => (p?.id) &&
+    p.id.toString().match(/\d{5}/)?.[0] === fips)
+  )
 };
 
 /**
@@ -448,4 +421,44 @@ export const checkIfSameZone = (
     shouldHeal,
     zone: zone || null,
   };
+};
+
+
+
+const filterFeatures = (features: MapGeoJSONFeature[], filterLocked: boolean = true) => {
+  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds} = useMapStore.getState();
+  const parentIdsToHeal: MapStore['parentsToHeal'] = [];
+  const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = []
+  if (captiveIds.size){
+    filterFunctions.push((f) => captiveIds.has(f.id?.toString() || ''))
+  }
+  if (filterLocked && lockedFeatures.size ){
+    filterFunctions.push(
+      (f) => !lockedFeatures.has(f.id?.toString() || '')
+    )
+  }
+  if (mapDocument?.child_layer && shatterIds.parents.size){
+    filterFunctions.push((f) => {
+      const id = f.id?.toString();
+      if (!id) return false;
+      const isParent = shatterIds.parents.has(id);
+      if (isParent) {
+        // check if parent IDs have been painted solid
+        parentIdsToHeal.push(id);
+        // don't paint parents with children
+        return false;
+      } else {
+        // do paint everything else
+        return true;
+      }
+    })
+  }
+
+  if (!filterFeatures.length) return features
+
+  const filteredFeatures = features.filter(feature => {
+    return filterFunctions.every(f => f(feature))
+  })
+  parentIdsToHeal.length && checkParentsToHeal(parentIdsToHeal);
+  return filteredFeatures;
 };
