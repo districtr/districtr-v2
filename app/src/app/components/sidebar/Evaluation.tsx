@@ -10,6 +10,7 @@ import {
 import { Button } from "@radix-ui/themes";
 import {Heading, Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
+import { formatNumber, NumberFormats } from '@/app/utils/numbers';
 
 type EvalModes = 'share' | 'count' | 'pct';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
@@ -84,9 +85,15 @@ const modeButtonConfig: Array<{label: string, value: EvalModes}> = [
   }
 ]
 
+const numberFormats: Record<EvalModes, NumberFormats> = {
+  'pct': 'percent',
+  'share': 'percent',
+  'count': 'string'
+}
+
 const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConfig}) => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
-
+  const numberFormat = numberFormats[evalMode]
   const mapDocument = useMapStore(state => state.mapDocument);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
 
@@ -128,8 +135,6 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
     );
   }
 
-  const formatNumber = (num: number) => num.toLocaleString();
-
   return (
     <div className="w-full">
       <Flex align="center" gap="3">
@@ -160,7 +165,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
                   {columnConfig.map((f, i) => (
                     <td className="py-2 px-4 text-right">
                       {/* todo: clean types */}
-                      {formatNumber(calculateColumn(evalMode, row, totals!, f.column))}
+                      {formatNumber(calculateColumn(evalMode, row, totals!, f.column), numberFormat)}
                     </td>
                   ))}
                 </tr>
