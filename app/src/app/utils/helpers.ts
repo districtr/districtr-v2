@@ -8,7 +8,11 @@ import {
   LngLat,
   LngLatLike,
 } from 'maplibre-gl';
-import {BLOCK_HOVER_LAYER_ID, BLOCK_SOURCE_ID} from '@/app/constants/layers';
+import {
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_SOURCE_ID,
+} from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 
