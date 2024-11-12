@@ -163,13 +163,18 @@ export interface P1SummaryStats {
  * @property {number} total_pop - The total population.
  */
 export interface P1ZoneSummaryStats {
-  zone: number;
+  zone: string;
   other_pop: number;
   asian_pop: number;
   amin_pop: number;
   nhpi_pop: number;
   black_pop: number;
   white_pop: number;
+}
+
+export interface P1ZoneSummaryStatsNumeric extends Omit<P1ZoneSummaryStats, 'zone'> {
+  zone: number;
+  total: number;
 }
 
 /**
