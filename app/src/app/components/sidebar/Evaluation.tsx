@@ -11,6 +11,7 @@ import { Button } from "@radix-ui/themes";
 import {Heading, Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import { formatNumber, NumberFormats } from '@/app/utils/numbers';
+import { colorScheme } from '@/app/constants/colors';
 
 type EvalModes = 'share' | 'count' | 'pct';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
@@ -161,7 +162,10 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
               .sort((a, b) => a.zone - b.zone)
               .map(row => (
                 <tr key={row.zone} className="border-b hover:bg-gray-50">
-                  <td className="py-2 px-4 font-medium">{row.zone}</td>
+                  <td className="py-2 px-4 font-medium flex flex-row items-center gap-1">
+                    <span className={'size-4 inline-block rounded-md'} style={{backgroundColor: colorScheme[row.zone-1]}}></span>
+                    {row.zone}
+                  </td>
                   {columnConfig.map((f, i) => (
                     <td className="py-2 px-4 text-right">
                       {/* todo: clean types */}
