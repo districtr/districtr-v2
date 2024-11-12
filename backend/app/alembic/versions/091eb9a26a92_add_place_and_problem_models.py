@@ -70,11 +70,6 @@ def upgrade() -> None:
         sa.Column("num_parts", sa.Integer(), nullable=False),
         sa.Column("plural_noun", sa.String(), nullable=False),
         sa.Column("districtr_place_id", UUIDType(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["districtr_place_id"],
-            ["public.districtrplace.uuid"],
-            ondelete="CASCADE",
-        ),
         schema="public",
     )
 
