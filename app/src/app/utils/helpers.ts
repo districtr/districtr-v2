@@ -13,9 +13,6 @@ import {
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_SOURCE_ID,
 } from '@/app/constants/layers';
-import {polygon, multiPolygon} from '@turf/helpers';
-import {booleanWithin} from '@turf/boolean-within';
-import {pointOnFeature} from '@turf/point-on-feature';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 
@@ -163,65 +160,14 @@ export const getFeaturesIntersectingCounties = (
     layers: ['counties_fill'],
   });
 
-  if (!countyFeatures) return;
+  if (!countyFeatures?.length) return;
+  const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
 
-  const featureBbox = getBoundingBoxFromFeatures(countyFeatures);
-
-  if (!featureBbox) return;
-
-  const sw = map.project(featureBbox[0]);
-  const ne = map.project(featureBbox[1]);
-  const features = map.queryRenderedFeatures([sw, ne], {
+  const features = map.queryRenderedFeatures(undefined, {
     layers,
   });
-
-  let countyPoly;
-  try {
-    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
-    countyPoly = polygon(countyFeatures[0].geometry.coordinates);
-  } catch {
-    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
-    countyPoly = multiPolygon(countyFeatures[0].geometry.coordinates);
-  }
-
-  return features.filter(p => {
-    const point = pointOnFeature(p);
-    return booleanWithin(point, countyPoly);
-  });
-};
-
-/**
- * getBoundingBoxFromCounties
- * Calculate the bounding box (SW and NE corners) from county features.
- * @param countyFeatures - Array of GeoJSON Features representing counties
- * @returns [PointLike, PointLike] - An array containing the SW and NE corners of the bounding box
- */
-const getBoundingBoxFromFeatures = (
-  features: MapGeoJSONFeature[]
-): [LngLatLike, LngLatLike] | null => {
-  if (!features || features.length === 0) {
-    return null;
-  }
-
-  const sw = new LngLat(180, 90);
-  const ne = new LngLat(-180, -90);
-
-  features.forEach(feature => {
-    // this will always have an even number of coordinates
-    // iterating over the coordinates in pairs yields (lng, lat)
-    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
-    let coords = feature.geometry.coordinates.flat(Infinity);
-    for (let i = 0; i < coords.length; i += 2) {
-      let x = coords[i];
-      let y = coords[i + 1];
-      sw.lng = Math.min(sw.lng, x);
-      sw.lat = Math.min(sw.lat, y);
-      ne.lng = Math.max(ne.lng, x);
-      ne.lat = Math.max(ne.lat, y);
-    }
-  });
-
-  return [sw, ne];
+  return features.filter(p => (p?.id) &&
+    p.id.toString().match(/\d{5}/)?.[0] === fips);
 };
 
 /**
