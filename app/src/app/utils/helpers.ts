@@ -1,5 +1,6 @@
 import {
-  Map,
+  Map as MaplibreMap,
+  Point,
   PointLike,
   MapLayerMouseEvent,
   MapLayerTouchEvent,
@@ -7,12 +8,16 @@ import {
   LngLat,
   LngLatLike,
 } from 'maplibre-gl';
-import {Point} from 'maplibre-gl';
-import {BLOCK_HOVER_LAYER_ID, BLOCK_SOURCE_ID} from '@/app/constants/layers';
+import {
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_SOURCE_ID,
+} from '@/app/constants/layers';
 import {polygon, multiPolygon} from '@turf/helpers';
 import {booleanWithin} from '@turf/boolean-within';
 import {pointOnFeature} from '@turf/point-on-feature';
 import {MapStore, useMapStore} from '../store/mapStore';
+import {NullableZone} from '../constants/types';
 
 /**
  * PaintEventHandler
@@ -22,10 +27,11 @@ import {MapStore, useMapStore} from '../store/mapStore';
  * @param brushSize - number, the size of the brush
  */
 export type PaintEventHandler = (
-  map: Map | null,
+  map: MaplibreMap | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers?: string[]
+  layers?: string[],
+  filterLocked?: boolean
 ) => MapGeoJSONFeature[] | undefined;
 
 /**
@@ -71,26 +77,65 @@ export const boxAroundPoint = (
  * @returns MapGeoJSONFeature[] | undefined - An array of map features or undefined
  */
 export const getFeaturesInBbox = (
-  map: Map | null,
+  map: MaplibreMap | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
-  layers: string[] = [BLOCK_HOVER_LAYER_ID]
+  _layers: string[] = [BLOCK_HOVER_LAYER_ID],
+  filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
+  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds, isPainting} =
+    useMapStore.getState();
 
-  return map?.queryRenderedFeatures(bbox, {layers});
+  const layers = _layers?.length
+    ? _layers
+    : captiveIds.size
+      ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+      : [BLOCK_HOVER_LAYER_ID];
+
+  let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
+  // If captiveIds exist (eg. block view mode) only select those IDs
+  if (captiveIds.size) {
+    features = features.filter(f => captiveIds.has(f.id?.toString() || ''));
+  }
+  // if filtering locked feature, remove those
+  if (filterLocked && lockedFeatures.size) {
+    features = features.filter(f => !lockedFeatures.has(f.id?.toString() || ''));
+  }
+
+  // if there is a child layer and parents have been shattered
+  // check if any of the selected IDs are parents
+  if (mapDocument?.child_layer && shatterIds.parents.size) {
+    const parentIds: MapStore['parentsToHeal'] = [];
+    features = features.filter(f => {
+      const id = f.id?.toString();
+      if (!id) return false;
+      const isParent = shatterIds.parents.has(id);
+      if (isParent) {
+        // check if parent IDs have been painted solid
+        parentIds.push(id);
+        // don't paint parents with children
+        return false;
+      } else {
+        // do paint everything else
+        return true;
+      }
+    });
+    parentIds.length && checkParentsToHeal(parentIds);
+  }
+  return features;
 };
 
 /**
  * getFeatureUnderCursor
  * Get the feature under the cursor on the map.
- * @param map - Map | null, the maplibre map instance
+ * @param map - MaplibreMap | null, the maplibre map instance
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @param brushSize - number, the size of the brush
  * @returns MapGeoJSONFeature | undefined - A map feature or undefined
  */
 export const getFeatureUnderCursor = (
-  map: Map | null,
+  map: MaplibreMap | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
   layers: string[] = [BLOCK_HOVER_LAYER_ID]
@@ -101,13 +146,13 @@ export const getFeatureUnderCursor = (
 /**
  * getFeaturesIntersectingCounties
  * Get the features intersecting counties on the map.
- * @param map - Map | null, the maplibre map instance
+ * @param map - MaplibreMap | null, the maplibre map instance
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @param brushSize - number, the size of the brush
  * @returns MapGeoJSONFeature[] | undefined - An array of map features or undefined
  */
 export const getFeaturesIntersectingCounties = (
-  map: Map | null,
+  map: MaplibreMap | null,
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   brushSize: number,
   layers: string[] = [BLOCK_HOVER_LAYER_ID]
@@ -182,11 +227,11 @@ const getBoundingBoxFromFeatures = (
 /**
  * mousePos
  * Get the position of the mouse on the map.
- * @param map - Map | null, the maplibre map instance
+ * @param map - MaplibreMap | null, the maplibre map instance
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @returns Point - The position of the mouse on the map
  */
-export const mousePos = (map: Map | null, e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+export const mousePos = (map: MaplibreMap | null, e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const canvas = map?.getCanvasContainer();
   if (!canvas) return new Point(0, 0);
   const rect = canvas.getBoundingClientRect();
@@ -237,7 +282,7 @@ export function toggleLayerVisibility(
  * i.e. it's not based on what the user actually sees.
  * @param {maplibregl.Map} map - The map reference.
  */
-export function getVisibleLayers(map: Map | null) {
+export function getVisibleLayers(map: MaplibreMap | null) {
   return map?.getStyle().layers.filter(layer => {
     return layer.layout?.visibility === 'visible';
   });
@@ -249,7 +294,8 @@ export type ColorZoneAssignmentsState = [
   MapStore['getMapRef'],
   MapStore['shatterIds'],
   MapStore['appLoadingState'],
-  MapStore['mapRenderingState']
+  MapStore['mapRenderingState'],
+  MapStore['mapOptions']['lockPaintedAreas'],
 ];
 
 export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
@@ -287,17 +333,18 @@ export const colorZoneAssignments = (
   const [zoneAssignments, mapDocument, getMapRef, _, appLoadingState, mapRenderingState] = state;
   const previousZoneAssignments = previousState?.[0] || null;
   const mapRef = getMapRef();
-  const shatterIds = useMapStore.getState().shatterIds;
+  const {shatterIds} = useMapStore.getState();
   if (!mapRef || !mapDocument || appLoadingState !== 'loaded' || mapRenderingState !== 'loaded') {
     return;
   }
   const isInitialRender = previousState?.[4] !== 'loaded' || previousState?.[5] !== 'loaded';
 
   zoneAssignments.forEach((zone, id) => {
-    if (
-      (id && !isInitialRender && previousZoneAssignments?.get(id) === zoneAssignments.get(id)) ||
-      !id
-    ) {
+    const hasNoId = !id;
+    const isRepeated =
+      id && !isInitialRender && previousZoneAssignments?.get(id) === zoneAssignments.get(id);
+    // const isLocked = lockedFeatures.size && lockedFeatures.has(id);
+    if (hasNoId || isRepeated) {
       return;
     }
 
@@ -336,27 +383,34 @@ export const colorZoneAssignments = (
  * @param {MapStore['shatterIds']} shatterIds - The shatter IDs used to determine layer types.
  */
 export const resetZoneColors = ({
-  ids, zoneAssignments, mapRef, mapDocument, shatterIds
+  ids,
+  zoneAssignments,
+  mapRef,
+  mapDocument,
+  shatterIds,
 }: {
-  ids?: Set<string> | string[],
-  zoneAssignments?: MapStore['zoneAssignments']
-  mapRef: ReturnType<MapStore['getMapRef']>,
-  mapDocument: MapStore['mapDocument'],
-  shatterIds: MapStore['shatterIds']
+  ids?: Set<string> | string[];
+  zoneAssignments?: MapStore['zoneAssignments'];
+  mapRef: ReturnType<MapStore['getMapRef']>;
+  mapDocument: MapStore['mapDocument'];
+  shatterIds: MapStore['shatterIds'];
 }) => {
-  const idsToReset = ids ? Array.from(ids) : zoneAssignments ? Array.from(zoneAssignments.keys()) : null
-  if (!mapDocument || !mapRef || !idsToReset) return
-  const childLayerExists = mapDocument?.child_layer
-  const shatterIdsExist = shatterIds.parents.size
-  const getSourceLayer = childLayerExists && shatterIdsExist
-    ? (id: string) => {
-      return shatterIds.children.has(id) 
-        ? mapDocument.child_layer! 
-        : mapDocument.parent_layer
-    }
-    : (_: string) => mapDocument.parent_layer
-    idsToReset.forEach(id => {
-    const sourceLayer = getSourceLayer(id)
+  const idsToReset = ids
+    ? Array.from(ids)
+    : zoneAssignments
+      ? Array.from(zoneAssignments.keys())
+      : null;
+  if (!mapDocument || !mapRef || !idsToReset) return;
+  const childLayerExists = mapDocument?.child_layer;
+  const shatterIdsExist = shatterIds.parents.size;
+  const getSourceLayer =
+    childLayerExists && shatterIdsExist
+      ? (id: string) => {
+          return shatterIds.children.has(id) ? mapDocument.child_layer! : mapDocument.parent_layer;
+        }
+      : (_: string) => mapDocument.parent_layer;
+  idsToReset.forEach(id => {
+    const sourceLayer = getSourceLayer(id);
     mapRef?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
@@ -368,8 +422,8 @@ export const resetZoneColors = ({
         zone: null,
       }
     );
-  })
-}
+  });
+};
 
 // property changes on which to re-color assignments
 export const colorZoneAssignmentTriggers = [
@@ -416,4 +470,36 @@ export const shallowCompareArray = (curr: unknown[], prev: unknown[]) => {
     }
   }
   return true;
+};
+
+/**
+ * checkIfSameZone
+ * Checks if all provided IDs belong to the same zone based on the zone assignments.
+ *
+ * @param {Set<string> | string[]} idsToCheck - A set or array of IDs to check against the zone assignments.
+ * @param {Map<string, NullableZone>} zoneAssignments - A map of zone assignments where the key is the ID and the value is the assigned zone.
+ * @returns {{ shouldHeal: boolean, zone: NullableZone | undefined }} - An object containing:
+ *   - shouldHeal: A boolean indicating whether all IDs belong to the same zone.
+ *   - zone: The zone that all IDs belong to, or undefined if no zone is assigned.
+ */
+export const checkIfSameZone = (
+  idsToCheck: Set<string> | string[],
+  zoneAssignments: Map<string, NullableZone>
+) => {
+  let zone: NullableZone | undefined = undefined;
+  let shouldHeal = true;
+
+  idsToCheck.forEach(id => {
+    const assigment = zoneAssignments.get(id);
+    if (zone === undefined) {
+      zone = assigment;
+    }
+    if (assigment !== null && assigment !== zone) {
+      shouldHeal = false;
+    }
+  });
+  return {
+    shouldHeal,
+    zone: zone || null,
+  };
 };

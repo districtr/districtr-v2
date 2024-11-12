@@ -1,13 +1,13 @@
-import { Box, Flex, Heading } from "@radix-ui/themes";
-import { MapModeSelector } from "./MapModeSelector";
-import { ColorPicker } from "./ColorPicker";
-import { ResetMapButton } from "./ResetMapButton";
-import { GerryDBViewSelector } from "./GerryDBViewSelector";
-import { HorizontalBar } from "./charts/HorizontalBarChart";
-import { useMapStore } from "@/app/store/mapStore";
-import { Tabs, Text } from "@radix-ui/themes";
-import Layers from "./Layers";
-import React from "react";
+import {Box, Flex, Heading} from '@radix-ui/themes';
+import {MapModeSelector} from './MapModeSelector';
+import {ColorPicker} from './ColorPicker';
+import {ResetMapButton} from './ResetMapButton';
+import {GerryDBViewSelector} from './GerryDBViewSelector';
+import {HorizontalBar} from './charts/HorizontalBarChart';
+import {useMapStore} from '@/app/store/mapStore';
+import {Tabs, Text} from '@radix-ui/themes';
+import Layers from './Layers';
+import React from 'react';
 
 interface DataPanelSpec {
   title: string;
@@ -23,18 +23,18 @@ interface DataPanelsProps {
 
 const defaultPanels: DataPanelSpec[] = [
   {
-    title: "population",
-    label: "Population",
+    title: 'population',
+    label: 'Population',
     content: <HorizontalBar />,
   },
   {
-    title: "layers",
-    label: "Data layers",
+    title: 'layers',
+    label: 'Data layers',
     content: <Layers />,
   },
   {
-    title: "evaluation",
-    label: "Evaluation",
+    title: 'evaluation',
+    label: 'Evaluation',
     content: <Text size="2"> Unimplemented </Text>,
   },
 ];
@@ -46,14 +46,14 @@ const DataPanels: React.FC<DataPanelsProps> = ({
   return (
     <Tabs.Root defaultValue={defaultPanel}>
       <Tabs.List>
-        {panels.map((panel) => (
+        {panels.map(panel => (
           <Tabs.Trigger key={panel.title} value={panel.title}>
             {panel.label}
           </Tabs.Trigger>
         ))}
       </Tabs.List>
       <Box pt="3">
-        {panels.map((panel) => (
+        {panels.map(panel => (
           <Tabs.Content key={panel.title} value={panel.title}>
             {panel.content}
           </Tabs.Content>

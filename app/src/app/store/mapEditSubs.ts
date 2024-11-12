@@ -1,52 +1,29 @@
 import {debounce} from 'lodash';
-import {Assignment, FormatAssignments, getAssignments} from '../utils/api/apiHandlers';
+import {FormatAssignments} from '../utils/api/apiHandlers';
 import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
+import {queryClient} from '../utils/api/queryClient';
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
-  if (getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
+  const isMutating = queryClient.isMutating();
+  if (!isMutating && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
     const assignments = FormatAssignments();
     patchUpdates.mutate(assignments);
   }
 };
+
 const debouncedZoneUpdate = debounce(zoneUpdates, 25);
 
-type zoneSubState = [
-  MapStore['getMapRef'],
-  MapStore['zoneAssignments'],
-  MapStore['appLoadingState'],
-  MapStore['mapRenderingState']
-];
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
-  const sendZonesOnMapRefSub = useMapStore.subscribe<zoneSubState>(
-    state => [
-      state.getMapRef,
-      state.zoneAssignments,
-      state.appLoadingState,
-      state.mapRenderingState,
-    ],
-    (
-      [getMapRef, zoneAssignments, appLoadingState, mapRenderingState],
-      [_prevMapRef, _prevZoneAssignments, prevAppLoadingState, prevMapRenderingState]
-    ) => {
-      const previousNotLoaded = [
-        appLoadingState,
-        mapRenderingState,
-        prevAppLoadingState,
-        prevMapRenderingState,
-      ].some(state => state !== 'loaded');
-      if (!getMapRef() || previousNotLoaded) {
-        return;
-      }
-      console.log(
-        '!!!SENDING UPDATES',
-        appLoadingState,
-        mapRenderingState,
-        prevAppLoadingState,
-        prevMapRenderingState
-      );
+  const sendZoneUpdatesOnUpdate = useMapStore.subscribe<
+    [MapStore['zoneAssignments'], MapStore['appLoadingState']]
+  >(
+    state => [state.zoneAssignments, state.appLoadingState],
+    ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
+      if (previousAppLoadingState !== 'loaded') return;
+      const {getMapRef} = useMapStore.getState();
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
     },
     {equalityFn: shallowCompareArray}
@@ -57,5 +34,16 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     mapDocument => mapDocument && updateAssignments(mapDocument)
   );
 
-  return [sendZonesOnMapRefSub, fetchAssignmentsSub];
+  const healAfterEdits = useMapStore.subscribe<[MapStore['parentsToHeal'], MapStore['mapOptions']]>(
+    state => [state.parentsToHeal, state.mapOptions],
+    ([parentsToHeal, mapOptions]) => {
+      const {processHealParentsQueue} = useMapStore.getState();
+      if (parentsToHeal.length && mapOptions.mode === 'default') {
+        processHealParentsQueue();
+      }
+    },
+    {equalityFn: shallowCompareArray}
+  );
+
+  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits];
 };

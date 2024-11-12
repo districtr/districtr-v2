@@ -233,3 +233,40 @@ def test_shattering(client):
     assert len({d["document_id"] for d in data["children"]}) == 1
     assert {d["geo_id"] for d in data["children"]} == {"a", "e"}
     assert all(d["zone"] == 1 for d in data["children"])
+
+
+def test_unshatter_process(client):
+    # Set-up
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": "simple_geos",
+        },
+    )
+    doc = response.json()
+    document_id = doc["document_id"]
+    response = client.patch(
+        "/api/update_assignments",
+        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
+    )
+    # Test
+    response = client.patch(
+        f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}
+    )
+    assignments_response = client.get(f"/api/get_assignments/{document_id}")
+    assignments_data = assignments_response.json()
+    assert len(assignments_data) == 2
+    # Unshatter
+    response = client.patch(
+        f"/api/update_assignments/{document_id}/unshatter_parents",
+        json={"geoids": ["A"], "zone": 1},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # Verify the response contains the expected data
+    assert "geoids" in data
+    assert len(data["geoids"]) == 1
+    # Confirm assignments are now length 1
+    assignments_response = client.get(f"/api/get_assignments/{document_id}")
+    assignments_data = assignments_response.json()
+    assert len(assignments_data) == 1

@@ -1,3 +1,4 @@
+import {useMapStore} from '@/app/store/mapStore';
 import {updateDocumentFromId, updateGetDocumentFromId} from './queries';
 export let previousDocumentID = '';
 
@@ -11,6 +12,8 @@ export const getSearchParamsObersver = () => {
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'visible') {
       updateDocumentFromId.refetch();
+    } else {
+      useMapStore.getState().setAppLoadingState('blurred');
     }
   };
 

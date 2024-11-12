@@ -1,14 +1,16 @@
-import React from "react";
-import DataPanels from "./DataPanels";
+import React from 'react';
+import DataPanels from './DataPanels';
 import {Box, Flex, Heading} from '@radix-ui/themes';
 import {MapModeSelector} from './MapModeSelector';
-import {ColorPicker} from './ColorPicker';
 import {ResetMapButton} from './ResetMapButton';
 import {GerryDBViewSelector} from './GerryDBViewSelector';
 import {useMapStore} from '@/app/store/mapStore';
 import PaintByCounty from './PaintByCounty';
 import {BrushSizeSelector} from './BrushSizeSelector';
-import {MobileColorPicker} from "./MobileColorPicker"
+import {ExitBlockViewButtons} from './ExitBlockViewButtons';
+import {ZonePicker} from './ZonePicker';
+import {ZoneLockPicker} from './ZoneLockPicker';
+import {MobileColorPicker} from './MobileColorPicker';
 
 export default function SidebarComponent() {
   const activeTool = useMapStore(state => state.activeTool);
@@ -30,33 +32,42 @@ export default function SidebarComponent() {
         </Heading>
         <GerryDBViewSelector />
         <MapModeSelector />
-        {activeTool === "brush" || activeTool === "eraser" ? (
-          <div 
-          className="gap-4 lg:gap-0 landscape:gap-0
+        {activeTool === 'brush' || activeTool === 'eraser' ? (
+          <div
+            className="gap-4 lg:gap-0 landscape:gap-0
           flex flex-row-reverse lg:flex-col landscape:flex-col
           justify-around
-          ">
+          "
+          >
             <div className="flex-grow">
-            <BrushSizeSelector />
-            <PaintByCounty />{" "}
+              <BrushSizeSelector />
+              <PaintByCounty />{' '}
             </div>
-            {activeTool === "brush" ? (
-              <div className="flex-grow-0">
-              <span className="hidden md:block landscape:block">
-                <ColorPicker />
-              </span>
-              <span className="md:hidden landscape:hidden">
-                <MobileColorPicker />
-              </span>
+            {activeTool === 'brush' ? (
+              <div className="flex-grow-0 flex-row">
+                <span className="hidden md:block landscape:block">
+                  <ZonePicker />
+                </span>
+                <span className="md:hidden landscape:hidden">
+                  <MobileColorPicker />
+                </span>
               </div>
             ) : null}
           </div>
         ) : null}
+
+        {activeTool === 'lock' ? (
+          <div>
+            <ZoneLockPicker />
+          </div>
+        ) : null}
         <ResetMapButton />
+        <ExitBlockViewButtons />
+
         <Box
           display={{
-            initial: "none",
-            md: "inline",
+            initial: 'none',
+            md: 'inline',
           }}
         >
           <DataPanels defaultPanel="layers" />

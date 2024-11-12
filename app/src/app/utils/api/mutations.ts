@@ -5,12 +5,12 @@ import {
   AssignmentsReset,
   createMapDocument,
   patchShatterParents,
+  patchUnShatterParents,
   patchUpdateAssignments,
   patchUpdateReset,
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
-import {use} from 'react';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -31,6 +31,25 @@ export const patchShatter = new MutationObserver(queryClient, {
   },
 });
 
+export const patchUnShatter = new MutationObserver(queryClient, {
+  mutationFn: patchUnShatterParents,
+  onMutate: ({document_id, geoids}) => {
+    useMapStore.getState().setMapLock(true);
+    console.log(
+      `Unshattering parents ${geoids} in document ${document_id}...`,
+      `Locked at `,
+      performance.now()
+    );
+  },
+  onError: error => {
+    console.log('Error updating assignments: ', error);
+  },
+  onSuccess: data => {
+    console.log(`Successfully un-shattered parents ${data.geoids.join(', ')} from children`);
+    return data;
+  },
+});
+
 export const patchUpdates = new MutationObserver(queryClient, {
   mutationFn: patchUpdateAssignments,
   onMutate: () => {
@@ -42,22 +61,25 @@ export const patchUpdates = new MutationObserver(queryClient, {
   onSuccess: (data: AssignmentsCreate) => {
     console.log(`Successfully upserted ${data.assignments_upserted} assignments`);
     mapMetrics.refetch();
+    // remove trailing shattered features
+    // This needs to happen AFTER the updates are done
+    const {processHealParentsQueue, mapOptions, parentsToHeal} = useMapStore.getState();
+    if (mapOptions.mode === 'default' && parentsToHeal.length) {
+      processHealParentsQueue();
+    }
   },
 });
-
 
 export const patchReset = new MutationObserver(queryClient, {
   mutationFn: patchUpdateReset,
   onMutate: () => {
-    console.log("Reseting map");
+    console.log('Reseting map');
   },
-  onError: (error) => {
-    console.log("Error reseting map: ", error);
+  onError: error => {
+    console.log('Error reseting map: ', error);
   },
   onSuccess: (data: AssignmentsReset) => {
-    console.log(
-      `Successfully reset ${data.document_id}`
-    );
+    console.log(`Successfully reset ${data.document_id}`);
     mapMetrics.refetch();
   },
 });

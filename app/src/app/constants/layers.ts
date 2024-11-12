@@ -1,4 +1,9 @@
-import {ExpressionSpecification, FilterSpecification, LayerSpecification} from 'maplibre-gl';
+import {
+  DataDrivenPropertyValueSpecification,
+  ExpressionSpecification,
+  FilterSpecification,
+  LayerSpecification,
+} from 'maplibre-gl';
 import {Map} from 'maplibre-gl';
 import {getBlocksSource} from './sources';
 import {DocumentObject} from '../utils/api/apiHandlers';
@@ -7,6 +12,7 @@ import {colorScheme} from './colors';
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
+export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';
 export const BLOCK_LAYER_ID_CHILD = 'blocks-child';
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
@@ -54,11 +60,72 @@ export function getLayerFilter(layerId: string, _shatterIds?: MapStore['shatterI
   return parentFilter;
 }
 
-export function getBlocksLayerSpecification(
+export function getLayerFill(
+  captiveIds?: Set<string>,
+  shatterIds?: Set<string>
+): DataDrivenPropertyValueSpecification<number> {
+  const innerFillSpec = [
+    'case',
+    // geography is locked
+    ['boolean', ['feature-state', 'locked'], false],
+    0.35,
+    // zone is selected and hover is true and hover is not null
+    [
+      'all',
+      // @ts-ignore
+      ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
+      [
+        'all',
+        // @ts-ignore
+        ['!', ['==', ['feature-state', 'hover'], null]], //< desired behavior but typerror
+        ['boolean', ['feature-state', 'hover'], true],
+      ],
+    ],
+    0.9,
+    // zone is selected and hover is false, and hover is not null
+    [
+      'all',
+      // @ts-ignore
+      ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
+      [
+        'all',
+        // @ts-ignore
+        ['!', ['==', ['feature-state', 'hover'], null]], //< desired behavior but typerror
+        ['boolean', ['feature-state', 'hover'], false],
+      ],
+    ],
+    0.7,
+    // zone is selected, fallback, regardless of hover state
+    // @ts-ignore
+    ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
+    0.7,
+    // hover is true, fallback, regardless of zone state
+    ['boolean', ['feature-state', 'hover'], false],
+    0.6,
+    0.2,
+  ] as unknown as DataDrivenPropertyValueSpecification<number>;
+  if (captiveIds?.size) {
+    return [
+      'case',
+      ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
+      0.35,
+      innerFillSpec,
+    ] as DataDrivenPropertyValueSpecification<number>;
+  } else if (shatterIds?.size) {
+    return [
+      'case',
+      ['in', ['get', 'path'], ['literal', Array.from(shatterIds)]],
+      0,
+      innerFillSpec,
+    ] as DataDrivenPropertyValueSpecification<number>;
+  } else {
+    return innerFillSpec;
+  }
+}
+export function getHighlightLayerSpecification(
   sourceLayer: string,
   layerId: string
 ): LayerSpecification {
-  const shatterIds = useMapStore.getState().shatterIds;
   return {
     id: layerId,
     source: BLOCK_SOURCE_ID,
@@ -66,20 +133,59 @@ export function getBlocksLayerSpecification(
     type: 'line',
     layout: {
       visibility: 'visible',
+      'line-cap': 'round',
     },
-    filter: getLayerFilter(layerId),
     paint: {
-      'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.8],
-      'line-color': '#cecece',
+      'line-opacity': 1,
+      'line-color': [
+        'case',
+        ['boolean', ['feature-state', 'focused'], false],
+        '#000000', // Black color when focused
+        ['boolean', ['feature-state', 'highlighted'], false],
+        '#e5ff00', // yellow color when highlighted
+        '#000000', // Default color
+      ],
+      'line-width': [
+        'case',
+        ['boolean', ['feature-state', 'focused'], false],
+        5, // Width of 5 when focused
+        ['boolean', ['feature-state', 'highlighted'], false],
+        5, // Width of 5 when highlighted
+        0, // Default width
+      ],
     },
   };
+}
+export function getBlocksLayerSpecification(
+  sourceLayer: string,
+  layerId: string
+): LayerSpecification {
+  const layerSpec: LayerSpecification = {
+    id: layerId,
+    source: BLOCK_SOURCE_ID,
+    'source-layer': sourceLayer,
+    type: 'line',
+    layout: {
+      visibility: 'visible',
+    },
+    paint: {
+      'line-opacity': 0.8,
+      'line-color': '#cecece', // Default color
+      'line-width': 1, // Default width
+    },
+  };
+  if (CHILD_LAYERS.includes(layerId)) {
+    layerSpec.filter = getLayerFilter(layerId);
+  }
+
+  return layerSpec;
 }
 
 export function getBlocksHoverLayerSpecification(
   sourceLayer: string,
   layerId: string
 ): LayerSpecification {
-  return {
+  const layerSpec: LayerSpecification = {
     id: layerId,
     source: BLOCK_SOURCE_ID,
     'source-layer': sourceLayer,
@@ -87,48 +193,15 @@ export function getBlocksHoverLayerSpecification(
     layout: {
       visibility: 'visible',
     },
-    filter: getLayerFilter(layerId),
     paint: {
-      'fill-opacity': [
-        'case',
-        // zone is selected and hover is true and hover is not null
-        [
-          'all',
-          // @ts-ignore
-          ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
-          [
-            'all',
-            // @ts-ignore
-            ['!', ['==', ['feature-state', 'hover'], null]], //< desired behavior but typerror
-            ['boolean', ['feature-state', 'hover'], true],
-          ],
-        ],
-        0.9,
-        // zone is selected and hover is false, and hover is not null
-        [
-          'all',
-          // @ts-ignore
-          ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
-          [
-            'all',
-            // @ts-ignore
-            ['!', ['==', ['feature-state', 'hover'], null]], //< desired behavior but typerror
-            ['boolean', ['feature-state', 'hover'], false],
-          ],
-        ],
-        0.7,
-        // zone is selected, fallback, regardless of hover state
-        // @ts-ignore
-        ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
-        0.7,
-        // hover is true, fallback, regardless of zone state
-        ['boolean', ['feature-state', 'hover'], false],
-        0.6,
-        0.2,
-      ],
+      'fill-opacity': getLayerFill(),
       'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
     },
   };
+  if (CHILD_LAYERS.includes(layerId)) {
+    layerSpec.filter = getLayerFilter(layerId);
+  }
+  return layerSpec;
 }
 
 const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
@@ -157,6 +230,7 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
       LABELS_BREAK_LAYER_ID
     );
   }
+  map?.addLayer(getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT));
   useMapStore.getState().setMapRenderingState('loaded');
 
   // update map bounds based on document extent
@@ -173,6 +247,9 @@ export function removeBlockLayers(map: Map | null) {
   useMapStore.getState().setMapRenderingState('loading');
   if (map.getLayer(BLOCK_LAYER_ID)) {
     map.removeLayer(BLOCK_LAYER_ID);
+  }
+  if (map.getLayer(BLOCK_LAYER_ID_HIGHLIGHT)) {
+    map.removeLayer(BLOCK_LAYER_ID_HIGHLIGHT);
   }
   if (map.getLayer(BLOCK_HOVER_LAYER_ID)) {
     map.removeLayer(BLOCK_HOVER_LAYER_ID);
