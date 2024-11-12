@@ -78,7 +78,9 @@ export const HorizontalBar = () => {
             domain={[
               0,
               (dataMax: number) =>
-                idealPopulation ? Math.max(idealPopulation * 2, dataMax + 1000) : dataMax,
+                idealPopulation
+                  ? Math.round(Math.max(idealPopulation * 2, dataMax + 1000))
+                  : dataMax,
             ]}
             tickFormatter={value => numberFormat.format(value)}
           />
