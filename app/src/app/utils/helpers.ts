@@ -81,14 +81,13 @@ export const getFeaturesInBbox = (
   filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
-  const {captiveIds} =
-    useMapStore.getState();
+  const {captiveIds} = useMapStore.getState();
 
   const layers = _layers?.length
     ? _layers
     : captiveIds.size
-      ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
-      : [BLOCK_HOVER_LAYER_ID];
+    ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+    : [BLOCK_HOVER_LAYER_ID];
 
   let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
 
@@ -138,9 +137,9 @@ export const getFeaturesIntersectingCounties = (
   const features = map.queryRenderedFeatures(undefined, {
     layers,
   });
-  return filterFeatures(features.filter(p => (p?.id) &&
-    p.id.toString().match(/\d{5}/)?.[0] === fips)
-  )
+  return filterFeatures(
+    features.filter(p => p?.id && p.id.toString().match(/\d{5}/)?.[0] === fips)
+  );
 };
 
 /**
@@ -214,7 +213,7 @@ export type ColorZoneAssignmentsState = [
   MapStore['shatterIds'],
   MapStore['appLoadingState'],
   MapStore['mapRenderingState'],
-  MapStore['mapOptions']['lockPaintedAreas'],
+  MapStore['mapOptions']['lockPaintedAreas']
 ];
 
 export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
@@ -317,8 +316,8 @@ export const resetZoneColors = ({
   const idsToReset = ids
     ? Array.from(ids)
     : zoneAssignments
-      ? Array.from(zoneAssignments.keys())
-      : null;
+    ? Array.from(zoneAssignments.keys())
+    : null;
   if (!mapDocument || !mapRef || !idsToReset) return;
   const childLayerExists = mapDocument?.child_layer;
   const shatterIdsExist = shatterIds.parents.size;
@@ -423,7 +422,6 @@ export const checkIfSameZone = (
   };
 };
 
-
 /**
  * filterFeatures
  * Filters the provided features based on certain criteria, such as locked features and captive IDs.
@@ -439,23 +437,27 @@ export const checkIfSameZone = (
  * 3. If the map document has a child layer and there are parent shatter IDs, it will:
  *    - Exclude parent features from the results.
  *    - Track parent IDs that need to be healed.
- * 
+ *
  * The function returns an array of features that pass all the filtering criteria.
  */
 const filterFeatures = (features: MapGeoJSONFeature[], filterLocked: boolean = true) => {
-  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds} = useMapStore.getState();
+  const {
+    captiveIds,
+    lockedFeatures,
+    mapDocument,
+    checkParentsToHeal,
+    shatterIds,
+  } = useMapStore.getState();
   const parentIdsToHeal: MapStore['parentsToHeal'] = [];
-  const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = []
-  if (captiveIds.size){
-    filterFunctions.push((f) => captiveIds.has(f.id?.toString() || ''))
+  const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [];
+  if (captiveIds.size) {
+    filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
-  if (filterLocked && lockedFeatures.size ){
-    filterFunctions.push(
-      (f) => !lockedFeatures.has(f.id?.toString() || '')
-    )
+  if (filterLocked && lockedFeatures.size) {
+    filterFunctions.push(f => !lockedFeatures.has(f.id?.toString() || ''));
   }
-  if (mapDocument?.child_layer && shatterIds.parents.size){
-    filterFunctions.push((f) => {
+  if (mapDocument?.child_layer && shatterIds.parents.size) {
+    filterFunctions.push(f => {
       const id = f.id?.toString();
       if (!id) return false;
       const isParent = shatterIds.parents.has(id);
@@ -468,14 +470,14 @@ const filterFeatures = (features: MapGeoJSONFeature[], filterLocked: boolean = t
         // do paint everything else
         return true;
       }
-    })
+    });
   }
 
-  if (!filterFeatures.length) return features
+  if (!filterFeatures.length) return features;
 
   const filteredFeatures = features.filter(feature => {
-    return filterFunctions.every(f => f(feature))
-  })
+    return filterFunctions.every(f => f(feature));
+  });
   parentIdsToHeal.length && checkParentsToHeal(parentIdsToHeal);
   return filteredFeatures;
 };
