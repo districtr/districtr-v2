@@ -105,56 +105,56 @@ def upsert_places_and_problems(places):
 
             # Handle problems per place
             problem_uuids = []
-            # try:
-            if place["districtr_problems"]:
-                for problem in place["districtr_problems"]:
-                    # Insert or update each problem entry, using the existing or new place UUID
-                    problem_uuid = uuid4()
-                    problem_stmt = text(
-                        """
-                        INSERT INTO public.districtrproblems (uuid, name, num_parts, plural_noun, districtr_place_id)
-                        VALUES (:uuid, :name, :num_parts, :plural_noun, :districtr_place_id)
-                        ON CONFLICT (name, districtr_place_id) DO UPDATE
-                        SET uuid = :uuid, name = :name, num_parts = :num_parts, plural_noun = :plural_noun, districtr_place_id = :districtr_place_id
-                        """
-                    ).bindparams(
-                        bindparam(key="uuid", type_=UUIDType),
-                        bindparam(key="name", type_=String),
-                        bindparam(key="num_parts", type_=Integer),
-                        bindparam(key="plural_noun", type_=String),
-                        bindparam(key="districtr_place_id", type_=UUIDType),
-                    )
-                    session.execute(
-                        problem_stmt,
-                        {
-                            "uuid": problem_uuid,
-                            "name": problem["name"],
-                            "num_parts": problem["num_parts"],
-                            "plural_noun": problem["plural_noun"],
-                            "districtr_place_id": place_uuid,
-                        },
-                    )
-
-                    # Get the UUID of the inserted or updated problem
-                    problem_uuid_result = session.execute(
-                        text(
+            try:
+                if place["districtr_problems"]:
+                    for problem in place["districtr_problems"]:
+                        # Insert or update each problem entry, using the existing or new place UUID
+                        problem_uuid = uuid4()
+                        problem_stmt = text(
                             """
-                            SELECT uuid
-                            FROM public.districtrproblems
-                            WHERE name = :name AND districtr_place_id = :districtr_place_id
+                            INSERT INTO public.districtrproblems (uuid, name, num_parts, plural_noun, districtr_place_id)
+                            VALUES (:uuid, :name, :num_parts, :plural_noun, :districtr_place_id)
+                            ON CONFLICT (name, districtr_place_id) DO UPDATE
+                            SET uuid = :uuid, name = :name, num_parts = :num_parts, plural_noun = :plural_noun, districtr_place_id = :districtr_place_id
                             """
                         ).bindparams(
+                            bindparam(key="uuid", type_=UUIDType),
                             bindparam(key="name", type_=String),
-                            bindparam(key="districtr_place_id", type_=String),
-                        ),
-                        {
-                            "name": problem["name"],
-                            "districtr_place_id": str(place_uuid),
-                        },
-                    ).fetchone()[0]
-                    problem_uuids.append(problem_uuid_result)
-            # except Exception as e:
-            #     print(f"No places found for place {place['name']}: {e}")
+                            bindparam(key="num_parts", type_=Integer),
+                            bindparam(key="plural_noun", type_=String),
+                            bindparam(key="districtr_place_id", type_=UUIDType),
+                        )
+                        session.execute(
+                            problem_stmt,
+                            {
+                                "uuid": problem_uuid,
+                                "name": problem["name"],
+                                "num_parts": problem["num_parts"],
+                                "plural_noun": problem["plural_noun"],
+                                "districtr_place_id": place_uuid,
+                            },
+                        )
+
+                        # Get the UUID of the inserted or updated problem
+                        problem_uuid_result = session.execute(
+                            text(
+                                """
+                                SELECT uuid
+                                FROM public.districtrproblems
+                                WHERE name = :name AND districtr_place_id = :districtr_place_id
+                                """
+                            ).bindparams(
+                                bindparam(key="name", type_=String),
+                                bindparam(key="districtr_place_id", type_=UUIDType),
+                            ),
+                            {
+                                "name": problem["name"],
+                                "districtr_place_id": str(place_uuid),
+                            },
+                        ).fetchone()[0]
+                        problem_uuids.append(problem_uuid_result)
+            except Exception as e:
+                print(f"No places found for place {place['name']}: {e}")
 
             # if place name is missing or no problems are found, skip this place
             # places like marinco (marin county school districts) have no problems
