@@ -31,7 +31,7 @@ import {getMapEditSubs} from './mapEditSubs';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {getMapViewsSubs} from '../utils/api/queries';
-import {persistOptions} from './persistConfig';
+import {devToolsConfig, persistOptions} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
 import {DistrictrMapOptions} from './types';
 import {queryClient} from '../utils/api/queryClient';
@@ -842,7 +842,8 @@ export const useMapStore = create(
         setContextMenu: contextMenu => set({contextMenu}),
         userMaps: [],
         setUserMaps: userMaps => set({userMaps}),
-      }))
+      })),
+      devToolsConfig
     ),
     persistOptions
   )
