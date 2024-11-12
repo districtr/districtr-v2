@@ -9,6 +9,7 @@ import {
   YAxis,
   Cell,
   ReferenceLine,
+  Label,
 } from 'recharts';
 import {colorScheme} from '@/app/constants/colors';
 import {useEffect, useState} from 'react';
@@ -93,12 +94,14 @@ export const HorizontalBar = () => {
                 <Cell key={`cell-${index}`} fill={colorScheme[entry.zone - 1]} />
               ))}
           </Bar>
-          <ReferenceLine
-            x={idealPopulation ?? 0}
-            stroke="black"
-            label={`Ideal: ${new Intl.NumberFormat('en-US').format(idealPopulation ?? 0)}`}
-            strokeDasharray="3 3"
-          />
+          <ReferenceLine x={idealPopulation ?? 0} stroke="black" strokeDasharray="3 3">
+            <Label
+              value={`Ideal: ${new Intl.NumberFormat('en-US').format(
+                Math.round(idealPopulation ?? 0) ?? 0
+              )}`}
+              position="right"
+            />
+          </ReferenceLine>
         </BarChart>
       </ResponsiveContainer>
     </Flex>
