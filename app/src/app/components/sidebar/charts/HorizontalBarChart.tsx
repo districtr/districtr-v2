@@ -70,7 +70,8 @@ export const HorizontalBar = () => {
       <ResponsiveContainer
         width="100%"
         // should this instead be set based on the target number of zones? see https://github.com/districtr/districtr-v2/issues/92
-        minHeight="200px"
+        minHeight="350px"
+        // make the container fit the remaining size of the page
       >
         <BarChart width={500} data={mapMetrics.data} layout="vertical" barGap={0.5} maxBarSize={50}>
           <XAxis
@@ -100,6 +101,8 @@ export const HorizontalBar = () => {
                 Math.round(idealPopulation ?? 0) ?? 0
               )}`}
               position="right"
+              fill="black"
+              fontSize={18}
             />
           </ReferenceLine>
         </BarChart>
