@@ -1,7 +1,7 @@
 const percentFormatter = new Intl.NumberFormat('en-US', {
   style: 'percent',
   minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
+  maximumFractionDigits: 1,
 })
 const compactFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
