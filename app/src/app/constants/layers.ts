@@ -46,7 +46,7 @@ ZONE_ASSIGNMENT_STYLE_DYNAMIC.push('#cecece');
 export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
 const LAYER_LINE_WIDTHS = {
-  [BLOCK_LAYER_ID]: 1.5,
+  [BLOCK_LAYER_ID]: 2,
   [BLOCK_LAYER_ID_CHILD]: 1
 }
 
@@ -178,8 +178,9 @@ export function getBlocksLayerSpecification(
     },
     paint: {
       'line-opacity': 0.8,
-      'line-color': '#333', // Default color
-      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, lineWidth*.25, 9, lineWidth*.5, 18, lineWidth],
+      // 'line-color': '#aaaaaa', // Default color
+      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 6, '#aaa', 9, '#777', 14, '#333'],
+      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, lineWidth*.125, 9, lineWidth*.35, 14, lineWidth],
     },
   };
   if (CHILD_LAYERS.includes(layerId)) {
