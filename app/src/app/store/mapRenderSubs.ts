@@ -267,6 +267,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       if (!mapRef || !mapDocument?.parent_layer) return;
       // set the layer BLOCK_LAYER_ID_HIGHLIGHT style to be the return from getHighlightLayerSpecification
       const highlightLayerSpecification = getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT, higlightUnassigned)
+      if (!highlightLayerSpecification.paint) return
       mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-width', highlightLayerSpecification['paint']['line-width']);
       mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-color', highlightLayerSpecification['paint']['line-color']);
     }
