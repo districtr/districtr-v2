@@ -211,7 +211,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
                         className="inline-flex items-center justify-center size-6"
                         style={{backgroundColor}}
                       >
-                        {number}
+                        {+stdev > 0 ? `+${stdev}`: stdev}
                       </span>
                     ))}
                 </span>
