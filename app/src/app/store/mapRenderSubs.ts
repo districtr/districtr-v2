@@ -102,8 +102,14 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     ],
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
-      const {captiveIds, shatterIds, getMapRef, setLockedFeatures, mapRenderingState} =
-        useMapStore.getState();
+      const {
+        captiveIds,
+        shatterIds,
+        getMapRef,
+        setLockedFeatures,
+        lockedFeatures,
+        mapRenderingState,
+      } = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded') return;
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
@@ -120,6 +126,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           );
       });
       const [lockPaintedAreas, prevLockPaintedAreas] = [curr[6], prev[6]];
+      const sameLockedAreas =
+        JSON.stringify(lockPaintedAreas) === JSON.stringify(prevLockPaintedAreas);
       const zoneAssignments = curr[0];
       // if lockPaintedAreas, lock all zones
       if (lockPaintedAreas === true) {
@@ -128,15 +136,29 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
             .filter(([key, value]) => value !== null)
             .map(([key]) => key)
         );
-        setLockedFeatures(new Set(nonNullZones));
+        setLockedFeatures(nonNullZones);
         // now unlocked, was previously locked
       } else if (Array.isArray(lockPaintedAreas)) {
+        const previousWasArray = Array.isArray(prevLockPaintedAreas);
         const nonNullZones = new Set(
           [...zoneAssignments.entries()]
-            .filter(([key, value]) => lockPaintedAreas.includes(value))
+            .filter(
+              ([key, value]) =>
+                // locked zones include assignment zone
+                lockPaintedAreas.includes(value) ||
+                // locked zones are the same, and this individual feature was previously locked
+                (sameLockedAreas && lockedFeatures.has(key)) ||
+                // locked zones are changed, BUT this individual feature is not in a zone
+                // that was previously locked
+                (!sameLockedAreas &&
+                  previousWasArray &&
+                  !lockPaintedAreas.includes(value) &&
+                  !prevLockPaintedAreas.includes(value) &&
+                  lockedFeatures.has(key))
+            )
             .map(([key]) => key)
         );
-        setLockedFeatures(new Set(nonNullZones));
+        setLockedFeatures(nonNullZones);
       } else if (!lockPaintedAreas && prevLockPaintedAreas) {
         setLockedFeatures(new Set());
       }
