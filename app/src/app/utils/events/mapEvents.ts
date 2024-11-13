@@ -152,7 +152,7 @@ export const handleMapMouseMove = (
   // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
   const isTouchEvent =
     'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
-  if (isBrushingTool && !isTouchEvent) {
+  if (isBrushingTool && !isTouchEvent && !isPainting) {
     setHoverFeatures(selectedFeatures);
   }
 
