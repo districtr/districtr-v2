@@ -119,7 +119,7 @@ export const HorizontalBar = () => {
             ]}
             tickFormatter={value => numberFormat.format(value)}
           />
-          <YAxis type="category" hide allowDataOverflow={true} />
+          <YAxis type="category" hide allowDataOverflow={true} padding={{bottom: 40}} />
           <Tooltip content={<CustomTooltip />} />
           <Bar dataKey="total_pop">
             {totalExpectedBars &&
@@ -129,12 +129,7 @@ export const HorizontalBar = () => {
                   <Cell key={`cell-${index}`} fill={colorScheme[entry.zone - 1]} />
                 ))}
           </Bar>
-          <ReferenceLine
-            x={idealPopulation ?? 0}
-            stroke="black"
-            strokeDasharray="3 3"
-            ifOverflow="extendDomain"
-          >
+          <ReferenceLine x={idealPopulation ?? 0} stroke="black" strokeDasharray="3 3">
             <Label
               value={`Ideal: ${new Intl.NumberFormat('en-US').format(
                 Math.round(idealPopulation ?? 0) ?? 0
@@ -142,6 +137,7 @@ export const HorizontalBar = () => {
               position="insideBottomLeft"
               fill="black"
               fontSize={18}
+              offset={10}
             />
           </ReferenceLine>
         </BarChart>
