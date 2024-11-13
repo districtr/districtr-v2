@@ -1,6 +1,7 @@
 import axios from 'axios';
 import 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
+import { getEntryTotal } from '../summaryStats';
 
 export const FormatAssignments = () => {
   const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
@@ -163,7 +164,7 @@ export interface P1SummaryStats {
  * @property {number} total_pop - The total population.
  */
 export interface P1ZoneSummaryStats {
-  zone: string;
+  zone: number;
   other_pop: number;
   asian_pop: number;
   amin_pop: number;
@@ -171,10 +172,22 @@ export interface P1ZoneSummaryStats {
   black_pop: number;
   white_pop: number;
 }
-
-export interface P1ZoneSummaryStatsNumeric extends Omit<P1ZoneSummaryStats, 'zone'> {
-  zone: number;
+export const P1ZoneSummaryStatsKeys: Array<keyof P1ZoneSummaryStats> = [
+  'other_pop',
+  'asian_pop',
+  'amin_pop',
+  'nhpi_pop',
+  'black_pop',
+  'white_pop'
+];
+export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
   total: number;
+  other_pop_pct: number;
+  asian_pop_pct: number;
+  amin_pop_pct: number;
+  nhpi_pop_pct: number;
+  black_pop_pct: number;
+  white_pop_pct: number;
 }
 
 /**
@@ -184,13 +197,23 @@ export interface P1ZoneSummaryStatsNumeric extends Omit<P1ZoneSummaryStats, 'zon
  */
 export const getP1SummaryStats: (
   mapDocument: DocumentObject
-) => Promise<P1SummaryStats> = async mapDocument => {
+) => Promise<CleanedP1ZoneSummaryStats[]> = async mapDocument => {
   if (mapDocument) {
     return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`)
+      .get<P1SummaryStats>(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`)
       .then(res => {
-        return res.data;
-      });
+        const cleanData = res.data.results.map(row => {
+          const total = getEntryTotal(row)
+          return P1ZoneSummaryStatsKeys.reduce<any>((acc, key) => {
+            acc[`${key}_pct`] = acc[key] / total;
+            return acc;
+          }, {
+            ...row,
+            total
+          }) as CleanedP1ZoneSummaryStats
+      })
+      return cleanData
+    })
   } else {
     throw new Error('No document provided');
   }

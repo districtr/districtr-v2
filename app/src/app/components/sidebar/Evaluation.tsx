@@ -2,47 +2,38 @@ import React, {useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useQuery} from '@tanstack/react-query';
 import {
+  CleanedP1ZoneSummaryStats,
   getP1SummaryStats,
-  P1SummaryStats,
   P1ZoneSummaryStats,
-  P1ZoneSummaryStatsNumeric,
 } from '@/app/utils/api/apiHandlers';
-import { Button } from "@radix-ui/themes";
+import {Button} from '@radix-ui/themes';
 import {Heading, Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
-import { formatNumber, NumberFormats } from '@/app/utils/numbers';
-import { colorScheme } from '@/app/constants/colors';
+import {formatNumber, NumberFormats} from '@/app/utils/numbers';
+import {colorScheme} from '@/app/constants/colors';
 
-type EvalModes = 'share' | 'count' | 'pct';
+type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
 type EvaluationProps = {
-  columnConfig: ColumnConfiguration<P1SummaryStats>;
+  columnConfig: ColumnConfiguration<P1ZoneSummaryStats>;
 };
 
-const getEntryTotal = (entry: P1ZoneSummaryStats) =>
-  Object.entries(entry).reduce((total, [key, value]) => {
-    if (key !== 'zone') {
-      return total + value; // Sum values of properties except 'zone'
-    }
-    return total; // Return total unchanged for 'zone'
-  }, 0);
-
-const calculateColumn = (
-  mode: EvalModes,
-  entry: P1ZoneSummaryStatsNumeric,
-  totals: P1ZoneSummaryStats,
-  column: keyof Omit<P1ZoneSummaryStats, 'zone'>
-) => {
-  const count = entry[column];
-  switch (mode) {
-    case 'count':
-      return count;
-    case 'pct':
-      return count / entry['total'];
-    case 'share':
-      return count / totals[column];
-  }
-};
+// const calculateColumn = (
+//   mode: EvalModes,
+//   entry: P1ZoneSummaryStats,
+//   totals: P1ZoneSummaryStats,
+//   column: keyof Omit<CleanedP1ZoneSummaryStats, 'zone'>
+// ) => {
+//   const count = entry[column];
+//   switch (mode) {
+//     case 'count':
+//       return count;
+//     case 'pct':
+//       return count / entry['total'];
+//     case 'share':
+//       return count / totals[column];
+//   }
+// };
 
 const defaultColumnConfig: ColumnConfiguration<P1ZoneSummaryStats> = [
   {
@@ -71,30 +62,40 @@ const defaultColumnConfig: ColumnConfiguration<P1ZoneSummaryStats> = [
   },
 ];
 
-const modeButtonConfig: Array<{label: string, value: EvalModes}> = [
+const modeButtonConfig: Array<{label: string; value: EvalModes}> = [
   {
-    label: "Population by Share",
-    value: 'share'
+    label: 'Population by Share',
+    value: 'share',
   },
   {
-    label: "Population by Count",
-    value: 'count'
+    label: 'Population by Count',
+    value: 'count',
   },
-  {
-    label: "Population by Percent of Zone",
-    value: 'pct'
-  }
-]
+  // {
+  //   label: "Population by Percent of Zone",
+  //   value: 'totpop'
+  // }
+];
 
 const numberFormats: Record<EvalModes, NumberFormats> = {
-  'pct': 'percent',
-  'share': 'percent',
-  'count': 'string'
-}
+  share: 'percent',
+  count: 'string',
+  totpop: 'percent',
+};
+
+const getColConfig = (evalMode: EvalModes) => {
+  switch (evalMode) {
+    case 'share':
+      return (col: keyof P1ZoneSummaryStats) => `${col}_pct` as keyof CleanedP1ZoneSummaryStats;
+    default:
+      return (col: keyof P1ZoneSummaryStats) => col;
+  }
+};
 
 const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConfig}) => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
-  const numberFormat = numberFormats[evalMode]
+  const numberFormat = numberFormats[evalMode];
+  const columnGetter = getColConfig(evalMode);
   const mapDocument = useMapStore(state => state.mapDocument);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
 
@@ -108,22 +109,8 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
     },
     queryClient
   );
-  let totals: P1ZoneSummaryStats | undefined = undefined;
-  let zones: P1ZoneSummaryStatsNumeric[] = [];
 
-  data?.results.forEach(entry => {
-    if (entry.zone === 'Total') {
-      totals = entry;
-    } else {
-      zones.push({
-        ...entry,
-        zone: parseInt(entry.zone),
-        total: getEntryTotal(entry),
-      });
-    }
-  });
-
-  if (!totals || (mapDocument && !mapDocument.available_summary_stats)) {
+  if (!data || (mapDocument && !mapDocument.available_summary_stats)) {
     return <Text>Summary statistics are not available for this map.</Text>;
   }
 
@@ -139,10 +126,15 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
   return (
     <div className="w-full">
       <Flex align="center" gap="3">
-        {modeButtonConfig.map((mode, i) => <Button key={i}
-          variant={mode.value === evalMode ? 'solid' : 'outline'}
-          onClick={() => setEvalMode(mode.value)}
-        >{mode.label}</Button>)}
+        {modeButtonConfig.map((mode, i) => (
+          <Button
+            key={i}
+            variant={mode.value === evalMode ? 'solid' : 'outline'}
+            onClick={() => setEvalMode(mode.value)}
+          >
+            {mode.label}
+          </Button>
+        ))}
         {isLoading && <Spinner />}
       </Flex>
       <div className="overflow-x-auto text-sm">
@@ -158,18 +150,21 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
             </tr>
           </thead>
           <tbody>
-            {zones
+            {data
               .sort((a, b) => a.zone - b.zone)
               .map(row => (
                 <tr key={row.zone} className="border-b hover:bg-gray-50">
                   <td className="py-2 px-4 font-medium flex flex-row items-center gap-1">
-                    <span className={'size-4 inline-block rounded-md'} style={{backgroundColor: colorScheme[row.zone-1]}}></span>
+                    <span
+                      className={'size-4 inline-block rounded-md'}
+                      style={{backgroundColor: colorScheme[row.zone - 1]}}
+                    ></span>
                     {row.zone}
                   </td>
                   {columnConfig.map((f, i) => (
                     <td className="py-2 px-4 text-right">
                       {/* todo: clean types */}
-                      {formatNumber(calculateColumn(evalMode, row, totals!, f.column), numberFormat)}
+                      {formatNumber(row[columnGetter(f.column)], numberFormat)}
                     </td>
                   ))}
                 </tr>
