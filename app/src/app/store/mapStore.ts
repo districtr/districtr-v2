@@ -551,6 +551,13 @@ export const useMapStore = create(
               delete shatterMappings[parent.parentId];
               newShatterIds.parents.delete(parent.parentId);
               newZoneAssignments.set(parent.parentId, parent.zone!);
+              mapRef?.setFeatureState({
+                source: BLOCK_SOURCE_ID,
+                id: parent.parentId,
+                sourceLayer: mapDocument?.parent_layer,
+              }, {
+                broken: false
+              });
             });
 
             set({

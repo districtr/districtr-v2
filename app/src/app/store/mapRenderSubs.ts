@@ -10,6 +10,7 @@ import {
   BLOCK_SOURCE_ID,
   BLOCK_LAYER_ID_HIGHLIGHT,
   getHighlightLayerSpecification,
+  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
 } from '../constants/layers';
 import {
   ColorZoneAssignmentsState,
@@ -58,10 +59,12 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       );
       // remove zone from parents
       shatterIds.parents.forEach(id => {
-        mapRef?.removeFeatureState({
+        mapRef?.setFeatureState({
           source: BLOCK_SOURCE_ID,
           id,
           sourceLayer: mapDocument?.parent_layer,
+        }, {
+          broken: true
         });
       });
 
@@ -266,10 +269,12 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       const mapRef = getMapRef();
       if (!mapRef || !mapDocument?.parent_layer) return;
       // set the layer BLOCK_LAYER_ID_HIGHLIGHT style to be the return from getHighlightLayerSpecification
-      const highlightLayerSpecification = getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT, higlightUnassigned)
-      if (!highlightLayerSpecification.paint) return
-      mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-width', highlightLayerSpecification['paint']['line-width']);
-      mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-color', highlightLayerSpecification['paint']['line-color']);
+      const paintStyle = getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT, higlightUnassigned)['paint']
+      if (!paintStyle) return
+      mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-width', paintStyle['line-width']);
+      mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-color', paintStyle['line-color']);
+      mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-width', paintStyle['line-width']);
+      mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-color', paintStyle['line-color']);
     }
   );
   return [
