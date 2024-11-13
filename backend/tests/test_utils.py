@@ -203,8 +203,11 @@ def test_create_parent_child_edges(
     session.commit()
 
 
-def test_shattering(client):
-    # Set-up
+@pytest.fixture(name="document_id")
+def document_id_fixture(
+    client, session: Session, districtr_map, gerrydb_simple_geos_view
+):
+    create_parent_child_edges(session=session, districtr_map_uuid=districtr_map)
     response = client.post(
         "/api/create_document",
         json={
@@ -213,8 +216,10 @@ def test_shattering(client):
     )
     assert response.status_code == 201
     doc = response.json()
-    document_id = doc["document_id"]
+    return doc["document_id"]
 
+
+def test_shattering(client, session: Session, document_id):
     response = client.patch(
         "/api/update_assignments",
         json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
@@ -235,20 +240,12 @@ def test_shattering(client):
     assert all(d["zone"] == 1 for d in data["children"])
 
 
-def test_unshatter_process(client):
-    # Set-up
-    response = client.post(
-        "/api/create_document",
-        json={
-            "gerrydb_table": "simple_geos",
-        },
-    )
-    doc = response.json()
-    document_id = doc["document_id"]
+def test_unshatter_process(client, document_id):
     response = client.patch(
         "/api/update_assignments",
         json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
     )
+
     # Test
     response = client.patch(
         f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}
