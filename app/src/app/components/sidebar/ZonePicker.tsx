@@ -10,18 +10,11 @@ import {ColorPicker} from './ColorPicker';
 export function ZonePicker() {
   const selectedZone = useMapStore(state => state.selectedZone);
   const setSelectedZone = useMapStore(state => state.setSelectedZone);
-  const setZoneAssignments = useMapStore(state => state.setZoneAssignments);
-  const accumulatedGeoids = useMapStore(state => state.accumulatedGeoids);
-  const resetAccumulatedBlockPopulations = useMapStore(
-    state => state.resetAccumulatedBlockPopulations
-  );
 
   const handleRadioChange = (index: number, _color: string) => {
     const value = index + 1;
-    console.log('setting accumulated geoids to old zone', selectedZone, 'new zone is', value);
-    setZoneAssignments(selectedZone, accumulatedGeoids);
+    console.log('new zone is', value);
     setSelectedZone(value);
-    resetAccumulatedBlockPopulations();
   };
 
   return (
