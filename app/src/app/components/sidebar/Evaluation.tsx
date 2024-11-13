@@ -3,6 +3,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useQuery} from '@tanstack/react-query';
 import {
   CleanedP1ZoneSummaryStats,
+  CleanedP1ZoneSummaryStatsKeys,
   getP1SummaryStats,
   P1ZoneSummaryStats,
   P1ZoneSummaryStatsKeys,
@@ -12,7 +13,7 @@ import {Heading, Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
-import {getEntryTotal} from '@/app/utils/summaryStats';
+import {getEntryTotal, getStdDevColor, stdDevArray, sumArray} from '@/app/utils/summaryStats';
 
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
@@ -113,9 +114,9 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
     queryClient
   );
 
-  const unassigned = useMemo(() => {
+  const {unassigned, averages, stdDevs} = useMemo(() => {
     if (!data?.results || !totPop) {
-      return;
+      return {}
     }
     let unassigned: Record<string, number> = {
       ...totPop,
@@ -128,7 +129,14 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
       unassigned[`${key}_pct`] = total / unassigned[key];
       unassigned[key] = total;
     });
-    return unassigned;
+    const averages: Record<string, number> = {}  
+    const stdDevs: Record<string, number> = {}
+    CleanedP1ZoneSummaryStatsKeys.forEach(key => {
+      const values = data.results.map(row => row[key]);
+      averages[key] = sumArray(values) / data.results.length
+      stdDevs[key] = stdDevArray(values)
+    })
+    return {unassigned, averages, stdDevs};
   }, [data?.results, totPop]);
 
   if (!data || (mapDocument && !mapDocument.available_summary_stats)) {
@@ -187,11 +195,19 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
                       ></span>
                       {zoneName}
                     </td>
-                    {columnConfig.map((f, i) => (
-                      <td className="py-2 px-4 text-right">
-                        {formatNumber(row[columnGetter(f.column)], numberFormat)}
+                    {columnConfig.map((f, i) => { 
+                      const column = columnGetter(f.column)
+                      const stdDevFromMean = stdDevs && averages && !isUnassigned
+                        ? (row[column] - averages[column])/stdDevs[column]
+                        : undefined
+                      const backgroundColor = stdDevFromMean !== undefined ? getStdDevColor(stdDevFromMean) : ""
+                      return (
+                      <td className="py-2 px-4 text-right" style={{
+                        backgroundColor
+                      }}>
+                        {formatNumber(row[column], numberFormat)}
                       </td>
-                    ))}
+                    )})}
                   </tr>
                 );
               })}

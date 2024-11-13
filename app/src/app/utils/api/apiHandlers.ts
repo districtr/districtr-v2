@@ -182,6 +182,18 @@ export const P1ZoneSummaryStatsKeys = [
   'black_pop',
   'white_pop'
 ] as const
+
+export const CleanedP1ZoneSummaryStatsKeys = [
+  ...P1ZoneSummaryStatsKeys,
+  'total',
+  'other_pop_pct',
+  'asian_pop_pct',
+  'amin_pop_pct',
+  'nhpi_pop_pct',
+  'black_pop_pct',
+  'white_pop_pct',
+] as const
+
 export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
   total: number;
   other_pop_pct: number;
