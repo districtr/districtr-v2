@@ -204,10 +204,9 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
               <p>Color Values By Std. Dev</p>
               {colorByStdDev && (
                 <span>
-                  {/* TODO fix types on sort */}
                   {Object.entries(stdDevColors)
-                    .sort((a: any[], b: any[]) => a[0] - b[0])
-                    .map(([number, backgroundColor], i) => (
+                    .sort((a, b) => +a[0] - +b[0])
+                    .map(([stdev, backgroundColor], i) => (
                       <span
                         className="inline-flex items-center justify-center size-6"
                         style={{backgroundColor}}
