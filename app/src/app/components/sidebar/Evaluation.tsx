@@ -8,12 +8,12 @@ import {
   P1ZoneSummaryStats,
   P1ZoneSummaryStatsKeys,
 } from '@/app/utils/api/apiHandlers';
-import {Button} from '@radix-ui/themes';
+import {Button, Checkbox, CheckboxGroup} from '@radix-ui/themes';
 import {Heading, Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
-import {getEntryTotal, getStdDevColor, stdDevArray, sumArray} from '@/app/utils/summaryStats';
+import {getEntryTotal, getStdDevColor, stdDevArray, stdDevColors, sumArray} from '@/app/utils/summaryStats';
 
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
@@ -97,6 +97,10 @@ const getColConfig = (evalMode: EvalModes) => {
 
 const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConfig}) => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
+  const [showAverages, setShowAverages] = useState<boolean>(true);
+  const [showStdDev, setShowStdDev] = useState<boolean>(false);
+  const [colorByStdDev, setColorByStdDev] = useState<boolean>(true);
+
   const numberFormat = numberFormats[evalMode];
   const columnGetter = getColConfig(evalMode);
   const totPop = useMapStore(state => state.summaryStats.totpop?.data);
@@ -116,7 +120,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
 
   const {unassigned, averages, stdDevs} = useMemo(() => {
     if (!data?.results || !totPop) {
-      return {}
+      return {};
     }
     let unassigned: Record<string, number> = {
       ...totPop,
@@ -129,13 +133,13 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
       unassigned[`${key}_pct`] = total / unassigned[key];
       unassigned[key] = total;
     });
-    const averages: Record<string, number> = {}  
-    const stdDevs: Record<string, number> = {}
+    const averages: Record<string, number> = {};
+    const stdDevs: Record<string, number> = {};
     CleanedP1ZoneSummaryStatsKeys.forEach(key => {
       const values = data.results.map(row => row[key]);
-      averages[key] = sumArray(values) / data.results.length
-      stdDevs[key] = stdDevArray(values)
-    })
+      averages[key] = sumArray(values) / data.results.length;
+      stdDevs[key] = stdDevArray(values);
+    });
     return {unassigned, averages, stdDevs};
   }, [data?.results, totPop]);
 
@@ -154,7 +158,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
   const rows = unassigned ? [...data.results, unassigned] : data.results;
   return (
     <div className="w-full">
-      <Flex align="center" gap="3">
+      <Flex align="center" gap="3" mt="1">
         {modeButtonConfig.map((mode, i) => (
           <Button
             key={i}
@@ -165,6 +169,39 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
           </Button>
         ))}
         {isLoading && <Spinner />}
+      </Flex>
+
+      <Flex align="center" gap="3" mt="1">
+        <CheckboxGroup.Root
+          defaultValue={[]}
+          orientation="horizontal"
+          name="evaluation-options"
+          value={[
+            showAverages ? 'averages' : '',
+            showStdDev ? 'stddev' : '',
+            colorByStdDev ? 'colorstddev' : '',
+          ]}
+        >
+          <CheckboxGroup.Item value="averages" onClick={() => setShowAverages(v => !v)}>
+            Show Zone Averages
+          </CheckboxGroup.Item>
+          <CheckboxGroup.Item value="stddev" onClick={() => setShowStdDev(v => !v)}>
+            <Flex gap="3">
+              <p>
+                Show Zone Std. Dev.
+                </p>
+                {colorByStdDev && <span>
+                  {/* TODO fix types on sort */}
+                  {Object.entries(stdDevColors).sort((a: any[],b:any[]) => a[0] - b[0]).map(([number, backgroundColor], i) => (
+                    <span className="inline-flex items-center justify-center size-6" style={{backgroundColor}}>{number}</span>
+                  ))}
+                  </span>}
+              </Flex>
+          </CheckboxGroup.Item>
+          <CheckboxGroup.Item value="colorstddev" onClick={() => setColorByStdDev(v => !v)}>
+            Color Values By Std. Dev
+          </CheckboxGroup.Item>
+        </CheckboxGroup.Root>
       </Flex>
       <div className="overflow-x-auto text-sm">
         <table className="min-w-full border-collapse">
@@ -179,12 +216,36 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
             </tr>
           </thead>
           <tbody>
+            {!!(averages && showAverages) && (
+              <tr className="border-b hover:bg-gray-50">
+                <td className="py-2 px-4 font-medium flex flex-row items-center gap-1">
+                  Zone Averages
+                </td>
+                {columnConfig.map((f, i) => (
+                  <td className="py-2 px-4 text-right">
+                    {formatNumber(averages[columnGetter(f.column)], numberFormat)}
+                  </td>
+                ))}
+              </tr>
+            )}
+            {!!(stdDevs && showStdDev) && (
+              <tr className="border-b hover:bg-gray-50">
+                <td className="py-2 px-4 font-medium flex flex-row items-center gap-1">
+                  Zone Std. Dev.
+                </td>
+                {columnConfig.map((f, i) => (
+                  <td className="py-2 px-4 text-right">
+                    {formatNumber(stdDevs[columnGetter(f.column)], numberFormat)}
+                  </td>
+                ))}
+              </tr>
+            )}
             {rows
               .sort((a, b) => a.zone - b.zone)
               .map(row => {
                 const isUnassigned = row.zone === 999;
                 const zoneName = isUnassigned ? 'Unassigned' : row.zone;
-                const backgroundColor = isUnassigned ? '#BBBBBB' : colorScheme[row.zone - 1]
+                const backgroundColor = isUnassigned ? '#BBBBBB' : colorScheme[row.zone - 1];
 
                 return (
                   <tr key={row.zone} className="border-b hover:bg-gray-50">
@@ -195,19 +256,25 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
                       ></span>
                       {zoneName}
                     </td>
-                    {columnConfig.map((f, i) => { 
-                      const column = columnGetter(f.column)
-                      const stdDevFromMean = stdDevs && averages && !isUnassigned
-                        ? (row[column] - averages[column])/stdDevs[column]
-                        : undefined
-                      const backgroundColor = stdDevFromMean !== undefined ? getStdDevColor(stdDevFromMean) : ""
+                    {columnConfig.map((f, i) => {
+                      const column = columnGetter(f.column);
+                      const stdDevFromMean =
+                        stdDevs && averages && !isUnassigned && colorByStdDev
+                          ? (row[column] - averages[column]) / stdDevs[column]
+                          : undefined;
+                      const backgroundColor =
+                        stdDevFromMean !== undefined ? getStdDevColor(stdDevFromMean) : '';
                       return (
-                      <td className="py-2 px-4 text-right" style={{
-                        backgroundColor
-                      }}>
-                        {formatNumber(row[column], numberFormat)}
-                      </td>
-                    )})}
+                        <td
+                          className="py-2 px-4 text-right"
+                          style={{
+                            backgroundColor,
+                          }}
+                        >
+                          {formatNumber(row[column], numberFormat)}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })}

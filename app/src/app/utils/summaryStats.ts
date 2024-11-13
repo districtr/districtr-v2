@@ -16,16 +16,16 @@ export const stdDevArray = (arr: number[]) => {
     return Math.sqrt(variance); // Return standard deviation
 }
 
+export const stdDevColors = {
+  [-2]: '#5e3c9977',
+  [-1]: '#b2abd277',
+  [0]: "#ffffff",
+  [1]: '#fdb86377',
+  [2]: '#e6610177'
+} as const
+
 export const getStdDevColor = (value: number) => {
-  if (value <= -2){
-    return '#5e3c9977'
-  } else if (value <= -1){
-    return '#b2abd277'
-  } else if (value > 2){
-    return '#e6610177'
-  } else if (value > 1){
-    return '#fdb86377'
-  } else {
-    return "none"
-  }
+  const floorValue = value > 0 ? Math.floor(value) : Math.ceil(value)
+  const cleanValue= (floorValue < -2 ? -2 : floorValue > 2 ? 2 : floorValue) as keyof typeof stdDevColors 
+  return stdDevColors[cleanValue] || 'none'
 }
