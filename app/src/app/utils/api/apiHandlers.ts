@@ -151,9 +151,9 @@ export const getZonePopulations: (
   }
 };
 
-export interface P1SummaryStats {
+export interface SummaryStatsResult<T extends object> {
   summary_stat: string;
-  results: P1ZoneSummaryStats[];
+  results: T[];
 }
 
 /**
@@ -172,14 +172,15 @@ export interface P1ZoneSummaryStats {
   black_pop: number;
   white_pop: number;
 }
-export const P1ZoneSummaryStatsKeys: Array<keyof P1ZoneSummaryStats> = [
+
+export const P1ZoneSummaryStatsKeys = [
   'other_pop',
   'asian_pop',
   'amin_pop',
   'nhpi_pop',
   'black_pop',
   'white_pop'
-];
+] as const
 export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
   total: number;
   other_pop_pct: number;
@@ -200,7 +201,7 @@ export const getP1SummaryStats: (
 ) => Promise<CleanedP1ZoneSummaryStats[]> = async mapDocument => {
   if (mapDocument) {
     return await axios
-      .get<P1SummaryStats>(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`)
+      .get<SummaryStatsResult<P1ZoneSummaryStats>>(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`)
       .then(res => {
         const cleanData = res.data.results.map(row => {
           const total = getEntryTotal(row)
