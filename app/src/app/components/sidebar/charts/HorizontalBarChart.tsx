@@ -24,7 +24,7 @@ const CustomTooltip = ({active, payload: items}: TooltipInput) => {
 
 export const HorizontalBar = () => {
   const mapMetrics = useMapStore(state => state.mapMetrics);
-
+  const isPainting = useMapStore(state => state.isPainting)
   if (mapMetrics?.isPending) {
     return <div>Loading...</div>;
   }
@@ -61,7 +61,10 @@ export const HorizontalBar = () => {
           />
           <YAxis type="category" hide />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="total_pop">
+          <Bar dataKey="total_pop"
+          
+        isAnimationActive={isPainting} // {{ edit_1 }}
+          >
             {mapMetrics.data
               .sort((a, b) => a.zone - b.zone)
               .map((entry, index) => (

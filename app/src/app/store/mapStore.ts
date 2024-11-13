@@ -221,6 +221,11 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   accumulatedBlockPopulations: Map<string, number>;
   resetAccumulatedBlockPopulations: () => void;
+  accumulatePopFromPaint: (
+    accumulatedGeoids: MapStore['accumulatedGeoids'], 
+    accumulatedBlockPopulations: MapStore['accumulatedBlockPopulations'], 
+    selectedZone: MapStore['selectedZone']
+  ) => void;
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
@@ -309,16 +314,57 @@ export const useMapStore = create(
         },
         mapLock: false,
         setMapLock: mapLock => set({mapLock}),
+        accumulatePopFromPaint: (
+          accumulatedGeoids,
+          accumulatedBlockPopulations,
+          selectedZone
+        ) => {
+          const {mapMetrics, zoneAssignments} = get()
+          const populations: Record<number, number> = {}
+          mapMetrics?.data?.forEach(row => {
+            populations[row.zone] = +row.total_pop
+          })
+          if (!populations.hasOwnProperty(selectedZone)) {
+            populations[selectedZone] = 0
+          }
+
+          accumulatedGeoids.forEach(geoid => {
+            const pop = accumulatedBlockPopulations.get(geoid)
+            if (!pop || isNaN(pop)) return
+            const prevZone = zoneAssignments.get(geoid)
+            populations[selectedZone] += pop
+            if (prevZone) {
+              populations[prevZone] -= pop
+            }
+            accumulatedBlockPopulations.set(geoid, 0)
+          })
+
+
+          let newMetricsData = Object.entries(populations).map(([zone, total_pop]) => ({
+            zone,
+            total_pop
+          }))
+
+          set({
+            mapMetrics: {
+              ...mapMetrics,
+              data: newMetricsData
+            } as any,
+            accumulatedBlockPopulations: new Map(),
+          })
+        },
         selectMapFeatures: features => {
           let {
             accumulatedGeoids,
             accumulatedBlockPopulations,
             activeTool,
             shatterMappings,
+            mapMetrics,
             mapDocument,
             lockedFeatures,
             getMapRef,
             selectedZone: _selectedZone,
+            zoneAssignments
           } = get();
 
           const map = getMapRef();
@@ -332,12 +378,12 @@ export const useMapStore = create(
             if (!id) return;
             const isLocked = lockedFeatures.size && lockedFeatures.has(id);
             if (isLocked) return;
+            const isSameZoneOrAccumulated = accumulatedGeoids.has(id) || zoneAssignments.get(id) === selectedZone
+            if (isSameZoneOrAccumulated) return
 
             accumulatedGeoids.add(feature.properties?.path);
-            accumulatedBlockPopulations.set(
-              feature.properties?.path,
-              feature.properties?.total_pop
-            );
+            accumulatedBlockPopulations.set(feature.properties?.path, +feature.properties?.total_pop)
+            
             map.setFeatureState(
               {
                 source: BLOCK_SOURCE_ID,
@@ -347,12 +393,14 @@ export const useMapStore = create(
               {selected: true, zone: selectedZone}
             );
           });
+
           set({
             accumulatedGeoids,
             accumulatedBlockPopulations,
-            hoverFeatures: []
+            hoverFeatures: [],
           });
           debounceSetZoneAssignments(selectedZone, accumulatedGeoids)
+          debouncePopulationFromDrawing(accumulatedGeoids, accumulatedBlockPopulations, selectedZone)
         },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
@@ -851,7 +899,13 @@ export const useMapStore = create(
 
 const debounceSetZoneAssignments = debounce((zone: number | null, geoids: Set<string>) => {
   useMapStore.getState().setZoneAssignments(zone, geoids)
-}, 250)
+}, 500)
+
+const debouncePopulationFromDrawing = debounce((accumulatedGeoids, accumulatedBlockPopulations, selectedZone) => {
+  useMapStore.getState().accumulatePopFromPaint(
+    accumulatedGeoids, accumulatedBlockPopulations, selectedZone
+  )
+}, 5)
 
 // these need to initialize after the map store
 getRenderSubscriptions(useMapStore);
