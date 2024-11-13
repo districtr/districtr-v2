@@ -35,6 +35,7 @@ import {persistOptions} from './persistConfig';
 import {onlyUnique} from '../utils/arrays';
 import {DistrictrMapOptions} from './types';
 import {queryClient} from '../utils/api/queryClient';
+import { debounce } from 'lodash';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -318,7 +319,6 @@ export const useMapStore = create(
             lockedFeatures,
             getMapRef,
             selectedZone: _selectedZone,
-            zoneAssignments,
           } = get();
 
           const map = getMapRef();
@@ -338,7 +338,6 @@ export const useMapStore = create(
               feature.properties?.path,
               feature.properties?.total_pop
             );
-            zoneAssignments.set(id, selectedZone);
             map.setFeatureState(
               {
                 source: BLOCK_SOURCE_ID,
@@ -351,8 +350,9 @@ export const useMapStore = create(
           set({
             accumulatedGeoids,
             accumulatedBlockPopulations,
-            zoneAssignments: new Map(zoneAssignments),
+            hoverFeatures: []
           });
+          debounceSetZoneAssignments(selectedZone, accumulatedGeoids)
         },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
@@ -760,7 +760,8 @@ export const useMapStore = create(
           });
           set({
             zoneAssignments: newZoneAssignments,
-            accumulatedGeoids: new Set<string>(),
+            accumulatedGeoids: new Set(),
+            accumulatedBlockPopulations: new Map()
           });
         },
         loadZoneAssignments: assignments => {
@@ -847,6 +848,10 @@ export const useMapStore = create(
     persistOptions
   )
 );
+
+const debounceSetZoneAssignments = debounce((zone: number | null, geoids: Set<string>) => {
+  useMapStore.getState().setZoneAssignments(zone, geoids)
+}, 250)
 
 // these need to initialize after the map store
 getRenderSubscriptions(useMapStore);
