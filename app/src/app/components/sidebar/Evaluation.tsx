@@ -1,16 +1,18 @@
-import React, {useState} from 'react';
+import React, {useMemo, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useQuery} from '@tanstack/react-query';
 import {
   CleanedP1ZoneSummaryStats,
   getP1SummaryStats,
   P1ZoneSummaryStats,
+  P1ZoneSummaryStatsKeys,
 } from '@/app/utils/api/apiHandlers';
 import {Button} from '@radix-ui/themes';
 import {Heading, Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
+import {getEntryTotal} from '@/app/utils/summaryStats';
 
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
@@ -96,6 +98,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const numberFormat = numberFormats[evalMode];
   const columnGetter = getColConfig(evalMode);
+  const totPop = useMapStore(state => state.summaryStats.totpop?.data);
   const mapDocument = useMapStore(state => state.mapDocument);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
 
@@ -110,6 +113,24 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
     queryClient
   );
 
+  const unassigned = useMemo(() => {
+    if (!data?.results || !totPop) {
+      return;
+    }
+    let unassigned: Record<string, number> = {
+      ...totPop,
+      zone: 999,
+      total: getEntryTotal(totPop),
+    };
+    P1ZoneSummaryStatsKeys.forEach(key => {
+      let total = unassigned[key];
+      data.results.forEach(row => (total -= row[key]));
+      unassigned[`${key}_pct`] = total / unassigned[key];
+      unassigned[key] = total;
+    });
+    return unassigned;
+  }, [data?.results, totPop]);
+
   if (!data || (mapDocument && !mapDocument.available_summary_stats)) {
     return <Text>Summary statistics are not available for this map.</Text>;
   }
@@ -122,7 +143,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
       </div>
     );
   }
-
+  const rows = unassigned ? [...data.results, unassigned] : data.results;
   return (
     <div className="w-full">
       <Flex align="center" gap="3">
@@ -150,24 +171,30 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
             </tr>
           </thead>
           <tbody>
-            {data.results.sort((a, b) => a.zone - b.zone)
-              .map(row => (
-                <tr key={row.zone} className="border-b hover:bg-gray-50">
-                  <td className="py-2 px-4 font-medium flex flex-row items-center gap-1">
-                    <span
-                      className={'size-4 inline-block rounded-md'}
-                      style={{backgroundColor: colorScheme[row.zone - 1]}}
-                    ></span>
-                    {row.zone}
-                  </td>
-                  {columnConfig.map((f, i) => (
-                    <td className="py-2 px-4 text-right">
-                      {/* todo: clean types */}
-                      {formatNumber(row[columnGetter(f.column)], numberFormat)}
+            {rows
+              .sort((a, b) => a.zone - b.zone)
+              .map(row => {
+                const isUnassigned = row.zone === 999;
+                const zoneName = isUnassigned ? 'Unassigned' : row.zone;
+                const backgroundColor = isUnassigned ? '#BBBBBB' : colorScheme[row.zone - 1]
+
+                return (
+                  <tr key={row.zone} className="border-b hover:bg-gray-50">
+                    <td className="py-2 px-4 font-medium flex flex-row items-center gap-1">
+                      <span
+                        className={'size-4 inline-block rounded-md'}
+                        style={{backgroundColor}}
+                      ></span>
+                      {zoneName}
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    {columnConfig.map((f, i) => (
+                      <td className="py-2 px-4 text-right">
+                        {formatNumber(row[columnGetter(f.column)], numberFormat)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>
