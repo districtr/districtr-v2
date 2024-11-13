@@ -107,7 +107,7 @@ export const getDocument: (document_id: string) => Promise<DocumentObject> = asy
 };
 
 export const getAssignments: (
-  mapDocument: DocumentObject
+  mapDocument: DocumentObject | null
 ) => Promise<Assignment[]> = async mapDocument => {
   if (mapDocument) {
     return await axios
@@ -153,7 +153,7 @@ export const getZonePopulations: (
 
 export interface SummaryStatsResult<T extends object> {
   summary_stat: string;
-  results: T[];
+  results: T;
 }
 
 /**
@@ -172,6 +172,7 @@ export interface P1ZoneSummaryStats {
   black_pop: number;
   white_pop: number;
 }
+export type P1TotPopSummaryStats = Omit<P1ZoneSummaryStats, 'zone'>
 
 export const P1ZoneSummaryStatsKeys = [
   'other_pop',
@@ -194,16 +195,16 @@ export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
 /**
  * Get P1 zone stats from the server.
  * @param mapDocument - DocumentObject, the document object
- * @returns Promise<P1SummaryStats[]>
+ * @returns Promise<CleanedP1ZoneSummaryStats[]>
  */
 export const getP1SummaryStats: (
   mapDocument: DocumentObject
-) => Promise<CleanedP1ZoneSummaryStats[]> = async mapDocument => {
+) => Promise<SummaryStatsResult<CleanedP1ZoneSummaryStats[]>> = async mapDocument => {
   if (mapDocument) {
     return await axios
-      .get<SummaryStatsResult<P1ZoneSummaryStats>>(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`)
+      .get<SummaryStatsResult<P1ZoneSummaryStats[]>>(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`)
       .then(res => {
-        const cleanData = res.data.results.map(row => {
+        const results = res.data.results.map(row => {
           const total = getEntryTotal(row)
           return P1ZoneSummaryStatsKeys.reduce<any>((acc, key) => {
             acc[`${key}_pct`] = acc[key] / total;
@@ -213,8 +214,28 @@ export const getP1SummaryStats: (
             total
           }) as CleanedP1ZoneSummaryStats
       })
-      return cleanData
+      return {
+        ...res.data,
+        results
+      }
     })
+  } else {
+    throw new Error('No document provided');
+  }
+};
+
+/**
+ * Get P1 zone stats from the server.
+ * @param mapDocument - DocumentObject, the document object
+ * @returns Promise<CleanedP1ZoneSummaryStats[]>
+ */
+export const getP1TotPopSummaryStats: (
+  mapDocument: DocumentObject | null
+) => Promise<SummaryStatsResult<P1TotPopSummaryStats[]>> = async mapDocument => {
+  if (mapDocument) {
+    return await axios
+      .get<SummaryStatsResult<P1TotPopSummaryStats[]>>(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1TOTPOP`)
+      .then(res => res.data)
   } else {
     throw new Error('No document provided');
   }

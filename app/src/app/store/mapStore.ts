@@ -13,6 +13,7 @@ import {
   Assignment,
   DistrictrMap,
   DocumentObject,
+  P1TotPopSummaryStats,
   ZonePopulation,
 } from "../utils/api/apiHandlers";
 import maplibregl from "maplibre-gl";
@@ -30,7 +31,7 @@ import { patchShatter } from "../utils/api/mutations";
 import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
 import { getMapMetricsSubs } from "./metricsSubs";
 import { getMapEditSubs } from "./mapEditSubs";
-import { getMapViewsSubs } from "../utils/api/queries";
+import { getQueriesResultsSubs } from "../utils/api/queries";
 import { persistOptions } from "./persistConfig";
 
 
@@ -50,6 +51,15 @@ export interface MapStore {
   setMapViews: (maps: MapStore["mapViews"]) => void;
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  summaryStats: {
+    totpop?: {
+      data: P1TotPopSummaryStats
+    } 
+  },
+  setSummaryStat: <T extends keyof MapStore['summaryStats']>(
+    stat: T,
+    value: MapStore['summaryStats'][T]
+  ) => void,
   shatterIds: {
     parents: Set<string>;
     children: Set<string>;
@@ -156,6 +166,15 @@ export const useMapStore = create(
             mapDocument: mapDocument,
             shatterIds: { parents: new Set(), children: new Set() },
           });
+        },
+        summaryStats: {},
+        setSummaryStat: (stat, value) => {
+          set({
+            summaryStats: {
+              ...get().summaryStats,
+              [stat]: value
+            }
+          })
         },
         upcertUserMap: ({ mapDocument, userMapData, userMapDocumentId }) => {
           let userMaps = [ ...get().userMaps ];
@@ -386,6 +405,6 @@ export const useMapStore = create(
 // these need to initialize after the map store
 getRenderSubscriptions(useMapStore);
 getMapMetricsSubs(useMapStore);
-getMapViewsSubs(useMapStore);
+getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();

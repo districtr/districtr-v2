@@ -1,4 +1,4 @@
-import {updateMapMetrics} from '../utils/api/queries';
+import {updateMapMetrics, updateTotPop} from '../utils/api/queries';
 import {useMapStore as _useMapStore} from './mapStore';
 
 export const getMapMetricsSubs = (useMapStore: typeof _useMapStore) => {
@@ -7,6 +7,7 @@ export const getMapMetricsSubs = (useMapStore: typeof _useMapStore) => {
     mapDocument => {
       if (mapDocument) {
         updateMapMetrics(mapDocument);
+        updateTotPop(mapDocument)
       }
     }
   );
