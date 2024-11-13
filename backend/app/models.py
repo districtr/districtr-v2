@@ -195,7 +195,7 @@ class SummaryStats(BaseModel):
 class SummaryStatsP1(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    zone: str
+    zone: int
     other_pop: int
     asian_pop: int
     amin_pop: int

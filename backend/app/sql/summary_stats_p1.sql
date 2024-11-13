@@ -36,19 +36,7 @@ BEGIN
         ON blocks.path = assignments.geo_id
         WHERE assignments.document_id = $1
         GROUP BY assignments.zone
-
-        UNION ALL
-
-        SELECT 
-            ''Total'' AS zone,
-            SUM(COALESCE(other_pop, 0))::BIGINT AS other_pop,
-            SUM(COALESCE(asian_pop, 0))::BIGINT AS asian_pop,
-            SUM(COALESCE(amin_pop, 0))::BIGINT AS amin_pop,
-            SUM(COALESCE(nhpi_pop, 0))::BIGINT AS nhpi_pop,
-            SUM(COALESCE(black_pop, 0))::BIGINT AS black_pop,
-            SUM(COALESCE(white_pop, 0))::BIGINT AS white_pop
-        FROM gerrydb.%I
-    ', doc_districtrmap.gerrydb_table_name, doc_districtrmap.parent_layer);
+    ', doc_districtrmap.gerrydb_table_name);
     RETURN QUERY EXECUTE sql_query USING $1;
 END;
 $$ LANGUAGE plpgsql;
