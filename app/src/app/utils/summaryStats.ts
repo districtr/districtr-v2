@@ -1,6 +1,6 @@
 import { P1ZoneSummaryStats } from "./api/apiHandlers";
 
-export const getEntryTotal = (entry: P1ZoneSummaryStats) =>
+export const getEntryTotal = (entry: Omit<P1ZoneSummaryStats, 'zone'>) =>
   Object.entries(entry).reduce((total, [key, value]) => {
     if (key !== 'zone') {
       return total + value; // Sum values of properties except 'zone'
