@@ -8,6 +8,8 @@ import {
   getLayerFilter,
   getLayerFill,
   BLOCK_SOURCE_ID,
+  BLOCK_LAYER_ID_HIGHLIGHT,
+  getHighlightLayerSpecification,
 } from '../constants/layers';
 import {
   ColorZoneAssignmentsState,
@@ -256,6 +258,19 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       });
     }
   );
+
+  const highlightUnassignedSub = useMapStore.subscribe(
+    state => state.mapOptions.higlightUnassigned,
+    (higlightUnassigned) => {
+      const {getMapRef, mapDocument} = useMapStore.getState();
+      const mapRef = getMapRef();
+      if (!mapRef || !mapDocument?.parent_layer) return;
+      // set the layer BLOCK_LAYER_ID_HIGHLIGHT style to be the return from getHighlightLayerSpecification
+      const highlightLayerSpecification = getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT, higlightUnassigned)
+      mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-width', highlightLayerSpecification['paint']['line-width']);
+      mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-color', highlightLayerSpecification['paint']['line-color']);
+    }
+  );
   return [
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
@@ -263,5 +278,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     _zoneAssignmentMapSideEffectRender,
     _updateMapCursor,
     _applyFocusFeatureState,
+    highlightUnassignedSub,
   ];
 };
