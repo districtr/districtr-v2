@@ -13,7 +13,13 @@ import {Heading, Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
-import {getEntryTotal, getStdDevColor, stdDevArray, stdDevColors, sumArray} from '@/app/utils/summaryStats';
+import {
+  getEntryTotal,
+  getStdDevColor,
+  stdDevArray,
+  stdDevColors,
+  sumArray,
+} from '@/app/utils/summaryStats';
 
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
@@ -100,6 +106,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
   const [showAverages, setShowAverages] = useState<boolean>(true);
   const [showStdDev, setShowStdDev] = useState<boolean>(false);
   const [colorByStdDev, setColorByStdDev] = useState<boolean>(true);
+  const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
 
   const numberFormat = numberFormats[evalMode];
   const columnGetter = getColConfig(evalMode);
@@ -124,7 +131,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
     }
     let unassigned: Record<string, number> = {
       ...totPop,
-      zone: 999,
+      zone: -999,
       total: getEntryTotal(totPop),
     };
     P1ZoneSummaryStatsKeys.forEach(key => {
@@ -155,7 +162,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
       </div>
     );
   }
-  const rows = unassigned ? [...data.results, unassigned] : data.results;
+  const rows = unassigned && showUnassigned ? [...data.results, unassigned] : data.results;
   return (
     <div className="w-full">
       <Flex align="center" gap="3" mt="1">
@@ -180,26 +187,37 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
             showAverages ? 'averages' : '',
             showStdDev ? 'stddev' : '',
             colorByStdDev ? 'colorstddev' : '',
+            showUnassigned ? 'unassigned' : '',
           ]}
         >
+          <CheckboxGroup.Item value="unassigned" onClick={() => setShowUnassigned(v => !v)}>
+            Show Unassigned Population
+          </CheckboxGroup.Item>
           <CheckboxGroup.Item value="averages" onClick={() => setShowAverages(v => !v)}>
             Show Zone Averages
           </CheckboxGroup.Item>
           <CheckboxGroup.Item value="stddev" onClick={() => setShowStdDev(v => !v)}>
-            <Flex gap="3">
-              <p>
-                Show Zone Std. Dev.
-                </p>
-                {colorByStdDev && <span>
-                  {/* TODO fix types on sort */}
-                  {Object.entries(stdDevColors).sort((a: any[],b:any[]) => a[0] - b[0]).map(([number, backgroundColor], i) => (
-                    <span className="inline-flex items-center justify-center size-6" style={{backgroundColor}}>{number}</span>
-                  ))}
-                  </span>}
-              </Flex>
+            Show Zone Std. Dev.
           </CheckboxGroup.Item>
           <CheckboxGroup.Item value="colorstddev" onClick={() => setColorByStdDev(v => !v)}>
-            Color Values By Std. Dev
+            <Flex gap="3">
+              <p>Color Values By Std. Dev</p>
+              {colorByStdDev && (
+                <span>
+                  {/* TODO fix types on sort */}
+                  {Object.entries(stdDevColors)
+                    .sort((a: any[], b: any[]) => a[0] - b[0])
+                    .map(([number, backgroundColor], i) => (
+                      <span
+                        className="inline-flex items-center justify-center size-6"
+                        style={{backgroundColor}}
+                      >
+                        {number}
+                      </span>
+                    ))}
+                </span>
+              )}
+            </Flex>
           </CheckboxGroup.Item>
         </CheckboxGroup.Root>
       </Flex>
@@ -243,7 +261,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
             {rows
               .sort((a, b) => a.zone - b.zone)
               .map(row => {
-                const isUnassigned = row.zone === 999;
+                const isUnassigned = row.zone === -999;
                 const zoneName = isUnassigned ? 'Unassigned' : row.zone;
                 const backgroundColor = isUnassigned ? '#BBBBBB' : colorScheme[row.zone - 1];
 
