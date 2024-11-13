@@ -150,8 +150,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
             </tr>
           </thead>
           <tbody>
-            {data
-              .sort((a, b) => a.zone - b.zone)
+            {data.results.sort((a, b) => a.zone - b.zone)
               .map(row => (
                 <tr key={row.zone} className="border-b hover:bg-gray-50">
                   <td className="py-2 px-4 font-medium flex flex-row items-center gap-1">
