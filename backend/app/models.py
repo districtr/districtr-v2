@@ -51,6 +51,7 @@ class SummaryStatisticType(Enum):
     P2 = "Hispanic or Latino, and Not Hispanic or Latino by Race"
     P3 = "Voting Age Population by Race"
     P4 = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+    P1TOTPOP = "Total Population by Race"
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -192,13 +193,15 @@ class SummaryStats(BaseModel):
     results: list[Any]
 
 
-class SummaryStatsP1(BaseModel):
+class PopulationStatsP1(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
-    zone: int
     other_pop: int
     asian_pop: int
     amin_pop: int
     nhpi_pop: int
     black_pop: int
     white_pop: int
+
+
+class SummaryStatsP1(PopulationStatsP1):
+    zone: int

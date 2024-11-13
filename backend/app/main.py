@@ -27,6 +27,7 @@ from app.models import (
     ShatterResult,
     SummaryStatisticType,
     SummaryStatsP1,
+    PopulationStatsP1,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -271,7 +272,8 @@ async def get_summary_stat(
 
     try:
         summary_stat_udf, SummaryStatsModel = {
-            "P1": ("get_summary_stats_p1", SummaryStatsP1)
+            "P1": ("get_summary_stats_p1", SummaryStatsP1),
+            "P1TOTPOP": {"get_summary_stats_pop_totals", PopulationStatsP1},
         }[summary_stat]
     except KeyError:
         raise HTTPException(
@@ -279,9 +281,7 @@ async def get_summary_stat(
             detail=f"Summary stats not implemented for {summary_stat}",
         )
 
-    stmt = text(
-        f"SELECT * from {summary_stat_udf}(:document_id) WHERE zone IS NOT NULL"
-    )
+    stmt = text(f"SELECT * from {summary_stat_udf}(:document_id)")
     try:
         results = session.execute(stmt, {"document_id": document_id}).fetchall()
         return {
