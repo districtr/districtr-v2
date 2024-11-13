@@ -18,11 +18,10 @@ export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 
 export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD];
+export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const
 
-export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
-
+export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]; 
 export const CHILD_LAYERS = [BLOCK_LAYER_ID_CHILD, BLOCK_HOVER_LAYER_ID_CHILD];
-
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   'case',
   ['boolean', ['feature-state', 'hover'], false],
@@ -45,6 +44,11 @@ ZONE_ASSIGNMENT_STYLE_DYNAMIC.push('#cecece');
 // cast the above as an ExpressionSpecification
 // @ts-ignore
 export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = ZONE_ASSIGNMENT_STYLE_DYNAMIC;
+
+const LAYER_LINE_WIDTHS = {
+  [BLOCK_LAYER_ID]: 1.5,
+  [BLOCK_LAYER_ID_CHILD]: 1
+}
 
 export function getLayerFilter(layerId: string, _shatterIds?: MapStore['shatterIds']) {
   const shatterIds = _shatterIds || useMapStore.getState().shatterIds;
@@ -156,10 +160,14 @@ export function getHighlightLayerSpecification(
     },
   };
 }
+
+
 export function getBlocksLayerSpecification(
   sourceLayer: string,
-  layerId: string
+  layerId: typeof LINE_LAYERS[number]
 ): LayerSpecification {
+  const lineWidth = LAYER_LINE_WIDTHS[layerId]
+
   const layerSpec: LayerSpecification = {
     id: layerId,
     source: BLOCK_SOURCE_ID,
@@ -170,8 +178,8 @@ export function getBlocksLayerSpecification(
     },
     paint: {
       'line-opacity': 0.8,
-      'line-color': '#cecece', // Default color
-      'line-width': 1, // Default width
+      'line-color': '#333', // Default color
+      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, lineWidth*.25, 9, lineWidth*.5, 18, lineWidth],
     },
   };
   if (CHILD_LAYERS.includes(layerId)) {
