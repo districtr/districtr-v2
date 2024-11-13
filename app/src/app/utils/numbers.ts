@@ -7,7 +7,8 @@ const compactFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   compactDisplay: 'short',
 })
-const stringFormatter = (n: number) => n.toLocaleString()
+
+const stringFormatter = (n: number) => (Math.round(n)).toLocaleString()
 
 export type NumberFormats = 'percent' | 'string' | 'compact'
 export const formatNumber = (
