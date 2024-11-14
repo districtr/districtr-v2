@@ -1,6 +1,6 @@
-CREATE OR REPLACE FUNCTION get_summary_stats_pop_totals(document_id UUID)
+DROP FUNCTION IF EXISTS get_summary_stats_pop_totals;
+CREATE OR REPLACE FUNCTION get_summary_stats_pop_totals(gerrydb_table TEXT)
 RETURNS TABLE (
-    zone TEXT,
     other_pop BIGINT,
     asian_pop BIGINT,
     amin_pop BIGINT,
@@ -9,17 +9,20 @@ RETURNS TABLE (
     white_pop BIGINT
 ) AS $$
 DECLARE
-    doc_districtrmap RECORD;
+    table_exists BOOLEAN;
     sql_query TEXT;
-BEGIN
-    SELECT districtrmap.* INTO doc_districtrmap
-    FROM document.document
-    LEFT JOIN districtrmap
-    ON document.gerrydb_table = districtrmap.gerrydb_table_name
-    WHERE document.document_id = $1;
 
-    IF doc_districtrmap.gerrydb_table_name IS NULL THEN
-        RAISE EXCEPTION 'Table name not found for document_id: %', $1;
+BEGIN
+    -- Check if the table exists
+    SELECT EXISTS (
+        SELECT 1 
+        FROM information_schema.tables 
+        WHERE table_schema = 'gerrydb' 
+        AND table_name = $1
+    ) INTO table_exists;
+
+    IF NOT table_exists THEN
+        RAISE EXCEPTION 'Table % does not exist in gerrydb schema', $1;
     END IF;
 
     sql_query := format('
@@ -31,7 +34,7 @@ BEGIN
             SUM(COALESCE(black_pop, 0))::BIGINT AS black_pop,
             SUM(COALESCE(white_pop, 0))::BIGINT AS white_pop
         FROM gerrydb.%I
-    ', doc_districtrmap.parent_layer);
-    RETURN QUERY EXECUTE sql_query USING $1;
+    ', $1);
+    RETURN QUERY EXECUTE sql_query;
 END;
 $$ LANGUAGE plpgsql;
