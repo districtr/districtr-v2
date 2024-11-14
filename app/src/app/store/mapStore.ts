@@ -368,8 +368,8 @@ export const useMapStore = create(
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
           }
-          resetZoneAssignments()
           setFreshMap(true)
+          resetZoneAssignments()
           upsertUserMap({mapDocument})
           
           set({
