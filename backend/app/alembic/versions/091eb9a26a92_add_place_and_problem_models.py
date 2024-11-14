@@ -1,7 +1,7 @@
 """add place and problem models
 
 Revision ID: 091eb9a26a92
-Revises: dc391733e10a
+Revises: 65a4fc0a727d
 Create Date: 2024-11-09 15:27:25.337956
 
 """
@@ -17,7 +17,8 @@ from app.models import UUIDType
 revision: str = "091eb9a26a92"
 down_revision: Union[str, None] = "dc391733e10a"
 branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+depends_on = "65a4fc0a727d"  # unshatter UDF
+down_revision = "65a4fc0a727d"
 
 
 def upgrade() -> None:
