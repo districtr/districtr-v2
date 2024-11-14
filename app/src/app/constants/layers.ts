@@ -132,7 +132,6 @@ export function getHighlightLayerSpecification(
   layerId: string,
   highlightUnassgned?: boolean
 ): LineLayerSpecification {
-  const [unassignedHighlightColor, unassignedHighlightWidth] = highlightUnassgned ? ['#FF0000', 5] : ['#000000', 0]
   return {
     id: layerId,
     source: BLOCK_SOURCE_ID,
@@ -154,21 +153,25 @@ export function getHighlightLayerSpecification(
         '#e5ff00', // yellow color when highlighted
         // @ts-ignore right behavior, wrong types
         ['==', ['feature-state', 'zone'], null],
-        unassignedHighlightColor, // optionally red color when zone is not assigned
+        '#FF0000', // optionally red color when zone is not assigned
         '#000000', // Default color
       ],
       'line-width': [
         'case',
         ['boolean', ['feature-state', 'broken'], false],
         0, // none when broken parent
-        ['boolean', ['feature-state', 'focused'], false],
-        5, // Width of 5 when focused
-        ['boolean', ['feature-state', 'highlighted'], false],
-        5, // Width of 5 when highlighted
-        // @ts-ignore right behavior, wrong types
-        ['==', ['feature-state', 'zone'], null],
-        unassignedHighlightWidth, // optionally with 5 when zone is not assigned
-        0, // Default width
+        [
+          'any',
+          ['boolean', ['feature-state', 'focused'], false],
+          ['boolean', ['feature-state', 'highlighted'], false],
+          ['all',
+            // @ts-ignore correct logic, wrong types
+            ['==', ['feature-state', 'zone'], null],
+            ['boolean', !!highlightUnassgned]
+          ]
+        ],
+        3.5,
+        0, // Default width if none of the conditions are met
       ],
     },
   };
