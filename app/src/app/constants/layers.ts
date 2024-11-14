@@ -260,12 +260,6 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
   }
   map?.addLayer(getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT));
   useMapStore.getState().setMapRenderingState('loaded');
-
-  // update map bounds based on document extent
-  useMapStore.getState().setMapOptions({
-    bounds: mapDocument.extent as [number, number, number, number],
-    container: useMapStore.getState().mapOptions.container,
-  });
 };
 
 export function removeBlockLayers(map: Map | null) {

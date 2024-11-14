@@ -358,17 +358,26 @@ export const useMapStore = create(
         setMapViews: mapViews => set({mapViews}),
         mapDocument: null,
         setMapDocument: mapDocument => {
-          const currentMapDocument = get().mapDocument;
+          const {
+            mapDocument: currentMapDocument,
+            setFreshMap,
+            resetZoneAssignments,
+            upsertUserMap,
+            mapOptions
+          } = get();
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
           }
-          get().setFreshMap(true);
-          get().resetZoneAssignments();
-          get().upsertUserMap({
-            mapDocument,
-          });
+          resetZoneAssignments()
+          setFreshMap(true)
+          upsertUserMap({mapDocument})
+          
           set({
             mapDocument: mapDocument,
+            mapOptions: {
+              ...mapOptions,
+              bounds: mapDocument.extent
+            },
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
