@@ -905,7 +905,7 @@ const debouncePopulationFromDrawing = debounce((accumulatedGeoids, accumulatedBl
   useMapStore.getState().accumulatePopFromPaint(
     accumulatedGeoids, accumulatedBlockPopulations, selectedZone
   )
-}, 5)
+}, 2)
 
 // these need to initialize after the map store
 getRenderSubscriptions(useMapStore);
