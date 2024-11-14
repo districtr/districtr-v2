@@ -275,7 +275,6 @@ export function removeBlockLayers(map: Map | null) {
     BLOCK_LAYER_ID_CHILD,
     BLOCK_HOVER_LAYER_ID_CHILD,
     BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
-    BLOCK_SOURCE_ID,
   ].forEach(layer => {
     map.getLayer(layer) && map.removeLayer(layer);
   });
