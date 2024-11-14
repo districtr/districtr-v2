@@ -279,7 +279,7 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
               .map(row => {
                 const isUnassigned = row.zone === -999;
                 const zoneName = isUnassigned ? 'None' : row.zone;
-                const backgroundColor = isUnassigned ? '#BBBBBB' : colorScheme[row.zone - 1];
+                const backgroundColor = isUnassigned ? '#DDDDDD' : colorScheme[row.zone - 1];
 
                 return (
                   <tr key={row.zone} className="border-b hover:bg-gray-50">
