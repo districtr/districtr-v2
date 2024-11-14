@@ -3,6 +3,7 @@ import {Button, Checkbox, CheckboxGroup} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import {blackA} from '@radix-ui/colors';
+import {useMapStore} from '@/app/store/mapStore';
 
 type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
@@ -27,6 +28,8 @@ export const ColorPicker = <T extends boolean>({
   colorArray,
   multiple,
 }: ColorPickerProps<T>) => {
+  const mapDocument = useMapStore(state => state.mapDocument);
+
   if (multiple) {
     return (
       <div>
@@ -63,11 +66,12 @@ export const ColorPicker = <T extends boolean>({
         value={value !== undefined ? colorArray[value] : undefined}
         defaultValue={colorArray[defaultValue]}
       >
-        {colorArray.map((color, i) => (
-          <RadioGroupItem key={i} style={{backgroundColor: color}} value={color}>
-            <RadioGroupIndicator />
-          </RadioGroupItem>
-        ))}
+        {mapDocument &&
+          colorArray.slice(0, mapDocument.num_districts ?? 0).map((color, i) => (
+            <RadioGroupItem key={i} style={{backgroundColor: color}} value={color}>
+              <RadioGroupIndicator />
+            </RadioGroupItem>
+          ))}
       </RadioGroupRoot>
     </div>
   );
