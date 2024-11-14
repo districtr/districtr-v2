@@ -72,9 +72,10 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
         run(
             [
                 "tippecanoe",
-                "-zg",
-                "-Z6",
-                "--coalesce-densest-as-needed",
+                "-z12", #max zoom 12
+                "-Z2", #min zoom 2
+                "-pS", #at zoom 12, NO simplification
+                "--drop-densest-as-needed",
                 "--extend-zooms-if-still-dropping",
                 "-o",
                 tiles,
@@ -241,8 +242,14 @@ def create_gerrydb_tileset(
 
     args = [
         "tippecanoe",
-        "-zg",
-        "--coalesce-smallest-as-needed",
+        "-z12", #max zoom 12
+        "-Z3", #min zoom 3
+        "-pS", #at zoom 12, NO simplification
+        "-M", # max file size
+        1500000, #1.5 MiB max tile size. 500k is default
+        "-O", # max number of features
+        200000, #200,000 is default
+        "--drop-smallest-as-needed", # drop features
         "--extend-zooms-if-still-dropping",
         "-o",
         tileset_path,
