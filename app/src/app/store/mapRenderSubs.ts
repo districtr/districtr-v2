@@ -8,6 +8,9 @@ import {
   getLayerFilter,
   getLayerFill,
   BLOCK_SOURCE_ID,
+  BLOCK_LAYER_ID_HIGHLIGHT,
+  getHighlightLayerSpecification,
+  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
 } from '../constants/layers';
 import {
   ColorZoneAssignmentsState,
@@ -56,10 +59,12 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       );
       // remove zone from parents
       shatterIds.parents.forEach(id => {
-        mapRef?.removeFeatureState({
+        mapRef?.setFeatureState({
           source: BLOCK_SOURCE_ID,
           id,
           sourceLayer: mapDocument?.parent_layer,
+        }, {
+          broken: true
         });
       });
 
@@ -278,6 +283,26 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       });
     }
   );
+
+  const highlightUnassignedSub = useMapStore.subscribe(
+    state => state.mapOptions.higlightUnassigned,
+    (higlightUnassigned) => {
+      const {getMapRef, mapDocument} = useMapStore.getState();
+      const mapRef = getMapRef();
+      if (!mapRef || !mapDocument?.parent_layer) return;
+      // set the layer BLOCK_LAYER_ID_HIGHLIGHT style to be the return from getHighlightLayerSpecification
+      const paintStyle = getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT, higlightUnassigned)['paint']
+      if (!paintStyle) return
+      if(mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT)){
+        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-width', paintStyle['line-width']);
+        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-color', paintStyle['line-color']);
+      }
+      if(mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT_CHILD)){
+        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-width', paintStyle['line-width']);
+        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-color', paintStyle['line-color']);
+      } 
+    }
+  );
   return [
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
@@ -285,5 +310,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     _zoneAssignmentMapSideEffectRender,
     _updateMapCursor,
     _applyFocusFeatureState,
+    highlightUnassignedSub,
   ];
 };
