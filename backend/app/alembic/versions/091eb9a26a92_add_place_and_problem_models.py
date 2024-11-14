@@ -15,7 +15,6 @@ from app.models import UUIDType
 
 # revision identifiers, used by Alembic.
 revision: str = "091eb9a26a92"
-down_revision: Union[str, None] = "dc391733e10a"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on = "65a4fc0a727d"  # unshatter UDF
 down_revision = "65a4fc0a727d"
