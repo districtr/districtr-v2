@@ -279,6 +279,12 @@ export function removeBlockLayers(map: Map | null) {
   ].forEach(layer => {
     map.getLayer(layer) && map.removeLayer(layer);
   });
+  
+  [
+    BLOCK_SOURCE_ID,
+  ].forEach(source => {
+    map.getSource(source) && map.removeSource(source);
+  });
 }
 
 export {addBlockLayers};
