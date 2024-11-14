@@ -51,6 +51,9 @@ class SummaryStatisticType(Enum):
     P2 = "Hispanic or Latino, and Not Hispanic or Latino by Race"
     P3 = "Voting Age Population by Race"
     P4 = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+
+
+class GerryDbSummaryStatisticType(Enum):
     P1TOTPOP = "Total Population by Race"
 
 
