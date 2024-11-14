@@ -28,6 +28,7 @@ from app.models import (
     SummaryStatisticType,
     SummaryStatsP1,
     PopulationStatsP1,
+    GerryDbSummaryStatisticType,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -302,6 +303,50 @@ async def get_summary_stat(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Document with ID {document_id} not found",
+            )
+
+
+@app.get("/api/districtrmap/summary_stats/{summary_stat}/{gerrydb_table}")
+async def get_gerrydb_summary_stat(
+    summary_stat: str, gerrydb_table: str, session: Session = Depends(get_session)
+):
+    try:
+        _summary_stat = GerryDbSummaryStatisticType[summary_stat]
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid summary_stat: {summary_stat}",
+        )
+
+    try:
+        summary_stat_udf, SummaryStatsModel = {
+            "P1TOTPOP": ("get_summary_stats_pop_totals", PopulationStatsP1),
+        }[summary_stat]
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Summary stats not implemented for {summary_stat}",
+        )
+
+    stmt = text(
+        f"""SELECT *
+        FROM {summary_stat_udf}(:gerrydb_table)"""
+    ).bindparams(
+        bindparam(key="gerrydb_table", type_=String),
+    )
+    try:
+        results = session.execute(stmt, {"gerrydb_table": gerrydb_table}).fetchall()
+        return {
+            "summary_stat": _summary_stat.value,
+            "results": [SummaryStatsModel.from_orm(row) for row in results],
+        }
+    except ProgrammingError as e:
+        logger.error(e)
+        error_text = str(e)
+        if f"Table {gerrydb_table} does not exist in gerrydb schema" in error_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Gerrydb Table with ID {gerrydb_table} not found",
             )
 
 
