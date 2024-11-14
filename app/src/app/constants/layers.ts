@@ -130,7 +130,7 @@ export function getLayerFill(
 export function getHighlightLayerSpecification(
   sourceLayer: string,
   layerId: string,
-  highlightUnassgned?: boolean
+  highlightUnassigned?: boolean
 ): LineLayerSpecification {
   return {
     id: layerId,
@@ -165,7 +165,7 @@ export function getHighlightLayerSpecification(
           ['all',
             // @ts-ignore correct logic, wrong types
             ['==', ['feature-state', 'zone'], null],
-            ['boolean', !!highlightUnassgned],
+            ['boolean', !!highlightUnassigned],
             ['!', ['boolean', ['feature-state', 'broken'], false]],
           ]
         ],
