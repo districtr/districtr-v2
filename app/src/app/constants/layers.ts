@@ -23,7 +23,11 @@ export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CH
 
 export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 
-export const CHILD_LAYERS = [BLOCK_LAYER_ID_CHILD, BLOCK_HOVER_LAYER_ID_CHILD, BLOCK_LAYER_ID_HIGHLIGHT_CHILD];
+export const CHILD_LAYERS = [
+  BLOCK_LAYER_ID_CHILD,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+];
 
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   'case',
@@ -66,11 +70,11 @@ export function getLayerFill(
   captiveIds?: Set<string>,
   shatterIds?: Set<string>
 ): DataDrivenPropertyValueSpecification<number> {
-  const innerFillSpec = [
+  const innerFillSpec = ([
     'case',
     // is broken parent
     ['boolean', ['feature-state', 'broken'], false],
-    0, 
+    0,
     // geography is locked
     ['boolean', ['feature-state', 'locked'], false],
     0.35,
@@ -108,7 +112,7 @@ export function getLayerFill(
     ['boolean', ['feature-state', 'hover'], false],
     0.6,
     0.2,
-  ] as unknown as DataDrivenPropertyValueSpecification<number>;
+  ] as unknown) as DataDrivenPropertyValueSpecification<number>;
   if (captiveIds?.size) {
     return [
       'case',
@@ -162,12 +166,13 @@ export function getHighlightLayerSpecification(
           'any',
           ['boolean', ['feature-state', 'focused'], false],
           ['boolean', ['feature-state', 'highlighted'], false],
-          ['all',
+          [
+            'all',
             // @ts-ignore correct logic, wrong types
             ['==', ['feature-state', 'zone'], null],
             ['boolean', !!highlightUnassigned],
             ['!', ['boolean', ['feature-state', 'broken'], false]],
-          ]
+          ],
         ],
         3.5,
         0, // Default width if none of the conditions are met
@@ -278,10 +283,8 @@ export function removeBlockLayers(map: Map | null) {
   ].forEach(layer => {
     map.getLayer(layer) && map.removeLayer(layer);
   });
-  
-  [
-    BLOCK_SOURCE_ID,
-  ].forEach(source => {
+
+  [BLOCK_SOURCE_ID].forEach(source => {
     map.getSource(source) && map.removeSource(source);
   });
 }
