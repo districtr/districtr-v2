@@ -158,8 +158,6 @@ export function getHighlightLayerSpecification(
       ],
       'line-width': [
         'case',
-        ['boolean', ['feature-state', 'broken'], false],
-        0, // none when broken parent
         [
           'any',
           ['boolean', ['feature-state', 'focused'], false],
@@ -167,7 +165,8 @@ export function getHighlightLayerSpecification(
           ['all',
             // @ts-ignore correct logic, wrong types
             ['==', ['feature-state', 'zone'], null],
-            ['boolean', !!highlightUnassgned]
+            ['boolean', !!highlightUnassgned],
+            ['!', ['boolean', ['feature-state', 'broken'], false]],
           ]
         ],
         3.5,
