@@ -35,6 +35,7 @@ import {persistOptions} from './persistConfig';
 import {onlyUnique} from '../utils/arrays';
 import {DistrictrMapOptions} from './types';
 import {queryClient} from '../utils/api/queryClient';
+import { temporal } from 'zundo';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -263,6 +264,7 @@ const initialLoadingState =
     : 'initializing';
 
 export const useMapStore = create(
+  temporal(
   persist(
     devwrapper(
       subscribeWithSelector<MapStore>((set, get) => ({
@@ -861,7 +863,29 @@ export const useMapStore = create(
       }))
     ),
     persistOptions
-  )
+  ),
+  {
+    diff: (pastState: Partial<MapStore>, currentState: Partial<MapStore>) => {
+      if (!currentState.zoneAssignments || !pastState.zoneAssignments) return pastState;
+      for (const geoid of currentState.zoneAssignments.keys()) {
+        if (!pastState.zoneAssignments.has(geoid)) {
+          pastState.zoneAssignments.set(geoid, null);
+        }
+      }
+      return pastState as Partial<MapStore>;
+    },
+    equality: (pastState, currentState) => {
+      return (pastState.zoneAssignments === currentState.zoneAssignments) &&
+      (pastState.zoneAssignments.size === currentState.zoneAssignments.size);
+    },
+    limit: 7,
+    // @ts-ignore: save only partial store
+    partialize: (state) => {
+      const { zoneAssignments } = state;
+      return { zoneAssignments } as Partial<MapStore>;
+    }
+  }
+)
 );
 
 // these need to initialize after the map store
