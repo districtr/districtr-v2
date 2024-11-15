@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Button, IconButton, Popover } from "@radix-ui/themes"; // Import Popover from Radix
-import { ColorPicker } from "./ColorPicker";
+import { ZonePicker } from "./ZonePicker";
 import { colorScheme } from "@/app/constants/colors";
 import { useMapStore } from "@/app/store/mapStore";
 import { ColorWheelIcon } from "@radix-ui/react-icons";
@@ -25,7 +25,7 @@ export const MobileColorPicker = () => {
         </IconButton>
       </Popover.Trigger>
       <Popover.Content width="95vw">
-        <ColorPicker />
+        <ZonePicker />
       </Popover.Content>
     </Popover.Root>
   );

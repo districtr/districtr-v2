@@ -190,6 +190,17 @@ export interface AssignmentsCreate {
 }
 
 /**
+ * Reset assignments response
+ *   @interface
+ *    @property {boolean} success - Confirming if the operation succeeded
+ *   @property {string} document_id - Document ID where assignments were dropped
+ */
+export interface AssignmentsReset {
+  success: boolean;
+  document_id: string;
+}
+
+/**
  *
  * @param assignments
  * @returns server object containing the updated assignments per geoid
@@ -200,6 +211,23 @@ export const patchUpdateAssignments: (
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
+    })
+    .then(res => {
+      return res.data;
+    });
+};
+
+/**
+ *
+ * @param assignments
+ * @returns server object containing the updated assignments per geoid
+ */
+export const patchUpdateReset: (
+  document_id: string
+) => Promise<AssignmentsReset> = async document_id => {
+  return await axios
+    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/reset`, {
+      document_id,
     })
     .then(res => {
       return res.data;
@@ -233,6 +261,31 @@ export const patchShatterParents: (params: {
       `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/shatter_parents`,
       {
         geoids: geoids,
+      }
+    )
+    .then(res => {
+      return res.data;
+    });
+};
+
+/**
+ * Shatter parents
+ *
+ * @param document_id - string, the document id
+ * @param geoids - string[], the geoids to shatter
+ * @returns list of child assignments results from shattered parents
+ */
+export const patchUnShatterParents: (params: {
+  document_id: string;
+  geoids: string[];
+  zone: number;
+}) => Promise<{geoids: string[]}> = async ({document_id, geoids, zone}) => {
+  return await axios
+    .patch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/unshatter_parents`,
+      {
+        geoids,
+        zone,
       }
     )
     .then(res => {

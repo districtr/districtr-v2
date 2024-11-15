@@ -2,6 +2,7 @@ import os
 import pytest
 from app.main import app, get_session
 from fastapi.testclient import TestClient
+from sqlalchemy.event import listens_for
 from sqlmodel import create_engine, Session
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -82,7 +83,29 @@ def engine_fixture(request):
     return create_engine(str(TEST_SQLALCHEMY_DATABASE_URI), echo=True)
 
 
-@pytest.fixture(name="session")
-def session_fixture(engine):
+@pytest.fixture(name="persistent_session")
+def session_with_persist_fixture(engine):
     with Session(engine, expire_on_commit=True) as session:
         yield session
+
+
+# https://github.com/fastapi/sqlmodel/discussions/940
+@pytest.fixture(name="session")
+def session_fixture(engine):
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection)
+
+    nested = connection.begin_nested()
+
+    @listens_for(session, "after_transaction_end")
+    def end_savepoint(session, transaction):
+        nonlocal nested
+        if not nested.is_active:
+            nested = connection.begin_nested()
+
+    yield session
+
+    session.close()
+    transaction.rollback()
+    connection.close()
