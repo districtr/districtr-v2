@@ -25,7 +25,7 @@ import { interpolateBlues, interpolateGreys } from 'd3-scale-chromatic';
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
 type EvaluationProps = {
-  columnConfig: ColumnConfiguration<P1ZoneSummaryStats>;
+  columnConfig?: ColumnConfiguration<P1ZoneSummaryStats>;
 };
 
 // const calculateColumn = (
