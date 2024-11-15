@@ -36,6 +36,7 @@ import {onlyUnique} from '../utils/arrays';
 import {DistrictrMapOptions} from './types';
 import {queryClient} from '../utils/api/queryClient';
 import {temporal} from 'zundo';
+import { debounce } from 'lodash';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -320,7 +321,6 @@ export const useMapStore = create(
               lockedFeatures,
               getMapRef,
               selectedZone: _selectedZone,
-              zoneAssignments,
             } = get();
 
             const map = getMapRef();
@@ -340,7 +340,6 @@ export const useMapStore = create(
                 feature.properties?.path,
                 feature.properties?.total_pop
               );
-              zoneAssignments.set(id, selectedZone);
               map.setFeatureState(
                 {
                   source: BLOCK_SOURCE_ID,
@@ -353,8 +352,8 @@ export const useMapStore = create(
             set({
               accumulatedGeoids,
               accumulatedBlockPopulations,
-              zoneAssignments: new Map(zoneAssignments),
             });
+            debounceSetZoneAssignments(selectedZone, accumulatedGeoids)
           },
           mapViews: {isPending: true},
           setMapViews: mapViews => set({mapViews}),
@@ -776,6 +775,7 @@ export const useMapStore = create(
           accumulatedGeoids: new Set<string>(),
           setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
           setZoneAssignments: (zone, geoids) => {
+            
             const zoneAssignments = get().zoneAssignments;
             const newZoneAssignments = new Map(zoneAssignments);
             geoids.forEach(geoid => {
@@ -901,3 +901,9 @@ getMapMetricsSubs(useMapStore);
 getMapViewsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
+
+// window.getState = useMapStore.getState
+// window.getTemporal = useMapStore.temporal.getState
+export const debounceSetZoneAssignments = debounce((zone: number | null, geoids: Set<string>) => {
+  useMapStore.getState().setZoneAssignments(zone, geoids)
+}, 250)
