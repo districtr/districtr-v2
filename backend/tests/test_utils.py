@@ -287,7 +287,8 @@ def test_get_available_summary_stats(
     assert len(summary_stats_available) == 1
     (summary_stat,) = summary_stats_available
     assert summary_stat == "P1"
-    
+
+
 def test_unshatter_process(client, document_id):
     response = client.patch(
         "/api/update_assignments",
