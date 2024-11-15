@@ -57,6 +57,8 @@ export interface MapStore {
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
   mapRenderingState: 'loaded' | 'initializing' | 'loading';
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
+  isTemporalAction: boolean;
+  setIsTemporalAction: (isTemporal: boolean) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
@@ -140,6 +142,9 @@ export interface MapStore {
    *
    * @param {string[]} [additionalIds] - Optional array of additional IDs to include in the healing process.
    */
+
+  silentlyShatter: (document_id: string, geoids: string[]) => Promise<void>
+  silentlyHeal: (document_id: string, parentsToHeal: MapStore['parentsToHeal']) => Promise<void>
   processHealParentsQueue: (additionalIds?: string[]) => void;
   /**
    * Removes local shatter data and updates the map view based on the provided parents to heal.
@@ -273,6 +278,8 @@ export const useMapStore = create(
           setAppLoadingState: appLoadingState => set({appLoadingState}),
           mapRenderingState: 'initializing',
           setMapRenderingState: mapRenderingState => set({mapRenderingState}),
+          isTemporalAction: false,
+          setIsTemporalAction: (isTemporalAction: boolean) => set({isTemporalAction}),
           captiveIds: new Set<string>(),
           exitBlockView: (lock: boolean = false) => {
             const {
@@ -352,6 +359,7 @@ export const useMapStore = create(
             set({
               accumulatedGeoids,
               accumulatedBlockPopulations,
+              isTemporalAction: false
             });
             debounceSetZoneAssignments(selectedZone, accumulatedGeoids)
           },
@@ -408,6 +416,25 @@ export const useMapStore = create(
             set({lockedFeatures});
           },
           setLockedFeatures: lockedFeatures => set({lockedFeatures}),
+          silentlyShatter: async (document_id, geoids) => {
+            set({mapLock: true})
+            const r = await patchShatter.mutate({
+              document_id,
+              geoids,
+            });
+            set({mapLock: false})
+          },
+          silentlyHeal: async (document_id, parentsToHeal) => {
+            set({mapLock: true})
+            const zoneAssignments = get().zoneAssignments
+            console.log("SILENTLY HEALING", document_id, parentsToHeal)
+            const r = await patchUnShatter.mutate({
+              geoids: parentsToHeal,
+              zone: zoneAssignments.get(parentsToHeal[0])!,
+              document_id
+            });
+            set({mapLock: false})
+          },
           handleShatter: async (document_id, features) => {
             if (!features.length) {
               console.log('NO FEATURES');
@@ -467,6 +494,7 @@ export const useMapStore = create(
                 parents: existingParents,
                 children: existingChildren,
               },
+              isTemporalAction: false,
               mapLock: false,
               captiveIds: newChildren,
               focusFeatures: [
@@ -563,21 +591,12 @@ export const useMapStore = create(
                 delete shatterMappings[parent.parentId];
                 newShatterIds.parents.delete(parent.parentId);
                 newZoneAssignments.set(parent.parentId, parent.zone!);
-                mapRef?.setFeatureState(
-                  {
-                    source: BLOCK_SOURCE_ID,
-                    id: parent.parentId,
-                    sourceLayer: mapDocument?.parent_layer,
-                  },
-                  {
-                    broken: false,
-                  }
-                );
               });
 
               set({
                 shatterIds: newShatterIds,
                 mapLock: false,
+                isTemporalAction: false,
                 shatterMappings: {...shatterMappings},
                 zoneAssignments: newZoneAssignments,
                 lockedFeatures: newLockedFeatures,
@@ -879,6 +898,9 @@ export const useMapStore = create(
         }
         return pastState as Partial<MapStore>;
       },
+      // onSave: (paststate, currentState) => {
+        
+      // }
       equality: (pastState, currentState) => {
         return (
           pastState.zoneAssignments === currentState.zoneAssignments &&
@@ -893,8 +915,8 @@ export const useMapStore = create(
       limit: 7,
       // @ts-ignore: save only partial store
       partialize: state => {
-        const {zoneAssignments, mapRenderingState, appLoadingState} = state;
-        return {zoneAssignments, mapRenderingState, appLoadingState} as Partial<MapStore>;
+        const {zoneAssignments, mapRenderingState, appLoadingState, shatterIds, shatterMappings} = state;
+        return {zoneAssignments, mapRenderingState, appLoadingState, shatterIds, shatterMappings} as Partial<MapStore>;
       },
     }
   )

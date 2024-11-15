@@ -14,8 +14,9 @@ export function UndoRedoButton({ isRedo = false }) {
   const { futureStates, pastStates, redo, undo } = useTemporalStore(
     (state) => state,
   ); // TemporalState<MapStore>
-
+  const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction)
   const handleClickUndoRedo = () => {
+    setIsTemporalAction(true)
     if (isRedo) {
       redo();
     } else {
