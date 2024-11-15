@@ -888,8 +888,8 @@ export const useMapStore = create(
       limit: 7,
       // @ts-ignore: save only partial store
       partialize: state => {
-        const {zoneAssignments} = state;
-        return {zoneAssignments} as Partial<MapStore>;
+        const {zoneAssignments, mapRenderingState, appLoadingState} = state;
+        return {zoneAssignments, mapRenderingState, appLoadingState} as Partial<MapStore>;
       },
     }
   )
