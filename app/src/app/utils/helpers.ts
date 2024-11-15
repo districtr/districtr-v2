@@ -275,7 +275,6 @@ export const colorZoneAssignments = (
     if (!sourceLayer) {
       return;
     }
-
     mapRef?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
@@ -288,6 +287,30 @@ export const colorZoneAssignments = (
       }
     );
   });
+  if (previousZoneAssignments?.size && previousZoneAssignments.size > zoneAssignments.size) {
+    previousZoneAssignments?.forEach((zone, id) => {
+      const isChild = shatterIds.children.has(id);
+      const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
+      if (!sourceLayer) {
+        return;
+      }
+      // if not in zoneAssignments, set to null
+      if (!zoneAssignments.has(id)){
+
+      mapRef?.setFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          id,
+          sourceLayer,
+        },
+        {
+          selected: null,
+          zone,
+        }
+      );
+      }
+    })
+  }
 };
 
 /**
