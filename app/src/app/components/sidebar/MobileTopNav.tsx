@@ -1,32 +1,28 @@
-import { Box, Button, Flex, Heading } from "@radix-ui/themes";
-import React, { useRef, useState } from "react";
-import { Cross2Icon, GearIcon } from "@radix-ui/react-icons";
-import DataPanels from "./DataPanels";
+import {Box, Button, Flex, Heading} from '@radix-ui/themes';
+import React, {useRef, useState} from 'react';
+import {Cross2Icon, GearIcon} from '@radix-ui/react-icons';
+import DataPanels from './DataPanels';
 
 const MobileTopNav = () => {
   const [dataPanelOpen, setDataPanelOpen] = useState(false);
-  const handleToggleDataPanel = () => setDataPanelOpen((prev) => !prev);
+  const handleToggleDataPanel = () => setDataPanelOpen(prev => !prev);
 
   const boxRef = useRef<HTMLDivElement>(null);
-  const topBarHeight =
-    boxRef.current?.getClientRects()?.[0]?.height || 44.90625;
-  const isLandscape = typeof window !== 'undefined' && window.matchMedia("(orientation: landscape)").matches;
+  const topBarHeight = boxRef.current?.getClientRects()?.[0]?.height || 44.90625;
+  const isLandscape =
+    typeof window !== 'undefined' && window.matchMedia('(orientation: landscape)').matches;
 
   return (
     <Box
       className="w-full bg-white z-10 shadow-md flex-none relative landscape:w-0"
       ref={boxRef}
       display={{
-        initial: "block",
-        md: "none",
+        initial: 'block',
+        md: 'none',
       }}
     >
-      <Flex direction="row" gap="1" align="center" justify={"between"} pr="3">
-        <Heading
-          as="h3"
-          size="3"
-          className="border-r-2 p-3 flex-none landscape:hidden"
-        >
+      <Flex direction="row" gap="1" align="center" justify={'between'} pr="3">
+        <Heading as="h3" size="3" className="border-r-2 p-3 flex-none landscape:hidden">
           Districtr
         </Heading>
         <Flex
@@ -36,18 +32,18 @@ const MobileTopNav = () => {
           <Button
             onClick={handleToggleDataPanel}
             variant="outline"
-            color={dataPanelOpen ? "indigo" : "gray"}
+            color={dataPanelOpen ? 'indigo' : 'gray'}
             className="landscape:bg-white"
             style={{
-              background: "white",
+              background: 'white',
             }}
           >
-            <GearIcon fill={dataPanelOpen ? "indigo" : "gray"} />
+            <GearIcon fill={dataPanelOpen ? 'indigo' : 'gray'} />
             Reports & Settings
           </Button>
           <Flex
             className={`flex-none overflow-hidden transition-all duration-300 ease-in-out ${
-              dataPanelOpen ? "w-4 ml-2" : "w-0 ml-0"
+              dataPanelOpen ? 'w-4 ml-2' : 'w-0 ml-0'
             }
             p-0 m-0
             

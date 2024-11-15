@@ -22,6 +22,11 @@ export default function Layers() {
   const mapDocument = useMapStore(state => state.mapDocument);
   const visibleLayerIds = useMapStore(state => state.visibleLayerIds);
   const updateVisibleLayerIds = useMapStore(state => state.updateVisibleLayerIds);
+  const toggleHighlightBrokenDistricts = useMapStore(state => state.toggleHighlightBrokenDistricts);
+  const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
+  const parentsAreBroken = useMapStore(state => state.shatterIds.parents.size);
+  const mapOptions = useMapStore(state => state.mapOptions);
+  const setMapOptions = useMapStore(state => state.setMapOptions);
 
   const toggleLayers = (layerIds: string[]) => {
     if (!mapRef) return;
@@ -37,7 +42,12 @@ export default function Layers() {
       <CheckboxGroup.Root
         defaultValue={[]}
         name="districts"
-        value={visibleLayerIds.includes(BLOCK_LAYER_ID) ? ['1'] : []}
+        value={[
+          visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
+          parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
+          mapOptions.lockPaintedAreas === true ? '4' : '',
+          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : ''
+        ]}
       >
         <CheckboxGroup.Item
           value="1"
@@ -55,6 +65,21 @@ export default function Layers() {
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>
           Show numbering for painted districts
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item
+          value="3"
+          disabled={!parentsAreBroken}
+          onClick={() => toggleHighlightBrokenDistricts()}
+        >
+          Highlight Broken Voter Districts
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item value="higlightUnassigned" onClick={() => setMapOptions({
+          higlightUnassigned: !mapOptions.higlightUnassigned
+        })}>
+          Highlight Unassigned Districts
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item value="4" onClick={() => toggleLockAllAreas()}>
+          Lock All Painted Areas
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>
       <Heading as="h3" weight="bold" size="3">

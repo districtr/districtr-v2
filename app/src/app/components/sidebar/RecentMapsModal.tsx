@@ -14,13 +14,13 @@ import {
 } from '@radix-ui/themes';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
-import { styled } from '@stitches/react';
+import {styled} from '@stitches/react';
 type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {
-  maxWidth: "calc(100vw - 2rem)",
-  maxHeight: "calc(100vh-2rem)"
-})
+  maxWidth: 'calc(100vw - 2rem)',
+  maxHeight: 'calc(100vh-2rem)',
+});
 
 export const RecentMapsModal = () => {
   const router = useRouter();
@@ -28,7 +28,7 @@ export const RecentMapsModal = () => {
   const searchParams = useSearchParams();
   const mapDocument = useMapStore(store => store.mapDocument);
   const userMaps = useMapStore(store => store.userMaps);
-  const upcertUserMap = useMapStore(store => store.upcertUserMap);
+  const upsertUserMap = useMapStore(store => store.upsertUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
@@ -80,7 +80,7 @@ export const RecentMapsModal = () => {
                 key={i}
                 active={mapDocument?.document_id === userMap.document_id}
                 onChange={userMapData =>
-                  upcertUserMap({
+                  upsertUserMap({
                     userMapData,
                     userMapDocumentId: userMap.document_id,
                   })

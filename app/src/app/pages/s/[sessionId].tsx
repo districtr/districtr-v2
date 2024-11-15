@@ -1,8 +1,8 @@
-import { useRouter } from "next/router"; // Import the correct type for router
+import {useRouter} from 'next/router'; // Import the correct type for router
 
 const SessionPage = () => {
   const router = useRouter();
-  const { sessionId } = router.query;
+  const {sessionId} = router.query;
 
   return (
     <div>

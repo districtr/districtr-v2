@@ -240,8 +240,10 @@ def test_create_parent_child_edges(
     session.commit()
 
 
-def test_shattering(client, session: Session, districtr_map, gerrydb_simple_geos_view):
-    # Set-up
+@pytest.fixture(name="document_id")
+def document_id_fixture(
+    client, session: Session, districtr_map, gerrydb_simple_geos_view
+):
     create_parent_child_edges(session=session, districtr_map_uuid=districtr_map)
     response = client.post(
         "/api/create_document",
@@ -251,8 +253,10 @@ def test_shattering(client, session: Session, districtr_map, gerrydb_simple_geos
     )
     assert response.status_code == 201
     doc = response.json()
-    document_id = doc["document_id"]
+    return doc["document_id"]
 
+
+def test_shattering(client, session: Session, document_id):
     response = client.patch(
         "/api/update_assignments",
         json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
@@ -283,3 +287,31 @@ def test_get_available_summary_stats(
     assert len(summary_stats_available) == 1
     (summary_stat,) = summary_stats_available
     assert summary_stat == "P1"
+    
+def test_unshatter_process(client, document_id):
+    response = client.patch(
+        "/api/update_assignments",
+        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
+    )
+
+    # Test
+    response = client.patch(
+        f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}
+    )
+    assignments_response = client.get(f"/api/get_assignments/{document_id}")
+    assignments_data = assignments_response.json()
+    assert len(assignments_data) == 2
+    # Unshatter
+    response = client.patch(
+        f"/api/update_assignments/{document_id}/unshatter_parents",
+        json={"geoids": ["A"], "zone": 1},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    # Verify the response contains the expected data
+    assert "geoids" in data
+    assert len(data["geoids"]) == 1
+    # Confirm assignments are now length 1
+    assignments_response = client.get(f"/api/get_assignments/{document_id}")
+    assignments_data = assignments_response.json()
+    assert len(assignments_data) == 1
