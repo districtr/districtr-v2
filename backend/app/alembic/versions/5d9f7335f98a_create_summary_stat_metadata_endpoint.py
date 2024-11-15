@@ -1,7 +1,7 @@
 """create summary stat metadata endpoint
 
 Revision ID: 5d9f7335f98a
-Revises: 8437ce954087
+Revises: 65a4fc0a727d
 Create Date: 2024-09-11 10:15:07.929311
 
 """
@@ -14,7 +14,7 @@ from app.constants import SQL_DIR
 
 # revision identifiers, used by Alembic.
 revision: str = "5d9f7335f98a"
-down_revision: Union[str, None] = "dc391733e10a"
+down_revision: Union[str, None] = "65a4fc0a727d"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
