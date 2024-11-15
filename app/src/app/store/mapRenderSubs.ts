@@ -42,7 +42,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     [MapStore['shatterIds'], MapStore['getMapRef'], MapStore['mapRenderingState']]
   >(
     state => [state.shatterIds, state.getMapRef, state.mapRenderingState],
-    ([shatterIds, getMapRef, mapRenderingState]) => {
+    ([shatterIds, getMapRef, mapRenderingState], [previousShatterIds]) => {
       const {mapDocument, appLoadingState, setMapLock} = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded' || appLoadingState !== 'loaded') {
@@ -67,6 +67,16 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           broken: true
         });
       });
+      const removedShatterIds = previousShatterIds.parents.difference(shatterIds.parents)
+      removedShatterIds.forEach(id => {
+        mapRef?.setFeatureState({
+          source: BLOCK_SOURCE_ID,
+          id,
+          sourceLayer: mapDocument?.parent_layer,
+        }, {
+          broken: false
+        });
+      })
 
       mapRef.once('render', () => {
         setMapLock(false);
