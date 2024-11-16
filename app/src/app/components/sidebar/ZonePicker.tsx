@@ -19,9 +19,9 @@ export function ZonePicker() {
   const handleRadioChange = (index: number, _color: string) => {
     const value = index + 1;
     console.log('setting accumulated geoids to old zone', selectedZone, 'new zone is', value);
-    setZoneAssignments(selectedZone, accumulatedGeoids);
+    // setZoneAssignments(selectedZone, accumulatedGeoids);
     setSelectedZone(value);
-    resetAccumulatedBlockPopulations();
+    // resetAccumulatedBlockPopulations();
   };
 
   return (

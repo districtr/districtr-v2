@@ -26,6 +26,10 @@ from app.models import (
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
+    SummaryStatisticType,
+    SummaryStatsP1,
+    PopulationStatsP1,
+    GerryDbSummaryStatisticType,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -90,29 +94,6 @@ async def create_document(
     )
     document_id = results.one()[0]  # should be only one row, one column of results
 
-    # TODO: make this whole thing a function like get_total_population()
-    column_name_result = session.execute(
-        text(
-            """
-        SELECT column_name
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE table_name = :table_name
-          AND table_schema = 'gerrydb'
-          AND column_name IN ('total_pop', 'total_vap')
-        ORDER BY column_name ASC
-        LIMIT 1;
-        """
-        ),
-        {"table_name": data.gerrydb_table},
-    ).scalar()
-    if column_name_result:
-        population_subquery = select(
-            func.sum(text(column_name_result)).label("total_population")
-        ).select_from(text(f"gerrydb.{data.gerrydb_table}"))
-    else:
-        # neither column exists, this should never happen
-        population_subquery = select(text("NULL").label("total_population"))
-
     stmt = (
         select(
             Document.document_id,
@@ -125,8 +106,9 @@ async def create_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            # get total population based on parent layer
-            population_subquery.as_scalar().label("total_population"),
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
         )
         .where(Document.document_id == document_id)
         .join(
@@ -279,40 +261,6 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document(document_id: str, session: Session = Depends(get_session)):
 
-    # TODO: make this whole thing a function like get_total_population()
-    # get gerrydb name based on doc id
-    gerrydb_table_name = session.execute(
-        text(
-            """
-        SELECT gerrydb_table
-        FROM document.document
-        WHERE document_id = :document_id
-        """
-        ),
-        {"document_id": document_id},
-    ).scalar()
-
-    column_name_result = session.execute(
-        text(
-            """
-        SELECT column_name
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE table_name = :table_name
-          AND table_schema = 'gerrydb'
-          AND column_name IN ('total_pop', 'total_vap')
-        ORDER BY column_name ASC
-        LIMIT 1;
-        """
-        ),
-        {"table_name": gerrydb_table_name},
-    ).scalar()
-    if column_name_result:
-        population_subquery = select(
-            func.sum(text(column_name_result)).label("total_population")
-        ).select_from(text(f"gerrydb.{gerrydb_table_name}"))
-    else:
-        # neither column exists, this should never happen
-        population_subquery = select(text("NULL").label("total_population"))
     stmt = (
         select(
             Document.document_id,
@@ -324,8 +272,9 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            # get total population based on parent layer
-            population_subquery.as_scalar().label("total_population"),
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
@@ -364,6 +313,97 @@ async def get_total_population(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Population column not found in GerryDB view",
+            )
+
+
+@app.get("/api/document/{document_id}/{summary_stat}")
+async def get_summary_stat(
+    document_id: str, summary_stat: str, session: Session = Depends(get_session)
+):
+    try:
+        _summary_stat = SummaryStatisticType[summary_stat]
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid summary_stat: {summary_stat}",
+        )
+
+    try:
+        stmt, SummaryStatsModel = {
+            "P1": (
+                text(
+                    "SELECT * from get_summary_stats_p1(:document_id) WHERE zone is not null"
+                ),
+                SummaryStatsP1,
+            ),
+            "P1TOTPOP": {
+                text("SELECT * from get_summary_stats_pop_totals(:document_id)"),
+                PopulationStatsP1,
+            },
+        }[summary_stat]
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Summary stats not implemented for {summary_stat}",
+        )
+
+    try:
+        results = session.execute(stmt, {"document_id": document_id}).fetchall()
+        return {
+            "summary_stat": _summary_stat.value,
+            "results": [SummaryStatsModel.from_orm(row) for row in results],
+        }
+    except ProgrammingError as e:
+        logger.error(e)
+        error_text = str(e)
+        if f"Table name not found for document_id: {document_id}" in error_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document with ID {document_id} not found",
+            )
+
+
+@app.get("/api/districtrmap/summary_stats/{summary_stat}/{gerrydb_table}")
+async def get_gerrydb_summary_stat(
+    summary_stat: str, gerrydb_table: str, session: Session = Depends(get_session)
+):
+    try:
+        _summary_stat = GerryDbSummaryStatisticType[summary_stat]
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid summary_stat: {summary_stat}",
+        )
+
+    try:
+        summary_stat_udf, SummaryStatsModel = {
+            "P1TOTPOP": ("get_summary_stats_pop_totals", PopulationStatsP1),
+        }[summary_stat]
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Summary stats not implemented for {summary_stat}",
+        )
+
+    stmt = text(
+        f"""SELECT *
+        FROM {summary_stat_udf}(:gerrydb_table)"""
+    ).bindparams(
+        bindparam(key="gerrydb_table", type_=String),
+    )
+    try:
+        results = session.execute(stmt, {"gerrydb_table": gerrydb_table}).fetchall()
+        return {
+            "summary_stat": _summary_stat.value,
+            "results": [SummaryStatsModel.from_orm(row) for row in results],
+        }
+    except ProgrammingError as e:
+        logger.error(e)
+        error_text = str(e)
+        if f"Table {gerrydb_table} does not exist in gerrydb schema" in error_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Gerrydb Table with ID {gerrydb_table} not found",
             )
 
 

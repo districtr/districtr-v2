@@ -76,8 +76,8 @@ def load_sample_data(config):
         )
         result = session.execute(exists_query).scalar()
 
-        if result > 0:
-            print(f"###\Districtr map {name} already exists.\n###")
+        if result is not None and result > 0:
+            print(f"Districtr map {name} already exists.")
         else:
             subprocess.run(
                 [
