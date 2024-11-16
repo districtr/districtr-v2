@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import {colorScheme} from '@/app/constants/colors';
 import {useEffect, useState} from 'react';
-import {map, max} from 'lodash';
+import {getEntryTotal} from '@/app/utils/summaryStats';
 
 type TooltipInput = {
   active?: boolean;
@@ -36,7 +36,8 @@ const CustomTooltip = ({active, payload: items}: TooltipInput) => {
 
 export const HorizontalBar = () => {
   const mapMetrics = useMapStore(state => state.mapMetrics);
-  const mapDocument = useMapStore(state => state.mapDocument);
+  const summaryStats = useMapStore(state => state.summaryStats);
+  const numDistricts = useMapStore(state => state.mapDocument?.num_districts);
   const [idealPopulation, setIdealPopulation] = useState<number | null>(null);
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
   const [totalExpectedBars, setTotalExpectedBars] = useState<
@@ -44,19 +45,16 @@ export const HorizontalBar = () => {
   >([]);
 
   useEffect(() => {
-    if (mapDocument) {
-      if (mapDocument.num_districts) {
-        setIdealPopulation(mapDocument.total_population / mapDocument.num_districts);
-      }
+    if (summaryStats && numDistricts) {
+      const totalPop = summaryStats.totpop ? getEntryTotal(summaryStats.totpop.data) : 0;
+      setIdealPopulation(totalPop / numDistricts);
     }
-  }, [mapDocument]);
+  }, [summaryStats, numDistricts]);
 
-  // note: there may be a global desire to have total zones in the object in the future.
-  // if so, we can update the get_total_population pg function to return.
   const calculateChartObject = () => {
-    if ((mapDocument?.num_districts ?? 0) < maxNumberOrderedBars) {
-      return mapDocument && mapMetrics && mapMetrics.data && mapDocument.num_districts
-        ? Array.from({length: mapDocument.num_districts}, (_, i) => i + 1).reduce(
+    if ((numDistricts ?? 0) < maxNumberOrderedBars) {
+      return mapMetrics && mapMetrics.data && numDistricts
+        ? Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
             (acc, district) => {
               const totalPop = mapMetrics.data.reduce((acc, entry) => {
                 return entry.zone === district ? acc + entry.total_pop : acc;
@@ -72,11 +70,11 @@ export const HorizontalBar = () => {
   };
 
   useEffect(() => {
-    if (mapDocument && mapMetrics) {
+    if (mapMetrics) {
       const chartObject = calculateChartObject();
       setTotalExpectedBars(chartObject);
     }
-  }, [mapDocument, mapMetrics]);
+  }, [mapMetrics]);
 
   if (mapMetrics?.isPending) {
     return <div>Loading...</div>;
