@@ -5,10 +5,11 @@ import duckdb
 import os
 import click
 import logging
+from urllib.request import urlretrieve
 from urllib.parse import urlparse
 from subprocess import run
 from typing import Iterable
-
+import json
 from files import download_and_unzip_zipfile, exists_in_s3, download_file_from_s3
 from settings import settings
 
@@ -88,7 +89,8 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
     LOGGER.info("Creating county label centroids")
     label_fgb = settings.OUT_SCRATCH / f"{file_name}_label.fgb"
     if replace or not label_fgb.exists():
-        duckdb.execute(f"""
+        duckdb.execute(
+            f"""
             INSTALL SPATIAL; LOAD spatial;
             COPY (
                 SELECT
@@ -98,7 +100,8 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
                 FROM st_read('{fgb}')
             ) TO '{label_fgb}'
             WITH (FORMAT GDAL, DRIVER 'FlatGeobuf', SRS 'EPSG:4326')
-            """)
+            """
+        )
 
     LOGGER.info("Creating county label tiles")
     label_tiles = settings.OUT_SCRATCH / f"{file_name}_label.pmtiles"
@@ -311,5 +314,96 @@ def merge_gerrydb_tilesets(
     )
 
 
+@cli.command("load-districtr-v1-places")
+@click.option("--replace", is_flag=True, help="Replace existing files", default=False)
+def load_districtr_v1_places(replace: bool = False) -> None:
+    """
+    Load data from districtr_v1 endpoint to the s3 bucket for later ingestion
+    """
+    districtr_places = urlretrieve(
+        "https://districtr.org/assets/data/landing_pages.json?v=2",
+        settings.OUT_SCRATCH / "districtr_v1_places.json",
+    )
+
+    s3_client = settings.get_s3_client()
+
+    key = f"{S3_PREFIX}/districtr_places/districtr_v1_places.json"
+    print(s3_client, settings.S3_BUCKET, key)
+    s3_client.upload_file(districtr_places, settings.S3_BUCKET, key)
+
+
+@cli.command("load-districtr-v1-problems")
+@click.option("--replace", is_flag=True, help="Replace existing files", default=False)
+def load_districtr_v1_problems(replace: bool = False) -> None:
+    """
+    load problems definition json file for states from districtr_v1 and store in s3 bucket
+    """
+    s3_client = settings.get_s3_client()
+
+    # check if the districtr_places object exists in s3; if not, download it using load_districtr_v1_places
+    key = f"{S3_PREFIX}/districtr_places/districtr_v1_places.json"
+    if not exists_in_s3(s3_client, settings.S3_BUCKET, key):
+        load_districtr_v1_places()
+
+    districtr_places = download_file_from_s3(s3_client, urlparse(key), replace)
+
+    with open(districtr_places, "r") as file:
+        places = json.load(file)
+
+    for place in places:
+        url = place["state"]
+        LOGGER.info(f"Downloading problems for {url}")
+        try:
+            problems = urlretrieve(
+                f"https://districtr.org/assets/data/modules/{place['state'].lower()}.json",
+                settings.OUT_SCRATCH / f"{place['state'].lower()}_problems.json",
+            )
+            key = (
+                f"{S3_PREFIX}/districtr_problems/{place['state'].lower()}_problems.json"
+            )
+            s3_client.upload_file(problems, settings.S3_BUCKET, key)
+        except Exception as e:
+            LOGGER.error(f"Failed to download problems for {url}: {e}")
+            continue
+
+
 if __name__ == "__main__":
     cli()
+
+
+def upsert_places_and_problems():
+    """
+    Upsert places and problems from districtr_v1.
+    WIP/not functional port of load_dv1_places_and_problems_problems in #167
+    """
+    s3_client = settings.get_s3_client()
+
+    key = f"{S3_PREFIX}/districtr_places/districtr_v1_places.json"
+    districtr_places = download_file_from_s3(s3_client, urlparse(key))
+
+    if not districtr_places:
+        LOGGER.error("Failed to download districtr_v1_places.json")
+        return
+
+    with open(districtr_places, "r") as file:
+        places = json.load(file)
+
+    for place in places:
+        url = place["state"]
+        LOGGER.info(f"Downloading problems for {url}")
+        try:
+            problems = urlretrieve(
+                f"https://districtr.org/assets/data/modules/{place['state'].lower()}.json",
+                settings.OUT_SCRATCH / f"{place['state'].lower()}_problems.json",
+            )
+            key = (
+                f"{S3_PREFIX}/districtr_problems/{place['state'].lower()}_problems.json"
+            )
+            s3_client.upload_file(problems, settings.S3_BUCKET, key)
+        except Exception as e:
+            LOGGER.error(f"Failed to download problems for {url}: {e}")
+            continue
+
+    # load districtr_v1 places and problems
+    load_districtr_v1_places()
+    load_districtr_v1_problems()
