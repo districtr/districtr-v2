@@ -16,7 +16,7 @@ import sqlalchemy as sa
 revision: str = "c3541f016d35"
 down_revision: Union[str, None] = "5d9f7335f98a"
 branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+depends_on = "5d9f7335f98a"
 
 
 def upgrade() -> None:
@@ -26,7 +26,8 @@ def upgrade() -> None:
     )
 
     op.execute(
-        sa.text("""
+        sa.text(
+            """
         UPDATE districtrmap d
         SET available_summary_stats = (
             SELECT
@@ -40,7 +41,8 @@ def upgrade() -> None:
                 (SELECT ARRAY_AGG(summary_stat) FROM get_available_summary_stats(d.parent_layer))
             END
         )
-    """)
+    """
+        )
     )
 
 
