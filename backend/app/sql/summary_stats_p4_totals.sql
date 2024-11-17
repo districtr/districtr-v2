@@ -27,13 +27,13 @@ BEGIN
 
     sql_query := format('
         SELECT
-        SUM(COALESCE(blocks.hispanic_vap, 0))::BIGINT AS hispanic_vap,
-        SUM(COALESCE(blocks.non_hispanic_asian_vap, 0))::BIGINT AS non_hispanic_asian_vap,
-        SUM(COALESCE(blocks.non_hispanic_amin_vap, 0))::BIGINT AS non_hispanic_amin_vap,
-        SUM(COALESCE(blocks.non_hispanic_nhpi_vap, 0))::BIGINT AS non_hispanic_nhpi_vap,
-        SUM(COALESCE(blocks.non_hispanic_black_vap, 0))::BIGINT AS non_hispanic_black_vap,
-        SUM(COALESCE(blocks.non_hispanic_white_vap, 0))::BIGINT AS non_hispanic_white_vap,
-        SUM(COALESCE(blocks.non_hispanic_other_vap, 0))::BIGINT AS non_hispanic_other_vap
+        SUM(COALESCE(hispanic_vap, 0))::BIGINT AS hispanic_vap,
+        SUM(COALESCE(non_hispanic_asian_vap, 0))::BIGINT AS non_hispanic_asian_vap,
+        SUM(COALESCE(non_hispanic_amin_vap, 0))::BIGINT AS non_hispanic_amin_vap,
+        SUM(COALESCE(non_hispanic_nhpi_vap, 0))::BIGINT AS non_hispanic_nhpi_vap,
+        SUM(COALESCE(non_hispanic_black_vap, 0))::BIGINT AS non_hispanic_black_vap,
+        SUM(COALESCE(non_hispanic_white_vap, 0))::BIGINT AS non_hispanic_white_vap,
+        SUM(COALESCE(non_hispanic_other_vap, 0))::BIGINT AS non_hispanic_other_vap
         FROM gerrydb.%I
     ', $1);
     RETURN QUERY EXECUTE sql_query;
