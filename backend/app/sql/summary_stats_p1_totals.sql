@@ -1,5 +1,4 @@
-DROP FUNCTION IF EXISTS get_summary_stats_pop_totals;
-CREATE OR REPLACE FUNCTION get_summary_stats_pop_totals(gerrydb_table TEXT)
+CREATE OR REPLACE FUNCTION get_summary_p1_totals(gerrydb_table TEXT)
 RETURNS TABLE (
     other_pop BIGINT,
     asian_pop BIGINT,
@@ -15,9 +14,9 @@ DECLARE
 BEGIN
     -- Check if the table exists
     SELECT EXISTS (
-        SELECT 1 
-        FROM information_schema.tables 
-        WHERE table_schema = 'gerrydb' 
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'gerrydb'
         AND table_name = $1
     ) INTO table_exists;
 

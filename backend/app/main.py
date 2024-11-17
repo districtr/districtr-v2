@@ -29,7 +29,8 @@ from app.models import (
     SummaryStatisticType,
     SummaryStatsP1,
     PopulationStatsP1,
-    GerryDbSummaryStatisticType,
+    SummaryStatsP4,
+    PopulationStatsP4,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -327,9 +328,11 @@ async def get_summary_stat(
                 ),
                 SummaryStatsP1,
             ),
-            "P1TOTPOP": {
-                text("SELECT * from get_summary_stats_pop_totals(:document_id)"),
-                PopulationStatsP1,
+            "P4": {
+                text(
+                    "SELECT * from get_summary_stats_p4(:document_id) WHERE zone is not null"
+                ),
+                SummaryStatsP4,
             },
         }[summary_stat]
     except KeyError:
@@ -359,7 +362,7 @@ async def get_gerrydb_summary_stat(
     summary_stat: str, gerrydb_table: str, session: Session = Depends(get_session)
 ):
     try:
-        _summary_stat = GerryDbSummaryStatisticType[summary_stat]
+        _summary_stat = SummaryStatisticType[summary_stat]
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -368,7 +371,8 @@ async def get_gerrydb_summary_stat(
 
     try:
         summary_stat_udf, SummaryStatsModel = {
-            "P1TOTPOP": ("get_summary_stats_pop_totals", PopulationStatsP1),
+            "P1": ("get_summary_p1_totals", PopulationStatsP1),
+            "P4": ("get_summary_p4_totals", PopulationStatsP4),
         }[summary_stat]
     except KeyError:
         raise HTTPException(
@@ -383,10 +387,10 @@ async def get_gerrydb_summary_stat(
         bindparam(key="gerrydb_table", type_=String),
     )
     try:
-        results = session.execute(stmt, {"gerrydb_table": gerrydb_table}).fetchall()
+        (row,) = session.execute(stmt, {"gerrydb_table": gerrydb_table}).one()
         return {
             "summary_stat": _summary_stat.value,
-            "results": [SummaryStatsModel.from_orm(row) for row in results],
+            "results": [SummaryStatsModel.from_orm(row)],
         }
     except ProgrammingError as e:
         logger.error(e)

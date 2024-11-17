@@ -53,10 +53,6 @@ class SummaryStatisticType(Enum):
     P4 = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
 
 
-class GerryDbSummaryStatisticType(Enum):
-    P1TOTPOP = "Total Population by Race"
-
-
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
@@ -211,4 +207,19 @@ class PopulationStatsP1(BaseModel):
 
 
 class SummaryStatsP1(PopulationStatsP1):
+    zone: int
+
+
+class PopulationStatsP4(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    hispanic_vap: int
+    non_hispanic_asian_vap: int
+    non_hispanic_amin_vap: int
+    non_hispanic_nhpi_vap: int
+    non_hispanic_black_vap: int
+    non_hispanic_white_vap: int
+    non_hispanic_other_vap: int
+
+
+class SummaryStatsP4(PopulationStatsP4):
     zone: int
