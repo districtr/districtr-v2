@@ -19,8 +19,8 @@ import {
   stdDevArray,
   stdDevColors,
   sumArray,
-} from '@/app/utils/summaryStats';
-import { interpolateBlues, interpolateGreys } from 'd3-scale-chromatic';
+} from '@utils/summaryStats';
+import {interpolateBlues, interpolateGreys} from 'd3-scale-chromatic';
 
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
@@ -127,16 +127,16 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
   );
 
   const {
-    unassigned, 
-    maxValues
-    // averages, 
+    unassigned,
+    maxValues,
+    // averages,
     // stdDevs
   } = useMemo(() => {
     if (!data?.results || !totPop) {
       return {};
     }
-    let maxValues: Record<string, number> = {}
-    
+    let maxValues: Record<string, number> = {};
+
     let unassigned: Record<string, number> = {
       ...totPop,
       zone: -999,
@@ -144,10 +144,10 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
     };
     P1ZoneSummaryStatsKeys.forEach(key => {
       let total = unassigned[key];
-      maxValues[key] = -Math.pow(10,12)
+      maxValues[key] = -Math.pow(10, 12);
       data.results.forEach(row => {
         total -= row[key];
-        maxValues[key] = Math.max(row[key], maxValues[key])
+        maxValues[key] = Math.max(row[key], maxValues[key]);
       });
       unassigned[`${key}_pct`] = total / unassigned[key];
       unassigned[key] = total;
@@ -160,9 +160,9 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
     //   stdDevs[key] = stdDevArray(values);
     // });
     return {
-      unassigned, 
-      maxValues
-      // averages, 
+      unassigned,
+      maxValues,
+      // averages,
       // stdDevs
     };
   }, [data?.results, totPop]);
@@ -292,10 +292,14 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
                     </td>
                     {columnConfig.map((f, i) => {
                       const column = columnGetter(f.column);
-                      const colorValue = evalMode === 'count' ? row[column]/maxValues[column] : row[column]
-                      const backgroundColor = (colorBg && !isUnassigned)
-                      ? interpolateGreys(colorValue).replace('rgb', 'rgba').replace(')', ",0.5)")
-                      : 'initial'
+                      const colorValue =
+                        evalMode === 'count' ? row[column] / maxValues[column] : row[column];
+                      const backgroundColor =
+                        colorBg && !isUnassigned
+                          ? interpolateGreys(colorValue)
+                              .replace('rgb', 'rgba')
+                              .replace(')', ',0.5)')
+                          : 'initial';
                       return (
                         <td
                           className="py-2 px-4 text-right"
