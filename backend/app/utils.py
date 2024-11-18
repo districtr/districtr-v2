@@ -1,7 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy import bindparam, Integer, String, Text
 from sqlalchemy.types import UUID
-from sqlmodel import Session, Float
+from sqlmodel import Session, Float, Boolean
 import logging
 
 
@@ -19,6 +19,7 @@ def create_districtr_map(
     gerrydb_table_name: str | None = None,
     num_districts: int | None = None,
     tiles_s3_path: str | None = None,
+    visibility: bool = True,
 ) -> str:
     """
     Create a new districtr map.
@@ -31,6 +32,7 @@ def create_districtr_map(
         gerrydb_table_name: The name of the gerrydb table.
         num_districts: The number of districts.
         tiles_s3_path: The S3 path to the tiles.
+        visibility: The visibility of the map.
 
     Returns:
         The UUID of the inserted map.
@@ -44,7 +46,8 @@ def create_districtr_map(
         :num_districts,
         :tiles_s3_path,
         :parent_layer_name,
-        :child_layer_name
+        :child_layer_name,
+        :visibility
     )"""
     ).bindparams(
         bindparam(key="map_name", type_=String),
@@ -53,6 +56,7 @@ def create_districtr_map(
         bindparam(key="tiles_s3_path", type_=String),
         bindparam(key="parent_layer_name", type_=String),
         bindparam(key="child_layer_name", type_=String),
+        bindparam(key="visibility", type_=Boolean),
     )
 
     (inserted_map_uuid,) = session.execute(
@@ -64,6 +68,7 @@ def create_districtr_map(
             "tiles_s3_path": tiles_s3_path,
             "parent_layer_name": parent_layer_name,
             "child_layer_name": child_layer_name,
+            "visibility": visibility,
         },
     )
     return inserted_map_uuid  # pyright: ignore

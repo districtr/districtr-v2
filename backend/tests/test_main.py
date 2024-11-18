@@ -49,6 +49,8 @@ def ks_demo_view_census_blocks_fixture(session: Session):
             os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
             "-lco",
             "OVERWRITE=yes",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
             "-nln",
             f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
         ],
@@ -90,6 +92,8 @@ def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
             os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
             "-lco",
             "OVERWRITE=yes",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
             "-nln",
             f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
         ],
@@ -131,6 +135,8 @@ def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
             os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
             "-lco",
             "OVERWRITE=yes",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
             "-nln",
             f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
         ],
@@ -452,6 +458,41 @@ def test_list_gerydb_views_offset_and_limit(client, districtr_maps):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
+
+
+@pytest.fixture(name="districtr_maps_soft_deleted")
+def districtr_map_soft_deleted_fixture(
+    session: Session, ks_demo_view_census_blocks_districtrmap: None
+):
+    for i in range(2):
+        create_districtr_map(
+            session=session,
+            name=f"Districtr map {i}",
+            gerrydb_table_name=f"districtr_map_{i}",
+            parent_layer_name=GERRY_DB_FIXTURE_NAME,
+            visibility=bool(
+                i
+            ),  # Should have one hidden (index 0) and one visible (index 1)
+        )
+    session.commit()
+
+
+def test_list_gerydb_views_soft_deleted_map(
+    client, session, districtr_maps_soft_deleted
+):
+    response = client.get("/api/gerrydb/views")
+    assert response.status_code == 200
+    data = response.json()
+    # One visible from `ks_demo_view_census_blocks_districtrmap`
+    # One hidden from `districtr_maps_soft_deleted`
+    # One visible from `districtr_maps_soft_deleted`
+    assert len(data) == 2
+
+    # Check that the hidden map is there
+    stmt = text("SELECT * FROM districtrmap WHERE not visible")
+    result = session.execute(stmt).one()
+    assert result is not None
+    assert not result[-1]  # visible column is False
     assert data[0]["name"] == "Districtr map ks_demo_view_census_blocks"
 
 

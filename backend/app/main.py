@@ -1,7 +1,7 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
-from sqlmodel import Session, String, select
+from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
@@ -328,12 +328,12 @@ async def get_summary_stat(
                 ),
                 SummaryStatsP1,
             ),
-            "P4": {
+            "P4": (
                 text(
                     "SELECT * from get_summary_stats_p4(:document_id) WHERE zone is not null"
                 ),
                 SummaryStatsP4,
-            },
+            ),
         }[summary_stat]
     except KeyError:
         raise HTTPException(
@@ -345,7 +345,7 @@ async def get_summary_stat(
         results = session.execute(stmt, {"document_id": document_id}).fetchall()
         return {
             "summary_stat": _summary_stat.value,
-            "results": [SummaryStatsModel.from_orm(row) for row in results],
+            "results": [SummaryStatsModel.model_validate(row) for row in results],
         }
     except ProgrammingError as e:
         logger.error(e)
@@ -390,7 +390,7 @@ async def get_gerrydb_summary_stat(
         results = session.execute(stmt, {"gerrydb_table": gerrydb_table}).fetchone()
         return {
             "summary_stat": _summary_stat.value,
-            "results": SummaryStatsModel.from_orm(results),
+            "results": SummaryStatsModel.model_validate(results),
         }
     except ProgrammingError as e:
         logger.error(e)
@@ -411,6 +411,7 @@ async def get_projects(
 ):
     gerrydb_views = session.exec(
         select(DistrictrMap)
+        .filter(DistrictrMap.visible == true())  # pyright: ignore
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)
