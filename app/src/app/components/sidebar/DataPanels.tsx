@@ -1,11 +1,7 @@
-import {Box, Flex, Heading} from '@radix-ui/themes';
-import {MapModeSelector} from './MapModeSelector';
-import {ColorPicker} from './ColorPicker';
-import {ResetMapButton} from './ResetMapButton';
-import {GerryDBViewSelector} from './GerryDBViewSelector';
+import {Box} from '@radix-ui/themes';
+import Evaluation from '@components/sidebar/Evaluation';
 import {HorizontalBar} from './charts/HorizontalBarChart';
-import {useMapStore} from '@/app/store/mapStore';
-import {Tabs, Text} from '@radix-ui/themes';
+import {Tabs} from '@radix-ui/themes';
 import Layers from './Layers';
 import React from 'react';
 
@@ -35,7 +31,7 @@ const defaultPanels: DataPanelSpec[] = [
   {
     title: 'evaluation',
     label: 'Evaluation',
-    content: <Text size="2"> Unimplemented </Text>,
+    content: <Evaluation />,
   },
 ];
 

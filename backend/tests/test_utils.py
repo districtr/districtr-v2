@@ -5,6 +5,7 @@ from app.utils import (
     create_shatterable_gerrydb_view,
     create_parent_child_edges,
     add_extent_to_districtrmap,
+    get_available_summary_stats,
 )
 from sqlmodel import Session
 import subprocess
@@ -126,6 +127,42 @@ def districtr_map_fixture(
     return inserted_districtr_map
 
 
+GERRY_DB_P1_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
+
+
+@pytest.fixture(name=GERRY_DB_P1_FIXTURE_NAME)
+def ks_demo_view_census_blocks_summary_stats(session: Session):
+    layer = GERRY_DB_P1_FIXTURE_NAME
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+        ],
+    )
+
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+
+    session.begin()
+    session.execute(upsert_query, {"name": GERRY_DB_P1_FIXTURE_NAME})
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
 # FOR THE TESTS BELOW I NEED TO ADD ACTUAL ASSERTIONS
 
 
@@ -203,8 +240,11 @@ def test_create_parent_child_edges(
     session.commit()
 
 
-def test_shattering(client):
-    # Set-up
+@pytest.fixture(name="document_id")
+def document_id_fixture(
+    client, session: Session, districtr_map, gerrydb_simple_geos_view
+):
+    create_parent_child_edges(session=session, districtr_map_uuid=districtr_map)
     response = client.post(
         "/api/create_document",
         json={
@@ -213,8 +253,10 @@ def test_shattering(client):
     )
     assert response.status_code == 201
     doc = response.json()
-    document_id = doc["document_id"]
+    return doc["document_id"]
 
+
+def test_shattering(client, session: Session, document_id):
     response = client.patch(
         "/api/update_assignments",
         json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
@@ -235,20 +277,24 @@ def test_shattering(client):
     assert all(d["zone"] == 1 for d in data["children"])
 
 
-def test_unshatter_process(client):
-    # Set-up
-    response = client.post(
-        "/api/create_document",
-        json={
-            "gerrydb_table": "simple_geos",
-        },
-    )
-    doc = response.json()
-    document_id = doc["document_id"]
+def test_get_available_summary_stats(
+    session: Session, ks_demo_view_census_blocks_summary_stats
+):
+    result = get_available_summary_stats(session, GERRY_DB_P1_FIXTURE_NAME)
+    assert len(result) == 1
+    (summary_stats_available,) = result
+    assert summary_stats_available
+    assert len(summary_stats_available) == 1
+    (summary_stat,) = summary_stats_available
+    assert summary_stat == "P1"
+
+
+def test_unshatter_process(client, document_id):
     response = client.patch(
         "/api/update_assignments",
         json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
     )
+
     # Test
     response = client.patch(
         f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}

@@ -13,9 +13,6 @@ import {
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_SOURCE_ID,
 } from '@/app/constants/layers';
-import {polygon, multiPolygon} from '@turf/helpers';
-import {booleanWithin} from '@turf/boolean-within';
-import {pointOnFeature} from '@turf/point-on-feature';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 
@@ -84,46 +81,17 @@ export const getFeaturesInBbox = (
   filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
   const bbox = boxAroundPoint(e, brushSize);
-  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds, isPainting} =
-    useMapStore.getState();
+  const {captiveIds} = useMapStore.getState();
 
   const layers = _layers?.length
     ? _layers
     : captiveIds.size
-      ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
-      : [BLOCK_HOVER_LAYER_ID];
+    ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+    : [BLOCK_HOVER_LAYER_ID];
 
   let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
-  // If captiveIds exist (eg. block view mode) only select those IDs
-  if (captiveIds.size) {
-    features = features.filter(f => captiveIds.has(f.id?.toString() || ''));
-  }
-  // if filtering locked feature, remove those
-  if (filterLocked && lockedFeatures.size) {
-    features = features.filter(f => !lockedFeatures.has(f.id?.toString() || ''));
-  }
 
-  // if there is a child layer and parents have been shattered
-  // check if any of the selected IDs are parents
-  if (mapDocument?.child_layer && shatterIds.parents.size) {
-    const parentIds: MapStore['parentsToHeal'] = [];
-    features = features.filter(f => {
-      const id = f.id?.toString();
-      if (!id) return false;
-      const isParent = shatterIds.parents.has(id);
-      if (isParent) {
-        // check if parent IDs have been painted solid
-        parentIds.push(id);
-        // don't paint parents with children
-        return false;
-      } else {
-        // do paint everything else
-        return true;
-      }
-    });
-    parentIds.length && checkParentsToHeal(parentIds);
-  }
-  return features;
+  return filterFeatures(features, filterLocked);
 };
 
 /**
@@ -140,7 +108,7 @@ export const getFeatureUnderCursor = (
   brushSize: number,
   layers: string[] = [BLOCK_HOVER_LAYER_ID]
 ): MapGeoJSONFeature[] | undefined => {
-  return map?.queryRenderedFeatures(e.point, {layers});
+  return filterFeatures(map?.queryRenderedFeatures(e.point, {layers}) || []);
 };
 
 /**
@@ -163,65 +131,18 @@ export const getFeaturesIntersectingCounties = (
     layers: ['counties_fill'],
   });
 
-  if (!countyFeatures) return;
+  if (!countyFeatures?.length) return;
+  const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
 
-  const featureBbox = getBoundingBoxFromFeatures(countyFeatures);
-
-  if (!featureBbox) return;
-
-  const sw = map.project(featureBbox[0]);
-  const ne = map.project(featureBbox[1]);
-  const features = map.queryRenderedFeatures([sw, ne], {
+  const features = map.queryRenderedFeatures(undefined, {
     layers,
   });
 
-  let countyPoly;
-  try {
-    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
-    countyPoly = polygon(countyFeatures[0].geometry.coordinates);
-  } catch {
-    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
-    countyPoly = multiPolygon(countyFeatures[0].geometry.coordinates);
-  }
-
-  return features.filter(p => {
-    const point = pointOnFeature(p);
-    return booleanWithin(point, countyPoly);
-  });
-};
-
-/**
- * getBoundingBoxFromCounties
- * Calculate the bounding box (SW and NE corners) from county features.
- * @param countyFeatures - Array of GeoJSON Features representing counties
- * @returns [PointLike, PointLike] - An array containing the SW and NE corners of the bounding box
- */
-const getBoundingBoxFromFeatures = (
-  features: MapGeoJSONFeature[]
-): [LngLatLike, LngLatLike] | null => {
-  if (!features || features.length === 0) {
-    return null;
-  }
-
-  const sw = new LngLat(180, 90);
-  const ne = new LngLat(-180, -90);
-
-  features.forEach(feature => {
-    // this will always have an even number of coordinates
-    // iterating over the coordinates in pairs yields (lng, lat)
-    // @ts-ignore: Property 'coordinates' does not exist on type 'Geometry'.
-    let coords = feature.geometry.coordinates.flat(Infinity);
-    for (let i = 0; i < coords.length; i += 2) {
-      let x = coords[i];
-      let y = coords[i + 1];
-      sw.lng = Math.min(sw.lng, x);
-      sw.lat = Math.min(sw.lat, y);
-      ne.lng = Math.max(ne.lng, x);
-      ne.lat = Math.max(ne.lat, y);
-    }
-  });
-
-  return [sw, ne];
+  return filterFeatures(
+    features,
+    true,
+    [(feature) => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips)]
+  );
 };
 
 /**
@@ -295,7 +216,7 @@ export type ColorZoneAssignmentsState = [
   MapStore['shatterIds'],
   MapStore['appLoadingState'],
   MapStore['mapRenderingState'],
-  MapStore['mapOptions']['lockPaintedAreas'],
+  MapStore['mapOptions']['lockPaintedAreas']
 ];
 
 export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
@@ -398,8 +319,8 @@ export const resetZoneColors = ({
   const idsToReset = ids
     ? Array.from(ids)
     : zoneAssignments
-      ? Array.from(zoneAssignments.keys())
-      : null;
+    ? Array.from(zoneAssignments.keys())
+    : null;
   if (!mapDocument || !mapRef || !idsToReset) return;
   const childLayerExists = mapDocument?.child_layer;
   const shatterIdsExist = shatterIds.parents.size;
@@ -502,4 +423,68 @@ export const checkIfSameZone = (
     shouldHeal,
     zone: zone || null,
   };
+};
+
+/**
+ * filterFeatures
+ * Filters the provided features based on certain criteria, such as locked features and captive IDs.
+ *
+ * @param {MapGeoJSONFeature[]} features - An array of features to be filtered.
+ * @param {boolean} [filterLocked=true] - A flag indicating whether to filter out locked features.
+ * @returns {MapGeoJSONFeature[]} - An array of filtered features.
+ *
+ * @description
+ * This function applies multiple filtering criteria to the input features:
+ * 1. If captive IDs are present in the state, filters out features that are in the captive IDs set.
+ * 2. Optionally filters out features that are in the locked features set.
+ * 3. If the map document has a child layer and there are parent shatter IDs, it will:
+ *    - Exclude parent features from the results.
+ *    - Track parent IDs that need to be healed.
+ *
+ * The function returns an array of features that pass all the filtering criteria.
+ */
+const filterFeatures = (
+  features: MapGeoJSONFeature[], 
+  filterLocked: boolean = true,
+  additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = []
+) => {
+  const {
+    captiveIds,
+    lockedFeatures,
+    mapDocument,
+    checkParentsToHeal,
+    shatterIds,
+  } = useMapStore.getState();
+  const parentIdsToHeal: MapStore['parentsToHeal'] = [];
+  const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
+  if (captiveIds.size) {
+    filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
+  }
+  if (filterLocked && lockedFeatures.size) {
+    filterFunctions.push(f => !lockedFeatures.has(f.id?.toString() || ''));
+  }
+  if (mapDocument?.child_layer && shatterIds.parents.size) {
+    filterFunctions.push(f => {
+      const id = f.id?.toString();
+      if (!id) return false;
+      const isParent = shatterIds.parents.has(id);
+      if (isParent) {
+        // check if parent IDs have been painted solid
+        parentIdsToHeal.push(id);
+        // don't paint parents with children
+        return false;
+      } else {
+        // do paint everything else
+        return true;
+      }
+    });
+  }
+
+  if (!filterFeatures.length) return features;
+
+  const filteredFeatures = features.filter(feature => {
+    return filterFunctions.every(f => f(feature));
+  });
+  parentIdsToHeal.length && checkParentsToHeal(parentIdsToHeal);
+  return filteredFeatures;
 };

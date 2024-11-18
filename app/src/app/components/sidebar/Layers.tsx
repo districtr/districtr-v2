@@ -26,6 +26,7 @@ export default function Layers() {
   const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
   const parentsAreBroken = useMapStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapStore(state => state.mapOptions);
+  const setMapOptions = useMapStore(state => state.setMapOptions);
 
   const toggleLayers = (layerIds: string[]) => {
     if (!mapRef) return;
@@ -45,6 +46,7 @@ export default function Layers() {
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
           mapOptions.lockPaintedAreas === true ? '4' : '',
+          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : ''
         ]}
       >
         <CheckboxGroup.Item
@@ -69,7 +71,12 @@ export default function Layers() {
           disabled={!parentsAreBroken}
           onClick={() => toggleHighlightBrokenDistricts()}
         >
-          Highlight Broken Voter Districts
+          Highlight broken precincts
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item value="higlightUnassigned" onClick={() => setMapOptions({
+          higlightUnassigned: !mapOptions.higlightUnassigned
+        })}>
+          Highlight unassigned units
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="4" onClick={() => toggleLockAllAreas()}>
           Lock All Painted Areas
