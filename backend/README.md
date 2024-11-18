@@ -8,6 +8,15 @@ And if you want to exclude somewhat noisy changes in virtualenv:
 
 `uvicorn app.main:app --reload --reload-exclude '.venv/**/*.py'`
 
+A Docker-compose configuration is available to run all parts of the application. To run this:
+
+- [Download the sample data](https://drive.google.com/drive/folders/1U_ee6ADd1HKNTpLCjFmlo4ir8xxWTwRI?usp=sharing)
+- Place the data in the root repo folder, by default in a folder called `sample_data`
+- In `docker-compose.yml`, set `LOAD_GERRY_DB_DATA` to `true` to ingest data
+- Run `docker-compose up --build` 
+- Change `LOAD_GERRY_DB_DATA` back to false
+- On subsequent start ups, simply run `docker-compose up`
+ 
 ## Shipping
 
 Don't forget to update requirements in case you added a new package with `uv pip freeze | uv pip compile - -o requirements.txt`
