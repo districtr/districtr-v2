@@ -382,7 +382,17 @@ export const useMapStore = create(
           }
           setFreshMap(true)
           resetZoneAssignments()
-          upsertUserMap({mapDocument})
+          
+          const upsertMapOnDrawSub = useMapStore.subscribe(state => state.zoneAssignments,
+            (za) => {
+              if (useMapStore.getState().mapDocument !== mapDocument || za.size){
+                upsertMapOnDrawSub()
+              }
+              if (useMapStore.getState().mapDocument === mapDocument && za.size) {
+                upsertUserMap({mapDocument})
+              }
+            }
+          )
           
           set({
             mapDocument: mapDocument,
