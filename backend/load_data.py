@@ -76,7 +76,7 @@ def load_sample_data(config):
 
         if result is not None and result > 0:
             print(f"Districtr map {name} already exists.")
-        else:
+        elif "child_layer_name" in view:
             subprocess.run(
                 [
                     "python3",
@@ -101,6 +101,22 @@ def load_sample_data(config):
                     "create-parent-child-edges",
                     "--districtr-map",
                     view["gerrydb_table_name"],
+                ]
+            )
+        else:
+            subprocess.run(
+                [
+                    "python3",
+                    "cli.py",
+                    "create-districtr-map",
+                    "--name",
+                    view["name"],
+                    "--parent-layer-name",
+                    view["parent_layer_name"],
+                    "--gerrydb-table-name",
+                    view["gerrydb_table_name"],
+                    "--tiles-s3-path",
+                    view["tiles_s3_path"],
                 ]
             )
 
