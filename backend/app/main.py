@@ -328,12 +328,12 @@ async def get_summary_stat(
                 ),
                 SummaryStatsP1,
             ),
-            "P4": {
+            "P4": (
                 text(
                     "SELECT * from get_summary_stats_p4(:document_id) WHERE zone is not null"
                 ),
                 SummaryStatsP4,
-            },
+            ),
         }[summary_stat]
     except KeyError:
         raise HTTPException(
