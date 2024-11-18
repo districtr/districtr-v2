@@ -1,7 +1,7 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
-from sqlmodel import Session, String, select
+from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
@@ -310,6 +310,7 @@ async def get_projects(
 ):
     gerrydb_views = session.exec(
         select(DistrictrMap)
+        .filter(DistrictrMap.visible == true())
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)

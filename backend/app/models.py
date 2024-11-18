@@ -12,6 +12,7 @@ from sqlmodel import (
     Column,
     MetaData,
     String,
+    Boolean,
 )
 from sqlalchemy.types import ARRAY
 from sqlalchemy import Float
@@ -69,7 +70,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # where does this go?
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
-    visible: bool = Field(default=True)
+    visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
 
 
 class DistrictrMapPublic(BaseModel):
@@ -79,6 +80,7 @@ class DistrictrMapPublic(BaseModel):
     child_layer: str | None = None
     tiles_s3_path: str | None = None
     num_districts: int | None = None
+    visible: bool = True
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
