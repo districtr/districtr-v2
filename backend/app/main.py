@@ -345,7 +345,7 @@ async def get_summary_stat(
         results = session.execute(stmt, {"document_id": document_id}).fetchall()
         return {
             "summary_stat": _summary_stat.value,
-            "results": [SummaryStatsModel.from_orm(row) for row in results],
+            "results": [SummaryStatsModel.model_validate(row) for row in results],
         }
     except ProgrammingError as e:
         logger.error(e)
@@ -390,7 +390,7 @@ async def get_gerrydb_summary_stat(
         results = session.execute(stmt, {"gerrydb_table": gerrydb_table}).fetchone()
         return {
             "summary_stat": _summary_stat.value,
-            "results": SummaryStatsModel.from_orm(results),
+            "results": SummaryStatsModel.model_validate(results),
         }
     except ProgrammingError as e:
         logger.error(e)
