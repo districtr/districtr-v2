@@ -103,6 +103,18 @@ export const updateGetDocumentFromId = (documentId: string) => {
 };
 
 updateDocumentFromId.subscribe(mapDocument => {
+  const documentId = new URLSearchParams(window.location.search).get('document_id');
+  if (mapDocument.error && documentId?.length) {
+    useMapStore.getState().setErrorNotification({
+      severity: 2,
+      id: 'map-document-not-found',
+      message: `The requested map id "${documentId}" could not be found. Please make sure the URL is correct or select a different geography.`
+    });
+    // remove current document_id on search params
+    const url = new URL(window.location.href);
+    url.searchParams.delete('document_id');
+    window.history.replaceState({}, document.title, url.toString());
+  }
   if (mapDocument.data) {
     useMapStore.getState().setMapDocument(mapDocument.data);
   }
