@@ -103,6 +103,8 @@ export const updateGetDocumentFromId = (documentId: string) => {
 };
 
 updateDocumentFromId.subscribe(mapDocument => {
+  if (typeof window === 'undefined') return 
+  
   const documentId = new URLSearchParams(window.location.search).get('document_id');
   if (mapDocument.error && documentId?.length) {
     useMapStore.getState().setErrorNotification({
