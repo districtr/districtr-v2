@@ -1,9 +1,10 @@
+"use client"
 import {useEffect, useState} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {AlertDialog, Button, Flex, Text} from '@radix-ui/themes';
 import * as Toast from '@radix-ui/react-toast';
 
-export const ErrorNotifcation = () => {
+export const ErrorNotification = () => {
   const errorNotification = useMapStore(state => state.errorNotification);
   const [errorUiActive, setErrorUiActive] = useState(true);
 
