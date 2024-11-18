@@ -69,6 +69,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # where does this go?
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
+    visible: bool = Field(default=True)
 
 
 class DistrictrMapPublic(BaseModel):
