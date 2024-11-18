@@ -387,10 +387,10 @@ async def get_gerrydb_summary_stat(
         bindparam(key="gerrydb_table", type_=String),
     )
     try:
-        (row,) = session.execute(stmt, {"gerrydb_table": gerrydb_table}).one()
+        results = session.execute(stmt, {"gerrydb_table": gerrydb_table}).fetchone()
         return {
             "summary_stat": _summary_stat.value,
-            "results": [SummaryStatsModel.from_orm(row)],
+            "results": SummaryStatsModel.from_orm(results),
         }
     except ProgrammingError as e:
         logger.error(e)

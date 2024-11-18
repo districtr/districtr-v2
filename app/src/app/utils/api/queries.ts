@@ -70,8 +70,8 @@ export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
     }
   });
   fetchTotPop.subscribe(response => {
-    if (response?.data?.results?.length) {
-      useMapStore.getState().setSummaryStat('totpop', { data: response.data.results[0]});
+    if (response?.data?.results) {
+      useMapStore.getState().setSummaryStat('totpop', { data: response.data.results});
     } else {
       useMapStore.getState().setSummaryStat('totpop', undefined)
     }
@@ -126,9 +126,9 @@ fetchAssignments.subscribe(assignments => {
   }
 });
 
-export const fetchTotPop = new QueryObserver<SummaryStatsResult<P1TotPopSummaryStats[]> | null>(queryClient, {
+export const fetchTotPop = new QueryObserver<SummaryStatsResult<P1TotPopSummaryStats> | null>(queryClient, {
   queryKey: ['gerrydb_tot_pop'],
-  queryFn: getNullableParamQuery<MapStore['mapDocument'], SummaryStatsResult<P1TotPopSummaryStats[]>>(getP1TotPopSummaryStats),
+  queryFn: getNullableParamQuery<MapStore['mapDocument'], SummaryStatsResult<P1TotPopSummaryStats>>(getP1TotPopSummaryStats),
 });
 
 export const updateTotPop = (mapDocument: DocumentObject | null) => {

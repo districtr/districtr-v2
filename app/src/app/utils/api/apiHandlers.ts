@@ -243,10 +243,10 @@ export const getP1SummaryStats: (
  */
 export const getP1TotPopSummaryStats: (
   mapDocument: DocumentObject | null
-) => Promise<SummaryStatsResult<P1TotPopSummaryStats[]>> = async mapDocument => {
+) => Promise<SummaryStatsResult<P1TotPopSummaryStats>> = async mapDocument => {
   if (mapDocument) {
     return await axios
-      .get<SummaryStatsResult<P1TotPopSummaryStats[]>>(`${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/summary_stats/P1/${mapDocument.parent_layer}`)
+      .get<SummaryStatsResult<P1TotPopSummaryStats>>(`${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/summary_stats/P1/${mapDocument.parent_layer}`)
       .then(res => res.data)
   } else {
     throw new Error('No document provided');
