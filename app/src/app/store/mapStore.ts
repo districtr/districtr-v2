@@ -8,6 +8,7 @@ import {
   Assignment,
   DistrictrMap,
   DocumentObject,
+  P1TotPopSummaryStats,
   ShatterResult,
   ZonePopulation,
 } from '../utils/api/apiHandlers';
@@ -22,19 +23,19 @@ import {
   getFeaturesInBbox,
   resetZoneColors,
   setZones,
-} from '../utils/helpers';
-import {getRenderSubscriptions} from './mapRenderSubs';
+} from "../utils/helpers";
+import { getRenderSubscriptions } from "./mapRenderSubs";
+import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
+import { getMapMetricsSubs } from "./metricsSubs";
+import { getMapEditSubs } from "./mapEditSubs";
+import { getQueriesResultsSubs } from "../utils/api/queries";
+import { persistOptions } from "./persistConfig";
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
-import {getSearchParamsObersver} from '../utils/api/queryParamsListener';
-import {getMapMetricsSubs} from './metricsSubs';
-import {getMapEditSubs} from './mapEditSubs';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
-import {getMapViewsSubs} from '../utils/api/queries';
-import {persistOptions} from './persistConfig';
-import {onlyUnique} from '../utils/arrays';
 import {DistrictrMapOptions} from './types';
-import {queryClient} from '../utils/api/queryClient';
+import { onlyUnique } from '../utils/arrays';
+import { queryClient } from '../utils/api/queryClient';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -77,6 +78,15 @@ export interface MapStore {
    */
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  summaryStats: {
+    totpop?: {
+      data: P1TotPopSummaryStats
+    } 
+  },
+  setSummaryStat: <T extends keyof MapStore['summaryStats']>(
+    stat: T,
+    value: MapStore['summaryStats'][T]
+  ) => void,
   // SHATTERING
   /**
    * A subset of IDs that a user is working on in a focused view.
@@ -222,6 +232,8 @@ export interface MapStore {
   resetAccumulatedBlockPopulations: () => void;
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
+  assignmentsHash: string;
+  setAssignmentsHash: (hash: string) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
@@ -380,6 +392,15 @@ export const useMapStore = create(
             },
             shatterIds: {parents: new Set(), children: new Set()},
           });
+        },
+        summaryStats: {},
+        setSummaryStat: (stat, value) => {
+          set({
+            summaryStats: {
+              ...get().summaryStats,
+              [stat]: value
+            }
+          })
         },
         // TODO: Refactor to something like this
         // featureStates: {
@@ -612,12 +633,8 @@ export const useMapStore = create(
               userMaps.splice(i, 1, userMapData); // Replace the map at index i with the new data
             } else {
               const urlParams = new URL(window.location.href).searchParams;
-              urlParams.delete('document_id'); // Remove the document_id parameter
-              window.history.pushState(
-                {},
-                '',
-                window.location.pathname + '?' + urlParams.toString()
-              ); // Update the URL without document_id
+              urlParams.delete("document_id"); // Remove the document_id parameter
+              window.history.pushState({}, '', window.location.pathname + '?' + urlParams.toString()); // Update the URL without document_id
               userMaps.splice(i, 1);
             }
           }
@@ -766,6 +783,8 @@ export const useMapStore = create(
         selectedZone: 1,
         setSelectedZone: zone => set({selectedZone: zone}),
         zoneAssignments: new Map(),
+        assignmentsHash: "",
+        setAssignmentsHash: (hash) => set({ assignmentsHash: hash }),
         accumulatedGeoids: new Set<string>(),
         setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
         setZoneAssignments: (zone, geoids) => {
@@ -867,6 +886,6 @@ export const useMapStore = create(
 // these need to initialize after the map store
 getRenderSubscriptions(useMapStore);
 getMapMetricsSubs(useMapStore);
-getMapViewsSubs(useMapStore);
+getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();

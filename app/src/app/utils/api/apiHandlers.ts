@@ -1,6 +1,7 @@
 import axios from 'axios';
 import 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
+import { getEntryTotal } from '../summaryStats';
 
 export const FormatAssignments = () => {
   const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
@@ -61,6 +62,7 @@ export interface DocumentObject {
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
+  available_summary_stats: string[];
 }
 
 /**
@@ -105,7 +107,7 @@ export const getDocument: (document_id: string) => Promise<DocumentObject> = asy
 };
 
 export const getAssignments: (
-  mapDocument: DocumentObject
+  mapDocument: DocumentObject | null
 ) => Promise<Assignment[]> = async mapDocument => {
   if (mapDocument) {
     return await axios
@@ -144,6 +146,108 @@ export const getZonePopulations: (
       .then(res => {
         return res.data;
       });
+  } else {
+    throw new Error('No document provided');
+  }
+};
+
+export interface SummaryStatsResult<T extends object> {
+  summary_stat: string;
+  results: T;
+}
+
+/**
+ * P1ZoneSummaryStats
+ *
+ * @interface
+ * @property {number} zone - The zone.
+ * @property {number} total_pop - The total population.
+ */
+export interface P1ZoneSummaryStats {
+  zone: number;
+  other_pop: number;
+  asian_pop: number;
+  amin_pop: number;
+  nhpi_pop: number;
+  black_pop: number;
+  white_pop: number;
+}
+export type P1TotPopSummaryStats = Omit<P1ZoneSummaryStats, 'zone'>
+
+export const P1ZoneSummaryStatsKeys = [
+  'other_pop',
+  'asian_pop',
+  'amin_pop',
+  'nhpi_pop',
+  'black_pop',
+  'white_pop'
+] as const
+
+export const CleanedP1ZoneSummaryStatsKeys = [
+  ...P1ZoneSummaryStatsKeys,
+  'total',
+  'other_pop_pct',
+  'asian_pop_pct',
+  'amin_pop_pct',
+  'nhpi_pop_pct',
+  'black_pop_pct',
+  'white_pop_pct',
+] as const
+
+export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
+  total: number;
+  other_pop_pct: number;
+  asian_pop_pct: number;
+  amin_pop_pct: number;
+  nhpi_pop_pct: number;
+  black_pop_pct: number;
+  white_pop_pct: number;
+}
+
+/**
+ * Get P1 zone stats from the server.
+ * @param mapDocument - DocumentObject, the document object
+ * @returns Promise<CleanedP1ZoneSummaryStats[]>
+ */
+export const getP1SummaryStats: (
+  mapDocument: DocumentObject
+) => Promise<SummaryStatsResult<CleanedP1ZoneSummaryStats[]>> = async mapDocument => {
+  if (mapDocument) {
+    return await axios
+      .get<SummaryStatsResult<P1ZoneSummaryStats[]>>(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`)
+      .then(res => {
+        const results = res.data.results.map(row => {
+          const total = getEntryTotal(row)
+          return P1ZoneSummaryStatsKeys.reduce<any>((acc, key) => {
+            acc[`${key}_pct`] = acc[key] / total;
+            return acc;
+          }, {
+            ...row,
+            total
+          }) as CleanedP1ZoneSummaryStats
+      })
+      return {
+        ...res.data,
+        results
+      }
+    })
+  } else {
+    throw new Error('No document provided');
+  }
+};
+
+/**
+ * Get P1 zone stats from the server.
+ * @param mapDocument - DocumentObject, the document object
+ * @returns Promise<CleanedP1ZoneSummaryStats[]>
+ */
+export const getP1TotPopSummaryStats: (
+  mapDocument: DocumentObject | null
+) => Promise<SummaryStatsResult<P1TotPopSummaryStats>> = async mapDocument => {
+  if (mapDocument) {
+    return await axios
+      .get<SummaryStatsResult<P1TotPopSummaryStats>>(`${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/summary_stats/P1/${mapDocument.parent_layer}`)
+      .then(res => res.data)
   } else {
     throw new Error('No document provided');
   }

@@ -13,6 +13,7 @@ from app.utils import (
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
     create_parent_child_edges as _create_parent_child_edges,
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
+    add_available_summary_stats_to_districtrmap as _add_available_summary_stats_to_districtrmap,
 )
 
 logger = logging.getLogger(__name__)
@@ -233,6 +234,10 @@ def create_districtr_map(
             session=session, districtr_map_uuid=districtr_map_uuid, bounds=bounds
         )
 
+    _add_available_summary_stats_to_districtrmap(
+        session=session, districtr_map_uuid=districtr_map_uuid
+    )
+
     session.commit()
     logger.info(f"Districtr map created successfully {districtr_map_uuid}")
 
@@ -289,6 +294,27 @@ def add_extent_to_districtr_map(districtr_map: str, bounds: list[float] | None =
     session.commit()
     logger.info("Updated extent successfully.")
 
+    session.close()
+
+
+@cli.command("add-available-summary-stats-to-districtr-map")
+@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
+def add_available_summary_stats_to_districtr_map(districtr_map: str):
+    session = next(get_session())
+    stmt = text(
+        "SELECT uuid FROM districtrmap WHERE gerrydb_table_name = :districtrmap_name"
+    )
+    (districtr_map_uuid,) = session.execute(
+        stmt, params={"districtrmap_name": districtr_map}
+    ).one()
+    print(f"Found districtmap uuid: {districtr_map_uuid}")
+
+    _add_available_summary_stats_to_districtrmap(
+        session=session, districtr_map_uuid=districtr_map_uuid
+    )
+
+    session.commit()
+    logger.info("Updated available summary stats successfully.")
     session.close()
 
 
