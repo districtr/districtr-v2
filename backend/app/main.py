@@ -310,7 +310,7 @@ async def get_projects(
 ):
     gerrydb_views = session.exec(
         select(DistrictrMap)
-        .filter(DistrictrMap.visible == true())
+        .filter(DistrictrMap.visible == true())  # pyright: ignore
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)

@@ -4,19 +4,13 @@ CREATE OR REPLACE FUNCTION create_districtr_map(
     num_districts INTEGER,
     tiles_s3_path VARCHAR,
     parent_layer_name VARCHAR,
-    child_layer_name VARCHAR
+    child_layer_name VARCHAR,
+    visibility BOOLEAN DEFAULT TRUE
 )
 RETURNS UUID AS $$
 DECLARE
     inserted_districtr_uuid UUID;
-    extent GEOMETRY;
 BEGIN
-    EXECUTE format('
-        SELECT ST_Extent(ST_Transform(geometry, 4326))
-        FROM gerrydb.%I',
-        parent_layer_name
-    ) INTO extent;
-
     INSERT INTO districtrmap (
         created_at,
         uuid,
@@ -26,7 +20,7 @@ BEGIN
         tiles_s3_path,
         parent_layer,
         child_layer,
-        extent
+        visible
     )
     VALUES (
         now(),
@@ -37,12 +31,7 @@ BEGIN
         tiles_s3_path,
         parent_layer_name,
         child_layer_name,
-        ARRAY[
-            ST_XMin(extent),
-            ST_YMin(extent),
-            ST_XMax(extent),
-            ST_YMax(extent)
-        ]
+        visibility
     )
     RETURNING uuid INTO inserted_districtr_uuid;
 
