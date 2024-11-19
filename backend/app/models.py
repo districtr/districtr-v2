@@ -12,6 +12,7 @@ from sqlmodel import (
     Column,
     MetaData,
     String,
+    Boolean,
 )
 from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
@@ -53,10 +54,6 @@ class SummaryStatisticType(Enum):
     P4 = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
 
 
-class GerryDbSummaryStatisticType(Enum):
-    P1TOTPOP = "Total Population by Race"
-
-
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
@@ -78,11 +75,11 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
         )
     )
     extent: list[float] | None = Field(sa_column=Column(ARRAY(Float), nullable=True))
-    districtr_place_id: str | None = Field(nullable=True)
     # schema? will need to contrain the schema
     # where does this go?
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
+    visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
     available_summary_stats: list[SummaryStatisticType] | None = Field(
         sa_column=Column(ARRAY(TEXT), nullable=True, default=[])
     )
@@ -95,6 +92,7 @@ class DistrictrMapPublic(BaseModel):
     child_layer: str | None = None
     tiles_s3_path: str | None = None
     num_districts: int | None = None
+    visible: bool = True
     available_summary_stats: list[str] | None = None
 
 
@@ -196,49 +194,6 @@ class ZonePopulation(BaseModel):
     total_pop: int
 
 
-class DistrictrProblems(BaseModel):
-    """
-    eligible redistricting problem types (e.g. congressional districts, city council districts, etc.)
-    """
-
-    uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
-    name: str
-    num_parts: int
-    plural_noun: str
-    districtr_place_id: str = Field(
-        sa_column=Column(
-            UUID,
-            ForeignKey("districtrplace.uuid"),
-            nullable=True,
-        )
-    )
-    __table_args__ = (
-        UniqueConstraint("name", "districtr_place_id", name="unique_name_place_id"),
-    )
-
-
-class DistrictrPlace(BaseModel):
-    """
-    places for which we have redistricting problems (e.g. states, counties, cities, etc.)
-    Setup initially to match places from districtr v1
-    """
-
-    uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
-    name: str
-    id: str  # human readable; should match districtr_v1
-    place_type: str  # human readable; should match districtr_v1, e.g. statewide, county, city, zone
-    state: str  # two-digit code
-    districtr_problems: list[DistrictrProblems] = Field(
-        sa_column=Column(ARRAY(UUIDType), nullable=True)
-    )
-
-    __table_args__ = (
-        UniqueConstraint(
-            "id", "place_type", "state", name="unique_id_place_type_state"
-        ),
-    )
-
-
 class SummaryStats(BaseModel):
     summary_stat: SummaryStatisticType
     results: list[Any]
@@ -255,4 +210,19 @@ class PopulationStatsP1(BaseModel):
 
 
 class SummaryStatsP1(PopulationStatsP1):
+    zone: int
+
+
+class PopulationStatsP4(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    hispanic_vap: int
+    non_hispanic_asian_vap: int
+    non_hispanic_amin_vap: int
+    non_hispanic_nhpi_vap: int
+    non_hispanic_black_vap: int
+    non_hispanic_white_vap: int
+    non_hispanic_other_vap: int
+
+
+class SummaryStatsP4(PopulationStatsP4):
     zone: int

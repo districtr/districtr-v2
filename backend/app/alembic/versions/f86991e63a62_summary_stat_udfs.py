@@ -21,7 +21,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    for udf in ["summary_stats_p1.sql", "summary_stats_pop_totals.sql"]:
+    for udf in [
+        "summary_stats_p1.sql",
+        "summary_stats_p1_totals.sql",
+        "summary_stats_p4.sql",
+        "summary_stats_p4_totals.sql",
+    ]:
         with Path(SQL_DIR, udf).open() as f:
             sql = f.read()
             op.execute(sql)
@@ -29,4 +34,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS get_summary_stats_p1")
-    op.execute("DROP FUNCTION IF EXISTS get_summary_stats_pop_totals")
+    op.execute("DROP FUNCTION IF EXISTS get_summary_p1_totals")
+    op.execute("DROP FUNCTION IF EXISTS get_summary_stats_p4")
+    op.execute("DROP FUNCTION IF EXISTS get_summary_p4_totals")

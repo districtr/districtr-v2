@@ -135,13 +135,13 @@ fetchAssignments.subscribe(assignments => {
   }
 });
 
-export const fetchTotPop = new QueryObserver<SummaryStatsResult<P1TotPopSummaryStats[]> | null>(
+export const fetchTotPop = new QueryObserver<SummaryStatsResult<P1TotPopSummaryStats> | null>(
   queryClient,
   {
     queryKey: ['gerrydb_tot_pop'],
     queryFn: getNullableParamQuery<
       MapStore['mapDocument'],
-      SummaryStatsResult<P1TotPopSummaryStats[]>
+      SummaryStatsResult<P1TotPopSummaryStats>
     >(getP1TotPopSummaryStats),
   }
 );

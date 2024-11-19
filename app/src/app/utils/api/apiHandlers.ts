@@ -214,9 +214,9 @@ export const getP1SummaryStats: (
 ) => Promise<SummaryStatsResult<CleanedP1ZoneSummaryStats[]>> = async mapDocument => {
   if (mapDocument) {
     return await axios
-      .get<SummaryStatsResult<P1ZoneSummaryStats[]>>(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`
-      )
+      .get<
+        SummaryStatsResult<P1ZoneSummaryStats[]>
+      >(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`)
       .then(res => {
         const results = res.data.results.map(row => {
           const total = getEntryTotal(row);
@@ -248,12 +248,12 @@ export const getP1SummaryStats: (
  */
 export const getP1TotPopSummaryStats: (
   mapDocument: DocumentObject | null
-) => Promise<SummaryStatsResult<P1TotPopSummaryStats[]>> = async mapDocument => {
+) => Promise<SummaryStatsResult<P1TotPopSummaryStats>> = async mapDocument => {
   if (mapDocument) {
     return await axios
-      .get<SummaryStatsResult<P1TotPopSummaryStats[]>>(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/summary_stats/P1TOTPOP/${mapDocument.parent_layer}`
-      )
+      .get<
+        SummaryStatsResult<P1TotPopSummaryStats>
+      >(`${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/summary_stats/P1/${mapDocument.parent_layer}`)
       .then(res => res.data);
   } else {
     throw new Error('No document provided');

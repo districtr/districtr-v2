@@ -71,12 +71,12 @@ export default function Layers() {
           disabled={!parentsAreBroken}
           onClick={() => toggleHighlightBrokenDistricts()}
         >
-          Highlight Broken Voter Districts
+          Highlight broken precincts
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="higlightUnassigned" onClick={() => setMapOptions({
           higlightUnassigned: !mapOptions.higlightUnassigned
         })}>
-          Highlight Unassigned Districts
+          Highlight unassigned units
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="4" onClick={() => toggleLockAllAreas()}>
           Lock All Painted Areas

@@ -48,7 +48,7 @@ BEGIN
     FROM INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = gerrydb_table_name
         AND table_schema = 'gerrydb'
-        AND column_name IN ('hispanic_pop',
+        AND column_name IN ('hispanic_vap',
                             'non_hispanic_asian_vap',
                             'non_hispanic_amin_vap',
                             'non_hispanic_nhpi_vap',
