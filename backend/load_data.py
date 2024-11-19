@@ -76,26 +76,31 @@ def load_sample_data(config):
 
         if result is not None and result > 0:
             print(f"Districtr map {name} already exists.")
-        elif "child_layer_name" in view:
-            subprocess.run(
-                [
-                    "python3",
-                    "cli.py",
-                    "create-districtr-map",
-                    "--name",
-                    view["name"],
-                    "--parent-layer-name",
-                    view["parent_layer_name"],
-                    "--child-layer-name",
-                    view["child_layer_name"],
-                    "--num-districts",
-                    5,
-                    "--gerrydb-table-name",
-                    view["gerrydb_table_name"],
-                    "--tiles-s3-path",
-                    view["tiles_s3_path"],
-                ]
-            )
+        
+        args = [
+            "python3",
+            "cli.py",
+            "create-districtr-map",
+            "--name",
+            view["name"],
+            "--parent-layer-name",
+            view["parent_layer_name"],
+            "--num-districts",
+            view["num_districts"],
+            "--gerrydb-table-name",
+            view["gerrydb_table_name"],
+            "--tiles-s3-path",
+            view["tiles_s3_path"],
+        ]
+        is_shatterable = "child_layer_name" in view
+
+        if is_shatterable:
+            args.append("--child-layer-name")
+            args.append(view["child_layer_name"])
+        
+        subprocess.run(args)
+        
+        if is_shatterable:
             subprocess.run(
                 [
                     "python3",
@@ -105,24 +110,7 @@ def load_sample_data(config):
                     view["gerrydb_table_name"],
                 ]
             )
-        else:
-            subprocess.run(
-                [
-                    "python3",
-                    "cli.py",
-                    "create-districtr-map",
-                    "--name",
-                    view["name"],
-                    "--parent-layer-name",
-                    view["parent_layer_name"],
-                    "--gerrydb-table-name",
-                    view["gerrydb_table_name"],
-                    "--num-districts",
-                    5,
-                    "--tiles-s3-path",
-                    view["tiles_s3_path"],
-                ]
-            )
+
 
 
 if __name__ == "__main__":
