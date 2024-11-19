@@ -3,47 +3,23 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useQuery} from '@tanstack/react-query';
 import {
   CleanedP1ZoneSummaryStats,
-  CleanedP1ZoneSummaryStatsKeys,
   getP1SummaryStats,
   P1ZoneSummaryStats,
   P1ZoneSummaryStatsKeys,
 } from '@/app/utils/api/apiHandlers';
-import {Button, Checkbox, CheckboxGroup} from '@radix-ui/themes';
-import {Heading, Flex, Spinner, Text} from '@radix-ui/themes';
+import {Button, CheckboxGroup} from '@radix-ui/themes';
+import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
-import {
-  getEntryTotal,
-  getStdDevColor,
-  stdDevArray,
-  stdDevColors,
-  sumArray,
-} from '@utils/summaryStats';
-import {interpolateBlues, interpolateGreys} from 'd3-scale-chromatic';
+import {getEntryTotal} from '@utils/summaryStats';
+import {interpolateGreys} from 'd3-scale-chromatic';
 
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
 type EvaluationProps = {
   columnConfig?: ColumnConfiguration<P1ZoneSummaryStats>;
 };
-
-// const calculateColumn = (
-//   mode: EvalModes,
-//   entry: P1ZoneSummaryStats,
-//   totals: P1ZoneSummaryStats,
-//   column: keyof Omit<CleanedP1ZoneSummaryStats, 'zone'>
-// ) => {
-//   const count = entry[column];
-//   switch (mode) {
-//     case 'count':
-//       return count;
-//     case 'pct':
-//       return count / entry['total'];
-//     case 'share':
-//       return count / totals[column];
-//   }
-// };
 
 const defaultColumnConfig: ColumnConfiguration<P1ZoneSummaryStats> = [
   {
@@ -67,6 +43,10 @@ const defaultColumnConfig: ColumnConfiguration<P1ZoneSummaryStats> = [
     column: 'nhpi_pop',
   },
   {
+    label: 'Two or More Races',
+    column: 'two_or_more_races_pop',
+  },
+  {
     label: 'Other',
     column: 'other_pop',
   },
@@ -81,10 +61,6 @@ const modeButtonConfig: Array<{label: string; value: EvalModes}> = [
     label: 'Population by Count',
     value: 'count',
   },
-  // {
-  //   label: "Population by Percent of Zone",
-  //   value: 'totpop'
-  // }
 ];
 
 const numberFormats: Record<EvalModes, NumberFormats> = {
@@ -104,8 +80,6 @@ const getColConfig = (evalMode: EvalModes) => {
 
 const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConfig}) => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
-  // const [showAverages, setShowAverages] = useState<boolean>(true);
-  // const [showStdDev, setShowStdDev] = useState<boolean>(false);
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
 
@@ -152,18 +126,10 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
       unassigned[`${key}_pct`] = total / unassigned[key];
       unassigned[key] = total;
     });
-    // const averages: Record<string, number> = {};
-    // const stdDevs: Record<string, number> = {};
-    // CleanedP1ZoneSummaryStatsKeys.forEach(key => {
-    //   const values = data.results.map(row => row[key]);
-    //   averages[key] = sumArray(values) / data.results.length;
-    //   stdDevs[key] = stdDevArray(values);
-    // });
+
     return {
       unassigned,
       maxValues,
-      // averages,
-      // stdDevs
     };
   }, [data?.results, totPop]);
 
@@ -210,29 +176,9 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
           <CheckboxGroup.Item value="unassigned" onClick={() => setShowUnassigned(v => !v)}>
             Show Unassigned Population
           </CheckboxGroup.Item>
-          {/* <CheckboxGroup.Item value="averages" onClick={() => setShowAverages(v => !v)}>
-            Show Zone Averages
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item value="stddev" onClick={() => setShowStdDev(v => !v)}>
-            Show Zone Std. Dev.
-          </CheckboxGroup.Item> */}
           <CheckboxGroup.Item value="colorBg" onClick={() => setColorBg(v => !v)}>
             <Flex gap="3">
               <p>Color Cells By Values</p>
-              {/* {colorByStdDev && (
-                <span>
-                  {Object.entries(stdDevColors)
-                    .sort((a, b) => +a[0] - +b[0])
-                    .map(([stdev, backgroundColor], i) => (
-                      <span
-                        className="inline-flex items-center justify-center size-6"
-                        style={{backgroundColor}}
-                      >
-                        {+stdev > 0 ? `+${stdev}`: stdev}
-                      </span>
-                    ))}
-                </span>
-              )} */}
             </Flex>
           </CheckboxGroup.Item>
         </CheckboxGroup.Root>
@@ -250,30 +196,6 @@ const Evaluation: React.FC<EvaluationProps> = ({columnConfig = defaultColumnConf
             </tr>
           </thead>
           <tbody>
-            {/* {!!(averages && showAverages) && (
-              <tr className="border-b hover:bg-gray-50">
-                <td className="py-2 px-4 font-medium flex flex-row items-center gap-1">
-                  Zone Averages
-                </td>
-                {columnConfig.map((f, i) => (
-                  <td className="py-2 px-4 text-right">
-                    {formatNumber(averages[columnGetter(f.column)], numberFormat)}
-                  </td>
-                ))}
-              </tr>
-            )}
-            {!!(stdDevs && showStdDev) && (
-              <tr className="border-b hover:bg-gray-50">
-                <td className="py-2 px-4 font-medium flex flex-row items-center gap-1">
-                  Zone Std. Dev.
-                </td>
-                {columnConfig.map((f, i) => (
-                  <td className="py-2 px-4 text-right">
-                    {formatNumber(stdDevs[columnGetter(f.column)], numberFormat)}
-                  </td>
-                ))}
-              </tr>
-            )} */}
             {rows
               .sort((a, b) => a.zone - b.zone)
               .map(row => {

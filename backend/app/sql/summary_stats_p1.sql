@@ -1,4 +1,6 @@
-CREATE OR REPLACE FUNCTION get_summary_stats_p1(document_id UUID)
+DROP FUNCTION IF EXISTS get_summary_stats_p1(uuid);
+
+CREATE FUNCTION get_summary_stats_p1(document_id UUID)
 RETURNS TABLE (
     zone TEXT,
     other_pop BIGINT,
@@ -6,7 +8,8 @@ RETURNS TABLE (
     amin_pop BIGINT,
     nhpi_pop BIGINT,
     black_pop BIGINT,
-    white_pop BIGINT
+    white_pop BIGINT,
+    two_or_more_races_pop BIGINT
 ) AS $$
 DECLARE
     doc_districtrmap RECORD;
@@ -30,7 +33,8 @@ BEGIN
             SUM(COALESCE(blocks.amin_pop, 0))::BIGINT AS amin_pop,
             SUM(COALESCE(blocks.nhpi_pop, 0))::BIGINT AS nhpi_pop,
             SUM(COALESCE(blocks.black_pop, 0))::BIGINT AS black_pop,
-            SUM(COALESCE(blocks.white_pop, 0))::BIGINT AS white_pop
+            SUM(COALESCE(blocks.white_pop, 0))::BIGINT AS white_pop,
+            SUM(COALESCE(blocks.two_or_more_races_pop, 0))::BIGINT AS two_or_more_races_pop
         FROM document.assignments
         LEFT JOIN gerrydb.%I blocks
         ON blocks.path = assignments.geo_id
