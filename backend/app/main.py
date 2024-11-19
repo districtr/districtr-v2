@@ -5,7 +5,7 @@ from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam, func
+from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
 
 import sentry_sdk
@@ -107,9 +107,7 @@ async def create_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label(
-                "available_summary_stats"
-            ),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
         )
         .where(Document.document_id == document_id)
         .join(
@@ -261,7 +259,6 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document(document_id: str, session: Session = Depends(get_session)):
-
     stmt = (
         select(
             Document.document_id,
@@ -273,9 +270,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label(
-                "available_summary_stats"
-            ),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
