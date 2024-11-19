@@ -88,6 +88,8 @@ def load_sample_data(config):
                     view["parent_layer_name"],
                     "--child-layer-name",
                     view["child_layer_name"],
+                    "--num-districts",
+                    5,
                     "--gerrydb-table-name",
                     view["gerrydb_table_name"],
                     "--tiles-s3-path",
@@ -115,6 +117,8 @@ def load_sample_data(config):
                     view["parent_layer_name"],
                     "--gerrydb-table-name",
                     view["gerrydb_table_name"],
+                    "--num-districts",
+                    5,
                     "--tiles-s3-path",
                     view["tiles_s3_path"],
                 ]
