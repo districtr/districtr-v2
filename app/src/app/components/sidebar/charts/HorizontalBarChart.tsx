@@ -63,6 +63,7 @@ export const HorizontalBar = () => {
 
   useMemo(() => {
     if (mapMetrics) {
+      console.log(numDistricts, idealPopulation);
       const chartObject = calculateChartObject();
       setTotalExpectedBars(chartObject);
     }

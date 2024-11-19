@@ -74,15 +74,17 @@ export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
     }
   });
   fetchTotPop.subscribe(response => {
-    if (response?.data?.results?.length) {
-      useMapStore.getState().setSummaryStat('totpop', {data: response.data.results[0]});
+    if (response?.data?.results) {
+      console.log(response?.data?.results);
+      useMapStore.getState().setSummaryStat('totpop', {data: response.data.results});
       useMapStore.getState().setSummaryStat('idealpop', {
         data:
-          getEntryTotal(response.data.results[0]) /
+          getEntryTotal(response.data.results) /
           (useMapStore.getState().mapDocument?.num_districts ?? 1),
       });
     } else {
       useMapStore.getState().setSummaryStat('totpop', undefined);
+      console.log('no totpop');
     }
   });
 };
