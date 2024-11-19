@@ -123,15 +123,16 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
         const isHover = layerId.includes('hover');
         const isParent = PARENT_LAYERS.includes(layerId);
-        // isHover &&
-        //   mapRef.setPaintProperty(
-        //     layerId,
-        //     'fill-opacity',
-        //     getLayerFill(
-        //       captiveIds.size ? captiveIds : undefined,
-        //       isParent ? shatterIds.parents : undefined
-        //     )
-        //   );
+        if (isHover && mapRef.getLayer(layerId)) {
+          mapRef.setPaintProperty(
+            layerId,
+            'fill-opacity',
+            getLayerFill(
+              captiveIds.size ? captiveIds : undefined,
+              isParent ? shatterIds.parents : undefined
+            )
+          );
+        }
       });
       const [lockPaintedAreas, prevLockPaintedAreas] = [curr[6], prev[6]];
       const sameLockedAreas =
@@ -270,15 +271,16 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
         const isHover = layerId.includes('hover');
         const isParent = PARENT_LAYERS.includes(layerId);
-        // isHover &&
-        //   mapRef.setPaintProperty(
-        //     layerId,
-        //     'fill-opacity',
-        //     getLayerFill(
-        //       captiveIds.size ? captiveIds : undefined,
-        //       isParent ? shatterIds.parents : undefined
-        //     )
-        //   );
+        if (isHover && mapRef.getLayer(layerId)) {
+          mapRef.setPaintProperty(
+            layerId,
+            'fill-opacity',
+            getLayerFill(
+              captiveIds.size ? captiveIds : undefined,
+              isParent ? shatterIds.parents : undefined
+            )
+          );
+        }
       });
 
       CHILD_LAYERS.forEach(layerId => {

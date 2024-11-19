@@ -15,6 +15,7 @@ import {MobileColorPicker} from './MobileColorPicker';
 
 export default function SidebarComponent() {
   const activeTool = useMapStore(state => state.activeTool);
+  const shatterEnabled = useMapStore(state => state.mapDocument?.child_layer);
 
   return (
     <Box

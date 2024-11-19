@@ -909,12 +909,13 @@ export const useMapStore = create(
       equality: (pastState, currentState) => {
         return (
           pastState.zoneAssignments === currentState.zoneAssignments &&
-          pastState.zoneAssignments.size === currentState.zoneAssignments.size &&
-          (() => {
-            const pastArray = Array.from(pastState.zoneAssignments.entries());
-            const curr = currentState.zoneAssignments;
-            return pastArray.every(([k, v], i) => curr.get(k) === v);
-          })()
+          pastState.zoneAssignments.size === currentState.zoneAssignments.size
+          // &&
+          // (() => {
+          //   const pastArray = Array.from(pastState.zoneAssignments.entries());
+          //   const curr = currentState.zoneAssignments;
+          //   return pastArray.every(([k, v], i) => curr.get(k) === v);
+          // })()
         );
       },
       limit: 7,
