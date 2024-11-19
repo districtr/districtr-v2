@@ -96,6 +96,17 @@ class DistrictrMapPublic(BaseModel):
     available_summary_stats: list[str] | None = None
 
 
+class DistrictrMapUpdate(BaseModel):
+    gerrydb_table_name: str
+    name: str | None = None
+    parent_layer: str | None = None
+    child_layer: str | None = None
+    tiles_s3_path: str | None = None
+    num_districts: int | None = None
+    visible: bool | None = None
+    available_summary_stats: list[str] | None = None
+
+
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     # Must correspond to the layer name in the tileset
