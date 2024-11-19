@@ -3,7 +3,7 @@
  */
 'use client';
 import type {Map as MapLibreMap, MapLayerMouseEvent, MapLayerTouchEvent} from 'maplibre-gl';
-import {useMapStore} from '@/app/store/mapStore';
+import {debounceSetZoneAssignments, useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
@@ -86,6 +86,8 @@ export const handleMapMouseUp = (
   if ((activeTool === 'brush' || activeTool === 'eraser') && isPainting) {
     // set isPainting to false
     mapStore.setIsPainting(false);
+    debounceSetZoneAssignments.cancel();
+    mapStore.setZoneAssignments(mapStore.selectedZone, mapStore.accumulatedGeoids);
   }
 };
 
@@ -122,7 +124,7 @@ export const handleMapMouseLeave = (
 ) => {
   const {setHoverFeatures, setIsPainting} = useMapStore.getState();
   setHoverFeatures([]);
-  setIsPainting(false)
+  setIsPainting(false);
 };
 
 export const handleMapMouseOut = (
@@ -131,7 +133,7 @@ export const handleMapMouseOut = (
 ) => {
   const {setHoverFeatures, setIsPainting} = useMapStore.getState();
   setHoverFeatures([]);
-  setIsPainting(false)
+  setIsPainting(false);
 };
 
 export const handleMapMouseMove = (

@@ -70,7 +70,7 @@ export function getLayerFill(
   captiveIds?: Set<string>,
   shatterIds?: Set<string>
 ): DataDrivenPropertyValueSpecification<number> {
-  const innerFillSpec = ([
+  const innerFillSpec = [
     'case',
     // is broken parent
     ['boolean', ['feature-state', 'broken'], false],
@@ -112,7 +112,7 @@ export function getLayerFill(
     ['boolean', ['feature-state', 'hover'], false],
     0.6,
     0.2,
-  ] as unknown) as DataDrivenPropertyValueSpecification<number>;
+  ] as unknown as DataDrivenPropertyValueSpecification<number>;
   if (captiveIds?.size) {
     return [
       'case',

@@ -59,13 +59,16 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       );
       // remove zone from parents
       shatterIds.parents.forEach(id => {
-        mapRef?.setFeatureState({
-          source: BLOCK_SOURCE_ID,
-          id,
-          sourceLayer: mapDocument?.parent_layer,
-        }, {
-          broken: true
-        });
+        mapRef?.setFeatureState(
+          {
+            source: BLOCK_SOURCE_ID,
+            id,
+            sourceLayer: mapDocument?.parent_layer,
+          },
+          {
+            broken: true,
+          }
+        );
       });
 
       mapRef.once('render', () => {
@@ -120,15 +123,15 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
         const isHover = layerId.includes('hover');
         const isParent = PARENT_LAYERS.includes(layerId);
-        isHover &&
-          mapRef.setPaintProperty(
-            layerId,
-            'fill-opacity',
-            getLayerFill(
-              captiveIds.size ? captiveIds : undefined,
-              isParent ? shatterIds.parents : undefined
-            )
-          );
+        // isHover &&
+        //   mapRef.setPaintProperty(
+        //     layerId,
+        //     'fill-opacity',
+        //     getLayerFill(
+        //       captiveIds.size ? captiveIds : undefined,
+        //       isParent ? shatterIds.parents : undefined
+        //     )
+        //   );
       });
       const [lockPaintedAreas, prevLockPaintedAreas] = [curr[6], prev[6]];
       const sameLockedAreas =
@@ -267,15 +270,15 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
         const isHover = layerId.includes('hover');
         const isParent = PARENT_LAYERS.includes(layerId);
-        isHover &&
-          mapRef.setPaintProperty(
-            layerId,
-            'fill-opacity',
-            getLayerFill(
-              captiveIds.size ? captiveIds : undefined,
-              isParent ? shatterIds.parents : undefined
-            )
-          );
+        // isHover &&
+        //   mapRef.setPaintProperty(
+        //     layerId,
+        //     'fill-opacity',
+        //     getLayerFill(
+        //       captiveIds.size ? captiveIds : undefined,
+        //       isParent ? shatterIds.parents : undefined
+        //     )
+        //   );
       });
 
       CHILD_LAYERS.forEach(layerId => {
@@ -286,21 +289,33 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
 
   const highlightUnassignedSub = useMapStore.subscribe(
     state => state.mapOptions.higlightUnassigned,
-    (higlightUnassigned) => {
+    higlightUnassigned => {
       const {getMapRef, mapDocument} = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef || !mapDocument?.parent_layer) return;
       // set the layer BLOCK_LAYER_ID_HIGHLIGHT style to be the return from getHighlightLayerSpecification
-      const paintStyle = getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT, higlightUnassigned)['paint']
-      if (!paintStyle) return
-      if(mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT)){
+      const paintStyle = getHighlightLayerSpecification(
+        mapDocument.parent_layer,
+        BLOCK_LAYER_ID_HIGHLIGHT,
+        higlightUnassigned
+      )['paint'];
+      if (!paintStyle) return;
+      if (mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT)) {
         mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-width', paintStyle['line-width']);
         mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-color', paintStyle['line-color']);
       }
-      if(mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT_CHILD)){
-        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-width', paintStyle['line-width']);
-        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-color', paintStyle['line-color']);
-      } 
+      if (mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT_CHILD)) {
+        mapRef.setPaintProperty(
+          BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+          'line-width',
+          paintStyle['line-width']
+        );
+        mapRef.setPaintProperty(
+          BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+          'line-color',
+          paintStyle['line-color']
+        );
+      }
     }
   );
   return [

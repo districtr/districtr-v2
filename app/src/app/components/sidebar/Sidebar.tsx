@@ -3,6 +3,7 @@ import DataPanels from './DataPanels';
 import {Box, Flex, Heading} from '@radix-ui/themes';
 import {MapModeSelector} from './MapModeSelector';
 import {ResetMapButton} from './ResetMapButton';
+import {UndoRedoButton} from './UndoRedoButton';
 import {GerryDBViewSelector} from './GerryDBViewSelector';
 import {useMapStore} from '@/app/store/mapStore';
 import PaintByCounty from './PaintByCounty';
@@ -63,6 +64,12 @@ export default function SidebarComponent() {
         ) : null}
         <ResetMapButton />
         <ExitBlockViewButtons />
+        {!shatterEnabled && (
+          <Flex direction="row" gap="3">
+            <UndoRedoButton isRedo={false} />
+            <UndoRedoButton isRedo />
+          </Flex>
+        )}
 
         <Box
           display={{
