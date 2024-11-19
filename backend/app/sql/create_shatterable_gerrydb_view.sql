@@ -30,7 +30,7 @@ BEGIN
       AND column_name != 'ogc_fid'; -- ogr2ogr adds a primary key if one is not present
 
     sql_query := format('
-        CREATE MATERIALIZED VIEW gerrydb.%I AS
+        CREATE MATERIALIZED VIEW IF NOT EXISTS gerrydb.%I AS
         SELECT %s FROM gerrydb.%I
         UNION ALL
         SELECT %s
