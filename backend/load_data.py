@@ -76,7 +76,7 @@ def load_sample_data(config):
 
         if result is not None and result > 0:
             print(f"Districtr map {name} already exists.")
-        
+
         args = [
             "python3",
             "cli.py",
@@ -97,9 +97,9 @@ def load_sample_data(config):
         if is_shatterable:
             args.append("--child-layer-name")
             args.append(view["child_layer_name"])
-        
+
         subprocess.run(args)
-        
+
         if is_shatterable:
             subprocess.run(
                 [
@@ -110,7 +110,6 @@ def load_sample_data(config):
                     view["gerrydb_table_name"],
                 ]
             )
-
 
 
 if __name__ == "__main__":
