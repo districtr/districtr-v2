@@ -1,4 +1,6 @@
-CREATE OR REPLACE FUNCTION get_summary_p4_totals(gerrydb_table TEXT)
+DROP FUNCTION IF EXISTS get_summary_p4_totals(TEXT);
+
+CREATE FUNCTION get_summary_p4_totals(gerrydb_table TEXT)
 RETURNS TABLE (
     hispanic_vap BIGINT,
     non_hispanic_asian_vap BIGINT,
@@ -6,7 +8,8 @@ RETURNS TABLE (
     non_hispanic_nhpi_vap BIGINT,
     non_hispanic_black_vap BIGINT,
     non_hispanic_white_vap BIGINT,
-    non_hispanic_other_vap BIGINT
+    non_hispanic_other_vap BIGINT,
+    non_hispanic_two_or_more_races_vap BIGINT
 ) AS $$
 DECLARE
     table_exists BOOLEAN;
@@ -33,7 +36,8 @@ BEGIN
         SUM(COALESCE(non_hispanic_nhpi_vap, 0))::BIGINT AS non_hispanic_nhpi_vap,
         SUM(COALESCE(non_hispanic_black_vap, 0))::BIGINT AS non_hispanic_black_vap,
         SUM(COALESCE(non_hispanic_white_vap, 0))::BIGINT AS non_hispanic_white_vap,
-        SUM(COALESCE(non_hispanic_other_vap, 0))::BIGINT AS non_hispanic_other_vap
+        SUM(COALESCE(non_hispanic_other_vap, 0))::BIGINT AS non_hispanic_other_vap,
+        SUM(COALESCE(non_hispanic_two_or_more_races_vap, 0))::BIGINT AS non_hispanic_two_or_more_races_vap
         FROM gerrydb.%I
     ', $1);
     RETURN QUERY EXECUTE sql_query;
