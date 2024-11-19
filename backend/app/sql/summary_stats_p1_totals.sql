@@ -1,11 +1,14 @@
-CREATE OR REPLACE FUNCTION get_summary_p1_totals(gerrydb_table TEXT)
+DROP FUNCTION IF EXISTS get_summary_p1_totals(TEXT);
+
+CREATE FUNCTION get_summary_p1_totals(gerrydb_table TEXT)
 RETURNS TABLE (
     other_pop BIGINT,
     asian_pop BIGINT,
     amin_pop BIGINT,
     nhpi_pop BIGINT,
     black_pop BIGINT,
-    white_pop BIGINT
+    white_pop BIGINT,
+    two_or_more_races_pop BIGINT
 ) AS $$
 DECLARE
     table_exists BOOLEAN;
@@ -31,7 +34,8 @@ BEGIN
             SUM(COALESCE(amin_pop, 0))::BIGINT AS amin_pop,
             SUM(COALESCE(nhpi_pop, 0))::BIGINT AS nhpi_pop,
             SUM(COALESCE(black_pop, 0))::BIGINT AS black_pop,
-            SUM(COALESCE(white_pop, 0))::BIGINT AS white_pop
+            SUM(COALESCE(white_pop, 0))::BIGINT AS white_pop,
+            SUM(COALESCE(two_or_more_races_pop, 0))::BIGINT AS two_or_more_races_pop
         FROM gerrydb.%I
     ', $1);
     RETURN QUERY EXECUTE sql_query;

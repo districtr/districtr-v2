@@ -537,9 +537,10 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         parent_layer_name=layer,
         gerrydb_table_name=layer,
     )
-    add_available_summary_stats_to_districtrmap(
+    summary_stats = add_available_summary_stats_to_districtrmap(
         session=session, districtr_map_uuid=districtr_map_uuid
     )
+    assert summary_stats == ["P1"], f"Expected P1 to be available, got {summary_stats}"
 
     session.commit()
 

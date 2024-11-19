@@ -207,6 +207,7 @@ class PopulationStatsP1(BaseModel):
     nhpi_pop: int
     black_pop: int
     white_pop: int
+    two_or_more_races_pop: int
 
 
 class SummaryStatsP1(PopulationStatsP1):
