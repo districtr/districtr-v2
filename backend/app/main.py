@@ -5,7 +5,7 @@ from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam, func
+from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
 
 import sentry_sdk

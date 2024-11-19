@@ -63,7 +63,6 @@ export const HorizontalBar = () => {
 
   useMemo(() => {
     if (mapMetrics) {
-      console.log(numDistricts, idealPopulation);
       const chartObject = calculateChartObject();
       setTotalExpectedBars(chartObject);
     }
@@ -88,7 +87,7 @@ export const HorizontalBar = () => {
   return (
     <Flex gap="3" direction="column">
       <Heading as="h3" size="3">
-        Population by District
+        Population by district
       </Heading>
       <ResponsiveContainer width="100%" minHeight="350px">
         <BarChart
