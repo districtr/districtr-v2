@@ -171,6 +171,7 @@ export interface P1ZoneSummaryStats {
   nhpi_pop: number;
   black_pop: number;
   white_pop: number;
+  two_or_more_races_pop: number;
 }
 export type P1TotPopSummaryStats = Omit<P1ZoneSummaryStats, 'zone'>;
 
@@ -181,6 +182,7 @@ export const P1ZoneSummaryStatsKeys = [
   'nhpi_pop',
   'black_pop',
   'white_pop',
+  'two_or_more_races_pop',
 ] as const;
 
 export const CleanedP1ZoneSummaryStatsKeys = [
@@ -192,6 +194,7 @@ export const CleanedP1ZoneSummaryStatsKeys = [
   'nhpi_pop_pct',
   'black_pop_pct',
   'white_pop_pct',
+  'two_or_more_races_pop_pct',
 ] as const;
 
 export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
@@ -202,6 +205,7 @@ export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
   nhpi_pop_pct: number;
   black_pop_pct: number;
   white_pop_pct: number;
+  two_or_more_races_pop_pct: number;
 }
 
 /**

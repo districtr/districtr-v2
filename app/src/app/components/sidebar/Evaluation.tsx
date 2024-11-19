@@ -3,12 +3,11 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useQuery} from '@tanstack/react-query';
 import {
   CleanedP1ZoneSummaryStats,
-  CleanedP1ZoneSummaryStatsKeys,
   getP1SummaryStats,
   P1ZoneSummaryStats,
   P1ZoneSummaryStatsKeys,
 } from '@/app/utils/api/apiHandlers';
-import {Button, Checkbox, CheckboxGroup} from '@radix-ui/themes';
+import {Button, CheckboxGroup} from '@radix-ui/themes';
 import {Heading, Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
