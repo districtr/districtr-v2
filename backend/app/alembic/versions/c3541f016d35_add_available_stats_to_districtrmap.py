@@ -26,7 +26,8 @@ def upgrade() -> None:
     )
 
     op.execute(
-        sa.text("""
+        sa.text(
+            """
         UPDATE districtrmap d
         SET available_summary_stats = (
             SELECT
@@ -40,7 +41,8 @@ def upgrade() -> None:
                 (SELECT ARRAY_AGG(summary_stat) FROM get_available_summary_stats(d.parent_layer))
             END
         )
-    """)
+    """
+        )
     )
 
 

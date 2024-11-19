@@ -23,19 +23,19 @@ import {
   getFeaturesInBbox,
   resetZoneColors,
   setZones,
-} from "../utils/helpers";
-import { getRenderSubscriptions } from "./mapRenderSubs";
-import { getSearchParamsObersver } from "../utils/api/queryParamsListener";
-import { getMapMetricsSubs } from "./metricsSubs";
-import { getMapEditSubs } from "./mapEditSubs";
-import { getQueriesResultsSubs } from "../utils/api/queries";
-import { persistOptions } from "./persistConfig";
+} from '../utils/helpers';
+import {getRenderSubscriptions} from './mapRenderSubs';
+import {getSearchParamsObersver} from '../utils/api/queryParamsListener';
+import {getMapMetricsSubs} from './metricsSubs';
+import {getMapEditSubs} from './mapEditSubs';
+import {getQueriesResultsSubs} from '../utils/api/queries';
+import {persistOptions} from './persistConfig';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
-import { onlyUnique } from '../utils/arrays';
-import { queryClient } from '../utils/api/queryClient';
+import {onlyUnique} from '../utils/arrays';
+import {queryClient} from '../utils/api/queryClient';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -80,13 +80,16 @@ export interface MapStore {
   setMapDocument: (mapDocument: DocumentObject) => void;
   summaryStats: {
     totpop?: {
-      data: P1TotPopSummaryStats
-    } 
-  },
+      data: P1TotPopSummaryStats;
+    };
+    idealpop?: {
+      data: number;
+    };
+  };
   setSummaryStat: <T extends keyof MapStore['summaryStats']>(
     stat: T,
     value: MapStore['summaryStats'][T]
-  ) => void,
+  ) => void;
   // SHATTERING
   /**
    * A subset of IDs that a user is working on in a focused view.
@@ -375,20 +378,20 @@ export const useMapStore = create(
             setFreshMap,
             resetZoneAssignments,
             upsertUserMap,
-            mapOptions
+            mapOptions,
           } = get();
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
           }
-          setFreshMap(true)
-          resetZoneAssignments()
-          upsertUserMap({mapDocument})
-          
+          setFreshMap(true);
+          resetZoneAssignments();
+          upsertUserMap({mapDocument});
+
           set({
             mapDocument: mapDocument,
             mapOptions: {
               ...mapOptions,
-              bounds: mapDocument.extent
+              bounds: mapDocument.extent,
             },
             shatterIds: {parents: new Set(), children: new Set()},
           });
@@ -398,9 +401,9 @@ export const useMapStore = create(
           set({
             summaryStats: {
               ...get().summaryStats,
-              [stat]: value
-            }
-          })
+              [stat]: value,
+            },
+          });
         },
         // TODO: Refactor to something like this
         // featureStates: {
@@ -581,13 +584,16 @@ export const useMapStore = create(
               delete shatterMappings[parent.parentId];
               newShatterIds.parents.delete(parent.parentId);
               newZoneAssignments.set(parent.parentId, parent.zone!);
-              mapRef?.setFeatureState({
-                source: BLOCK_SOURCE_ID,
-                id: parent.parentId,
-                sourceLayer: mapDocument?.parent_layer,
-              }, {
-                broken: false
-              });
+              mapRef?.setFeatureState(
+                {
+                  source: BLOCK_SOURCE_ID,
+                  id: parent.parentId,
+                  sourceLayer: mapDocument?.parent_layer,
+                },
+                {
+                  broken: false,
+                }
+              );
             });
 
             set({
@@ -633,8 +639,12 @@ export const useMapStore = create(
               userMaps.splice(i, 1, userMapData); // Replace the map at index i with the new data
             } else {
               const urlParams = new URL(window.location.href).searchParams;
-              urlParams.delete("document_id"); // Remove the document_id parameter
-              window.history.pushState({}, '', window.location.pathname + '?' + urlParams.toString()); // Update the URL without document_id
+              urlParams.delete('document_id'); // Remove the document_id parameter
+              window.history.pushState(
+                {},
+                '',
+                window.location.pathname + '?' + urlParams.toString()
+              ); // Update the URL without document_id
               userMaps.splice(i, 1);
             }
           }
@@ -783,8 +793,8 @@ export const useMapStore = create(
         selectedZone: 1,
         setSelectedZone: zone => set({selectedZone: zone}),
         zoneAssignments: new Map(),
-        assignmentsHash: "",
-        setAssignmentsHash: (hash) => set({ assignmentsHash: hash }),
+        assignmentsHash: '',
+        setAssignmentsHash: hash => set({assignmentsHash: hash}),
         accumulatedGeoids: new Set<string>(),
         setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
         setZoneAssignments: (zone, geoids) => {

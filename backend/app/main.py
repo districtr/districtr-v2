@@ -94,6 +94,7 @@ async def create_document(
         {"gerrydb_table_name": data.gerrydb_table},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
+
     stmt = (
         select(
             Document.document_id,
@@ -106,7 +107,9 @@ async def create_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
         )
         .where(Document.document_id == document_id)
         .join(
@@ -119,7 +122,7 @@ async def create_document(
     # Document id has a unique constraint so I'm not sure we need to hit the DB again here
     # more valuable would be to check that the assignments table
     doc = session.exec(
-        stmt
+        stmt,
     ).one()  # again if we've got more than one, we have problems.
     if not doc.map_uuid:
         session.rollback()
@@ -134,6 +137,7 @@ async def create_document(
             detail="Document creation failed",
         )
     session.commit()
+
     return doc
 
 
@@ -218,10 +222,12 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 
     # Recreate the partition
     session.execute(
-        text(f"""
+        text(
+            f"""
         CREATE TABLE {partition_name} PARTITION OF document.assignments
         FOR VALUES IN ('{document_id}');
-    """)
+    """
+        )
     )
     session.commit()
 
@@ -255,6 +261,7 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document(document_id: str, session: Session = Depends(get_session)):
+
     stmt = (
         select(
             Document.document_id,
@@ -266,7 +273,9 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(

@@ -61,13 +61,15 @@ def ks_demo_view_census_blocks_fixture(session: Session):
 def ks_demo_view_census_blocks_districtrmap_fixture(
     session: Session, ks_demo_view_census_blocks_total_vap: None
 ):
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.begin()
     session.execute(upsert_query, {"name": GERRY_DB_FIXTURE_NAME})
@@ -104,13 +106,15 @@ def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
 def ks_demo_view_census_blocks_total_vap_districtrmap_fixture(
     session: Session, ks_demo_view_census_blocks_total_vap: None
 ):
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.begin()
     session.execute(upsert_query, {"name": GERRY_DB_TOTAL_VAP_FIXTURE_NAME})
@@ -147,13 +151,15 @@ def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
 def ks_demo_view_census_blocks_no_pop_districtrmap_fixture(
     session: Session, ks_demo_view_census_blocks_no_pop: None
 ):
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.begin()
     session.execute(upsert_query, {"name": GERRY_DB_NO_POP_FIXTURE_NAME})
@@ -513,13 +519,15 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         ],
     )
 
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.execute(upsert_query, {"name": layer})
 
@@ -598,13 +606,15 @@ def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
         ],
     )
 
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.execute(upsert_query, {"name": layer})
 
