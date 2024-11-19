@@ -6,10 +6,12 @@ from app.utils import (
     create_parent_child_edges,
     add_extent_to_districtrmap,
     get_available_summary_stats,
+    update_districtrmap,
 )
 from sqlmodel import Session
 import subprocess
 from app.constants import GERRY_DB_SCHEMA
+from app.models import DistrictrMap
 from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
 
@@ -191,6 +193,36 @@ def test_create_districtr_map_some_nulls(session: Session, simple_parent_geos_ge
         parent_layer_name="simple_parent_geos",
     )
     session.commit()
+
+
+@pytest.fixture(name="simple_parent_geos_districtrmap")
+def simple_parent_geos_districtrmap_fixture(
+    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
+):
+    gerrydb_name = "simple_geos_test"
+    (inserted_districtr_map,) = create_districtr_map(
+        session,
+        name="Simple shatterable layer",
+        gerrydb_table_name=gerrydb_name,
+        num_districts=10,
+        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
+        parent_layer_name="simple_parent_geos",
+        child_layer_name="simple_child_geos",
+        visibility=True,
+    )
+    session.commit()
+    return gerrydb_name
+
+
+def test_update_districtr_map(session: Session, simple_parent_geos_districtrmap):
+    result = update_districtrmap(
+        session=session,
+        gerrydb_table_name=simple_parent_geos_districtrmap,
+        visible=False,
+    )
+    session.commit()
+    districtr_map = DistrictrMap.model_validate(result)
+    assert not districtr_map.visible
 
 
 def test_add_extent_to_districtrmap(session: Session, simple_parent_geos_gerrydb):
