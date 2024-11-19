@@ -12,8 +12,7 @@ import {
   Label,
 } from 'recharts';
 import {colorScheme} from '@/app/constants/colors';
-import {useEffect, useState} from 'react';
-import {getEntryTotal} from '@/app/utils/summaryStats';
+import {useState, useMemo} from 'react';
 
 type TooltipInput = {
   active?: boolean;
@@ -38,18 +37,11 @@ export const HorizontalBar = () => {
   const mapMetrics = useMapStore(state => state.mapMetrics);
   const summaryStats = useMapStore(state => state.summaryStats);
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts);
-  const [idealPopulation, setIdealPopulation] = useState<number | null>(null);
+  const idealPopulation = summaryStats?.idealpop?.data;
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
   const [totalExpectedBars, setTotalExpectedBars] = useState<
     Array<{zone: number; total_pop: number}>
   >([]);
-
-  useEffect(() => {
-    if (summaryStats && numDistricts) {
-      const totalPop = summaryStats.totpop ? getEntryTotal(summaryStats.totpop.data) : 0;
-      setIdealPopulation(totalPop / numDistricts);
-    }
-  }, [summaryStats, numDistricts]);
 
   const calculateChartObject = () => {
     if ((numDistricts ?? 0) < maxNumberOrderedBars) {
@@ -69,7 +61,7 @@ export const HorizontalBar = () => {
     }
   };
 
-  useEffect(() => {
+  useMemo(() => {
     if (mapMetrics) {
       const chartObject = calculateChartObject();
       setTotalExpectedBars(chartObject);
