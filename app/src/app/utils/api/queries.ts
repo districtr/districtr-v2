@@ -10,34 +10,15 @@ import {
   getZonePopulations,
   ZonePopulation,
   SummaryStatsResult,
-  getP1TotPopSummaryStats,
+  getTotPopSummaryStats,
   P1TotPopSummaryStats,
+  P4TotPopSummaryStats,
 } from './apiHandlers';
 import {getEntryTotal} from '@/app/utils/summaryStats';
-import {MapStore, useMapStore} from '@/app/store/mapStore';
+import {useMapStore} from '@/app/store/mapStore';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
-
-/**
- * A utility function that returns a query function based on a nullable parameter.
- *
- * @param callback - A function that takes a parameter of type ParamT and returns a Promise of type ResultT.
- * @param nullableParam - An optional parameter of type ParamT. If this parameter is not provided or is falsy, the function will return a function that returns null.
- *
- * @returns A function that, when called, will either return null (if nullableParam is not provided)
- *          or call the callback function with the nullableParam and return its result.
- *
- * @template ParamT - The type of the parameter that the callback function accepts.
- * @template ResultT - The type of the result that the callback function returns.
- */
-const getNullableParamQuery = <ParamT, ResultT>(
-  callback: (param: ParamT) => Promise<ResultT>,
-  nullableParam?: ParamT
-) => {
-  if (!nullableParam) return () => null;
-  return async () => await callback(nullableParam);
-};
 
 export const mapMetrics = new QueryObserver<ZonePopulation[]>(queryClient, {
   queryKey: ['_zonePopulations'],
@@ -120,12 +101,12 @@ updateDocumentFromId.subscribe(mapDocument => {
 
 export const fetchAssignments = new QueryObserver<null | Assignment[]>(queryClient, {
   queryKey: ['assignments'],
-  queryFn: getNullableParamQuery<MapStore['mapDocument'], Assignment[]>(getAssignments),
+  queryFn: () => getAssignments(useMapStore.getState().mapDocument),
 });
 
 export const updateAssignments = (mapDocument: DocumentObject) => {
   fetchAssignments.setOptions({
-    queryFn: getNullableParamQuery(getAssignments, mapDocument),
+    queryFn: () => getAssignments(mapDocument),
     queryKey: ['assignments', performance.now()],
   });
 };
@@ -136,20 +117,20 @@ fetchAssignments.subscribe(assignments => {
   }
 });
 
-export const fetchTotPop = new QueryObserver<SummaryStatsResult<P1TotPopSummaryStats> | null>(
+export const fetchTotPop = new QueryObserver<SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats> | null>(
   queryClient,
   {
     queryKey: ['gerrydb_tot_pop'],
-    queryFn: getNullableParamQuery<
-      MapStore['mapDocument'],
-      SummaryStatsResult<P1TotPopSummaryStats>
-    >(getP1TotPopSummaryStats),
+    queryFn: () => getTotPopSummaryStats(useMapStore.getState().mapDocument, useMapStore.getState().mapDocument?.available_summary_stats?.[0]),
   }
 );
 
 export const updateTotPop = (mapDocument: DocumentObject | null) => {
   fetchTotPop.setOptions({
-    queryFn: getNullableParamQuery(getP1TotPopSummaryStats, mapDocument),
+    queryFn: () => getTotPopSummaryStats(mapDocument, mapDocument?.available_summary_stats?.[0]),
     queryKey: ['gerrydb_tot_pop', mapDocument?.gerrydb_table],
   });
 };
+
+
+// getNullableParamQuery(, mapDocument, mapDocument?.available_summary_stats?.[0]),
