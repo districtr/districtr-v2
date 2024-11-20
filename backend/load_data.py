@@ -50,9 +50,7 @@ def load_sample_data(config):
         )
         result = session.execute(exists_query).scalar()
         if result:
-            print(
-                f"###\nMaterialized view {view['gerrydb_table_name']} already exists.\n###"
-            )
+            print(f"Materialized view {view['gerrydb_table_name']} already exists.")
         else:
             subprocess.run(
                 [
@@ -76,8 +74,8 @@ def load_sample_data(config):
         )
         result = session.execute(exists_query).scalar()
 
-        if result > 0:
-            print(f"###\Districtr map {name} already exists.\n###")
+        if result is not None and result > 0:
+            print(f"Districtr map {name} already exists.")
         else:
             subprocess.run(
                 [

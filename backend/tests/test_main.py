@@ -11,7 +11,7 @@ from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     FIXTURES_PATH,
 )
-from app.utils import create_districtr_map
+from app.utils import create_districtr_map, add_available_summary_stats_to_districtrmap
 
 
 def test_read_main(client):
@@ -30,6 +30,8 @@ def test_get_session():
 GERRY_DB_FIXTURE_NAME = "ks_demo_view_census_blocks"
 GERRY_DB_TOTAL_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_total_vap"
 GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
+GERRY_DB_P1_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
+GERRY_DB_P4_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_p4"
 
 
 ## Test DB
@@ -47,6 +49,8 @@ def ks_demo_view_census_blocks_fixture(session: Session):
             os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
             "-lco",
             "OVERWRITE=yes",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
             "-nln",
             f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
         ],
@@ -57,13 +61,15 @@ def ks_demo_view_census_blocks_fixture(session: Session):
 def ks_demo_view_census_blocks_districtrmap_fixture(
     session: Session, ks_demo_view_census_blocks_total_vap: None
 ):
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.begin()
     session.execute(upsert_query, {"name": GERRY_DB_FIXTURE_NAME})
@@ -88,6 +94,8 @@ def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
             os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
             "-lco",
             "OVERWRITE=yes",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
             "-nln",
             f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
         ],
@@ -98,13 +106,15 @@ def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
 def ks_demo_view_census_blocks_total_vap_districtrmap_fixture(
     session: Session, ks_demo_view_census_blocks_total_vap: None
 ):
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.begin()
     session.execute(upsert_query, {"name": GERRY_DB_TOTAL_VAP_FIXTURE_NAME})
@@ -129,6 +139,8 @@ def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
             os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
             "-lco",
             "OVERWRITE=yes",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
             "-nln",
             f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
         ],
@@ -139,13 +151,15 @@ def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
 def ks_demo_view_census_blocks_no_pop_districtrmap_fixture(
     session: Session, ks_demo_view_census_blocks_no_pop: None
 ):
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.begin()
     session.execute(upsert_query, {"name": GERRY_DB_NO_POP_FIXTURE_NAME})
@@ -450,3 +464,220 @@ def test_list_gerydb_views_offset_and_limit(client, districtr_maps):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
+
+
+@pytest.fixture(name="districtr_maps_soft_deleted")
+def districtr_map_soft_deleted_fixture(
+    session: Session, ks_demo_view_census_blocks_districtrmap: None
+):
+    for i in range(2):
+        create_districtr_map(
+            session=session,
+            name=f"Districtr map {i}",
+            gerrydb_table_name=f"districtr_map_{i}",
+            parent_layer_name=GERRY_DB_FIXTURE_NAME,
+            visibility=bool(
+                i
+            ),  # Should have one hidden (index 0) and one visible (index 1)
+        )
+    session.commit()
+
+
+def test_list_gerydb_views_soft_deleted_map(
+    client, session, districtr_maps_soft_deleted
+):
+    response = client.get("/api/gerrydb/views")
+    assert response.status_code == 200
+    data = response.json()
+    # One visible from `ks_demo_view_census_blocks_districtrmap`
+    # One hidden from `districtr_maps_soft_deleted`
+    # One visible from `districtr_maps_soft_deleted`
+    assert len(data) == 2
+
+    # Check that the hidden map is there
+    stmt = text("SELECT * FROM districtrmap WHERE not visible")
+    result = session.execute(stmt).one()
+    assert result is not None
+    assert not result[-1]  # visible column is False
+    assert data[0]["name"] == "Districtr map ks_demo_view_census_blocks"
+
+
+@pytest.fixture(name=GERRY_DB_P1_FIXTURE_NAME)
+def ks_demo_view_census_blocks_summary_stats(session: Session):
+    layer = GERRY_DB_P1_FIXTURE_NAME
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",
+        ],
+    )
+
+    upsert_query = text(
+        """
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """
+    )
+
+    session.execute(upsert_query, {"name": layer})
+
+    (districtr_map_uuid,) = create_districtr_map(
+        session=session,
+        name="DistrictMap with P1 view",
+        parent_layer_name=layer,
+        gerrydb_table_name=layer,
+    )
+    summary_stats = add_available_summary_stats_to_districtrmap(
+        session=session, districtr_map_uuid=districtr_map_uuid
+    )
+    assert summary_stats == ["P1"], f"Expected P1 to be available, got {summary_stats}"
+
+    session.commit()
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="document_id_p1_summary_stats")
+def document_summary_stats_fixture(client, ks_demo_view_census_blocks_summary_stats):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_P1_FIXTURE_NAME,
+        },
+    )
+    document_id = response.json()["document_id"]
+    return document_id
+
+
+def test_get_p1_summary_stats(client, document_id_p1_summary_stats):
+    # Set up assignments
+    document_id = document_id_p1_summary_stats
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
+            ]
+        },
+    )
+
+    summary_stat = "P1"
+    response = client.get(f"/api/document/{document_id}/{summary_stat}")
+    data = response.json()
+    assert response.status_code == 200
+    assert data.get("summary_stat") == "Population by Race"
+    results = data.get("results")
+    assert results is not None
+    assert len(results) == 2
+    record_1, record_2 = data.get("results")
+    assert record_1.get("zone") == 1
+    assert record_2.get("zone") == 2
+    assert record_1.get("other_pop") == 13
+    assert record_2.get("other_pop") == 24
+
+
+@pytest.fixture(name=GERRY_DB_P4_FIXTURE_NAME)
+def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
+    layer = GERRY_DB_P4_FIXTURE_NAME
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",
+        ],
+    )
+
+    upsert_query = text(
+        """
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """
+    )
+
+    session.execute(upsert_query, {"name": layer})
+
+    (districtr_map_uuid,) = create_districtr_map(
+        session=session,
+        name="DistrictMap with P4 view",
+        parent_layer_name=layer,
+        gerrydb_table_name=layer,
+    )
+    summary_stats = add_available_summary_stats_to_districtrmap(
+        session=session, districtr_map_uuid=districtr_map_uuid
+    )
+    assert summary_stats == ["P4"], f"Expected P4 to be available, got {summary_stats}"
+
+    session.commit()
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="document_id_p4_summary_stats")
+def document_p4_summary_stats_fixture(
+    client, ks_demo_view_census_blocks_summary_stats_p4
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_P4_FIXTURE_NAME,
+        },
+    )
+    document_id = response.json()["document_id"]
+    return document_id
+
+
+def test_get_p4_summary_stats(client, document_id_p4_summary_stats):
+    # Set up assignments
+    document_id = str(document_id_p4_summary_stats)
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
+            ]
+        },
+    )
+
+    summary_stat = "P4"
+    response = client.get(f"/api/document/{document_id}/{summary_stat}")
+    data = response.json()
+    assert response.status_code == 200
+    assert (
+        data.get("summary_stat")
+        == "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+    )
+    results = data.get("results")
+    assert results is not None
+    assert len(results) == 2
+    record_1, record_2 = data.get("results")
+    assert record_1.get("zone") == 1
+    assert record_2.get("zone") == 2
+    assert record_1.get("hispanic_vap") == 13
+    assert record_2.get("hispanic_vap") == 24

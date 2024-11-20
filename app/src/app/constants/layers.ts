@@ -3,6 +3,7 @@ import {
   ExpressionSpecification,
   FilterSpecification,
   LayerSpecification,
+  LineLayerSpecification,
 } from 'maplibre-gl';
 import {Map} from 'maplibre-gl';
 import {getBlocksSource} from './sources';
@@ -13,6 +14,7 @@ import {colorScheme} from './colors';
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
 export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';
+export const BLOCK_LAYER_ID_HIGHLIGHT_CHILD = BLOCK_LAYER_ID + '-highlight-child';
 export const BLOCK_LAYER_ID_CHILD = 'blocks-child';
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
@@ -21,7 +23,13 @@ export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CH
 export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const
 
 export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]; 
-export const CHILD_LAYERS = [BLOCK_LAYER_ID_CHILD, BLOCK_HOVER_LAYER_ID_CHILD];
+
+export const CHILD_LAYERS = [
+  BLOCK_LAYER_ID_CHILD,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+];
+
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   'case',
   ['boolean', ['feature-state', 'hover'], false],
@@ -68,8 +76,11 @@ export function getLayerFill(
   captiveIds?: Set<string>,
   shatterIds?: Set<string>
 ): DataDrivenPropertyValueSpecification<number> {
-  const innerFillSpec = [
+  const innerFillSpec = ([
     'case',
+    // is broken parent
+    ['boolean', ['feature-state', 'broken'], false],
+    0,
     // geography is locked
     ['boolean', ['feature-state', 'locked'], false],
     0.35,
@@ -107,7 +118,7 @@ export function getLayerFill(
     ['boolean', ['feature-state', 'hover'], false],
     0.6,
     0.2,
-  ] as unknown as DataDrivenPropertyValueSpecification<number>;
+  ] as unknown) as DataDrivenPropertyValueSpecification<number>;
   if (captiveIds?.size) {
     return [
       'case',
@@ -128,8 +139,9 @@ export function getLayerFill(
 }
 export function getHighlightLayerSpecification(
   sourceLayer: string,
-  layerId: string
-): LayerSpecification {
+  layerId: string,
+  highlightUnassigned?: boolean
+): LineLayerSpecification {
   return {
     id: layerId,
     source: BLOCK_SOURCE_ID,
@@ -147,15 +159,29 @@ export function getHighlightLayerSpecification(
         '#000000', // Black color when focused
         ['boolean', ['feature-state', 'highlighted'], false],
         '#e5ff00', // yellow color when highlighted
+        ['boolean', ['feature-state', 'highlighted'], false],
+        '#e5ff00', // yellow color when highlighted
+        // @ts-ignore right behavior, wrong types
+        ['==', ['feature-state', 'zone'], null],
+        '#FF0000', // optionally red color when zone is not assigned
         '#000000', // Default color
       ],
       'line-width': [
         'case',
-        ['boolean', ['feature-state', 'focused'], false],
-        5, // Width of 5 when focused
-        ['boolean', ['feature-state', 'highlighted'], false],
-        5, // Width of 5 when highlighted
-        0, // Default width
+        [
+          'any',
+          ['boolean', ['feature-state', 'focused'], false],
+          ['boolean', ['feature-state', 'highlighted'], false],
+          [
+            'all',
+            // @ts-ignore correct logic, wrong types
+            ['==', ['feature-state', 'zone'], null],
+            ['boolean', !!highlightUnassigned],
+            ['!', ['boolean', ['feature-state', 'broken'], false]],
+          ],
+        ],
+        3.5,
+        0, // Default width if none of the conditions are met
       ],
     },
   };
@@ -238,15 +264,13 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
       getBlocksHoverLayerSpecification(mapDocument.child_layer, BLOCK_HOVER_LAYER_ID_CHILD),
       LABELS_BREAK_LAYER_ID
     );
+    map?.addLayer(
+      getHighlightLayerSpecification(mapDocument.child_layer, BLOCK_LAYER_ID_HIGHLIGHT_CHILD),
+      LABELS_BREAK_LAYER_ID
+    );
   }
   map?.addLayer(getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT));
   useMapStore.getState().setMapRenderingState('loaded');
-
-  // update map bounds based on document extent
-  useMapStore.getState().setMapOptions({
-    bounds: mapDocument.extent as [number, number, number, number],
-    container: useMapStore.getState().mapOptions.container,
-  });
 };
 
 export function removeBlockLayers(map: Map | null) {
@@ -254,24 +278,20 @@ export function removeBlockLayers(map: Map | null) {
     return;
   }
   useMapStore.getState().setMapRenderingState('loading');
-  if (map.getLayer(BLOCK_LAYER_ID)) {
-    map.removeLayer(BLOCK_LAYER_ID);
-  }
-  if (map.getLayer(BLOCK_LAYER_ID_HIGHLIGHT)) {
-    map.removeLayer(BLOCK_LAYER_ID_HIGHLIGHT);
-  }
-  if (map.getLayer(BLOCK_HOVER_LAYER_ID)) {
-    map.removeLayer(BLOCK_HOVER_LAYER_ID);
-  }
-  if (map.getLayer(BLOCK_LAYER_ID_CHILD)) {
-    map.removeLayer(BLOCK_LAYER_ID_CHILD);
-  }
-  if (map.getLayer(BLOCK_HOVER_LAYER_ID_CHILD)) {
-    map.removeLayer(BLOCK_HOVER_LAYER_ID_CHILD);
-  }
-  if (map.getSource(BLOCK_SOURCE_ID)) {
-    map.removeSource(BLOCK_SOURCE_ID);
-  }
+  [
+    BLOCK_LAYER_ID,
+    BLOCK_LAYER_ID_HIGHLIGHT,
+    BLOCK_HOVER_LAYER_ID,
+    BLOCK_LAYER_ID_CHILD,
+    BLOCK_HOVER_LAYER_ID_CHILD,
+    BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+  ].forEach(layer => {
+    map.getLayer(layer) && map.removeLayer(layer);
+  });
+
+  [BLOCK_SOURCE_ID].forEach(source => {
+    map.getSource(source) && map.removeSource(source);
+  });
 }
 
 export {addBlockLayers};

@@ -9,8 +9,13 @@ import {
   getDocument,
   getZonePopulations,
   ZonePopulation,
+  SummaryStatsResult,
+  getTotPopSummaryStats,
+  P1TotPopSummaryStats,
+  P4TotPopSummaryStats,
 } from './apiHandlers';
-import {MapStore, useMapStore} from '@/app/store/mapStore';
+import {getEntryTotal} from '@/app/utils/summaryStats';
+import {useMapStore} from '@/app/store/mapStore';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -43,10 +48,23 @@ export const updateMapViews = (limit: number, offset: number) => {
   });
 };
 
-export const getMapViewsSubs = (_useMapStore: typeof useMapStore) => {
+export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
   mapViewsQuery.subscribe(result => {
     if (result) {
       _useMapStore.getState().setMapViews(result);
+    }
+  });
+  fetchTotPop.subscribe(response => {
+    if (response?.data?.results) {
+      console.log(response?.data?.results);
+      useMapStore.getState().setSummaryStat('totpop', {data: response.data.results});
+      useMapStore.getState().setSummaryStat('idealpop', {
+        data:
+          getEntryTotal(response.data.results) /
+          (useMapStore.getState().mapDocument?.num_districts ?? 1),
+      });
+    } else {
+      useMapStore.getState().setSummaryStat('totpop', undefined);
     }
   });
 };
@@ -81,19 +99,14 @@ updateDocumentFromId.subscribe(mapDocument => {
   }
 });
 
-const getFetchAssignmentsQuery = (mapDocument?: MapStore['mapDocument']) => {
-  if (!mapDocument) return () => null;
-  return async () => await getAssignments(mapDocument);
-};
-
 export const fetchAssignments = new QueryObserver<null | Assignment[]>(queryClient, {
   queryKey: ['assignments'],
-  queryFn: getFetchAssignmentsQuery(),
+  queryFn: () => getAssignments(useMapStore.getState().mapDocument),
 });
 
 export const updateAssignments = (mapDocument: DocumentObject) => {
   fetchAssignments.setOptions({
-    queryFn: getFetchAssignmentsQuery(mapDocument),
+    queryFn: () => getAssignments(mapDocument),
     queryKey: ['assignments', performance.now()],
   });
 };
@@ -103,3 +116,21 @@ fetchAssignments.subscribe(assignments => {
     useMapStore.getState().loadZoneAssignments(assignments.data);
   }
 });
+
+export const fetchTotPop = new QueryObserver<SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats> | null>(
+  queryClient,
+  {
+    queryKey: ['gerrydb_tot_pop'],
+    queryFn: () => getTotPopSummaryStats(useMapStore.getState().mapDocument, useMapStore.getState().mapDocument?.available_summary_stats?.[0]),
+  }
+);
+
+export const updateTotPop = (mapDocument: DocumentObject | null) => {
+  fetchTotPop.setOptions({
+    queryFn: () => getTotPopSummaryStats(mapDocument, mapDocument?.available_summary_stats?.[0]),
+    queryKey: ['gerrydb_tot_pop', mapDocument?.gerrydb_table],
+  });
+};
+
+
+// getNullableParamQuery(, mapDocument, mapDocument?.available_summary_stats?.[0]),

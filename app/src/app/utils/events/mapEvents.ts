@@ -120,17 +120,19 @@ export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  const mapStore = useMapStore.getState();
-  const activeTool = mapStore.activeTool;
-  const sourceLayer = mapStore.mapDocument?.parent_layer;
-  const setHoverFeatures = mapStore.setHoverFeatures;
+  const {setHoverFeatures, setIsPainting} = useMapStore.getState();
   setHoverFeatures([]);
+  setIsPainting(false)
 };
 
 export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
-) => {};
+) => {
+  const {setHoverFeatures, setIsPainting} = useMapStore.getState();
+  setHoverFeatures([]);
+  setIsPainting(false)
+};
 
 export const handleMapMouseMove = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
