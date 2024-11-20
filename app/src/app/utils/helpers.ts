@@ -133,16 +133,30 @@ export const getFeaturesIntersectingCounties = (
 
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
+  const {mapDocument, shatterIds} = useMapStore.getState();
 
-  const features = map.queryRenderedFeatures(undefined, {
-    layers,
-  });
+  const sourceFeatures = map.querySourceFeatures(BLOCK_SOURCE_ID, {
+    sourceLayer: mapDocument?.parent_layer,
+  }).map(feature => ({
+    ...feature,
+    source: BLOCK_SOURCE_ID,
+    sourceLayer: mapDocument?.parent_layer
+  }))
+  
+  const childFeatures = shatterIds.children.size
+    ? (Array.from(shatterIds.children).map(id => ({
+        id,
+        source: BLOCK_SOURCE_ID,
+        sourceLayer: mapDocument?.child_layer
+      })) as any)
+    : [];
 
-  return filterFeatures(
-    features,
-    true,
-    [(feature) => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips)]
-  );
+  return filterFeatures([
+    ...sourceFeatures,
+    ...childFeatures
+  ], true, [
+    feature => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips),
+  ]);
 };
 
 /**
