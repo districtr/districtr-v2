@@ -469,7 +469,17 @@ export const useMapStore = create(
                 document_id,
                 geoids,
               });
-
+          if (!shatterResult.children.length){
+            const mapDocument = get().mapDocument
+            set({
+              errorNotification: {
+                severity: 2,
+                message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
+                id: `break-patchShatter-no-children-${mapDocument?.gerrydb_table}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`
+              }
+            })
+            return 
+          }
           // TODO Need to return child edges even if the parent is already shattered
           // currently returns nothing
           const shatterIds = get().shatterIds;
