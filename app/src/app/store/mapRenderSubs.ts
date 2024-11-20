@@ -15,6 +15,8 @@ import {
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
+  getFeaturesInBbox,
+  getFeaturesIntersectingCounties,
   shallowCompareArray,
 } from '../utils/helpers';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
@@ -222,16 +224,21 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     activeTool => {
       const mapRef = useMapStore.getState().getMapRef();
       if (!mapRef) return;
+      const mapOptions = useMapStore.getState().mapOptions
+      const defaultPaintFunction = mapOptions.paintByCounty ? getFeaturesIntersectingCounties : getFeaturesInBbox
       let cursor;
       switch (activeTool) {
         case 'pan':
           cursor = '';
+          useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'brush':
           cursor = 'pointer';
+          useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'eraser':
           cursor = 'pointer';
+          useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'shatter':
           cursor = 'crosshair';
