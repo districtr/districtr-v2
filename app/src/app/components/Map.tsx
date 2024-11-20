@@ -47,24 +47,6 @@ export const MapComponent: React.FC = () => {
       maxZoom: MAP_OPTIONS.maxZoom,
     });
 
-    map.current.on('data', (event: any) => {
-      const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
-      if (!tiles_s3_path || !parent_layer || event.dataType !== 'source' || !event?.source?.url?.includes(tiles_s3_path)) return
-
-      const tileData = event?.tile?.latestFeatureIndex;
-      if (!tileData) return
-      
-      const index = `${tileData.x}-${tileData.y}-${tileData.z}`
-      if (parentIdCache.hasCached(index)) return
-      
-
-      const vtLayers = tileData.loadVTLayers()
-      const parentLayerData = vtLayers[parent_layer]
-      const numFeatures = parentLayerData?.length
-      const featureDataArray = parentLayerData?._values
-      parentIdCache.add(index, featureDataArray.slice(-numFeatures,))
-    });
-
     fitMapToBounds();
     map.current.scrollZoom.setWheelZoomRate(1 / 300);
     map.current.scrollZoom.setZoomRate(1 / 300);
