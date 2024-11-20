@@ -1,4 +1,3 @@
-
 class IdCache {
   cachedTileIndices: Set<string> = new Set()
   parentIds: Set<string> = new Set()
@@ -18,7 +17,8 @@ class IdCache {
   }
 
   getFilteredIds(id: string){
-    return Array.from(this.parentIds).filter(f => f.startsWith(id))
+    const regex = new RegExp(`^${id}`);
+    return Array.from(this.parentIds).filter(f => regex.test(f));
   }
 }
 
