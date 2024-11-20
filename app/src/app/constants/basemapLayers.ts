@@ -1100,8 +1100,9 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     source: 'counties',
     'source-layer': 'tl_2023_us_county',
     paint: {
-      'line-color': '#555',
-      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 0, 9, 0.75, 18, 1],
+      'line-color': '#333',
+      'line-opacity': 0.8,
+      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, .625, 9, 1.625, 18, 2.25],
     },
   },
   {
