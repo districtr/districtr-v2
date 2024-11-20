@@ -94,6 +94,7 @@ async def create_document(
         {"gerrydb_table_name": data.gerrydb_table},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
+
     stmt = (
         select(
             Document.document_id,
@@ -119,7 +120,7 @@ async def create_document(
     # Document id has a unique constraint so I'm not sure we need to hit the DB again here
     # more valuable would be to check that the assignments table
     doc = session.exec(
-        stmt
+        stmt,
     ).one()  # again if we've got more than one, we have problems.
     if not doc.map_uuid:
         session.rollback()
@@ -134,6 +135,7 @@ async def create_document(
             detail="Document creation failed",
         )
     session.commit()
+
     return doc
 
 
@@ -218,10 +220,12 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 
     # Recreate the partition
     session.execute(
-        text(f"""
+        text(
+            f"""
         CREATE TABLE {partition_name} PARTITION OF document.assignments
         FOR VALUES IN ('{document_id}');
-    """)
+    """
+        )
     )
     session.commit()
 

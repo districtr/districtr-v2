@@ -1,4 +1,6 @@
-CREATE OR REPLACE FUNCTION get_summary_stats_p4(document_id UUID)
+DROP FUNCTION IF EXISTS get_summary_stats_p4(uuid);
+
+CREATE FUNCTION get_summary_stats_p4(document_id UUID)
 RETURNS TABLE (
     zone TEXT,
     hispanic_vap BIGINT,
@@ -7,7 +9,8 @@ RETURNS TABLE (
     non_hispanic_nhpi_vap BIGINT,
     non_hispanic_black_vap BIGINT,
     non_hispanic_white_vap BIGINT,
-    non_hispanic_other_vap BIGINT
+    non_hispanic_other_vap BIGINT,
+    non_hispanic_two_or_more_races_vap BIGINT
 ) AS $$
 DECLARE
     doc_districtrmap RECORD;
@@ -32,7 +35,8 @@ BEGIN
             SUM(COALESCE(blocks.non_hispanic_nhpi_vap, 0))::BIGINT AS non_hispanic_nhpi_vap,
             SUM(COALESCE(blocks.non_hispanic_black_vap, 0))::BIGINT AS non_hispanic_black_vap,
             SUM(COALESCE(blocks.non_hispanic_white_vap, 0))::BIGINT AS non_hispanic_white_vap,
-            SUM(COALESCE(blocks.non_hispanic_other_vap, 0))::BIGINT AS non_hispanic_other_vap
+            SUM(COALESCE(blocks.non_hispanic_other_vap, 0))::BIGINT AS non_hispanic_other_vap,
+            SUM(COALESCE(blocks.non_hispanic_two_or_more_races_vap, 0))::BIGINT AS non_hispanic_two_or_more_races_vap
         FROM document.assignments
         LEFT JOIN gerrydb.%I blocks
         ON blocks.path = assignments.geo_id

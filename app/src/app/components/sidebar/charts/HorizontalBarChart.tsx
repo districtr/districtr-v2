@@ -1,7 +1,18 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {Card, Flex, Heading, Text} from '@radix-ui/themes';
-import {BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell} from 'recharts';
+import {
+  BarChart,
+  Bar,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Cell,
+  ReferenceLine,
+  Label,
+} from 'recharts';
 import {colorScheme} from '@/app/constants/colors';
+import {useState, useMemo} from 'react';
 
 type TooltipInput = {
   active?: boolean;
@@ -24,6 +35,38 @@ const CustomTooltip = ({active, payload: items}: TooltipInput) => {
 
 export const HorizontalBar = () => {
   const mapMetrics = useMapStore(state => state.mapMetrics);
+  const summaryStats = useMapStore(state => state.summaryStats);
+  const numDistricts = useMapStore(state => state.mapDocument?.num_districts);
+  const idealPopulation = summaryStats?.idealpop?.data;
+  const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
+  const [totalExpectedBars, setTotalExpectedBars] = useState<
+    Array<{zone: number; total_pop: number}>
+  >([]);
+
+  const calculateChartObject = () => {
+    if ((numDistricts ?? 0) < maxNumberOrderedBars) {
+      return mapMetrics && mapMetrics.data && numDistricts
+        ? Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
+            (acc, district) => {
+              const totalPop = mapMetrics.data.reduce((acc, entry) => {
+                return entry.zone === district ? acc + entry.total_pop : acc;
+              }, 0);
+              return [...acc, {zone: district, total_pop: totalPop}];
+            },
+            [] as Array<{zone: number; total_pop: number}>
+          )
+        : [];
+    } else {
+      return mapMetrics?.data ?? [];
+    }
+  };
+
+  useMemo(() => {
+    if (mapMetrics) {
+      const chartObject = calculateChartObject();
+      setTotalExpectedBars(chartObject);
+    }
+  }, [mapMetrics]);
 
   if (mapMetrics?.isPending) {
     return <div>Loading...</div>;
@@ -44,30 +87,49 @@ export const HorizontalBar = () => {
   return (
     <Flex gap="3" direction="column">
       <Heading as="h3" size="3">
-        Population by Zone
+        Population by district
       </Heading>
-      <ResponsiveContainer
-        width="100%"
-        // should this instead be set based on the target number of zones? see https://github.com/districtr/districtr-v2/issues/92
-        height={colorScheme.length * 18}
-        minHeight="200px"
-      >
-        <BarChart width={500} data={mapMetrics.data} layout="vertical" barGap={0.5} maxBarSize={50}>
+      <ResponsiveContainer width="100%" minHeight="350px">
+        <BarChart
+          width={500}
+          data={totalExpectedBars}
+          layout="vertical"
+          barGap={0.5}
+          maxBarSize={50}
+        >
           <XAxis
             allowDataOverflow={true}
             type="number"
-            domain={[0, 'maxData']}
+            domain={[
+              0,
+              (dataMax: number) =>
+                idealPopulation
+                  ? Math.round(Math.max(idealPopulation * 2, dataMax + 1000))
+                  : dataMax,
+            ]}
             tickFormatter={value => numberFormat.format(value)}
           />
-          <YAxis type="category" hide />
+          <YAxis type="category" hide allowDataOverflow={true} padding={{bottom: 40}} />
           <Tooltip content={<CustomTooltip />} />
           <Bar dataKey="total_pop">
-            {mapMetrics.data
-              .sort((a, b) => a.zone - b.zone)
-              .map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={colorScheme[entry.zone - 1]} />
-              ))}
+            {totalExpectedBars &&
+              totalExpectedBars
+                .sort((a, b) => a.zone - b.zone)
+                .map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={colorScheme[entry.zone - 1]} />
+                ))}
           </Bar>
+          <ReferenceLine x={idealPopulation ?? 0} stroke="black" strokeDasharray="3 3">
+            <Label
+              value={`Ideal: ${new Intl.NumberFormat('en-US').format(
+                Math.round(idealPopulation ?? 0) ?? 0
+              )}`}
+              position="insideBottomLeft"
+              fill="black"
+              fontSize={18}
+              offset={10}
+            />
+          </ReferenceLine>
         </BarChart>
       </ResponsiveContainer>
     </Flex>

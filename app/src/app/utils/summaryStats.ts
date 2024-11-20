@@ -1,8 +1,9 @@
-import { P1ZoneSummaryStats } from "./api/apiHandlers";
+import { P1ZoneSummaryStats, P4ZoneSummaryStats } from "./api/apiHandlers";
 
-export const getEntryTotal = (entry: Omit<P1ZoneSummaryStats, 'zone'>) =>
+export const getEntryTotal = (entry: Omit<P1ZoneSummaryStats | P4ZoneSummaryStats, 'zone'>) =>
   Object.entries(entry).reduce((total, [key, value]) => {
     if (key !== 'zone') {
+      // @ts-ignore
       return total + value; // Sum values of properties except 'zone'
     }
     return total; // Return total unchanged for 'zone'
@@ -26,6 +27,6 @@ export const stdDevColors = {
 
 export const getStdDevColor = (value: number) => {
   const floorValue = value > 0 ? Math.floor(value) : Math.ceil(value)
-  const cleanValue= (floorValue < -2 ? -2 : floorValue > 2 ? 2 : floorValue) as keyof typeof stdDevColors 
+  const cleanValue= (floorValue < -2 ? -2 : floorValue > 2 ? 2 : floorValue) as keyof typeof stdDevColors
   return stdDevColors[cleanValue] || 'none'
 }
