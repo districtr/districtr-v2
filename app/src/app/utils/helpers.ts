@@ -15,6 +15,7 @@ import {
 } from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
+import {parentIdCache} from '../store/idCache';
 
 /**
  * PaintEventHandler
@@ -134,27 +135,21 @@ export const getFeaturesIntersectingCounties = (
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
   const {mapDocument, shatterIds} = useMapStore.getState();
-
-  const sourceFeatures = map.querySourceFeatures(BLOCK_SOURCE_ID, {
-    sourceLayer: mapDocument?.parent_layer,
-  }).map(feature => ({
-    ...feature,
+  const cachedParentFeatures = parentIdCache.getFilteredIds(`vtd:${fips}`).map(id => ({
+    id,
     source: BLOCK_SOURCE_ID,
-    sourceLayer: mapDocument?.parent_layer
-  }))
-  
+    sourceLayer: mapDocument?.parent_layer,
+  }));
+
   const childFeatures = shatterIds.children.size
     ? (Array.from(shatterIds.children).map(id => ({
         id,
         source: BLOCK_SOURCE_ID,
-        sourceLayer: mapDocument?.child_layer
+        sourceLayer: mapDocument?.child_layer,
       })) as any)
     : [];
 
-  return filterFeatures([
-    ...sourceFeatures,
-    ...childFeatures
-  ], true, [
+  return filterFeatures([...cachedParentFeatures, ...childFeatures], true, [
     feature => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips),
   ]);
 };

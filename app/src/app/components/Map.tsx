@@ -8,6 +8,7 @@ import {MAP_OPTIONS} from '../constants/configuration';
 import {mapEvents} from '../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
+import { parentIdCache } from '../store/idCache';
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -45,6 +46,25 @@ export const MapComponent: React.FC = () => {
       zoom: MAP_OPTIONS.zoom,
       maxZoom: MAP_OPTIONS.maxZoom,
     });
+
+    map.current.on('data', (event) => {
+      const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
+      if (!tiles_s3_path || event.dataType !== 'source' || !event?.source?.url?.includes(tiles_s3_path)) return
+
+      const tileData = event?.tile?.latestFeatureIndex
+      if (!tileData) return
+      
+      const index = `${tileData.x}-${tileData.y}-${tileData.z}`
+      if (parentIdCache.hasCached(index)) return
+      
+
+      const vtLayers = tileData.loadVTLayers()
+      const parentLayerData = vtLayers[parent_layer]
+      const numFeatures = parentLayerData?.length
+      const featureDataArray = parentLayerData?._values
+      parentIdCache.add(index, featureDataArray.slice(-numFeatures,))
+    });
+    
     fitMapToBounds();
     map.current.scrollZoom.setWheelZoomRate(1 / 300);
     map.current.scrollZoom.setZoomRate(1 / 300);
@@ -86,3 +106,4 @@ export const MapComponent: React.FC = () => {
     />
   );
 };
+
