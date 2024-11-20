@@ -135,7 +135,8 @@ export const getFeaturesIntersectingCounties = (
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
   const {mapDocument, shatterIds} = useMapStore.getState();
-  const cachedParentFeatures = parentIdCache.getFilteredIds(`vtd:${fips}`).map(id => ({
+  const filterPrefix = mapDocument?.parent_layer.includes("vtd") ? "vtd:" : ""
+  const cachedParentFeatures = parentIdCache.getFilteredIds(`${filterPrefix}${fips}`).map(id => ({
     id,
     source: BLOCK_SOURCE_ID,
     sourceLayer: mapDocument?.parent_layer,
