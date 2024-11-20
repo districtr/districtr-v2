@@ -9,6 +9,7 @@ import {
   DistrictrMap,
   DocumentObject,
   P1TotPopSummaryStats,
+  P4TotPopSummaryStats,
   ShatterResult,
   ZonePopulation,
 } from '../utils/api/apiHandlers';
@@ -81,7 +82,7 @@ export interface MapStore {
   setMapDocument: (mapDocument: DocumentObject) => void;
   summaryStats: {
     totpop?: {
-      data: P1TotPopSummaryStats;
+      data: P1TotPopSummaryStats | P4TotPopSummaryStats;
     };
     idealpop?: {
       data: number;
