@@ -10,6 +10,9 @@ import {getBlocksSource} from './sources';
 import {DocumentObject} from '../utils/api/apiHandlers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
+import {dissolve} from '@turf/dissolve';
+import {centerOfMass} from '@turf/center-of-mass';
+import { debounce } from 'lodash';
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -20,9 +23,9 @@ export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 
 export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD];
-export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const
-
-export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]; 
+export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const;
+export const ZONE_LABEL_LAYERS = ['ZONE_OUTLINE', 'ZONE_LABEL', 'ZONE_LABEL_BG'];
+export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 
 export const CHILD_LAYERS = [
   BLOCK_LAYER_ID_CHILD,
@@ -53,10 +56,23 @@ ZONE_ASSIGNMENT_STYLE_DYNAMIC.push('#cecece');
 // @ts-ignore
 export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
+export const ZONE_LABEL_STYLE_DYNAMIC = colorScheme.reduce(
+  (val, color, i) => {
+    val.push(['==', ['get', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+    return val;
+  },
+  ['case'] as any
+);
+ZONE_LABEL_STYLE_DYNAMIC.push('#cecece');
+
+// cast the above as an ExpressionSpecification
+// @ts-ignore
+export const ZONE_LABEL_STYLE: ExpressionSpecification = ZONE_LABEL_STYLE_DYNAMIC;
+
 const LAYER_LINE_WIDTHS = {
   [BLOCK_LAYER_ID]: 2,
-  [BLOCK_LAYER_ID_CHILD]: 1
-}
+  [BLOCK_LAYER_ID_CHILD]: 1,
+};
 
 export function getLayerFilter(layerId: string, _shatterIds?: MapStore['shatterIds']) {
   const shatterIds = _shatterIds || useMapStore.getState().shatterIds;
@@ -76,7 +92,7 @@ export function getLayerFill(
   captiveIds?: Set<string>,
   shatterIds?: Set<string>
 ): DataDrivenPropertyValueSpecification<number> {
-  const innerFillSpec = ([
+  const innerFillSpec = [
     'case',
     // is broken parent
     ['boolean', ['feature-state', 'broken'], false],
@@ -118,7 +134,7 @@ export function getLayerFill(
     ['boolean', ['feature-state', 'hover'], false],
     0.6,
     0.2,
-  ] as unknown) as DataDrivenPropertyValueSpecification<number>;
+  ] as unknown as DataDrivenPropertyValueSpecification<number>;
   if (captiveIds?.size) {
     return [
       'case',
@@ -187,12 +203,11 @@ export function getHighlightLayerSpecification(
   };
 }
 
-
 export function getBlocksLayerSpecification(
   sourceLayer: string,
-  layerId: typeof LINE_LAYERS[number]
+  layerId: (typeof LINE_LAYERS)[number]
 ): LayerSpecification {
-  const lineWidth = LAYER_LINE_WIDTHS[layerId]
+  const lineWidth = LAYER_LINE_WIDTHS[layerId];
 
   const layerSpec: LayerSpecification = {
     id: layerId,
@@ -205,8 +220,28 @@ export function getBlocksLayerSpecification(
     paint: {
       'line-opacity': 0.8,
       // 'line-color': '#aaaaaa', // Default color
-      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 6, '#aaa', 9, '#777', 14, '#333'],
-      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, lineWidth*.125, 9, lineWidth*.35, 14, lineWidth],
+      'line-color': [
+        'interpolate',
+        ['exponential', 1.6],
+        ['zoom'],
+        6,
+        '#aaa',
+        9,
+        '#777',
+        14,
+        '#333',
+      ],
+      'line-width': [
+        'interpolate',
+        ['exponential', 1.6],
+        ['zoom'],
+        6,
+        lineWidth * 0.125,
+        9,
+        lineWidth * 0.35,
+        14,
+        lineWidth,
+      ],
     },
   };
   if (CHILD_LAYERS.includes(layerId)) {
@@ -294,4 +329,143 @@ export function removeBlockLayers(map: Map | null) {
   });
 }
 
-export {addBlockLayers};
+const getDissolved = () => {
+  const {getMapRef, zoneAssignments} = useMapStore.getState();
+  const mapRef = getMapRef();
+  if (!mapRef) return;
+  const features = mapRef.queryRenderedFeatures(undefined, {layers: [BLOCK_HOVER_LAYER_ID]});
+  let mappedFeatures: GeoJSON.Feature[] = [];
+  features.forEach(f => {
+    if (!f.id) return;
+    const zone = zoneAssignments.get(f.id.toString());
+    if (!zone) return;
+    if (f.geometry?.type !== 'Polygon') return;
+    mappedFeatures.push({
+      type: 'Feature',
+      geometry: f.geometry,
+      properties: {
+        ...f.properties,
+        zone: +zone,
+      },
+    });
+  });
+  let dissolved: GeoJSON.FeatureCollection = dissolve(
+    {
+      type: 'FeatureCollection',
+      features: mappedFeatures as any,
+    },
+    {
+      propertyName: 'zone',
+    }
+  );
+  // dissolved.features = dissolved.features.map(f => ({
+  //   ...f,
+  //   properties: {
+  //     zone: parseInt(f.properties?.zone)
+  //   }
+  // }))
+
+  const centroids: GeoJSON.FeatureCollection = {
+    type: 'FeatureCollection',
+    features: dissolved.features.map(f => ({
+      type: 'Feature',
+      properties: {
+        zone: +f.properties?.zone,
+      },
+      geometry: centerOfMass(f).geometry,
+    })),
+  };
+
+  return {
+    centroids,
+    dissolved,
+  };
+};
+const removeZoneMetaLayers = () => {
+  const {getMapRef} = useMapStore.getState();
+  const mapRef = getMapRef();
+  if (!mapRef) return;
+  ZONE_LABEL_LAYERS.forEach(id => {
+    mapRef.getLayer(id) && mapRef.removeLayer(id);
+  });
+  ZONE_LABEL_LAYERS.forEach(id => {
+    mapRef.getSource(id) && mapRef.removeSource(id);
+  });
+};
+
+const addZoneMetaLayers = ({
+  centroids,
+  dissolved,
+}: {
+  centroids?: GeoJSON.FeatureCollection;
+  dissolved?: GeoJSON.FeatureCollection;
+}) => {
+  const geoms = centroids && dissolved ? {
+    centroids, dissolved
+  } : getDissolved()
+  
+  const {getMapRef} = useMapStore.getState();
+  const mapRef = getMapRef();
+  if (!mapRef || !geoms) return;
+  removeZoneMetaLayers()
+  ZONE_LABEL_LAYERS.forEach(id => {
+    mapRef.getLayer(id) && mapRef.removeLayer(id);
+    mapRef.getSource(id) && mapRef.removeSource(id);
+  });
+  // add map source of centroids
+  mapRef.addSource('ZONE_LABEL', {
+    type: 'geojson',
+    data: geoms.centroids,
+  });
+  // mapRef.addSource('ZONE_OUTLINE', {
+  //   type: 'geojson',
+  //   data: geoms.dissolved,
+  // });
+
+  // mapRef.addLayer({
+  //   id: 'ZONE_OUTLINE',
+  //   type: 'line',
+  //   source: 'ZONE_OUTLINE',
+  //   paint: {
+  //     'line-color': ZONE_LABEL_STYLE || '#000',
+  //     'line-width': 3,
+  //   },
+  //   filter: ['==', ['get', 'zone'], ['get', 'zone']],
+  // });
+
+  mapRef.addLayer({
+    id: 'ZONE_LABEL_BG',
+    type: 'circle',
+    source: 'ZONE_LABEL',
+    paint: {
+      'circle-color': '#fff',
+      'circle-radius': 15,
+      'circle-opacity': 0.8,
+      'circle-stroke-color': ZONE_LABEL_STYLE || '#000',
+      'circle-stroke-width': 2,
+    },
+    
+    filter: ['==', ['get', 'zone'], ['get', 'zone']],
+  });
+  mapRef.addLayer({
+    id: 'ZONE_LABEL',
+    type: 'symbol',
+    source: 'ZONE_LABEL',
+    layout: {
+      'text-field': ['get', 'zone'],
+      'text-font': ['Barlow Bold'],
+      'text-size': 18,
+      'text-anchor': 'center',
+      'text-offset': [0, 0],
+    },
+    paint: {
+      'text-color': ZONE_LABEL_STYLE || '#000',
+    },
+  });
+};
+
+const debouncedAddZoneMetaLayers = debounce(addZoneMetaLayers, 250)
+
+
+
+export {addBlockLayers, removeZoneMetaLayers, addZoneMetaLayers, getDissolved, debouncedAddZoneMetaLayers};
