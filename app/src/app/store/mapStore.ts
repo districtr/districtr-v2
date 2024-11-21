@@ -458,7 +458,7 @@ export const useMapStore = create(
 
           const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
 
-          const shatterMappings = get().shatterMappings;
+          const {shatterIds, shatterMappings, lockedFeatures} = get();
           const isAlreadyShattered = geoids.some(id => shatterMappings.hasOwnProperty(id));
           const shatterResult: ShatterResult = isAlreadyShattered
             ? ({
@@ -473,6 +473,7 @@ export const useMapStore = create(
                 document_id,
                 geoids,
               });
+
           if (!shatterResult.children.length){
             const mapDocument = get().mapDocument
             set({
@@ -486,13 +487,12 @@ export const useMapStore = create(
           }
           // TODO Need to return child edges even if the parent is already shattered
           // currently returns nothing
-          const shatterIds = get().shatterIds;
-
+          const newLockedFeatures = new Set(lockedFeatures)
           let existingParents = new Set(shatterIds.parents);
           let existingChildren = new Set(shatterIds.children);
           const newParent = shatterResult.parents.geoids;
           const newChildren = new Set(shatterResult.children.map(child => child.geo_id));
-
+          newChildren.forEach(child => newLockedFeatures.delete(child))
           const zoneAssignments = new Map(get().zoneAssignments);
           const multipleShattered = shatterResult.parents.geoids.length > 1;
           const featureBbox = features[0].geometry && bbox(features[0].geometry);
@@ -519,6 +519,7 @@ export const useMapStore = create(
             },
             mapLock: false,
             captiveIds: newChildren,
+            lockedFeatures: newLockedFeatures,
             focusFeatures: [
               {
                 id: features[0].id,
