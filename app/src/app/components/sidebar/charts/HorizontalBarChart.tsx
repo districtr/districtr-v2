@@ -1,4 +1,4 @@
-import {useMapStore} from '@/app/store/mapStore';
+import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {Card, Flex, Heading, Text} from '@radix-ui/themes';
 import {
   BarChart,
@@ -47,6 +47,7 @@ export const HorizontalBar = () => {
   const summaryStats = useMapStore(state => state.summaryStats);
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts);
   const idealPopulation = summaryStats?.idealpop?.data;
+  const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas)
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
   const [totalExpectedBars, setTotalExpectedBars] = useState<
     Array<{zone: number; total_pop: number}>
@@ -124,7 +125,7 @@ export const HorizontalBar = () => {
           <YAxis type="category" hide allowDataOverflow={true} padding={{bottom: 40}} />
           <Tooltip content={<CustomTooltip />} />
           {/* @ts-ignore types are wrong, this works  */}
-          <Bar dataKey="total_pop" label={renderCustomBarLabel}>
+          <Bar dataKey="total_pop" label={getRenderCustomBarLabel(lockPaintedAreas)}>
             {totalExpectedBars &&
               totalExpectedBars
                 .sort((a, b) => a.zone - b.zone)
@@ -153,8 +154,9 @@ export const HorizontalBar = () => {
 };
 
 
-const renderCustomBarLabel: React.FC<any> = ({ y, height, index, value }) => {
-  const entryIsLocked = useMapStore(state => Array.isArray(state.mapOptions.lockPaintedAreas) && state.mapOptions.lockPaintedAreas.indexOf(index+1) !== -1)
+const getRenderCustomBarLabel: (lockPaintedAreas: MapStore['mapOptions']['lockPaintedAreas']) => React.FC<any> = (lockPaintedAreas) => ({ y, height, index, value }) => {
+  const entryIsLocked = Array.isArray(lockPaintedAreas) && lockPaintedAreas.indexOf(index+1) !== -1
+  
   if (!entryIsLocked || !value) {
     return null
   }
