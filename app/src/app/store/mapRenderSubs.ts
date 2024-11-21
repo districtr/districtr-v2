@@ -11,6 +11,8 @@ import {
   BLOCK_LAYER_ID_HIGHLIGHT,
   getHighlightLayerSpecification,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+  removeZoneMetaLayers,
+  debouncedAddZoneMetaLayers,
 } from '../constants/layers';
 import {
   ColorZoneAssignmentsState,
@@ -104,9 +106,12 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       state.appLoadingState,
       state.mapRenderingState,
       state.mapOptions.lockPaintedAreas,
+      state.mapOptions.showZoneNumbers
     ],
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
+      removeZoneMetaLayers()
+
       const {
         captiveIds,
         shatterIds,
@@ -114,7 +119,15 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         setLockedFeatures,
         lockedFeatures,
         mapRenderingState,
+        mapOptions
       } = useMapStore.getState();
+      if (mapOptions.showZoneNumbers){
+        setTimeout(() => {
+          debouncedAddZoneMetaLayers({})
+        }, 250)
+        
+        debouncedAddZoneMetaLayers.cancel()
+      }
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded') return;
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
