@@ -11,6 +11,7 @@ import {
   BLOCK_LAYER_ID_HIGHLIGHT,
   getHighlightLayerSpecification,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+  COUNTY_LAYERS,
 } from '../constants/layers';
 import {
   ColorZoneAssignmentsState,
@@ -310,6 +311,18 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       } 
     }
   );
+  
+  const filterCountiesSub = useMapStore.subscribe<[string|undefined, MapStore['getMapRef']]>(state => [state.mapOptions.currentStateFp, state.getMapRef],
+    ([stateFp, getMapRef]) => {
+      const mapRef = getMapRef()
+      if (!mapRef) return
+      const filterExpression = (stateFp ? ["==", "STATEFP", stateFp] : true) as any
+      COUNTY_LAYERS.forEach(layer => {
+        mapRef.setFilter(layer,  ["any", filterExpression])
+      })
+    }
+  )
+  
   return [
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
@@ -318,5 +331,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     _updateMapCursor,
     _applyFocusFeatureState,
     highlightUnassignedSub,
+    filterCountiesSub
   ];
 };

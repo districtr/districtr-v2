@@ -253,7 +253,11 @@ export const handleIdCache = (
   const parentLayerData = vtLayers[parent_layer]
   const numFeatures = parentLayerData.length
   const featureDataArray = parentLayerData._values
-  parentIdCache.add(index, featureDataArray.slice(-numFeatures,))
+  const idArray = featureDataArray.slice(-numFeatures,)
+  parentIdCache.add(index, idArray)
+  useMapStore.getState().setMapOptions({
+    currentStateFp: idArray[0].replace('vtd:','').slice(0,2)
+  })
 }
 
 export const mapEvents = [

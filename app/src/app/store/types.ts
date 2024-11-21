@@ -5,5 +5,6 @@ export type DistrictrMapOptions = {
   higlightUnassigned?: boolean;
   lockPaintedAreas: boolean | Array<NullableZone>;
   mode: 'default' | 'break';
-  paintByCounty?: boolean
+  paintByCounty?: boolean;
+  currentStateFp?: string
 };
