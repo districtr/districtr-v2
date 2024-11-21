@@ -10,11 +10,11 @@ import {getBlocksSource} from './sources';
 import {DocumentObject} from '../utils/api/apiHandlers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
-import {dissolve} from '@turf/dissolve';
-import {centerOfMass} from '@turf/center-of-mass';
-import {area} from '@turf/area'
-import { debounce } from 'lodash';
-import { NullableZone } from './types';
+import { throttle } from 'lodash';
+import { wrap } from 'comlink';
+import { GeometryWorkerClass } from '../utils/geometryWorker.types';
+const worker = typeof Worker !== 'undefined' ? new Worker(new URL("../utils/geometryWorker.ts", import.meta.url)) : null
+const GeometryWorker = worker ? wrap<GeometryWorkerClass>(worker) : null
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -331,11 +331,10 @@ export function removeBlockLayers(map: Map | null) {
   });
 }
 
-const getDissolved = () => {
+const getDissolved = async () => {
   const {getMapRef, zoneAssignments} = useMapStore.getState();
   const mapRef = getMapRef();
-  if (!mapRef) return;
-  const t0 = performance.now()
+  if (!mapRef || !GeometryWorker) return;
   const features = mapRef.queryRenderedFeatures(undefined, {layers: [BLOCK_HOVER_LAYER_ID]});
   let mappedFeatures: GeoJSON.Feature[] = [];
   features.forEach(f => {
@@ -351,56 +350,16 @@ const getDissolved = () => {
         zone: +zone,
       },
     });
-  });
-  console.log('!!!Got features in', performance.now() - t0)
-  const t1 = performance.now()
-  let dissolved: GeoJSON.FeatureCollection = dissolve(
-    {
-      type: 'FeatureCollection',
-      features: mappedFeatures as any,
-    },
-    {
-      propertyName: 'zone',
-    }
-  );
-  let largestDissolvedFeatures: Record<number, {feature: GeoJSON.Feature, area: number}> = {}
-
-  dissolved.features.forEach(feature => {
-    const zone = feature.properties?.zone
-    if (!zone) return
-    const featureArea = area(feature)
-    if (!largestDissolvedFeatures[zone] || featureArea > largestDissolvedFeatures[zone].area){
-      largestDissolvedFeatures[zone] = {
-        area: featureArea,
-        feature
-      }
-    }
   })
-  const cleanDissolvedFeautres = Object.values(largestDissolvedFeatures).map(f => f.feature)
-  // dissolved.features = dissolved.features.map(f => ({
-  //   ...f,
-  //   properties: {
-  //     zone: parseInt(f.properties?.zone)
-  //   }
-  // }))
 
-  const centroids: GeoJSON.FeatureCollection = {
-    type: 'FeatureCollection',
-    features: cleanDissolvedFeautres.map(f => ({
-      type: 'Feature',
-      properties: {
-        zone: +f.properties?.zone,
-      },
-      geometry: centerOfMass(f).geometry,
-    })),
-  };
+  const { centroids, dissolved } = await GeometryWorker.parseGeometry(mappedFeatures)
 
-  console.log("!!!Cleaned / process features in", performance.now() - t1)
   return {
     centroids,
-    dissolved: cleanDissolvedFeautres
+    dissolved
   };
 };
+
 const removeZoneMetaLayers = () => {
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
@@ -413,17 +372,16 @@ const removeZoneMetaLayers = () => {
   });
 };
 
-const addZoneMetaLayers = ({
+const addZoneMetaLayers = async ({
   centroids,
   dissolved,
 }: {
   centroids?: GeoJSON.FeatureCollection;
   dissolved?: GeoJSON.FeatureCollection;
 }) => {
-  const t0 = performance.now()
   const geoms = centroids && dissolved ? {
     centroids, dissolved
-  } : getDissolved()
+  } : await getDissolved()
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !geoms) return;
@@ -482,10 +440,9 @@ const addZoneMetaLayers = ({
       'text-color': ZONE_LABEL_STYLE || '#000',
     },
   });
-  console.log("!!!ADDED NUMERIC LAYERS IN", performance.now() - t0)
 };
 
-const debouncedAddZoneMetaLayers = debounce(addZoneMetaLayers, 250)
+const debouncedAddZoneMetaLayers = throttle(addZoneMetaLayers, 1000)
 
 
 
