@@ -110,7 +110,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     ],
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
-      removeZoneMetaLayers()
 
       const {
         captiveIds,
@@ -127,6 +126,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         }, 250)
         
         debouncedAddZoneMetaLayers.cancel()
+      } else {
+        removeZoneMetaLayers()
       }
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded') return;

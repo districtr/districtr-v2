@@ -10,7 +10,7 @@ import {getBlocksSource} from './sources';
 import {DocumentObject} from '../utils/api/apiHandlers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
-import { throttle } from 'lodash';
+import { debounce, throttle } from 'lodash';
 import { wrap } from 'comlink';
 import { GeometryWorkerClass } from '../utils/geometryWorker.types';
 const worker = typeof Worker !== 'undefined' ? new Worker(new URL("../utils/geometryWorker.ts", import.meta.url)) : null
@@ -385,16 +385,47 @@ const addZoneMetaLayers = async ({
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !geoms) return;
-  removeZoneMetaLayers()
-  ZONE_LABEL_LAYERS.forEach(id => {
-    mapRef.getLayer(id) && mapRef.removeLayer(id);
-    mapRef.getSource(id) && mapRef.removeSource(id);
-  });
+  const zoneLabelSource = mapRef.getSource('ZONE_LABEL')
+  if (!zoneLabelSource) {
+    mapRef.addSource('ZONE_LABEL', {
+      type: 'geojson',
+      data: geoms.centroids,
+    });
+    mapRef.addLayer({
+      id: 'ZONE_LABEL_BG',
+      type: 'circle',
+      source: 'ZONE_LABEL',
+      paint: {
+        'circle-color': '#fff',
+        'circle-radius': 15,
+        'circle-opacity': 0.8,
+        'circle-stroke-color': ZONE_LABEL_STYLE || '#000',
+        'circle-stroke-width': 2,
+      },
+      
+      filter: ['==', ['get', 'zone'], ['get', 'zone']],
+    });
+    mapRef.addLayer({
+      id: 'ZONE_LABEL',
+      type: 'symbol',
+      source: 'ZONE_LABEL',
+      layout: {
+        'text-field': ['get', 'zone'],
+        'text-font': ['Barlow Bold'],
+        'text-size': 18,
+        'text-anchor': 'center',
+        'text-offset': [0, 0],
+      },
+      paint: {
+        'text-color': ZONE_LABEL_STYLE || '#000',
+      },
+    });
+  } else {
+    // @ts-ignore behavior is correct, typing on `source` is wrong
+    zoneLabelSource.setData(geoms.centroids)
+  }
   // add map source of centroids
-  mapRef.addSource('ZONE_LABEL', {
-    type: 'geojson',
-    data: geoms.centroids,
-  });
+
   // mapRef.addSource('ZONE_OUTLINE', {
   //   type: 'geojson',
   //   data: geoms.dissolved,
@@ -410,39 +441,10 @@ const addZoneMetaLayers = async ({
   //   },
   //   filter: ['==', ['get', 'zone'], ['get', 'zone']],
   // });
-
-  mapRef.addLayer({
-    id: 'ZONE_LABEL_BG',
-    type: 'circle',
-    source: 'ZONE_LABEL',
-    paint: {
-      'circle-color': '#fff',
-      'circle-radius': 15,
-      'circle-opacity': 0.8,
-      'circle-stroke-color': ZONE_LABEL_STYLE || '#000',
-      'circle-stroke-width': 2,
-    },
-    
-    filter: ['==', ['get', 'zone'], ['get', 'zone']],
-  });
-  mapRef.addLayer({
-    id: 'ZONE_LABEL',
-    type: 'symbol',
-    source: 'ZONE_LABEL',
-    layout: {
-      'text-field': ['get', 'zone'],
-      'text-font': ['Barlow Bold'],
-      'text-size': 18,
-      'text-anchor': 'center',
-      'text-offset': [0, 0],
-    },
-    paint: {
-      'text-color': ZONE_LABEL_STYLE || '#000',
-    },
-  });
+  
 };
 
-const debouncedAddZoneMetaLayers = throttle(addZoneMetaLayers, 1000)
+const debouncedAddZoneMetaLayers = debounce(addZoneMetaLayers, 1000)
 
 
 
