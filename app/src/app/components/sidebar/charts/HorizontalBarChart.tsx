@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import {colorScheme} from '@/app/constants/colors';
 import {useState, useMemo} from 'react';
+import { formatNumber } from '@/app/utils/numbers';
 
 type TooltipInput = {
   active?: boolean;
@@ -72,7 +73,8 @@ export const HorizontalBar = () => {
   const stats = useMemo(() => {
     if (mapMetrics) {
       const chartObject = calculateChartObject();
-      const stats = calculateMinMaxRange(chartObject);
+      const allAreNonZero = chartObject.every(entry => entry.total_pop > 0)
+      const stats = allAreNonZero ? calculateMinMaxRange(chartObject) : undefined
       setTotalExpectedBars(chartObject);
       return stats
     }
@@ -139,26 +141,20 @@ export const HorizontalBar = () => {
               fontSize={18}
               offset={10}
             />
-            {stats?.range !== undefined && <Label
-            value={`Top-to-bottom deviation: ${new Intl.NumberFormat('en-US').format(
-              Math.round(stats?.range ?? 0) ?? 0
-            )}`}
-            position="insideBottomRight"
-            fill="black"
-            fontSize={18}
-            offset={10}
-          />}
           </ReferenceLine>
         </BarChart>
       </ResponsiveContainer>
+      {stats?.range !== undefined && <Text>
+      Top-to-bottom deviation: {formatNumber(stats.range || 0, 'string')}
+      </Text>}
     </Flex>
   );
 };
 
 
-const renderCustomBarLabel: React.FC<any> = ({ y, height, index }) => {
+const renderCustomBarLabel: React.FC<any> = ({ y, height, index, value }) => {
   const entryIsLocked = useMapStore(state => Array.isArray(state.mapOptions.lockPaintedAreas) && state.mapOptions.lockPaintedAreas.indexOf(index+1) !== -1)
-  if (!entryIsLocked) {
+  if (!entryIsLocked || !value) {
     return null
   }
   return <g transform={`translate(${10}, ${y+height/2-9}), scale(1.25)`}>
