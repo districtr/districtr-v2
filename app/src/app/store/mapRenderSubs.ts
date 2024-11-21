@@ -58,7 +58,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       // Hide broken parents on parent layer
       // Show broken children on child layer
       layersToFilter.forEach(layerId =>
-        mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
+        mapRef.getLayer(layerId) && mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
       // remove zone from parents
       shatterIds.parents.forEach(id => {
