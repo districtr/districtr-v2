@@ -6,6 +6,7 @@ import SidebarComponent from '../components/sidebar/Sidebar';
 import MobileTopNav from '../components/sidebar/MobileTopNav';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '../utils/api/queryClient';
+import { ErrorNotification } from '../components/ErrorNotification';
 
 export default function Map() {
   if (queryClient) {
@@ -16,6 +17,7 @@ export default function Map() {
           <MapComponent />
           <MobileTopNav />
           <MapContextMenu />
+          <ErrorNotification />
         </div>
       </QueryClientProvider>
     );
