@@ -19,6 +19,14 @@ type TooltipInput = {
   payload?: [{payload: {total_pop: number; zone: number}}];
 };
 
+const calculateMinMaxRange = (data: Array<{zone: number; total_pop: number}>) => {
+  const totalPops = data.map(item => item.total_pop);
+  const min = Math.min(...totalPops);
+  const max = Math.max(...totalPops);
+  const range = Math.abs(max - min);
+  return { min, max, range };
+};
+
 const numberFormat = new Intl.NumberFormat('en-US');
 
 const CustomTooltip = ({active, payload: items}: TooltipInput) => {
@@ -61,10 +69,12 @@ export const HorizontalBar = () => {
     }
   };
 
-  useMemo(() => {
+  const stats = useMemo(() => {
     if (mapMetrics) {
       const chartObject = calculateChartObject();
+      const stats = calculateMinMaxRange(chartObject);
       setTotalExpectedBars(chartObject);
+      return stats
     }
   }, [mapMetrics]);
 
@@ -120,7 +130,7 @@ export const HorizontalBar = () => {
                 ))}
           </Bar>
           <ReferenceLine x={idealPopulation ?? 0} stroke="black" strokeDasharray="3 3">
-            <Label
+          <Label
               value={`Ideal: ${new Intl.NumberFormat('en-US').format(
                 Math.round(idealPopulation ?? 0) ?? 0
               )}`}
@@ -129,6 +139,15 @@ export const HorizontalBar = () => {
               fontSize={18}
               offset={10}
             />
+            {stats?.range !== undefined && <Label
+            value={`Top-to-bottom deviation: ${new Intl.NumberFormat('en-US').format(
+              Math.round(stats?.range ?? 0) ?? 0
+            )}`}
+            position="insideBottomRight"
+            fill="black"
+            fontSize={18}
+            offset={10}
+          />}
           </ReferenceLine>
         </BarChart>
       </ResponsiveContainer>
