@@ -6,4 +6,6 @@ export type DistrictrMapOptions = {
   lockPaintedAreas: boolean | Array<NullableZone>;
   mode: 'default' | 'break';
   showZoneNumbers?: boolean
+  paintByCounty?: boolean;
+  currentStateFp?: string
 };

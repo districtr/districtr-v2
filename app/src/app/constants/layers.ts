@@ -31,6 +31,7 @@ export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CH
 export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const;
 export const ZONE_LABEL_LAYERS = ['ZONE_OUTLINE', 'ZONE_LABEL', 'ZONE_LABEL_BG'];
 export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
+export const COUNTY_LAYERS = ['counties_fill', 'counties_boundary','counties_labels']
 
 export const CHILD_LAYERS = [
   BLOCK_LAYER_ID_CHILD,

@@ -13,10 +13,13 @@ import {
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
   removeZoneMetaLayers,
   debouncedAddZoneMetaLayers,
+  COUNTY_LAYERS,
 } from '../constants/layers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
+  getFeaturesInBbox,
+  getFeaturesIntersectingCounties,
   shallowCompareArray,
 } from '../utils/helpers';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
@@ -57,7 +60,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       // Hide broken parents on parent layer
       // Show broken children on child layer
       layersToFilter.forEach(layerId =>
-        mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
+        mapRef.getLayer(layerId) && mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
       // remove zone from parents
       shatterIds.parents.forEach(id => {
@@ -238,16 +241,21 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     activeTool => {
       const mapRef = useMapStore.getState().getMapRef();
       if (!mapRef) return;
+      const mapOptions = useMapStore.getState().mapOptions
+      const defaultPaintFunction = mapOptions.paintByCounty ? getFeaturesIntersectingCounties : getFeaturesInBbox
       let cursor;
       switch (activeTool) {
         case 'pan':
           cursor = '';
+          useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'brush':
           cursor = 'pointer';
+          useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'eraser':
           cursor = 'pointer';
+          useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'shatter':
           cursor = 'crosshair';
@@ -322,6 +330,18 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       } 
     }
   );
+  
+  const filterCountiesSub = useMapStore.subscribe<[string|undefined, MapStore['getMapRef']]>(state => [state.mapOptions.currentStateFp, state.getMapRef],
+    ([stateFp, getMapRef]) => {
+      const mapRef = getMapRef()
+      if (!mapRef) return
+      const filterExpression = (stateFp ? ["==", "STATEFP", stateFp] : true) as any
+      COUNTY_LAYERS.forEach(layer => {
+        mapRef.getLayer(layer) && mapRef.setFilter(layer,  ["any", filterExpression])
+      })
+    }
+  )
+  
   return [
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
@@ -330,5 +350,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     _updateMapCursor,
     _applyFocusFeatureState,
     highlightUnassignedSub,
+    filterCountiesSub
   ];
 };

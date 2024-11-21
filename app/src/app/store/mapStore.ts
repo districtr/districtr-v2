@@ -37,6 +37,7 @@ import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
+import { parentIdCache } from './idCache';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -392,8 +393,9 @@ export const useMapStore = create(
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
           }
-          setFreshMap(true)
-          resetZoneAssignments()
+          parentIdCache.clear()
+          setFreshMap(true);
+          resetZoneAssignments();
           
           const upsertMapOnDrawSub = useMapStore.subscribe(state => state.zoneAssignments,
             (za) => {
