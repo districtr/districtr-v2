@@ -318,7 +318,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       if (!mapRef) return
       const filterExpression = (stateFp ? ["==", "STATEFP", stateFp] : true) as any
       COUNTY_LAYERS.forEach(layer => {
-        mapRef.setFilter(layer,  ["any", filterExpression])
+        mapRef.getLayer(layer) && mapRef.setFilter(layer,  ["any", filterExpression])
       })
     }
   )
