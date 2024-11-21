@@ -335,6 +335,7 @@ const getDissolved = () => {
   const {getMapRef, zoneAssignments} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef) return;
+  const t0 = performance.now()
   const features = mapRef.queryRenderedFeatures(undefined, {layers: [BLOCK_HOVER_LAYER_ID]});
   let mappedFeatures: GeoJSON.Feature[] = [];
   features.forEach(f => {
@@ -351,6 +352,8 @@ const getDissolved = () => {
       },
     });
   });
+  console.log('!!!Got features in', performance.now() - t0)
+  const t1 = performance.now()
   let dissolved: GeoJSON.FeatureCollection = dissolve(
     {
       type: 'FeatureCollection',
@@ -392,6 +395,7 @@ const getDissolved = () => {
     })),
   };
 
+  console.log("!!!Cleaned / process features in", performance.now() - t1)
   return {
     centroids,
     dissolved: cleanDissolvedFeautres
