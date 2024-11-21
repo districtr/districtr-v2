@@ -184,7 +184,6 @@ export const handleMapIdle = () => {};
 export const handleMapMoveEnd = () => {
   const { mapOptions } = useMapStore.getState()
   if (mapOptions.showZoneNumbers) {
-    debouncedAddZoneMetaLayers.cancel()
     debouncedAddZoneMetaLayers({})
   }
 };

@@ -127,8 +127,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         setTimeout(() => {
           debouncedAddZoneMetaLayers({})
         }, 250)
-        
-        debouncedAddZoneMetaLayers.cancel()
       } else {
         removeZoneMetaLayers()
       }

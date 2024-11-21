@@ -10,7 +10,7 @@ import {getBlocksSource} from './sources';
 import {DocumentObject} from '../utils/api/apiHandlers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
-import {debounce, throttle} from 'lodash';
+import {throttle} from 'lodash';
 import {wrap} from 'comlink';
 import {GeometryWorkerClass} from '../utils/geometryWorker.types';
 const worker =
@@ -434,7 +434,11 @@ const addZoneMetaLayers = async ({
   }
 };
 
-const debouncedAddZoneMetaLayers = debounce(addZoneMetaLayers, 1000);
+const debouncedAddZoneMetaLayers = throttle(
+  addZoneMetaLayers,
+  1000,
+  { leading: true, trailing: true }
+);
 
 export {
   addBlockLayers,
