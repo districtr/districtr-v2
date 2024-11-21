@@ -40,6 +40,9 @@ export const ColorPicker = <T extends boolean>({
             const indices = values.map(f => colorArray.indexOf(f));
             onValueChange(indices, values);
           }}
+          style={{
+            justifyContent: "flex-start"
+          }}
         >
           {!!mapDocument && colorArray.slice(0, mapDocument.num_districts ?? 0).map((color, i) => (
             <CheckboxGroupItem
