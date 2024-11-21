@@ -63,6 +63,12 @@ export interface MapStore {
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
+  errorNotification: {
+    message?: string,
+    severity?: 1 | 2 | 3, // 1: dialog, 2: toast, 3: silent 
+    id?:string
+  },
+  setErrorNotification: (errorNotification: MapStore['errorNotification']) => void;
   /**
    * Selects map features and updates the zone assignments accordingly.
    * Debounced zone updates will be sent to backend after a delay.
@@ -325,6 +331,8 @@ export const useMapStore = create(
         },
         mapLock: false,
         setMapLock: mapLock => set({mapLock}),
+        errorNotification: {},
+        setErrorNotification: (errorNotification) => set({errorNotification}),
         selectMapFeatures: features => {
           let {
             accumulatedGeoids,
@@ -388,8 +396,18 @@ export const useMapStore = create(
           parentIdCache.clear()
           setFreshMap(true);
           resetZoneAssignments();
-          upsertUserMap({mapDocument});
-
+          
+          const upsertMapOnDrawSub = useMapStore.subscribe(state => state.zoneAssignments,
+            (za) => {
+              if (useMapStore.getState().mapDocument !== mapDocument || za.size){
+                upsertMapOnDrawSub()
+              }
+              if (useMapStore.getState().mapDocument === mapDocument && za.size) {
+                upsertUserMap({mapDocument})
+              }
+            }
+          )
+          
           set({
             mapDocument: mapDocument,
             mapOptions: {
@@ -457,7 +475,17 @@ export const useMapStore = create(
                 document_id,
                 geoids,
               });
-
+          if (!shatterResult.children.length){
+            const mapDocument = get().mapDocument
+            set({
+              errorNotification: {
+                severity: 2,
+                message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
+                id: `break-patchShatter-no-children-${mapDocument?.gerrydb_table}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`
+              }
+            })
+            return 
+          }
           // TODO Need to return child edges even if the parent is already shattered
           // currently returns nothing
           const shatterIds = get().shatterIds;

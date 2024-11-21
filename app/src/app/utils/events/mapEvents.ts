@@ -110,7 +110,14 @@ export const handleMapMouseDown = (
 export const handleMapMouseEnter = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
-) => {};
+) => {
+  // check if mouse is down
+  // if so, set is painting true
+  // @ts-ignore this is the correct behavior but event types are incorrect
+  if (e.originalEvent?.buttons === 1){
+    useMapStore.getState().setIsPainting(true)
+  }
+};
 
 export const handleMapMouseOver = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
