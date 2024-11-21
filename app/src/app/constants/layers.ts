@@ -12,7 +12,9 @@ import {MapStore, useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
 import {dissolve} from '@turf/dissolve';
 import {centerOfMass} from '@turf/center-of-mass';
+import {area} from '@turf/area'
 import { debounce } from 'lodash';
+import { NullableZone } from './types';
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -358,6 +360,20 @@ const getDissolved = () => {
       propertyName: 'zone',
     }
   );
+  let largestDissolvedFeatures: Record<number, {feature: GeoJSON.Feature, area: number}> = {}
+
+  dissolved.features.forEach(feature => {
+    const zone = feature.properties?.zone
+    if (!zone) return
+    const featureArea = area(feature)
+    if (!largestDissolvedFeatures[zone] || featureArea > largestDissolvedFeatures[zone].area){
+      largestDissolvedFeatures[zone] = {
+        area: featureArea,
+        feature
+      }
+    }
+  })
+  const cleanDissolvedFeautres = Object.values(largestDissolvedFeatures).map(f => f.feature)
   // dissolved.features = dissolved.features.map(f => ({
   //   ...f,
   //   properties: {
@@ -367,7 +383,7 @@ const getDissolved = () => {
 
   const centroids: GeoJSON.FeatureCollection = {
     type: 'FeatureCollection',
-    features: dissolved.features.map(f => ({
+    features: cleanDissolvedFeautres.map(f => ({
       type: 'Feature',
       properties: {
         zone: +f.properties?.zone,
@@ -378,7 +394,7 @@ const getDissolved = () => {
 
   return {
     centroids,
-    dissolved,
+    dissolved: cleanDissolvedFeautres
   };
 };
 const removeZoneMetaLayers = () => {
@@ -400,10 +416,10 @@ const addZoneMetaLayers = ({
   centroids?: GeoJSON.FeatureCollection;
   dissolved?: GeoJSON.FeatureCollection;
 }) => {
+  const t0 = performance.now()
   const geoms = centroids && dissolved ? {
     centroids, dissolved
   } : getDissolved()
-  
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !geoms) return;
@@ -462,6 +478,7 @@ const addZoneMetaLayers = ({
       'text-color': ZONE_LABEL_STYLE || '#000',
     },
   });
+  console.log("!!!ADDED NUMERIC LAYERS IN", performance.now() - t0)
 };
 
 const debouncedAddZoneMetaLayers = debounce(addZoneMetaLayers, 250)
