@@ -67,7 +67,7 @@ export default function Layers() {
         <CheckboxGroup.Item value="2" onClick={() => setMapOptions({
           showZoneNumbers: !mapOptions.showZoneNumbers
         })}>
-          Show numbering for painted districts
+          Show numbering for painted districts <i>(experimental)</i>
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="3"
