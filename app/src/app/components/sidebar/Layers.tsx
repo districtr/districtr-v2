@@ -23,7 +23,6 @@ export default function Layers() {
   const visibleLayerIds = useMapStore(state => state.visibleLayerIds);
   const updateVisibleLayerIds = useMapStore(state => state.updateVisibleLayerIds);
   const toggleHighlightBrokenDistricts = useMapStore(state => state.toggleHighlightBrokenDistricts);
-  const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
   const parentsAreBroken = useMapStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
@@ -80,9 +79,6 @@ export default function Layers() {
           higlightUnassigned: !mapOptions.higlightUnassigned
         })}>
           Highlight unassigned units
-        </CheckboxGroup.Item>
-        <CheckboxGroup.Item value="4" onClick={() => toggleLockAllAreas()}>
-          Lock All Painted Areas
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>
       <Heading as="h3" weight="bold" size="3">
