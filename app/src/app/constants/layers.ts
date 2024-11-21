@@ -10,11 +10,14 @@ import {getBlocksSource} from './sources';
 import {DocumentObject} from '../utils/api/apiHandlers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
-import { debounce, throttle } from 'lodash';
-import { wrap } from 'comlink';
-import { GeometryWorkerClass } from '../utils/geometryWorker.types';
-const worker = typeof Worker !== 'undefined' ? new Worker(new URL("../utils/geometryWorker.ts", import.meta.url)) : null
-const GeometryWorker = worker ? wrap<GeometryWorkerClass>(worker) : null
+import {debounce, throttle} from 'lodash';
+import {wrap} from 'comlink';
+import {GeometryWorkerClass} from '../utils/geometryWorker.types';
+const worker =
+  typeof Worker !== 'undefined'
+    ? new Worker(new URL('../utils/geometryWorker.ts', import.meta.url))
+    : null;
+const GeometryWorker = worker ? wrap<GeometryWorkerClass>(worker) : null;
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -350,13 +353,13 @@ const getDissolved = async () => {
         zone: +zone,
       },
     });
-  })
+  });
 
-  const { centroids, dissolved } = await GeometryWorker.parseGeometry(mappedFeatures)
+  const {centroids, dissolved} = await GeometryWorker.parseGeometry(mappedFeatures);
 
   return {
     centroids,
-    dissolved
+    dissolved,
   };
 };
 
@@ -379,13 +382,17 @@ const addZoneMetaLayers = async ({
   centroids?: GeoJSON.FeatureCollection;
   dissolved?: GeoJSON.FeatureCollection;
 }) => {
-  const geoms = centroids && dissolved ? {
-    centroids, dissolved
-  } : await getDissolved()
+  const geoms =
+    centroids && dissolved
+      ? {
+          centroids,
+          dissolved,
+        }
+      : await getDissolved();
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !geoms) return;
-  const zoneLabelSource = mapRef.getSource('ZONE_LABEL')
+  const zoneLabelSource = mapRef.getSource('ZONE_LABEL');
   if (!zoneLabelSource) {
     mapRef.addSource('ZONE_LABEL', {
       type: 'geojson',
@@ -402,7 +409,7 @@ const addZoneMetaLayers = async ({
         'circle-stroke-color': ZONE_LABEL_STYLE || '#000',
         'circle-stroke-width': 2,
       },
-      
+
       filter: ['==', ['get', 'zone'], ['get', 'zone']],
     });
     mapRef.addLayer({
@@ -422,30 +429,16 @@ const addZoneMetaLayers = async ({
     });
   } else {
     // @ts-ignore behavior is correct, typing on `source` is wrong
-    zoneLabelSource.setData(geoms.centroids)
+    zoneLabelSource.setData(geoms.centroids);
   }
-  // add map source of centroids
-
-  // mapRef.addSource('ZONE_OUTLINE', {
-  //   type: 'geojson',
-  //   data: geoms.dissolved,
-  // });
-
-  // mapRef.addLayer({
-  //   id: 'ZONE_OUTLINE',
-  //   type: 'line',
-  //   source: 'ZONE_OUTLINE',
-  //   paint: {
-  //     'line-color': ZONE_LABEL_STYLE || '#000',
-  //     'line-width': 3,
-  //   },
-  //   filter: ['==', ['get', 'zone'], ['get', 'zone']],
-  // });
-  
 };
 
-const debouncedAddZoneMetaLayers = debounce(addZoneMetaLayers, 1000)
+const debouncedAddZoneMetaLayers = debounce(addZoneMetaLayers, 1000);
 
-
-
-export {addBlockLayers, removeZoneMetaLayers, addZoneMetaLayers, getDissolved, debouncedAddZoneMetaLayers};
+export {
+  addBlockLayers,
+  removeZoneMetaLayers,
+  addZoneMetaLayers,
+  getDissolved,
+  debouncedAddZoneMetaLayers,
+};
