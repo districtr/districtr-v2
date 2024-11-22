@@ -100,7 +100,6 @@ const Evaluation: React.FC = () => {
   const totPop = useMapStore(state => state.summaryStats.totpop?.data);
   const mapDocument = useMapStore(state => state.mapDocument);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
-
   const columnConfig = useMemo(() => {
     const summaryType = mapDocument?.available_summary_stats?.[0];
 
@@ -139,6 +138,7 @@ const Evaluation: React.FC = () => {
     queryClient
   );
 
+
   const {
     unassigned,
     maxValues,
@@ -155,6 +155,7 @@ const Evaluation: React.FC = () => {
       zone: -999,
       total: getEntryTotal(totPop),
     };
+
     ZoneSummaryStatsKeys.forEach(key => {
       let total = unassigned[key];
       maxValues[key] = -Math.pow(10, 12);
@@ -164,7 +165,7 @@ const Evaluation: React.FC = () => {
         // @ts-ignore
         maxValues[key] = Math.max(row[key], maxValues[key]);
       });
-      unassigned[`${key}_pct`] = total / unassigned[key];
+      unassigned[`${key}_pct`] = total / unassigned['total'];
       unassigned[key] = total;
     });
 
