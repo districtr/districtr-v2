@@ -285,19 +285,14 @@ export const colorZoneAssignments = (
     if (!sourceLayer) {
       return;
     }
-
-    mapRef?.setFeatureState(
-      {
-        source: mapDocument.gerrydb_table,
-        id,
-        sourceLayer,
-      },
-      {
-        selected: true,
-        zone,
-      }
-    );
+    mapRef.style.sourceCaches[sourceLayer]._state.updateState(
+      sourceLayer,
+      id,
+      { zone }
+    )
   });
+  mapRef.redraw()
+
 };
 
 /**
