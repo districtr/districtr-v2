@@ -190,7 +190,7 @@ const Evaluation: React.FC = () => {
   return (
     <div className="w-full">
       <Heading as="h3" size="3">
-        Voting Age Population
+        Voting age population
       </Heading>
       <Flex align="center" gap="3" my="2">
         {modeButtonConfig.map((mode, i) => (

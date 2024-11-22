@@ -100,7 +100,7 @@ export const HorizontalBar = () => {
   return (
     <Flex gap="3" direction="column">
       <Heading as="h3" size="3">
-        Population by district
+        Total population by district
       </Heading>
       <ResponsiveContainer width="100%" minHeight="350px">
         <BarChart
