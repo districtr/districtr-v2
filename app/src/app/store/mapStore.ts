@@ -324,7 +324,7 @@ export const useMapStore = create(
         getMapRef: () => null,
         setMapRef: mapRef => {
           set({
-            getMapRef: () => mapRef.current,
+            getMapRef: () => mapRef,
             appLoadingState:
               initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
           });
