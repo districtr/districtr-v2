@@ -34,6 +34,7 @@ import {DistrictrMapOptions} from './types';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
 import { parentIdCache } from './idCache';
+import { getMapEditSubs } from './mapEditSubs';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -954,5 +955,6 @@ export const useMapStore = create(
 getRenderSubscriptions(useMapStore);
 getMapMetricsSubs(useMapStore);
 getQueriesResultsSubs(useMapStore);
-// getMapEditSubs(useMapStore);
+getMapEditSubs(useMapStore);
 getSearchParamsObersver();
+
