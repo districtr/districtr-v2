@@ -16,10 +16,10 @@ export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 
 export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD];
-export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const
+export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const;
 
-export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]; 
-export const COUNTY_LAYERS = ['counties_fill', 'counties_boundary','counties_labels']
+export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
+export const COUNTY_LAYERS = ['counties_fill', 'counties_boundary', 'counties_labels'];
 
 export const CHILD_LAYERS = [
   BLOCK_LAYER_ID_CHILD,
@@ -51,16 +51,16 @@ ZONE_ASSIGNMENT_STYLE_DYNAMIC.push('#cecece');
 export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
 export type StyleBuilderArgs = {
-  layerId: string,
-  shatterIds?: MapStore['shatterIds'],
-  captiveIds?: MapStore['captiveIds'],
-  mapOptions?: MapStore['mapOptions'],
-  child?: boolean
-}
-export type StyleBuilder = (args: StyleBuilderArgs) => Partial<LayerSpecification>
+  layerId: string;
+  shatterIds?: MapStore['shatterIds'];
+  captiveIds?: MapStore['captiveIds'];
+  mapOptions?: MapStore['mapOptions'];
+  child?: boolean;
+};
+export type StyleBuilder = (args: StyleBuilderArgs) => Partial<LayerSpecification>;
 
 export function getLayerFilter(child: boolean, shatterIds?: MapStore['shatterIds']) {
-  if (!shatterIds) return undefined
+  if (!shatterIds) return undefined;
   const ids = child ? shatterIds.children : shatterIds.parents;
   const cleanIds = Boolean(ids) ? Array.from(ids) : [];
   const filterBase: FilterSpecification = ['in', ['get', 'path'], ['literal', cleanIds]];
@@ -78,9 +78,8 @@ export function getLayerFill(
 ): DataDrivenPropertyValueSpecification<number> {
   const captiveCondition = captiveIds?.size
     ? ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]]
-    : false
-  console.log("!!!", captiveCondition, captiveIds)
-  const innerFillSpec = ([
+    : false;
+  const innerFillSpec = [
     'case',
     captiveCondition,
     0.35,
@@ -127,15 +126,13 @@ export function getLayerFill(
     ['boolean', ['feature-state', 'hover'], false],
     0.6,
     0.2,
-  ] as unknown) as DataDrivenPropertyValueSpecification<number>;
-  
+  ] as unknown as DataDrivenPropertyValueSpecification<number>;
+
   return innerFillSpec;
 }
 
-export const getHighlightLayerSpecification: StyleBuilder = ({
-  mapOptions
-}) => {
-  const highlightUnassigned = mapOptions?.higlightUnassigned
+export const getHighlightLayerSpecification: StyleBuilder = ({mapOptions}) => {
+  const highlightUnassigned = mapOptions?.higlightUnassigned;
   return {
     type: 'line',
     layout: {
@@ -175,14 +172,11 @@ export const getHighlightLayerSpecification: StyleBuilder = ({
         0, // Default width if none of the conditions are met
       ],
     },
-  } as unknown as Partial<LayerSpecification>
-}
+  } as unknown as Partial<LayerSpecification>;
+};
 
-export const getBlocksLayerSpecification: StyleBuilder = ({
-  child,
-  shatterIds
-}) => {
-  const lineWidth = child ? 1 : 2
+export const getBlocksLayerSpecification: StyleBuilder = ({child, shatterIds}) => {
+  const lineWidth = child ? 1 : 2;
 
   const layerSpec: Partial<LayerSpecification> = {
     type: 'line',
@@ -192,8 +186,28 @@ export const getBlocksLayerSpecification: StyleBuilder = ({
     paint: {
       'line-opacity': 0.8,
       // 'line-color': '#aaaaaa', // Default color
-      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 6, '#aaa', 9, '#777', 14, '#333'],
-      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, lineWidth*.125, 9, lineWidth*.35, 14, lineWidth],
+      'line-color': [
+        'interpolate',
+        ['exponential', 1.6],
+        ['zoom'],
+        6,
+        '#aaa',
+        9,
+        '#777',
+        14,
+        '#333',
+      ],
+      'line-width': [
+        'interpolate',
+        ['exponential', 1.6],
+        ['zoom'],
+        6,
+        lineWidth * 0.125,
+        9,
+        lineWidth * 0.35,
+        14,
+        lineWidth,
+      ],
     },
   };
   if (child) {
@@ -201,13 +215,13 @@ export const getBlocksLayerSpecification: StyleBuilder = ({
   }
 
   return layerSpec;
-}
+};
 
 export const getBlocksHoverLayerSpecification: StyleBuilder = ({
   layerId,
   shatterIds,
-  captiveIds, 
-  child
+  captiveIds,
+  child,
 }) => {
   const layerSpec: Partial<LayerSpecification> = {
     type: 'fill',
@@ -215,10 +229,7 @@ export const getBlocksHoverLayerSpecification: StyleBuilder = ({
       visibility: 'visible',
     },
     paint: {
-      'fill-opacity': getLayerFill(
-        captiveIds,
-        shatterIds?.parents,
-      ),
+      'fill-opacity': getLayerFill(captiveIds, shatterIds?.parents),
       'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
     },
   };
@@ -226,4 +237,4 @@ export const getBlocksHoverLayerSpecification: StyleBuilder = ({
     layerSpec.filter = getLayerFilter(!!child, shatterIds);
   }
   return layerSpec;
-}
+};
