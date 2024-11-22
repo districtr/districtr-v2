@@ -1,7 +1,4 @@
 import {
-  PARENT_LAYERS,
-  CHILD_LAYERS,
-  getLayerFill,
   COUNTY_LAYERS,
 } from '../constants/layers';
 import {

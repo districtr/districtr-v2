@@ -285,7 +285,7 @@ export const colorZoneAssignments = (
     if (!sourceLayer) {
       return;
     }
-    mapRef.style.sourceCaches[sourceLayer]._state.updateState(
+    mapRef.style.sourceCaches[mapDocument.gerrydb_table]._state.updateState(
       sourceLayer,
       id,
       { zone }
