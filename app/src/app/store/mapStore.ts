@@ -256,8 +256,6 @@ export interface MapStore {
   setBrushSize: (size: number) => void;
   isPainting: boolean;
   setIsPainting: (isPainting: boolean) => void;
-  paintFunction: PaintEventHandler;
-  setPaintFunction: (paintFunction: PaintEventHandler) => void;
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
@@ -366,7 +364,7 @@ export const useMapStore = create(
             zoneAssignments.set(id, selectedZone);
             map.setFeatureState(
               {
-                source: BLOCK_SOURCE_ID,
+                source: mapDocument.gerrydb_table,
                 id: feature?.id ?? undefined,
                 sourceLayer: feature.sourceLayer,
               },
@@ -620,7 +618,7 @@ export const useMapStore = create(
                 mapRef.setFeatureState(
                   {
                     id: childId,
-                    source: BLOCK_SOURCE_ID,
+                    source: mapDocument.gerrydb_table,
                     sourceLayer: mapDocument.child_layer || '',
                   },
                   {
@@ -636,7 +634,7 @@ export const useMapStore = create(
               newZoneAssignments.set(parent.parentId, parent.zone!);
               mapRef?.setFeatureState(
                 {
-                  source: BLOCK_SOURCE_ID,
+                  source: mapDocument.gerrydb_table,
                   id: parent.parentId,
                   sourceLayer: mapDocument?.parent_layer,
                 },
@@ -812,7 +810,7 @@ export const useMapStore = create(
             mapRef.setFeatureState(
               {
                 id: parentId,
-                source: BLOCK_SOURCE_ID,
+                source: mapDocument.gerrydb_table,
                 sourceLayer: mapDocument.parent_layer,
               },
               {
@@ -906,8 +904,6 @@ export const useMapStore = create(
         setBrushSize: size => set({brushSize: size}),
         isPainting: false,
         setIsPainting: isPainting => set({isPainting}),
-        paintFunction: getFeaturesInBbox,
-        setPaintFunction: paintFunction => set({paintFunction}),
         clearMapEdits: () =>
           set({
             zoneAssignments: new Map(),

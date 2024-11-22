@@ -115,7 +115,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           mapRef.setFeatureState(
             {
               id,
-              source: BLOCK_SOURCE_ID,
+              source: mapDocument.gerrydb_table,
               sourceLayer: getLayer(id),
             },
             {
@@ -130,7 +130,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           mapRef.setFeatureState(
             {
               id,
-              source: BLOCK_SOURCE_ID,
+              source: mapDocument.gerrydb_table,
               sourceLayer: getLayer(id),
             },
             {
@@ -180,21 +180,18 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       });
     }
   );
-  
-  const filterCountiesSub = useMapStore.subscribe<[string|undefined, MapStore['getMapRef']]>(state => [state.mapOptions.currentStateFp, state.getMapRef],
+
+  const filterCountiesSub = useMapStore.subscribe<[string | undefined, MapStore['getMapRef']]>(
+    state => [state.mapOptions.currentStateFp, state.getMapRef],
     ([stateFp, getMapRef]) => {
-      const mapRef = getMapRef()
-      if (!mapRef) return
-      const filterExpression = (stateFp ? ["==", "STATEFP", stateFp] : true) as any
+      const mapRef = getMapRef();
+      if (!mapRef) return;
+      const filterExpression = (stateFp ? ['==', 'STATEFP', stateFp] : true) as any;
       COUNTY_LAYERS.forEach(layer => {
-        mapRef.getLayer(layer) && mapRef.setFilter(layer,  ["any", filterExpression])
-      })
+        mapRef.getLayer(layer) && mapRef.setFilter(layer, ['any', filterExpression]);
+      });
     }
-  )
-  
-  return [
-    _zoneAssignmentMapSideEffectRender,
-    _applyFocusFeatureState,
-    filterCountiesSub
-  ];
+  );
+
+  return [_zoneAssignmentMapSideEffectRender, _applyFocusFeatureState, filterCountiesSub];
 };

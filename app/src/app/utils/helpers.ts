@@ -288,7 +288,7 @@ export const colorZoneAssignments = (
 
     mapRef?.setFeatureState(
       {
-        source: BLOCK_SOURCE_ID,
+        source: mapDocument.gerrydb_table,
         id,
         sourceLayer,
       },
@@ -344,7 +344,7 @@ export const resetZoneColors = ({
     const sourceLayer = getSourceLayer(id);
     mapRef?.setFeatureState(
       {
-        source: BLOCK_SOURCE_ID,
+        source: mapDocument.gerrydb_table,
         id,
         sourceLayer,
       },
