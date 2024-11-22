@@ -7,7 +7,6 @@ import {getFeaturesInBbox, getFeaturesIntersectingCounties} from '../../utils/he
 export default function PaintByCounty() {
   const mapRef = useMapStore(state => state.getMapRef());
   const addVisibleLayerIds = useMapStore(state => state.addVisibleLayerIds);
-  const setPaintFunction = useMapStore(state => state.setPaintFunction);
   const paintByCounty = useMapStore(state => state.mapOptions.paintByCounty)
   const setMapOptions = useMapStore(state => state.setMapOptions)
 
@@ -21,9 +20,7 @@ export default function PaintByCounty() {
         mapRef.setLayoutProperty(layerId, 'visibility', 'visible');
       });
       addVisibleLayerIds(COUNTY_LAYER_IDS);
-      setPaintFunction(getFeaturesIntersectingCounties);
     } else {
-      setPaintFunction(getFeaturesInBbox);
     }
   }
 

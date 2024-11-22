@@ -4,9 +4,6 @@ import {
   getLayerFilter,
   getLayerFill,
   BLOCK_SOURCE_ID,
-  BLOCK_LAYER_ID_HIGHLIGHT,
-  getHighlightLayerSpecification,
-  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
   COUNTY_LAYERS,
 } from '../constants/layers';
 import {
@@ -19,67 +16,7 @@ import {
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
 
-const BBOX_TOLERANCE_DEG = 0.02;
-
 export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
-
-  const _shatterMapSideEffectRender = useMapStore.subscribe<
-    [MapStore['shatterIds'], MapStore['getMapRef'], MapStore['mapRenderingState']]
-  >(
-    state => [state.shatterIds, state.getMapRef, state.mapRenderingState],
-    ([shatterIds, getMapRef, mapRenderingState]) => {
-      const {mapDocument, appLoadingState, setMapLock} = useMapStore.getState();
-      const mapRef = getMapRef();
-      if (!mapRef || mapRenderingState !== 'loaded' || appLoadingState !== 'loaded') {
-        return;
-      }
-
-      const layersToFilter = mapDocument?.child_layer ? CHILD_LAYERS : [];
-
-      if (mapDocument?.child_layer) layersToFilter.push(...CHILD_LAYERS);
-      // Hide broken parents on parent layer
-      // Show broken children on child layer
-      layersToFilter.forEach(layerId =>
-        mapRef.getLayer(layerId) && mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
-      );
-      // remove zone from parents
-      shatterIds.parents.forEach(id => {
-        mapRef?.setFeatureState({
-          source: BLOCK_SOURCE_ID,
-          id,
-          sourceLayer: mapDocument?.parent_layer,
-        }, {
-          broken: true
-        });
-      });
-
-      mapRef.once('render', () => {
-        setMapLock(false);
-        console.log(`Unlocked at`, performance.now());
-      });
-    },
-    {equalityFn: shallowCompareArray}
-  );
-
-  const _hoverMapSideEffectRender = useMapStore.subscribe(
-    state => state.hoverFeatures,
-    (hoverFeatures, previousHoverFeatures) => {
-      const mapRef = useMapStore.getState().getMapRef();
-
-      if (!mapRef) {
-        return;
-      }
-
-      previousHoverFeatures.forEach(feature => {
-        mapRef.setFeatureState(feature, {hover: false});
-      });
-
-      hoverFeatures.forEach(feature => {
-        mapRef.setFeatureState(feature, {hover: true});
-      });
-    }
-  );
-
   const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe<ColorZoneAssignmentsState>(
     state => [
       state.zoneAssignments,
@@ -204,41 +141,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       });
     }
   );
-  const _updateMapCursor = useMapStore.subscribe<MapStore['activeTool']>(
-    state => state.activeTool,
-    activeTool => {
-      const mapRef = useMapStore.getState().getMapRef();
-      if (!mapRef) return;
-      const mapOptions = useMapStore.getState().mapOptions
-      const defaultPaintFunction = mapOptions.paintByCounty ? getFeaturesIntersectingCounties : getFeaturesInBbox
-      let cursor;
-      switch (activeTool) {
-        case 'pan':
-          cursor = '';
-          useMapStore.getState().setPaintFunction(defaultPaintFunction);
-          break;
-        case 'brush':
-          cursor = 'pointer';
-          useMapStore.getState().setPaintFunction(defaultPaintFunction);
-          break;
-        case 'eraser':
-          cursor = 'pointer';
-          useMapStore.getState().setPaintFunction(defaultPaintFunction);
-          break;
-        case 'shatter':
-          cursor = 'crosshair';
-          useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
-          break;
-        case 'lock':
-          cursor = 'crosshair';
-          useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
-          break;
-        default:
-          cursor = '';
-      }
-      mapRef.getCanvas().style.cursor = cursor;
-    }
-  );
 
   const _applyFocusFeatureState = useMapStore.subscribe(
     store => store.focusFeatures,
@@ -278,26 +180,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       });
     }
   );
-
-  const highlightUnassignedSub = useMapStore.subscribe(
-    state => state.mapOptions.higlightUnassigned,
-    (higlightUnassigned) => {
-      const {getMapRef, mapDocument} = useMapStore.getState();
-      const mapRef = getMapRef();
-      if (!mapRef || !mapDocument?.parent_layer) return;
-      // set the layer BLOCK_LAYER_ID_HIGHLIGHT style to be the return from getHighlightLayerSpecification
-      const paintStyle = getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT, higlightUnassigned)['paint']
-      if (!paintStyle) return
-      if(mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT)){
-        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-width', paintStyle['line-width']);
-        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-color', paintStyle['line-color']);
-      }
-      if(mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT_CHILD)){
-        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-width', paintStyle['line-width']);
-        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-color', paintStyle['line-color']);
-      } 
-    }
-  );
   
   const filterCountiesSub = useMapStore.subscribe<[string|undefined, MapStore['getMapRef']]>(state => [state.mapOptions.currentStateFp, state.getMapRef],
     ([stateFp, getMapRef]) => {
@@ -311,12 +193,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   )
   
   return [
-    _shatterMapSideEffectRender,
-    _hoverMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,
-    _updateMapCursor,
     _applyFocusFeatureState,
-    highlightUnassignedSub,
     filterCountiesSub
   ];
 };

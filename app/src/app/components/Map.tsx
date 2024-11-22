@@ -13,9 +13,17 @@ import {
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
   INTERACTIVE_LAYERS,
 } from '../constants/layers';
-import {useMapStore} from '../store/mapStore';
-import GlMap, {MapRef, NavigationControl, Source} from 'react-map-gl/maplibre';
+import {MapStore, useMapStore} from '../store/mapStore';
+import GlMap, {MapRef, NavigationControl, Source, useMap} from 'react-map-gl/maplibre';
 import {DistrictrLayer} from './Map/Layer';
+
+const toolCursorMap: Record<MapStore['activeTool'], string> = {
+  'pan': 'cursor-auto',
+  'brush': 'cursor-pointer',
+  'eraser': 'cursor-pointer',
+  'shatter': 'cursor-crosshair',
+  'lock': 'cursor-crosshair'
+}
 
 export const MapComponent: React.FC = () => {
   const mapRef = useRef<MapRef>(null);
@@ -24,6 +32,7 @@ export const MapComponent: React.FC = () => {
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
   const mapDocument = useMapStore(state => state.mapDocument);
+  const activeTool = useMapStore(state => state.activeTool);
   const [pmtilesReady, setPmTilesReady] = useState<boolean>(false);
   const [mapReady, setMapReady] = useState<boolean>(false);
 
@@ -59,8 +68,9 @@ export const MapComponent: React.FC = () => {
   return (
     <div
       className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen
-    ${mapLock ? 'pointer-events-none' : ''}
-    `}
+        ${mapLock ? 'pointer-events-none' : ''}
+        ${toolCursorMap[activeTool]}
+      `}
     >
       <GlMap
         ref={mapRef}

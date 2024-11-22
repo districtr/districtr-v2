@@ -10,7 +10,7 @@ import type {
   MapSourceDataEvent,
   MapStyleDataEvent,
 } from 'maplibre-gl';
-import {useMapStore} from '@/app/store/mapStore';
+import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
@@ -21,7 +21,20 @@ import {ActiveTool} from '@/app/constants/types';
 import {parentIdCache} from '@/app/store/idCache';
 import {MapCallbacks} from 'react-map-gl/dist/esm/types/events-maplibre';
 import {ViewStateChangeEvent} from 'react-map-gl/dist/esm/types';
+import {
+  getFeaturesInBbox,
+  getFeaturesIntersectingCounties,
+  getFeatureUnderCursor,
+} from '../helpers';
 
+const getPaintFunction = (activeTool: MapStore['activeTool'], paintByCounty?: boolean) => {
+  const defaultTool = paintByCounty ? getFeaturesIntersectingCounties : getFeaturesInBbox;
+  if (['shatter', 'lock'].includes(activeTool)) {
+    return getFeatureUnderCursor;
+  } else {
+    return defaultTool;
+  }
+};
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
 */
@@ -52,11 +65,17 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
 export const handleMapClick = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const map = e.target;
   const mapStore = useMapStore.getState();
-  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures} = mapStore;
+  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures, mapOptions} =
+    mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
-    const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
+    const selectedFeatures = getPaintFunction(activeTool, mapOptions.paintByCounty)(
+      map,
+      e,
+      mapStore.brushSize,
+      paintLayers
+    );
 
     if (sourceLayer && selectedFeatures && map && mapStore) {
       // select on both the map object and the store
@@ -135,7 +154,8 @@ export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) =>
 export const handleMapMouseMove = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const map = e.target;
   const mapStore = useMapStore.getState();
-  const {activeTool, setHoverFeatures, isPainting, mapDocument, selectMapFeatures} = mapStore;
+  const {activeTool, setHoverFeatures, isPainting, mapDocument, selectMapFeatures, mapOptions} =
+    mapStore;
   const sourceLayer = mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
     // Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
@@ -143,7 +163,12 @@ export const handleMapMouseMove = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
     activeTool
   );
 
-  const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
+  const selectedFeatures = getPaintFunction(activeTool, mapOptions.paintByCounty)(
+    map,
+    e,
+    mapStore.brushSize,
+    paintLayers
+  );
   const isBrushingTool = sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
   // sourceCapabilities exists on the UIEvent constructor, which does not appear
   // properly tpyed in the default map events
@@ -181,33 +206,37 @@ export const handleResetMapSelectState = (map: MapLibreMap | null) => {
 
 export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const map = e.target;
-  const mapStore = useMapStore.getState();
-  if (mapStore.activeTool !== 'pan') {
+  const {activeTool, mapDocument, mapOptions, setHoverFeatures, setContextMenu} =
+    useMapStore.getState();
+  if (activeTool !== 'pan') {
     return;
   }
   e.preventDefault();
-  const setHoverFeatures = mapStore.setHoverFeatures;
-  const sourceLayer = mapStore.mapDocument?.parent_layer;
+  const sourceLayer = mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
-  const paintLayers = mapStore.mapDocument?.child_layer
-    ? INTERACTIVE_LAYERS
-    : [BLOCK_HOVER_LAYER_ID];
+  const paintLayers = mapDocument?.child_layer ? INTERACTIVE_LAYERS : [BLOCK_HOVER_LAYER_ID];
 
-  const selectedFeatures = mapStore.paintFunction(map, e, 0, paintLayers, false);
+  const selectedFeatures = getPaintFunction(activeTool, mapOptions.paintByCounty)(
+    map,
+    e,
+    0,
+    paintLayers,
+    false
+  );
 
   if (!selectedFeatures?.length || !map || !sourceLayer) return;
 
   setHoverFeatures(selectedFeatures.slice(0, 1));
 
   const handleClose = () => {
-    mapStore.setContextMenu(null);
+    setContextMenu(null);
     setHoverFeatures([]);
   };
 
   map.once('movestart', handleClose);
 
-  mapStore.setContextMenu({
+  setContextMenu({
     x: e.point.x,
     y: e.point.y,
     data: selectedFeatures[0],

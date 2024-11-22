@@ -455,12 +455,25 @@ export const useMapStore = create(
             console.log('NO FEATURES');
             return;
           }
+          const {setMapLock, getMapRef, shatterIds, shatterMappings, lockedFeatures, mapDocument} = get();
+          const mapRef = getMapRef()
+          if (!mapRef || !mapDocument) return
+
+          shatterIds.parents.forEach(id => {
+            mapRef?.setFeatureState({
+              source: mapDocument.gerrydb_table,
+              id,
+              sourceLayer: mapDocument.parent_layer,
+            }, {
+              broken: true
+            });
+          });
+
           set({mapLock: true});
           // set BLOCK_LAYER_ID based on features[0] to focused true
 
           const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
 
-          const {shatterIds, shatterMappings, lockedFeatures} = get();
           const isAlreadyShattered = geoids.some(id => shatterMappings.hasOwnProperty(id));
           const shatterResult: ShatterResult = isAlreadyShattered
             ? ({
@@ -538,6 +551,11 @@ export const useMapStore = create(
               mode: 'break',
               bounds: mapBbox,
             },
+          });
+
+          mapRef.once('render', () => {
+            setMapLock(false);
+            console.log(`Unlocked at`, performance.now());
           });
         },
         parentsToHeal: [],
@@ -751,6 +769,9 @@ export const useMapStore = create(
         },
         hoverFeatures: [],
         setHoverFeatures: _features => {
+          const {getMapRef, hoverFeatures: previous} = get()
+          const mapRef = getMapRef()
+          if (!mapRef) return
           const hoverFeatures = _features
             ? _features.map(f => ({
                 source: f.source,
@@ -758,7 +779,13 @@ export const useMapStore = create(
                 id: f.id,
               }))
             : [];
-
+          
+          previous.forEach(feature => {
+            mapRef.setFeatureState(feature, {hover: false});
+          });
+          hoverFeatures.forEach(feature => {
+            mapRef.setFeatureState(feature, {hover: true});
+          });
           set({hoverFeatures});
         },
         focusFeatures: [],
@@ -926,11 +953,8 @@ export const useMapStore = create(
 );
 
 // these need to initialize after the map store
-// getRenderSubscriptions(useMapStore);
+getRenderSubscriptions(useMapStore);
 getMapMetricsSubs(useMapStore);
 getQueriesResultsSubs(useMapStore);
 // getMapEditSubs(useMapStore);
 getSearchParamsObersver();
-
-
-window.getState = useMapStore.getState

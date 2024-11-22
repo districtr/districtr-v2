@@ -52,6 +52,7 @@ export const DistrictrLayer: React.FC<DistrictrLayerProps> = ({
     return null;
   }
   return (
+    // @ts-ignore TODO: fix types here...
     <Layer
       {...layerStyle}
       key={`${layerId}-layer`}
