@@ -39,9 +39,6 @@ export default function PaintByCounty() {
           Paint by County
         </Flex>
       </Text>
-      <Text size="1" color="gray">
-        Paint-by-county feature is still experimental.
-      </Text>
     </Box>
   );
 }
