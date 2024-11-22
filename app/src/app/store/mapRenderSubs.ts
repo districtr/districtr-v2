@@ -1,20 +1,15 @@
 import {
   PARENT_LAYERS,
   CHILD_LAYERS,
-  getLayerFilter,
   getLayerFill,
-  BLOCK_SOURCE_ID,
   COUNTY_LAYERS,
 } from '../constants/layers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
-  getFeaturesInBbox,
-  getFeaturesIntersectingCounties,
   shallowCompareArray,
 } from '../utils/helpers';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
-import {getFeatureUnderCursor} from '@utils/helpers';
 
 export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe<ColorZoneAssignmentsState>(
@@ -39,21 +34,21 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       } = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded') return;
-      [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
-        const isHover = layerId.includes('hover');
-        const isParent = PARENT_LAYERS.includes(layerId);
+      // [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
+      //   const isHover = layerId.includes('hover');
+      //   const isParent = PARENT_LAYERS.includes(layerId);
 
-        if (isHover && mapRef.getLayer(layerId)) {
-          mapRef.setPaintProperty(
-            layerId,
-            'fill-opacity',
-            getLayerFill(
-              captiveIds.size ? captiveIds : undefined,
-              isParent ? shatterIds.parents : undefined
-            )
-          );
-        }
-      });
+      //   if (isHover && mapRef.getLayer(layerId)) {
+      //     mapRef.setPaintProperty(
+      //       layerId,
+      //       'fill-opacity',
+      //       getLayerFill(
+      //         captiveIds.size ? captiveIds : undefined,
+      //         isParent ? shatterIds.parents : undefined
+      //       )
+      //     );
+      //   }
+      // });
       const [lockPaintedAreas, prevLockPaintedAreas] = [curr[6], prev[6]];
       const sameLockedAreas =
         JSON.stringify(lockPaintedAreas) === JSON.stringify(prevLockPaintedAreas);
@@ -145,7 +140,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   const _applyFocusFeatureState = useMapStore.subscribe(
     store => store.focusFeatures,
     (focusFeatures, previousFocusFeatures) => {
-      const {getMapRef, captiveIds, shatterIds} = useMapStore.getState();
+      const {getMapRef} = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef) return;
 
@@ -155,27 +150,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       previousFocusFeatures.forEach(feature => {
         if (!focusFeatures.find(f => f.id === feature.id)) {
           mapRef.setFeatureState(feature, {focused: false});
-        }
-      });
-
-      [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
-        const isHover = layerId.includes('hover');
-        const isParent = PARENT_LAYERS.includes(layerId);
-        if (isHover && mapRef.getLayer(layerId)) {
-          mapRef.setPaintProperty(
-            layerId,
-            'fill-opacity',
-            getLayerFill(
-              captiveIds.size ? captiveIds : undefined,
-              isParent ? shatterIds.parents : undefined
-            )
-          );
-        }
-      });
-
-      CHILD_LAYERS.forEach(layerId => {
-        if (!layerId.includes('hover') && mapRef.getLayer(layerId)) {
-          mapRef.setPaintProperty(layerId, 'line-opacity', 1);
         }
       });
     }

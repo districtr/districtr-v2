@@ -76,7 +76,7 @@ export function getLayerFill(
   captiveIds?: Set<string>,
   shatterIds?: Set<string>
 ): DataDrivenPropertyValueSpecification<number> {
-  const captiveCondition = captiveIds
+  const captiveCondition = captiveIds?.size
     ? ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]]
     : false
 
