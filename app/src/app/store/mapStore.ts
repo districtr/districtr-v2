@@ -926,10 +926,10 @@ export const useMapStore = create(
 );
 
 // these need to initialize after the map store
-getRenderSubscriptions(useMapStore);
+// getRenderSubscriptions(useMapStore);
 getMapMetricsSubs(useMapStore);
 getQueriesResultsSubs(useMapStore);
-getMapEditSubs(useMapStore);
+// getMapEditSubs(useMapStore);
 getSearchParamsObersver();
 
 

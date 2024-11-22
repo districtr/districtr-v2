@@ -3,12 +3,8 @@ import {
   ExpressionSpecification,
   FilterSpecification,
   LayerSpecification,
-  LineLayerSpecification,
 } from 'maplibre-gl';
-import {Map} from 'maplibre-gl';
-import {getBlocksSource} from './sources';
-import {DocumentObject} from '../utils/api/apiHandlers';
-import {MapStore, useMapStore} from '../store/mapStore';
+import {MapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
 
 export const BLOCK_SOURCE_ID = 'blocks';
@@ -54,19 +50,22 @@ ZONE_ASSIGNMENT_STYLE_DYNAMIC.push('#cecece');
 // @ts-ignore
 export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
-const LAYER_LINE_WIDTHS = {
-  [BLOCK_LAYER_ID]: 2,
-  [BLOCK_LAYER_ID_CHILD]: 1
+export type StyleBuilderArgs = {
+  layerId: string,
+  shatterIds?: MapStore['shatterIds'],
+  captiveIds?: MapStore['captiveIds'],
+  mapOptions?: MapStore['mapOptions'],
+  child?: boolean
 }
+export type StyleBuilder = (args: StyleBuilderArgs) => Partial<LayerSpecification>
 
-export function getLayerFilter(layerId: string, _shatterIds?: MapStore['shatterIds']) {
-  const shatterIds = _shatterIds || useMapStore.getState().shatterIds;
-  const isChildLayer = CHILD_LAYERS.includes(layerId);
-  const ids = isChildLayer ? shatterIds.children : shatterIds.parents;
+export function getLayerFilter(child: boolean, shatterIds?: MapStore['shatterIds']) {
+  if (!shatterIds) return undefined
+  const ids = child ? shatterIds.children : shatterIds.parents;
   const cleanIds = Boolean(ids) ? Array.from(ids) : [];
   const filterBase: FilterSpecification = ['in', ['get', 'path'], ['literal', cleanIds]];
 
-  if (isChildLayer) {
+  if (child) {
     return filterBase;
   }
   const parentFilter: FilterSpecification = ['!', filterBase];
@@ -77,8 +76,17 @@ export function getLayerFill(
   captiveIds?: Set<string>,
   shatterIds?: Set<string>
 ): DataDrivenPropertyValueSpecification<number> {
+  const captiveCondition = captiveIds
+    ? ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]]
+    : false
+
   const innerFillSpec = ([
     'case',
+    captiveCondition,
+    0.35,
+    // in shatter IDs
+    ['in', ['get', 'path'], ['literal', Array.from(shatterIds || new Set())]],
+    0,
     // is broken parent
     ['boolean', ['feature-state', 'broken'], false],
     0,
@@ -120,33 +128,15 @@ export function getLayerFill(
     0.6,
     0.2,
   ] as unknown) as DataDrivenPropertyValueSpecification<number>;
-  if (captiveIds?.size) {
-    return [
-      'case',
-      ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
-      0.35,
-      innerFillSpec,
-    ] as DataDrivenPropertyValueSpecification<number>;
-  } else if (shatterIds?.size) {
-    return [
-      'case',
-      ['in', ['get', 'path'], ['literal', Array.from(shatterIds)]],
-      0,
-      innerFillSpec,
-    ] as DataDrivenPropertyValueSpecification<number>;
-  } else {
-    return innerFillSpec;
-  }
+  
+  return innerFillSpec;
 }
-export function getHighlightLayerSpecification(
-  sourceLayer: string,
-  layerId: string,
-  highlightUnassigned?: boolean
-): LineLayerSpecification {
+
+export const getHighlightLayerSpecification: StyleBuilder = ({
+  mapOptions
+}) => {
+  const highlightUnassigned = mapOptions?.higlightUnassigned
   return {
-    id: layerId,
-    source: BLOCK_SOURCE_ID,
-    'source-layer': sourceLayer,
     type: 'line',
     layout: {
       visibility: 'visible',
@@ -185,20 +175,16 @@ export function getHighlightLayerSpecification(
         0, // Default width if none of the conditions are met
       ],
     },
-  };
+  } as unknown as Partial<LayerSpecification>
 }
 
+export const getBlocksLayerSpecification: StyleBuilder = ({
+  child,
+  shatterIds
+}) => {
+  const lineWidth = child ? 1 : 2
 
-export function getBlocksLayerSpecification(
-  sourceLayer: string,
-  layerId: typeof LINE_LAYERS[number]
-): LayerSpecification {
-  const lineWidth = LAYER_LINE_WIDTHS[layerId]
-
-  const layerSpec: LayerSpecification = {
-    id: layerId,
-    source: BLOCK_SOURCE_ID,
-    'source-layer': sourceLayer,
+  const layerSpec: Partial<LayerSpecification> = {
     type: 'line',
     layout: {
       visibility: 'visible',
@@ -210,32 +196,34 @@ export function getBlocksLayerSpecification(
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, lineWidth*.125, 9, lineWidth*.35, 14, lineWidth],
     },
   };
-  if (CHILD_LAYERS.includes(layerId)) {
-    layerSpec.filter = getLayerFilter(layerId);
+  if (child) {
+    layerSpec.filter = getLayerFilter(!!child, shatterIds);
   }
 
   return layerSpec;
 }
 
-export function getBlocksHoverLayerSpecification(
-  sourceLayer: string,
-  layerId: string
-): LayerSpecification {
-  const layerSpec: LayerSpecification = {
-    id: layerId,
-    source: BLOCK_SOURCE_ID,
-    'source-layer': sourceLayer,
+export const getBlocksHoverLayerSpecification: StyleBuilder = ({
+  layerId,
+  shatterIds,
+  captiveIds, 
+  child
+}) => {
+  const layerSpec: Partial<LayerSpecification> = {
     type: 'fill',
     layout: {
       visibility: 'visible',
     },
     paint: {
-      'fill-opacity': getLayerFill(),
+      'fill-opacity': getLayerFill(
+        shatterIds?.parents,
+        captiveIds
+      ),
       'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
     },
   };
   if (CHILD_LAYERS.includes(layerId)) {
-    layerSpec.filter = getLayerFilter(layerId);
+    layerSpec.filter = getLayerFilter(!!child, shatterIds);
   }
   return layerSpec;
 }

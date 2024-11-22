@@ -11,15 +11,11 @@ import {
   BLOCK_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_HIGHLIGHT,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
-  BLOCK_SOURCE_ID,
-  getBlocksHoverLayerSpecification,
-  getBlocksLayerSpecification,
-  getHighlightLayerSpecification,
   INTERACTIVE_LAYERS,
-  LABELS_BREAK_LAYER_ID,
 } from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
-import GlMap, {Layer, MapRef, NavigationControl, Source, useMap} from 'react-map-gl/maplibre';
+import GlMap, {MapRef, NavigationControl, Source} from 'react-map-gl/maplibre';
+import {DistrictrLayer} from './Map/Layer';
 
 export const MapComponent: React.FC = () => {
   const mapRef = useRef<MapRef>(null);
@@ -72,6 +68,9 @@ export const MapComponent: React.FC = () => {
         mapLib={maplibregl}
         maxZoom={MAP_OPTIONS.maxZoom ? MAP_OPTIONS.maxZoom : undefined}
         onLoad={handleMapLoad}
+        preserveDrawingBuffer
+        reuseMaps
+        styleDiffing={false}
         interactiveLayerIds={INTERACTIVE_LAYERS}
         initialViewState={
           MAP_OPTIONS.center
@@ -90,7 +89,8 @@ export const MapComponent: React.FC = () => {
         {mapReady && (
           <Source
             type="vector"
-            id={BLOCK_SOURCE_ID}
+            id={mapDocument?.gerrydb_table}
+            key={mapDocument?.gerrydb_table}
             url={
               mapDocument?.tiles_s3_path
                 ? `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${mapDocument?.tiles_s3_path}`
@@ -100,64 +100,21 @@ export const MapComponent: React.FC = () => {
           >
             {mapDocument && (
               <>
-                <Layer
-                  {...getBlocksLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID)}
-                  beforeId={LABELS_BREAK_LAYER_ID}
-                  id={BLOCK_LAYER_ID}
-                  key={`${BLOCK_LAYER_ID}-layer`}
-                />
-
-                <Layer
-                  {...getBlocksHoverLayerSpecification(
-                    mapDocument.parent_layer,
-                    BLOCK_HOVER_LAYER_ID
-                  )}
-                  beforeId={LABELS_BREAK_LAYER_ID}
-                  id={BLOCK_HOVER_LAYER_ID}
-                  key={`${BLOCK_HOVER_LAYER_ID}-layer`}
-                />
-              </>
-            )}
-
-            {mapDocument?.child_layer && (
-              <>
-                <Layer
-                  {...getBlocksLayerSpecification(mapDocument.child_layer, BLOCK_LAYER_ID_CHILD)}
-                  beforeId={LABELS_BREAK_LAYER_ID}
-                  id={BLOCK_LAYER_ID_CHILD}
-                  key={`${BLOCK_LAYER_ID_CHILD}-layer`}
-                />
-
-                <Layer
-                  {...getBlocksHoverLayerSpecification(
-                    mapDocument.child_layer,
-                    BLOCK_HOVER_LAYER_ID_CHILD
-                  )}
-                  beforeId={LABELS_BREAK_LAYER_ID}
-                  id={BLOCK_HOVER_LAYER_ID_CHILD}
-                  key={`${BLOCK_HOVER_LAYER_ID_CHILD}-layer`}
-                />
-                <Layer
-                  {...getHighlightLayerSpecification(
-                    mapDocument.child_layer,
-                    BLOCK_LAYER_ID_HIGHLIGHT_CHILD
-                  )}
-                  beforeId={LABELS_BREAK_LAYER_ID}
-                  id={BLOCK_LAYER_ID_HIGHLIGHT_CHILD}
-                  key={`${BLOCK_LAYER_ID_HIGHLIGHT_CHILD}-layer`}
-                />
-              </>
-            )}
-            {mapDocument && (
-              <Layer
-                {...getHighlightLayerSpecification(
-                  mapDocument.parent_layer,
-                  BLOCK_LAYER_ID_HIGHLIGHT
+                <DistrictrLayer layerId={BLOCK_LAYER_ID} layerType="blocks" />
+                <DistrictrLayer layerId={BLOCK_HOVER_LAYER_ID} layerType="hover" />
+                {mapDocument.child_layer && (
+                  <>
+                    <DistrictrLayer layerId={BLOCK_LAYER_ID_CHILD} layerType="blocks" child />
+                    <DistrictrLayer layerId={BLOCK_HOVER_LAYER_ID_CHILD} layerType="hover" child />
+                    <DistrictrLayer
+                      layerId={BLOCK_LAYER_ID_HIGHLIGHT_CHILD}
+                      layerType="highlight"
+                      child
+                    />
+                  </>
                 )}
-                beforeId={LABELS_BREAK_LAYER_ID}
-                id={BLOCK_LAYER_ID_HIGHLIGHT}
-                key={`${BLOCK_LAYER_ID_HIGHLIGHT}-layer`}
-              />
+                <DistrictrLayer layerId={BLOCK_LAYER_ID_HIGHLIGHT} layerType="highlight" />
+              </>
             )}
           </Source>
         )}
