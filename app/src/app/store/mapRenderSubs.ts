@@ -34,21 +34,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       } = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded') return;
-      // [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
-      //   const isHover = layerId.includes('hover');
-      //   const isParent = PARENT_LAYERS.includes(layerId);
-
-      //   if (isHover && mapRef.getLayer(layerId)) {
-      //     mapRef.setPaintProperty(
-      //       layerId,
-      //       'fill-opacity',
-      //       getLayerFill(
-      //         captiveIds.size ? captiveIds : undefined,
-      //         isParent ? shatterIds.parents : undefined
-      //       )
-      //     );
-      //   }
-      // });
       const [lockPaintedAreas, prevLockPaintedAreas] = [curr[6], prev[6]];
       const sameLockedAreas =
         JSON.stringify(lockPaintedAreas) === JSON.stringify(prevLockPaintedAreas);
@@ -137,24 +122,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     }
   );
 
-  const _applyFocusFeatureState = useMapStore.subscribe(
-    store => store.focusFeatures,
-    (focusFeatures, previousFocusFeatures) => {
-      const {getMapRef} = useMapStore.getState();
-      const mapRef = getMapRef();
-      if (!mapRef) return;
-
-      focusFeatures.forEach(feature => {
-        mapRef.setFeatureState(feature, {focused: true});
-      });
-      previousFocusFeatures.forEach(feature => {
-        if (!focusFeatures.find(f => f.id === feature.id)) {
-          mapRef.setFeatureState(feature, {focused: false});
-        }
-      });
-    }
-  );
-
   const filterCountiesSub = useMapStore.subscribe<[string | undefined, MapStore['getMapRef']]>(
     state => [state.mapOptions.currentStateFp, state.getMapRef],
     ([stateFp, getMapRef]) => {
@@ -167,5 +134,5 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     }
   );
 
-  return [_zoneAssignmentMapSideEffectRender, _applyFocusFeatureState, filterCountiesSub];
+  return [_zoneAssignmentMapSideEffectRender, lockFeaturesSub, filterCountiesSub];
 };

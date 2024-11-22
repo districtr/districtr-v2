@@ -14,21 +14,17 @@ import {
   ZonePopulation,
 } from '../utils/api/apiHandlers';
 import maplibregl from 'maplibre-gl';
-import type {MutableRefObject} from 'react';
 import {QueryObserverResult, UseQueryResult} from '@tanstack/react-query';
 import {
   ContextMenuState,
   LayerVisibility,
-  PaintEventHandler,
   checkIfSameZone,
-  getFeaturesInBbox,
   resetZoneColors,
   setZones,
 } from '../utils/helpers';
 import {getRenderSubscriptions} from './mapRenderSubs';
 import {getSearchParamsObersver} from '../utils/api/queryParamsListener';
 import {getMapMetricsSubs} from './metricsSubs';
-import {getMapEditSubs} from './mapEditSubs';
 import {getQueriesResultsSubs} from '../utils/api/queries';
 import {persistOptions} from './persistConfig';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
@@ -453,7 +449,7 @@ export const useMapStore = create(
             console.log('NO FEATURES');
             return;
           }
-          const {setMapLock, getMapRef, shatterIds, shatterMappings, lockedFeatures, mapDocument} = get();
+          const {setMapLock, getMapRef, shatterIds, shatterMappings, lockedFeatures, mapDocument, focusFeatures} = get();
           const mapRef = getMapRef()
           if (!mapRef || !mapDocument) return
 
@@ -466,7 +462,19 @@ export const useMapStore = create(
               broken: true
             });
           });
-
+          focusFeatures.forEach(feature => {
+            mapRef.setFeatureState(feature, {focused: false});
+          });
+          const newFocusFeatures = [
+            {
+              id: features[0].id,
+              source: BLOCK_SOURCE_ID,
+              sourceLayer: get().mapDocument?.parent_layer,
+            },
+          ]
+          newFocusFeatures.forEach(feature => {
+            mapRef.setFeatureState(feature, {focused: true});
+          });
           set({mapLock: true});
           // set BLOCK_LAYER_ID based on features[0] to focused true
 
@@ -533,13 +541,7 @@ export const useMapStore = create(
             mapLock: false,
             captiveIds: newChildren,
             lockedFeatures: newLockedFeatures,
-            focusFeatures: [
-              {
-                id: features[0].id,
-                source: BLOCK_SOURCE_ID,
-                sourceLayer: get().mapDocument?.parent_layer,
-              },
-            ],
+            focusFeatures: newFocusFeatures,
             zoneAssignments,
             parentsToHeal: [...get().parentsToHeal, features?.[0]?.id?.toString() || '']
               .filter(onlyUnique)

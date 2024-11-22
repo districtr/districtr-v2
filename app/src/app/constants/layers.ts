@@ -79,7 +79,7 @@ export function getLayerFill(
   const captiveCondition = captiveIds?.size
     ? ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]]
     : false
-
+  console.log("!!!", captiveCondition, captiveIds)
   const innerFillSpec = ([
     'case',
     captiveCondition,
@@ -216,8 +216,8 @@ export const getBlocksHoverLayerSpecification: StyleBuilder = ({
     },
     paint: {
       'fill-opacity': getLayerFill(
+        captiveIds,
         shatterIds?.parents,
-        captiveIds
       ),
       'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
     },
