@@ -240,14 +240,6 @@ export interface MapStore {
   resetAccumulatedBlockPopulations: () => void;
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
-  featureState: {
-    [sourceLayer:string]: {
-      [id: string]: Record<string, unknown>
-    }
-  },
-  updated: Record<string, string[]>,
-  clearUpdated: () => void,
-  updateHash: string | number;
   assignmentsHash: string;
   setAssignmentsHash: (hash: string) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
@@ -347,7 +339,6 @@ export const useMapStore = create(
             getMapRef,
             selectedZone: _selectedZone,
             zoneAssignments,
-            featureState
           } = get();
 
           const map = getMapRef();
@@ -355,48 +346,32 @@ export const useMapStore = create(
           if (!map || !mapDocument?.document_id) {
             return;
           }
-          const updated: Record<string, string[]> = {}
-          updated[mapDocument.parent_layer] = []
-          mapDocument.child_layer && (updated[mapDocument.child_layer] = [])
-
           // PAINT
           features?.forEach(feature => {
             const id = feature?.id?.toString() ?? undefined;
             if (!id) return;
-            // const isLocked = lockedFeatures.size && lockedFeatures.has(id);
-            // if (isLocked) return;
+            const isLocked = lockedFeatures.size && lockedFeatures.has(id);
+            if (isLocked) return;
 
-            // accumulatedGeoids.add(feature.properties?.path);
-            // accumulatedBlockPopulations.set(
-            //   feature.properties?.path,
-            //   feature.properties?.total_pop
-            // );
-            // zoneAssignments.set(id, selectedZone);
-            // map.setFeatureState(
-            //   {
-            //     source: mapDocument.gerrydb_table,
-            //     id: feature?.id ?? undefined,
-            //     sourceLayer: feature.sourceLayer,
-            //   },
-            //   {selected: true, zone: selectedZone}
-            // );
-            updated[feature.sourceLayer!].push(id)
-
-            const prevState = featureState[feature.sourceLayer!][id] || {}
-            featureState[feature.sourceLayer!][id] = {
-              ...prevState,
-              zone: selectedZone,
-              selected: true
-            }
+            accumulatedGeoids.add(feature.properties?.path);
+            accumulatedBlockPopulations.set(
+              feature.properties?.path,
+              feature.properties?.total_pop
+            );
+            zoneAssignments.set(id, selectedZone);
+            map.setFeatureState(
+              {
+                source: mapDocument.gerrydb_table,
+                id: feature?.id ?? undefined,
+                sourceLayer: feature.sourceLayer,
+              },
+              {selected: true, zone: selectedZone}
+            );
           });
-
           set({
             accumulatedGeoids,
             accumulatedBlockPopulations,
             zoneAssignments: new Map(zoneAssignments),
-            featureState,
-            updated,
-            updateHash: performance.now()
           });
         },
         mapViews: {isPending: true},
@@ -416,10 +391,6 @@ export const useMapStore = create(
           parentIdCache.clear()
           setFreshMap(true);
           resetZoneAssignments();
-
-          const featureState: MapStore['featureState'] = {}
-          featureState[mapDocument.parent_layer] = {}
-          mapDocument.child_layer && (featureState[mapDocument.child_layer] = {})
           
           const upsertMapOnDrawSub = useMapStore.subscribe(state => state.zoneAssignments,
             (za) => {
@@ -438,7 +409,6 @@ export const useMapStore = create(
               ...mapOptions,
               bounds: mapDocument.extent,
             },
-            featureState,
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
@@ -898,14 +868,6 @@ export const useMapStore = create(
             accumulatedGeoids: new Set<string>(),
           });
         },
-        featureState: {},
-        updated: {},
-        clearUpdated: () => {
-          set({
-            updated: {}
-          })
-        },
-        updateHash: 0,
         loadZoneAssignments: assignments => {
           const zoneAssignments = new Map<string, number>();
           const shatterIds = {
@@ -996,4 +958,3 @@ getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
 
-window.getState = useMapStore.getState
