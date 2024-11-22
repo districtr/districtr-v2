@@ -25,8 +25,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
       const {
-        captiveIds,
-        shatterIds,
         getMapRef,
         setLockedFeatures,
         lockedFeatures,
