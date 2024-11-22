@@ -26,6 +26,9 @@ import {
   getFeaturesIntersectingCounties,
   getFeatureUnderCursor,
 } from '../helpers';
+import { throttle } from 'lodash';
+
+const EVENT_THROTTLE = 12.5;
 
 const getPaintFunction = (activeTool: MapStore['activeTool'], paintByCounty?: boolean) => {
   const defaultTool = paintByCounty ? getFeaturesIntersectingCounties : getFeaturesInBbox;
@@ -273,22 +276,22 @@ export const handleIdCache = (e: MapSourceDataEvent | MapStyleDataEvent) => {
 };
 
 export const mapCallbacks: Partial<MapCallbacks> = {
-  onClick: handleMapClick,
-  onMouseUp: handleMapMouseUp,
-  onMouseDown: handleMapMouseDown,
-  onTouchStart: handleMapMouseDown,
-  onMouseEnter: handleMapMouseEnter,
-  onMouseOver: handleMapMouseOver,
-  onMouseLeave: handleMapMouseLeave,
-  onMouseOut: handleMapMouseOut,
-  onMouseMove: handleMapMouseMove,
-  onTouchMove: handleMapMouseMove,
-  onTouchEnd: handleMapMouseUp,
-  onTouchCancel: handleMapMouseUp,
-  onZoom: handleMapZoom,
-  onIdle: handleMapIdle,
-  onMoveEnd: handleMapMoveEnd,
-  onZoomEnd: handleMapZoomEnd,
-  onContextMenu: handleMapContextMenu,
+  onClick: throttle(handleMapClick, EVENT_THROTTLE),
+  onMouseUp: throttle(handleMapMouseUp, EVENT_THROTTLE),
+  onMouseDown: throttle(handleMapMouseDown, EVENT_THROTTLE),
+  onTouchStart: throttle(handleMapMouseDown, EVENT_THROTTLE),
+  onMouseEnter: throttle(handleMapMouseEnter, EVENT_THROTTLE),
+  onMouseOver: throttle(handleMapMouseOver, EVENT_THROTTLE),
+  onMouseLeave: throttle(handleMapMouseLeave, EVENT_THROTTLE),
+  onMouseOut: throttle(handleMapMouseOut, EVENT_THROTTLE),
+  onMouseMove: throttle(handleMapMouseMove, EVENT_THROTTLE),
+  onTouchMove: throttle(handleMapMouseMove, EVENT_THROTTLE),
+  onTouchEnd: throttle(handleMapMouseUp, EVENT_THROTTLE),
+  onTouchCancel: throttle(handleMapMouseUp, EVENT_THROTTLE),
+  onZoom: throttle(handleMapZoom, EVENT_THROTTLE),
+  onIdle: throttle(handleMapIdle, EVENT_THROTTLE),
+  onMoveEnd: throttle(handleMapMoveEnd, EVENT_THROTTLE),
+  onZoomEnd: throttle(handleMapZoomEnd, EVENT_THROTTLE),
+  onContextMenu: throttle(handleMapContextMenu, EVENT_THROTTLE),
   onData: handleIdCache,
 };
