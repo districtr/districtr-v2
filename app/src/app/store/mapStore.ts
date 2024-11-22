@@ -60,7 +60,7 @@ export interface MapStore {
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | null;
-  setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
+  setMapRef: (map: maplibregl.Map) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
   errorNotification: {
@@ -931,3 +931,6 @@ getMapMetricsSubs(useMapStore);
 getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
+
+
+window.getState = useMapStore.getState

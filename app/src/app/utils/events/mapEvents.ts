@@ -2,7 +2,14 @@
  Port over from map events declared at: https://github.com/uchicago-dsi/districtr-components/blob/2e8f9e5657b9f0fd2419b6f3258efd74ae310f32/src/Districtr/Districtr.tsx#L230
  */
 'use client';
-import type {Map as MapLibreMap, MapLayerMouseEvent, MapLayerTouchEvent, MapDataEvent, MapSourceDataEvent} from 'maplibre-gl';
+import type {
+  Map as MapLibreMap,
+  MapLayerMouseEvent,
+  MapLayerTouchEvent,
+  MapDataEvent,
+  MapSourceDataEvent,
+  MapStyleDataEvent,
+} from 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
@@ -11,7 +18,9 @@ import {
 } from '@/app/constants/layers';
 import {ResetMapSelectState} from '@utils/events/handlers';
 import {ActiveTool} from '@/app/constants/types';
-import { parentIdCache } from '@/app/store/idCache';
+import {parentIdCache} from '@/app/store/idCache';
+import {MapCallbacks} from 'react-map-gl/dist/esm/types/events-maplibre';
+import {ViewStateChangeEvent} from 'react-map-gl/dist/esm/types';
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -40,10 +49,8 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @param map - Map | null, the maplibre map instance
  */
-export const handleMapClick = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {
+export const handleMapClick = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const map = e.target;
   const mapStore = useMapStore.getState();
   const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures} = mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
@@ -76,10 +83,7 @@ export const handleMapClick = (
   }
 };
 
-export const handleMapMouseUp = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {
+export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
   const isPainting = mapStore.isPainting;
@@ -90,10 +94,8 @@ export const handleMapMouseUp = (
   }
 };
 
-export const handleMapMouseDown = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {
+export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const map = e.target;
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
 
@@ -107,45 +109,31 @@ export const handleMapMouseDown = (
   }
 };
 
-export const handleMapMouseEnter = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {
+export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   // check if mouse is down
   // if so, set is painting true
   // @ts-ignore this is the correct behavior but event types are incorrect
-  if (e.originalEvent?.buttons === 1){
-    useMapStore.getState().setIsPainting(true)
+  if (e.originalEvent?.buttons === 1) {
+    useMapStore.getState().setIsPainting(true);
   }
 };
 
-export const handleMapMouseOver = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {};
+export const handleMapMouseOver = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {};
 
-export const handleMapMouseLeave = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {
+export const handleMapMouseLeave = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const {setHoverFeatures, setIsPainting} = useMapStore.getState();
   setHoverFeatures([]);
-  setIsPainting(false)
+  setIsPainting(false);
 };
 
-export const handleMapMouseOut = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {
+export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const {setHoverFeatures, setIsPainting} = useMapStore.getState();
   setHoverFeatures([]);
-  setIsPainting(false)
+  setIsPainting(false);
 };
 
-export const handleMapMouseMove = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {
+export const handleMapMouseMove = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const map = e.target;
   const mapStore = useMapStore.getState();
   const {activeTool, setHoverFeatures, isPainting, mapDocument, selectMapFeatures} = mapStore;
   const sourceLayer = mapDocument?.parent_layer;
@@ -173,19 +161,13 @@ export const handleMapMouseMove = (
   }
 };
 
-export const handleMapZoom = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {};
+export const handleMapZoom = (e: ViewStateChangeEvent<MapLibreMap>) => {};
 
 export const handleMapIdle = () => {};
 
 export const handleMapMoveEnd = () => {};
 
-export const handleMapZoomEnd = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {};
+export const handleMapZoomEnd = (e: ViewStateChangeEvent<MapLibreMap>) => {};
 
 export const handleResetMapSelectState = (map: MapLibreMap | null) => {
   const mapStore = useMapStore.getState();
@@ -197,10 +179,8 @@ export const handleResetMapSelectState = (map: MapLibreMap | null) => {
   }
 };
 
-export const handleMapContextMenu = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {
+export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+  const map = e.target;
   const mapStore = useMapStore.getState();
   if (mapStore.activeTool !== 'pan') {
     return;
@@ -235,56 +215,51 @@ export const handleMapContextMenu = (
   });
 };
 
-export const handleIdCache = (
-  _e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {
-  const e = _e as unknown as MapSourceDataEvent
-  const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
+export const handleIdCache = (e: MapSourceDataEvent | MapStyleDataEvent) => {
+  const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {};
 
   if (
-    !tiles_s3_path || 
-    !parent_layer || 
-    e.dataType !== 'source' || 
-    !("url" in e.source) ||
+    !tiles_s3_path ||
+    !parent_layer ||
+    e.dataType !== 'source' ||
+    !('url' in e.source) ||
     !e.source.url?.includes(tiles_s3_path)
-  ) return
+  )
+    return;
+  const tileData = e?.tile?.latestFeatureIndex;
+  if (!tileData) return;
 
-  const tileData = e.tile.latestFeatureIndex;
-  if (!tileData) return
-  
-  const index = `${tileData.x}-${tileData.y}-${tileData.z}`
-  if (parentIdCache.hasCached(index)) return
-  const vtLayers = tileData.loadVTLayers()
-  
-  const parentLayerData = vtLayers[parent_layer]
-  const numFeatures = parentLayerData.length
-  const featureDataArray = parentLayerData._values
-  const idArray = featureDataArray.slice(-numFeatures,)
-  parentIdCache.add(index, idArray)
+  const index = `${tileData.x}-${tileData.y}-${tileData.z}`;
+  if (parentIdCache.hasCached(index)) return;
+  const vtLayers = tileData.loadVTLayers();
+
+  const parentLayerData = vtLayers[parent_layer];
+  const numFeatures = parentLayerData.length;
+  const featureDataArray = parentLayerData._values;
+  const idArray = featureDataArray.slice(-numFeatures);
+  parentIdCache.add(index, idArray);
   useMapStore.getState().setMapOptions({
-    currentStateFp: idArray[0].replace('vtd:','').slice(0,2)
-  })
-}
+    currentStateFp: idArray[0].replace('vtd:', '').slice(0, 2),
+  });
+};
 
-export const mapEvents = [
-  {action: 'click', handler: handleMapClick},
-  {action: 'mouseup', handler: handleMapMouseUp},
-  {action: 'mousedown', handler: handleMapMouseDown},
-  {action: 'touchstart', handler: handleMapMouseDown},
-  {action: 'mouseenter', handler: handleMapMouseEnter},
-  {action: 'mouseover', handler: handleMapMouseOver},
-  {action: 'mouseleave', handler: handleMapMouseLeave},
-  {action: 'touchleave', handler: handleMapMouseLeave},
-  {action: 'mouseout', handler: handleMapMouseOut},
-  {action: 'mousemove', handler: handleMapMouseMove},
-  {action: 'touchmove', handler: handleMapMouseMove},
-  {action: 'touchend', handler: handleMapMouseUp},
-  {action: 'touchcancel', handler: handleMapMouseUp},
-  {action: 'zoom', handler: handleMapZoom},
-  {action: 'idle', handler: handleMapIdle},
-  {action: 'moveend', handler: handleMapMoveEnd},
-  {action: 'zoomend', handler: handleMapZoomEnd},
-  {action: 'contextmenu', handler: handleMapContextMenu},
-  {action: 'data', handler: handleIdCache}
-];
+export const mapCallbacks: Partial<MapCallbacks> = {
+  onClick: handleMapClick,
+  onMouseUp: handleMapMouseUp,
+  onMouseDown: handleMapMouseDown,
+  onTouchStart: handleMapMouseDown,
+  onMouseEnter: handleMapMouseEnter,
+  onMouseOver: handleMapMouseOver,
+  onMouseLeave: handleMapMouseLeave,
+  onMouseOut: handleMapMouseOut,
+  onMouseMove: handleMapMouseMove,
+  onTouchMove: handleMapMouseMove,
+  onTouchEnd: handleMapMouseUp,
+  onTouchCancel: handleMapMouseUp,
+  onZoom: handleMapZoom,
+  onIdle: handleMapIdle,
+  onMoveEnd: handleMapMoveEnd,
+  onZoomEnd: handleMapZoomEnd,
+  onContextMenu: handleMapContextMenu,
+  onData: handleIdCache,
+};

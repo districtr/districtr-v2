@@ -1,8 +1,4 @@
-import {LngLatBoundsLike} from 'maplibre-gl';
 import {
-  addBlockLayers,
-  BLOCK_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID,
   PARENT_LAYERS,
   CHILD_LAYERS,
   getLayerFilter,
@@ -26,20 +22,6 @@ import {getFeatureUnderCursor} from '@utils/helpers';
 const BBOX_TOLERANCE_DEG = 0.02;
 
 export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
-  const addLayerSubMapDocument = useMapStore.subscribe<
-    [MapStore['mapDocument'], MapStore['getMapRef']]
-  >(
-    state => [state.mapDocument, state.getMapRef],
-    ([mapDocument, getMapRef]) => {
-      const mapStore = useMapStore.getState();
-      const mapRef = getMapRef();
-      if (mapRef && mapDocument) {
-        addBlockLayers(mapRef, mapDocument);
-        mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
-      }
-    },
-    {equalityFn: shallowCompareArray}
-  );
 
   const _shatterMapSideEffectRender = useMapStore.subscribe<
     [MapStore['shatterIds'], MapStore['getMapRef'], MapStore['mapRenderingState']]
@@ -329,7 +311,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
   )
   
   return [
-    addLayerSubMapDocument,
     _shatterMapSideEffectRender,
     _hoverMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,

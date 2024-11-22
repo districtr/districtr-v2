@@ -1,91 +1,167 @@
-import type {Map, MapLayerEventType} from 'maplibre-gl';
-import maplibregl, {MapLayerMouseEvent, MapLayerTouchEvent} from 'maplibre-gl';
+import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
-import type {MutableRefObject} from 'react';
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {MAP_OPTIONS} from '../constants/configuration';
-import {mapEvents} from '../utils/events/mapEvents';
-import {INTERACTIVE_LAYERS} from '../constants/layers';
+import {mapCallbacks} from '../utils/events/mapEvents';
+import {
+  BLOCK_HOVER_LAYER_ID,
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_LAYER_ID,
+  BLOCK_LAYER_ID_CHILD,
+  BLOCK_LAYER_ID_HIGHLIGHT,
+  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+  BLOCK_SOURCE_ID,
+  getBlocksHoverLayerSpecification,
+  getBlocksLayerSpecification,
+  getHighlightLayerSpecification,
+  INTERACTIVE_LAYERS,
+  LABELS_BREAK_LAYER_ID,
+} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
-import { parentIdCache } from '../store/idCache';
+import GlMap, {Layer, MapRef, NavigationControl, Source, useMap} from 'react-map-gl/maplibre';
 
 export const MapComponent: React.FC = () => {
-  const map: MutableRefObject<Map | null> = useRef(null);
-  const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
+  const mapRef = useRef<MapRef>(null);
   const mapLock = useMapStore(state => state.mapLock);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapStore(state => state.mapOptions);
-
-  useEffect(() => {
-    let protocol = new Protocol();
-    maplibregl.addProtocol('pmtiles', protocol.tile);
-    return () => {
-      maplibregl.removeProtocol('pmtiles');
-    };
-  }, []);
+  const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const [pmtilesReady, setPmTilesReady] = useState<boolean>(false);
+  const [mapReady, setMapReady] = useState<boolean>(false);
 
   const fitMapToBounds = () => {
-    if (map.current && mapOptions.bounds) {
+    if (mapRef.current && mapOptions.bounds) {
       if (mapOptions.bounds) {
-        map.current.fitBounds(mapOptions.bounds, {
+        mapRef.current.fitBounds(mapOptions.bounds, {
           padding: 20,
         });
       }
     }
   };
+
   useEffect(fitMapToBounds, [mapOptions.bounds]);
 
-  useEffect(() => {
-    if (map.current || !mapContainer.current) return;
+  useLayoutEffect(() => {
+    pmtilesReady && setMapReady(true);
+  }, [pmtilesReady]);
 
-    map.current = new maplibregl.Map({
-      container: mapContainer.current,
-      style: MAP_OPTIONS.style,
-      center: MAP_OPTIONS.center,
-      zoom: MAP_OPTIONS.zoom,
-      maxZoom: MAP_OPTIONS.maxZoom,
-    });
-
+  const handleMapLoad = () => {
+    let protocol = new Protocol();
+    maplibregl.addProtocol('pmtiles', protocol.tile);
+    setPmTilesReady(true);
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    setMapRef(map);
+    map.scrollZoom.setWheelZoomRate(1 / 300);
+    map.scrollZoom.setZoomRate(1 / 300);
     fitMapToBounds();
-    map.current.scrollZoom.setWheelZoomRate(1 / 300);
-    map.current.scrollZoom.setZoomRate(1 / 300);
-
-    map.current.addControl(new maplibregl.NavigationControl());
-
-    map.current.on('load', () => {
-      setMapRef(map);
-    });
-    INTERACTIVE_LAYERS.forEach(layer => {
-      mapEvents.forEach(action => {
-        if (map.current) {
-          map.current?.on(
-            action.action as keyof MapLayerEventType,
-            layer, // to be updated with the scale-agnostic layer id
-            (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-              action.handler(e, map.current);
-            }
-          );
-        }
-      });
-    });
-
-    return () => {
-      mapEvents.forEach(action => {
-        map.current?.off(action.action, e => {
-          action.handler(e, map.current);
-        });
-      });
-    };
-  });
+    setMapRenderingState('loaded');
+  };
 
   return (
     <div
       className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen
     ${mapLock ? 'pointer-events-none' : ''}
     `}
-      ref={mapContainer}
-    />
+    >
+      <GlMap
+        ref={mapRef}
+        mapStyle={pmtilesReady ? MAP_OPTIONS.style : undefined}
+        mapLib={maplibregl}
+        maxZoom={MAP_OPTIONS.maxZoom ? MAP_OPTIONS.maxZoom : undefined}
+        onLoad={handleMapLoad}
+        interactiveLayerIds={INTERACTIVE_LAYERS}
+        initialViewState={
+          MAP_OPTIONS.center
+            ? {
+                // @ts-ignore
+                longitude: MAP_OPTIONS.center[0],
+                // @ts-ignore
+                latitude: MAP_OPTIONS.center[1],
+                zoom: MAP_OPTIONS.zoom,
+              }
+            : undefined
+        }
+        {...mapCallbacks}
+      >
+        <NavigationControl />
+        {mapReady && (
+          <Source
+            type="vector"
+            id={BLOCK_SOURCE_ID}
+            url={
+              mapDocument?.tiles_s3_path
+                ? `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${mapDocument?.tiles_s3_path}`
+                : undefined
+            }
+            promoteId={'path'}
+          >
+            {mapDocument && (
+              <>
+                <Layer
+                  {...getBlocksLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID)}
+                  beforeId={LABELS_BREAK_LAYER_ID}
+                  id={BLOCK_LAYER_ID}
+                  key={`${BLOCK_LAYER_ID}-layer`}
+                />
+
+                <Layer
+                  {...getBlocksHoverLayerSpecification(
+                    mapDocument.parent_layer,
+                    BLOCK_HOVER_LAYER_ID
+                  )}
+                  beforeId={LABELS_BREAK_LAYER_ID}
+                  id={BLOCK_HOVER_LAYER_ID}
+                  key={`${BLOCK_HOVER_LAYER_ID}-layer`}
+                />
+              </>
+            )}
+
+            {mapDocument?.child_layer && (
+              <>
+                <Layer
+                  {...getBlocksLayerSpecification(mapDocument.child_layer, BLOCK_LAYER_ID_CHILD)}
+                  beforeId={LABELS_BREAK_LAYER_ID}
+                  id={BLOCK_LAYER_ID_CHILD}
+                  key={`${BLOCK_LAYER_ID_CHILD}-layer`}
+                />
+
+                <Layer
+                  {...getBlocksHoverLayerSpecification(
+                    mapDocument.child_layer,
+                    BLOCK_HOVER_LAYER_ID_CHILD
+                  )}
+                  beforeId={LABELS_BREAK_LAYER_ID}
+                  id={BLOCK_HOVER_LAYER_ID_CHILD}
+                  key={`${BLOCK_HOVER_LAYER_ID_CHILD}-layer`}
+                />
+                <Layer
+                  {...getHighlightLayerSpecification(
+                    mapDocument.child_layer,
+                    BLOCK_LAYER_ID_HIGHLIGHT_CHILD
+                  )}
+                  beforeId={LABELS_BREAK_LAYER_ID}
+                  id={BLOCK_LAYER_ID_HIGHLIGHT_CHILD}
+                  key={`${BLOCK_LAYER_ID_HIGHLIGHT_CHILD}-layer`}
+                />
+              </>
+            )}
+            {mapDocument && (
+              <Layer
+                {...getHighlightLayerSpecification(
+                  mapDocument.parent_layer,
+                  BLOCK_LAYER_ID_HIGHLIGHT
+                )}
+                beforeId={LABELS_BREAK_LAYER_ID}
+                id={BLOCK_LAYER_ID_HIGHLIGHT}
+                key={`${BLOCK_LAYER_ID_HIGHLIGHT}-layer`}
+              />
+            )}
+          </Source>
+        )}
+      </GlMap>
+    </div>
   );
 };
-
