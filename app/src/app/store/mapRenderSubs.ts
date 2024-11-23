@@ -1,6 +1,4 @@
-import {
-  COUNTY_LAYERS,
-} from '../constants/layers';
+import {COUNTY_LAYERS} from '../constants/layers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
@@ -21,12 +19,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     ],
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
-      const {
-        getMapRef,
-        setLockedFeatures,
-        lockedFeatures,
-        mapRenderingState,
-      } = useMapStore.getState();
+      const {getMapRef, setLockedFeatures, lockedFeatures, mapRenderingState} =
+        useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded') return;
       const [lockPaintedAreas, prevLockPaintedAreas] = [curr[6], prev[6]];
@@ -87,12 +81,9 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
 
       lockedFeatures.forEach(id => {
         if (!previousLockedFeatures.has(id)) {
-          mapRef.setFeatureState(
-            {
-              id,
-              source: mapDocument.gerrydb_table,
-              sourceLayer: getLayer(id),
-            },
+          mapRef.style.sourceCaches[mapDocument.gerrydb_table]._state.updateState(
+            getLayer(id),
+            id,
             {
               locked: true,
             }
@@ -102,12 +93,9 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
 
       previousLockedFeatures.forEach(id => {
         if (!lockedFeatures.has(id)) {
-          mapRef.setFeatureState(
-            {
-              id,
-              source: mapDocument.gerrydb_table,
-              sourceLayer: getLayer(id),
-            },
+          mapRef.style.sourceCaches[mapDocument.gerrydb_table]._state.updateState(
+            getLayer(id),
+            id,
             {
               locked: false,
             }

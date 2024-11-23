@@ -644,12 +644,10 @@ export const useMapStore = create(
                 newZoneAssignments.delete(childId);
                 newShatterIds.children.delete(childId);
                 newLockedFeatures.delete(childId);
-                mapRef.setFeatureState(
-                  {
-                    id: childId,
-                    source: mapDocument.gerrydb_table,
-                    sourceLayer: mapDocument.child_layer || '',
-                  },
+
+                mapRef.style.sourceCaches[mapDocument.gerrydb_table]._state.updateState(
+                  mapDocument.child_layer!,
+                  childId,
                   {
                     zone: null,
                   }
@@ -661,16 +659,14 @@ export const useMapStore = create(
               delete shatterMappings[parent.parentId];
               newShatterIds.parents.delete(parent.parentId);
               newZoneAssignments.set(parent.parentId, parent.zone!);
-              mapRef?.setFeatureState(
-                {
-                  source: mapDocument.gerrydb_table,
-                  id: parent.parentId,
-                  sourceLayer: mapDocument?.parent_layer,
-                },
-                {
-                  broken: false,
-                }
-              );
+
+          mapRef.style.sourceCaches[mapDocument.gerrydb_table]._state.updateState(
+            mapDocument.parent_layer,
+            parent.parentId,
+            {
+              broken: false
+            }
+          );
             });
 
             set({
@@ -821,7 +817,7 @@ export const useMapStore = create(
               {hover: true}
             );
           });
-          mapRef.redraw()
+          mapRef.redraw();
           set({hoverFeatures});
         },
         focusFeatures: [],
