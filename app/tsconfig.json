@@ -36,7 +36,6 @@
     "src/app/page.jsx",
     "src/app/api/apiHandlers.test.js",
     "src/app/components/sidebar/MapModeSelector.jsx",
-    "src/app/components/sidebar/ColorPicker.jsx"
   ],
   "exclude": ["node_modules"]
 }

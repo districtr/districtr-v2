@@ -1,11 +1,13 @@
-import { Heading, CheckboxGroup, Flex } from "@radix-ui/themes";
-import { useMapStore } from "@/app/store/mapStore";
+import {Heading, CheckboxGroup, Flex} from '@radix-ui/themes';
+import {useMapStore} from '@/app/store/mapStore';
 import {
   COUNTY_LAYER_IDS,
   BLOCK_LAYER_ID,
   BLOCK_HOVER_LAYER_ID,
-} from "../../constants/layers";
-import { toggleLayerVisibility } from "../../utils/helpers";
+  BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_LAYER_ID_CHILD,
+} from '../../constants/layers';
+import {toggleLayerVisibility} from '../../utils/helpers';
 
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
@@ -16,13 +18,17 @@ import { toggleLayerVisibility } from "../../utils/helpers";
  * - Support tribes and communities
  */
 export default function Layers() {
-  const mapRef = useMapStore((state) => state.mapRef);
-  const mapDocument = useMapStore((state) => state.mapDocument);
-  const visibleLayerIds = useMapStore((state) => state.visibleLayerIds);
-  const updateVisibleLayerIds = useMapStore((state) => state.updateVisibleLayerIds);
+  const mapRef = useMapStore(state => state.getMapRef());
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const visibleLayerIds = useMapStore(state => state.visibleLayerIds);
+  const updateVisibleLayerIds = useMapStore(state => state.updateVisibleLayerIds);
+  const toggleHighlightBrokenDistricts = useMapStore(state => state.toggleHighlightBrokenDistricts);
+  const parentsAreBroken = useMapStore(state => state.shatterIds.parents.size);
+  const mapOptions = useMapStore(state => state.mapOptions);
+  const setMapOptions = useMapStore(state => state.setMapOptions);
 
   const toggleLayers = (layerIds: string[]) => {
-    if (!mapRef || !mapRef?.current) return;
+    if (!mapRef) return;
     const layerUpdates = toggleLayerVisibility(mapRef, layerIds);
     updateVisibleLayerIds(layerUpdates);
   };
@@ -35,11 +41,23 @@ export default function Layers() {
       <CheckboxGroup.Root
         defaultValue={[]}
         name="districts"
-        value={visibleLayerIds.includes(BLOCK_LAYER_ID) ? ["1"] : []}
+        value={[
+          visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
+          parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
+          mapOptions.lockPaintedAreas === true ? '4' : '',
+          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : ''
+        ]}
       >
         <CheckboxGroup.Item
           value="1"
-          onClick={() => toggleLayers([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID])}
+          onClick={() =>
+            toggleLayers([
+              BLOCK_LAYER_ID,
+              BLOCK_HOVER_LAYER_ID,
+              BLOCK_HOVER_LAYER_ID_CHILD,
+              BLOCK_LAYER_ID_CHILD,
+            ])
+          }
           disabled={mapDocument === null}
         >
           Show painted districts
@@ -47,22 +65,27 @@ export default function Layers() {
         <CheckboxGroup.Item value="2" disabled>
           Show numbering for painted districts
         </CheckboxGroup.Item>
+        <CheckboxGroup.Item
+          value="3"
+          disabled={!parentsAreBroken}
+          onClick={() => toggleHighlightBrokenDistricts()}
+        >
+          Highlight broken precincts
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item value="higlightUnassigned" onClick={() => setMapOptions({
+          higlightUnassigned: !mapOptions.higlightUnassigned
+        })}>
+          Highlight unassigned units
+        </CheckboxGroup.Item>
       </CheckboxGroup.Root>
       <Heading as="h3" weight="bold" size="3">
         Boundaries
       </Heading>
       <CheckboxGroup.Root
         name="contextualLayers"
-        value={
-          COUNTY_LAYER_IDS.every((layerId) => visibleLayerIds.includes(layerId))
-            ? ["1"]
-            : []
-        }
+        value={COUNTY_LAYER_IDS.every(layerId => visibleLayerIds.includes(layerId)) ? ['1'] : []}
       >
-        <CheckboxGroup.Item
-          value="1"
-          onClick={() => toggleLayers(COUNTY_LAYER_IDS)}
-        >
+        <CheckboxGroup.Item value="1" onClick={() => toggleLayers(COUNTY_LAYER_IDS)}>
           Show county boundaries
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>

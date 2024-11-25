@@ -1,74 +1,43 @@
-import React from "react";
-import { ContextMenu, Text } from "@radix-ui/themes";
-import { useMapStore } from "@/app/store/mapStore";
-import { useMutation } from "@tanstack/react-query";
-import { patchShatterParents } from "@api/apiHandlers";
-import {
-  BLOCK_SOURCE_ID,
-  BLOCK_LAYER_ID,
-  BLOCK_LAYER_ID_CHILD,
-} from "@constants/layers";
-import { ShatterResult } from "../api/apiHandlers";
+import React from 'react';
+import {ContextMenu, Text} from '@radix-ui/themes';
+import {useMapStore} from '@/app/store/mapStore';
+import {CHILD_LAYERS, PARENT_LAYERS} from '../constants/layers';
 
 export const MapContextMenu: React.FC = () => {
-  const mapRef = useMapStore(state => state.mapRef)
-  const mapDocument = useMapStore(state => state.mapDocument)
-  const contextMenu = useMapStore(state => state.contextMenu)
-  const shatterIds = useMapStore(state => state.shatterIds)
-  const setShatterIds = useMapStore(state => state.setShatterIds)
-  const setMapLock = useMapStore(state => state.setMapLock)
-  
-  const patchShatter = useMutation<
-    ShatterResult,
-    void,
-    { document_id: string; geoids: string[] }
-  >({
-    mutationFn: patchShatterParents,
-    onMutate: ({ document_id, geoids }) => {
-      setMapLock(true)
-      console.log(
-        `Shattering parents for ${geoids} in document ${document_id}...`,
-        `Locked at `, performance.now()
-      );
-    },
-    onError: (error) => {
-      console.log("Error updating assignments: ", error);
-    },
-    onSuccess: (data) => {
-      console.log(
-        `Successfully shattered parents into ${data.children.length} children`
-      );
-      // I'm not sure when this would be the case
-      // Perhaps, paint-shatter multiple?
-      // but to cover our bases
-      const multipleShattered = data.parents.geoids.length > 1;
+  const mapDocument = useMapStore(state => state.mapDocument);
+  const contextMenu = useMapStore(state => state.contextMenu);
+  const handleShatter = useMapStore(state => state.handleShatter);
+  const lockedFeatures = useMapStore(state => state.lockedFeatures);
+  const lockFeature = useMapStore(state => state.lockFeature);
+  const shatterMappings = useMapStore(state => state.shatterMappings);
 
-      setShatterIds(
-        shatterIds.parents,
-        shatterIds.children,
-        data.parents.geoids,
-        data.children.map((child) => child.geo_id),
-        multipleShattered
-      );
-      // mapRef?.current?.setFilter(BLOCK_LAYER_ID, [
-      //   "match",
-      //   ["get", "path"],
-      //   data.parents.geoids, // will need to add existing filters
-      //   false,
-      //   true,
-      // ]);
-    },
-  });
+  const canShatter = Boolean(
+    mapDocument?.parent_layer &&
+      mapDocument.child_layer &&
+      mapDocument.child_layer !== contextMenu?.data.sourceLayer
+  );
 
   if (!contextMenu) return null;
+  const isChild = CHILD_LAYERS.includes(contextMenu.data.layer.id);
+  const id = contextMenu.data.id?.toString() || '';
+  const parent =
+    (isChild &&
+      Object.entries(shatterMappings).find(([key, value]) => {
+        return value.has(id);
+      })?.[0]) ||
+    false;
+  const shatterableId = isChild && parent ? parent : contextMenu?.data?.id;
+  const featureIsLocked = lockedFeatures.has(id);
 
-  const handleShatter = () => {
-    if (!mapDocument || contextMenu?.data?.id === undefined) return;
-    patchShatter.mutate({
-      document_id: mapDocument.document_id,
-      geoids: [contextMenu.data.id.toString()],
-    });
+  const handleSelect = () => {
+    if (!mapDocument || !shatterableId) return;
+    const shatterData = isChild ? {id: shatterableId} : contextMenu.data;
+    handleShatter(mapDocument.document_id, [shatterData]);
     contextMenu.close();
+  };
+
+  const handleLock = () => {
+    lockFeature(id, !featureIsLocked);
   };
 
   return (
@@ -84,19 +53,37 @@ export const MapContextMenu: React.FC = () => {
         // also, if in the future we need the context menu outside of the map,
         // this sets us up to do that
         style={{
-          position: "fixed",
+          position: 'fixed',
           top: contextMenu.y,
           left: contextMenu.x,
         }}
       >
-        {contextMenu.data.id && (
-          <ContextMenu.Label>
-            <Text size="1" color="gray">
-              {contextMenu.data.id}
-            </Text>
-          </ContextMenu.Label>
+        <ContextMenu.Label>
+          <Text size="1" color="gray">
+            {id}
+          </Text>
+        </ContextMenu.Label>
+        {!isChild && (
+          <ContextMenu.Item disabled={!mapDocument?.child_layer} onSelect={handleSelect}>
+            Break to Blocks
+          </ContextMenu.Item>
         )}
-        <ContextMenu.Item onClick={handleShatter}>Shatter</ContextMenu.Item>
+        <ContextMenu.Item onSelect={handleLock}>
+          {featureIsLocked ? 'Unlock' : 'Lock'}
+        </ContextMenu.Item>
+
+        {!!parent && (
+          <>
+            <ContextMenu.Label>
+              <Text size="1" color="gray">
+                Parent: {parent}
+              </Text>
+            </ContextMenu.Label>
+            <ContextMenu.Item disabled={!mapDocument?.child_layer} onSelect={handleSelect}>
+              Break Parent to Blocks
+            </ContextMenu.Item>
+          </>
+        )}
       </ContextMenu.Content>
     </ContextMenu.Root>
   );

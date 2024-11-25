@@ -1,0 +1,159 @@
+name: Fly Deploy Disctictr V2 Pull Request app
+on:
+    pull_request:
+        types: [opened, reopened, synchronize, closed]
+env:
+    FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOTKEN }}
+    SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    FLY_REGION: "ewr"
+    FLY_ORG: "mggg"
+jobs:
+    pr_review_app:
+        runs-on: ubuntu-latest
+
+        concurrency:
+            group: pr-${{ github.event.number }}
+
+        environment:
+            name: pr-${{ github.event.number }}
+
+        steps:
+            - uses: actions/checkout@v3
+            - uses: superfly/flyctl-actions/setup-flyctl@master
+            
+            - name: Set shared environment variables
+              run: |
+                echo "db_name=${{ github.event.repository.name }}-${{ github.event.number }}-db" >> $GITHUB_ENV
+                echo "api_app_name=${{ github.event.repository.name }}-${{ github.event.number }}-api" >> $GITHUB_ENV
+                echo "frontend_app_name=${{ github.event.repository.name }}-${{ github.event.number }}-app" >> $GITHUB_ENV
+
+            - name: Destroy Resources
+              if: github.event.action == 'closed'
+              run: |
+                app_name="${{ github.event.repository.name }}-${{ github.event.number }}-api"
+                frontend_app_name="${{ github.event.repository.name }}-${{ github.event.number }}-app"
+                db_name="${{ github.event.repository.name }}-${{ github.event.number }}-db"
+                
+                echo "Destroying app $app_name"
+                flyctl apps destroy "$app_name" -y
+
+                echo "Destroying frontend app $frontend_app_name"
+                flyctl apps destroy "$frontend_app_name" -y
+
+                echo "Destroying database $db_name"
+                flyctl apps destroy "$db_name" -y
+                
+                echo "Resources for PR #${{ github.event.number }} have been destroyed."
+              env:
+                FLY_API_TOKEN: ${{ secrets.FLY_ORG_TOTKEN }}
+
+            # fork new db from existing production db if it doesn't already exist
+            # eventually we may want to maintain a stage and only fork that
+            - name: Fork From DB
+              id: fork-db
+              if: github.event.action != 'closed'
+              run: |              
+                if flyctl postgres list | grep -q ${{ github.event.repository.name }}-${{ github.event.number }}-db; then
+                  echo "DB already exists"                  
+                else              
+                  flyctl postgres create \
+                  --name ${{ github.event.repository.name }}-${{ github.event.number }}-db \
+                  --region ewr \
+                  --initial-cluster-size 1 \
+                  --vm-size shared-cpu-2x \
+                  -p ${{ secrets.FLY_PR_PG_PASSWORD }} \
+                  --org mggg \
+                  --fork-from districtr-v2-db
+                  
+                  if [ $? -eq 0 ]; then
+                    echo "Database created successfully."                                      
+                  else
+                    echo "Failed to create database."
+                    exit 1
+                  fi                                    
+                fi
+                echo "::set-output name=name::${{ github.event.repository.name }}-${{ github.event.number }}-db"
+
+            # manually launch and deploy the api app
+            - name: Launch API
+              if: github.event.action != 'closed'
+              run: |
+                app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
+                db_name="${{ github.event.repository.name }}-${{ github.event.number }}-db"
+                config="fly.toml"
+            
+                # Check if the app exists
+                if flyctl apps list | grep -q "$app"; then
+                  echo "App $app already exists. Skipping launch."
+                else
+                  flyctl launch \
+                  --no-deploy --copy-config --name "$app" 
+                  echo "App $app launched successfully."
+                fi
+                # Output app name for use in the deploy step
+                echo "api_app_name=$app" >> $GITHUB_ENV
+              working-directory: backend
+
+            - name: Deploy API
+              if: github.event.action != 'closed'
+              run: |
+                    flyctl secrets set \
+                    -a ${{ github.event.repository.name }}-${{ github.event.number }}-api \
+                    POSTGRES_SCHEME="postgresql+psycopg" \
+                    POSTGRES_SERVER="${{ github.event.repository.name }}-${{ github.event.number }}-db.flycast" \
+                    POSTGRES_USER="postgres" \
+                    POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
+                    POSTGRES_DB="districtr_v2_api" \
+                    BACKEND_CORS_ORIGINS="https://${{ github.event.repository.name }}-${{ github.event.number }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
+                    DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
+                    
+                    flyctl deploy \
+                    --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
+                    --strategy immediate '--ha=false' --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256 \
+                    
+              working-directory: backend
+
+            - name: Check and Launch Frontend App
+              id: launch
+              if: github.event.action != 'closed'
+              run: |
+                app="${{ github.event.repository.name }}-${{ github.event.number }}-app"
+                api_app="${{ github.event.repository.name }}-${{ github.event.number }}-api"
+                config="fly.toml"
+            
+                # Check if the app exists
+                if flyctl apps list | grep -q "$app"; then
+                  echo "App $app already exists. Skipping launch."
+                else
+                  echo "Launching app $app."
+                  # Run the flyctl launch command
+                  flyctl launch \
+                  --no-deploy --copy-config --name "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
+                  --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
+                  --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com
+            
+                  echo "App $app launched successfully."
+                fi
+            
+                # Output app name for use in the deploy step
+                echo "frontend_app_name=$app" >> $GITHUB_ENV
+              working-directory: app
+          
+            - name: Deploy frontend
+              if: github.event.action != 'closed'
+              run: |
+                app_name="${{ github.event.repository.name }}-${{ github.event.number }}-app"
+                config="fly.toml"
+                
+                flyctl secrets set \
+                -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
+                NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
+                NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com
+            
+                # Deploy the app
+                flyctl deploy --config "$config" --app "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
+                --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
+                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com \
+                --strategy immediate '--ha=false' \
+                --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
+              working-directory: app

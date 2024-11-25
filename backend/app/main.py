@@ -1,12 +1,12 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
-from sqlmodel import Session, String, select
+from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
-from sqlmodel import ARRAY
+from sqlmodel import ARRAY, INT
 
 import sentry_sdk
 from app.core.db import engine
@@ -14,15 +14,23 @@ from app.core.config import settings
 from app.models import (
     Assignments,
     AssignmentsCreate,
+    AssignmentsResponse,
     DistrictrMap,
     Document,
     DocumentCreate,
     DocumentPublic,
     GEOIDS,
+    AssignedGEOIDS,
     UUIDType,
     ZonePopulation,
     DistrictrMapPublic,
+    ParentChildEdges,
     ShatterResult,
+    SummaryStatisticType,
+    SummaryStatsP1,
+    PopulationStatsP1,
+    SummaryStatsP4,
+    PopulationStatsP4,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -86,6 +94,7 @@ async def create_document(
         {"gerrydb_table_name": data.gerrydb_table},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
+
     stmt = (
         select(
             Document.document_id,
@@ -97,6 +106,8 @@ async def create_document(
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            DistrictrMap.extent.label("extent"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
         )
         .where(Document.document_id == document_id)
         .join(
@@ -109,7 +120,7 @@ async def create_document(
     # Document id has a unique constraint so I'm not sure we need to hit the DB again here
     # more valuable would be to check that the assignments table
     doc = session.exec(
-        stmt
+        stmt,
     ).one()  # again if we've got more than one, we have problems.
     if not doc.map_uuid:
         session.rollback()
@@ -124,6 +135,7 @@ async def create_document(
             detail="Document creation failed",
         )
     session.commit()
+
     return doc
 
 
@@ -147,8 +159,10 @@ async def update_assignments(
 async def shatter_parent(
     document_id: str, data: GEOIDS, session: Session = Depends(get_session)
 ):
-    stmt = text("""SELECT *
-        FROM shatter_parent(:input_document_id, :parent_geoids)""").bindparams(
+    stmt = text(
+        """SELECT *
+        FROM shatter_parent(:input_document_id, :parent_geoids)"""
+    ).bindparams(
         bindparam(key="input_document_id", type_=UUIDType),
         bindparam(key="parent_geoids", type_=ARRAY(String)),
     )
@@ -169,10 +183,76 @@ async def shatter_parent(
     return result
 
 
+@app.patch(
+    "/api/update_assignments/{document_id}/unshatter_parents",
+    response_model=GEOIDS,
+)
+async def unshatter_parent(
+    document_id: str, data: AssignedGEOIDS, session: Session = Depends(get_session)
+):
+    stmt = text(
+        """SELECT *
+        FROM unshatter_parent(:input_document_id, :parent_geoids, :input_zone)"""
+    ).bindparams(
+        bindparam(key="input_document_id", type_=UUIDType),
+        bindparam(key="parent_geoids", type_=ARRAY(String)),
+        bindparam(key="input_zone", type_=INT),
+    )
+    results = session.execute(
+        statement=stmt,
+        params={
+            "input_document_id": document_id,
+            "parent_geoids": data.geoids,
+            "input_zone": data.zone,
+        },
+    ).first()
+    session.commit()
+    return {"geoids": results[0]}
+
+
+@app.patch(
+    "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
+)
+async def reset_map(document_id: str, session: Session = Depends(get_session)):
+    # Drop the partition for the given assignments
+    partition_name = f'"document.assignments_{document_id}"'
+    session.execute(text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;"))
+
+    # Recreate the partition
+    session.execute(
+        text(
+            f"""
+        CREATE TABLE {partition_name} PARTITION OF document.assignments
+        FOR VALUES IN ('{document_id}');
+    """
+        )
+    )
+    session.commit()
+
+    return {"message": "Assignments partition reset", "document_id": document_id}
+
+
 # called by getAssignments in apiHandlers.ts
-@app.get("/api/get_assignments/{document_id}", response_model=list[Assignments])
+@app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
-    stmt = select(Assignments).where(Assignments.document_id == document_id)
+    stmt = (
+        select(
+            Assignments.geo_id,
+            Assignments.zone,
+            Assignments.document_id,
+            ParentChildEdges.parent_path,
+        )
+        .join(Document, Assignments.document_id == Document.document_id)
+        .join(
+            DistrictrMap,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+        )
+        .outerjoin(ParentChildEdges, Assignments.geo_id == ParentChildEdges.child_path)
+        .where(
+            Assignments.document_id == document_id,
+        )
+    )
+
     results = session.exec(stmt)
     return results
 
@@ -189,6 +269,8 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            DistrictrMap.extent.label("extent"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
@@ -199,6 +281,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
         .limit(1)
     )
     result = session.exec(stmt)
+
     return result.one()
 
 
@@ -206,7 +289,9 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
 async def get_total_population(
     document_id: str, session: Session = Depends(get_session)
 ):
-    stmt = text("SELECT * from get_total_population(:document_id)")
+    stmt = text(
+        "SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL"
+    )
     try:
         result = session.execute(stmt, {"document_id": document_id})
         return [
@@ -227,6 +312,100 @@ async def get_total_population(
             )
 
 
+@app.get("/api/document/{document_id}/{summary_stat}")
+async def get_summary_stat(
+    document_id: str, summary_stat: str, session: Session = Depends(get_session)
+):
+    try:
+        _summary_stat = SummaryStatisticType[summary_stat]
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid summary_stat: {summary_stat}",
+        )
+
+    try:
+        stmt, SummaryStatsModel = {
+            "P1": (
+                text(
+                    "SELECT * from get_summary_stats_p1(:document_id) WHERE zone is not null"
+                ),
+                SummaryStatsP1,
+            ),
+            "P4": (
+                text(
+                    "SELECT * from get_summary_stats_p4(:document_id) WHERE zone is not null"
+                ),
+                SummaryStatsP4,
+            ),
+        }[summary_stat]
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Summary stats not implemented for {summary_stat}",
+        )
+
+    try:
+        results = session.execute(stmt, {"document_id": document_id}).fetchall()
+        return {
+            "summary_stat": _summary_stat.value,
+            "results": [SummaryStatsModel.model_validate(row) for row in results],
+        }
+    except ProgrammingError as e:
+        logger.error(e)
+        error_text = str(e)
+        if f"Table name not found for document_id: {document_id}" in error_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document with ID {document_id} not found",
+            )
+
+
+@app.get("/api/districtrmap/summary_stats/{summary_stat}/{gerrydb_table}")
+async def get_gerrydb_summary_stat(
+    summary_stat: str, gerrydb_table: str, session: Session = Depends(get_session)
+):
+    try:
+        _summary_stat = SummaryStatisticType[summary_stat]
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid summary_stat: {summary_stat}",
+        )
+
+    try:
+        summary_stat_udf, SummaryStatsModel = {
+            "P1": ("get_summary_p1_totals", PopulationStatsP1),
+            "P4": ("get_summary_p4_totals", PopulationStatsP4),
+        }[summary_stat]
+    except KeyError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Summary stats not implemented for {summary_stat}",
+        )
+
+    stmt = text(
+        f"""SELECT *
+        FROM {summary_stat_udf}(:gerrydb_table)"""
+    ).bindparams(
+        bindparam(key="gerrydb_table", type_=String),
+    )
+    try:
+        results = session.execute(stmt, {"gerrydb_table": gerrydb_table}).fetchone()
+        return {
+            "summary_stat": _summary_stat.value,
+            "results": SummaryStatsModel.model_validate(results),
+        }
+    except ProgrammingError as e:
+        logger.error(e)
+        error_text = str(e)
+        if f"Table {gerrydb_table} does not exist in gerrydb schema" in error_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Gerrydb Table with ID {gerrydb_table} not found",
+            )
+
+
 @app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
 async def get_projects(
     *,
@@ -236,6 +415,7 @@ async def get_projects(
 ):
     gerrydb_views = session.exec(
         select(DistrictrMap)
+        .filter(DistrictrMap.visible == true())  # pyright: ignore
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)
