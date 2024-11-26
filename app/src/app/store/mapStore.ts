@@ -20,6 +20,7 @@ import {
   ContextMenuState,
   LayerVisibility,
   PaintEventHandler,
+  TooltipState,
   checkIfSameZone,
   getFeaturesInBbox,
   resetZoneColors,
@@ -269,6 +270,8 @@ export interface MapStore {
   updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
+  tooltip: TooltipState | null;
+  setTooltip: (menu: TooltipState | null) => void;
   // USER MAPS / RECENT MAPS
   userMaps: Array<DocumentObject & {name?: string}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
@@ -953,6 +956,8 @@ export const useMapStore = create(
         },
         contextMenu: null,
         setContextMenu: contextMenu => set({contextMenu}),
+        tooltip: null,
+        setTooltip: tooltip => set({tooltip}),
         userMaps: [],
         setUserMaps: userMaps => set({userMaps}),
       }))

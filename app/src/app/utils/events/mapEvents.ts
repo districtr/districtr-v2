@@ -129,8 +129,9 @@ export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  const {setHoverFeatures, setIsPainting} = useMapStore.getState();
+  const {setTooltip, setHoverFeatures, setIsPainting} = useMapStore.getState();
   setHoverFeatures([]);
+  setTooltip(null)
   setIsPainting(false)
 };
 
@@ -138,8 +139,9 @@ export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  const {setHoverFeatures, setIsPainting} = useMapStore.getState();
+  const {setTooltip, setHoverFeatures, setIsPainting} = useMapStore.getState();
   setHoverFeatures([]);
+  setTooltip(null)
   setIsPainting(false)
 };
 
@@ -148,7 +150,7 @@ export const handleMapMouseMove = throttle((
   map: MapLibreMap | null
 ) => {
   const mapStore = useMapStore.getState();
-  const {activeTool, setHoverFeatures, isPainting, mapDocument, selectMapFeatures} = mapStore;
+  const {setTooltip, mapOptions, activeTool, setHoverFeatures, isPainting, mapDocument, selectMapFeatures} = mapStore;
   const sourceLayer = mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
     // Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
@@ -165,12 +167,25 @@ export const handleMapMouseMove = throttle((
     'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
   if (isBrushingTool && !isTouchEvent) {
     setHoverFeatures(selectedFeatures);
+    
   }
 
   if (selectedFeatures && isBrushingTool && isPainting) {
     // selects in the map object; the store object
     // is updated in the mouseup event
     selectMapFeatures(selectedFeatures);
+  }
+
+  if (mapOptions.showPopulationTooltip){
+    setTooltip({
+      ...e.point,
+      data: [
+        {
+          label: "Total Pop",
+          value: selectedFeatures?.reduce((acc, curr) => acc + parseInt(curr.properties.total_pop),0) || 'N/A'
+        }
+      ]
+    })
   }
 }, 25)
 

@@ -6,5 +6,6 @@ export type DistrictrMapOptions = {
   lockPaintedAreas: boolean | Array<NullableZone>;
   mode: 'default' | 'break';
   paintByCounty?: boolean;
-  currentStateFp?: string
+  currentStateFp?: string;
+  showPopulationTooltip?: boolean;
 };
