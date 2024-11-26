@@ -6,5 +6,6 @@ export const persistOptions: PersistOptions<MapStore, Partial<MapStore>> = {
   version: 0,
   partialize: state => ({
     userMaps: state.userMaps,
+    mapOptions: state.mapOptions
   }),
 };
