@@ -1,16 +1,9 @@
 import React from 'react';
 import DataPanels from './DataPanels';
 import {Box, Flex, Heading} from '@radix-ui/themes';
-import {MapModeSelector} from './MapModeSelector';
-import {ResetMapButton} from './ResetMapButton';
 import {GerryDBViewSelector} from './GerryDBViewSelector';
 import {useMapStore} from '@/app/store/mapStore';
-import PaintByCounty from './PaintByCounty';
-import {BrushSizeSelector} from './BrushSizeSelector';
 import {ExitBlockViewButtons} from './ExitBlockViewButtons';
-import {ZonePicker} from './ZonePicker';
-import {ZoneLockPicker} from './ZoneLockPicker';
-import {MobileColorPicker} from './MobileColorPicker';
 
 export default function SidebarComponent() {
   const activeTool = useMapStore(state => state.activeTool);
@@ -31,8 +24,8 @@ export default function SidebarComponent() {
           Districtr
         </Heading>
         <GerryDBViewSelector />
-        <MapModeSelector />
-        {activeTool === 'brush' || activeTool === 'eraser' ? (
+        {/* <MapModeSelector /> */}
+        {/* {activeTool === 'brush' || activeTool === 'eraser' ? (
           <div
             className="gap-4 lg:gap-0 landscape:gap-0
           flex flex-row-reverse lg:flex-col landscape:flex-col
@@ -54,14 +47,14 @@ export default function SidebarComponent() {
               </div>
             ) : null}
           </div>
-        ) : null}
+        ) : null} */}
 
-        {activeTool === 'lock' ? (
+        {/* {activeTool === 'lock' ? (
           <div>
             <ZoneLockPicker />
           </div>
-        ) : null}
-        <ResetMapButton />
+        ) : null} */}
+        {/* <ResetMapButton /> */}
         <ExitBlockViewButtons />
 
         <Box
@@ -70,7 +63,7 @@ export default function SidebarComponent() {
             md: 'inline',
           }}
         >
-          <DataPanels defaultPanel="layers" />
+          <DataPanels defaultPanel="population" />
         </Box>
       </Flex>
     </Box>

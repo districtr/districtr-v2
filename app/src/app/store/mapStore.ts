@@ -312,6 +312,7 @@ export const useMapStore = create(
               ...mapOptions,
               mode: 'default',
             },
+            activeTool: 'shatter'
           });
 
           const parentId = focusFeatures?.[0].id?.toString();
@@ -529,6 +530,7 @@ export const useMapStore = create(
                 sourceLayer: get().mapDocument?.parent_layer,
               },
             ],
+            activeTool: 'brush',
             zoneAssignments,
             parentsToHeal: [...get().parentsToHeal, features?.[0]?.id?.toString() || '']
               .filter(onlyUnique)

@@ -23,11 +23,11 @@ const defaultPanels: DataPanelSpec[] = [
     label: 'Population',
     content: <HorizontalBar />,
   },
-  {
-    title: 'layers',
-    label: 'Data layers',
-    content: <Layers />,
-  },
+  // {
+  //   title: 'layers',
+  //   label: 'Data layers',
+  //   content: <Layers />,
+  // },
   {
     title: 'evaluation',
     label: 'Evaluation',
