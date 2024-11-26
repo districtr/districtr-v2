@@ -12,6 +12,7 @@ import {
 import {ResetMapSelectState} from '@utils/events/handlers';
 import {ActiveTool} from '@/app/constants/types';
 import { parentIdCache } from '@/app/store/idCache';
+import { throttle } from 'lodash';
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -142,7 +143,7 @@ export const handleMapMouseOut = (
   setIsPainting(false)
 };
 
-export const handleMapMouseMove = (
+export const handleMapMouseMove = throttle((
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
@@ -171,7 +172,7 @@ export const handleMapMouseMove = (
     // is updated in the mouseup event
     selectMapFeatures(selectedFeatures);
   }
-};
+}, 25)
 
 export const handleMapZoom = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,

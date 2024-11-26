@@ -125,7 +125,9 @@ export const HorizontalBar = () => {
           <YAxis type="category" hide allowDataOverflow={true} padding={{bottom: 40}} />
           <Tooltip content={<CustomTooltip />} />
           {/* @ts-ignore types are wrong, this works  */}
-          <Bar dataKey="total_pop" label={getRenderCustomBarLabel(lockPaintedAreas)}>
+          <Bar dataKey="total_pop" label={getRenderCustomBarLabel(lockPaintedAreas)}
+            animationDuration={0}
+          >
             {totalExpectedBars &&
               totalExpectedBars
                 .sort((a, b) => a.zone - b.zone)

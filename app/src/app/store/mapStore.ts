@@ -344,6 +344,7 @@ export const useMapStore = create(
             getMapRef,
             selectedZone: _selectedZone,
             zoneAssignments,
+            mapMetrics: _mapMetrics
           } = get();
 
           const map = getMapRef();
@@ -352,6 +353,10 @@ export const useMapStore = create(
             return;
           }
           // PAINT
+          const popChanges: Record<number, number> = {
+          }
+          selectedZone !== null && (popChanges[selectedZone] = 0)
+
           features?.forEach(feature => {
             const id = feature?.id?.toString() ?? undefined;
             if (!id) return;
@@ -363,6 +368,16 @@ export const useMapStore = create(
               feature.properties?.path,
               feature.properties?.total_pop
             );
+            const prevAssignment = zoneAssignments.get(id)
+            const popValue = parseInt(feature.properties?.total_pop)
+            if (!isNaN(popValue)) {
+              if (prevAssignment) {
+                popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue
+              }
+              if (selectedZone) {
+                popChanges[selectedZone] = (popChanges[selectedZone] || 0) + popValue
+              }
+            }
             zoneAssignments.set(id, selectedZone);
             map.setFeatureState(
               {
@@ -373,7 +388,28 @@ export const useMapStore = create(
               {selected: true, zone: selectedZone}
             );
           });
+
+          let popData = _mapMetrics?.data || []
+          Object.entries(popChanges).forEach(([zone, pop]) => {
+            const popIndex = popData.findIndex(f => f.zone === +zone)
+            if (popIndex === -1) {
+              popData.push({
+                zone: +zone,
+                total_pop: pop
+              })
+            } else {
+              popData[popIndex] = {
+                ...popData[popIndex],
+                total_pop: popData[popIndex].total_pop + pop
+              }
+            }
+          })
+
           set({
+            mapMetrics: {
+              ..._mapMetrics,
+              data: popData
+            },
             accumulatedGeoids,
             accumulatedBlockPopulations,
             zoneAssignments: new Map(zoneAssignments),
