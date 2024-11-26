@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React from 'react';
 import DataPanels from './DataPanels';
 import {Box, Flex, Heading, IconButton} from '@radix-ui/themes';
 import {GerryDBViewSelector} from './GerryDBViewSelector';
