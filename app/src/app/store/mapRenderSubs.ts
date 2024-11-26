@@ -237,19 +237,19 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'brush':
-          cursor = 'pointer';
+          cursor = 'url(paintbrush.png) 12 12, pointer'; 
           useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
-        case 'eraser':
-          cursor = 'pointer';
+          case 'eraser':
+            cursor = 'url(eraser.png) 16 16, pointer'; 
           useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'shatter':
-          cursor = 'crosshair';
+          cursor = 'url(break.png) 12 12, pointer'; 
           useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
           break;
         case 'lock':
-          cursor = 'crosshair';
+          cursor = 'url(lock.png) 12 12, pointer'; 
           useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
           break;
         default:
