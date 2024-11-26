@@ -176,7 +176,7 @@ export const handleMapMouseMove = throttle((
     selectMapFeatures(selectedFeatures);
   }
 
-  if (mapOptions.showPopulationTooltip){
+  if (isBrushingTool && mapOptions.showPopulationTooltip){
     setTooltip({
       ...e.point,
       data: [
@@ -186,6 +186,8 @@ export const handleMapMouseMove = throttle((
         }
       ]
     })
+  } else {
+    setTooltip(null)
   }
 }, 25)
 
