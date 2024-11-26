@@ -1,37 +1,55 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import DataPanels from './DataPanels';
-import {Box, Flex, Heading} from '@radix-ui/themes';
+import {Box, Flex, Heading, IconButton} from '@radix-ui/themes';
 import {GerryDBViewSelector} from './GerryDBViewSelector';
 import {useMapStore} from '@/app/store/mapStore';
 import {ExitBlockViewButtons} from './ExitBlockViewButtons';
+import {Resizable} from 're-resizable';
+import { DragHandleHorizontalIcon } from '@radix-ui/react-icons';
+
+const MyHandle = () => {
+  return <IconButton 
+  variant="surface"
+  color="gray"
+    style={{
+      zIndex: 999,
+      top: '50vh',
+      position: 'fixed',
+      width: '24px',
+      height: '24px',
+      transform: 'translate(-16px, -50%)',
+      cursor: 'ew-resize'
+    }}
+  >
+    <DragHandleHorizontalIcon />
+  </IconButton>;
+};
 
 export default function SidebarComponent() {
-  const [sidebarWidth, setSidebarWidth] = useState<number|undefined>(undefined)
-  const document_id = useMapStore(store => store.mapDocument?.document_id)
-  const handleResize = () => {
-    // Toggle between a default width and undefined
-    setSidebarWidth(prevWidth => (prevWidth === undefined ? 300 : undefined)); // Example width of 300px
-  };
+  const document_id = useMapStore(store => store.mapDocument?.document_id);
+
   return (
-    <Box
-      p="3"
-      className="w-full z-10 shadow-md flex-none overflow-y-auto 
+    <Resizable handleComponent={{ left: <MyHandle />}}>
+      <Box
+        p="3"
+        className="z-10 shadow-md flex-none overflow-y-auto 
       border-t lg:border-t-0
-      lg:h-screen lg:max-w-sidebar lg:w-sidebar
+      lg:h-screen
        landscape:border-t-0
-      landscape:h-screen landscape:max-w-[40vw] landscape:w-[40vw]
+      landscape:h-screen landscape:w-[40vw]
+      border-l-2
+      border-gray-500
+      shadow-xl
       "
-      style={{
-        width: sidebarWidth 
-      }}
-    >
-      <Flex direction="column" gap="3">
-        <Heading as="h3" size="3" className="hidden lg:block">
-          Districtr
-        </Heading>
-        <GerryDBViewSelector />
-        {/* <MapModeSelector /> */}
-        {/* {activeTool === 'brush' || activeTool === 'eraser' ? (
+        style={{width: '100%'}}
+      >
+        <Flex direction="column" gap="3">
+          <Heading as="h3" size="3" className="hidden lg:block">
+            Districtr
+          </Heading>
+          <GerryDBViewSelector />
+          {/* <MapModeSelector /> */}
+          {/* {activeTool === 'brush' || activeTool === 'eraser' ? (
           <div
             className="gap-4 lg:gap-0 landscape:gap-0
           flex flex-row-reverse lg:flex-col landscape:flex-col
@@ -55,26 +73,27 @@ export default function SidebarComponent() {
           </div>
         ) : null} */}
 
-        {/* {activeTool === 'lock' ? (
+          {/* {activeTool === 'lock' ? (
           <div>
             <ZoneLockPicker />
           </div>
         ) : null} */}
-        {/* <ResetMapButton /> */}
-        <ExitBlockViewButtons />
+          {/* <ResetMapButton /> */}
+          <ExitBlockViewButtons />
 
-        <Box
-          display={{
-            initial: 'none',
-            md: 'inline',
-          }}
-          style={{
-            opacity: document_id ? 1 : 0.25
-          }}
-        >
-          <DataPanels defaultPanel="population" />
-        </Box>
-      </Flex>
-    </Box>
+          <Box
+            display={{
+              initial: 'none',
+              md: 'inline',
+            }}
+            style={{
+              opacity: document_id ? 1 : 0.25,
+            }}
+          >
+            <DataPanels defaultPanel="population" />
+          </Box>
+        </Flex>
+      </Box>
+    </Resizable>
   );
 }

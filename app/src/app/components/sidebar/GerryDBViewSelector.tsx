@@ -39,7 +39,7 @@ export function GerryDBViewSelector() {
               placeholder="Select a geography"
               style={{flexGrow: 1}}
               className="mr-1"
-              color="ruby"
+              color="blue"
               
             />
         </Tooltip>
