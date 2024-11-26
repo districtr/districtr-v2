@@ -7,7 +7,7 @@ import {ExitBlockViewButtons} from './ExitBlockViewButtons';
 import {Resizable} from 're-resizable';
 import { DragHandleHorizontalIcon } from '@radix-ui/react-icons';
 
-const MyHandle = () => {
+const HandleIconButton = () => {
   return <IconButton 
   variant="surface"
   color="gray"
@@ -17,7 +17,7 @@ const MyHandle = () => {
       position: 'fixed',
       width: '24px',
       height: '24px',
-      transform: 'translate(-16px, -50%)',
+      transform: 'translate(-15px, -50%)',
       cursor: 'ew-resize'
     }}
   >
@@ -29,7 +29,7 @@ export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
 
   return (
-    <Resizable handleComponent={{ left: <MyHandle />}}>
+    <Resizable handleComponent={{ left: <HandleIconButton />}}>
       <Box
         p="3"
         className="z-10 shadow-md flex-none overflow-y-auto 
