@@ -715,11 +715,15 @@ export const useMapStore = create(
             });
 
             set({
-              zonePopulations: initialState.zonePopulations,
-              zoneAssignments: initialState.zoneAssignments,
-              shatterIds: initialState.shatterIds,
+              zonePopulations: new Map(),
+              zoneAssignments: new Map(),
+              shatterIds: {
+                parents: new Set(),
+                children: new Set()
+              },
               appLoadingState: 'loaded',
               mapLock: false,
+              activeTool: 'pan'
             });
           }
         },
@@ -933,3 +937,5 @@ getMapMetricsSubs(useMapStore);
 getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
+
+window.getState = useMapStore.getState

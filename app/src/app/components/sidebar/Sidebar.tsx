@@ -6,8 +6,6 @@ import {useMapStore} from '@/app/store/mapStore';
 import {ExitBlockViewButtons} from './ExitBlockViewButtons';
 
 export default function SidebarComponent() {
-  const activeTool = useMapStore(state => state.activeTool);
-
   return (
     <Box
       p="3"

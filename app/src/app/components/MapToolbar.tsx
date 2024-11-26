@@ -4,6 +4,7 @@ import {
   Card,
   Flex,
   IconButton,
+  IconButtonProps,
   Popover,
   RadioCards,
   Text,
@@ -82,7 +83,7 @@ const ToolUtilitiesConfig: Record<
 };
 
 const ToolUtilities: React.FC<{activeTool: ActiveTool}> = ({activeTool}) => {
-  const ContainerRef = useRef(null);
+  const ContainerRef = useRef<HTMLDivElement|null>(null);
   const {Component, focused} = ToolUtilitiesConfig[activeTool] || {};
   const setActiveTool = useMapStore(state => state.setActiveTool);
 
@@ -127,6 +128,8 @@ type ActiveToolConfig = {
   mode: ActiveTool;
   disabled?: boolean;
   label: string;
+  variant?: IconButtonProps['variant']
+  color?: IconButtonProps['color']
   icon: React.JSX.Element;
 };
 
@@ -172,6 +175,8 @@ export const MapToolbar = () => {
       hotkey: 'Digit8',
       mode: 'reset',
       label: 'Reset Map',
+      variant: 'outline',
+      color: 'red',
       icon: <Cross2Icon />,
     },
   ];
@@ -228,9 +233,11 @@ export const MapToolbar = () => {
                     marginRight: i === activeTools.length - 1 ? 0 : -1,
                     padding: activeTool === tool.mode ? '0 0' : '.75rem',
                   }}
-                  variant={activeTool === tool.mode ? 'solid' : 'surface'}
+                  variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
+                  color={tool.color}
                   radius="none"
                   size="3"
+
                 >
                   {tool.icon}
                 </IconButton>
