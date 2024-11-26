@@ -67,7 +67,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
           id,
           sourceLayer: mapDocument?.parent_layer,
         }, {
-          broken: true
+          broken: true,
+          zone: null
         });
       });
 
