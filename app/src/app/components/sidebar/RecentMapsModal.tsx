@@ -1,5 +1,5 @@
 import {useMapStore} from '@/app/store/mapStore';
-import React from 'react';
+import React, {useEffect} from 'react';
 import {Cross2Icon, CounterClockwiseClockIcon} from '@radix-ui/react-icons';
 import {
   Button,
@@ -22,7 +22,7 @@ const DialogContentContainer = styled(Dialog.Content, {
   maxHeight: 'calc(100vh-2rem)',
 });
 
-export const RecentMapsModal = () => {
+export const RecentMapsModal: React.FC<{defaultOpen?: boolean}> = ({defaultOpen}) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -30,7 +30,8 @@ export const RecentMapsModal = () => {
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
-  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const setActiveTool = useMapStore(store => store.setActiveTool);
+  const [dialogOpen, setDialogOpen] = React.useState(defaultOpen || false);
 
   const handleMapDocument = (data: NamedDocumentObject) => {
     setMapDocument(data);
@@ -41,19 +42,26 @@ export const RecentMapsModal = () => {
     setDialogOpen(false);
   };
 
+  useEffect(() => {
+    if (!dialogOpen) {
+      setActiveTool('pan');
+    }
+  }, [dialogOpen]);
   if (!userMaps?.length) {
     return null;
   }
 
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
-      <Dialog.Trigger>
-        <RadioCards.Item value="recents">
-          <CounterClockwiseClockIcon />
-          Recents
-        </RadioCards.Item>
-      </Dialog.Trigger>
-      <DialogContentContainer className="max-w-[75vw]">
+      {!defaultOpen && (
+        <Dialog.Trigger>
+          <RadioCards.Item value="recents">
+            <CounterClockwiseClockIcon />
+            Recents
+          </RadioCards.Item>
+        </Dialog.Trigger>
+      )}
+      <DialogContentContainer className="max-w-[50vw]">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
 
@@ -64,33 +72,35 @@ export const RecentMapsModal = () => {
             <Cross2Icon />
           </Dialog.Close>
         </Flex>
-        <Table.Root size="3" variant="surface">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeaderCell pl=".5rem">Map Name</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>Last Updated</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>{/* load */}</Table.ColumnHeaderCell>
-              <Table.ColumnHeaderCell>{/* delete */}</Table.ColumnHeaderCell>
-            </Table.Row>
-          </Table.Header>
+        <Box className="max-h-[50vh] overflow-y-auto">
+          <Table.Root size="3" variant="surface">
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeaderCell pl=".5rem">Map Name</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>Last Updated</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>{/* load */}</Table.ColumnHeaderCell>
+                <Table.ColumnHeaderCell>{/* delete */}</Table.ColumnHeaderCell>
+              </Table.Row>
+            </Table.Header>
 
-          <Table.Body>
-            {userMaps.map((userMap, i) => (
-              <RecentMapsRow
-                key={i}
-                active={mapDocument?.document_id === userMap.document_id}
-                onChange={userMapData =>
-                  upsertUserMap({
-                    userMapData,
-                    userMapDocumentId: userMap.document_id,
-                  })
-                }
-                data={userMap}
-                onSelect={handleMapDocument}
-              />
-            ))}
-          </Table.Body>
-        </Table.Root>
+            <Table.Body>
+              {userMaps.map((userMap, i) => (
+                <RecentMapsRow
+                  key={i}
+                  active={mapDocument?.document_id === userMap.document_id}
+                  onChange={userMapData =>
+                    upsertUserMap({
+                      userMapData,
+                      userMapDocumentId: userMap.document_id,
+                    })
+                  }
+                  data={userMap}
+                  onSelect={handleMapDocument}
+                />
+              ))}
+            </Table.Body>
+          </Table.Root>
+        </Box>
       </DialogContentContainer>
     </Dialog.Root>
   );
