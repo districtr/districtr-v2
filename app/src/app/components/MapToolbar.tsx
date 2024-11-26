@@ -138,11 +138,12 @@ export const MapToolbar = () => {
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const mapDocument = useMapStore(state => state.mapDocument);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
 
   const activeTools: ActiveToolConfig[] = [
-    {hotkey: 'Digit1', mode: 'pan', disabled: false, label: 'Pan', icon: <HandIcon />},
-    {hotkey: 'Digit2', mode: 'brush', disabled: false, label: 'Paint', icon: <Pencil2Icon />},
-    {hotkey: 'Digit3', mode: 'eraser', disabled: false, label: 'Erase', icon: <EraserIcon />},
+    {hotkey: 'Digit1', mode: 'pan', disabled: !mapDocument?.document_id, label: 'Pan', icon: <HandIcon />},
+    {hotkey: 'Digit2', mode: 'brush', disabled: !mapDocument?.document_id, label: 'Paint', icon: <Pencil2Icon />},
+    {hotkey: 'Digit3', mode: 'eraser', disabled: !mapDocument?.document_id, label: 'Erase', icon: <EraserIcon />},
     {
       hotkey: 'Digit4',
       mode: 'shatter',
@@ -153,7 +154,7 @@ export const MapToolbar = () => {
     {
       hotkey: 'Digit5',
       mode: 'lock',
-      disabled: false,
+      disabled: !mapDocument?.document_id,
       label: 'Lock',
       icon: <LockOpen1Icon />,
     },
@@ -176,6 +177,7 @@ export const MapToolbar = () => {
       mode: 'reset',
       label: 'Reset Map',
       variant: 'outline',
+      disabled: noZonesAreAssigned,
       color: 'red',
       icon: <Cross2Icon />,
     },
@@ -236,6 +238,7 @@ export const MapToolbar = () => {
                   variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
                   color={tool.color}
                   radius="none"
+                  disabled={tool.disabled}
                   size="3"
 
                 >

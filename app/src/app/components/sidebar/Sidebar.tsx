@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import DataPanels from './DataPanels';
 import {Box, Flex, Heading} from '@radix-ui/themes';
 import {GerryDBViewSelector} from './GerryDBViewSelector';
@@ -6,6 +6,12 @@ import {useMapStore} from '@/app/store/mapStore';
 import {ExitBlockViewButtons} from './ExitBlockViewButtons';
 
 export default function SidebarComponent() {
+  const [sidebarWidth, setSidebarWidth] = useState<number|undefined>(undefined)
+  const document_id = useMapStore(store => store.mapDocument?.document_id)
+  const handleResize = () => {
+    // Toggle between a default width and undefined
+    setSidebarWidth(prevWidth => (prevWidth === undefined ? 300 : undefined)); // Example width of 300px
+  };
   return (
     <Box
       p="3"
@@ -14,8 +20,10 @@ export default function SidebarComponent() {
       lg:h-screen lg:max-w-sidebar lg:w-sidebar
        landscape:border-t-0
       landscape:h-screen landscape:max-w-[40vw] landscape:w-[40vw]
-      
       "
+      style={{
+        width: sidebarWidth 
+      }}
     >
       <Flex direction="column" gap="3">
         <Heading as="h3" size="3" className="hidden lg:block">
@@ -59,6 +67,9 @@ export default function SidebarComponent() {
           display={{
             initial: 'none',
             md: 'inline',
+          }}
+          style={{
+            opacity: document_id ? 1 : 0.25
           }}
         >
           <DataPanels defaultPanel="population" />

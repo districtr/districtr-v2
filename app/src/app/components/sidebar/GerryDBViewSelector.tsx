@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {Flex, Select} from '@radix-ui/themes';
+import {Flex, Popover, Select, Text, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
 import {document} from '@/app/utils/api/mutations';
 
@@ -34,7 +34,15 @@ export function GerryDBViewSelector() {
   return (
     <Flex direction={'row'} width="100%" gap="3" align="center">
       <Select.Root size="3" onValueChange={handleValueChange} value={selectedView?.name}>
-        <Select.Trigger placeholder="Select a geography" style={{flexGrow: 1}} className="mr-1" />
+        <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
+            <Select.Trigger
+              placeholder="Select a geography"
+              style={{flexGrow: 1}}
+              className="mr-1"
+              color="ruby"
+              
+            />
+        </Tooltip>
         <Select.Content>
           <Select.Group>
             <Select.Label>Districtr map options</Select.Label>

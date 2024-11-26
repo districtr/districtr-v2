@@ -17,6 +17,7 @@ export const MapComponent: React.FC = () => {
   const mapLock = useMapStore(state => state.mapLock);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapStore(state => state.mapOptions);
+  const document_id = useMapStore(state => state.mapDocument?.document_id)
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -85,6 +86,7 @@ export const MapComponent: React.FC = () => {
       <div
         className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen
         ${mapLock ? 'pointer-events-none' : ''}
+        ${document_id ? '' : 'opacity-25 pointer-events-none'}
         `}
         ref={mapContainer}
       />
