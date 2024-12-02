@@ -7,10 +7,15 @@ const compactFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   compactDisplay: 'short',
 })
+const compact3Formatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  compactDisplay: 'short',
+  minimumFractionDigits: 2
+})
 
 const stringFormatter = (n: number) => (Math.round(n)).toLocaleString()
 
-export type NumberFormats = 'percent' | 'string' | 'compact'
+export type NumberFormats = 'percent' | 'string' | 'compact' | 'compact3'
 export const formatNumber = (
   value: number | undefined,
   format: NumberFormats
@@ -25,6 +30,8 @@ export const formatNumber = (
       return stringFormatter(value) // Format as string
     case 'compact': // Added case for 'compact'
       return compactFormatter.format(value) // Format as compact
+    case 'compact3': // Added case for 'compact'
+      return compact3Formatter.format(value) // Format as compact
     default:
       const exhaustiveCheck: never = format;
       throw new Error(`Unhandled format case: ${exhaustiveCheck}`);
