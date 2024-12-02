@@ -14,10 +14,13 @@ export const devToolsConfig: DevtoolsOptions = {
     options: {
       set: (setInStore: Set<unknown>) => Array.from(setInStore),
       map: (mapInStore: Map<string, unknown>) => {
-        return Array.from(mapInStore.entries()).reduce((acc, [key, value]) => {
-          acc[key] = value; // Convert Map to plain object
-          return acc;
-        }, {} as Record<string, unknown>);
+        return Array.from(mapInStore.entries()).reduce(
+          (acc, [key, value]) => {
+            acc[key] = value; // Convert Map to plain object
+            return acc;
+          },
+          {} as Record<string, unknown>
+        );
       },
     },
   },
