@@ -8,6 +8,7 @@ import {MAP_OPTIONS} from '../constants/configuration';
 import {mapEvents} from '../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
+import { parentIdCache } from '../store/idCache';
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -45,6 +46,7 @@ export const MapComponent: React.FC = () => {
       zoom: MAP_OPTIONS.zoom,
       maxZoom: MAP_OPTIONS.maxZoom,
     });
+
     fitMapToBounds();
     map.current.scrollZoom.setWheelZoomRate(1 / 300);
     map.current.scrollZoom.setZoomRate(1 / 300);
@@ -86,3 +88,4 @@ export const MapComponent: React.FC = () => {
     />
   );
 };
+

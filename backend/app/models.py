@@ -96,6 +96,17 @@ class DistrictrMapPublic(BaseModel):
     available_summary_stats: list[str] | None = None
 
 
+class DistrictrMapUpdate(BaseModel):
+    gerrydb_table_name: str
+    name: str | None = None
+    parent_layer: str | None = None
+    child_layer: str | None = None
+    tiles_s3_path: str | None = None
+    num_districts: int | None = None
+    visible: bool | None = None
+    available_summary_stats: list[str] | None = None
+
+
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     # Must correspond to the layer name in the tileset
@@ -207,6 +218,7 @@ class PopulationStatsP1(BaseModel):
     nhpi_pop: int
     black_pop: int
     white_pop: int
+    two_or_more_races_pop: int
 
 
 class SummaryStatsP1(PopulationStatsP1):
@@ -222,6 +234,7 @@ class PopulationStatsP4(BaseModel):
     non_hispanic_black_vap: int
     non_hispanic_white_vap: int
     non_hispanic_other_vap: int
+    non_hispanic_two_or_more_races_vap: int
 
 
 class SummaryStatsP4(PopulationStatsP4):

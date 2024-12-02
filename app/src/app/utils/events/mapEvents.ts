@@ -2,7 +2,7 @@
  Port over from map events declared at: https://github.com/uchicago-dsi/districtr-components/blob/2e8f9e5657b9f0fd2419b6f3258efd74ae310f32/src/Districtr/Districtr.tsx#L230
  */
 'use client';
-import type {Map as MapLibreMap, MapLayerMouseEvent, MapLayerTouchEvent} from 'maplibre-gl';
+import type {Map as MapLibreMap, MapLayerMouseEvent, MapLayerTouchEvent, MapDataEvent, MapSourceDataEvent} from 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
@@ -11,6 +11,7 @@ import {
 } from '@/app/constants/layers';
 import {ResetMapSelectState} from '@utils/events/handlers';
 import {ActiveTool} from '@/app/constants/types';
+import { parentIdCache } from '@/app/store/idCache';
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -109,7 +110,14 @@ export const handleMapMouseDown = (
 export const handleMapMouseEnter = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
-) => {};
+) => {
+  // check if mouse is down
+  // if so, set is painting true
+  // @ts-ignore this is the correct behavior but event types are incorrect
+  if (e.originalEvent?.buttons === 1){
+    useMapStore.getState().setIsPainting(true)
+  }
+};
 
 export const handleMapMouseOver = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
@@ -227,6 +235,38 @@ export const handleMapContextMenu = (
   });
 };
 
+export const handleIdCache = (
+  _e: MapLayerMouseEvent | MapLayerTouchEvent,
+  map: MapLibreMap | null
+) => {
+  const e = _e as unknown as MapSourceDataEvent
+  const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
+
+  if (
+    !tiles_s3_path || 
+    !parent_layer || 
+    e.dataType !== 'source' || 
+    !("url" in e.source) ||
+    !e.source.url?.includes(tiles_s3_path)
+  ) return
+
+  const tileData = e.tile.latestFeatureIndex;
+  if (!tileData) return
+  
+  const index = `${tileData.x}-${tileData.y}-${tileData.z}`
+  if (parentIdCache.hasCached(index)) return
+  const vtLayers = tileData.loadVTLayers()
+  
+  const parentLayerData = vtLayers[parent_layer]
+  const numFeatures = parentLayerData.length
+  const featureDataArray = parentLayerData._values
+  const idArray = featureDataArray.slice(-numFeatures,)
+  parentIdCache.add(index, idArray)
+  useMapStore.getState().setMapOptions({
+    currentStateFp: idArray[0].replace('vtd:','').slice(0,2)
+  })
+}
+
 export const mapEvents = [
   {action: 'click', handler: handleMapClick},
   {action: 'mouseup', handler: handleMapMouseUp},
@@ -246,4 +286,5 @@ export const mapEvents = [
   {action: 'moveend', handler: handleMapMoveEnd},
   {action: 'zoomend', handler: handleMapZoomEnd},
   {action: 'contextmenu', handler: handleMapContextMenu},
+  {action: 'data', handler: handleIdCache}
 ];

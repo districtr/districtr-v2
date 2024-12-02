@@ -11,10 +11,13 @@ import {
   BLOCK_LAYER_ID_HIGHLIGHT,
   getHighlightLayerSpecification,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+  COUNTY_LAYERS,
 } from '../constants/layers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
+  getFeaturesInBbox,
+  getFeaturesIntersectingCounties,
   shallowCompareArray,
 } from '../utils/helpers';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
@@ -55,7 +58,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       // Hide broken parents on parent layer
       // Show broken children on child layer
       layersToFilter.forEach(layerId =>
-        mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
+        mapRef.getLayer(layerId) && mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
       );
       // remove zone from parents
       shatterIds.parents.forEach(id => {
@@ -120,7 +123,8 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
         const isHover = layerId.includes('hover');
         const isParent = PARENT_LAYERS.includes(layerId);
-        isHover &&
+
+        if (isHover && mapRef.getLayer(layerId)) {
           mapRef.setPaintProperty(
             layerId,
             'fill-opacity',
@@ -129,6 +133,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
               isParent ? shatterIds.parents : undefined
             )
           );
+        }
       });
       const [lockPaintedAreas, prevLockPaintedAreas] = [curr[6], prev[6]];
       const sameLockedAreas =
@@ -222,16 +227,21 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     activeTool => {
       const mapRef = useMapStore.getState().getMapRef();
       if (!mapRef) return;
+      const mapOptions = useMapStore.getState().mapOptions
+      const defaultPaintFunction = mapOptions.paintByCounty ? getFeaturesIntersectingCounties : getFeaturesInBbox
       let cursor;
       switch (activeTool) {
         case 'pan':
           cursor = '';
+          useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'brush':
           cursor = 'pointer';
+          useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'eraser':
           cursor = 'pointer';
+          useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         case 'shatter':
           cursor = 'crosshair';
@@ -267,7 +277,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
         const isHover = layerId.includes('hover');
         const isParent = PARENT_LAYERS.includes(layerId);
-        isHover &&
+        if (isHover && mapRef.getLayer(layerId)) {
           mapRef.setPaintProperty(
             layerId,
             'fill-opacity',
@@ -276,10 +286,13 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
               isParent ? shatterIds.parents : undefined
             )
           );
+        }
       });
 
       CHILD_LAYERS.forEach(layerId => {
-        !layerId.includes('hover') && mapRef.setPaintProperty(layerId, 'line-opacity', 1);
+        if (!layerId.includes('hover') && mapRef.getLayer(layerId)) {
+          mapRef.setPaintProperty(layerId, 'line-opacity', 1);
+        }
       });
     }
   );
@@ -303,6 +316,18 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       } 
     }
   );
+  
+  const filterCountiesSub = useMapStore.subscribe<[string|undefined, MapStore['getMapRef']]>(state => [state.mapOptions.currentStateFp, state.getMapRef],
+    ([stateFp, getMapRef]) => {
+      const mapRef = getMapRef()
+      if (!mapRef) return
+      const filterExpression = (stateFp ? ["==", "STATEFP", stateFp] : true) as any
+      COUNTY_LAYERS.forEach(layer => {
+        mapRef.getLayer(layer) && mapRef.setFilter(layer,  ["any", filterExpression])
+      })
+    }
+  )
+  
   return [
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
@@ -311,5 +336,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     _updateMapCursor,
     _applyFocusFeatureState,
     highlightUnassignedSub,
+    filterCountiesSub
   ];
 };

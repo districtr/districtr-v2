@@ -1,7 +1,7 @@
 import axios from 'axios';
 import 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
-import { getEntryTotal } from '../summaryStats';
+import {getEntryTotal} from '../summaryStats';
 
 export const FormatAssignments = () => {
   const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
@@ -171,8 +171,9 @@ export interface P1ZoneSummaryStats {
   nhpi_pop: number;
   black_pop: number;
   white_pop: number;
+  two_or_more_races_pop: number;
 }
-export type P1TotPopSummaryStats = Omit<P1ZoneSummaryStats, 'zone'>
+export type P1TotPopSummaryStats = Omit<P1ZoneSummaryStats, 'zone'>;
 
 export const P1ZoneSummaryStatsKeys = [
   'other_pop',
@@ -180,8 +181,9 @@ export const P1ZoneSummaryStatsKeys = [
   'amin_pop',
   'nhpi_pop',
   'black_pop',
-  'white_pop'
-] as const
+  'white_pop',
+  'two_or_more_races_pop',
+] as const;
 
 export const CleanedP1ZoneSummaryStatsKeys = [
   ...P1ZoneSummaryStatsKeys,
@@ -192,7 +194,8 @@ export const CleanedP1ZoneSummaryStatsKeys = [
   'nhpi_pop_pct',
   'black_pop_pct',
   'white_pop_pct',
-] as const
+  'two_or_more_races_pop_pct',
+] as const;
 
 export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
   total: number;
@@ -202,35 +205,110 @@ export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
   nhpi_pop_pct: number;
   black_pop_pct: number;
   white_pop_pct: number;
+  two_or_more_races_pop_pct: number;
+}
+
+
+/**
+ * P4ZoneSummaryStats
+ *
+ * @interface
+ * @property {number} zone - The zone.
+ * @property {number} total_pop - The total population.
+ */
+export interface P4ZoneSummaryStats {
+  zone: number;
+  hispanic_vap: number,
+  non_hispanic_asian_vap: number,
+  non_hispanic_amin_vap: number,
+  non_hispanic_nhpi_vap: number,
+  non_hispanic_black_vap: number,
+  non_hispanic_white_vap: number,
+  non_hispanic_other_vap: number,
+  non_hispanic_two_or_more_races_vap: number
+}
+export type P4TotPopSummaryStats = Omit<P4ZoneSummaryStats, 'zone'>;
+
+export const P4ZoneSummaryStatsKeys = [
+  'hispanic_vap',
+  'non_hispanic_asian_vap',
+  'non_hispanic_amin_vap',
+  'non_hispanic_nhpi_vap',
+  'non_hispanic_black_vap',
+  'non_hispanic_white_vap',
+  'non_hispanic_other_vap',
+  'non_hispanic_two_or_more_races_vap'
+] as const;
+
+export const CleanedP4ZoneSummaryStatsKeys = [
+  ...P4ZoneSummaryStatsKeys,
+  'total',
+  'hispanic_vap',
+  'non_hispanic_asian_vap',
+  'non_hispanic_amin_vap',
+  'non_hispanic_nhpi_vap',
+  'non_hispanic_black_vap',
+  'non_hispanic_white_vap',
+  'non_hispanic_other_vap',
+  'non_hispanic_two_or_more_races_vap'
+] as const;
+
+export interface CleanedP4ZoneSummaryStats extends P4ZoneSummaryStats {
+  total: number;
+  hispanic_vap: number,
+  non_hispanic_asian_vap: number,
+  non_hispanic_amin_vap: number,
+  non_hispanic_nhpi_vap: number,
+  non_hispanic_black_vap: number,
+  non_hispanic_white_vap: number,
+  non_hispanic_other_vap: number,
+  non_hispanic_two_or_more_races_vap: number
 }
 
 /**
- * Get P1 zone stats from the server.
+ * Get zone stats from the server.
  * @param mapDocument - DocumentObject, the document object
- * @returns Promise<CleanedP1ZoneSummaryStats[]>
+ * @param summaryType - string, the summary type
+ * @returns Promise<CleanedP1ZoneSummaryStats[] | CleanedP4ZoneSummaryStats[]>
  */
-export const getP1SummaryStats: (
-  mapDocument: DocumentObject
-) => Promise<SummaryStatsResult<CleanedP1ZoneSummaryStats[]>> = async mapDocument => {
-  if (mapDocument) {
+export const getSummaryStats: (
+  mapDocument: DocumentObject,
+  summaryType: string | null | undefined
+) => Promise<SummaryStatsResult<CleanedP1ZoneSummaryStats[] | CleanedP4ZoneSummaryStats[]>> = async (mapDocument, summaryType) => {
+  if (mapDocument && summaryType) {
     return await axios
-      .get<SummaryStatsResult<P1ZoneSummaryStats[]>>(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/P1`)
+      .get<
+        SummaryStatsResult<P1ZoneSummaryStats[] | P4ZoneSummaryStats[]>
+      >(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/${summaryType}`)
       .then(res => {
         const results = res.data.results.map(row => {
-          const total = getEntryTotal(row)
-          return P1ZoneSummaryStatsKeys.reduce<any>((acc, key) => {
-            acc[`${key}_pct`] = acc[key] / total;
-            return acc;
-          }, {
-            ...row,
-            total
-          }) as CleanedP1ZoneSummaryStats
-      })
-      return {
-        ...res.data,
-        results
-      }
-    })
+          const total = getEntryTotal(row);
+
+          const zoneSummaryStatsKeys = (() => {
+                      switch(summaryType) {
+                        case "P1": return P1ZoneSummaryStatsKeys;
+                        case "P4": return P4ZoneSummaryStatsKeys;
+                        default: throw new Error('Invalid summary type');
+                      }
+                    })();
+
+
+          return zoneSummaryStatsKeys.reduce<any>(
+            (acc, key) => {
+              acc[`${key}_pct`] = acc[key] / total;
+              return acc;
+            },
+            {
+              ...row,
+              total,
+            }
+          ) as CleanedP1ZoneSummaryStats;
+        });
+        return {
+          ...res.data,
+          results,
+        };
+      });
   } else {
     throw new Error('No document provided');
   }
@@ -241,13 +319,16 @@ export const getP1SummaryStats: (
  * @param mapDocument - DocumentObject, the document object
  * @returns Promise<CleanedP1ZoneSummaryStats[]>
  */
-export const getP1TotPopSummaryStats: (
-  mapDocument: DocumentObject | null
-) => Promise<SummaryStatsResult<P1TotPopSummaryStats>> = async mapDocument => {
-  if (mapDocument) {
+export const getTotPopSummaryStats: (
+  mapDocument: DocumentObject | null,
+  summaryType: string | null | undefined
+) => Promise<SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats>> = async (mapDocument, summaryType) => {
+  if (mapDocument && summaryType) {
     return await axios
-      .get<SummaryStatsResult<P1TotPopSummaryStats>>(`${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/summary_stats/P1/${mapDocument.parent_layer}`)
-      .then(res => res.data)
+      .get<
+        SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats>
+      >(`${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/summary_stats/${summaryType}/${mapDocument.parent_layer}`)
+      .then(res => res.data);
   } else {
     throw new Error('No document provided');
   }
