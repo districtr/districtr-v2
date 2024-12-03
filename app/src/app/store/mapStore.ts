@@ -335,8 +335,8 @@ export const useMapStore = create(
           if (!map || !mapDocument?.document_id) {
             return;
           }
-          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state
-          if(!featureStateCache) return
+          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
+          if (!featureStateCache) return;
           // PAINT
           const popChanges: Record<number, number> = {};
           selectedZone !== null && (popChanges[selectedZone] = 0);
@@ -344,13 +344,13 @@ export const useMapStore = create(
           features?.forEach(feature => {
             const id = feature?.id?.toString() ?? undefined;
             if (!id || !feature.sourceLayer) return;
-            const hasBeenAccumulated = accumulatedGeoids.has(id)
-            const featureState = featureStateCache[feature.sourceLayer][id]
-            const prevAssignment = featureState?.['zone'] || 0
-            const isLocked = featureState?.['locked'] || 0
-            const isSameZone = prevAssignment === selectedZone
+            const hasBeenAccumulated = accumulatedGeoids.has(id);
+            const featureState = featureStateCache[feature.sourceLayer][id];
+            const prevAssignment = featureState?.['zone'] || 0;
+            const isLocked = featureState?.['locked'] || 0;
+            const isSameZone = prevAssignment === selectedZone;
             if (isLocked || isSameZone || hasBeenAccumulated) return;
-            
+
             accumulatedGeoids.add(feature.properties?.path);
             const popValue = parseInt(feature.properties?.total_pop);
             if (!isNaN(popValue)) {
@@ -372,11 +372,7 @@ export const useMapStore = create(
             );
           });
 
-          useChartStore.getState().updateMetrics(popChanges)
-          
-          set({
-            accumulatedGeoids,
-          });
+          useChartStore.getState().updateMetrics(popChanges);
         },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
@@ -865,14 +861,10 @@ export const useMapStore = create(
         isPainting: false,
         setIsPainting: isPainting => {
           if (!isPainting) {
-            const {
-              setZoneAssignments,
-              accumulatedGeoids,
-              selectedZone
-            } = get()
-            setZoneAssignments(selectedZone, accumulatedGeoids)
+            const {setZoneAssignments, accumulatedGeoids, selectedZone} = get();
+            setZoneAssignments(selectedZone, accumulatedGeoids);
           }
-          set({isPainting})
+          set({isPainting});
         },
         paintFunction: getFeaturesInBbox,
         setPaintFunction: paintFunction => set({paintFunction}),
@@ -913,7 +905,11 @@ export const useMapStore = create(
         userMaps: [],
         setUserMaps: userMaps => set({userMaps}),
       })),
-      devToolsConfig
+
+      {
+        ...devToolsConfig,
+        name: 'Districtr Map Store',
+      }
     ),
     persistOptions
   )
@@ -946,7 +942,11 @@ export const useHoverStore = create(
         set({hoverFeatures});
       },
     })),
-    devToolsConfig
+    
+    {
+      ...devToolsConfig,
+      name: "Districtr Hover Feature Store"
+    }
   )
 );
 

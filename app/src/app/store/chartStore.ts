@@ -49,6 +49,9 @@ export const useChartStore = create(
         });
       },
     })),
-    devToolsConfig
+    {
+      ...devToolsConfig,
+      name: "Districtr Chart Store"
+    }
   )
 );

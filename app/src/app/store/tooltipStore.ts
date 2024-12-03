@@ -14,6 +14,9 @@ export const useTooltipStore = create(
       tooltip: null,
       setTooltip: tooltip => set({tooltip}),
     })),
-    devToolsConfig
+    {
+      ...devToolsConfig,
+      name: 'Districtr Tooltip Store',
+    }
   )
 );
