@@ -957,6 +957,3 @@ getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getMapMetricsSubs(useMapStore)
 getSearchParamsObersver();
-
-
-window.getState = useMapStore.getState

@@ -220,7 +220,7 @@ export const PopulationChart: React.FC<{
           tickLabelProps={{
             fontSize: '14px',
           }}
-          tickFormat={v => formatNumber(v, 'string')}
+          tickFormat={v => formatNumber(v as number, 'string')}
         />
       </Group>
     </svg>
