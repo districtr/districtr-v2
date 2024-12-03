@@ -31,14 +31,14 @@ import {getSearchParamsObersver} from '../utils/api/queryParamsListener';
 import {getMapMetricsSubs} from './metricsSubs';
 import {getMapEditSubs} from './mapEditSubs';
 import {getQueriesResultsSubs} from '../utils/api/queries';
-import {persistOptions} from './persistConfig';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {DistrictrChartOptions, DistrictrMapOptions} from './types';
+import {devToolsConfig, persistOptions} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
+import {parentIdCache} from './idCache';
 import {queryClient} from '../utils/api/queryClient';
-import { parentIdCache } from './idCache';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -968,7 +968,8 @@ export const useMapStore = create(
         setTooltip: tooltip => set({tooltip}),
         userMaps: [],
         setUserMaps: userMaps => set({userMaps}),
-      }))
+      })),
+      devToolsConfig
     ),
     persistOptions
   )
