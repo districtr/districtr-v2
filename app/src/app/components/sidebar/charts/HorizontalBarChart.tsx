@@ -1,28 +1,25 @@
 import {MapStore, useMapStore} from '@/app/store/mapStore';
-import {Card, CheckboxGroup, Flex, Heading, IconButton, Text, TextField} from '@radix-ui/themes';
-// import {
-//   BarChart,
-//   Bar,
-//   ResponsiveContainer,
-//   Tooltip,
-//   XAxis,
-//   YAxis,
-//   Cell,
-//   ReferenceLine,
-//   Label,
-// } from 'recharts';
+import {
+  Card,
+  CheckboxGroup,
+  Flex,
+  Heading,
+  IconButton,
+  Radio,
+  Text,
+  TextField,
+} from '@radix-ui/themes';
 import {colorScheme} from '@/app/constants/colors';
-import React, {useState, useMemo, useCallback} from 'react';
+import React, {useMemo, useCallback} from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
 import {Bar, Line} from '@visx/shape';
-import {scaleLinear, scaleOrdinal} from '@visx/scale';
-import {AxisLeft, AxisBottom} from '@visx/axis';
+import {scaleLinear} from '@visx/scale';
+import {AxisBottom} from '@visx/axis';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
-import {BrushHandleRenderProps} from '@visx/brush/lib/BrushHandle';
-import {Brush} from '@visx/brush';
 import {Popover} from '@radix-ui/themes';
 import {GearIcon} from '@radix-ui/react-icons';
+import {InfoTip} from '../../Tooltip/Tooltip';
 type TooltipInput = {
   active?: boolean;
   payload?: [{payload: {total_pop: number; zone: number}}];
@@ -49,6 +46,7 @@ const CustomTooltip = ({active, payload: items}: TooltipInput) => {
     );
   }
 };
+
 const LockIcon = () => (
   <path
     d="M5 4.63601C5 3.76031 5.24219 3.1054 5.64323 2.67357C6.03934 2.24705 6.64582 1.9783 7.5014 1.9783C8.35745 1.9783 8.96306 2.24652 9.35823 2.67208C9.75838 3.10299 10 3.75708 10 4.63325V5.99999H5V4.63601ZM4 5.99999V4.63601C4 3.58148 4.29339 2.65754 4.91049 1.99307C5.53252 1.32329 6.42675 0.978302 7.5014 0.978302C8.57583 0.978302 9.46952 1.32233 10.091 1.99162C10.7076 2.65557 11 3.57896 11 4.63325V5.99999H12C12.5523 5.99999 13 6.44771 13 6.99999V13C13 13.5523 12.5523 14 12 14H3C2.44772 14 2 13.5523 2 13V6.99999C2 6.44771 2.44772 5.99999 3 5.99999H4ZM3 6.99999H12V13H3V6.99999Z"
@@ -66,30 +64,30 @@ export const PopulationChart: React.FC<{
   lockPaintedAreas: MapStore['mapOptions']['lockPaintedAreas'];
   margins?: {left: number; right: number; top: number; bottom: number};
   idealPopulation?: number;
-  scaleToDataRange?: boolean;
-  popThreshold?: number;
-  displayPopulationNumbers?: boolean;
-  displayDistrictNumbers?: boolean;
+  scaleToCurrent?: boolean;
+  targetDeviation?: number;
+  showPopNumber?: boolean;
+  showDistrictrNumbers?: boolean;
 }> = ({
   width,
   height,
   data,
   idealPopulation,
-  scaleToDataRange,
-  popThreshold,
+  scaleToCurrent,
+  targetDeviation,
   lockPaintedAreas,
-  margins = {left: 10, right: 40, top: 20, bottom: 40},
-  displayDistrictNumbers = true,
-  displayPopulationNumbers = true,
+  margins = {left: 15, right: 40, top: 20, bottom: 40},
+  showDistrictrNumbers = true,
+  showPopNumber = true,
 }) => {
   const [xMax, yMax] = [
     width - margins.left - margins.right,
     height - margins.top - margins.bottom,
   ];
-  const xMaxValue = scaleToDataRange
+  const xMaxValue = scaleToCurrent
     ? Math.max(...data.map(r => r.total_pop)) + 20
     : Math.max(idealPopulation || 0, ...data.map(r => r.total_pop));
-  const xMinValue = scaleToDataRange ? Math.min(...data.map(r => r.total_pop)) : 0;
+  const xMinValue = scaleToCurrent ? Math.min(...data.map(r => r.total_pop)) : 0;
 
   const xScale = useCallback(
     scaleLinear<number>({
@@ -99,7 +97,7 @@ export const PopulationChart: React.FC<{
     }),
     [width, xMaxValue, xMinValue]
   );
-  const barHeight = yMax / data.length - 10;
+  const barHeight = yMax / data.length - 6;
 
   const yScale = useCallback(
     scaleLinear({
@@ -115,26 +113,26 @@ export const PopulationChart: React.FC<{
         {!!idealPopulation && (
           <>
             <Line
-              from={{x: xScale(idealPopulation), y: 0}}
+              from={{x: xScale(idealPopulation), y: -margins.top}}
               to={{
                 x: xScale(idealPopulation),
                 y: height - margins.top - margins.bottom,
               }}
-              stroke={'rgba(0,0,0,0.8)'}
-              strokeWidth={'2'}
-              strokeDasharray={'6 4'}
+              stroke="black"
+              strokeWidth="1"
+              strokeDasharray="3 3"
             />
-            <Group left={xScale(idealPopulation) + 5} top={yMax - 5}>
-              <text textAnchor="end" fontSize="14px" style={{transform: 'rotate(90deg)'}}>
+            <Group left={xScale(idealPopulation) + 5} top={-5}>
+              <text textAnchor="start" fontSize="14px">
                 Ideal
               </text>
             </Group>
-            {!!popThreshold && (
+            {!!targetDeviation && (
               <Bar
-                x={xScale(Math.max(0, idealPopulation - popThreshold))}
+                x={xScale(Math.max(0, idealPopulation - targetDeviation))}
                 width={
-                  xScale(Math.max(0, idealPopulation + popThreshold)) -
-                  xScale(Math.max(0, idealPopulation - popThreshold))
+                  xScale(Math.max(0, idealPopulation + targetDeviation)) -
+                  xScale(Math.max(0, idealPopulation - targetDeviation))
                 }
                 y={0}
                 height={yMax}
@@ -146,19 +144,21 @@ export const PopulationChart: React.FC<{
         )}
         {data.map((entry, index) => (
           <>
-            <Bar
-              key={`bar-${entry.zone}`}
-              x={0}
-              y={yScale(index) + 5}
-              width={xScale(entry.total_pop)}
-              height={barHeight}
-              fill={colorScheme[entry.zone - 1]}
-              fillOpacity={0.9}
-            />
-            {!!displayDistrictNumbers && (
+            {entry.total_pop > 0 && (
+              <Bar
+                key={`bar-${entry.zone}`}
+                x={0}
+                y={yScale(index) + 5}
+                width={xScale(entry.total_pop)}
+                height={barHeight}
+                fill={colorScheme[entry.zone - 1]}
+                fillOpacity={0.9}
+              />
+            )}
+            {!!showDistrictrNumbers && (
               <>
                 <text
-                  x={3}
+                  x={-margins.left}
                   y={yScale(index) + barHeight * 0.75}
                   fontSize={14}
                   fontWeight={'bold'}
@@ -167,7 +167,12 @@ export const PopulationChart: React.FC<{
                 >
                   {entry.zone}
                 </text>
-                <text x={3} y={yScale(index) + barHeight * 0.75} fontSize={14} fontWeight={'bold'}>
+                <text
+                  x={-margins.left}
+                  y={yScale(index) + barHeight * 0.75}
+                  fontSize={14}
+                  fontWeight={'bold'}
+                >
                   {entry.zone}
                 </text>
               </>
@@ -180,25 +185,25 @@ export const PopulationChart: React.FC<{
                 <LockIcon />
               </g>
             )}
-            {!!displayPopulationNumbers && (
+            {!!showPopNumber && entry.total_pop > 0 && (
               <>
                 <text
-                  x={xScale(entry.total_pop) - 5}
+                  x={xScale(entry.total_pop) + 5}
                   y={yScale(index) + barHeight - 4}
                   fontSize={14}
                   fontWeight={'bold'}
-                  textAnchor="end"
+                  textAnchor="start"
                   stroke="white"
                   strokeWidth={2}
                 >
                   {formatNumber(entry.total_pop, 'compact3')}
                 </text>
                 <text
-                  x={xScale(entry.total_pop) - 5}
+                  x={xScale(entry.total_pop) + 5}
                   y={yScale(index) + barHeight - 4}
                   fontSize={14}
                   fontWeight={'bold'}
-                  textAnchor="end"
+                  textAnchor="start"
                 >
                   {formatNumber(entry.total_pop, 'compact3')}
                 </text>
@@ -207,16 +212,86 @@ export const PopulationChart: React.FC<{
           </>
         ))}
         {/* <AxisLeft scale={yScale} /> */}
-        {/* <AxisBottom
+        <AxisBottom
           scale={xScale}
           top={yMax}
-          numTicks={4}
-          tickFormat={v => formatNumber(v, 'compact3')}
-        /> */}
+          numTicks={2}
+          tickLabelProps={{
+            fontSize: '14px',
+          }}
+          tickFormat={v => formatNumber(v, 'string')}
+        />
       </Group>
     </svg>
   );
 };
+
+export const PopulationDataPanelOptions: React.FC<{
+  chartOptions: MapStore['chartOptions'],
+  setChartOptions: MapStore['setChartOptions'],
+}> = ({
+  chartOptions, setChartOptions
+}) => {
+  return         <Popover.Root>
+  <Popover.Trigger>
+    <IconButton
+      variant="ghost"
+      size="3"
+      aria-label="Choose map districtr assignment brush color"
+    >
+      <GearIcon />
+    </IconButton>
+  </Popover.Trigger>
+  <Popover.Content>
+    <CheckboxGroup.Root
+      defaultValue={[]}
+      name="districts"
+      value={[
+        chartOptions.popBarScaleToCurrent ? 'scaleToCurrent' : '',
+        chartOptions.popShowDistrictNumbers? 'numbers' : '',
+        chartOptions.popShowPopNumbers ? 'pops' : '',
+      ]}
+    >
+      <CheckboxGroup.Item
+        value="pops"
+        onClick={() => setChartOptions({popShowPopNumbers: !chartOptions.popShowPopNumbers })}
+      >
+        Show population numbers
+      </CheckboxGroup.Item>
+      <CheckboxGroup.Item
+        value="numbers"
+        onClick={() => setChartOptions({popShowDistrictNumbers: !chartOptions.popShowDistrictNumbers })}
+      >
+        Show district zone numbers
+      </CheckboxGroup.Item>
+    </CheckboxGroup.Root>
+    <Flex direction="column" gap="1" py="2" mt="2">
+      <Text size="2">
+        X-Axis bar scaling
+        <InfoTip tips="barScaling" />
+      </Text>
+      <Flex direction="row" align="center" gap="2">
+        <Radio
+          name="Scale bars default"
+          value="default"
+          checked={!chartOptions.popBarScaleToCurrent}
+          onClick={() => setChartOptions({popBarScaleToCurrent: !chartOptions.popBarScaleToCurrent })}
+        />
+        <Text size={'2'}>Scale bars from zero to ideal (default)</Text>
+      </Flex>
+      <Flex direction="row" align="center" gap="2">
+        <Radio
+          name="Scale bars to zone populations"
+          value="zones"
+          checked={chartOptions.popBarScaleToCurrent}
+          onClick={() => setChartOptions({popBarScaleToCurrent: !chartOptions.popBarScaleToCurrent })}
+        />
+        <Text size={'2'}>Scale bars to current zone population range</Text>
+      </Flex>
+    </Flex>
+  </Popover.Content>
+</Popover.Root>
+}
 
 export const PopulationDataPanel = () => {
   const mapMetrics = useMapStore(state => state.mapMetrics);
@@ -224,10 +299,8 @@ export const PopulationDataPanel = () => {
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts);
   const idealPopulation = summaryStats?.idealpop?.data;
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
-  const [scaleToDataRange, setScaleToDataRange] = useState(false);
-  const [displayPopulationNumbers, setDisplayPopulationNumbers] = useState(true);
-  const [displayDistrictNumbers, setDisplayDistrctNumbers] = useState(true);
-  const [popThreshold, setPopThreshold] = useState<number>(0);
+  const chartOptions = useMapStore(state => state.chartOptions)
+  const setChartOptions = useMapStore(state => state.setChartOptions)
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
   const {chartData, stats} = useMemo(() => {
@@ -277,58 +350,14 @@ export const PopulationDataPanel = () => {
         <Heading as="h3" size="3">
           Total population by district
         </Heading>
-        <Popover.Root>
-          <Popover.Trigger>
-            <IconButton
-              variant="ghost"
-              size="3"
-              aria-label="Choose map districtr assignment brush color"
-            >
-              <GearIcon />
-            </IconButton>
-          </Popover.Trigger>
-          <Popover.Content>
-            <CheckboxGroup.Root
-              defaultValue={[]}
-              name="districts"
-              value={[
-                scaleToDataRange ? 'scaleToDataRange' : '',
-                displayDistrictNumbers ? 'numbers' : '',
-                displayPopulationNumbers ? 'pops' : '',
-              ]}
-            >
-              <CheckboxGroup.Item
-                value="pops"
-                onClick={() => setDisplayPopulationNumbers(prev => !prev)}
-              >
-                Show population numbers
-              </CheckboxGroup.Item>
-              <CheckboxGroup.Item
-                value="numbers"
-                onClick={() => setDisplayDistrctNumbers(prev => !prev)}
-              >
-                Show district zone numbers
-              </CheckboxGroup.Item>
-              <CheckboxGroup.Item
-                value="scaleToDataRange"
-                onClick={() => setScaleToDataRange(prev => !prev)}
-              >
-                Scale bars to data range
-              </CheckboxGroup.Item>
-            </CheckboxGroup.Root>
-            <p>Margin</p>
-            <TextField.Root
-              placeholder="Pop threshold"
-              type="number"
-              value={popThreshold || 0}
-              onChange={e => setPopThreshold(+e.target.value)}
-            ></TextField.Root>
-          </Popover.Content>
-        </Popover.Root>
+        <PopulationDataPanelOptions 
+          chartOptions={chartOptions} 
+          setChartOptions={setChartOptions}
+          />
       </Flex>
       <ParentSize
         style={{
-          minHeight: chartData.length ? `${chartData.length * 50}px` : '200px',
+          minHeight: chartData.length ? `${chartData.length * 40}px` : '200px',
           width: '100%',
         }}
       >
@@ -339,19 +368,31 @@ export const PopulationDataPanel = () => {
             data={chartData}
             idealPopulation={idealPopulation}
             lockPaintedAreas={lockPaintedAreas}
-            scaleToDataRange={scaleToDataRange}
-            popThreshold={popThreshold}
+            scaleToCurrent={chartOptions.popBarScaleToCurrent}
+            targetDeviation={chartOptions.popTargetPopDeviation}
+            showPopNumber={chartOptions.popShowPopNumbers}
+            showDistrictrNumbers={chartOptions.popShowDistrictNumbers}
           />
         )}
       </ParentSize>
+      <Flex direction={'row'} justify={'between'} align={'center'}>
+        <Text>Ideal Population: {formatNumber(idealPopulation, 'string')}</Text>
+        <Flex direction="row" align="center" gapX="2">
+          <Text>Target maximum population deviation</Text>
+          <TextField.Root
+            placeholder="Population Margin"
+            type="number"
+            value={chartOptions.popTargetPopDeviation || 0}
+            onChange={e => setChartOptions({popTargetPopDeviation: +e.target.value})}
+          ></TextField.Root>
+        </Flex>
+      </Flex>
       <Text>
-        Ideal Population: {formatNumber(idealPopulation, 'string')}
-        {popThreshold ? ` +/- ${formatNumber(popThreshold, 'string')}` : ''}
-      </Text>
-      <Text>
+        Top-to-bottom populationdeviation
         {stats?.range !== undefined
-          ? `Top-to-bottom deviation: ${formatNumber(stats.range || 0, 'string')}`
-          : 'Top-to-bottom population deviation will appear when all districts are started'}
+          ? `: ${formatNumber(stats.range || 0, 'string')}`
+          : ' will appear when all districts are started'}{' '}
+        <InfoTip tips="topToBottomDeviation" />
       </Text>
     </Flex>
   );

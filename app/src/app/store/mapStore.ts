@@ -35,7 +35,7 @@ import {persistOptions} from './persistConfig';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
-import {DistrictrMapOptions} from './types';
+import {DistrictrChartOptions, DistrictrMapOptions} from './types';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
 import { parentIdCache } from './idCache';
@@ -65,10 +65,10 @@ export interface MapStore {
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
   errorNotification: {
-    message?: string,
-    severity?: 1 | 2 | 3, // 1: dialog, 2: toast, 3: silent 
-    id?:string
-  },
+    message?: string;
+    severity?: 1 | 2 | 3; // 1: dialog, 2: toast, 3: silent
+    id?: string;
+  };
   setErrorNotification: (errorNotification: MapStore['errorNotification']) => void;
   /**
    * Selects map features and updates the zone assignments accordingly.
@@ -232,6 +232,8 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
+  chartOptions: DistrictrChartOptions;
+  setChartOptions: (options: Partial<MapStore['chartOptions']>) => void;
   // HIGHLIGHT
   toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
   activeTool: ActiveTool;
@@ -335,7 +337,7 @@ export const useMapStore = create(
         mapLock: false,
         setMapLock: mapLock => set({mapLock}),
         errorNotification: {},
-        setErrorNotification: (errorNotification) => set({errorNotification}),
+        setErrorNotification: errorNotification => set({errorNotification}),
         selectMapFeatures: features => {
           let {
             accumulatedGeoids,
@@ -347,7 +349,7 @@ export const useMapStore = create(
             getMapRef,
             selectedZone: _selectedZone,
             zoneAssignments,
-            mapMetrics: _mapMetrics
+            mapMetrics: _mapMetrics,
           } = get();
 
           const map = getMapRef();
@@ -356,9 +358,8 @@ export const useMapStore = create(
             return;
           }
           // PAINT
-          const popChanges: Record<number, number> = {
-          }
-          selectedZone !== null && (popChanges[selectedZone] = 0)
+          const popChanges: Record<number, number> = {};
+          selectedZone !== null && (popChanges[selectedZone] = 0);
 
           features?.forEach(feature => {
             const id = feature?.id?.toString() ?? undefined;
@@ -371,14 +372,14 @@ export const useMapStore = create(
               feature.properties?.path,
               feature.properties?.total_pop
             );
-            const prevAssignment = zoneAssignments.get(id)
-            const popValue = parseInt(feature.properties?.total_pop)
+            const prevAssignment = zoneAssignments.get(id);
+            const popValue = parseInt(feature.properties?.total_pop);
             if (!isNaN(popValue)) {
               if (prevAssignment) {
-                popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue
+                popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
               }
               if (selectedZone) {
-                popChanges[selectedZone] = (popChanges[selectedZone] || 0) + popValue
+                popChanges[selectedZone] = (popChanges[selectedZone] || 0) + popValue;
               }
             }
             zoneAssignments.set(id, selectedZone);
@@ -392,26 +393,26 @@ export const useMapStore = create(
             );
           });
 
-          let popData = _mapMetrics?.data || []
+          let popData = _mapMetrics?.data || [];
           Object.entries(popChanges).forEach(([zone, pop]) => {
-            const popIndex = popData.findIndex(f => f.zone === +zone)
+            const popIndex = popData.findIndex(f => f.zone === +zone);
             if (popIndex === -1) {
               popData.push({
                 zone: +zone,
-                total_pop: pop
-              })
+                total_pop: pop,
+              });
             } else {
               popData[popIndex] = {
                 ...popData[popIndex],
-                total_pop: popData[popIndex].total_pop + pop
-              }
+                total_pop: popData[popIndex].total_pop + pop,
+              };
             }
-          })
+          });
 
           set({
             mapMetrics: {
               ..._mapMetrics,
-              data: popData
+              data: popData,
             },
             accumulatedGeoids,
             accumulatedBlockPopulations,
@@ -432,21 +433,22 @@ export const useMapStore = create(
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
           }
-          parentIdCache.clear()
+          parentIdCache.clear();
           setFreshMap(true);
           resetZoneAssignments();
-          
-          const upsertMapOnDrawSub = useMapStore.subscribe(state => state.zoneAssignments,
-            (za) => {
-              if (useMapStore.getState().mapDocument !== mapDocument || za.size){
-                upsertMapOnDrawSub()
+
+          const upsertMapOnDrawSub = useMapStore.subscribe(
+            state => state.zoneAssignments,
+            za => {
+              if (useMapStore.getState().mapDocument !== mapDocument || za.size) {
+                upsertMapOnDrawSub();
               }
               if (useMapStore.getState().mapDocument === mapDocument && za.size) {
-                upsertUserMap({mapDocument})
+                upsertUserMap({mapDocument});
               }
             }
-          )
-          
+          );
+
           set({
             mapDocument: mapDocument,
             mapOptions: {
@@ -515,25 +517,25 @@ export const useMapStore = create(
                 geoids,
               });
 
-          if (!shatterResult.children.length){
-            const mapDocument = get().mapDocument
+          if (!shatterResult.children.length) {
+            const mapDocument = get().mapDocument;
             set({
               errorNotification: {
                 severity: 2,
                 message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
-                id: `break-patchShatter-no-children-${mapDocument?.gerrydb_table}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`
-              }
-            })
-            return 
+                id: `break-patchShatter-no-children-${mapDocument?.gerrydb_table}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
+              },
+            });
+            return;
           }
           // TODO Need to return child edges even if the parent is already shattered
           // currently returns nothing
-          const newLockedFeatures = new Set(lockedFeatures)
+          const newLockedFeatures = new Set(lockedFeatures);
           let existingParents = new Set(shatterIds.parents);
           let existingChildren = new Set(shatterIds.children);
           const newParent = shatterResult.parents.geoids;
           const newChildren = new Set(shatterResult.children.map(child => child.geo_id));
-          newChildren.forEach(child => newLockedFeatures.delete(child))
+          newChildren.forEach(child => newLockedFeatures.delete(child));
           const zoneAssignments = new Map(get().zoneAssignments);
           const multipleShattered = shatterResult.parents.geoids.length > 1;
           const featureBbox = features[0].geometry && bbox(features[0].geometry);
@@ -812,6 +814,12 @@ export const useMapStore = create(
           lockPaintedAreas: false,
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+        chartOptions: {
+          popShowPopNumbers: true,
+          popShowDistrictNumbers: true,
+          popBarScaleToCurrent: false,
+        },
+        setChartOptions: options => set({chartOptions: {...get().chartOptions, ...options}}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
           const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
           const mapRef = getMapRef();

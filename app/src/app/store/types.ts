@@ -9,3 +9,10 @@ export type DistrictrMapOptions = {
   currentStateFp?: string;
   showPopulationTooltip?: boolean;
 };
+
+export type DistrictrChartOptions = {
+  popTargetPopDeviation?: number,
+  popShowPopNumbers: boolean,
+  popShowDistrictNumbers: boolean,
+  popBarScaleToCurrent: boolean
+}
