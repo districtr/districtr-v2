@@ -335,6 +335,10 @@ export const useMapStore = create(
           if (!map || !mapDocument?.document_id) {
             return;
           }
+          // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
+          // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
+          // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
+          // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
           const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
           if (!featureStateCache) return;
           // PAINT
@@ -344,14 +348,13 @@ export const useMapStore = create(
           features?.forEach(feature => {
             const id = feature?.id?.toString() ?? undefined;
             if (!id || !feature.sourceLayer) return;
-            const hasBeenAccumulated = accumulatedGeoids.has(id);
             const featureState = featureStateCache[feature.sourceLayer][id];
-            const prevAssignment = featureState?.['zone'] || 0;
-            const isLocked = featureState?.['locked'] || 0;
-            const isSameZone = prevAssignment === selectedZone;
-            if (isLocked || isSameZone || hasBeenAccumulated) return;
+            const prevAssignment = featureState?.['zone'] || false;
+            const shouldSkip = accumulatedGeoids.has(id) || featureState?.['locked'] || prevAssignment === selectedZone || false;
+            if (shouldSkip) return;
 
             accumulatedGeoids.add(feature.properties?.path);
+            // TODO: Tiles should have population values as numbers, not strings
             const popValue = parseInt(feature.properties?.total_pop);
             if (!isNaN(popValue)) {
               if (prevAssignment) {
