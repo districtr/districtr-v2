@@ -6,5 +6,13 @@ export type DistrictrMapOptions = {
   lockPaintedAreas: boolean | Array<NullableZone>;
   mode: 'default' | 'break';
   paintByCounty?: boolean;
-  currentStateFp?: string
+  currentStateFp?: string;
+  showPopulationTooltip?: boolean;
 };
+
+export type DistrictrChartOptions = {
+  popTargetPopDeviation?: number,
+  popShowPopNumbers: boolean,
+  popShowDistrictNumbers: boolean,
+  popBarScaleToCurrent: boolean
+}

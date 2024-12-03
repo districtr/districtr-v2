@@ -49,6 +49,12 @@ export type ContextMenuState = {
   close: () => void;
 };
 
+export type TooltipState = {
+  x: number;
+  y: number;
+  data: Array<{label: string, value: unknown}>;
+};
+
 /**
  * boxAroundPoint
  * Create a bounding box around a point on the map.

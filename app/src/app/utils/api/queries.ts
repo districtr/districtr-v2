@@ -16,6 +16,7 @@ import {
 } from './apiHandlers';
 import {getEntryTotal} from '@/app/utils/summaryStats';
 import {useMapStore} from '@/app/store/mapStore';
+import { useChartStore } from '@/app/store/chartStore';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -33,7 +34,7 @@ export const updateMapMetrics = (mapDocument: DocumentObject) => {
 };
 
 mapMetrics.subscribe(result => {
-  useMapStore.getState().setMapMetrics(result);
+  useChartStore.getState().setMapMetrics(result);
 });
 
 export const mapViewsQuery = new QueryObserver<DistrictrMap[]>(queryClient, {
