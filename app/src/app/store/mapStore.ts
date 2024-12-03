@@ -20,7 +20,6 @@ import {
   ContextMenuState,
   LayerVisibility,
   PaintEventHandler,
-  TooltipState,
   checkIfSameZone,
   getFeaturesInBbox,
   resetZoneColors,
@@ -35,7 +34,7 @@ import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {DistrictrChartOptions, DistrictrMapOptions} from './types';
-import {devToolsConfig, persistOptions} from './middlewareConfig';
+import {devToolsConfig, devwrapper, persistOptions} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
 import {parentIdCache} from './idCache';
 import {queryClient} from '../utils/api/queryClient';
@@ -49,9 +48,6 @@ const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string
   }
   return combinedSet; // Return the combined set
 };
-
-const prodWrapper: typeof devtools = (store: any) => store;
-const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
 
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
@@ -217,13 +213,6 @@ export interface MapStore {
   setLockedFeatures: (lockedFeatures: MapStore['lockedFeatures']) => void;
   setLockedZones: (areas: MapStore['mapOptions']['lockPaintedAreas']) => void;
   toggleLockAllAreas: () => void;
-  // HOVERING
-  /**
-   * Features that area highlighted and hovered.
-   * Map render effects in `mapRenderSubs` -> `_hoverMapSideEffectRender`
-   */
-  hoverFeatures: Array<MapFeatureInfo>;
-  setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
   // FOCUS
   /**
    * Parent IDs that a user is working on in break mode.
@@ -242,8 +231,6 @@ export interface MapStore {
   setSpatialUnit: (unit: SpatialUnit) => void;
   selectedZone: Zone;
   setSelectedZone: (zone: Zone) => void;
-  accumulatedBlockPopulations: Map<string, number>;
-  resetAccumulatedBlockPopulations: () => void;
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   assignmentsHash: string;
@@ -272,8 +259,7 @@ export interface MapStore {
   updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
-  tooltip: TooltipState | null;
-  setTooltip: (menu: TooltipState | null) => void;
+
   // USER MAPS / RECENT MAPS
   userMaps: Array<DocumentObject & {name?: string}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
@@ -341,11 +327,8 @@ export const useMapStore = create(
         selectMapFeatures: features => {
           let {
             accumulatedGeoids,
-            accumulatedBlockPopulations,
             activeTool,
-            shatterMappings,
             mapDocument,
-            lockedFeatures,
             getMapRef,
             selectedZone: _selectedZone,
             zoneAssignments,
@@ -357,22 +340,23 @@ export const useMapStore = create(
           if (!map || !mapDocument?.document_id) {
             return;
           }
+          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state
+          if(!featureStateCache) return
           // PAINT
           const popChanges: Record<number, number> = {};
           selectedZone !== null && (popChanges[selectedZone] = 0);
 
           features?.forEach(feature => {
             const id = feature?.id?.toString() ?? undefined;
-            if (!id) return;
-            const isLocked = lockedFeatures.size && lockedFeatures.has(id);
-            if (isLocked) return;
-
+            if (!id || !feature.sourceLayer) return;
+            const hasBeenAccumulated = accumulatedGeoids.has(id)
+            const featureState = featureStateCache[feature.sourceLayer][id]
+            const prevAssignment = featureState?.['zone'] || 0
+            const isLocked = featureState?.['locked'] || 0
+            const isSameZone = prevAssignment === selectedZone
+            if (isLocked || isSameZone || hasBeenAccumulated) return;
+            
             accumulatedGeoids.add(feature.properties?.path);
-            accumulatedBlockPopulations.set(
-              feature.properties?.path,
-              feature.properties?.total_pop
-            );
-            const prevAssignment = zoneAssignments.get(id);
             const popValue = parseInt(feature.properties?.total_pop);
             if (!isNaN(popValue)) {
               if (prevAssignment) {
@@ -382,11 +366,11 @@ export const useMapStore = create(
                 popChanges[selectedZone] = (popChanges[selectedZone] || 0) + popValue;
               }
             }
-            zoneAssignments.set(id, selectedZone);
+
             map.setFeatureState(
               {
                 source: BLOCK_SOURCE_ID,
-                id: feature?.id ?? undefined,
+                id,
                 sourceLayer: feature.sourceLayer,
               },
               {selected: true, zone: selectedZone}
@@ -415,8 +399,6 @@ export const useMapStore = create(
               data: popData,
             },
             accumulatedGeoids,
-            accumulatedBlockPopulations,
-            zoneAssignments: new Map(zoneAssignments),
           });
         },
         mapViews: {isPending: true},
@@ -790,18 +772,6 @@ export const useMapStore = create(
             zoneAssignments,
           });
         },
-        hoverFeatures: [],
-        setHoverFeatures: _features => {
-          const hoverFeatures = _features
-            ? _features.map(f => ({
-                source: f.source,
-                sourceLayer: f.sourceLayer,
-                id: f.id,
-              }))
-            : [];
-
-          set({hoverFeatures});
-        },
         focusFeatures: [],
         mapOptions: {
           center: [-98.5795, 39.8283],
@@ -909,9 +879,6 @@ export const useMapStore = create(
           });
           set({zoneAssignments, shatterIds, shatterMappings, appLoadingState: 'loaded'});
         },
-        accumulatedBlockPopulations: new Map<string, number>(),
-        resetAccumulatedBlockPopulations: () =>
-          set({accumulatedBlockPopulations: new Map<string, number>()}),
         zonePopulations: new Map(),
         setZonePopulations: (zone, population) =>
           set(state => {
@@ -925,7 +892,17 @@ export const useMapStore = create(
         brushSize: 50,
         setBrushSize: size => set({brushSize: size}),
         isPainting: false,
-        setIsPainting: isPainting => set({isPainting}),
+        setIsPainting: isPainting => {
+          if (!isPainting) {
+            const {
+              setZoneAssignments,
+              accumulatedGeoids,
+              selectedZone
+            } = get()
+            setZoneAssignments(selectedZone, accumulatedGeoids)
+          }
+          set({isPainting})
+        },
         paintFunction: getFeaturesInBbox,
         setPaintFunction: paintFunction => set({paintFunction}),
         clearMapEdits: () =>
@@ -964,8 +941,6 @@ export const useMapStore = create(
         },
         contextMenu: null,
         setContextMenu: contextMenu => set({contextMenu}),
-        tooltip: null,
-        setTooltip: tooltip => set({tooltip}),
         userMaps: [],
         setUserMaps: userMaps => set({userMaps}),
       })),
@@ -975,9 +950,44 @@ export const useMapStore = create(
   )
 );
 
+export interface HoverFeatureStore {
+  // HOVERING
+  /**
+   * Features that area highlighted and hovered.
+   * Map render effects in `mapRenderSubs` -> `_hoverMapSideEffectRender`
+   */
+  hoverFeatures: Array<MapFeatureInfo>;
+  setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
+}
+
+export const useHoverStore = create(
+  devwrapper(
+    subscribeWithSelector<HoverFeatureStore>((set, get) => ({
+
+      hoverFeatures: [],
+      setHoverFeatures: _features => {
+        const hoverFeatures = _features
+          ? _features.map(f => ({
+              source: f.source,
+              sourceLayer: f.sourceLayer,
+              id: f.id,
+            }))
+          : [];
+
+        set({hoverFeatures});
+      },
+    })),
+    devToolsConfig
+  )
+);
+
+
 // these need to initialize after the map store
-getRenderSubscriptions(useMapStore);
+getRenderSubscriptions(useMapStore, useHoverStore);
 getMapMetricsSubs(useMapStore);
 getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getSearchParamsObersver();
+
+
+window.getState = useMapStore.getState

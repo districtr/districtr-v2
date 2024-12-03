@@ -1,9 +1,10 @@
 import {Box, Flex, Popover, Text} from '@radix-ui/themes';
 import {useMapStore} from '../store/mapStore';
 import {formatNumber} from '../utils/numbers';
+import { useTooltipStore } from '../store/tooltipStore';
 
 export const MapTooltip = () => {
-  const tooltip = useMapStore(state => state.tooltip);
+  const tooltip = useTooltipStore(state => state.tooltip);
   const showPopulationTooltip = useMapStore(state => state.mapOptions.showPopulationTooltip);
   if (!showPopulationTooltip || !tooltip) return null;
 
