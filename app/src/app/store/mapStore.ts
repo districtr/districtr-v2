@@ -27,7 +27,6 @@ import {
 } from '../utils/helpers';
 import {getRenderSubscriptions} from './mapRenderSubs';
 import {getSearchParamsObersver} from '../utils/api/queryParamsListener';
-import {getMapMetricsSubs} from './metricsSubs';
 import {getMapEditSubs} from './mapEditSubs';
 import {getQueriesResultsSubs} from '../utils/api/queries';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
@@ -37,7 +36,9 @@ import {DistrictrChartOptions, DistrictrMapOptions} from './types';
 import {devToolsConfig, devwrapper, persistOptions} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
 import {parentIdCache} from './idCache';
+import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
+import { useChartStore } from './chartStore';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -221,8 +222,6 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
-  chartOptions: DistrictrChartOptions;
-  setChartOptions: (options: Partial<MapStore['chartOptions']>) => void;
   // HIGHLIGHT
   toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
   activeTool: ActiveTool;
@@ -251,8 +250,6 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
-  mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
-  setMapMetrics: (metrics: UseQueryResult<ZonePopulation[], Error> | null) => void;
   visibleLayerIds: string[];
   setVisibleLayerIds: (layerIds: string[]) => void;
   addVisibleLayerIds: (layerIds: string[]) => void;
@@ -331,8 +328,6 @@ export const useMapStore = create(
             mapDocument,
             getMapRef,
             selectedZone: _selectedZone,
-            zoneAssignments,
-            mapMetrics: _mapMetrics,
           } = get();
 
           const map = getMapRef();
@@ -377,27 +372,9 @@ export const useMapStore = create(
             );
           });
 
-          let popData = _mapMetrics?.data || [];
-          Object.entries(popChanges).forEach(([zone, pop]) => {
-            const popIndex = popData.findIndex(f => f.zone === +zone);
-            if (popIndex === -1) {
-              popData.push({
-                zone: +zone,
-                total_pop: pop,
-              });
-            } else {
-              popData[popIndex] = {
-                ...popData[popIndex],
-                total_pop: popData[popIndex].total_pop + pop,
-              };
-            }
-          });
-
+          useChartStore.getState().updateMetrics(popChanges)
+          
           set({
-            mapMetrics: {
-              ..._mapMetrics,
-              data: popData,
-            },
             accumulatedGeoids,
           });
         },
@@ -784,12 +761,6 @@ export const useMapStore = create(
           lockPaintedAreas: false,
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
-        chartOptions: {
-          popShowPopNumbers: true,
-          popShowDistrictNumbers: true,
-          popBarScaleToCurrent: false,
-        },
-        setChartOptions: options => set({chartOptions: {...get().chartOptions, ...options}}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
           const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
           const mapRef = getMapRef();
@@ -913,8 +884,6 @@ export const useMapStore = create(
           }),
         freshMap: false,
         setFreshMap: resetMap => set({freshMap: resetMap}),
-        mapMetrics: null,
-        setMapMetrics: metrics => set({mapMetrics: metrics}),
         visibleLayerIds: ['counties_boundary', 'counties_labels'],
         setVisibleLayerIds: layerIds => set({visibleLayerIds: layerIds}),
         addVisibleLayerIds: (layerIds: string[]) => {
@@ -984,9 +953,9 @@ export const useHoverStore = create(
 
 // these need to initialize after the map store
 getRenderSubscriptions(useMapStore, useHoverStore);
-getMapMetricsSubs(useMapStore);
 getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
+getMapMetricsSubs(useMapStore)
 getSearchParamsObersver();
 
 

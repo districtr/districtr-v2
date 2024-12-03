@@ -20,6 +20,7 @@ import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import {Popover} from '@radix-ui/themes';
 import {GearIcon} from '@radix-ui/react-icons';
 import {InfoTip} from '../../Tooltip/Tooltip';
+import { ChartStore, useChartStore } from '@/app/store/chartStore';
 type TooltipInput = {
   active?: boolean;
   payload?: [{payload: {total_pop: number; zone: number}}];
@@ -227,8 +228,8 @@ export const PopulationChart: React.FC<{
 };
 
 export const PopulationDataPanelOptions: React.FC<{
-  chartOptions: MapStore['chartOptions'],
-  setChartOptions: MapStore['setChartOptions'],
+  chartOptions: ChartStore['chartOptions'],
+  setChartOptions: ChartStore['setChartOptions'],
 }> = ({
   chartOptions, setChartOptions
 }) => {
@@ -294,13 +295,13 @@ export const PopulationDataPanelOptions: React.FC<{
 }
 
 export const PopulationDataPanel = () => {
-  const mapMetrics = useMapStore(state => state.mapMetrics);
+  const mapMetrics = useChartStore(state => state.mapMetrics);
   const summaryStats = useMapStore(state => state.summaryStats);
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts);
   const idealPopulation = summaryStats?.idealpop?.data;
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
-  const chartOptions = useMapStore(state => state.chartOptions)
-  const setChartOptions = useMapStore(state => state.setChartOptions)
+  const chartOptions = useChartStore(state => state.chartOptions)
+  const setChartOptions = useChartStore(state => state.setChartOptions)
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
   const {chartData, stats} = useMemo(() => {
