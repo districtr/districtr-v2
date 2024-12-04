@@ -1110,7 +1110,6 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     type: 'symbol',
     source: 'counties',
     'source-layer': 'tl_2023_us_county_label',
-    minzoom: 6,
     layout: {
       'text-field': ['get', 'NAME'],
       'text-font': ['Barlow Regular'],
@@ -1118,7 +1117,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       'text-transform': 'uppercase',
       'text-letter-spacing': 0.1,
       'text-max-width': 9,
-      'text-padding': ['interpolate', ['linear'], ['zoom'], 5, 3, 8, 7, 12, 11],
+      'text-padding': ['interpolate', ['linear'], ['zoom'], 1, 1, 5, 3, 8, 7, 12, 11],
     },
     paint: {
       'text-color': '#666',
