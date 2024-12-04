@@ -268,16 +268,17 @@ export const handleIdCache = (
 }
 
 const handleWheelOrPinch = (
-  _e: MapLayerMouseEvent | MapLayerTouchEvent,
+  e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
+  console.log("Wheel event", e)
   if (!map) return
   // Both trackpad pinchn and mousewheel scroll (or two finger scroll)
   // are 'wheel' events, except in safari which has gesture events
   // The ctrlKey property is how most browsers indicate a pinch event
   // https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent#browser_compatibility
-  const wheelRate = _e.originalEvent.ctrlKey ? 75 : 200
-  console.log("Wheel Event\n. Event is pinch?", _e.originalEvent.ctrlKey)
+  const wheelRate = e.originalEvent.ctrlKey ? 75 : 200
+  console.log("Wheel Event\n. Event is pinch?", e.originalEvent.ctrlKey)
   // TODO: Safari on iOS does not use this standard and needs additional cases
   // If the experience feels bad on mobile
   if (map.scrollZoom._wheelZoomRate === (1/wheelRate)) return
