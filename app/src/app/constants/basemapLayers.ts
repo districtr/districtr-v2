@@ -1098,10 +1098,11 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     id: 'counties_boundary',
     type: 'line',
     source: 'counties',
+    minzoom: 2,
     'source-layer': 'tl_2023_us_county',
     paint: {
       'line-color': '#333',
-      'line-opacity': 0.8,
+      'line-opacity': ['interpolate', ['exponential', 1.6], ['zoom'], 2, .125, 6, 0.8, 10, 1],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, .625, 9, 1.625, 18, 2.25],
     },
   },
