@@ -263,7 +263,7 @@ export const colorZoneAssignments = (
   zoneAssignments.forEach((zone, id) => {
     const hasNoId = !id;
     const isRepeated =
-      id && !isInitialRender && previousZoneAssignments?.get(id) === zoneAssignments.get(id);
+      id && !isInitialRender && previousZoneAssignments?.get(id) === zone;
     // const isLocked = lockedFeatures.size && lockedFeatures.has(id);
     if (hasNoId || isRepeated) {
       return;
@@ -275,7 +275,6 @@ export const colorZoneAssignments = (
     if (!sourceLayer) {
       return;
     }
-
     mapRef?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
@@ -288,6 +287,31 @@ export const colorZoneAssignments = (
       }
     );
   });
+  // clean up stale assignments
+  if (previousZoneAssignments?.size && previousZoneAssignments.size > zoneAssignments.size) {
+    previousZoneAssignments?.forEach((zone, id) => {
+      const isChild = shatterIds.children.has(id);
+      const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
+      if (!sourceLayer) {
+        return;
+      }
+      // if not in zoneAssignments, set to null
+      if (!zoneAssignments.has(id)){
+        console.log("!!!", id)
+      mapRef?.setFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          id,
+          sourceLayer,
+        },
+        {
+          selected: null,
+          zone,
+        }
+      );
+      }
+    })
+  }
 };
 
 /**

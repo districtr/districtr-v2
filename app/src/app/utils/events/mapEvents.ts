@@ -86,8 +86,6 @@ export const handleMapMouseUp = (
   if ((activeTool === 'brush' || activeTool === 'eraser') && isPainting) {
     // set isPainting to false
     mapStore.setIsPainting(false);
-    debounceSetZoneAssignments.cancel();
-    mapStore.setZoneAssignments(mapStore.selectedZone, mapStore.accumulatedGeoids);
   }
 };
 

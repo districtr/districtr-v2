@@ -370,7 +370,7 @@ export const useMapStore = create(
               accumulatedGeoids,
               accumulatedBlockPopulations,
             });
-            debounceSetZoneAssignments(selectedZone, accumulatedGeoids);
+            // debounceSetZoneAssignments(selectedZone, accumulatedGeoids);
           },
           mapViews: {isPending: true},
           setMapViews: mapViews => set({mapViews}),
@@ -851,7 +851,17 @@ export const useMapStore = create(
           brushSize: 50,
           setBrushSize: size => set({brushSize: size}),
           isPainting: false,
-          setIsPainting: isPainting => set({isPainting}),
+          setIsPainting: isPainting => {
+            const wasPainting = get().isPainting
+            if (wasPainting && !isPainting){
+              const { activeTool, accumulatedGeoids, setZoneAssignments, selectedZone} = get()
+              // debounceSetZoneAssignments.cancel();
+              const _selectedZone = activeTool === 'eraser' ? null : selectedZone
+              setZoneAssignments(_selectedZone, accumulatedGeoids);
+              accumulatedGeoids.clear()
+            }
+            set({isPainting})
+          },
           paintFunction: getFeaturesInBbox,
           setPaintFunction: paintFunction => set({paintFunction}),
           clearMapEdits: () =>
@@ -909,22 +919,21 @@ export const useMapStore = create(
       equality: (pastState, currentState) => {
         return (
           pastState.zoneAssignments === currentState.zoneAssignments &&
-          pastState.zoneAssignments.size === currentState.zoneAssignments.size
-          // &&
-          // (() => {
-          //   const pastArray = Array.from(pastState.zoneAssignments.entries());
-          //   const curr = currentState.zoneAssignments;
-          //   return pastArray.every(([k, v], i) => curr.get(k) === v);
-          // })()
-        );
+          pastState.zoneAssignments.size === currentState.zoneAssignments.size &&
+          (() => {
+            const pastArray = Array.from(pastState.zoneAssignments.entries())
+            const curr = currentState.zoneAssignments
+            return pastArray.every(([k, v], i) => curr.get(k) === v)
+          })()
+        )
       },
       limit: 7,
       // @ts-ignore: save only partial store
       partialize: state => {
-        const {zoneAssignments} = state;
-        return {zoneAssignments} as Partial<MapStore>;
-      },
+        const {zoneAssignments, mapRenderingState, appLoadingState, shatterIds, shatterMappings} = state;
+        return {zoneAssignments, mapRenderingState, appLoadingState, shatterIds, shatterMappings} as Partial<MapStore>;
     }
+  }
   )
 );
 
