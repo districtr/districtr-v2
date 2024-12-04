@@ -300,7 +300,7 @@ const handleWheelOrPinch = (
   // are 'wheel' events, except in safari which has gesture events
   // The ctrlKey property is how most browsers indicate a pinch event
   // https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent#browser_compatibility
-  const wheelRate = e.ctrlKey ? 25 : 300
+  const wheelRate = e.ctrlKey ? 75 : 300
   // TODO: Safari on iOS does not use this standard and needs additional cases
   // If the experience feels bad on mobile
   if (map.scrollZoom._wheelZoomRate === (1/wheelRate)) return
