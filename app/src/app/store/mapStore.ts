@@ -38,6 +38,7 @@ import {onlyUnique} from '../utils/arrays';
 import {DistrictrMapOptions} from './types';
 import {parentIdCache} from './idCache';
 import {queryClient} from '../utils/api/queryClient';
+import { AxiosError, AxiosResponse } from 'axios';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -51,6 +52,12 @@ const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string
 
 const prodWrapper: typeof devtools = (store: any) => store;
 const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
+
+interface APIErrorResponse extends AxiosResponse {detail: string}
+
+export interface APIError extends AxiosError {
+  response: APIErrorResponse
+}
 
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
@@ -261,8 +268,8 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
-  mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
-  setMapMetrics: (metrics: UseQueryResult<ZonePopulation[], Error> | null) => void;
+  mapMetrics: UseQueryResult<ZonePopulation[], APIError> | null;
+  setMapMetrics: (metrics: UseQueryResult<ZonePopulation[], APIError> | null) => void;
   visibleLayerIds: string[];
   setVisibleLayerIds: (layerIds: string[]) => void;
   addVisibleLayerIds: (layerIds: string[]) => void;
