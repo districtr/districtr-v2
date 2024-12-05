@@ -19,7 +19,7 @@ BEGIN
     FROM INFORMATION_SCHEMA.COLUMNS
     WHERE table_name = doc_districtrmap.parent_layer
         AND table_schema = 'gerrydb'
-        AND column_name IN ('total_pop', 'total_vap')
+        AND column_name IN ('total_pop')
     ORDER BY column_name ASC
     LIMIT 1;
 
