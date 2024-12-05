@@ -64,7 +64,7 @@ Dependencies are managed with uv as noted in the root README. Follow set-up inst
 
 Set-up virtual environment and install dependencies:
 
-1. `uv venv`
+1. `uv venv --python 3.12.2`
 1. `source .venv/bin/activate` on UNIX machines or `venv\Scripts\activate` on Windows.
 1. `uv pip install -r requirements.txt`
 

@@ -86,6 +86,9 @@ export const HorizontalBar = () => {
   }
 
   if (mapMetrics?.isError) {
+    if (mapMetrics?.error.response.data.detail) {
+      return <div>Error: {mapMetrics?.error.response.data.detail}</div>;
+    }
     return <div>Error: {mapMetrics?.error.message}</div>;
   }
 

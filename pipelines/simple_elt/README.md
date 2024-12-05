@@ -6,7 +6,7 @@
 
 Dependencies are managed with uv as noted in the root README. Follow set-up instructions [there](../../README.md#python).
 
-1. `uv venv`
+1. `uv venv --python 3.12.6`
 1. `source venv/bin/activate`
 1. `uv pip install -r requirements.txt`
 
