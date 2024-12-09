@@ -45,7 +45,8 @@ export default function Layers() {
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
           mapOptions.lockPaintedAreas === true ? '4' : '',
-          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : ''
+          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
+          mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : ''
         ]}
       >
         <CheckboxGroup.Item
@@ -76,6 +77,11 @@ export default function Layers() {
           higlightUnassigned: !mapOptions.higlightUnassigned
         })}>
           Highlight unassigned units
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item value="showPopulationTooltip" onClick={() => setMapOptions({
+          showPopulationTooltip: !mapOptions.showPopulationTooltip
+        })}>
+          Show population tooltip
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>
       <Heading as="h3" weight="bold" size="3">
