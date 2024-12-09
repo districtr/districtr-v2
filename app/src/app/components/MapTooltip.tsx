@@ -20,7 +20,7 @@ export const MapTooltip = () => {
           {tooltip.data.map((entry, i) => (
             <Text key={`tooltip-${i}`} style={{whiteSpace: 'nowrap'}}>
               {/* @ts-ignore */}
-              {entry.label}: {formatNumber(entry.value, 'string')}
+              {entry.label}: {!isNaN(+entry.value) ? formatNumber(entry.value, 'string') : entry.value}
             </Text>
           ))}
         </Box>
