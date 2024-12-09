@@ -242,7 +242,6 @@ export interface MapStore {
   accumulatedBlockPopulations: Map<string, number>;
   resetAccumulatedBlockPopulations: () => void;
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
-  setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   assignmentsHash: string;
   setAssignmentsHash: (hash: string) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
@@ -830,17 +829,6 @@ export const useMapStore = create(
         setAssignmentsHash: hash => set({assignmentsHash: hash}),
         accumulatedGeoids: new Set<string>(),
         setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
-        setZoneAssignments: (zone, geoids) => {
-          const zoneAssignments = get().zoneAssignments;
-          const newZoneAssignments = new Map(zoneAssignments);
-          geoids.forEach(geoid => {
-            newZoneAssignments.set(geoid, zone);
-          });
-          set({
-            zoneAssignments: newZoneAssignments,
-            accumulatedGeoids: new Set<string>(),
-          });
-        },
         loadZoneAssignments: assignments => {
           const zoneAssignments = new Map<string, number>();
           const shatterIds = {

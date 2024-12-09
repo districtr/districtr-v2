@@ -5,12 +5,9 @@ import {useMapStore} from '../../store/mapStore';
 export function ZoneTypeSelector() {
   const selectedZone = useMapStore(state => state.selectedZone);
   const setSelectedZone = useMapStore(state => state.setSelectedZone);
-  const setZoneAssignments = useMapStore(state => state.setZoneAssignments);
   const accumulatedGeoids = useMapStore(state => state.accumulatedGeoids);
 
   const handlePickerValueChange = value => {
-    console.log('setting accumulated geoids to old zone', selectedZone, 'new zone is', value);
-    setZoneAssignments(selectedZone, accumulatedGeoids);
     setSelectedZone(value);
   };
 
