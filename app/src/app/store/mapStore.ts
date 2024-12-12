@@ -864,8 +864,9 @@ export const useMapStore = create(
         isPainting: false,
         setIsPainting: isPainting => {
           if (!isPainting) {
-            const {setZoneAssignments, accumulatedGeoids, selectedZone} = get();
-            setZoneAssignments(selectedZone, accumulatedGeoids);
+            const {setZoneAssignments, accumulatedGeoids, selectedZone, activeTool} = get();
+            const zone = activeTool === 'eraser' ? null : selectedZone;
+            setZoneAssignments(zone, accumulatedGeoids);
           }
           set({isPainting});
         },
