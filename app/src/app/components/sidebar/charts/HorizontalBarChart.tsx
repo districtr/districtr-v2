@@ -489,7 +489,13 @@ export const PopulationDataPanel = () => {
                     });
                   }
                 }}
-              ></TextField.Root>
+              >
+                <TextField.Slot side="right">
+                  <IconButton size="1" variant="ghost">
+                    %
+                  </IconButton>
+                </TextField.Slot>
+              </TextField.Root>
               <Text size="1">Percent</Text>
             </Flex>
             <Flex direction="column" flexGrow={'1'}>
