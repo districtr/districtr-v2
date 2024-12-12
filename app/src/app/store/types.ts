@@ -12,6 +12,7 @@ export type DistrictrMapOptions = {
 
 export type DistrictrChartOptions = {
   popTargetPopDeviation?: number,
+  popTargetPopDeviationPct?: number,
   popShowPopNumbers: boolean,
   popShowDistrictNumbers: boolean,
   popBarScaleToCurrent: boolean
