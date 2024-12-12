@@ -1,7 +1,7 @@
 import {Box, Flex, Popover, Text} from '@radix-ui/themes';
 import {useMapStore} from '../store/mapStore';
 import {formatNumber} from '../utils/numbers';
-import { useTooltipStore } from '../store/tooltipStore';
+import {useTooltipStore} from '../store/tooltipStore';
 
 export const MapTooltip = () => {
   const tooltip = useTooltipStore(state => state.tooltip);
@@ -10,17 +10,20 @@ export const MapTooltip = () => {
 
   return (
     <Popover.Root open={true}>
-      <Popover.Content style={{
-        position: 'fixed',
-        left: tooltip.x + 10,
-        top: tooltip.y + 10,
-        pointerEvents: 'none',
-      }}>
+      <Popover.Content
+        style={{
+          position: 'fixed',
+          left: tooltip.x + 10,
+          top: tooltip.y + 10,
+          pointerEvents: 'none',
+        }}
+      >
         <Box flexGrow="1">
           {tooltip.data.map((entry, i) => (
             <Text key={`tooltip-${i}`} style={{whiteSpace: 'nowrap'}}>
               {/* @ts-ignore */}
-              {entry.label}: {!isNaN(+entry.value) ? formatNumber(entry.value, 'string') : entry.value}
+              {entry.label}:{' '}
+              {!isNaN(+entry.value) ? formatNumber(entry.value, 'string') : entry.value}
             </Text>
           ))}
         </Box>

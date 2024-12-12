@@ -9,7 +9,7 @@ export const InfoTip: React.FC<{tips: TipKey | TipKey[]}> = ({tips}) => {
     : tooltipContent[tips];
   return (
     <Tooltip content={content}>
-      <IconButton variant='ghost' size="1" color="gray" mx="1">
+      <IconButton variant="ghost" size="1" color="gray" mx="1">
         <InfoCircledIcon />
       </IconButton>
     </Tooltip>

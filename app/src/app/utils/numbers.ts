@@ -2,39 +2,35 @@ const percentFormatter = new Intl.NumberFormat('en-US', {
   style: 'percent',
   minimumFractionDigits: 0,
   maximumFractionDigits: 1,
-})
+});
 const compactFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   compactDisplay: 'short',
-})
+});
 const compact3Formatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   compactDisplay: 'short',
-  minimumFractionDigits: 2
-})
+  minimumFractionDigits: 2,
+});
 
-const stringFormatter = (n: number) => (Math.round(n)).toLocaleString()
+const stringFormatter = (n: number) => Math.round(n).toLocaleString();
 
-export type NumberFormats = 'percent' | 'string' | 'compact' | 'compact3'
-export const formatNumber = (
-  value: number | undefined,
-  format: NumberFormats
-) => {
+export type NumberFormats = 'percent' | 'string' | 'compact' | 'compact3';
+export const formatNumber = (value: number | undefined, format: NumberFormats) => {
   if (value === undefined) {
-    return value
+    return value;
   }
-  switch(format){
+  switch (format) {
     case 'percent':
-      return percentFormatter.format(value)
+      return percentFormatter.format(value);
     case 'string': // Added case for 'string'
-      return stringFormatter(value) // Format as string
+      return stringFormatter(value); // Format as string
     case 'compact': // Added case for 'compact'
-      return compactFormatter.format(value) // Format as compact
+      return compactFormatter.format(value); // Format as compact
     case 'compact3': // Added case for 'compact'
-      return compact3Formatter.format(value) // Format as compact
+      return compact3Formatter.format(value); // Format as compact
     default:
       const exhaustiveCheck: never = format;
       throw new Error(`Unhandled format case: ${exhaustiveCheck}`);
-    
   }
-}
+};
