@@ -10,14 +10,10 @@ import {getBlocksSource} from './sources';
 import {DocumentObject} from '../utils/api/apiHandlers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
-import {throttle} from 'lodash';
+import {map, throttle} from 'lodash';
 import {wrap} from 'comlink';
-import {GeometryWorkerClass} from '../utils/geometryWorker.types';
-const worker =
-  typeof Worker !== 'undefined'
-    ? new Worker(new URL('../utils/geometryWorker.ts', import.meta.url))
-    : null;
-const GeometryWorker = worker ? wrap<GeometryWorkerClass>(worker) : null;
+import GeometryWorker from '../utils/GeometryWorker';
+
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -336,32 +332,17 @@ export function removeBlockLayers(map: Map | null) {
 }
 
 const getDissolved = async () => {
-  const {getMapRef, zoneAssignments} = useMapStore.getState();
+  const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !GeometryWorker) return;
-  const features = mapRef.queryRenderedFeatures(undefined, {layers: [BLOCK_HOVER_LAYER_ID]});
-  let mappedFeatures: GeoJSON.Feature[] = [];
-  features.forEach(f => {
-    if (!f.id) return;
-    const zone = zoneAssignments.get(f.id.toString());
-    if (!zone) return;
-    if (f.geometry?.type !== 'Polygon') return;
-    mappedFeatures.push({
-      type: 'Feature',
-      geometry: f.geometry,
-      properties: {
-        ...f.properties,
-        zone: +zone,
-      },
-    });
-  });
-
-  const {centroids, dissolved} = await GeometryWorker.parseGeometry(mappedFeatures);
-
-  return {
-    centroids,
-    dissolved,
-  };
+  const currentView = mapRef.getBounds();
+  const { centroids, dissolved} = await GeometryWorker.parseFromView(
+    currentView.getWest(),
+    currentView.getSouth(),
+    currentView.getEast(),
+    currentView.getNorth()
+  );
+  return {centroids, dissolved};
 };
 
 const removeZoneMetaLayers = () => {
@@ -425,7 +406,7 @@ const addZoneMetaLayers = async ({
         'text-offset': [0, 0],
       },
       paint: {
-        'text-color': ZONE_LABEL_STYLE || '#000',
+        'text-color': '#000',
       },
     });
   } else {

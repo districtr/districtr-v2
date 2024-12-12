@@ -2,7 +2,7 @@
  Port over from map events declared at: https://github.com/uchicago-dsi/districtr-components/blob/2e8f9e5657b9f0fd2419b6f3258efd74ae310f32/src/Districtr/Districtr.tsx#L230
  */
 'use client';
-import type {Map as MapLibreMap, MapLayerMouseEvent, MapLayerTouchEvent, MapDataEvent, MapSourceDataEvent} from 'maplibre-gl';
+import type {Map as MapLibreMap, MapLayerMouseEvent, MapLayerTouchEvent, MapDataEvent, MapSourceDataEvent, MapGeoJSONFeature} from 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
@@ -13,6 +13,8 @@ import {
 import {ResetMapSelectState} from '@utils/events/handlers';
 import {ActiveTool} from '@/app/constants/types';
 import { parentIdCache } from '@/app/store/idCache';
+import GeometryWorker from '../GeometryWorker';
+import { MinGeoJSONFeature } from '../GeometryWorker/geometryWorker.types';
 
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -245,9 +247,9 @@ export const handleIdCache = (
   _e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  const e = _e as unknown as MapSourceDataEvent
+  const e = _e as any
   const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
-
+  
   if (
     !tiles_s3_path || 
     !parent_layer || 
@@ -257,16 +259,28 @@ export const handleIdCache = (
   ) return
 
   const tileData = e.tile.latestFeatureIndex;
+
   if (!tileData) return
   
   const index = `${tileData.x}-${tileData.y}-${tileData.z}`
   if (parentIdCache.hasCached(index)) return
-  const vtLayers = tileData.loadVTLayers()
-  
-  const parentLayerData = vtLayers[parent_layer]
-  const numFeatures = parentLayerData.length
-  const featureDataArray = parentLayerData._values
-  const idArray = featureDataArray.slice(-numFeatures,)
+  const idArray = []
+  const featureArray: MinGeoJSONFeature[] = []
+  for (let i = 0; i < e.features.length; i++) {
+    const feature = e.features[i]
+    if (!feature || feature.sourceLayer !== parent_layer) continue
+    const id = feature.id
+    idArray.push(id)
+    if (feature.geometry.type === 'Polygon') {
+      featureArray.push({
+        type: "Feature",
+        properties: feature.properties,
+        geometry: feature.geometry,
+        sourceLayer: feature.sourceLayer
+      })
+    }
+  }
+  GeometryWorker?.loadGeometry(featureArray, "path");
   parentIdCache.add(index, idArray)
   useMapStore.getState().setMapOptions({
     currentStateFp: idArray[0].replace('vtd:','').slice(0,2)

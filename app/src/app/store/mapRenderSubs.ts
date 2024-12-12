@@ -24,6 +24,7 @@ import {
 } from '../utils/helpers';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
+import GeometryWorker from '../utils/GeometryWorker';
 
 const BBOX_TOLERANCE_DEG = 0.02;
 
@@ -124,9 +125,11 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
         mapOptions
       } = useMapStore.getState();
       if (mapOptions.showZoneNumbers){
-        setTimeout(() => {
+        GeometryWorker?.updateProps(
+          Array.from(curr[0].entries())
+        ).then(() => {
           debouncedAddZoneMetaLayers({})
-        }, 250)
+        })
       } else {
         removeZoneMetaLayers()
       }
