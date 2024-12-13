@@ -6,7 +6,7 @@ import {GeometryWorkerClass} from './geometryWorker.types';
 import bboxClip from '@turf/bbox-clip';
 import pointOnFeature from '@turf/point-on-feature';
 import pointsWithinPolygon from '@turf/points-within-polygon';
-import { MapGeoJSONFeature } from 'maplibre-gl';
+import {MapGeoJSONFeature} from 'maplibre-gl';
 
 const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
@@ -14,7 +14,7 @@ const GeometryWorker: GeometryWorkerClass = {
     return {
       type: 'FeatureCollection',
       features: Object.values(this.geometries),
-    }
+    };
   },
   updateProps(entries) {
     entries.forEach(([id, zone]) => {
@@ -23,8 +23,11 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     });
   },
-  loadGeometry(_features, idProp) {
-    const features = (typeof _features === 'string' ? JSON.parse(_features) : _features) as MapGeoJSONFeature[];
+  loadGeometry(featuresOrStringified, idProp) {
+    const features: MapGeoJSONFeature[] =
+      typeof featuresOrStringified === 'string'
+        ? JSON.parse(featuresOrStringified)
+        : featuresOrStringified;
     const firstEntry = Object.values(this.geometries)[0];
     if (features.length && firstEntry) {
       if (features[0].sourceLayer !== firstEntry.sourceLayer) {
@@ -34,15 +37,17 @@ const GeometryWorker: GeometryWorkerClass = {
     features.forEach(f => {
       const id = f.properties?.[idProp];
       if (id && !this.geometries[id]) {
-        this.geometries[id] = JSON.parse(JSON.stringify(f));
+        this.geometries[id] = structuredClone(f);
       }
     });
   },
-  dissolveGeometry(features: GeoJSON.Feature[]) {
+  dissolveGeometry(features) {
     let dissolved: GeoJSON.FeatureCollection = dissolve(
       {
         type: 'FeatureCollection',
-        features: features.filter(f => f.geometry.type === 'Polygon') as any,
+        features: features.filter(
+          f => f.geometry.type === 'Polygon'
+        ) as GeoJSON.Feature<GeoJSON.Polygon>[],
       },
       {
         propertyName: 'zone',
@@ -61,22 +66,23 @@ const GeometryWorker: GeometryWorkerClass = {
         };
       }
     });
-    const cleanDissolvedFeautres = Object.values(largestDissolvedFeatures).map(f => f.feature);
+    const cleanDissolvedFeatures = Object.values(largestDissolvedFeatures).map(f => f.feature);
     const centroids: GeoJSON.FeatureCollection = {
       type: 'FeatureCollection',
-      features: cleanDissolvedFeautres.map(f => {
+      features: cleanDissolvedFeatures.map(f => {
         const center = centerOfMass(f);
-        const geometry = pointsWithinPolygon(center, f as any).features.length === 1
-          ? center.geometry
-          : pointOnFeature(f).geometry;
+        const geometry =
+          pointsWithinPolygon(center, f as any).features.length === 1
+            ? center.geometry
+            : pointOnFeature(f).geometry;
 
         return {
           type: 'Feature',
           properties: {
-            zone: +f.properties?.zone,
+            zone: Number(f.properties?.zone),
           },
-          geometry
-        }
+          geometry,
+        };
       }),
     };
     return {
@@ -84,10 +90,10 @@ const GeometryWorker: GeometryWorkerClass = {
       dissolved,
     };
   },
-  getCentroidsFromView(minLon: number, minLat: number, maxLon: number, maxLat: number) {
-    const clippedFeatures: GeoJSON.Feature[] = []
+  getCentroidsFromView(minLon, minLat, maxLon, maxLat) {
+    const clippedFeatures: GeoJSON.Feature[] = [];
     this.getGeos().features.forEach(f => {
-      if (f.properties?.zone === null || f.properties?.zone === undefined) return
+      if (f.properties?.zone == null) return;
       const clipped = bboxClip(f.geometry as GeoJSON.Polygon, [minLon, minLat, maxLon, maxLat]);
       if (clipped.geometry?.coordinates.length) {
         clippedFeatures.push({
@@ -95,7 +101,7 @@ const GeometryWorker: GeometryWorkerClass = {
           geometry: clipped.geometry,
         });
       }
-    })
+    });
     const {dissolved, centroids} = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
     return {dissolved, centroids};
   },
