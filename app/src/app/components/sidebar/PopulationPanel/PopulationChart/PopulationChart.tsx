@@ -144,8 +144,6 @@ export const PopulationChart: React.FC<{
                   style={{
                     pointerEvents: 'none',
                   }}
-                  // onMouseEnter={() => setHoveredIndex(index)}
-                  // onMouseLeave={() => setHoveredIndex(null)}
                 />
                 <Bar
                   key={`bar-interactive-${entry.zone}`}
