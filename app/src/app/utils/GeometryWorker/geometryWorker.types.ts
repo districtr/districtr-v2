@@ -53,6 +53,11 @@ export type GeometryWorkerClass = {
   ) => CentroidReturn;
 
   /**
+   * Retrieves a collection of geometries without a zone assignment.
+   * @returns The collection of unassigned geometries.
+   */
+  getUnassignedGeometries: () => MinGeoJSONFeature[];
+  /**
    * Retrieves the collection of geometries.
    * @returns The collection of geometries.
    */
