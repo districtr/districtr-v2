@@ -3,7 +3,7 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import {devToolsConfig, devwrapper} from './middlewareConfig';
 import {UseQueryResult} from '@tanstack/react-query';
 import {ZonePopulation} from '../utils/api/apiHandlers';
-import { DistrictrChartOptions } from './types';
+import {DistrictrChartOptions} from './types';
 
 export interface ChartStore {
   mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
@@ -20,6 +20,7 @@ export const useChartStore = create(
       setMapMetrics: metrics => set({mapMetrics: metrics}),
       chartOptions: {
         popShowPopNumbers: true,
+        popShowTopBottomDeviation: false,
         popShowDistrictNumbers: true,
         popBarScaleToCurrent: false,
       },
@@ -45,13 +46,13 @@ export const useChartStore = create(
           mapMetrics: {
             ...mapMetrics,
             data: popData as any,
-          } as ChartStore['mapMetrics']
+          } as ChartStore['mapMetrics'],
         });
       },
     })),
     {
       ...devToolsConfig,
-      name: "Districtr Chart Store"
+      name: 'Districtr Chart Store',
     }
   )
 );

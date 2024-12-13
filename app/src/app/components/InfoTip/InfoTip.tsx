@@ -3,6 +3,7 @@ import {tooltipContent} from './content';
 import {IconButton, Tooltip} from '@radix-ui/themes';
 import {InfoCircledIcon} from '@radix-ui/react-icons';
 type TipKey = keyof typeof tooltipContent;
+
 export const InfoTip: React.FC<{tips: TipKey | TipKey[]}> = ({tips}) => {
   const content = Array.isArray(tips)
     ? tips.map(t => tooltipContent[t]).join('/n')

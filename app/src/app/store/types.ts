@@ -16,4 +16,5 @@ export type DistrictrChartOptions = {
   popShowPopNumbers: boolean;
   popShowDistrictNumbers: boolean;
   popBarScaleToCurrent: boolean;
+  popShowTopBottomDeviation: boolean;
 };

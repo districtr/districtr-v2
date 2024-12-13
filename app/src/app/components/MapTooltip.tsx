@@ -23,7 +23,7 @@ export const MapTooltip = () => {
             <Text key={`tooltip-${i}`} style={{whiteSpace: 'nowrap'}}>
               {/* @ts-ignore */}
               {entry.label}:{' '}
-              {!isNaN(+entry.value) ? formatNumber(entry.value, 'string') : entry.value}
+              {!isNaN(+(entry.value as number)) ? formatNumber(entry.value as number, 'string') : entry.value}
             </Text>
           ))}
         </Box>
