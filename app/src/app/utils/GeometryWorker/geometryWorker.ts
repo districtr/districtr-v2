@@ -2,11 +2,12 @@ import {expose} from 'comlink';
 import {area} from '@turf/area';
 import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
-import {GeometryWorkerClass} from './geometryWorker.types';
+import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import bboxClip from '@turf/bbox-clip';
 import pointOnFeature from '@turf/point-on-feature';
 import pointsWithinPolygon from '@turf/points-within-polygon';
 import {MapGeoJSONFeature} from 'maplibre-gl';
+import bbox from '@turf/bbox';
 
 const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
@@ -54,7 +55,6 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     );
     let largestDissolvedFeatures: Record<number, {feature: GeoJSON.Feature; area: number}> = {};
-
     dissolved.features.forEach(feature => {
       const zone = feature.properties?.zone;
       if (!zone) return;
@@ -105,6 +105,35 @@ const GeometryWorker: GeometryWorkerClass = {
     const {dissolved, centroids} = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
     return {dissolved, centroids};
   },
+  getUnassignedGeometries() {
+    const geomsToDissolve = []
+    const unassignedOtherGeoms = []
+    for (const id in this.geometries) {
+      const geom = this.geometries[id]
+      if (geom.properties?.zone == null) {
+        if (geom.geometry.type === 'Polygon') {
+          geomsToDissolve.push(geom)
+        } else {
+          this.geometries[id].properties.bbox = bbox(geom.geometry)
+          unassignedOtherGeoms.push(geom)
+        }
+      }
+    }
+    const dissolved = dissolve({
+      type: 'FeatureCollection',
+      features: geomsToDissolve as GeoJSON.Feature<GeoJSON.Polygon>[],
+    }).features.map(f => ({
+      ...f,
+      properties: {
+        ...f.properties,
+        bbox: bbox(f.geometry),
+      },
+    } as MinGeoJSONFeature))
+    return [
+      ...dissolved,
+      ...unassignedOtherGeoms,
+    ]
+  }
 };
 
 expose(GeometryWorker);
