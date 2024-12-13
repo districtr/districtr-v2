@@ -5,7 +5,7 @@ import {Protocol} from 'pmtiles';
 import type {MutableRefObject} from 'react';
 import React, {useEffect, useRef} from 'react';
 import {MAP_OPTIONS} from '../constants/configuration';
-import {mapContainerEvents, mapEvents} from '../utils/events/mapEvents';
+import {handleWheelOrPinch, mapContainerEvents, mapEvents} from '../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
 
@@ -47,9 +47,7 @@ export const MapComponent: React.FC = () => {
     });
 
     fitMapToBounds();
-    map.current.scrollZoom.setWheelZoomRate(1 / 300);
-    map.current.scrollZoom.setZoomRate(1 / 300);
-
+    handleWheelOrPinch({} as TouchEvent, map.current);
     map.current.addControl(new maplibregl.NavigationControl());
 
     map.current.on('load', () => {

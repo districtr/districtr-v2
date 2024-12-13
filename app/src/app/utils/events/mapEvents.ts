@@ -291,7 +291,7 @@ export const mapEvents = [
   {action: 'data', handler: handleIdCache}
 ];
 
-const handleWheelOrPinch = (
+export const handleWheelOrPinch = (
   e: MouseEvent | TouchEvent,
   map: MapLibreMap | null
 ) => {
@@ -300,12 +300,13 @@ const handleWheelOrPinch = (
   // are 'wheel' events, except in safari which has gesture events
   // The ctrlKey property is how most browsers indicate a pinch event
   // https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent#browser_compatibility
-  const wheelRate = e.ctrlKey ? 75 : 300
+  const wheelRate = e.ctrlKey ? 100 : 450
+  const zoomRate = e.ctrlKey ? 50 : 100
   // TODO: Safari on iOS does not use this standard and needs additional cases
   // If the experience feels bad on mobile
   if (map.scrollZoom._wheelZoomRate === (1/wheelRate)) return
   map.scrollZoom.setWheelZoomRate(1 / wheelRate);
-  map.scrollZoom.setZoomRate(1 / wheelRate);
+  map.scrollZoom.setZoomRate(1 / zoomRate);
 }
 export const mapContainerEvents = [
   {action: 'wheel', handler: handleWheelOrPinch}
