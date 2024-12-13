@@ -271,14 +271,12 @@ export const handleIdCache = (
     if (!feature || feature.sourceLayer !== parent_layer) continue
     const id = feature.id
     idArray.push(id)
-    if (feature.geometry.type === 'Polygon') {
-      featureArray.push({
-        type: "Feature",
-        properties: feature.properties,
-        geometry: feature.geometry,
-        sourceLayer: feature.sourceLayer
-      })
-    }
+    featureArray.push({
+      type: "Feature",
+      properties: feature.properties,
+      geometry: feature.geometry,
+      sourceLayer: feature.sourceLayer
+    })
   }
   GeometryWorker?.loadGeometry(featureArray, "path");
   parentIdCache.add(index, idArray)

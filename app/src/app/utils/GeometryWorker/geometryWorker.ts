@@ -43,7 +43,7 @@ const GeometryWorker: GeometryWorkerClass = {
     let dissolved: GeoJSON.FeatureCollection = dissolve(
       {
         type: 'FeatureCollection',
-        features: features as any,
+        features: features.filter(f => f.geometry.type === 'Polygon') as any,
       },
       {
         propertyName: 'zone',
