@@ -10,7 +10,6 @@ import { MapGeoJSONFeature } from 'maplibre-gl';
 
 const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
-  loaded: false,
   getGeos() {
     return {
       type: 'FeatureCollection',
@@ -39,7 +38,7 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     });
   },
-  parseGeometry(features: GeoJSON.Feature[]) {
+  dissolveGeometry(features: GeoJSON.Feature[]) {
     let dissolved: GeoJSON.FeatureCollection = dissolve(
       {
         type: 'FeatureCollection',
@@ -85,7 +84,7 @@ const GeometryWorker: GeometryWorkerClass = {
       dissolved,
     };
   },
-  parseFromView(minLon: number, minLat: number, maxLon: number, maxLat: number) {
+  getCentroidsFromView(minLon: number, minLat: number, maxLon: number, maxLat: number) {
     const clippedFeatures: GeoJSON.Feature[] = []
     this.getGeos().features.forEach(f => {
       if (f.properties?.zone === null || f.properties?.zone === undefined) return
@@ -97,7 +96,7 @@ const GeometryWorker: GeometryWorkerClass = {
         });
       }
     })
-    const {dissolved, centroids} = this.parseGeometry(clippedFeatures as MapGeoJSONFeature[]);
+    const {dissolved, centroids} = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
     return {dissolved, centroids};
   },
 };

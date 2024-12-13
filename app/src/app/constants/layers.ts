@@ -336,7 +336,7 @@ const getDissolved = async () => {
   const mapRef = getMapRef();
   if (!mapRef || !GeometryWorker) return;
   const currentView = mapRef.getBounds();
-  const { centroids, dissolved} = await GeometryWorker.parseFromView(
+  const { centroids, dissolved} = await GeometryWorker.getCentroidsFromView(
     currentView.getWest(),
     currentView.getSouth(),
     currentView.getEast(),
