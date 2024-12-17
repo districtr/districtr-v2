@@ -200,6 +200,7 @@ export const PopulationChart: React.FC<{
                   isHovered,
                   showPopNumbers,
                   showTopBottomDeviation,
+                  width
                 }}
               />
             )}
