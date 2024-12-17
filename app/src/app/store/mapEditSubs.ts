@@ -54,14 +54,23 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
       if (!isTemporalAction) return
       const appLoadingState = prev[1]
       const [shatterIds, pastShatterIds] = [curr[0], prev[0]]
-      console.log("!!!SHATTER IDS changed", shatterIds, pastShatterIds)
-      if (appLoadingState === 'loaded' && shatterIds !== pastShatterIds) {
-        console.log("LOCKING ZONE UPDATES!!!")
+      let shatterIdsChanged = shatterIds.size !== pastShatterIds.size
+      if (!shatterIdsChanged) {
+        shatterIds.forEach((v) => {
+          if (!pastShatterIds.has(v)) {
+            shatterIdsChanged = true
+          }
+        })
+        pastShatterIds.forEach((v) => {
+          if (!shatterIds.has(v)) {
+            shatterIdsChanged = true
+          }
+        })
+      }
+      if (appLoadingState === 'loaded' && shatterIdsChanged) {
         allowSendZoneUpdates = false
         const addedIds = shatterIds.difference(pastShatterIds)
         const removedIds = pastShatterIds.difference(shatterIds)
-
-        console.log("!!!SHATTER IDS add/remove", addedIds, removedIds)
         if (addedIds.size) {
           const {mapDocument, silentlyShatter} = useMapStore.getState()
           if (!mapDocument) {
