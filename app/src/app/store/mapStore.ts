@@ -40,6 +40,7 @@ import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
 import { useChartStore } from './chartStore';
 import { createWithMiddlewares } from './middlewares';
+import { map } from 'lodash';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -458,22 +459,48 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         },
         setLockedFeatures: lockedFeatures => set({lockedFeatures}),
         silentlyShatter: async (document_id, geoids) => {
+          const {getMapRef, mapDocument} = get()
+          const mapRef = getMapRef();
+          if (!mapRef) return;
           set({mapLock: true})
           const r = await patchShatter.mutate({
             document_id,
             geoids,
           });
+          geoids.forEach(geoid => {
+            mapRef?.setFeatureState({
+              source: BLOCK_SOURCE_ID,
+              id: geoid,
+              sourceLayer: mapDocument?.parent_layer,
+            }, {
+              broken: true,
+              zone: null
+            })
+          })
           set({mapLock: false})
         },
         silentlyHeal: async (document_id, parentsToHeal) => {
+          const {getMapRef, zoneAssignments, mapDocument} = get()
+          const mapRef = getMapRef();
+          if (!mapRef) return;
           set({mapLock: true})
-          const zoneAssignments = get().zoneAssignments
-          console.log("SILENTLY HEALING", document_id, parentsToHeal)
+          const zone = zoneAssignments.get(parentsToHeal[0])!
+          const sourceLayer = mapDocument?.parent_layer;
           const r = await patchUnShatter.mutate({
             geoids: parentsToHeal,
             zone: zoneAssignments.get(parentsToHeal[0])!,
             document_id
           });
+          parentsToHeal.forEach(parent => {
+            mapRef?.setFeatureState({
+              source: BLOCK_SOURCE_ID,
+              id: parent,
+              sourceLayer
+            }, {
+              broken: false,
+              zone
+            })
+          })
           set({mapLock: false})
         },
         handleShatter: async (document_id, features) => {
