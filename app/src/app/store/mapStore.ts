@@ -1,5 +1,6 @@
 'use client';
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
+import {temporal} from 'zundo';
 import {create} from 'zustand';
 import {devtools, subscribeWithSelector, persist} from 'zustand/middleware';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '../constants/types';
@@ -273,7 +274,7 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export const useMapStore = create(
+const persisted = (
   persist(
     devwrapper(
       subscribeWithSelector<MapStore>((set, get) => ({
@@ -919,6 +920,35 @@ export const useMapStore = create(
   )
 );
 
+export const useMapStore = create(temporal(persisted, {
+  diff: (pastState: Partial<MapStore>, currentState: Partial<MapStore>) => {
+    if (!currentState.zoneAssignments || !pastState.zoneAssignments) return pastState;
+    for (const geoid of currentState.zoneAssignments.keys()) {
+      if (!pastState.zoneAssignments.has(geoid)) {
+        pastState.zoneAssignments.set(geoid, null);
+      }
+    }
+    return pastState as Partial<MapStore>;
+  },
+  equality: (pastState, currentState) => {
+    return (
+      pastState.zoneAssignments === currentState.zoneAssignments &&
+      pastState.zoneAssignments.size === currentState.zoneAssignments.size &&
+      (() => {
+        const pastArray = Array.from(pastState.zoneAssignments.entries());
+        const curr = currentState.zoneAssignments;
+        return pastArray.every(([k, v], i) => curr.get(k) === v);
+      })()
+    );
+  },
+  limit: 7,
+  // @ts-ignore: save only partial store
+  partialize: state => {
+    const {zoneAssignments} = state;
+    return {zoneAssignments} as Partial<MapStore>;
+  },
+}));
+
 export interface HoverFeatureStore {
   // HOVERING
   /**
@@ -946,7 +976,7 @@ export const useHoverStore = create(
         set({hoverFeatures});
       },
     })),
-    
+
     {
       ...devToolsConfig,
       name: "Districtr Hover Feature Store"

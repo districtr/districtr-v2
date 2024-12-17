@@ -8,22 +8,24 @@ import {useMapStore} from '@/app/store/mapStore';
 import PaintByCounty from './PaintByCounty';
 import {BrushSizeSelector} from './BrushSizeSelector';
 import {ExitBlockViewButtons} from './ExitBlockViewButtons';
+import {UndoRedoButton} from './UndoRedoButton';
 import {ZonePicker} from './ZonePicker';
 import {ZoneLockPicker} from './ZoneLockPicker';
 import {MobileColorPicker} from './MobileColorPicker';
 
 export default function SidebarComponent() {
   const activeTool = useMapStore(state => state.activeTool);
+  const shatterEnabled = useMapStore(state => state.mapDocument?.child_layer);
 
   return (
     <Box
       p="3"
-      className="w-full z-10 shadow-md flex-none overflow-y-auto 
+      className="w-full z-10 shadow-md flex-none overflow-y-auto
       border-t lg:border-t-0
       lg:h-screen lg:max-w-sidebar lg:w-sidebar
        landscape:border-t-0
       landscape:h-screen landscape:max-w-[40vw] landscape:w-[40vw]
-      
+
       "
     >
       <Flex direction="column" gap="3">
@@ -63,6 +65,12 @@ export default function SidebarComponent() {
         ) : null}
         <ResetMapButton />
         <ExitBlockViewButtons />
+        {!shatterEnabled && (
+          <Flex direction="row" gap="3">
+            <UndoRedoButton isRedo={false} />
+            <UndoRedoButton isRedo />
+          </Flex>
+        )}
 
         <Box
           display={{
