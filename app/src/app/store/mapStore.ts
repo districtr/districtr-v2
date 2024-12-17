@@ -57,6 +57,8 @@ export interface MapStore {
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
   mapRenderingState: 'loaded' | 'initializing' | 'loading';
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
+  isTemporalAction: boolean;
+  setIsTemporalAction: (isTemporal: boolean) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
@@ -280,6 +282,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         setAppLoadingState: appLoadingState => set({appLoadingState}),
         mapRenderingState: 'initializing',
         setMapRenderingState: mapRenderingState => set({mapRenderingState}),
+        isTemporalAction: false,
+        setIsTemporalAction: (isTemporalAction: boolean) => set({isTemporalAction}),
         captiveIds: new Set<string>(),
         exitBlockView: (lock: boolean = false) => {
           const {
@@ -375,6 +379,9 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           });
 
           useChartStore.getState().updateMetrics(popChanges);
+          set({
+            isTemporalAction: false
+          })
         },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
@@ -517,6 +524,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               parents: existingParents,
               children: existingChildren,
             },
+            isTemporalAction: false,
             mapLock: false,
             captiveIds: newChildren,
             lockedFeatures: newLockedFeatures,
@@ -629,6 +637,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             set({
               shatterIds: newShatterIds,
               mapLock: false,
+              isTemporalAction: false,
               shatterMappings: {...shatterMappings},
               zoneAssignments: newZoneAssignments,
               lockedFeatures: newLockedFeatures,
@@ -907,16 +916,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         setContextMenu: contextMenu => set({contextMenu}),
         userMaps: [],
         setUserMaps: userMaps => set({userMaps}),
-      })),
-
-      {
-        ...devToolsConfig,
-        name: 'Districtr Map Store',
-      }
-    ),
-    persistOptions
-  )
-);
+      })
+)
 
 export interface HoverFeatureStore {
   // HOVERING
