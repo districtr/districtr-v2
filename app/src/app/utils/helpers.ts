@@ -275,31 +275,24 @@ export const colorZoneAssignments = (
   state: ColorZoneAssignmentsState,
   previousState?: ColorZoneAssignmentsState
 ) => {
-  const [zoneAssignments, mapDocument, getMapRef, _, appLoadingState, mapRenderingState] = state;
-  const previousZoneAssignments = previousState?.[0] || null;
+  const [zoneAssignments, mapDocument, getMapRef, currentShatterIds, appLoadingState, mapRenderingState] = state;
+  const [previousZoneAssignments, prevShatterIds] = [previousState?.[0]  || new Map(), previousState?.[3] || null];
   const mapRef = getMapRef();
-  const {shatterIds} = useMapStore.getState();
   if (!mapRef || !mapDocument || appLoadingState !== 'loaded' || mapRenderingState !== 'loaded') {
     return;
   }
+  const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
+  if (!featureStateCache) return;
   const isInitialRender = previousState?.[4] !== 'loaded' || previousState?.[5] !== 'loaded';
-
+  
   zoneAssignments.forEach((zone, id) => {
-    const hasNoId = !id;
-    const isRepeated =
-      id && !isInitialRender && previousZoneAssignments?.get(id) === zoneAssignments.get(id);
-    // const isLocked = lockedFeatures.size && lockedFeatures.has(id);
-    if (hasNoId || isRepeated) {
-      return;
-    }
-
-    const isChild = shatterIds.children.has(id);
+    if (!id) return
+    const isChild = currentShatterIds.children.has(id);
     const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
-
-    if (!sourceLayer) {
-      return;
-    }
-
+    if (!sourceLayer) return;
+    const featureState = featureStateCache?.[sourceLayer]?.[id]
+    if (!isInitialRender && featureState?.zone === zone) return;
+    
     mapRef?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
@@ -312,8 +305,25 @@ export const colorZoneAssignments = (
       }
     );
   });
-};
 
+  previousZoneAssignments.forEach((zone, id) => {
+    if (zoneAssignments.get(id)) return;
+    const isChild = prevShatterIds?.children.has(id);
+    const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
+    if (!sourceLayer) return;
+    mapRef?.setFeatureState(
+      {
+        source: BLOCK_SOURCE_ID,
+        id,
+        sourceLayer,
+      },
+      {
+        selected: false,
+        zone: null,
+      }
+    )
+  })
+}
 /**
  * resetZoneColors
  * Resets the zone colors for the specified feature IDs on the map.
