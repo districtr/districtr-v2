@@ -160,6 +160,8 @@ export interface MapStore {
    * @param {string[]} [additionalIds] - Optional array of additional IDs to include in the healing process.
    */
   processHealParentsQueue: (additionalIds?: string[]) => void;
+  silentlyShatter: (document_id: string, geoids: string[]) => Promise<void>
+  silentlyHeal: (document_id: string, parentsToHeal: MapStore['parentsToHeal']) => Promise<void>
   /**
    * Removes local shatter data and updates the map view based on the provided parents to heal.
    * This function checks the current state of parents and determines if any need to be healed,
@@ -454,6 +456,25 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           set({lockedFeatures});
         },
         setLockedFeatures: lockedFeatures => set({lockedFeatures}),
+        silentlyShatter: async (document_id, geoids) => {
+          set({mapLock: true})
+          const r = await patchShatter.mutate({
+            document_id,
+            geoids,
+          });
+          set({mapLock: false})
+        },
+        silentlyHeal: async (document_id, parentsToHeal) => {
+          set({mapLock: true})
+          const zoneAssignments = get().zoneAssignments
+          console.log("SILENTLY HEALING", document_id, parentsToHeal)
+          const r = await patchUnShatter.mutate({
+            geoids: parentsToHeal,
+            zone: zoneAssignments.get(parentsToHeal[0])!,
+            document_id
+          });
+          set({mapLock: false})
+        },
         handleShatter: async (document_id, features) => {
           if (!features.length) {
             console.log('NO FEATURES');
