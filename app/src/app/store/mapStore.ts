@@ -38,6 +38,7 @@ import {parentIdCache} from './idCache';
 import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
 import { useChartStore } from './chartStore';
+import { createWithMiddlewares } from './middlewares';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -272,10 +273,8 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export const useMapStore = create(
-  persist(
-    devwrapper(
-      subscribeWithSelector<MapStore>((set, get) => ({
+export const useMapStore = createWithMiddlewares<MapStore>(
+  (set, get) => ({
         appLoadingState: initialLoadingState,
         setAppLoadingState: appLoadingState => set({appLoadingState}),
         mapRenderingState: 'initializing',
