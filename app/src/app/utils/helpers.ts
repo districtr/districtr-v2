@@ -245,7 +245,7 @@ export type ColorZoneAssignmentsState = [
 
 export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
   const mapRef = _getMapRef?.() || useMapStore.getState().getMapRef();
-  if (mapRef?.getStyle().layers.findIndex(layer => layer.id === BLOCK_HOVER_LAYER_ID) !== -1) {
+  if (mapRef?.getStyle().layers.findIndex((layer: any) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1) {
     return null;
   }
 

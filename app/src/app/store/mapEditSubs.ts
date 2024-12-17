@@ -69,8 +69,8 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
       }
       if (appLoadingState === 'loaded' && shatterIdsChanged) {
         allowSendZoneUpdates = false
-        const addedIds = shatterIds.difference(pastShatterIds)
-        const removedIds = pastShatterIds.difference(shatterIds)
+        const addedIds = (shatterIds as any).difference(pastShatterIds)
+        const removedIds = (pastShatterIds as any).difference(shatterIds)
         if (addedIds.size) {
           const {mapDocument, silentlyShatter} = useMapStore.getState()
           if (!mapDocument) {
