@@ -5,10 +5,9 @@ import {Protocol} from 'pmtiles';
 import type {MutableRefObject} from 'react';
 import React, {useEffect, useRef} from 'react';
 import {MAP_OPTIONS} from '../constants/configuration';
-import {mapEvents} from '../utils/events/mapEvents';
+import {handleWheelOrPinch, mapContainerEvents, mapEvents} from '../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
-import { parentIdCache } from '../store/idCache';
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -48,14 +47,13 @@ export const MapComponent: React.FC = () => {
     });
 
     fitMapToBounds();
-    map.current.scrollZoom.setWheelZoomRate(1 / 300);
-    map.current.scrollZoom.setZoomRate(1 / 300);
-
+    handleWheelOrPinch({} as TouchEvent, map.current);
     map.current.addControl(new maplibregl.NavigationControl());
 
     map.current.on('load', () => {
       setMapRef(map);
     });
+
     INTERACTIVE_LAYERS.forEach(layer => {
       mapEvents.forEach(action => {
         if (map.current) {
@@ -70,13 +68,31 @@ export const MapComponent: React.FC = () => {
       });
     });
 
+    mapContainerEvents.forEach(action => {
+      mapContainer?.current?.addEventListener(
+        action.action as keyof MapLayerEventType,
+        (e) => {
+          action.handler(e, map.current);
+        }
+      );
+    });
+
     return () => {
       mapEvents.forEach(action => {
         map.current?.off(action.action, e => {
           action.handler(e, map.current);
         });
       });
-    };
+
+      mapContainerEvents.forEach(action => {
+        mapContainer?.current?.removeEventListener(
+          action.action as keyof MapLayerEventType,
+          (e) => {
+            action.handler(e, map.current);
+          }
+        );
+      });
+    }
   });
 
   return (
