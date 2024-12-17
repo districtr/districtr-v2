@@ -31,8 +31,8 @@ export const PopulationLabels: React.FC<{
   const [left, top] = [xScale(entry.total_pop), yScale(index) + barHeight];
 
   let offsetLeft = 0;
-  if (left < popDiffLabel.length * 10 && (isHovered || showTopBottomDeviation)) {
-    offsetLeft = Math.max(popDiffLabel.length, 2) * 8;
+  if (left < popDiffLabel.length * 8 && (isHovered || showTopBottomDeviation)) {
+    offsetLeft = Math.max(popDiffLabel.length, 2) * 8 + 4;
   } else if (left > width - popLabel.length * 10) {
     offsetLeft = -popLabel.length * 10;
   }
