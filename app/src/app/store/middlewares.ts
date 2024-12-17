@@ -1,34 +1,31 @@
 import {persist, subscribeWithSelector} from 'zustand/middleware';
 import {devToolsConfig, devwrapper, persistOptions} from './middlewareConfig';
-import {temporal} from 'zundo';
+import {temporal, ZundoOptions} from 'zundo';
 import {create, StateCreator} from 'zustand';
 import { MapStore } from './mapStore';
 
-const temporalOptions =  {
-  diff: (pastState: Partial<MapStore>, currentState: Partial<MapStore>) => {
-    if (!currentState.zoneAssignments || !pastState.zoneAssignments) return pastState;
-    for (const geoid of currentState.zoneAssignments.keys()) {
-      if (!pastState.zoneAssignments.has(geoid)) {
-        pastState.zoneAssignments.set(geoid, null);
+const temporalOptions: ZundoOptions<any, MapStore> =  {
+  // If diff returns null, not state is stored
+  diff: (past: Partial<MapStore>, curr: Partial<MapStore>) => {
+    // if not yet loaded, or is a temporal action (eg. silent heal) don't store
+    if (past.mapRenderingState !== 'loaded' || curr.isTemporalAction) return null;
+    const pastAssignments = past.zoneAssignments || new Map();
+    const currAssignments = curr.zoneAssignments || new Map();
+    // if assignments have changed size, do store the state
+    if (pastAssignments.size !== currAssignments.size) return past
+    for (const geoid of currAssignments.keys()) {
+      if (pastAssignments.get(geoid) !== currAssignments.get(geoid)) {
+        // if the same size, but one of the assignments has changed, store the state
+        return past
       }
     }
-    return pastState as Partial<MapStore>;
+    // Otherwise, if a state is recorded for some reason, but the shatterIds are the same size
+    // don't store
+    if (past.shatterIds?.parents.size === curr.shatterIds?.parents.size) return null;
+    // if the shatterIds size have changed, store the state
+    return past
   },
-  // onSave: (paststate, currentState) => {
-    
-  // }
-  equality: (pastState, currentState) => {
-    return (
-      pastState.zoneAssignments === currentState.zoneAssignments &&
-      pastState.zoneAssignments.size === currentState.zoneAssignments.size &&
-      (() => {
-        const pastArray = Array.from(pastState.zoneAssignments.entries())
-        const curr = currentState.zoneAssignments
-        return pastArray.every(([k, v], i) => curr.get(k) === v)
-      })()
-    );
-  },
-  limit: 7,
+  limit: 20,
   // @ts-ignore: save only partial store
   partialize: state => {
     const {zoneAssignments, mapRenderingState, appLoadingState, shatterIds, shatterMappings} = state;
