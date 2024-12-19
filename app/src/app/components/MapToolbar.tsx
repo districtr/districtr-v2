@@ -1,17 +1,12 @@
 import {
-  Box,
   Button,
   Card,
   Flex,
   IconButton,
   IconButtonProps,
-  Popover,
-  RadioCards,
   Text,
   Tooltip,
 } from '@radix-ui/themes';
-import * as RadioGroup from '@radix-ui/react-radio-group';
-import {styled} from '@stitches/react';
 import {useMapStore} from '@store/mapStore';
 import {
   EraserIcon,
@@ -24,12 +19,11 @@ import {
   CounterClockwiseClockIcon,
 } from '@radix-ui/react-icons';
 import {RecentMapsModal} from '@components/sidebar/RecentMapsModal';
-import React, {act, Component, useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import Layers from './sidebar/Layers';
 import {BrushControls} from './BrushControls';
 import {ZoneLockPicker} from './sidebar/ZoneLockPicker';
 import {ActiveTool} from '../constants/types';
-import {ResetMapButton} from './sidebar/ResetMapButton';
 import {ExitBlockViewButtons} from './sidebar/ExitBlockViewButtons';
 
 const ToolUtilitiesConfig: Record<
@@ -84,24 +78,29 @@ const ToolUtilitiesConfig: Record<
 
 const ToolUtilities: React.FC<{activeTool: ActiveTool}> = ({activeTool}) => {
   const ContainerRef = useRef<HTMLDivElement|null>(null);
-  const {Component, focused} = ToolUtilitiesConfig[activeTool] || {};
-  const setActiveTool = useMapStore(state => state.setActiveTool);
+  const {
+    Component, 
+    // focused
+  } = ToolUtilitiesConfig[activeTool] || {};
+  // TODO: refinement. The idea here is to have an ephemeral menu that goes away on interaction
+  // but it has some weird behavior
+  // const setActiveTool = useMapStore(state => state.setActiveTool);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (ContainerRef.current && !ContainerRef.current.contains(event.target as Node)) {
-        setActiveTool('pan'); // Set active tool to default
-      }
-    };
+  // useEffect(() => {
+  //   const handleClickOutside = (event: MouseEvent) => {
+  //     if (ContainerRef.current && !ContainerRef.current.contains(event.target as Node)) {
+  //       setActiveTool('pan'); // Set active tool to default
+  //     }
+  //   };
 
-    if (focused) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+  //   if (focused) {
+  //     document.addEventListener('mousedown', handleClickOutside);
+  //   }
 
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside); // Clean up listener
-    };
-  }, [focused, setActiveTool]);
+  //   return () => {
+  //     document.removeEventListener('mousedown', handleClickOutside); // Clean up listener
+  //   };
+  // }, [focused, setActiveTool]);
 
   if (!Component) {
     return null;
