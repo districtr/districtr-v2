@@ -10,8 +10,7 @@ import {getBlocksSource} from './sources';
 import {DocumentObject} from '../utils/api/apiHandlers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
-import {map, throttle} from 'lodash';
-import {wrap} from 'comlink';
+import {throttle} from 'lodash';
 import GeometryWorker from '../utils/GeometryWorker';
 
 

@@ -23,7 +23,7 @@ export function MapModeSelector() {
   if (!activeTool) return null;
   const activeTools = [
     {mode: 'pan', disabled: false, label: 'Pan', icon: <HandIcon />},
-    {mode: 'brush', disabled: false, label: 'Brush', icon: <Pencil2Icon />},
+    {mode: 'brush', disabled: false, label: 'Paint', icon: <Pencil2Icon />},
     {mode: 'eraser', disabled: false, label: 'Erase', icon: <EraserIcon />},
     {
       mode: 'shatter',

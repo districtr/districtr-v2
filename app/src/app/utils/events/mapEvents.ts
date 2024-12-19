@@ -2,7 +2,12 @@
  Port over from map events declared at: https://github.com/uchicago-dsi/districtr-components/blob/2e8f9e5657b9f0fd2419b6f3258efd74ae310f32/src/Districtr/Districtr.tsx#L230
  */
 'use client';
-import type {Map as MapLibreMap, MapLayerMouseEvent, MapLayerTouchEvent, MapDataEvent, MapSourceDataEvent, MapGeoJSONFeature} from 'maplibre-gl';
+import type {
+  Map as MapLibreMap,
+  MapLayerMouseEvent,
+  MapLayerTouchEvent,
+  MapGeoJSONFeature,
+} from 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
@@ -11,11 +16,15 @@ import {
   INTERACTIVE_LAYERS,
 } from '@/app/constants/layers';
 import {ResetMapSelectState} from '@utils/events/handlers';
-import {ActiveTool} from '@/app/constants/types';
-import { parentIdCache } from '@/app/store/idCache';
 import GeometryWorker from '../GeometryWorker';
 import { MinGeoJSONFeature } from '../GeometryWorker/geometryWorker.types';
+import {ActiveTool} from '@/app/constants/types';
+import {parentIdCache} from '@/app/store/idCache';
+import {throttle} from 'lodash';
+import {useTooltipStore} from '@/app/store/tooltipStore';
+import {useHoverStore} from '@/app/store/mapStore';
 
+export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
 MapEvent handling; these functions are called by the event listeners in the MapComponent
 */
@@ -117,8 +126,8 @@ export const handleMapMouseEnter = (
   // check if mouse is down
   // if so, set is painting true
   // @ts-ignore this is the correct behavior but event types are incorrect
-  if (e.originalEvent?.buttons === 1){
-    useMapStore.getState().setIsPainting(true)
+  if (e.originalEvent?.buttons === 1) {
+    useMapStore.getState().setIsPainting(true);
   }
 };
 
@@ -131,50 +140,67 @@ export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  const {setHoverFeatures, setIsPainting} = useMapStore.getState();
-  setHoverFeatures([]);
-  setIsPainting(false)
+  useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
+  useTooltipStore.getState().setTooltip(null);
+  useMapStore.getState().setIsPainting(false);
 };
 
 export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  const {setHoverFeatures, setIsPainting} = useMapStore.getState();
-  setHoverFeatures([]);
-  setIsPainting(false)
+  useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
+  useTooltipStore.getState().setTooltip(null);
+  useMapStore.getState().setIsPainting(false);
 };
 
-export const handleMapMouseMove = (
-  e: MapLayerMouseEvent | MapLayerTouchEvent,
-  map: MapLibreMap | null
-) => {
-  const mapStore = useMapStore.getState();
-  const {activeTool, setHoverFeatures, isPainting, mapDocument, selectMapFeatures} = mapStore;
-  const sourceLayer = mapDocument?.parent_layer;
-  const paintLayers = getLayerIdsToPaint(
-    // Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
-    mapStore.mapDocument?.child_layer,
-    activeTool
-  );
+export const handleMapMouseMove = throttle(
+  (e: MapLayerMouseEvent | MapLayerTouchEvent, map: MapLibreMap | null) => {
+    const mapStore = useMapStore.getState();
+    const {mapOptions, activeTool, isPainting, mapDocument, selectMapFeatures} = mapStore;
+    const sourceLayer = mapDocument?.parent_layer;
+    const paintLayers = getLayerIdsToPaint(
+      // Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
+      mapStore.mapDocument?.child_layer,
+      activeTool
+    );
+    const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
+    const isBrushingTool =
+      sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
+    // sourceCapabilities exists on the UIEvent constructor, which does not appear
+    // properly tpyed in the default map events
+    // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
+    const isTouchEvent =
+      'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
+    if (isBrushingTool && !isTouchEvent) {
+      useHoverStore.getState().setHoverFeatures(selectedFeatures);
+    }
+    if (selectedFeatures && isBrushingTool && isPainting) {
+      // selects in the map object; the store object
+      // is updated in the mouseup event
+      selectMapFeatures(selectedFeatures);
+    }
 
-  const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
-  const isBrushingTool = sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
-  // sourceCapabilities exists on the UIEvent constructor, which does not appear
-  // properly tpyed in the default map events
-  // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
-  const isTouchEvent =
-    'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
-  if (isBrushingTool && !isTouchEvent) {
-    setHoverFeatures(selectedFeatures);
-  }
-
-  if (selectedFeatures && isBrushingTool && isPainting) {
-    // selects in the map object; the store object
-    // is updated in the mouseup event
-    selectMapFeatures(selectedFeatures);
-  }
-};
+    if (isBrushingTool && mapOptions.showPopulationTooltip) {
+      useTooltipStore.getState().setTooltip({
+        ...e.point,
+        data: [
+          {
+            label: 'Total Pop',
+            value:
+              selectedFeatures?.reduce(
+                (acc, curr) => acc + parseInt(curr.properties.total_pop),
+                0
+              ) || 'N/A',
+          },
+        ],
+      });
+    } else {
+      useTooltipStore.getState().setTooltip(null);
+    }
+  },
+  25
+);
 
 export const handleMapZoom = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
@@ -214,7 +240,7 @@ export const handleMapContextMenu = (
     return;
   }
   e.preventDefault();
-  const setHoverFeatures = mapStore.setHoverFeatures;
+  const setHoverFeatures = useHoverStore.getState().setHoverFeatures;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
@@ -230,7 +256,7 @@ export const handleMapContextMenu = (
 
   const handleClose = () => {
     mapStore.setContextMenu(null);
-    setHoverFeatures([]);
+    setHoverFeatures(EMPTY_FEATURE_ARRAY);
   };
 
   map.once('movestart', handleClose);
@@ -251,12 +277,13 @@ export const handleIdCache = (
   const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
   
   if (
-    !tiles_s3_path || 
-    !parent_layer || 
-    e.dataType !== 'source' || 
-    !("url" in e.source) ||
+    !tiles_s3_path ||
+    !parent_layer ||
+    e.dataType !== 'source' ||
+    !('url' in e.source) ||
     !e.source.url?.includes(tiles_s3_path)
-  ) return
+  )
+    return;
 
   const tileData = e.tile.latestFeatureIndex;
 
@@ -281,9 +308,9 @@ export const handleIdCache = (
   GeometryWorker?.loadGeometry(featureArray, "path");
   parentIdCache.add(index, idArray)
   useMapStore.getState().setMapOptions({
-    currentStateFp: idArray[0].replace('vtd:','').slice(0,2)
-  })
-}
+    currentStateFp: idArray[0].replace('vtd:', '').slice(0, 2),
+  });
+};
 
 export const mapEvents = [
   {action: 'click', handler: handleMapClick},
@@ -304,5 +331,5 @@ export const mapEvents = [
   {action: 'moveend', handler: handleMapMoveEnd},
   {action: 'zoomend', handler: handleMapZoomEnd},
   {action: 'contextmenu', handler: handleMapContextMenu},
-  {action: 'data', handler: handleIdCache}
+  {action: 'data', handler: handleIdCache},
 ];

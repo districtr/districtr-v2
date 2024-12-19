@@ -7,5 +7,15 @@ export type DistrictrMapOptions = {
   mode: 'default' | 'break';
   showZoneNumbers?: boolean
   paintByCounty?: boolean;
-  currentStateFp?: string
+  currentStateFp?: string;
+  showPopulationTooltip?: boolean;
+};
+
+export type DistrictrChartOptions = {
+  popTargetPopDeviation?: number;
+  popTargetPopDeviationPct?: number;
+  popShowPopNumbers: boolean;
+  popShowDistrictNumbers: boolean;
+  popBarScaleToCurrent: boolean;
+  popShowTopBottomDeviation: boolean;
 };

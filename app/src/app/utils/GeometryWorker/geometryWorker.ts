@@ -37,6 +37,9 @@ const GeometryWorker: GeometryWorkerClass = {
     }
     features.forEach(f => {
       const id = f.properties?.[idProp];
+      // TODO: Sometimes, geometries are split across tiles or reloaded at more detailed zoom levels
+      // disambiguating and combining them could be very cool, but is tricky with lots of edge cases
+      // and computationally expensive. For now, we just take the first geometry of a given ID 
       if (id && !this.geometries[id]) {
         this.geometries[id] = structuredClone(f);
       }
@@ -47,6 +50,8 @@ const GeometryWorker: GeometryWorkerClass = {
       {
         type: 'FeatureCollection',
         features: features.filter(
+          // TODO: Turf dissolve is limted to only polygons. This is fine enough for label placement
+          // but in the future we may want to do something better (eg. multipart to singlepart)
           f => f.geometry.type === 'Polygon'
         ) as GeoJSON.Feature<GeoJSON.Polygon>[],
       },
@@ -59,6 +64,8 @@ const GeometryWorker: GeometryWorkerClass = {
       const zone = feature.properties?.zone;
       if (!zone) return;
       const featureArea = area(feature);
+      // TODO: This makes sense for now given that we are not enforcing contiguity on zones,
+      // but could likely be refactored later when that rule is enforced. 
       if (!largestDissolvedFeatures[zone] || featureArea > largestDissolvedFeatures[zone].area) {
         largestDissolvedFeatures[zone] = {
           area: featureArea,

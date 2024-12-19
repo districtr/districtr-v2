@@ -41,19 +41,20 @@ export const ColorPicker = <T extends boolean>({
             onValueChange(indices, values);
           }}
           style={{
-            justifyContent: "flex-start"
+            justifyContent: 'flex-start',
           }}
         >
-          {!!mapDocument && colorArray.slice(0, mapDocument.num_districts ?? 0).map((color, i) => (
-            <CheckboxGroupItem
-              key={i}
-              // @ts-ignore Correct behavior, global CSS variables need to be extended
-              style={{'--accent-indicator': color}}
-              value={color}
-            >
-              {/* <RadioGroupIndicator /> */}
-            </CheckboxGroupItem>
-          ))}
+          {!!mapDocument &&
+            colorArray.slice(0, mapDocument.num_districts ?? 0).map((color, i) => (
+              <CheckboxGroupItem
+                key={i}
+                // @ts-ignore Correct behavior, global CSS variables need to be extended
+                style={{'--accent-indicator': color}}
+                value={color}
+              >
+                {/* <RadioGroupIndicator /> */}
+              </CheckboxGroupItem>
+            ))}
         </CheckboxGroupRoot>
       </div>
     );

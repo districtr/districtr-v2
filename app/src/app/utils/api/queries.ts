@@ -16,6 +16,7 @@ import {
 } from './apiHandlers';
 import {getEntryTotal} from '@/app/utils/summaryStats';
 import {useMapStore} from '@/app/store/mapStore';
+import {useChartStore} from '@/app/store/chartStore';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -33,7 +34,7 @@ export const updateMapMetrics = (mapDocument: DocumentObject) => {
 };
 
 mapMetrics.subscribe(result => {
-  useMapStore.getState().setMapMetrics(result);
+  useChartStore.getState().setMapMetrics(result);
 });
 
 export const mapViewsQuery = new QueryObserver<DistrictrMap[]>(queryClient, {
@@ -94,14 +95,14 @@ export const updateGetDocumentFromId = (documentId: string) => {
 };
 
 updateDocumentFromId.subscribe(mapDocument => {
-  if (typeof window === 'undefined') return 
-  
+  if (typeof window === 'undefined') return;
+
   const documentId = new URLSearchParams(window.location.search).get('document_id');
   if (mapDocument.error && documentId?.length) {
     useMapStore.getState().setErrorNotification({
       severity: 2,
       id: 'map-document-not-found',
-      message: `The requested map id "${documentId}" could not be found. Please make sure the URL is correct or select a different geography.`
+      message: `The requested map id "${documentId}" could not be found. Please make sure the URL is correct or select a different geography.`,
     });
     // remove current document_id on search params
     const url = new URL(window.location.href);
@@ -131,13 +132,16 @@ fetchAssignments.subscribe(assignments => {
   }
 });
 
-export const fetchTotPop = new QueryObserver<SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats> | null>(
-  queryClient,
-  {
-    queryKey: ['gerrydb_tot_pop'],
-    queryFn: () => getTotPopSummaryStats(useMapStore.getState().mapDocument, useMapStore.getState().mapDocument?.available_summary_stats?.[0]),
-  }
-);
+export const fetchTotPop = new QueryObserver<SummaryStatsResult<
+  P1TotPopSummaryStats | P4TotPopSummaryStats
+> | null>(queryClient, {
+  queryKey: ['gerrydb_tot_pop'],
+  queryFn: () =>
+    getTotPopSummaryStats(
+      useMapStore.getState().mapDocument,
+      useMapStore.getState().mapDocument?.available_summary_stats?.[0]
+    ),
+});
 
 export const updateTotPop = (mapDocument: DocumentObject | null) => {
   fetchTotPop.setOptions({
@@ -145,6 +149,5 @@ export const updateTotPop = (mapDocument: DocumentObject | null) => {
     queryKey: ['gerrydb_tot_pop', mapDocument?.gerrydb_table],
   });
 };
-
 
 // getNullableParamQuery(, mapDocument, mapDocument?.available_summary_stats?.[0]),

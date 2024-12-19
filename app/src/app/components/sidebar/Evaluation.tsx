@@ -10,7 +10,7 @@ import {
   P4ZoneSummaryStats,
   P4ZoneSummaryStatsKeys,
 } from '@/app/utils/api/apiHandlers';
-import {Button, CheckboxGroup} from '@radix-ui/themes';
+import {Button, CheckboxGroup, Heading} from '@radix-ui/themes';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
@@ -100,7 +100,6 @@ const Evaluation: React.FC = () => {
   const totPop = useMapStore(state => state.summaryStats.totpop?.data);
   const mapDocument = useMapStore(state => state.mapDocument);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
-
   const columnConfig = useMemo(() => {
     const summaryType = mapDocument?.available_summary_stats?.[0];
 
@@ -155,6 +154,7 @@ const Evaluation: React.FC = () => {
       zone: -999,
       total: getEntryTotal(totPop),
     };
+
     ZoneSummaryStatsKeys.forEach(key => {
       let total = unassigned[key];
       maxValues[key] = -Math.pow(10, 12);
@@ -164,7 +164,7 @@ const Evaluation: React.FC = () => {
         // @ts-ignore
         maxValues[key] = Math.max(row[key], maxValues[key]);
       });
-      unassigned[`${key}_pct`] = total / unassigned[key];
+      unassigned[`${key}_pct`] = total / unassigned['total'];
       unassigned[key] = total;
     });
 
@@ -189,7 +189,10 @@ const Evaluation: React.FC = () => {
   const rows = unassigned && showUnassigned ? [...data.results, unassigned] : data.results;
   return (
     <div className="w-full">
-      <Flex align="center" gap="3" mt="1">
+      <Heading as="h3" size="3">
+        Voting age population
+      </Heading>
+      <Flex align="center" gap="3" my="2">
         {modeButtonConfig.map((mode, i) => (
           <Button
             key={i}

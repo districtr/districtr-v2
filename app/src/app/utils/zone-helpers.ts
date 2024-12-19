@@ -25,3 +25,11 @@ export const findAssignmentMode = (
     }
   );
 };
+
+export const calculateMinMaxRange = (data: Array<{zone: number; total_pop: number}>) => {
+  const totalPops = data.map(item => item.total_pop);
+  const min = Math.min(...totalPops);
+  const max = Math.max(...totalPops);
+  const range = Math.abs(max - min);
+  return {min, max, range};
+};
