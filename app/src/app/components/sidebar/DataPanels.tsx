@@ -43,7 +43,11 @@ const DataPanels: React.FC<DataPanelsProps> = ({
   panels = defaultPanels,
 }) => {
   return (
-    <Accordion.Root type="multiple" className="AccordionRoot">
+    <Accordion.Root 
+      type="multiple" 
+      className="AccordionRoot" 
+      defaultValue={[defaultPanel]}
+      >
       {panels.map(panel => (
       <Accordion.Item 
         key={panel.title} 
