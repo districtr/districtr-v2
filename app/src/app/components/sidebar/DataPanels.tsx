@@ -1,6 +1,6 @@
 import {Box} from '@radix-ui/themes';
 import Evaluation from '@components/sidebar/Evaluation';
-import {HorizontalBar} from './charts/HorizontalBarChart';
+import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {Tabs} from '@radix-ui/themes';
 import Layers from './Layers';
 import React from 'react';
@@ -24,7 +24,7 @@ const defaultPanels: DataPanelSpec[] = [
   {
     title: 'population',
     label: 'Population',
-    content: <HorizontalBar />,
+    content: <PopulationPanel />,
   },
   // {
   //   title: 'layers',

@@ -22,10 +22,11 @@ import {
 } from '../utils/helpers';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
+import { useHoverStore as _useHoverStore } from '@store/mapStore';
 
 const BBOX_TOLERANCE_DEG = 0.02;
 
-export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
+export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHoverStore: typeof _useHoverStore) => {
   const addLayerSubMapDocument = useMapStore.subscribe<
     [MapStore['mapDocument'], MapStore['getMapRef']]
   >(
@@ -78,25 +79,6 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
       });
     },
     {equalityFn: shallowCompareArray}
-  );
-
-  const _hoverMapSideEffectRender = useMapStore.subscribe(
-    state => state.hoverFeatures,
-    (hoverFeatures, previousHoverFeatures) => {
-      const mapRef = useMapStore.getState().getMapRef();
-
-      if (!mapRef) {
-        return;
-      }
-
-      previousHoverFeatures.forEach(feature => {
-        mapRef.setFeatureState(feature, {hover: false});
-      });
-
-      hoverFeatures.forEach(feature => {
-        mapRef.setFeatureState(feature, {hover: true});
-      });
-    }
   );
 
   const _zoneAssignmentMapSideEffectRender = useMapStore.subscribe<ColorZoneAssignmentsState>(
@@ -329,11 +311,30 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore) => {
     }
   )
   
+  const _hoverMapSideEffectRender = useHoverStore.subscribe(
+    state => state.hoverFeatures,
+    (hoverFeatures, previousHoverFeatures) => {
+      const mapRef = useMapStore.getState().getMapRef();
+
+      if (!mapRef) {
+        return;
+      }
+
+      previousHoverFeatures.forEach(feature => {
+        mapRef.setFeatureState(feature, {hover: false});
+      });
+
+      hoverFeatures.forEach(feature => {
+        mapRef.setFeatureState(feature, {hover: true});
+      });
+    }
+  );
+
   return [
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
-    _hoverMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,
+    _hoverMapSideEffectRender,
     _updateMapCursor,
     _applyFocusFeatureState,
     highlightUnassignedSub,

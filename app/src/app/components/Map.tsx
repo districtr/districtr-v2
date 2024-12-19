@@ -10,6 +10,7 @@ import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
 import {parentIdCache} from '../store/idCache';
 import {MapToolbar} from './MapToolbar';
+import {MapTooltip} from './MapTooltip';
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -91,6 +92,7 @@ export const MapComponent: React.FC = () => {
         ref={mapContainer}
       />
       <MapToolbar />
+      <MapTooltip />
     </div>
   );
 };
