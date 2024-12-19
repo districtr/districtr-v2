@@ -11,6 +11,7 @@ import {ExitBlockViewButtons} from './ExitBlockViewButtons';
 import {ZonePicker} from './ZonePicker';
 import {ZoneLockPicker} from './ZoneLockPicker';
 import {MobileColorPicker} from './MobileColorPicker';
+import { UndoRedoButton } from './UndoRedoButton';
 
 export default function SidebarComponent() {
   const activeTool = useMapStore(state => state.activeTool);
@@ -62,6 +63,10 @@ export default function SidebarComponent() {
           </div>
         ) : null}
         <ResetMapButton />
+        <Flex direction="row" gap="3">
+          <UndoRedoButton isRedo={false} />
+          <UndoRedoButton isRedo />
+        </Flex>
         <ExitBlockViewButtons />
 
         <Box

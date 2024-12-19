@@ -39,6 +39,8 @@ import {parentIdCache} from './idCache';
 import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
 import { useChartStore } from './chartStore';
+import { createWithMiddlewares } from './middlewares';
+import { map } from 'lodash';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -56,6 +58,8 @@ export interface MapStore {
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
   mapRenderingState: 'loaded' | 'initializing' | 'loading';
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
+  isTemporalAction: boolean;
+  setIsTemporalAction: (isTemporal: boolean) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | null;
   setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
@@ -158,6 +162,8 @@ export interface MapStore {
    * @param {string[]} [additionalIds] - Optional array of additional IDs to include in the healing process.
    */
   processHealParentsQueue: (additionalIds?: string[]) => void;
+  silentlyShatter: (document_id: string, geoids: string[]) => Promise<void>
+  silentlyHeal: (document_id: string, parentsToHeal: MapStore['parentsToHeal']) => Promise<void>
   /**
    * Removes local shatter data and updates the map view based on the provided parents to heal.
    * This function checks the current state of parents and determines if any need to be healed,
@@ -273,14 +279,14 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export const useMapStore = create(
-  persist(
-    devwrapper(
-      subscribeWithSelector<MapStore>((set, get) => ({
+export const useMapStore = createWithMiddlewares<MapStore>(
+  (set, get) => ({
         appLoadingState: initialLoadingState,
         setAppLoadingState: appLoadingState => set({appLoadingState}),
         mapRenderingState: 'initializing',
         setMapRenderingState: mapRenderingState => set({mapRenderingState}),
+        isTemporalAction: false,
+        setIsTemporalAction: (isTemporalAction: boolean) => set({isTemporalAction}),
         captiveIds: new Set<string>(),
         exitBlockView: (lock: boolean = false) => {
           const {
@@ -376,6 +382,9 @@ export const useMapStore = create(
           });
 
           useChartStore.getState().updateMetrics(popChanges);
+          set({
+            isTemporalAction: false
+          })
         },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
@@ -449,6 +458,51 @@ export const useMapStore = create(
           set({lockedFeatures});
         },
         setLockedFeatures: lockedFeatures => set({lockedFeatures}),
+        silentlyShatter: async (document_id, geoids) => {
+          const {getMapRef, mapDocument} = get()
+          const mapRef = getMapRef();
+          if (!mapRef) return;
+          set({mapLock: true})
+          const r = await patchShatter.mutate({
+            document_id,
+            geoids,
+          });
+          geoids.forEach(geoid => {
+            mapRef?.setFeatureState({
+              source: BLOCK_SOURCE_ID,
+              id: geoid,
+              sourceLayer: mapDocument?.parent_layer,
+            }, {
+              broken: true,
+              zone: null
+            })
+          })
+          set({mapLock: false})
+        },
+        silentlyHeal: async (document_id, parentsToHeal) => {
+          const {getMapRef, zoneAssignments, mapDocument} = get()
+          const mapRef = getMapRef();
+          if (!mapRef) return;
+          set({mapLock: true})
+          const zone = zoneAssignments.get(parentsToHeal[0])!
+          const sourceLayer = mapDocument?.parent_layer;
+          const r = await patchUnShatter.mutate({
+            geoids: parentsToHeal,
+            zone: zoneAssignments.get(parentsToHeal[0])!,
+            document_id
+          });
+          parentsToHeal.forEach(parent => {
+            mapRef?.setFeatureState({
+              source: BLOCK_SOURCE_ID,
+              id: parent,
+              sourceLayer
+            }, {
+              broken: false,
+              zone
+            })
+          })
+          set({mapLock: false})
+        },
         handleShatter: async (document_id, features) => {
           if (!features.length) {
             console.log('NO FEATURES');
@@ -518,6 +572,7 @@ export const useMapStore = create(
               parents: existingParents,
               children: existingChildren,
             },
+            isTemporalAction: false,
             mapLock: false,
             captiveIds: newChildren,
             lockedFeatures: newLockedFeatures,
@@ -630,6 +685,7 @@ export const useMapStore = create(
             set({
               shatterIds: newShatterIds,
               mapLock: false,
+              isTemporalAction: false,
               shatterMappings: {...shatterMappings},
               zoneAssignments: newZoneAssignments,
               lockedFeatures: newLockedFeatures,
@@ -908,16 +964,8 @@ export const useMapStore = create(
         setContextMenu: contextMenu => set({contextMenu}),
         userMaps: [],
         setUserMaps: userMaps => set({userMaps}),
-      })),
-
-      {
-        ...devToolsConfig,
-        name: 'Districtr Map Store',
-      }
-    ),
-    persistOptions
-  )
-);
+      })
+)
 
 export interface HoverFeatureStore {
   // HOVERING
