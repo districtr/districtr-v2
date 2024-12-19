@@ -5,34 +5,36 @@ import {GerryDBViewSelector} from './GerryDBViewSelector';
 import {useMapStore} from '@/app/store/mapStore';
 import {ExitBlockViewButtons} from './ExitBlockViewButtons';
 import {Resizable} from 're-resizable';
-import { DragHandleHorizontalIcon } from '@radix-ui/react-icons';
+import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 
 const HandleIconButton = () => {
-  return <IconButton 
-  variant="surface"
-  color="gray"
-    style={{
-      zIndex: 999,
-      top: '50vh',
-      position: 'fixed',
-      width: '24px',
-      height: '24px',
-      transform: 'translate(-15px, -50%)',
-      cursor: 'ew-resize'
-    }}
-  >
-    <DragHandleHorizontalIcon />
-  </IconButton>;
+  return (
+    <IconButton
+      variant="classic"
+      color="gray"
+      style={{
+        zIndex: 999,
+        top: '50vh',
+        position: 'fixed',
+        width: '16px',
+        height: '60px',
+        transform: 'translate(-2px, -50%)',
+        cursor: 'ew-resize',
+      }}
+    >
+      <DragHandleHorizontalIcon />
+    </IconButton>
+  );
 };
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
 
   return (
-    <Resizable handleComponent={{ left: <HandleIconButton />}}>
+    <Resizable handleComponent={{left: <HandleIconButton />}}>
       <Box
         p="3"
-        className="z-10 shadow-md flex-none overflow-y-auto 
+        className="z-10 flex-none overflow-y-auto 
       border-t lg:border-t-0
       lg:h-screen
        landscape:border-t-0
