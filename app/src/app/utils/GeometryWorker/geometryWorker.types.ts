@@ -56,7 +56,10 @@ export type GeometryWorkerClass = {
    * Retrieves a collection of geometries without a zone assignment.
    * @returns The collection of unassigned geometries.
    */
-  getUnassignedGeometries: () => MinGeoJSONFeature[];
+  getUnassignedGeometries: () => {
+    dissolved: GeoJSON.FeatureCollection;
+    overall: GeoJSON.BBox;
+  }
   /**
    * Retrieves the collection of geometries.
    * @returns The collection of geometries.

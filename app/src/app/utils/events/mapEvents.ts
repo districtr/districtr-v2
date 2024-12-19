@@ -109,7 +109,7 @@ export const handleMapMouseDown = (
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
 
-  if (activeTool === 'pan') {
+  if (activeTool === 'pan' || activeTool === 'zoomToUnassigned') {
     // enable drag pan
     map?.dragPan.enable();
   } else if (activeTool === 'brush' || activeTool === 'eraser') {
