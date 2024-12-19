@@ -114,32 +114,45 @@ const GeometryWorker: GeometryWorkerClass = {
   },
   getUnassignedGeometries() {
     const geomsToDissolve = []
-    const unassignedOtherGeoms = []
+
     for (const id in this.geometries) {
       const geom = this.geometries[id]
       if (geom.properties?.zone == null) {
-        if (geom.geometry.type === 'Polygon') {
-          geomsToDissolve.push(geom)
-        } else {
-          this.geometries[id].properties.bbox = bbox(geom.geometry)
-          unassignedOtherGeoms.push(geom)
-        }
+        const featureBbox = bbox(geom)
+        geomsToDissolve.push({
+          type: "Feature",
+          geometry: {
+            coordinates: [[
+              [featureBbox[0], featureBbox[1]],
+              [featureBbox[0], featureBbox[3]],
+              [featureBbox[2], featureBbox[3]],
+              [featureBbox[2], featureBbox[1]],
+              [featureBbox[0], featureBbox[1]],
+            ]],
+            type: "Polygon"
+          }
+        })
       }
     }
-    const dissolved = dissolve({
+    let dissolved = dissolve({
       type: 'FeatureCollection',
       features: geomsToDissolve as GeoJSON.Feature<GeoJSON.Polygon>[],
-    }).features.map(f => ({
-      ...f,
-      properties: {
-        ...f.properties,
-        bbox: bbox(f.geometry),
-      },
-    } as MinGeoJSONFeature))
-    return [
-      ...dissolved,
-      ...unassignedOtherGeoms,
-    ]
+    })
+
+    const overall = bbox(dissolved)
+    
+    for (let i=0; i<dissolved.features.length; i++) {
+      const geom = dissolved.features[i].geometry
+      dissolved.features[i].properties = {
+        ...(dissolved.features[i].properties || {}),
+        bbox: bbox(geom)
+      }
+    }
+    
+    return {
+      dissolved,
+      overall
+    }
   }
 };
 

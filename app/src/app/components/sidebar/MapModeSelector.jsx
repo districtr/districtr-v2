@@ -9,17 +9,15 @@ import {
   HandIcon,
   LockOpen1Icon,
   ViewGridIcon,
+  MagnifyingGlassIcon,
 } from '@radix-ui/react-icons';
 import {RecentMapsModal} from '@components/sidebar/RecentMapsModal';
-import GeometryWorker from '@/app/utils/GeometryWorker';
 
 export function MapModeSelector() {
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const [unassignedFeatures, setUnassignedFeatures] = React.useState([]);
 
-  const mapRef = useMapStore(state => state.getMapRef());
   if (!activeTool) return null;
   const activeTools = [
     {mode: 'pan', disabled: false, label: 'Pan', icon: <HandIcon />},
@@ -36,6 +34,12 @@ export function MapModeSelector() {
       disabled: false,
       label: 'Lock',
       icon: <LockOpen1Icon />,
+    },
+    {
+      mode: 'zoomToUnassigned',
+      disabled: !mapDocument?.parent_layer,
+      label: 'Zoom To Unassigned',
+      icon: <MagnifyingGlassIcon />,
     },
   ];
 
@@ -59,32 +63,8 @@ export function MapModeSelector() {
             </RadioCards.Item>
           </Flex>
         ))}
-          <Flex>
-            <RadioCards.Item value={null} id={'unassigned'} onClick={() => {
-              GeometryWorker.updateProps(Array.from(useMapStore.getState().zoneAssignments.entries())).then(
-                () => GeometryWorker.getUnassignedGeometries().then(
-                  geometries => setUnassignedFeatures(geometries)
-                )
-              )
-            }}>
-              Zoom to unassigned
-            </RadioCards.Item>
-          </Flex>
         <RecentMapsModal />
       </RadioCards.Root>
-      {unassignedFeatures.length > 0 && (
-        <Box>
-          <h3>Unassigned Features</h3>
-          <ul>
-            {unassignedFeatures.map((feature, index) => (
-              <button key={index} 
-                className="btn p-4"
-              onClick={() => {
-                mapRef?.fitBounds(feature.properties.bbox);
-              }}>{index}</button>))}
-          </ul>
-        </Box>
-      )}
     </Box>
   );
 }
