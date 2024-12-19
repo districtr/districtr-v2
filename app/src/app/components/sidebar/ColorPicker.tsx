@@ -78,7 +78,7 @@ export const ColorPicker = <T extends boolean>({
         <Flex direction="row" wrap="wrap">
           {!!mapDocument &&
             colorArray.slice(0, mapDocument.num_districts ?? 0).map((color, i) => (
-              <Flex direction="column" align="center">
+              <Flex direction="column" align="center" key={i}>
                 <RadioGroupItem key={i} style={{backgroundColor: color}} value={color}>
                   <RadioGroupIndicator />
                 </RadioGroupItem>

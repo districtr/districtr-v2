@@ -86,6 +86,8 @@ const AccordionTrigger = React.forwardRef<
   </Accordion.Header>
 ));
 
+AccordionTrigger.displayName = 'AccordionTrigger';
+
 const AccordionContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentPropsWithoutRef<typeof Accordion.Content>
@@ -101,5 +103,6 @@ const AccordionContent = React.forwardRef<
     <div className="px-5 py-[15px]">{children}</div>
   </Accordion.Content>
 ));
+AccordionContent.displayName = 'AccordionContent';
 
 export default DataPanels;
