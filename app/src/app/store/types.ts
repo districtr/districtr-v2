@@ -5,6 +5,7 @@ export type DistrictrMapOptions = {
   higlightUnassigned?: boolean;
   lockPaintedAreas: boolean | Array<NullableZone>;
   mode: 'default' | 'break';
+  showZoneNumbers?: boolean
   paintByCounty?: boolean;
   currentStateFp?: string;
   showPopulationTooltip?: boolean;

@@ -43,6 +43,7 @@ export default function Layers() {
         name="districts"
         value={[
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
+          mapOptions.showZoneNumbers ? '2' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
           mapOptions.lockPaintedAreas === true ? '4' : '',
           mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
@@ -63,8 +64,10 @@ export default function Layers() {
         >
           Show painted districts
         </CheckboxGroup.Item>
-        <CheckboxGroup.Item value="2" disabled>
-          Show numbering for painted districts
+        <CheckboxGroup.Item value="2" onClick={() => setMapOptions({
+          showZoneNumbers: !mapOptions.showZoneNumbers
+        })}>
+          Show numbering for painted districts <i>(experimental)</i>
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="3"
