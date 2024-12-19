@@ -1,5 +1,8 @@
-import {DevtoolsOptions, PersistOptions} from 'zustand/middleware';
+import {devtools, DevtoolsOptions, PersistOptions} from 'zustand/middleware';
 import {MapStore} from './mapStore';
+
+const prodWrapper: typeof devtools = (store: any) => store;
+export const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
 
 export const persistOptions: PersistOptions<MapStore, Partial<MapStore>> = {
   name: 'districtr-persistrictr',

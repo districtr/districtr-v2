@@ -138,7 +138,6 @@ const Evaluation: React.FC = () => {
     queryClient
   );
 
-
   const {
     unassigned,
     maxValues,
