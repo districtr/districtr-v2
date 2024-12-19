@@ -9,6 +9,7 @@ import {mapEvents} from '../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
 import {parentIdCache} from '../store/idCache';
+import {MapToolbar} from './MapToolbar';
 import {MapTooltip} from './MapTooltip';
 
 export const MapComponent: React.FC = () => {
@@ -17,6 +18,7 @@ export const MapComponent: React.FC = () => {
   const mapLock = useMapStore(state => state.mapLock);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapStore(state => state.mapOptions);
+  const document_id = useMapStore(state => state.mapDocument?.document_id)
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -81,14 +83,16 @@ export const MapComponent: React.FC = () => {
   });
 
   return (
-    <>
+    <div className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen`}>
       <div
         className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen
-    ${mapLock ? 'pointer-events-none' : ''}
-    `}
+        ${mapLock ? 'pointer-events-none' : ''}
+        ${document_id ? '' : 'opacity-25 pointer-events-none'}
+        `}
         ref={mapContainer}
       />
+      <MapToolbar />
       <MapTooltip />
-    </>
+    </div>
   );
 };

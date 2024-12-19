@@ -300,6 +300,7 @@ export const useMapStore = create(
               ...mapOptions,
               mode: 'default',
             },
+            activeTool: 'shatter'
           });
 
           const parentId = focusFeatures?.[0].id?.toString();
@@ -528,6 +529,7 @@ export const useMapStore = create(
                 sourceLayer: get().mapDocument?.parent_layer,
               },
             ],
+            activeTool: 'brush',
             zoneAssignments,
             parentsToHeal: [...get().parentsToHeal, features?.[0]?.id?.toString() || '']
               .filter(onlyUnique)
@@ -712,11 +714,15 @@ export const useMapStore = create(
             });
 
             set({
-              zonePopulations: initialState.zonePopulations,
-              zoneAssignments: initialState.zoneAssignments,
-              shatterIds: initialState.shatterIds,
+              zonePopulations: new Map(),
+              zoneAssignments: new Map(),
+              shatterIds: {
+                parents: new Set(),
+                children: new Set()
+              },
               appLoadingState: 'loaded',
               mapLock: false,
+              activeTool: 'pan'
             });
           }
         },
