@@ -1,9 +1,21 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {AlertDialog, Button, Flex} from '@radix-ui/themes';
+import {useStore} from 'zustand';
+
+/* convert zundo to a React hook */
+const useTemporalStore = <T,>(
+  selector: (state: TemporalState<Partial<MapStore>>) => T,
+  equality?: (a: T, b: T) => boolean
+) => useStore(useMapStore.temporal, selector, equality);
 
 export function ResetMapButton() {
-  const handleClickResetMap = useMapStore(state => state.handleReset);
   const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
+  const handleReset = useMapStore(state => state.handleReset);
+  const clear = useTemporalStore(state => state.clear); // TemporalState<MapStore>
+  const handleClickResetMap = () => {
+    clear();
+    handleReset();
+  };
 
   return (
     <AlertDialog.Root>
