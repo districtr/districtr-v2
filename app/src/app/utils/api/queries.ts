@@ -128,7 +128,12 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    useMapStore.getState().loadZoneAssignments(assignments.data);
+    const {loadZoneAssignments, mapRenderingState} = useMapStore.getState();
+    if (mapRenderingState === 'initializing') {
+      loadZoneAssignments(assignments.data);
+    } else {
+      console.log('did not load prior map during rendering state: ' + mapRenderingState);
+    }
   }
 });
 
