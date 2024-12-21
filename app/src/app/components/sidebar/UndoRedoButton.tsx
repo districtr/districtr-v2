@@ -31,11 +31,9 @@ export function UndoRedoButton({ isRedo = false }) {
       disabled={
         isRedo
           ? futureStates.length === 0
-          : pastStates.filter((state) => 
+          : pastStates.filter((state) =>
             state.zoneAssignments?.size
-            && state.appLoadingState === 'loaded'
-            && state.mapRenderingState === 'loaded'
-          ).length <= 1
+          ).length < 1
       }
     >
       <div style={{ transform: isRedo ? "rotateY(180deg)" : "" }}>
