@@ -25,7 +25,7 @@ import {
   setZones,
 } from '../utils/helpers';
 import {getRenderSubscriptions} from './mapRenderSubs';
-import {getSearchParamsObersver} from '../utils/api/queryParamsListener';
+import {getSearchParamsObserver} from '../utils/api/queryParamsListener';
 import {getMapEditSubs} from './mapEditSubs';
 import {getQueriesResultsSubs} from '../utils/api/queries';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
@@ -1007,4 +1007,4 @@ getRenderSubscriptions(useMapStore, useHoverStore);
 getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getMapMetricsSubs(useMapStore)
-getSearchParamsObersver();
+getSearchParamsObserver();
