@@ -1,5 +1,6 @@
-import {useMapStore} from '@/app/store/mapStore';
+import {useMapStore, type MapStore} from '@/app/store/mapStore';
 import {AlertDialog, Button, Flex} from '@radix-ui/themes';
+import type {TemporalState} from 'zundo';
 import {useStore} from 'zustand';
 
 /* convert zundo to a React hook */
