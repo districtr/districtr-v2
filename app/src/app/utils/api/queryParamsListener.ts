@@ -2,7 +2,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {updateDocumentFromId, updateGetDocumentFromId} from './queries';
 export let previousDocumentID = '';
 
-export const getSearchParamsObersver = () => {
+export const getSearchParamsObserver = () => {
   // next ssr safety
   if (typeof window === 'undefined') {
     return;
