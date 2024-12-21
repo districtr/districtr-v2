@@ -16,7 +16,7 @@ const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapS
   }
 };
 
-const debouncedZoneUpdate = debounce(zoneUpdates, 25);
+const debouncedZoneUpdate = debounce(zoneUpdates, 100);
 
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const sendZoneUpdatesOnUpdate = useMapStore.subscribe<
@@ -24,7 +24,7 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   >(
     state => [state.zoneAssignments, state.appLoadingState],
     ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
-      if (previousAppLoadingState !== 'loaded' || !allowSendZoneUpdates) return;
+      if (previousAppLoadingState !== 'loaded' || appLoadingState === 'blurred' || !allowSendZoneUpdates) return;
       const {getMapRef} = useMapStore.getState();
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
     },

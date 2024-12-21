@@ -35,6 +35,7 @@ export const temporalConfig: ZundoOptions<any, MapStore> =  {
   diff: (past: Partial<MapStore>, curr: Partial<MapStore>) => {
     // if not yet loaded, or is a temporal action (eg. silent heal) don't store
     if (past.mapRenderingState !== 'loaded' || curr.isTemporalAction) return null;
+    if (past.appLoadingState === 'blurred' || curr.appLoadingState === 'blurred') return null;
     const pastAssignments = past.zoneAssignments || new Map();
     const currAssignments = curr.zoneAssignments || new Map();
     // if assignments have changed size, do store the state
