@@ -39,4 +39,3 @@ class IdCache {
 }
 
 export const parentIdCache = new IdCache();
-window.idCache = parentIdCache;
