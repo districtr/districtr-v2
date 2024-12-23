@@ -9,6 +9,7 @@ import {
   HandIcon,
   LockOpen1Icon,
   ViewGridIcon,
+  MagnifyingGlassIcon,
 } from '@radix-ui/react-icons';
 import {RecentMapsModal} from '@components/sidebar/RecentMapsModal';
 
@@ -34,10 +35,16 @@ export function MapModeSelector() {
       label: 'Lock',
       icon: <LockOpen1Icon />,
     },
+    {
+      mode: 'zoomToUnassigned',
+      disabled: !mapDocument?.parent_layer,
+      label: 'Zoom To Unassigned',
+      icon: <MagnifyingGlassIcon />,
+    },
   ];
 
   const handleRadioChange = value => {
-    setActiveTool(value);
+    value && setActiveTool(value);
   };
 
   return (

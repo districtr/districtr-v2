@@ -11,6 +11,7 @@ import {ExitBlockViewButtons} from './ExitBlockViewButtons';
 import {ZonePicker} from './ZonePicker';
 import {ZoneLockPicker} from './ZoneLockPicker';
 import {MobileColorPicker} from './MobileColorPicker';
+import { ZoomToUnassigned } from './ZoomToUnassigned';
 
 export default function SidebarComponent() {
   const activeTool = useMapStore(state => state.activeTool);
@@ -61,6 +62,9 @@ export default function SidebarComponent() {
             <ZoneLockPicker />
           </div>
         ) : null}
+        {!!(activeTool === "zoomToUnassigned") && (
+          <ZoomToUnassigned />
+        )}
         <ResetMapButton />
         <ExitBlockViewButtons />
 
