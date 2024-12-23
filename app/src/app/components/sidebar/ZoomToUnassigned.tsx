@@ -31,12 +31,12 @@ export const ZoomToUnassigned = () => {
     <div>
       {unassignedFeatures.length > 0 && (
         <Box>
-          <Heading as="h3" size="3" my="2">
+          <Heading as="h3" size="3" mt="2">
             Found {unassignedFeatures.length} unassigned area
-            {unassignedFeatures.length > 1 ? 's' : ''}.
+            {unassignedFeatures.length > 1 ? 's' : ''}
           </Heading>
-          <Flex direction="row" align={'center'} gapX="2" mb="2">
-            <Text>Zoom to area{unassignedFeatures.length > 1 ? 's' : ''}:</Text>
+          <Text>Zoom to unassigned area{unassignedFeatures.length > 1 ? 's' : ''}</Text>
+          <Flex direction="row" align={'center'} gapX="2" gapY="2" my="2" wrap="wrap">
             {unassignedFeatures.map((feature, index) => (
               <Button
                 key={index}
