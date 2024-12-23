@@ -6,18 +6,19 @@ import type {
   Map as MapLibreMap,
   MapLayerMouseEvent,
   MapLayerTouchEvent,
-  MapDataEvent,
-  MapSourceDataEvent,
   MapGeoJSONFeature,
 } from 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
+  debouncedAddZoneMetaLayers,
   INTERACTIVE_LAYERS,
 } from '@/app/constants/layers';
 import {ResetMapSelectState} from '@utils/events/handlers';
-import {ActiveTool, MapFeatureInfo} from '@/app/constants/types';
+import GeometryWorker from '../GeometryWorker';
+import { MinGeoJSONFeature } from '../GeometryWorker/geometryWorker.types';
+import {ActiveTool} from '@/app/constants/types';
 import {parentIdCache} from '@/app/store/idCache';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
@@ -208,7 +209,12 @@ export const handleMapZoom = (
 
 export const handleMapIdle = () => {};
 
-export const handleMapMoveEnd = () => {};
+export const handleMapMoveEnd = () => {
+  const { mapOptions } = useMapStore.getState()
+  if (mapOptions.showZoneNumbers) {
+    debouncedAddZoneMetaLayers({})
+  }
+};
 
 export const handleMapZoomEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
@@ -267,9 +273,9 @@ export const handleIdCache = (
   _e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  const e = _e as unknown as MapSourceDataEvent;
-  const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {};
-
+  const e = _e as any
+  const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
+  
   if (
     !tiles_s3_path ||
     !parent_layer ||
@@ -280,17 +286,27 @@ export const handleIdCache = (
     return;
 
   const tileData = e.tile.latestFeatureIndex;
-  if (!tileData) return;
 
-  const index = `${tileData.x}-${tileData.y}-${tileData.z}`;
-  if (parentIdCache.hasCached(index)) return;
-  const vtLayers = tileData.loadVTLayers();
-
-  const parentLayerData = vtLayers[parent_layer];
-  const numFeatures = parentLayerData.length;
-  const featureDataArray = parentLayerData._values;
-  const idArray = featureDataArray.slice(-numFeatures);
-  parentIdCache.add(index, idArray);
+  if (!tileData) return
+  
+  const index = `${tileData.x}-${tileData.y}-${tileData.z}`
+  if (parentIdCache.hasCached(index)) return
+  const idArray = []
+  const featureArray: MinGeoJSONFeature[] = []
+  for (let i = 0; i < e.features.length; i++) {
+    const feature = e.features[i]
+    if (!feature || feature.sourceLayer !== parent_layer) continue
+    const id = feature.id
+    idArray.push(id)
+    featureArray.push({
+      type: "Feature",
+      properties: feature.properties,
+      geometry: feature.geometry,
+      sourceLayer: feature.sourceLayer
+    })
+  }
+  GeometryWorker?.loadGeometry(featureArray, "path");
+  parentIdCache.add(index, idArray)
   useMapStore.getState().setMapOptions({
     currentStateFp: idArray[0].replace('vtd:', '').slice(0, 2),
   });

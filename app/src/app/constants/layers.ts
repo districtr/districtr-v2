@@ -10,6 +10,9 @@ import {getBlocksSource} from './sources';
 import {DocumentObject} from '../utils/api/apiHandlers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
+import {throttle} from 'lodash';
+import GeometryWorker from '../utils/GeometryWorker';
+
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -20,9 +23,9 @@ export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 
 export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD];
-export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const
-
-export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]; 
+export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const;
+export const ZONE_LABEL_LAYERS = ['ZONE_OUTLINE', 'ZONE_LABEL', 'ZONE_LABEL_BG'];
+export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 export const COUNTY_LAYERS = ['counties_fill', 'counties_boundary','counties_labels']
 
 export const CHILD_LAYERS = [
@@ -54,10 +57,23 @@ ZONE_ASSIGNMENT_STYLE_DYNAMIC.push('#cecece');
 // @ts-ignore
 export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = ZONE_ASSIGNMENT_STYLE_DYNAMIC;
 
+export const ZONE_LABEL_STYLE_DYNAMIC = colorScheme.reduce(
+  (val, color, i) => {
+    val.push(['==', ['get', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+    return val;
+  },
+  ['case'] as any
+);
+ZONE_LABEL_STYLE_DYNAMIC.push('#cecece');
+
+// cast the above as an ExpressionSpecification
+// @ts-ignore
+export const ZONE_LABEL_STYLE: ExpressionSpecification = ZONE_LABEL_STYLE_DYNAMIC;
+
 const LAYER_LINE_WIDTHS = {
   [BLOCK_LAYER_ID]: 2,
-  [BLOCK_LAYER_ID_CHILD]: 1
-}
+  [BLOCK_LAYER_ID_CHILD]: 1,
+};
 
 export function getLayerFilter(layerId: string, _shatterIds?: MapStore['shatterIds']) {
   const shatterIds = _shatterIds || useMapStore.getState().shatterIds;
@@ -77,7 +93,7 @@ export function getLayerFill(
   captiveIds?: Set<string>,
   shatterIds?: Set<string>
 ): DataDrivenPropertyValueSpecification<number> {
-  const innerFillSpec = ([
+  const innerFillSpec = [
     'case',
     // is broken parent
     ['boolean', ['feature-state', 'broken'], false],
@@ -119,7 +135,7 @@ export function getLayerFill(
     ['boolean', ['feature-state', 'hover'], false],
     0.6,
     0.2,
-  ] as unknown) as DataDrivenPropertyValueSpecification<number>;
+  ] as unknown as DataDrivenPropertyValueSpecification<number>;
   if (captiveIds?.size) {
     return [
       'case',
@@ -188,12 +204,11 @@ export function getHighlightLayerSpecification(
   };
 }
 
-
 export function getBlocksLayerSpecification(
   sourceLayer: string,
-  layerId: typeof LINE_LAYERS[number]
+  layerId: (typeof LINE_LAYERS)[number]
 ): LayerSpecification {
-  const lineWidth = LAYER_LINE_WIDTHS[layerId]
+  const lineWidth = LAYER_LINE_WIDTHS[layerId];
 
   const layerSpec: LayerSpecification = {
     id: layerId,
@@ -206,8 +221,28 @@ export function getBlocksLayerSpecification(
     paint: {
       'line-opacity': 0.8,
       // 'line-color': '#aaaaaa', // Default color
-      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 6, '#aaa', 9, '#777', 14, '#333'],
-      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, lineWidth*.125, 9, lineWidth*.35, 14, lineWidth],
+      'line-color': [
+        'interpolate',
+        ['exponential', 1.6],
+        ['zoom'],
+        6,
+        '#aaa',
+        9,
+        '#777',
+        14,
+        '#333',
+      ],
+      'line-width': [
+        'interpolate',
+        ['exponential', 1.6],
+        ['zoom'],
+        6,
+        lineWidth * 0.125,
+        9,
+        lineWidth * 0.35,
+        14,
+        lineWidth,
+      ],
     },
   };
   if (CHILD_LAYERS.includes(layerId)) {
@@ -295,4 +330,100 @@ export function removeBlockLayers(map: Map | null) {
   });
 }
 
-export {addBlockLayers};
+const getDissolved = async () => {
+  const {getMapRef} = useMapStore.getState();
+  const mapRef = getMapRef();
+  if (!mapRef || !GeometryWorker) return;
+  const currentView = mapRef.getBounds();
+  const { centroids, dissolved} = await GeometryWorker.getCentroidsFromView(
+    currentView.getWest(),
+    currentView.getSouth(),
+    currentView.getEast(),
+    currentView.getNorth()
+  );
+  return {centroids, dissolved};
+};
+
+const removeZoneMetaLayers = () => {
+  const {getMapRef} = useMapStore.getState();
+  const mapRef = getMapRef();
+  if (!mapRef) return;
+  ZONE_LABEL_LAYERS.forEach(id => {
+    mapRef.getLayer(id) && mapRef.removeLayer(id);
+  });
+  ZONE_LABEL_LAYERS.forEach(id => {
+    mapRef.getSource(id) && mapRef.removeSource(id);
+  });
+};
+
+const addZoneMetaLayers = async ({
+  centroids,
+  dissolved,
+}: {
+  centroids?: GeoJSON.FeatureCollection;
+  dissolved?: GeoJSON.FeatureCollection;
+}) => {
+  const geoms =
+    centroids && dissolved
+      ? {
+          centroids,
+          dissolved,
+        }
+      : await getDissolved();
+  const {getMapRef} = useMapStore.getState();
+  const mapRef = getMapRef();
+  if (!mapRef || !geoms) return;
+  const zoneLabelSource = mapRef.getSource('ZONE_LABEL');
+  if (!zoneLabelSource) {
+    mapRef.addSource('ZONE_LABEL', {
+      type: 'geojson',
+      data: geoms.centroids,
+    });
+    mapRef.addLayer({
+      id: 'ZONE_LABEL_BG',
+      type: 'circle',
+      source: 'ZONE_LABEL',
+      paint: {
+        'circle-color': '#fff',
+        'circle-radius': 15,
+        'circle-opacity': 0.8,
+        'circle-stroke-color': ZONE_LABEL_STYLE || '#000',
+        'circle-stroke-width': 2,
+      },
+
+      filter: ['==', ['get', 'zone'], ['get', 'zone']],
+    });
+    mapRef.addLayer({
+      id: 'ZONE_LABEL',
+      type: 'symbol',
+      source: 'ZONE_LABEL',
+      layout: {
+        'text-field': ['get', 'zone'],
+        'text-font': ['Barlow Bold'],
+        'text-size': 18,
+        'text-anchor': 'center',
+        'text-offset': [0, 0],
+      },
+      paint: {
+        'text-color': '#000',
+      },
+    });
+  } else {
+    // @ts-ignore behavior is correct, typing on `source` is wrong
+    zoneLabelSource.setData(geoms.centroids);
+  }
+};
+
+const debouncedAddZoneMetaLayers = throttle(
+  addZoneMetaLayers,
+  1000,
+  { leading: true, trailing: true }
+);
+
+export {
+  addBlockLayers,
+  removeZoneMetaLayers,
+  addZoneMetaLayers,
+  getDissolved,
+  debouncedAddZoneMetaLayers,
+};

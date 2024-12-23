@@ -233,6 +233,7 @@ export type ColorZoneAssignmentsState = [
   MapStore['appLoadingState'],
   MapStore['mapRenderingState'],
   MapStore['mapOptions']['lockPaintedAreas'],
+  MapStore['mapOptions']['showZoneNumbers'],
 ];
 
 export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
