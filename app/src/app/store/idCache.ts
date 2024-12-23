@@ -2,7 +2,7 @@ import {MinGeoJSONFeature} from '../utils/GeometryWorker/geometryWorker.types';
 
 class IdCache {
   cachedTileIndices: Set<string> = new Set();
-  parents: Record<string, {}> = {};
+  parents: Record<string, Partial<MinGeoJSONFeature>> = {};
 
   hasCached(index: string) {
     return this.cachedTileIndices.has(index);
