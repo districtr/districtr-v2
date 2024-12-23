@@ -57,7 +57,7 @@ export const handleMapClick = (
   map: MapLibreMap | null
 ) => {
   const mapStore = useMapStore.getState();
-  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures} = mapStore;
+  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures, setIsPainting} = mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
@@ -67,6 +67,8 @@ export const handleMapClick = (
       // select on both the map object and the store
       // @ts-ignore TODO fix typing on this function
       selectMapFeatures(selectedFeatures);
+      // end paint event to commit changes to zone assignments
+      setIsPainting(false)
     }
   } else if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
