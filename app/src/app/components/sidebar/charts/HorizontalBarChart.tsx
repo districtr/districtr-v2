@@ -72,7 +72,7 @@ export const HorizontalBar = () => {
   };
 
   const stats = useMemo(() => {
-    if (mapMetrics) {
+    if (mapMetrics && !mapMetrics.isPending) {
       const chartObject = calculateChartObject();
       const allAreNonZero = chartObject.every(entry => entry.total_pop > 0);
       const stats = allAreNonZero ? calculateMinMaxRange(chartObject) : undefined;
@@ -86,10 +86,16 @@ export const HorizontalBar = () => {
   }
 
   if (mapMetrics?.isError) {
-    if (mapMetrics?.error.response.data.detail) {
-      return <div>Error: {mapMetrics?.error.response.data.detail}</div>;
-    }
-    return <div>Error: {mapMetrics?.error.message}</div>;
+    return (
+      <div>
+        Error:{' '}
+        {'response' in mapMetrics.error
+          ? // APIError
+            mapMetrics.error.response.data.detail
+          : // Missing document error
+            mapMetrics.error.message}
+      </div>
+    );
   }
 
   if (!mapMetrics || mapMetrics.data.length === 0) {

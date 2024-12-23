@@ -268,8 +268,8 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
-  mapMetrics: UseQueryResult<ZonePopulation[], APIError> | null;
-  setMapMetrics: (metrics: UseQueryResult<ZonePopulation[], APIError> | null) => void;
+  mapMetrics: UseQueryResult<ZonePopulation[], APIError | Error> | null;
+  setMapMetrics: (metrics: UseQueryResult<ZonePopulation[], APIError | Error> | null) => void;
   visibleLayerIds: string[];
   setVisibleLayerIds: (layerIds: string[]) => void;
   addVisibleLayerIds: (layerIds: string[]) => void;
