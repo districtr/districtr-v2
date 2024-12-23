@@ -8,7 +8,6 @@ import {MAP_OPTIONS} from '../constants/configuration';
 import {mapEvents} from '../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
-import {parentIdCache} from '../store/idCache';
 import {MapTooltip} from './MapTooltip';
 
 export const MapComponent: React.FC = () => {
