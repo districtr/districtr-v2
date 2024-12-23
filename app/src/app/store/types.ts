@@ -1,4 +1,5 @@
 import {NullableZone} from '../constants/types';
+import { AxiosError, AxiosResponse } from 'axios';
 
 export type DistrictrMapOptions = {
   showBrokenDistricts?: boolean;
@@ -6,5 +7,21 @@ export type DistrictrMapOptions = {
   lockPaintedAreas: boolean | Array<NullableZone>;
   mode: 'default' | 'break';
   paintByCounty?: boolean;
-  currentStateFp?: string
+  currentStateFp?: string;
+  showPopulationTooltip?: boolean;
 };
+
+export type DistrictrChartOptions = {
+  popTargetPopDeviation?: number;
+  popTargetPopDeviationPct?: number;
+  popShowPopNumbers: boolean;
+  popShowDistrictNumbers: boolean;
+  popBarScaleToCurrent: boolean;
+  popShowTopBottomDeviation: boolean;
+};
+
+interface APIErrorResponse extends AxiosResponse {detail: string}
+
+export interface APIError extends AxiosError {
+  response: APIErrorResponse
+}

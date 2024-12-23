@@ -8,14 +8,14 @@ export default function PaintByCounty() {
   const mapRef = useMapStore(state => state.getMapRef());
   const addVisibleLayerIds = useMapStore(state => state.addVisibleLayerIds);
   const setPaintFunction = useMapStore(state => state.setPaintFunction);
-  const paintByCounty = useMapStore(state => state.mapOptions.paintByCounty)
-  const setMapOptions = useMapStore(state => state.setMapOptions)
+  const paintByCounty = useMapStore(state => state.mapOptions.paintByCounty);
+  const setMapOptions = useMapStore(state => state.setMapOptions);
 
   const handleToggle = () => {
     if (!mapRef) return;
     setMapOptions({
-      paintByCounty: !paintByCounty
-    })
+      paintByCounty: !paintByCounty,
+    });
     if (!paintByCounty) {
       COUNTY_LAYER_IDS.forEach(layerId => {
         mapRef.setLayoutProperty(layerId, 'visibility', 'visible');
@@ -25,17 +25,13 @@ export default function PaintByCounty() {
     } else {
       setPaintFunction(getFeaturesInBbox);
     }
-  }
+  };
 
   return (
     <Box>
       <Text as="label" size="2">
         <Flex gap="2">
-          <Checkbox
-            checked={paintByCounty}
-            defaultChecked={false}
-            onClick={handleToggle}
-          />
+          <Checkbox checked={paintByCounty} defaultChecked={false} onClick={handleToggle} />
           Paint by County
         </Flex>
       </Text>

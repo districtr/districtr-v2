@@ -1,7 +1,7 @@
 'use client';
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
 import {create} from 'zustand';
-import {devtools, subscribeWithSelector, persist} from 'zustand/middleware';
+import {subscribeWithSelector, persist} from 'zustand/middleware';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '../constants/types';
 import {Zone, GDBPath} from '../constants/types';
 import {
@@ -11,11 +11,10 @@ import {
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
   ShatterResult,
-  ZonePopulation,
 } from '../utils/api/apiHandlers';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
-import {QueryObserverResult, UseQueryResult} from '@tanstack/react-query';
+import {QueryObserverResult} from '@tanstack/react-query';
 import {
   ContextMenuState,
   LayerVisibility,
@@ -27,18 +26,18 @@ import {
 } from '../utils/helpers';
 import {getRenderSubscriptions} from './mapRenderSubs';
 import {getSearchParamsObersver} from '../utils/api/queryParamsListener';
-import {getMapMetricsSubs} from './metricsSubs';
 import {getMapEditSubs} from './mapEditSubs';
 import {getQueriesResultsSubs} from '../utils/api/queries';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
-import {devToolsConfig, persistOptions} from './middlewareConfig';
-import {onlyUnique} from '../utils/arrays';
 import {DistrictrMapOptions} from './types';
+import {devToolsConfig, devwrapper, persistOptions} from './middlewareConfig';
+import {onlyUnique} from '../utils/arrays';
 import {parentIdCache} from './idCache';
+import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
-import { AxiosError, AxiosResponse } from 'axios';
+import { useChartStore } from './chartStore';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -49,15 +48,6 @@ const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string
   }
   return combinedSet; // Return the combined set
 };
-
-const prodWrapper: typeof devtools = (store: any) => store;
-const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
-
-interface APIErrorResponse extends AxiosResponse {detail: string}
-
-export interface APIError extends AxiosError {
-  response: APIErrorResponse
-}
 
 export interface MapStore {
   // LOAD AND RENDERING STATE TRACKING
@@ -223,13 +213,6 @@ export interface MapStore {
   setLockedFeatures: (lockedFeatures: MapStore['lockedFeatures']) => void;
   setLockedZones: (areas: MapStore['mapOptions']['lockPaintedAreas']) => void;
   toggleLockAllAreas: () => void;
-  // HOVERING
-  /**
-   * Features that area highlighted and hovered.
-   * Map render effects in `mapRenderSubs` -> `_hoverMapSideEffectRender`
-   */
-  hoverFeatures: Array<MapFeatureInfo>;
-  setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
   // FOCUS
   /**
    * Parent IDs that a user is working on in break mode.
@@ -246,8 +229,6 @@ export interface MapStore {
   setSpatialUnit: (unit: SpatialUnit) => void;
   selectedZone: Zone;
   setSelectedZone: (zone: Zone) => void;
-  accumulatedBlockPopulations: Map<string, number>;
-  resetAccumulatedBlockPopulations: () => void;
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   assignmentsHash: string;
@@ -268,14 +249,13 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
-  mapMetrics: UseQueryResult<ZonePopulation[], APIError | Error> | null;
-  setMapMetrics: (metrics: UseQueryResult<ZonePopulation[], APIError | Error> | null) => void;
   visibleLayerIds: string[];
   setVisibleLayerIds: (layerIds: string[]) => void;
   addVisibleLayerIds: (layerIds: string[]) => void;
   updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
+
   // USER MAPS / RECENT MAPS
   userMaps: Array<DocumentObject & {name?: string}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
@@ -343,14 +323,10 @@ export const useMapStore = create(
         selectMapFeatures: features => {
           let {
             accumulatedGeoids,
-            accumulatedBlockPopulations,
             activeTool,
-            shatterMappings,
             mapDocument,
-            lockedFeatures,
             getMapRef,
             selectedZone: _selectedZone,
-            zoneAssignments,
           } = get();
 
           const map = getMapRef();
@@ -358,33 +334,47 @@ export const useMapStore = create(
           if (!map || !mapDocument?.document_id) {
             return;
           }
+          // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
+          // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
+          // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
+          // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
+          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
+          if (!featureStateCache) return;
           // PAINT
+          const popChanges: Record<number, number> = {};
+          selectedZone !== null && (popChanges[selectedZone] = 0);
+
           features?.forEach(feature => {
             const id = feature?.id?.toString() ?? undefined;
-            if (!id) return;
-            const isLocked = lockedFeatures.size && lockedFeatures.has(id);
-            if (isLocked) return;
+            if (!id || !feature.sourceLayer) return;
+            const featureState = featureStateCache[feature.sourceLayer][id];
+            const prevAssignment = featureState?.['zone'] || false;
+            const shouldSkip = accumulatedGeoids.has(id) || featureState?.['locked'] || prevAssignment === selectedZone || false;
+            if (shouldSkip) return;
 
             accumulatedGeoids.add(feature.properties?.path);
-            accumulatedBlockPopulations.set(
-              feature.properties?.path,
-              feature.properties?.total_pop
-            );
-            zoneAssignments.set(id, selectedZone);
+            // TODO: Tiles should have population values as numbers, not strings
+            const popValue = parseInt(feature.properties?.total_pop);
+            if (!isNaN(popValue)) {
+              if (prevAssignment) {
+                popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
+              }
+              if (selectedZone) {
+                popChanges[selectedZone] = (popChanges[selectedZone] || 0) + popValue;
+              }
+            }
+
             map.setFeatureState(
               {
                 source: BLOCK_SOURCE_ID,
-                id: feature?.id ?? undefined,
+                id,
                 sourceLayer: feature.sourceLayer,
               },
               {selected: true, zone: selectedZone}
             );
           });
-          set({
-            accumulatedGeoids,
-            accumulatedBlockPopulations,
-            zoneAssignments: new Map(zoneAssignments),
-          });
+
+          useChartStore.getState().updateMetrics(popChanges);
         },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
@@ -757,18 +747,6 @@ export const useMapStore = create(
             zoneAssignments,
           });
         },
-        hoverFeatures: [],
-        setHoverFeatures: _features => {
-          const hoverFeatures = _features
-            ? _features.map(f => ({
-                source: f.source,
-                sourceLayer: f.sourceLayer,
-                id: f.id,
-              }))
-            : [];
-
-          set({hoverFeatures});
-        },
         focusFeatures: [],
         mapOptions: {
           center: [-98.5795, 39.8283],
@@ -870,9 +848,6 @@ export const useMapStore = create(
           });
           set({zoneAssignments, shatterIds, shatterMappings, appLoadingState: 'loaded'});
         },
-        accumulatedBlockPopulations: new Map<string, number>(),
-        resetAccumulatedBlockPopulations: () =>
-          set({accumulatedBlockPopulations: new Map<string, number>()}),
         zonePopulations: new Map(),
         setZonePopulations: (zone, population) =>
           set(state => {
@@ -886,7 +861,14 @@ export const useMapStore = create(
         brushSize: 50,
         setBrushSize: size => set({brushSize: size}),
         isPainting: false,
-        setIsPainting: isPainting => set({isPainting}),
+        setIsPainting: isPainting => {
+          if (!isPainting) {
+            const {setZoneAssignments, accumulatedGeoids, selectedZone, activeTool} = get();
+            const zone = activeTool === 'eraser' ? null : selectedZone;
+            setZoneAssignments(zone, accumulatedGeoids);
+          }
+          set({isPainting});
+        },
         paintFunction: getFeaturesInBbox,
         setPaintFunction: paintFunction => set({paintFunction}),
         clearMapEdits: () =>
@@ -897,8 +879,6 @@ export const useMapStore = create(
           }),
         freshMap: false,
         setFreshMap: resetMap => set({freshMap: resetMap}),
-        mapMetrics: null,
-        setMapMetrics: metrics => set({mapMetrics: metrics}),
         visibleLayerIds: ['counties_boundary', 'counties_labels'],
         setVisibleLayerIds: layerIds => set({visibleLayerIds: layerIds}),
         addVisibleLayerIds: (layerIds: string[]) => {
@@ -928,15 +908,55 @@ export const useMapStore = create(
         userMaps: [],
         setUserMaps: userMaps => set({userMaps}),
       })),
-      devToolsConfig
+
+      {
+        ...devToolsConfig,
+        name: 'Districtr Map Store',
+      }
     ),
     persistOptions
   )
 );
 
+export interface HoverFeatureStore {
+  // HOVERING
+  /**
+   * Features that area highlighted and hovered.
+   * Map render effects in `mapRenderSubs` -> `_hoverMapSideEffectRender`
+   */
+  hoverFeatures: Array<MapFeatureInfo>;
+  setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
+}
+
+export const useHoverStore = create(
+  devwrapper(
+    subscribeWithSelector<HoverFeatureStore>((set, get) => ({
+
+      hoverFeatures: [],
+      setHoverFeatures: _features => {
+        const hoverFeatures = _features
+          ? _features.map(f => ({
+              source: f.source,
+              sourceLayer: f.sourceLayer,
+              id: f.id,
+            }))
+          : [];
+
+        set({hoverFeatures});
+      },
+    })),
+
+    {
+      ...devToolsConfig,
+      name: "Districtr Hover Feature Store"
+    }
+  )
+);
+
+
 // these need to initialize after the map store
-getRenderSubscriptions(useMapStore);
-getMapMetricsSubs(useMapStore);
+getRenderSubscriptions(useMapStore, useHoverStore);
 getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
+getMapMetricsSubs(useMapStore)
 getSearchParamsObersver();
