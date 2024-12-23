@@ -49,6 +49,12 @@ export type ContextMenuState = {
   close: () => void;
 };
 
+export type TooltipState = {
+  x: number;
+  y: number;
+  data: Array<{label: string; value: unknown}>;
+};
+
 /**
  * boxAroundPoint
  * Create a bounding box around a point on the map.
@@ -87,8 +93,8 @@ export const getFeaturesInBbox = (
   const layers = _layers?.length
     ? _layers
     : captiveIds.size
-    ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
-    : [BLOCK_HOVER_LAYER_ID];
+      ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+      : [BLOCK_HOVER_LAYER_ID];
 
   let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
 
@@ -135,7 +141,7 @@ export const getFeaturesIntersectingCounties = (
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
   const {mapDocument, shatterIds} = useMapStore.getState();
-  const filterPrefix = mapDocument?.parent_layer.includes("vtd") ? "vtd:" : ""
+  const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
   const cachedParentFeatures = parentIdCache.getFilteredIds(`${filterPrefix}${fips}`).map(id => ({
     id,
     source: BLOCK_SOURCE_ID,
@@ -226,7 +232,8 @@ export type ColorZoneAssignmentsState = [
   MapStore['shatterIds'],
   MapStore['appLoadingState'],
   MapStore['mapRenderingState'],
-  MapStore['mapOptions']['lockPaintedAreas']
+  MapStore['mapOptions']['lockPaintedAreas'],
+  MapStore['mapOptions']['showZoneNumbers'],
 ];
 
 export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
@@ -329,8 +336,8 @@ export const resetZoneColors = ({
   const idsToReset = ids
     ? Array.from(ids)
     : zoneAssignments
-    ? Array.from(zoneAssignments.keys())
-    : null;
+      ? Array.from(zoneAssignments.keys())
+      : null;
   if (!mapDocument || !mapRef || !idsToReset) return;
   const childLayerExists = mapDocument?.child_layer;
   const shatterIdsExist = shatterIds.parents.size;
@@ -454,17 +461,12 @@ export const checkIfSameZone = (
  * The function returns an array of features that pass all the filtering criteria.
  */
 const filterFeatures = (
-  features: MapGeoJSONFeature[], 
+  features: MapGeoJSONFeature[],
   filterLocked: boolean = true,
   additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = []
 ) => {
-  const {
-    captiveIds,
-    lockedFeatures,
-    mapDocument,
-    checkParentsToHeal,
-    shatterIds,
-  } = useMapStore.getState();
+  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds} =
+    useMapStore.getState();
   const parentIdsToHeal: MapStore['parentsToHeal'] = [];
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
   if (captiveIds.size) {

@@ -43,9 +43,11 @@ export default function Layers() {
         name="districts"
         value={[
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
+          mapOptions.showZoneNumbers ? '2' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
           mapOptions.lockPaintedAreas === true ? '4' : '',
-          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : ''
+          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
+          mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
         ]}
       >
         <CheckboxGroup.Item
@@ -62,8 +64,10 @@ export default function Layers() {
         >
           Show painted districts
         </CheckboxGroup.Item>
-        <CheckboxGroup.Item value="2" disabled>
-          Show numbering for painted districts
+        <CheckboxGroup.Item value="2" onClick={() => setMapOptions({
+          showZoneNumbers: !mapOptions.showZoneNumbers
+        })}>
+          Show numbering for painted districts <i>(experimental)</i>
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="3"
@@ -72,10 +76,25 @@ export default function Layers() {
         >
           Highlight broken precincts
         </CheckboxGroup.Item>
-        <CheckboxGroup.Item value="higlightUnassigned" onClick={() => setMapOptions({
-          higlightUnassigned: !mapOptions.higlightUnassigned
-        })}>
+        <CheckboxGroup.Item
+          value="higlightUnassigned"
+          onClick={() =>
+            setMapOptions({
+              higlightUnassigned: !mapOptions.higlightUnassigned,
+            })
+          }
+        >
           Highlight unassigned units
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item
+          value="showPopulationTooltip"
+          onClick={() =>
+            setMapOptions({
+              showPopulationTooltip: !mapOptions.showPopulationTooltip,
+            })
+          }
+        >
+          Show population tooltip
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>
       <Heading as="h3" weight="bold" size="3">
