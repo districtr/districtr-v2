@@ -1,4 +1,5 @@
 import {NullableZone} from '../constants/types';
+import { AxiosError, AxiosResponse } from 'axios';
 
 export type DistrictrMapOptions = {
   showBrokenDistricts?: boolean;
@@ -19,3 +20,9 @@ export type DistrictrChartOptions = {
   popBarScaleToCurrent: boolean;
   popShowTopBottomDeviation: boolean;
 };
+
+interface APIErrorResponse extends AxiosResponse {detail: string}
+
+export interface APIError extends AxiosError {
+  response: APIErrorResponse
+}
