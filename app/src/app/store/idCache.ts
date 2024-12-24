@@ -1,25 +1,41 @@
+import {MinGeoJSONFeature} from '../utils/GeometryWorker/geometryWorker.types';
+
 class IdCache {
-  cachedTileIndices: Set<string> = new Set()
-  parentIds: Set<string> = new Set()
+  cachedTileIndices: Set<string> = new Set();
+  parents: Record<string, Partial<MinGeoJSONFeature>> = {};
 
-  hasCached(index: string){
-    return this.cachedTileIndices.has(index)
+  hasCached(index: string) {
+    return this.cachedTileIndices.has(index);
   }
 
-  add(index: string, ids: string[]){
-    this.cachedTileIndices.add(index)
-    ids.forEach(id => this.parentIds.add(id))
+  loadFeatures(features: MinGeoJSONFeature[], tileIndex: string) {
+    if (this.hasCached(tileIndex)) {
+      return;
+    } else {
+      this.cachedTileIndices.add(tileIndex);
+      features.forEach(feature => {
+        if (feature.properties && feature.properties.path) {
+          const id = feature.properties.path;
+          if (!this.parents[id]) {
+            this.parents[id] = {
+              ...feature,
+              geometry: undefined
+            };
+          }
+        }
+      });
+    }
   }
 
-  clear(){
-    this.parentIds.clear()
-    this.cachedTileIndices.clear()
+  clear() {
+    this.parents = {};
+    this.cachedTileIndices.clear();
   }
 
-  getFilteredIds(id: string){
+  getFiltered(id: string) {
     const regex = new RegExp(`^${id}`);
-    return Array.from(this.parentIds).filter(f => regex.test(f));
+    return Object.entries(this.parents).filter(([key]) => regex.test(key));
   }
 }
 
-export const parentIdCache = new IdCache()
+export const parentIdCache = new IdCache();

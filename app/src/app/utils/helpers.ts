@@ -140,12 +140,13 @@ export const getFeaturesIntersectingCounties = (
 
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
-  const {mapDocument, shatterIds} = useMapStore.getState();
+  const {mapDocument, shatterIds, checkParentsToHeal} = useMapStore.getState();
   const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
-  const cachedParentFeatures = parentIdCache.getFilteredIds(`${filterPrefix}${fips}`).map(id => ({
-    id,
+  const cachedParentFeatures = parentIdCache.getFiltered(`${filterPrefix}${fips}`).map(([id, properties]) => ({
     source: BLOCK_SOURCE_ID,
     sourceLayer: mapDocument?.parent_layer,
+    id,
+    ...properties,
   }));
 
   const childFeatures = shatterIds.children.size
@@ -153,9 +154,15 @@ export const getFeaturesIntersectingCounties = (
         id,
         source: BLOCK_SOURCE_ID,
         sourceLayer: mapDocument?.child_layer,
+        properties: {
+          path: id
+        }
       })) as any)
     : [];
-
+  
+  if (shatterIds.children.size) {
+    checkParentsToHeal(cachedParentFeatures.map(f => f.id));
+  }
   return filterFeatures([...cachedParentFeatures, ...childFeatures], true, [
     feature => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips),
   ]);
