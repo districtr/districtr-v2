@@ -6,7 +6,10 @@ import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
 import {queryClient} from '../utils/api/queryClient';
 
-export let allowSendZoneUpdates = true
+// allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
+// when shattering/healing vtds during an undo/redo operation.
+// We want to prevent intermediary state changes from being sent to the backend.
+let allowSendZoneUpdates = true
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
   const isMutating = queryClient.isMutating();

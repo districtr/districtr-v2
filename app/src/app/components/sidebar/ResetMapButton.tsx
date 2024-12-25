@@ -1,13 +1,7 @@
-import {useMapStore, type MapStore} from '@/app/store/mapStore';
 import {AlertDialog, Button, Flex} from '@radix-ui/themes';
-import type {TemporalState} from 'zundo';
 import {useStore} from 'zustand';
-
-/* convert zundo to a React hook */
-const useTemporalStore = <T,>(
-  selector: (state: TemporalState<Partial<MapStore>>) => T,
-  equality?: (a: T, b: T) => boolean
-) => useStore(useMapStore.temporal, selector, equality);
+import {useMapStore} from '@/app/store/mapStore';
+import {useTemporalStore} from '@/app/store/temporalStore';
 
 export function ResetMapButton() {
   const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
