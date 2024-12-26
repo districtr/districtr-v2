@@ -142,12 +142,14 @@ export const getFeaturesIntersectingCounties = (
   console.log("!!!SEARCHING FEATURES IN FOR FIPS", fips)
   const {mapDocument, shatterIds, checkParentsToHeal} = useMapStore.getState();
   const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
+
   const cachedParentFeatures = parentIdCache.getFiltered(`${filterPrefix}${fips}`).map(([id, properties]) => ({
     source: BLOCK_SOURCE_ID,
     sourceLayer: mapDocument?.parent_layer,
     ...properties,
     id,
   }));
+
   console.log("!!!cachedParentFeatures", cachedParentFeatures)
 
   const childFeatures = shatterIds.children.size
@@ -162,6 +164,7 @@ export const getFeaturesIntersectingCounties = (
     : [];
   
   console.log("!!!CHILD FEATURES", childFeatures)
+
   if (shatterIds.children.size) {
     // handle checking broken parents
     checkParentsToHeal(cachedParentFeatures.map(f => f.id));
@@ -169,7 +172,9 @@ export const getFeaturesIntersectingCounties = (
   const filtered =  filterFeatures([...cachedParentFeatures, ...childFeatures], true, [
     feature => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips),
   ]);
+  
   console.log("!!!FILTERED", filtered)
+  
   return filtered
 };
 
