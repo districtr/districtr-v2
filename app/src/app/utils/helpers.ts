@@ -145,8 +145,8 @@ export const getFeaturesIntersectingCounties = (
   const cachedParentFeatures = parentIdCache.getFiltered(`${filterPrefix}${fips}`).map(([id, properties]) => ({
     source: BLOCK_SOURCE_ID,
     sourceLayer: mapDocument?.parent_layer,
-    id,
     ...properties,
+    id,
   }));
   console.log("!!!cachedParentFeatures", cachedParentFeatures)
 
