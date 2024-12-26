@@ -304,7 +304,10 @@ export const handleIdCache = (
       sourceLayer: feature.sourceLayer
     })
   }
-  const currentStateFp = featureArray?.[0]?.properties?.id?.replace('vtd:', '')?.slice(0, 2)
+  console.log("FEATURES LOADED", featureArray?.[0])
+  const id = featureArray?.[0]?.properties?.path || featureArray?.[0]?.properties?.id
+  const currentStateFp = id?.replace('vtd:', '')?.slice(0, 2)
+  
 
   GeometryWorker?.loadGeometry(featureArray, "path");
   parentIdCache.loadFeatures(featureArray, index)
