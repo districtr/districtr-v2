@@ -421,12 +421,8 @@ def test_get_document_vap_totals(
 ):
     doc_uuid = str(uuid.UUID(assignments_document_id_total_vap))
     result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    assert result.status_code == 200
-    data = result.json()
-    # Eventually should return `total_vap` instead of `total_pop`
-    # But first should decide on how to handle metadata of returned metrics
-    # in general case
-    assert data == [{"zone": 1, "total_pop": 67}, {"zone": 2, "total_pop": 130}]
+    assert result.status_code == 404
+    assert result.json() == {"detail": "Population column not found in GerryDB view"}
 
 
 def test_get_document_population_totals_no_gerrydb_pop_view(

@@ -57,16 +57,17 @@ export const handleMapClick = (
   map: MapLibreMap | null
 ) => {
   const mapStore = useMapStore.getState();
-  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures} = mapStore;
+  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures, setIsPainting} = mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
-
     if (sourceLayer && selectedFeatures && map && mapStore) {
       // select on both the map object and the store
       // @ts-ignore TODO fix typing on this function
       selectMapFeatures(selectedFeatures);
+      // end paint event to commit changes to zone assignments
+      setIsPainting(false)
     }
   } else if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
@@ -291,13 +292,11 @@ export const handleIdCache = (
   
   const index = `${tileData.x}-${tileData.y}-${tileData.z}`
   if (parentIdCache.hasCached(index)) return
-  const idArray = []
   const featureArray: MinGeoJSONFeature[] = []
   for (let i = 0; i < e.features.length; i++) {
     const feature = e.features[i]
     if (!feature || feature.sourceLayer !== parent_layer) continue
     const id = feature.id
-    idArray.push(id)
     featureArray.push({
       type: "Feature",
       properties: feature.properties,
@@ -305,11 +304,11 @@ export const handleIdCache = (
       sourceLayer: feature.sourceLayer
     })
   }
+  const currentStateFp = featureArray?.[0]?.properties?.id?.replace('vtd:', '')?.slice(0, 2)
+
   GeometryWorker?.loadGeometry(featureArray, "path");
-  parentIdCache.add(index, idArray)
-  useMapStore.getState().setMapOptions({
-    currentStateFp: idArray[0].replace('vtd:', '').slice(0, 2),
-  });
+  parentIdCache.loadFeatures(featureArray, index)
+  useMapStore.getState().setMapOptions({currentStateFp});
 };
 
 

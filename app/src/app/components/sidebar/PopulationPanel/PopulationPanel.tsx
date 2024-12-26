@@ -48,9 +48,15 @@ export const PopulationPanel = () => {
   }
 
   if (mapMetrics?.isError) {
-    return <div>Error: {mapMetrics?.error.message}</div>;
+    return (
+      <div>
+        Error:{' '}
+        {'response' in mapMetrics.error
+          ? mapMetrics.error.response.data.detail
+          : mapMetrics.error.message}
+      </div>
+    );
   }
-
   if (!mapMetrics || mapMetrics.data.length === 0) {
     return (
       <Text color="gray" size="2">

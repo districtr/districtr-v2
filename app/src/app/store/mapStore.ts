@@ -1,7 +1,7 @@
 'use client';
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
 import {create} from 'zustand';
-import {devtools, subscribeWithSelector, persist} from 'zustand/middleware';
+import {subscribeWithSelector, persist} from 'zustand/middleware';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '../constants/types';
 import {Zone, GDBPath} from '../constants/types';
 import {
@@ -11,11 +11,10 @@ import {
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
   ShatterResult,
-  ZonePopulation,
 } from '../utils/api/apiHandlers';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
-import {QueryObserverResult, UseQueryResult} from '@tanstack/react-query';
+import {QueryObserverResult} from '@tanstack/react-query';
 import {
   ContextMenuState,
   LayerVisibility,
@@ -32,7 +31,7 @@ import {getQueriesResultsSubs} from '../utils/api/queries';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
-import {DistrictrChartOptions, DistrictrMapOptions} from './types';
+import {DistrictrMapOptions} from './types';
 import {devToolsConfig, devwrapper, persistOptions} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
 import {parentIdCache} from './idCache';
@@ -946,7 +945,7 @@ export const useHoverStore = create(
         set({hoverFeatures});
       },
     })),
-    
+
     {
       ...devToolsConfig,
       name: "Districtr Hover Feature Store"
