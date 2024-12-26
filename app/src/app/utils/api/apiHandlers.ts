@@ -2,21 +2,22 @@ import axios from 'axios';
 import 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {getEntryTotal} from '../summaryStats';
+import { NullableZone } from '@/app/constants/types';
 
 export const FormatAssignments = () => {
-  const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
-    // @ts-ignore
-    ([geo_id, zone]: [string, number]): {
-      document_id: string;
-      geo_id: string;
-      zone: number;
-    } => ({
-      document_id: useMapStore.getState().mapDocument?.document_id.toString() ?? '',
-      geo_id,
-      zone,
-    })
-  );
-  return assignments;
+  const document_id = useMapStore.getState().mapDocument?.document_id.toString() ?? '';
+  if (!document_id.length) return
+  
+  const assignmentsArray = Array.from(useMapStore.getState().zoneAssignments.entries())
+  const cleanAssignments: Array<{geo_id:string, zone: NullableZone, document_id:string}> = []
+
+  for (const [geo_id, zone] of assignmentsArray) {
+    if (geo_id.length){
+      cleanAssignments.push({geo_id, zone, document_id})
+    }
+  }
+  console.log("cleanAssignments", cleanAssignments)
+  return cleanAssignments;
 };
 
 /**
