@@ -296,7 +296,7 @@ export const handleIdCache = (
   for (let i = 0; i < e.features.length; i++) {
     const feature = e.features[i]
     if (!feature || feature.sourceLayer !== parent_layer) continue
-    const id = feature.id
+    const id = feature.id || feature.properties?.path
     featureArray.push({
       type: "Feature",
       properties: {

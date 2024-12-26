@@ -7,17 +7,14 @@ import { NullableZone } from '@/app/constants/types';
 export const FormatAssignments = () => {
   const document_id = useMapStore.getState().mapDocument?.document_id.toString() ?? '';
   if (!document_id.length) return
-  
   const assignmentsArray = Array.from(useMapStore.getState().zoneAssignments.entries())
   const cleanAssignments: Array<{geo_id:string, zone: number, document_id:string}> = []
-
   for (const [geo_id, zone] of assignmentsArray) {
     if (geo_id.length){
       // zones can be null but this is causing type problems. quick fix for now
       cleanAssignments.push({geo_id, zone: zone!, document_id})
     }
   }
-  console.log("cleanAssignments", cleanAssignments)
   return cleanAssignments;
 };
 
