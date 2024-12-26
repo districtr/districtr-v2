@@ -10,7 +10,9 @@ const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapS
   const isMutating = queryClient.isMutating();
   if (!isMutating && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
     const assignments = FormatAssignments();
-    patchUpdates.mutate(assignments);
+    if (assignments) {
+      patchUpdates.mutate(assignments);
+    }
   }
 };
 
