@@ -292,7 +292,6 @@ export const handleIdCache = (
   
   const index = `${tileData.x}-${tileData.y}-${tileData.z}`
   if (parentIdCache.hasCached(index)) return
-  console.log("RAW FEATURE", JSON.parse(JSON.stringify(e?.features?.[0])))
   const featureArray: MinGeoJSONFeature[] = []
   for (let i = 0; i < e.features.length; i++) {
     const feature = e.features[i]
@@ -311,7 +310,6 @@ export const handleIdCache = (
       sourceLayer: feature.sourceLayer
     })
   }
-  console.log("FEATURES LOADED", featureArray?.[0])
   const id = featureArray?.[0]?.properties?.path || featureArray?.[0]?.properties?.id
   const currentStateFp = id?.replace('vtd:', '')?.slice(0, 2)
   
