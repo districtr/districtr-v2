@@ -472,15 +472,17 @@ const filterFeatures = (
   filterLocked: boolean = true,
   additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = []
 ) => {
-  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds} =
+  const {captiveIds, lockedFeatures, mapDocument, mapOptions, checkParentsToHeal, selectedZone, shatterIds} =
     useMapStore.getState();
   const parentIdsToHeal: MapStore['parentsToHeal'] = [];
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
   if (captiveIds.size) {
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
-  if (filterLocked && lockedFeatures.size) {
-    filterFunctions.push(f => !lockedFeatures.has(f.id?.toString() || ''));
+  if (filterLocked) {
+    filterFunctions.push(f => !lockedFeatures.has(f.id?.toString() || '') &&
+      mapOptions.lockPaintedAreas !== true && !mapOptions.lockPaintedAreas.includes(selectedZone)
+    );
   }
   if (mapDocument?.child_layer && shatterIds.parents.size) {
     filterFunctions.push(f => {
