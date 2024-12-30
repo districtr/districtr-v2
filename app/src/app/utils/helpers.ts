@@ -481,7 +481,7 @@ const filterFeatures = (
   }
   if (filterLocked) {
     filterFunctions.push(f => !lockedFeatures.has(f.id?.toString() || '') &&
-      mapOptions.lockPaintedAreas !== true && !mapOptions.lockPaintedAreas.includes(selectedZone)
+      mapOptions.lockPaintedAreas !== true && (mapOptions.lockPaintedAreas === false || !mapOptions.lockPaintedAreas.includes(selectedZone))
     );
   }
   if (mapDocument?.child_layer && shatterIds.parents.size) {
