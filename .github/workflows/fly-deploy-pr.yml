@@ -94,7 +94,7 @@ jobs:
                   echo "App $app already exists. Skipping launch."
                 else
                   flyctl launch \
-                  --no-deploy --copy-config --name "$app" 
+                  --no-deploy --copy-config --name "$app" --depot=false
                   echo "App $app launched successfully."
                 fi
                 # Output app name for use in the deploy step
