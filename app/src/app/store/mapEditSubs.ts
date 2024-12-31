@@ -1,10 +1,9 @@
-import {debounce} from 'lodash';
+import {Assignment} from '../utils/api/apiHandlers';
 import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
 import {queryClient} from '../utils/api/queryClient';
-import { Assignment } from '../utils/api/apiHandlers';
 
 const updateZones = ({
     getMapRef,

@@ -376,7 +376,6 @@ export const useMapStore = create(
           });
 
           useMapStore.setState({assignmentsHash: performance.now().toString()})
-
           useChartStore.getState().updateMetrics(popChanges);
           set({
             assignmentsHash: Date.now().toString(),
