@@ -21,16 +21,15 @@ const updateZones = ({
     }
 };
 
-// const debouncedZoneUpdate = debounce(zoneUpdates, 25);
-
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const sendZoneUpdatesOnUpdate = useMapStore.subscribe<
     [MapStore['assignmentsHash'], MapStore['selectedZone'], MapStore['accumulatedGeoids'], MapStore['mapDocument'], MapStore['appLoadingState']]
   >(
     state => [state.assignmentsHash, state.selectedZone, state.accumulatedGeoids, state.mapDocument, state.appLoadingState],
     ([assignmentsHash, selectedZone, accumulatedGeoids, mapDocument, appLoadingState], [_, __, ___, ____, previousAppLoadingState]) => {
-      console.log("hello world", assignmentsHash, selectedZone, accumulatedGeoids, mapDocument, appLoadingState, previousAppLoadingState)
-      console.log("hello world", previousAppLoadingState !== 'loaded', !(mapDocument && mapDocument.document_id !== undefined))
+      // TODO: REMOVE BEFORE MERGING
+      console.debug("hello world", assignmentsHash, selectedZone, accumulatedGeoids, mapDocument, appLoadingState, previousAppLoadingState)
+      console.debug("hello world", previousAppLoadingState !== 'loaded', !(mapDocument && mapDocument.document_id !== undefined))
       if (!(mapDocument && mapDocument.document_id !== undefined)) return;
       const {getMapRef} = useMapStore.getState();
       let assignments: Assignment[] = Array.from(accumulatedGeoids).map(geoid => ({
