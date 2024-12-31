@@ -53,11 +53,14 @@ jobs:
               id: fork-db
               if: github.event.action != 'closed'
               run: |              
-                if flyctl postgres list | grep -q ${{ github.event.repository.name }}-${{ github.event.number }}-db; then
-                  echo "DB already exists"                  
-                else              
+                DB_NAME="${{ github.event.repository.name }}-${{ github.event.number }}-api"
+                if flyctl postgres list | grep -q $DB_NAME; then
+                  echo "DB $DB_NAME already exists"                  
+                else
+                  echo "Creating database $DB_NAME"
+                  
                   flyctl postgres create \
-                  --name ${{ github.event.repository.name }}-${{ github.event.number }}-db \
+                  --name $DB_NAME \
                   --region ewr \
                   --initial-cluster-size 1 \
                   --vm-size shared-cpu-2x \
@@ -65,7 +68,9 @@ jobs:
                   --org mggg \
                   --fork-from districtr-v2-db
                   
-                  flyctl scale memory 1024
+                  MACHINE_ID=$(flyctl machines list -a $DB_NAME --json | jq -r '.[0].id')
+                  echo "Updating machine $MACHINE_ID"
+                  flyctl machine update $MACHINE_ID --vm-memory 1024 --app $DB_NAME -y
                   
                   if [ $? -eq 0 ]; then
                     echo "Database created successfully."                                      
