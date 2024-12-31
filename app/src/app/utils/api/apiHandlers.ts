@@ -2,6 +2,7 @@ import axios from 'axios';
 import 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {getEntryTotal} from '../summaryStats';
+import { useChartStore } from '@/app/store/chartStore';
 
 export const FormatAssignments = () => {
   const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
@@ -132,6 +133,11 @@ export interface ZonePopulation {
   total_pop: number;
 }
 
+
+export let populationAbortController: AbortController | null = null;
+export let updateAbortController: AbortController | null = null;
+export let currentHash: string = '';
+
 /**
  * Get zone populations from the server.
  * @param mapDocument - DocumentObject, the document object
@@ -140,12 +146,24 @@ export interface ZonePopulation {
 export const getZonePopulations: (
   mapDocument: DocumentObject
 ) => Promise<ZonePopulation[]> = async mapDocument => {
+  if (populationAbortController) {
+    populationAbortController && populationAbortController?.abort();
+  }
+  const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
+  if (currentHash !== assignmentHash) {
+    // return stale data
+    return useChartStore.getState().mapMetrics?.data || []
+  }
+  populationAbortController = new AbortController();
   if (mapDocument) {
     return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`)
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`, {
+        signal: populationAbortController.signal,
+      })
       .then(res => {
         return res.data;
-      });
+      })
+      .finally(() => {});
   } else {
     throw new Error('No document provided');
   }
@@ -385,6 +403,7 @@ export interface AssignmentsReset {
   document_id: string;
 }
 
+
 /**
  *
  * @param assignments
@@ -393,9 +412,13 @@ export interface AssignmentsReset {
 export const patchUpdateAssignments: (
   assignments: Assignment[]
 ) => Promise<AssignmentsCreate> = async (assignments: Assignment[]) => {
+  updateAbortController = new AbortController();
+  currentHash = `${useMapStore.getState().assignmentsHash}`;
+
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
+      signal: updateAbortController?.signal,
     })
     .then(res => {
       return res.data;
