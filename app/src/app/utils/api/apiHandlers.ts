@@ -133,7 +133,8 @@ export interface ZonePopulation {
   total_pop: number;
 }
 
-
+// TODO: Tanstack has a built in abort controller, we should use that
+// https://tanstack.com/query/v5/docs/framework/react/guides/query-cancellation
 export let populationAbortController: AbortController | null = null;
 export let updateAbortController: AbortController | null = null;
 export let currentHash: string = '';
