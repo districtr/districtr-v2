@@ -62,9 +62,10 @@ export const patchUpdates = new MutationObserver(queryClient, {
   },
   onSuccess: (data: AssignmentsCreate) => {
     console.log(`Successfully upserted ${data.assignments_upserted} assignments`);
-    const {setAssignmentsHash, isPainting} = useMapStore.getState();
+    const {setAssignmentsHash, isPainting, setAccumulatedGeoids} = useMapStore.getState();
     const {mapMetrics: _mapMetrics} = useChartStore.getState();
     setAssignmentsHash(performance.now().toString());
+    // setAccumulatedGeoids(new Set())
     if (!isPainting || !_mapMetrics?.data) {
       mapMetrics.refetch();
     }

@@ -1,30 +1,44 @@
 import {debounce} from 'lodash';
-import {FormatAssignments} from '../utils/api/apiHandlers';
 import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
 import {queryClient} from '../utils/api/queryClient';
+import { Assignment } from '../utils/api/apiHandlers';
 
-const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
-  const isMutating = queryClient.isMutating();
-  if (!isMutating && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
-    const assignments = FormatAssignments();
-    patchUpdates.mutate(assignments);
-  }
+const updateZones = ({
+    getMapRef,
+    assignments,
+    appLoadingState
+}: {
+    getMapRef: MapStore['getMapRef'];
+    assignments: Assignment[];
+    appLoadingState: MapStore['appLoadingState'];
+}) => {
+    const isMutating = queryClient.isMutating();
+    if (!isMutating && getMapRef?.() && assignments?.length && appLoadingState === 'loaded') {
+        patchUpdates.mutate(assignments);
+    }
 };
 
-const debouncedZoneUpdate = debounce(zoneUpdates, 25);
+// const debouncedZoneUpdate = debounce(zoneUpdates, 25);
 
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const sendZoneUpdatesOnUpdate = useMapStore.subscribe<
-    [MapStore['zoneAssignments'], MapStore['appLoadingState']]
+    [MapStore['assignmentsHash'], MapStore['selectedZone'], MapStore['accumulatedGeoids'], MapStore['mapDocument'], MapStore['appLoadingState']]
   >(
-    state => [state.zoneAssignments, state.appLoadingState],
-    ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
-      if (previousAppLoadingState !== 'loaded') return;
+    state => [state.assignmentsHash, state.selectedZone, state.accumulatedGeoids, state.mapDocument, state.appLoadingState],
+    ([assignmentsHash, selectedZone, accumulatedGeoids, mapDocument, appLoadingState], [_, __, ___, ____, previousAppLoadingState]) => {
+      console.log("hello world", assignmentsHash, selectedZone, accumulatedGeoids, mapDocument, appLoadingState, previousAppLoadingState)
+      console.log("hello world", previousAppLoadingState !== 'loaded', !(mapDocument && mapDocument.document_id !== undefined))
+      if (!(mapDocument && mapDocument.document_id !== undefined)) return;
       const {getMapRef} = useMapStore.getState();
-      debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
+      let assignments: Assignment[] = Array.from(accumulatedGeoids).map(geoid => ({
+        document_id: mapDocument.document_id,
+        geo_id: geoid,
+        zone: selectedZone,
+      }));
+      updateZones({getMapRef, assignments, appLoadingState});
     },
     {equalityFn: shallowCompareArray}
   );

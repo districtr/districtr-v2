@@ -1,23 +1,22 @@
 import axios from 'axios';
 import 'maplibre-gl';
-import {useMapStore} from '@/app/store/mapStore';
 import {getEntryTotal} from '../summaryStats';
 
-export const FormatAssignments = () => {
-  const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
-    // @ts-ignore
-    ([geo_id, zone]: [string, number]): {
-      document_id: string;
-      geo_id: string;
-      zone: number;
-    } => ({
-      document_id: useMapStore.getState().mapDocument?.document_id.toString() ?? '',
-      geo_id,
-      zone,
-    })
-  );
-  return assignments;
-};
+// export const FormatAssignments = () => {
+//   const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
+//     // @ts-ignore
+//     ([geo_id, zone]: [string, number]): {
+//       document_id: string;
+//       geo_id: string;
+//       zone: number;
+//     } => ({
+//       document_id: useMapStore.getState().mapDocument?.document_id.toString() ?? '',
+//       geo_id,
+//       zone,
+//     })
+//   );
+//   return assignments;
+// };
 
 /**
  * DistrictrMap

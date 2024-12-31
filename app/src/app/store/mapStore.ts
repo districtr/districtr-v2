@@ -374,6 +374,8 @@ export const useMapStore = create(
             );
           });
 
+          useMapStore.setState({assignmentsHash: performance.now().toString()})
+
           useChartStore.getState().updateMetrics(popChanges);
         },
         mapViews: {isPending: true},
@@ -814,7 +816,7 @@ export const useMapStore = create(
         assignmentsHash: '',
         setAssignmentsHash: hash => set({assignmentsHash: hash}),
         accumulatedGeoids: new Set<string>(),
-        setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
+        setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids, assignmentsHash: performance.now().toString()}),
         setZoneAssignments: (zone, geoids) => {
           const zoneAssignments = get().zoneAssignments;
           const newZoneAssignments = new Map(zoneAssignments);
