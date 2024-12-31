@@ -146,15 +146,13 @@ export let currentHash: string = '';
 export const getZonePopulations: (
   mapDocument: DocumentObject
 ) => Promise<ZonePopulation[]> = async mapDocument => {
-  if (populationAbortController) {
-    populationAbortController && populationAbortController?.abort();
-  }
+  populationAbortController?.abort();
+  populationAbortController = new AbortController();
   const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
   if (currentHash !== assignmentHash) {
-    // return stale data
+    // return stale data if map already changed
     return useChartStore.getState().mapMetrics?.data || []
   }
-  populationAbortController = new AbortController();
   if (mapDocument) {
     return await axios
       .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`, {
