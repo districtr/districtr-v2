@@ -4,17 +4,17 @@ import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
-import {queryClient} from '../utils/api/queryClient';
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
-  const isMutating = queryClient.isMutating();
-  if (!isMutating && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
+  // locked during break or heal
+  const mapIsLocked = _useMapStore.getState().mapLock;
+  if (!mapIsLocked && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
     const assignments = FormatAssignments();
     patchUpdates.mutate(assignments);
   }
 };
 
-const debouncedZoneUpdate = debounce(zoneUpdates, 25);
+const debouncedZoneUpdate = debounce(zoneUpdates, 1000);
 
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const sendZoneUpdatesOnUpdate = useMapStore.subscribe<
