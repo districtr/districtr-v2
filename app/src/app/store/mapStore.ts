@@ -816,7 +816,7 @@ export const useMapStore = create(
         setSelectedZone: zone => set({selectedZone: zone}),
         zoneAssignments: new Map(),
         assignmentsHash: '',
-        lastUpdatedHash: '',
+        lastUpdatedHash: Date.now().toString(),
         setAssignmentsHash: hash => set({assignmentsHash: hash}),
         accumulatedGeoids: new Set<string>(),
         setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
