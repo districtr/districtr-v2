@@ -58,6 +58,7 @@ export const patchUnShatter = new MutationObserver(queryClient, {
 export const patchUpdates = new MutationObserver(queryClient, {
   mutationFn: patchUpdateAssignments,
   onMutate: () => {
+    console.log('Updating assignments');
     populationAbortController?.abort();
     updateAbortController?.abort();
   },

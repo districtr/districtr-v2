@@ -57,7 +57,6 @@ export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
   });
   fetchTotPop.subscribe(response => {
     if (response?.data?.results) {
-      // console.log(response?.data?.results);
       useMapStore.getState().setSummaryStat('totpop', {data: response.data.results});
       useMapStore.getState().setSummaryStat('idealpop', {
         data:
