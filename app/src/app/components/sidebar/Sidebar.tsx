@@ -11,6 +11,7 @@ import {ExitBlockViewButtons} from './ExitBlockViewButtons';
 import {ZonePicker} from './ZonePicker';
 import {ZoneLockPicker} from './ZoneLockPicker';
 import {MobileColorPicker} from './MobileColorPicker';
+import {ShareMapsModal} from './ShareMapsModal';
 
 export default function SidebarComponent() {
   const activeTool = useMapStore(state => state.activeTool);
@@ -31,6 +32,7 @@ export default function SidebarComponent() {
           Districtr
         </Heading>
         <GerryDBViewSelector />
+        <ShareMapsModal />
         <MapModeSelector />
         {activeTool === 'brush' || activeTool === 'eraser' ? (
           <div

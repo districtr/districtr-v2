@@ -160,6 +160,22 @@ class DocumentPublic(BaseModel):
     available_summary_stats: list[str] | None = None
 
 
+class DocumentPlanMetadata(BaseModel):
+    """
+    Made for user-defined metadata for a document
+    """
+
+    document_id: UUID4 = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("Document.document_id"),
+            nullable=False,
+        )
+    )
+    key: str
+    value: str
+
+
 class AssignmentsBase(SQLModel):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
