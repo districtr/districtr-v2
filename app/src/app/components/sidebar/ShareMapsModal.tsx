@@ -40,6 +40,17 @@ export const ShareMapsModal = () => {
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const gerryDBTable = mapDocument?.gerrydb_table;
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [clickToCopyPrompt, setClickToCopyPrompt] = React.useState('Click to copy');
+
+  const handleClickToCopy = () => {
+    navigator.clipboard.writeText(
+      `${window.location.origin}${window.location.pathname}?document_id=${mapDocument?.document_id}`
+    );
+    setClickToCopyPrompt('Copied!');
+    setTimeout(() => {
+      setClickToCopyPrompt('Click to copy');
+    }, 2000);
+  };
 
   const handleMapDocument = (data: NamedDocumentObject) => {
     setMapDocument(data);
@@ -66,11 +77,6 @@ export const ShareMapsModal = () => {
   if (!gerryDBTable) {
     return null;
   }
-
-  console.log(window.location);
-  console.log(
-    `${window.location.origin}${window.location.pathname}?document_id=${mapDocument?.document_id}`
-  );
 
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -112,30 +118,16 @@ export const ShareMapsModal = () => {
             </Flex>
           </Text>
           <Text as="label" size="2">
-            <Flex gap="2">Click to copy</Flex>
+            <Flex gap="2">{clickToCopyPrompt}</Flex>
           </Text>
           <TextField.Root
             variant="soft"
             value={`${window.location.origin}${window.location.pathname}?document_id=${mapDocument?.document_id}`}
             size="2"
+            readOnly
             className="items-center"
-            onClick={() => {
-              navigator.clipboard.writeText(
-                `${window.location.origin}${window.location.pathname}?document_id=${mapDocument?.document_id}`
-              );
-              console.log('copied that');
-            }}
-            onHover={() => {
-              console.log('hovering');
-            }}
-          >
-            <IconButton variant="ghost" size="1">
-              <TextField.Slot>
-                {/* on click, this needs to be the check icon instead of the clipboard icon */}
-                <ClipboardCopyIcon height="14" width="14" />
-              </TextField.Slot>
-            </IconButton>
-          </TextField.Root>
+            onClick={handleClickToCopy}
+          ></TextField.Root>
         </BoxContainer>
       </DialogContentContainer>
     </Dialog.Root>
