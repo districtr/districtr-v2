@@ -32,6 +32,25 @@ export default function Layers() {
     const layerUpdates = toggleLayerVisibility(mapRef, layerIds);
     updateVisibleLayerIds(layerUpdates);
   };
+  const toggleProimnentCounties = () => {
+    if (!mapRef) return;
+    const layers = mapRef.getStyle().layers;
+    const countiesLabelsIndex = layers.findIndex(layer => layer.id === 'counties_labels');
+    const layerLength = layers.length;
+    if (countiesLabelsIndex !== layerLength - 2) {
+      mapRef.moveLayer('counties_labels', layers[layerLength - 1].id); // move to top
+      mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Bold']);
+      setMapOptions({
+        prominentCountyNames: true
+      })
+    } else {
+      mapRef.moveLayer('counties_labels', 'counties_boundary'); // move to other county labes
+      mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Regular']);
+      setMapOptions({
+        prominentCountyNames: false
+      })
+    }
+  }
 
   return (
     <Flex gap="3" direction="column">
@@ -102,10 +121,16 @@ export default function Layers() {
       </Heading>
       <CheckboxGroup.Root
         name="contextualLayers"
-        value={COUNTY_LAYER_IDS.every(layerId => visibleLayerIds.includes(layerId)) ? ['1'] : []}
+        value={[
+          COUNTY_LAYER_IDS.every(layerId => visibleLayerIds.includes(layerId)) ? '1' : '',
+          mapOptions.prominentCountyNames ? 'prominentCountyNames' : '',
+        ]}
       >
         <CheckboxGroup.Item value="1" onClick={() => toggleLayers(COUNTY_LAYER_IDS)}>
           Show county boundaries
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item value="prominentCountyNames" onClick={() => toggleProimnentCounties()}>
+          Emphasize County Names
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>
           Show tribes and communities
