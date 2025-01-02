@@ -13,9 +13,9 @@ import {
   RadioCards,
 } from '@radix-ui/themes';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
-import {DocumentObject} from '../../utils/api/apiHandlers';
+import {DocumentObject, DocumentMetadata} from '../../utils/api/apiHandlers';
+import {metadata} from '@/app/utils/api/mutations';
 import {styled} from '@stitches/react';
-type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxWidth: 'calc(100vw - 2rem)',
@@ -32,11 +32,12 @@ export const RecentMapsModal = () => {
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
-  const handleMapDocument = (data: NamedDocumentObject) => {
+  const handleMapDocument = (data: DocumentObject) => {
     setMapDocument(data);
     const urlParams = new URLSearchParams(searchParams.toString());
     urlParams.set('document_id', data.document_id);
     router.push(pathname + '?' + urlParams.toString());
+
     // close dialog
     setDialogOpen(false);
   };
@@ -64,7 +65,7 @@ export const RecentMapsModal = () => {
             <Cross2Icon />
           </Dialog.Close>
         </Flex>
-        <Table.Root size="3" variant="surface">
+        <Table.Root size="3" variant="surface" layout="fixed">
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeaderCell pl=".5rem">Map Name</Table.ColumnHeaderCell>
@@ -97,30 +98,58 @@ export const RecentMapsModal = () => {
 };
 
 const RecentMapsRow: React.FC<{
-  data: NamedDocumentObject;
-  onSelect: (data: NamedDocumentObject) => void;
+  data: DocumentObject;
+  onSelect: (data: DocumentObject) => void;
   active: boolean;
-  onChange?: (data?: NamedDocumentObject) => void;
+  onChange?: (data?: DocumentObject) => void;
 }> = ({data, onSelect, active, onChange}) => {
   const updatedDate = new Date(data.updated_at as string);
+  const updateMetadata = useMapStore(store => store.updateMetadata);
   const formattedData = updatedDate.toLocaleDateString();
-  const name = data?.name || data.gerrydb_table;
+  const name =
+    data?.metadata?.find((k: DocumentMetadata) => k.key === 'name')?.value || data.gerrydb_table;
+  const [newName, setNewName] = React.useState(name);
+  const [nameIsChanged, setNameIsChanged] = React.useState(false);
 
-  const handleChangeName = (name?: string) => {
-    name?.length && onChange?.({...data, name});
+  const handleChangeName = () => {
+    updateMetadata(data.document_id, 'name', newName);
+    onChange?.({...data});
+
+    // update db
+    metadata.mutate({
+      document_id: data.document_id,
+      metadata: data.metadata || [],
+    });
+    setNameIsChanged(false);
   };
 
   return (
     <Table.Row align="center" className={`${active ? 'bg-yellow-100' : ''}`}>
       <Table.Cell pl=".5rem">
         {!!(active && onChange) ? (
-          <Box maxWidth="200px">
-            <TextField.Root
-              placeholder={name}
-              size="3"
-              value={name}
-              onChange={e => handleChangeName(e.target.value)}
-            ></TextField.Root>
+          <Box maxWidth="250px">
+            <Flex align="center" gap="1">
+              <TextField.Root
+                placeholder={newName}
+                size="3"
+                value={newName}
+                onChange={e => {
+                  setNewName(e.target.value);
+                  setNameIsChanged(true);
+                }}
+              ></TextField.Root>
+              {nameIsChanged ? (
+                <Button
+                  onClick={() => {
+                    handleChangeName();
+                  }}
+                  variant="outline"
+                  className="box-content size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
+                >
+                  Save
+                </Button>
+              ) : null}
+            </Flex>
           </Box>
         ) : (
           <Text>{name}</Text>

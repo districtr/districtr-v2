@@ -9,6 +9,7 @@ import {
   patchUnShatterParents,
   patchUpdateAssignments,
   patchUpdateReset,
+  saveMapDocumentMetadata,
   populationAbortController,
   updateAbortController,
 } from '@/app/utils/api/apiHandlers';
@@ -87,7 +88,7 @@ export const patchReset = new MutationObserver(queryClient, {
     console.log('Reseting map');
   },
   onError: error => {
-    console.log('Error reseting map: ', error);
+    console.log('Error resetting map: ', error);
   },
   onSuccess: (data: AssignmentsReset) => {
     console.log(`Successfully reset ${data.document_id}`);
@@ -112,5 +113,20 @@ export const document = new MutationObserver(queryClient, {
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.set('document_id', data.document_id);
     history.pushState({}, '', documentUrl.toString());
+  },
+});
+
+export const metadata = new MutationObserver(queryClient, {
+  mutationFn: saveMapDocumentMetadata,
+  //
+  onMutate: ({document_id, metadata}) => {
+    console.log('Saving metadata');
+    return {document_id, metadata};
+  },
+  onError: error => {
+    console.error('Error saving map metadata: ', error);
+  },
+  onSuccess: data => {
+    console.log('Successfully saved metadata');
   },
 });

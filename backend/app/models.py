@@ -13,7 +13,9 @@ from sqlmodel import (
     MetaData,
     String,
     Boolean,
+    Integer,
 )
+from typing import List, Dict
 from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
 from app.constants import DOCUMENT_SCHEMA
@@ -158,6 +160,30 @@ class DocumentPublic(BaseModel):
     updated_at: datetime
     extent: list[float] | None = None
     available_summary_stats: list[str] | None = None
+    metadata: List[Dict[str, Any]] = []
+
+
+class DocumentMetadata(TimeStampMixin, SQLModel, table=True):
+    """
+    Made for user-defined metadata for a document
+    """
+
+    __tablename__ = "document_metadata"
+    __table_args__ = {"schema": "document"}
+
+    metadata_id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True)
+    )
+
+    document_id: UUID4 = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("Document.document_id"),
+            nullable=False,
+        )
+    )
+    key: str | None = Field(nullable=False)
+    value: str | None = Field(nullable=False)
 
 
 class AssignmentsBase(SQLModel):

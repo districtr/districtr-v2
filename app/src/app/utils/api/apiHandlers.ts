@@ -2,7 +2,7 @@ import axios from 'axios';
 import 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {getEntryTotal} from '../summaryStats';
-import { useChartStore } from '@/app/store/chartStore';
+import {useChartStore} from '@/app/store/chartStore';
 
 export const FormatAssignments = () => {
   const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
@@ -64,6 +64,12 @@ export interface DocumentObject {
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   available_summary_stats: string[];
+  metadata?: DocumentMetadata[];
+}
+
+export interface DocumentMetadata {
+  key: string | null;
+  value: string | null;
 }
 
 /**
@@ -152,7 +158,7 @@ export const getZonePopulations: (
   const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
   if (currentHash !== assignmentHash) {
     // return stale data if map already changed
-    return useChartStore.getState().mapMetrics?.data || []
+    return useChartStore.getState().mapMetrics?.data || [];
   }
   if (mapDocument) {
     return await axios
@@ -225,7 +231,6 @@ export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
   two_or_more_races_pop_pct: number;
 }
 
-
 /**
  * P4ZoneSummaryStats
  *
@@ -235,14 +240,14 @@ export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
  */
 export interface P4ZoneSummaryStats {
   zone: number;
-  hispanic_vap: number,
-  non_hispanic_asian_vap: number,
-  non_hispanic_amin_vap: number,
-  non_hispanic_nhpi_vap: number,
-  non_hispanic_black_vap: number,
-  non_hispanic_white_vap: number,
-  non_hispanic_other_vap: number,
-  non_hispanic_two_or_more_races_vap: number
+  hispanic_vap: number;
+  non_hispanic_asian_vap: number;
+  non_hispanic_amin_vap: number;
+  non_hispanic_nhpi_vap: number;
+  non_hispanic_black_vap: number;
+  non_hispanic_white_vap: number;
+  non_hispanic_other_vap: number;
+  non_hispanic_two_or_more_races_vap: number;
 }
 export type P4TotPopSummaryStats = Omit<P4ZoneSummaryStats, 'zone'>;
 
@@ -254,7 +259,7 @@ export const P4ZoneSummaryStatsKeys = [
   'non_hispanic_black_vap',
   'non_hispanic_white_vap',
   'non_hispanic_other_vap',
-  'non_hispanic_two_or_more_races_vap'
+  'non_hispanic_two_or_more_races_vap',
 ] as const;
 
 export const CleanedP4ZoneSummaryStatsKeys = [
@@ -267,19 +272,19 @@ export const CleanedP4ZoneSummaryStatsKeys = [
   'non_hispanic_black_vap',
   'non_hispanic_white_vap',
   'non_hispanic_other_vap',
-  'non_hispanic_two_or_more_races_vap'
+  'non_hispanic_two_or_more_races_vap',
 ] as const;
 
 export interface CleanedP4ZoneSummaryStats extends P4ZoneSummaryStats {
   total: number;
-  hispanic_vap: number,
-  non_hispanic_asian_vap: number,
-  non_hispanic_amin_vap: number,
-  non_hispanic_nhpi_vap: number,
-  non_hispanic_black_vap: number,
-  non_hispanic_white_vap: number,
-  non_hispanic_other_vap: number,
-  non_hispanic_two_or_more_races_vap: number
+  hispanic_vap: number;
+  non_hispanic_asian_vap: number;
+  non_hispanic_amin_vap: number;
+  non_hispanic_nhpi_vap: number;
+  non_hispanic_black_vap: number;
+  non_hispanic_white_vap: number;
+  non_hispanic_other_vap: number;
+  non_hispanic_two_or_more_races_vap: number;
 }
 
 /**
@@ -291,7 +296,9 @@ export interface CleanedP4ZoneSummaryStats extends P4ZoneSummaryStats {
 export const getSummaryStats: (
   mapDocument: DocumentObject,
   summaryType: string | null | undefined
-) => Promise<SummaryStatsResult<CleanedP1ZoneSummaryStats[] | CleanedP4ZoneSummaryStats[]>> = async (mapDocument, summaryType) => {
+) => Promise<
+  SummaryStatsResult<CleanedP1ZoneSummaryStats[] | CleanedP4ZoneSummaryStats[]>
+> = async (mapDocument, summaryType) => {
   if (mapDocument && summaryType) {
     return await axios
       .get<
@@ -302,13 +309,15 @@ export const getSummaryStats: (
           const total = getEntryTotal(row);
 
           const zoneSummaryStatsKeys = (() => {
-                      switch(summaryType) {
-                        case "P1": return P1ZoneSummaryStatsKeys;
-                        case "P4": return P4ZoneSummaryStatsKeys;
-                        default: throw new Error('Invalid summary type');
-                      }
-                    })();
-
+            switch (summaryType) {
+              case 'P1':
+                return P1ZoneSummaryStatsKeys;
+              case 'P4':
+                return P4ZoneSummaryStatsKeys;
+              default:
+                throw new Error('Invalid summary type');
+            }
+          })();
 
           return zoneSummaryStatsKeys.reduce<any>(
             (acc, key) => {
@@ -339,7 +348,10 @@ export const getSummaryStats: (
 export const getTotPopSummaryStats: (
   mapDocument: DocumentObject | null,
   summaryType: string | null | undefined
-) => Promise<SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats>> = async (mapDocument, summaryType) => {
+) => Promise<SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats>> = async (
+  mapDocument,
+  summaryType
+) => {
   if (mapDocument && summaryType) {
     return await axios
       .get<
@@ -401,7 +413,6 @@ export interface AssignmentsReset {
   success: boolean;
   document_id: string;
 }
-
 
 /**
  *
@@ -497,5 +508,22 @@ export const patchUnShatterParents: (params: {
     )
     .then(res => {
       return res.data;
+    });
+};
+
+export const saveMapDocumentMetadata = async ({
+  document_id,
+  metadata,
+}: {
+  document_id: string;
+  metadata: DocumentMetadata[];
+}) => {
+  return await axios
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/metadata/${document_id}`, metadata)
+    .then(res => {
+      return res.data;
+    })
+    .catch(err => {
+      console.error(err);
     });
 };

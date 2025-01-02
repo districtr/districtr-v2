@@ -5,10 +5,12 @@ from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam
-from sqlmodel import ARRAY, INT
-
+from sqlalchemy import bindparam, func, cast
+from sqlmodel import ARRAY, INT, JSON
+import json
 import sentry_sdk
+from typing import List
+from fastapi.encoders import jsonable_encoder
 from app.core.db import engine
 from app.core.config import settings
 from app.models import (
@@ -18,6 +20,7 @@ from app.models import (
     DistrictrMap,
     Document,
     DocumentCreate,
+    DocumentMetadata,
     DocumentPublic,
     GEOIDS,
     AssignedGEOIDS,
@@ -107,7 +110,9 @@ async def create_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
         )
         .where(Document.document_id == document_id)
         .join(
@@ -270,13 +275,44 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
+            func.coalesce(
+                func.json_agg(
+                    func.json_build_object(
+                        "key",
+                        DocumentMetadata.key,
+                        "value",
+                        DocumentMetadata.value,
+                    )
+                ).filter(DocumentMetadata.key.isnot(None)),
+                func.cast([], JSON),
+            ).label("metadata"),
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
             DistrictrMap,
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
             isouter=True,
+        )
+        .join(
+            DocumentMetadata,
+            cast(Document.document_id, UUIDType)
+            == cast(DocumentMetadata.document_id, UUIDType),
+            isouter=True,
+        )
+        .group_by(
+            Document.document_id,
+            Document.created_at,
+            Document.gerrydb_table,
+            Document.updated_at,
+            DistrictrMap.parent_layer,
+            DistrictrMap.child_layer,
+            DistrictrMap.tiles_s3_path,
+            DistrictrMap.num_districts,
+            DistrictrMap.extent,
+            DistrictrMap.available_summary_stats,
         )
         .limit(1)
     )
@@ -404,6 +440,30 @@ async def get_gerrydb_summary_stat(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Gerrydb Table with ID {gerrydb_table} not found",
             )
+
+
+@app.post("/api/document/metadata/{document_id}", status_code=status.HTTP_200_OK)
+async def update_districtrmap_metadata(
+    document_id: str,
+    metadata: List[DocumentMetadata],  # Accept metadata as a dictionary
+    session: Session = Depends(get_session),
+):
+    try:
+        metadata_dict = jsonable_encoder(metadata)
+
+        session.execute(
+            text(
+                f"SELECT document.update_metadata('{document_id}', '{json.dumps(metadata_dict)}'::jsonb)"
+            ),
+        )
+        session.commit()
+    except Exception as e:
+        logger.error(e)
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Metadata update failed",
+        )
 
 
 @app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
