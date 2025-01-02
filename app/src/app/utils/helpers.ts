@@ -278,7 +278,13 @@ export const colorZoneAssignments = (
   const [zoneAssignments, mapDocument, getMapRef, currentShatterIds, appLoadingState, mapRenderingState] = state;
   const [previousZoneAssignments, prevShatterIds] = [previousState?.[0]  || new Map(), previousState?.[3] || null];
   const mapRef = getMapRef();
-  if (!mapRef || !mapDocument || appLoadingState !== 'loaded' || mapRenderingState !== 'loaded') {
+  const isTemporal = useMapStore.getState().isTemporalAction;
+
+  if (!mapRef || // map does not exist
+    !mapDocument || // map document is not loaded
+    (appLoadingState !== 'loaded' && !isTemporal) || // app was blurred, loading, or temporal state was mutatated
+    mapRenderingState !== 'loaded' // map layers are not loaded
+  ) {
     return;
   }
   const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
