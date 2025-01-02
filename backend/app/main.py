@@ -6,7 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam, func, cast
-from sqlmodel import ARRAY, INT
+from sqlmodel import ARRAY, INT, JSON
 import json
 import sentry_sdk
 from typing import List
@@ -287,7 +287,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
                         DocumentMetadata.value,
                     )
                 ).filter(DocumentMetadata.key.isnot(None)),
-                [],
+                func.cast([], JSON),
             ).label("metadata"),
         )  # pyright: ignore
         .where(Document.document_id == document_id)
