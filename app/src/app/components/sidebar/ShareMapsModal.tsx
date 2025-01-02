@@ -107,7 +107,7 @@ export const ShareMapsModal = () => {
           Save / Share
         </Button>
       </Dialog.Trigger>
-      <DialogContentContainer className="max-w-[75vw]" description="save-dialog">
+      <DialogContentContainer className="max-w-[75vw]">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Save and Share Map</Dialog.Title>
           <Dialog.Close
