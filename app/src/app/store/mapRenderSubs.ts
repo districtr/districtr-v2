@@ -318,7 +318,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
     ([stateFp, getMapRef]) => {
       const mapRef = getMapRef()
       if (!mapRef) return
-      const filterExpression = (stateFp ? ["==", ["slice", ["get", "GEOID"], 0, 2], stateFp] : true) as any
+      const filterExpression = ["==", ["slice", ["get", "GEOID"], 0, 2], stateFp ? stateFp : '--'] as any
       COUNTY_LAYERS.forEach(layer => {
         mapRef.getLayer(layer) && mapRef.setFilter(layer,  ["any", filterExpression])
       })
