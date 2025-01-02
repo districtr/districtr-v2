@@ -16,7 +16,6 @@ import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject, DocumentMetadata} from '../../utils/api/apiHandlers';
 import {metadata} from '@/app/utils/api/mutations';
 import {styled} from '@stitches/react';
-import {min, set} from 'lodash';
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxWidth: 'calc(100vw - 2rem)',
