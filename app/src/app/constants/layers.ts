@@ -306,13 +306,14 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
     );
   }
   map?.addLayer(getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT));
+  useMapStore.getState().setMapRenderingState('loaded');
 };
 
 export function removeBlockLayers(map: Map | null) {
   if (!map) {
     return;
   }
-  useMapStore.getState().setMapRenderingState('initializing');
+  useMapStore.getState().setMapRenderingState('loading');
   [
     BLOCK_LAYER_ID,
     BLOCK_LAYER_ID_HIGHLIGHT,

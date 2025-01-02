@@ -130,7 +130,6 @@ fetchAssignments.subscribe(assignments => {
     const {loadZoneAssignments, mapRenderingState} = useMapStore.getState();
     if (mapRenderingState === 'initializing') {
       loadZoneAssignments(assignments.data);
-      useMapStore.getState().setMapRenderingState('loaded');
     } else {
       console.log('did not load prior map during rendering state: ' + mapRenderingState);
     }
