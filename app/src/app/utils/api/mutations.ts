@@ -99,7 +99,6 @@ export const document = new MutationObserver(queryClient, {
   mutationFn: createMapDocument,
   onMutate: () => {
     console.log('Creating document');
-    useMapStore.temporal.getState().clear();
     useMapStore.getState().setAppLoadingState('loading');
     useMapStore.getState().resetZoneAssignments();
   },
