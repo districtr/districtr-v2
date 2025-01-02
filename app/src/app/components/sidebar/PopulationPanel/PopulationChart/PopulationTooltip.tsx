@@ -9,10 +9,10 @@ export const PopulationCustomTooltip = ({y, pop, index, idealPopulation, maxPop}
   const deviationPercent = idealPopulation
     ? formatNumber(deviationFromIdeal / idealPopulation, 'percent')
     : '';
-  const deviationFromMax = maxPop ? (maxPop - pop) * -1 : 0;
-  const deviationFromMaxDir = deviationFromMax > 0 ? '+' : '';
-  const deviationFromMaxPercent = maxPop ? formatNumber(deviationFromMax / maxPop, 'percent') : '';
-  const isMax = pop === maxPop;
+  // const deviationFromMax = maxPop ? (maxPop - pop) * -1 : 0;
+  // const deviationFromMaxDir = deviationFromMax > 0 ? '+' : '';
+  // const deviationFromMaxPercent = maxPop ? formatNumber(deviationFromMax / maxPop, 'percent') : '';
+  // const isMax = pop === maxPop;
   return (
     <foreignObject x="20" y={y + 10} width="300" height="120" style={{pointerEvents: 'none'}}>
       <Card size="1" style={{padding: '.25rem .375rem'}}>
@@ -30,12 +30,12 @@ export const PopulationCustomTooltip = ({y, pop, index, idealPopulation, maxPop}
         <span>
           Zone {index + 1}: {formatNumber(pop, 'string')}
         </span>
-        <br />
+        {/* <br />
         <Text>
           {idealPopulation && isMax
             ? `Deviation from max: 0`
             : `Deviation from max: ${deviationFromMaxDir}${deviationFromMaxPercent} (${deviationFromMaxDir}${formatNumber(deviationFromMax, 'string')})`}
-        </Text>
+        </Text> */}
         <br />
         <Text>
           {idealPopulation &&
