@@ -14,7 +14,9 @@ import {
 } from '@radix-ui/themes';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject, DocumentMetadata} from '../../utils/api/apiHandlers';
+import {metadata} from '@/app/utils/api/mutations';
 import {styled} from '@stitches/react';
+import {min, set} from 'lodash';
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxWidth: 'calc(100vw - 2rem)',
@@ -36,6 +38,7 @@ export const RecentMapsModal = () => {
     const urlParams = new URLSearchParams(searchParams.toString());
     urlParams.set('document_id', data.document_id);
     router.push(pathname + '?' + urlParams.toString());
+
     // close dialog
     setDialogOpen(false);
   };
@@ -63,7 +66,7 @@ export const RecentMapsModal = () => {
             <Cross2Icon />
           </Dialog.Close>
         </Flex>
-        <Table.Root size="3" variant="surface">
+        <Table.Root size="3" variant="surface" layout="fixed">
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeaderCell pl=".5rem">Map Name</Table.ColumnHeaderCell>
@@ -106,23 +109,48 @@ const RecentMapsRow: React.FC<{
   const formattedData = updatedDate.toLocaleDateString();
   const name =
     data?.metadata?.find((k: DocumentMetadata) => k.key === 'name')?.value || data.gerrydb_table;
+  const [newName, setNewName] = React.useState(name);
+  const [nameIsChanged, setNameIsChanged] = React.useState(false);
 
-  const handleChangeName = (name?: string) => {
-    updateMetadata(data.document_id, 'name', name);
+  const handleChangeName = () => {
+    updateMetadata(data.document_id, 'name', newName);
     onChange?.({...data});
+
+    // update db
+    metadata.mutate({
+      document_id: data.document_id,
+      metadata: data.metadata || [],
+    });
+    setNameIsChanged(false);
   };
 
   return (
     <Table.Row align="center" className={`${active ? 'bg-yellow-100' : ''}`}>
       <Table.Cell pl=".5rem">
         {!!(active && onChange) ? (
-          <Box maxWidth="200px">
-            <TextField.Root
-              placeholder={name}
-              size="3"
-              value={name}
-              onChange={e => handleChangeName(e.target.value)}
-            ></TextField.Root>
+          <Box maxWidth="250px">
+            <Flex align="center" gap="1">
+              <TextField.Root
+                placeholder={newName}
+                size="3"
+                value={newName}
+                onChange={e => {
+                  setNewName(e.target.value);
+                  setNameIsChanged(true);
+                }}
+              ></TextField.Root>
+              {nameIsChanged ? (
+                <Button
+                  onClick={() => {
+                    handleChangeName();
+                  }}
+                  variant="outline"
+                  className="box-content size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
+                >
+                  Save
+                </Button>
+              ) : null}
+            </Flex>
           </Box>
         ) : (
           <Text>{name}</Text>
