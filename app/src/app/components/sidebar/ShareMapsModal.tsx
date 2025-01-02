@@ -1,6 +1,6 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React from 'react';
-import {Cross2Icon, CounterClockwiseClockIcon} from '@radix-ui/react-icons';
+import {Cross2Icon} from '@radix-ui/react-icons';
 import {
   Button,
   Flex,
@@ -15,10 +15,11 @@ import {
 } from '@radix-ui/themes';
 import {ClipboardCopyIcon, MagnifyingGlassIcon} from '@radix-ui/react-icons';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
-import {DocumentObject} from '../../utils/api/apiHandlers';
+import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {map, size} from 'lodash';
 import {Description} from '@radix-ui/react-toast';
+import {metadata} from '@/app/utils/api/mutations';
 type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content);
@@ -61,7 +62,7 @@ export const ShareMapsModal = () => {
     setDialogOpen(false);
   };
 
-  const mapName = userMaps.find(map => map.document_id === mapDocument?.document_id)?.name;
+  const mapName = userMaps.find(map => map.document_id === mapDocument?.document_id)?.name || '';
 
   const [name, setName] = React.useState(mapName);
   const [tagsTeam, setTagsTeam] = React.useState<string>('');
@@ -78,16 +79,41 @@ export const ShareMapsModal = () => {
     return null;
   }
 
+  const handleMapSave = () => {
+    // upsert map locally and also save to db
+    // const data = {
+    //   ...mapDocument,
+    //   name,
+    //   tags: tagsTeam,
+    // };
+    // // upsertUserMap(data);
+    // console.log(data);
+    // save to db
+    const metadataObjects = [
+      {key: 'name', value: name},
+      {key: 'tags', value: tagsTeam},
+    ];
+    const formattedMetadata: DocumentMetadata[] = metadataObjects.map(obj => {
+      return {
+        document_id: mapDocument?.document_id,
+        key: obj.key,
+        value: obj.value,
+      };
+    });
+    metadata.mutate(formattedMetadata);
+    // formattedMetadata.forEach(meta => metadata.mutate(meta));
+  };
+
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <Dialog.Trigger>
         <Button value="share" variant="outline">
-          Share
+          Save / Share
         </Button>
       </Dialog.Trigger>
       <DialogContentContainer className="max-w-[75vw]" description="save-dialog">
         <Flex align="center" className="mb-4">
-          <Dialog.Title className="m-0 text-xl font-bold flex-1">Share Map</Dialog.Title>
+          <Dialog.Title className="m-0 text-xl font-bold flex-1">Save and Share Map</Dialog.Title>
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
             aria-label="Close"
@@ -114,7 +140,7 @@ export const ShareMapsModal = () => {
           </Box>
           <Text as="label" size="2">
             <Flex gap="2">
-              <Checkbox size="1" /> Share as Draft
+              <Checkbox size="1" /> Save as Draft
             </Flex>
           </Text>
           <Text as="label" size="2">
@@ -128,6 +154,18 @@ export const ShareMapsModal = () => {
             className="items-center"
             onClick={handleClickToCopy}
           ></TextField.Root>
+          <Button variant="soft" className="flex items-center" onClick={handleMapSave}>
+            Save
+          </Button>
+          <Button
+            variant="soft"
+            className="flex items-center"
+            onClick={() => {
+              setDialogOpen(false);
+            }}
+          >
+            Close
+          </Button>
         </BoxContainer>
       </DialogContentContainer>
     </Dialog.Root>

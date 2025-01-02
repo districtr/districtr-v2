@@ -7,8 +7,10 @@ from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
-
+import json
 import sentry_sdk
+from typing import List
+from fastapi.encoders import jsonable_encoder
 from app.core.db import engine
 from app.core.config import settings
 from app.models import (
@@ -18,6 +20,7 @@ from app.models import (
     DistrictrMap,
     Document,
     DocumentCreate,
+    DocumentPlanMetadata,
     DocumentPublic,
     GEOIDS,
     AssignedGEOIDS,
@@ -107,7 +110,9 @@ async def create_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
         )
         .where(Document.document_id == document_id)
         .join(
@@ -270,7 +275,9 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
@@ -404,6 +411,29 @@ async def get_gerrydb_summary_stat(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Gerrydb Table with ID {gerrydb_table} not found",
             )
+
+
+@app.post("/api/document/metadata", status_code=status.HTTP_200_OK)
+async def update_districtrmap_metadata(
+    metadata: List[DocumentPlanMetadata],  # Accept metadata as a dictionary
+    session: Session = Depends(get_session),
+):
+    try:
+        metadata_dict = jsonable_encoder(metadata)
+
+        session.execute(
+            text(
+                f"SELECT document.update_metadata('{json.dumps(metadata_dict)}'::jsonb)"
+            ),
+        )
+        session.commit()
+    except Exception as e:
+        logger.error(e)
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Metadata update failed",
+        )
 
 
 @app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
