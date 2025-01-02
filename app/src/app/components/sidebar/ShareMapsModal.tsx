@@ -67,12 +67,16 @@ export const ShareMapsModal = () => {
   const handleChangeName = (name?: string) => {
     if (name) {
       setName(name);
+    } else {
+      setName('');
     }
   };
 
   const handleChangeTag = (tag?: string) => {
     if (tag) {
       setTagsTeam(tag);
+    } else {
+      setTagsTeam('');
     }
   };
 
@@ -90,7 +94,7 @@ export const ShareMapsModal = () => {
       return {
         document_id: mapDocument?.document_id,
         key: obj.key,
-        value: obj.value,
+        value: obj.value ?? '',
       };
     });
     metadata.mutate(formattedMetadata);
