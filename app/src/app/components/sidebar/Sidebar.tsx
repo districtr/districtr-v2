@@ -70,7 +70,7 @@ export default function SidebarComponent() {
             md: 'inline',
           }}
         >
-          <DataPanels defaultPanel="layers" />
+          <DataPanels />
         </Box>
       </Flex>
     </Box>
