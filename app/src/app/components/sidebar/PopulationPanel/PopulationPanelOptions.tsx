@@ -46,7 +46,7 @@ export const PopulationPanelOptions: React.FC<{
             }
             className="cursor-pointer"
           >
-            Show top-to-bottom deviation numbers
+            Show distance from ideal population
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="numbers"
