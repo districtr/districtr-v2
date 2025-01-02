@@ -141,7 +141,7 @@ export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  setTimeout(useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY), 250);
+  setTimeout(() => useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY), 250);
   useTooltipStore.getState().setTooltip(null);
   useMapStore.getState().setIsPainting(false);
 };
@@ -150,7 +150,7 @@ export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  setTimeout(useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY), 250);
+  setTimeout(() => useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY), 250);
   useTooltipStore.getState().setTooltip(null);
   useMapStore.getState().setIsPainting(false);
 };
