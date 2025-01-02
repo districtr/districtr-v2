@@ -72,10 +72,9 @@ export const ShareMapsModal = () => {
   };
 
   const handleChangeTag = (tag?: string) => {
-    if (tag) {
+    if (mapDocument?.document_id) {
       setTagsTeam(tag);
-    } else {
-      setTagsTeam('');
+      updateMetadata(mapDocument?.document_id, 'tags', tag);
     }
   };
 
