@@ -15,6 +15,7 @@ from sqlmodel import (
     Boolean,
     Integer,
 )
+from typing import List, Dict
 from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
 from app.constants import DOCUMENT_SCHEMA
@@ -159,7 +160,7 @@ class DocumentPublic(BaseModel):
     updated_at: datetime
     extent: list[float] | None = None
     available_summary_stats: list[str] | None = None
-    metadata: list[dict[str, str]] | None = None
+    metadata: List[Dict[str, Any]] = []
 
 
 class DocumentMetadata(TimeStampMixin, SQLModel, table=True):
@@ -181,8 +182,8 @@ class DocumentMetadata(TimeStampMixin, SQLModel, table=True):
             nullable=False,
         )
     )
-    key: str
-    value: str
+    key: str | None = Field(nullable=False)
+    value: str | None = Field(nullable=False)
 
 
 class AssignmentsBase(SQLModel):

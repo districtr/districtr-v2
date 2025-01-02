@@ -281,10 +281,12 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             func.coalesce(
                 func.json_agg(
                     func.json_build_object(
+                        "key",
                         DocumentMetadata.key,
+                        "value",
                         DocumentMetadata.value,
                     )
-                ),
+                ).filter(DocumentMetadata.key.isnot(None)),
                 [],
             ).label("metadata"),
         )  # pyright: ignore
@@ -315,6 +317,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
         .limit(1)
     )
     result = session.exec(stmt)
+
     return result.one()
 
 
