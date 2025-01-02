@@ -9,6 +9,7 @@ import {handleWheelOrPinch, mapContainerEvents, mapEvents} from '../utils/events
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
 import {MapTooltip} from './MapTooltip';
+import { MapLockShade } from './MapLockShade';
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -103,7 +104,9 @@ export const MapComponent: React.FC = () => {
     ${mapLock ? 'pointer-events-none' : ''}
     `}
         ref={mapContainer}
-      />
+      >
+      <MapLockShade />
+      </div>
       <MapTooltip />
     </>
   );
