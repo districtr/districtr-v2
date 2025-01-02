@@ -32,25 +32,6 @@ export default function Layers() {
     const layerUpdates = toggleLayerVisibility(mapRef, layerIds);
     updateVisibleLayerIds(layerUpdates);
   };
-  const toggleProimnentCounties = () => {
-    if (!mapRef) return;
-    const layers = mapRef.getStyle().layers;
-    const countiesLabelsIndex = layers.findIndex(layer => layer.id === 'counties_labels');
-    const layerLength = layers.length;
-    if (countiesLabelsIndex !== layerLength - 2) {
-      mapRef.moveLayer('counties_labels', layers[layerLength - 1].id); // move to top
-      mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Bold']);
-      setMapOptions({
-        prominentCountyNames: true
-      })
-    } else {
-      mapRef.moveLayer('counties_labels', 'counties_boundary'); // move to other county labes
-      mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Regular']);
-      setMapOptions({
-        prominentCountyNames: false
-      })
-    }
-  }
 
   return (
     <Flex gap="3" direction="column">
@@ -83,9 +64,14 @@ export default function Layers() {
         >
           Show painted districts
         </CheckboxGroup.Item>
-        <CheckboxGroup.Item value="2" onClick={() => setMapOptions({
-          showZoneNumbers: !mapOptions.showZoneNumbers
-        })}>
+        <CheckboxGroup.Item
+          value="2"
+          onClick={() =>
+            setMapOptions({
+              showZoneNumbers: !mapOptions.showZoneNumbers,
+            })
+          }
+        >
           Show numbering for painted districts <i>(experimental)</i>
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
@@ -129,7 +115,14 @@ export default function Layers() {
         <CheckboxGroup.Item value="1" onClick={() => toggleLayers(COUNTY_LAYER_IDS)}>
           Show county boundaries
         </CheckboxGroup.Item>
-        <CheckboxGroup.Item value="prominentCountyNames" onClick={() => toggleProimnentCounties()}>
+        <CheckboxGroup.Item
+          value="prominentCountyNames"
+          onClick={() =>
+            setMapOptions({
+              prominentCountyNames: !mapOptions.prominentCountyNames,
+            })
+          }
+        >
           Emphasize County Names
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>

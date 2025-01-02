@@ -324,6 +324,19 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
       })
     }
   )
+  const countyEmphasisSub = useMapStore.subscribe(state => state.mapOptions.prominentCountyNames, (prominentCountyNames) => {
+    const mapRef = useMapStore.getState().getMapRef();
+    if (!mapRef) return;
+    const layers = mapRef.getStyle().layers;
+    const layerLength = layers.length;
+    if (prominentCountyNames) {
+      mapRef.moveLayer('counties_labels', layers[layerLength - 1].id); // move to top
+      mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Bold']);
+    } else {
+      mapRef.moveLayer('counties_labels', 'counties_boundary'); // move to other county labes
+      mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Regular']);
+    }
+  })
   
   const _hoverMapSideEffectRender = useHoverStore.subscribe(
     state => state.hoverFeatures,
