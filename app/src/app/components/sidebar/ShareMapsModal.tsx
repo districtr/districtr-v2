@@ -33,8 +33,6 @@ export const ShareMapsModal = () => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const mapDocument = useMapStore(store => store.mapDocument);
-  const userMaps = useMapStore(store => store.userMaps);
-  const upsertUserMap = useMapStore(store => store.upsertUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const gerryDBTable = mapDocument?.gerrydb_table;
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -59,10 +57,12 @@ export const ShareMapsModal = () => {
     setDialogOpen(false);
   };
 
-  const mapName = userMaps.find(map => map.document_id === mapDocument?.document_id)?.name || '';
+  // get map name from metadata if it exists
+  const mapName = mapDocument?.metadata?.find(k => k.key === 'name')?.value || '';
+  const mapTags = mapDocument?.metadata?.find(k => k.key === 'tags')?.value || '';
 
   const [name, setName] = React.useState(mapName);
-  const [tagsTeam, setTagsTeam] = React.useState<string>('');
+  const [tagsTeam, setTagsTeam] = React.useState(mapTags);
 
   const handleChangeName = (name?: string) => {
     if (name) {
@@ -82,14 +82,6 @@ export const ShareMapsModal = () => {
   }
 
   const handleMapSave = () => {
-    // upsert map locally and also save to db
-    // const data = {
-    //   ...mapDocument,
-    //   name,
-    //   tags: tagsTeam,
-    // };
-    // // upsertUserMap(data);
-
     const metadataObjects = [
       {key: 'name', value: name},
       {key: 'tags', value: tagsTeam},
@@ -124,7 +116,7 @@ export const ShareMapsModal = () => {
         <BoxContainer>
           <Box maxWidth="200px">
             <TextField.Root
-              placeholder={'Team or Plan Name'}
+              placeholder={mapName === '' ? 'Team or Plan Name' : mapName}
               size="3"
               value={name}
               onChange={e => handleChangeName(e.target.value)}
@@ -132,7 +124,7 @@ export const ShareMapsModal = () => {
           </Box>
           <Box maxWidth="200px">
             <TextField.Root
-              placeholder="Tag or Event Code"
+              placeholder={mapTags === '' ? 'Tag or Event Code' : tagsTeam}
               size="3"
               value={tagsTeam}
               onChange={e => handleChangeTag(e.target.value)}
@@ -140,7 +132,7 @@ export const ShareMapsModal = () => {
           </Box>
           <Text as="label" size="2">
             <Flex gap="2">
-              <Checkbox size="1" /> Save as Draft
+              <Checkbox size="1" disabled /> Save as Draft (coming soon)
             </Flex>
           </Text>
           <Text as="label" size="2">
