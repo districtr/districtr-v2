@@ -46,8 +46,6 @@ export default function Layers() {
           mapOptions.showZoneNumbers ? '2' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
           mapOptions.lockPaintedAreas === true ? '4' : '',
-          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
-          mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
         ]}
       >
         <CheckboxGroup.Item
@@ -75,26 +73,6 @@ export default function Layers() {
           onClick={() => toggleHighlightBrokenDistricts()}
         >
           Highlight broken precincts
-        </CheckboxGroup.Item>
-        <CheckboxGroup.Item
-          value="higlightUnassigned"
-          onClick={() =>
-            setMapOptions({
-              higlightUnassigned: !mapOptions.higlightUnassigned,
-            })
-          }
-        >
-          Highlight unassigned units
-        </CheckboxGroup.Item>
-        <CheckboxGroup.Item
-          value="showPopulationTooltip"
-          onClick={() =>
-            setMapOptions({
-              showPopulationTooltip: !mapOptions.showPopulationTooltip,
-            })
-          }
-        >
-          Show population tooltip
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>
       <Heading as="h3" weight="bold" size="3">
