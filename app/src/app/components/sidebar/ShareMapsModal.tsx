@@ -58,8 +58,8 @@ export const ShareMapsModal = () => {
   };
 
   // get map name from metadata if it exists
-  const mapName = mapDocument?.metadata?.find(k => k.key === 'name')?.value || '';
-  const mapTags = mapDocument?.metadata?.find(k => k.key === 'tags')?.value || '';
+  const mapName = mapDocument?.metadata?.find(k => k.key === 'name')?.value || undefined;
+  const mapTags = mapDocument?.metadata?.find(k => k.key === 'tags')?.value || undefined;
 
   const [name, setName] = React.useState(mapName);
   const [tagsTeam, setTagsTeam] = React.useState(mapTags);
@@ -116,7 +116,7 @@ export const ShareMapsModal = () => {
         <BoxContainer>
           <Box maxWidth="200px">
             <TextField.Root
-              placeholder={mapName === '' ? 'Team or Plan Name' : mapName}
+              placeholder={mapName ?? 'Team or Plan Name'}
               size="3"
               value={name}
               onChange={e => handleChangeName(e.target.value)}
@@ -124,7 +124,7 @@ export const ShareMapsModal = () => {
           </Box>
           <Box maxWidth="200px">
             <TextField.Root
-              placeholder={mapTags === '' ? 'Tag or Event Code' : tagsTeam}
+              placeholder={mapTags ?? 'Tag or Event Code'}
               size="3"
               value={tagsTeam}
               onChange={e => handleChangeTag(e.target.value)}
