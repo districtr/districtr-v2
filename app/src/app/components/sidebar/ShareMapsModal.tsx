@@ -34,8 +34,9 @@ export const ShareMapsModal = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const gerryDBTable = mapDocument?.gerrydb_table;
-  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const userMaps = useMapStore(store => store.userMaps);
   const updateMetadata = useMapStore(store => store.updateMetadata);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
   const [clickToCopyPrompt, setClickToCopyPrompt] = React.useState('Click to copy');
 
   const handleClickToCopy = () => {
@@ -63,11 +64,17 @@ export const ShareMapsModal = () => {
 
   const [name, setName] = React.useState(mapName);
   const [tagsTeam, setTagsTeam] = React.useState(mapTags);
+  const [nameIsSaved, setNameIsSaved] = React.useState(false);
+  const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
 
   const handleChangeName = (name?: string) => {
     if (mapDocument?.document_id) {
       setName(name);
       updateMetadata(mapDocument?.document_id, 'name', name);
+      // if name does not match metadata, make eligible to save
+      if (name !== mapName) {
+        setNameIsSaved(false);
+      }
     }
   };
 
@@ -75,11 +82,15 @@ export const ShareMapsModal = () => {
     if (mapDocument?.document_id) {
       setTagsTeam(tag);
       updateMetadata(mapDocument?.document_id, 'tags', tag);
+
+      if (tag !== mapTags) {
+        setTagsIsSaved(false);
+      }
     }
   };
 
-  // if no gerrydb table selected, return null
-  if (!gerryDBTable) {
+  // if no gerrydb table selected or no edits made, return null
+  if (!gerryDBTable || !userMaps?.length) {
     return null;
   }
 
@@ -95,6 +106,9 @@ export const ShareMapsModal = () => {
       };
     });
     metadata.mutate({document_id: mapDocument?.document_id, metadata: formattedMetadata});
+
+    setNameIsSaved(true);
+    setTagsIsSaved(true);
   };
 
   return (
@@ -149,8 +163,13 @@ export const ShareMapsModal = () => {
             className="items-center"
             onClick={handleClickToCopy}
           ></TextField.Root>
-          <Button variant="soft" className="flex items-center" onClick={handleMapSave}>
-            Save
+          <Button
+            variant="soft"
+            className="flex items-center"
+            onClick={handleMapSave}
+            disabled={nameIsSaved && tagsIsSaved}
+          >
+            {nameIsSaved && tagsIsSaved ? 'Saved!' : 'Save'}
           </Button>
           <Button
             variant="soft"
