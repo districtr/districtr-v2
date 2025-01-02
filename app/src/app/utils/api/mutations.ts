@@ -4,11 +4,14 @@ import {
   AssignmentsCreate,
   AssignmentsReset,
   createMapDocument,
+  currentHash,
   patchShatterParents,
   patchUnShatterParents,
   patchUpdateAssignments,
   patchUpdateReset,
   saveMapDocumentMetadata,
+  populationAbortController,
+  updateAbortController,
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
@@ -29,7 +32,7 @@ export const patchShatter = new MutationObserver(queryClient, {
   },
   onSuccess: data => {
     console.log(`Successfully shattered parents into ${data.children.length} children`);
-    useMapStore.getState().setAssignmentsHash(performance.now().toString());
+    useMapStore.getState().setAssignmentsHash(Date.now().toString());
     return data;
   },
 });
@@ -57,15 +60,16 @@ export const patchUpdates = new MutationObserver(queryClient, {
   mutationFn: patchUpdateAssignments,
   onMutate: () => {
     console.log('Updating assignments');
+    populationAbortController?.abort();
+    updateAbortController?.abort();
   },
   onError: error => {
     console.log('Error updating assignments: ', error);
   },
   onSuccess: (data: AssignmentsCreate) => {
     console.log(`Successfully upserted ${data.assignments_upserted} assignments`);
-    const {setAssignmentsHash, isPainting} = useMapStore.getState();
+    const {isPainting} = useMapStore.getState();
     const {mapMetrics: _mapMetrics} = useChartStore.getState();
-    setAssignmentsHash(performance.now().toString());
     if (!isPainting || !_mapMetrics?.data) {
       mapMetrics.refetch();
     }
@@ -104,7 +108,7 @@ export const document = new MutationObserver(queryClient, {
   },
   onSuccess: data => {
     useMapStore.getState().setMapDocument(data);
-    useMapStore.getState().setAssignmentsHash(performance.now().toString());
+    useMapStore.getState().setAssignmentsHash(Date.now().toString());
     useMapStore.getState().setAppLoadingState('loaded');
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.set('document_id', data.document_id);
