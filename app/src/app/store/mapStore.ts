@@ -389,11 +389,11 @@ export const useMapStore = create(
             setFreshMap,
             resetZoneAssignments,
             upsertUserMap,
-            mapOptions,
           } = get();
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
           }
+          const initialMapOptions = useMapStore.getInitialState().mapOptions;
           parentIdCache.clear();
           setFreshMap(true);
           resetZoneAssignments();
@@ -413,7 +413,7 @@ export const useMapStore = create(
           set({
             mapDocument: mapDocument,
             mapOptions: {
-              ...mapOptions,
+              ...initialMapOptions,
               bounds: mapDocument.extent,
             },
             shatterIds: {parents: new Set(), children: new Set()},
