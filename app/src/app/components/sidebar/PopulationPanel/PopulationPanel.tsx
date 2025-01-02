@@ -8,6 +8,7 @@ import {useMapStore} from '@store/mapStore';
 import {calculateMinMaxRange} from '@utils/zone-helpers';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
+import { getEntryTotal } from '@/app/utils/summaryStats';
 
 export const PopulationPanel = () => {
   const mapMetrics = useChartStore(state => state.mapMetrics);
@@ -19,15 +20,18 @@ export const PopulationPanel = () => {
   const setChartOptions = useChartStore(state => state.setChartOptions);
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
+  const totPop = useMapStore(state => getEntryTotal(state.summaryStats.totpop?.data || {}));
 
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
-  const {chartData, stats} = useMemo(() => {
+  const {chartData, stats, unassigned} = useMemo(() => {
+    let unassigned = totPop
     if (mapMetrics && mapMetrics.data && numDistricts) {
       const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
         (acc, district) => {
           const totalPop = mapMetrics.data.reduce((acc, entry) => {
             return entry.zone === district ? acc + entry.total_pop : acc;
           }, 0);
+          unassigned -= totalPop;
           return [...acc, {zone: district, total_pop: totalPop}];
         },
         [] as Array<{zone: number; total_pop: number}>
@@ -37,11 +41,13 @@ export const PopulationPanel = () => {
       return {
         stats,
         chartData,
+        unassigned
       };
     } else {
       return {
         stats: undefined,
         chartData: [],
+        unassigned:0
       };
     }
   }, [mapMetrics]);
@@ -82,7 +88,7 @@ export const PopulationPanel = () => {
       </Flex>
       <ParentSize
         style={{
-          minHeight: chartData.length ? `${chartData.length * 40 + 40}px` : '200px',
+          minHeight: chartData.length ? `${chartData.length * 40 + 80}px` : '200px',
           width: '100%',
         }}
       >
@@ -100,7 +106,9 @@ export const PopulationPanel = () => {
         <Flex direction={'row'} justify={'between'} align={'start'}>
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
             <Text>Ideal Population</Text>
-            <Text weight={'bold'}>{formatNumber(idealPopulation, 'string')}</Text>
+            <Text weight={'bold'} className="mb-2">{formatNumber(idealPopulation, 'string')}</Text>
+            <Text>Unassigned</Text>
+            <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>
           </Flex>
 
           <Text>
