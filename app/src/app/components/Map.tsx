@@ -7,7 +7,7 @@ import React, {useEffect, useRef} from 'react';
 import {MAP_OPTIONS} from '../constants/configuration';
 import {handleWheelOrPinch, mapContainerEvents, mapEvents} from '../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../constants/layers';
-import {useHoverStore, useMapStore} from '../store/mapStore';
+import {useMapStore} from '../store/mapStore';
 import {MapTooltip} from './MapTooltip';
 
 export const MapComponent: React.FC = () => {
@@ -16,7 +16,6 @@ export const MapComponent: React.FC = () => {
   const mapLock = useMapStore(state => state.mapLock);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapStore(state => state.mapOptions);
-  const setHoverFeatures = useHoverStore(state => state.setHoverFeatures);
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -36,12 +35,6 @@ export const MapComponent: React.FC = () => {
     }
   };
   useEffect(fitMapToBounds, [mapOptions.bounds]);
-
-  useEffect(() => {
-    map.current?.on('mouseout', () => {
-      setTimeout(() => setHoverFeatures([]), 250);  
-    });
-  }, [setHoverFeatures]);
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return;
