@@ -232,6 +232,7 @@ export interface MapStore {
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   assignmentsHash: string;
+  lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
   resetZoneAssignments: () => void;
@@ -375,6 +376,9 @@ export const useMapStore = create(
           });
 
           useChartStore.getState().updateMetrics(popChanges);
+          set({
+            assignmentsHash: Date.now().toString(),
+          })
         },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
@@ -812,6 +816,7 @@ export const useMapStore = create(
         setSelectedZone: zone => set({selectedZone: zone}),
         zoneAssignments: new Map(),
         assignmentsHash: '',
+        lastUpdatedHash: Date.now().toString(),
         setAssignmentsHash: hash => set({assignmentsHash: hash}),
         accumulatedGeoids: new Set<string>(),
         setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
@@ -863,9 +868,21 @@ export const useMapStore = create(
         isPainting: false,
         setIsPainting: isPainting => {
           if (!isPainting) {
-            const {setZoneAssignments, accumulatedGeoids, selectedZone, activeTool} = get();
-            const zone = activeTool === 'eraser' ? null : selectedZone;
-            setZoneAssignments(zone, accumulatedGeoids);
+            const {
+              setZoneAssignments,
+              accumulatedGeoids,
+              selectedZone,
+              activeTool,
+              assignmentsHash,
+              lastUpdatedHash,
+            } = get();
+            if (assignmentsHash !== lastUpdatedHash) {
+              const zone = activeTool === 'eraser' ? null : selectedZone;
+              setZoneAssignments(zone, accumulatedGeoids);
+              set({
+                lastUpdatedHash: assignmentsHash,
+              });
+            }
           }
           set({isPainting});
         },
