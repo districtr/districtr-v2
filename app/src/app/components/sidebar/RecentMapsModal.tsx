@@ -15,7 +15,6 @@ import {
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject, DocumentMetadata} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
-// type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxWidth: 'calc(100vw - 2rem)',
@@ -109,10 +108,8 @@ const RecentMapsRow: React.FC<{
     data?.metadata?.find((k: DocumentMetadata) => k.key === 'name')?.value || data.gerrydb_table;
 
   const handleChangeName = (name?: string) => {
-    if (name) {
-      updateMetadata(data.document_id, 'name', name);
-      onChange?.({...data});
-    }
+    updateMetadata(data.document_id, 'name', name);
+    onChange?.({...data});
   };
 
   return (

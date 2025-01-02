@@ -258,6 +258,7 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 
   mapName: () => string | undefined;
+  metadata: DocumentObject['metadata'];
   updateMetadata: (documentId: string, key: string, value: any) => void;
   // USER MAPS / RECENT MAPS
 
@@ -391,6 +392,7 @@ export const useMapStore = create(
         setMapViews: mapViews => set({mapViews}),
         mapDocument: null,
         mapName: () => get().mapDocument?.metadata?.find(k => k.key === 'name')?.value || undefined,
+        metadata: new Array(),
         updateMetadata: (documentId: string, key: string, value: any) =>
           set(state => {
             const updatedMaps = state.userMaps.map(map => {

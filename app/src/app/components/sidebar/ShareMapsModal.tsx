@@ -16,7 +16,6 @@ import {
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
-import {size} from 'lodash';
 import {metadata} from '@/app/utils/api/mutations';
 type NamedDocumentObject = DocumentObject & {name?: string};
 
@@ -36,6 +35,7 @@ export const ShareMapsModal = () => {
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const gerryDBTable = mapDocument?.gerrydb_table;
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const updateMetadata = useMapStore(store => store.updateMetadata);
   const [clickToCopyPrompt, setClickToCopyPrompt] = React.useState('Click to copy');
 
   const handleClickToCopy = () => {
@@ -65,10 +65,9 @@ export const ShareMapsModal = () => {
   const [tagsTeam, setTagsTeam] = React.useState(mapTags);
 
   const handleChangeName = (name?: string) => {
-    if (name) {
+    if (mapDocument?.document_id) {
       setName(name);
-    } else {
-      setName('');
+      updateMetadata(mapDocument?.document_id, 'name', name);
     }
   };
 
@@ -122,7 +121,7 @@ export const ShareMapsModal = () => {
             <TextField.Root
               placeholder={mapName ?? 'Team or Plan Name'}
               size="3"
-              value={name ?? mapName}
+              value={mapName}
               onChange={e => handleChangeName(e.target.value)}
             ></TextField.Root>
           </Box>
