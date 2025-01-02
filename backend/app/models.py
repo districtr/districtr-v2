@@ -13,6 +13,7 @@ from sqlmodel import (
     MetaData,
     String,
     Boolean,
+    Integer,
 )
 from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
@@ -158,12 +159,20 @@ class DocumentPublic(BaseModel):
     updated_at: datetime
     extent: list[float] | None = None
     available_summary_stats: list[str] | None = None
+    metadata: list[dict[str, str]] | None = None
 
 
-class DocumentPlanMetadata(BaseModel):
+class DocumentMetadata(TimeStampMixin, SQLModel, table=True):
     """
     Made for user-defined metadata for a document
     """
+
+    __tablename__ = "document_metadata"
+    __table_args__ = {"schema": "document"}
+
+    metadata_id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True)
+    )
 
     document_id: UUID4 = Field(
         sa_column=Column(

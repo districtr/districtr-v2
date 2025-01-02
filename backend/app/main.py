@@ -5,7 +5,7 @@ from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam
+from sqlalchemy import bindparam, func, cast
 from sqlmodel import ARRAY, INT
 import json
 import sentry_sdk
@@ -20,7 +20,7 @@ from app.models import (
     DistrictrMap,
     Document,
     DocumentCreate,
-    DocumentPlanMetadata,
+    DocumentMetadata,
     DocumentPublic,
     GEOIDS,
     AssignedGEOIDS,
@@ -278,6 +278,15 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.available_summary_stats.label(
                 "available_summary_stats"
             ),  # pyright: ignore
+            func.coalesce(
+                func.json_agg(
+                    func.json_build_object(
+                        DocumentMetadata.key,
+                        DocumentMetadata.value,
+                    )
+                ),
+                [],
+            ).label("metadata"),
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
@@ -285,10 +294,27 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
             isouter=True,
         )
+        .join(
+            DocumentMetadata,
+            cast(Document.document_id, UUIDType)
+            == cast(DocumentMetadata.document_id, UUIDType),
+            isouter=True,
+        )
+        .group_by(
+            Document.document_id,
+            Document.created_at,
+            Document.gerrydb_table,
+            Document.updated_at,
+            DistrictrMap.parent_layer,
+            DistrictrMap.child_layer,
+            DistrictrMap.tiles_s3_path,
+            DistrictrMap.num_districts,
+            DistrictrMap.extent,
+            DistrictrMap.available_summary_stats,
+        )
         .limit(1)
     )
     result = session.exec(stmt)
-
     return result.one()
 
 
@@ -415,7 +441,7 @@ async def get_gerrydb_summary_stat(
 
 @app.post("/api/document/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
-    metadata: List[DocumentPlanMetadata],  # Accept metadata as a dictionary
+    metadata: List[DocumentMetadata],  # Accept metadata as a dictionary
     session: Session = Depends(get_session),
 ):
     try:
