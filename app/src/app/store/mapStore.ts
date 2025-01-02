@@ -423,6 +423,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               ...mapOptions,
               bounds: mapDocument.extent,
             },
+            appLoadingState: 'initializing',
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
