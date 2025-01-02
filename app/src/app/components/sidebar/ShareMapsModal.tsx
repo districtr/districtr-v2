@@ -13,12 +13,10 @@ import {
   IconButton,
   RadioCards,
 } from '@radix-ui/themes';
-import {ClipboardCopyIcon, MagnifyingGlassIcon} from '@radix-ui/react-icons';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
-import {map, size} from 'lodash';
-import {Description} from '@radix-ui/react-toast';
+import {size} from 'lodash';
 import {metadata} from '@/app/utils/api/mutations';
 type NamedDocumentObject = DocumentObject & {name?: string};
 
@@ -28,7 +26,6 @@ const BoxContainer = styled(Box, {
   display: 'flex',
   flexDirection: 'column',
   gap: '1rem',
-  // maxWidth: '200px',
 });
 
 export const ShareMapsModal = () => {
@@ -68,9 +65,14 @@ export const ShareMapsModal = () => {
   const [tagsTeam, setTagsTeam] = React.useState<string>('');
 
   const handleChangeName = (name?: string) => {
-    // name?.length
     if (name) {
       setName(name);
+    }
+  };
+
+  const handleChangeTag = (tag?: string) => {
+    if (tag) {
+      setTagsTeam(tag);
     }
   };
 
@@ -87,8 +89,7 @@ export const ShareMapsModal = () => {
     //   tags: tagsTeam,
     // };
     // // upsertUserMap(data);
-    // console.log(data);
-    // save to db
+
     const metadataObjects = [
       {key: 'name', value: name},
       {key: 'tags', value: tagsTeam},
@@ -101,7 +102,6 @@ export const ShareMapsModal = () => {
       };
     });
     metadata.mutate(formattedMetadata);
-    // formattedMetadata.forEach(meta => metadata.mutate(meta));
   };
 
   return (
@@ -135,7 +135,7 @@ export const ShareMapsModal = () => {
               placeholder="Tag or Event Code"
               size="3"
               value={tagsTeam}
-              onChange={e => handleChangeName(e.target.value)}
+              onChange={e => handleChangeTag(e.target.value)}
             ></TextField.Root>
           </Box>
           <Text as="label" size="2">
