@@ -120,9 +120,9 @@ export const ShareMapsModal = () => {
         <BoxContainer>
           <Box maxWidth="200px">
             <TextField.Root
-              placeholder={mapName ?? 'Team or Plan Name'}
+              // placeholder={mapName ?? 'Team or Plan Name'}
               size="3"
-              value={name}
+              value={name ?? mapName}
               onChange={e => handleChangeName(e.target.value)}
             ></TextField.Root>
           </Box>

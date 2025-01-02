@@ -37,7 +37,7 @@ import {onlyUnique} from '../utils/arrays';
 import {parentIdCache} from './idCache';
 import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
-import { useChartStore } from './chartStore';
+import {useChartStore} from './chartStore';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -258,6 +258,7 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 
   // USER MAPS / RECENT MAPS
+  mapName: () => string | undefined;
   userMaps: Array<DocumentObject & {name?: string}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
   upsertUserMap: (props: {
@@ -350,7 +351,11 @@ export const useMapStore = create(
             if (!id || !feature.sourceLayer) return;
             const featureState = featureStateCache[feature.sourceLayer][id];
             const prevAssignment = featureState?.['zone'] || false;
-            const shouldSkip = accumulatedGeoids.has(id) || featureState?.['locked'] || prevAssignment === selectedZone || false;
+            const shouldSkip =
+              accumulatedGeoids.has(id) ||
+              featureState?.['locked'] ||
+              prevAssignment === selectedZone ||
+              false;
             if (shouldSkip) return;
 
             accumulatedGeoids.add(feature.properties?.path);
@@ -378,11 +383,12 @@ export const useMapStore = create(
           useChartStore.getState().updateMetrics(popChanges);
           set({
             assignmentsHash: Date.now().toString(),
-          })
+          });
         },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
         mapDocument: null,
+        mapName: () => get().mapDocument?.metadata?.find(k => k.key === 'name')?.value || undefined,
         setMapDocument: mapDocument => {
           const {
             mapDocument: currentMapDocument,
@@ -948,7 +954,6 @@ export interface HoverFeatureStore {
 export const useHoverStore = create(
   devwrapper(
     subscribeWithSelector<HoverFeatureStore>((set, get) => ({
-
       hoverFeatures: [],
       setHoverFeatures: _features => {
         const hoverFeatures = _features
@@ -965,15 +970,14 @@ export const useHoverStore = create(
 
     {
       ...devToolsConfig,
-      name: "Districtr Hover Feature Store"
+      name: 'Districtr Hover Feature Store',
     }
   )
 );
-
 
 // these need to initialize after the map store
 getRenderSubscriptions(useMapStore, useHoverStore);
 getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
-getMapMetricsSubs(useMapStore)
+getMapMetricsSubs(useMapStore);
 getSearchParamsObersver();
