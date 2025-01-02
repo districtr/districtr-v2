@@ -442,8 +442,9 @@ async def get_gerrydb_summary_stat(
             )
 
 
-@app.post("/api/document/metadata", status_code=status.HTTP_200_OK)
+@app.post("/api/document/metadata/{document_id}", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
+    document_id: str,
     metadata: List[DocumentMetadata],  # Accept metadata as a dictionary
     session: Session = Depends(get_session),
 ):
@@ -452,7 +453,7 @@ async def update_districtrmap_metadata(
 
         session.execute(
             text(
-                f"SELECT document.update_metadata('{json.dumps(metadata_dict)}'::jsonb)"
+                f"SELECT document.update_metadata('{document_id}', '{json.dumps(metadata_dict)}'::jsonb)"
             ),
         )
         session.commit()

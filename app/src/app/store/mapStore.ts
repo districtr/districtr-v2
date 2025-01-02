@@ -257,8 +257,10 @@ export interface MapStore {
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
 
-  // USER MAPS / RECENT MAPS
   mapName: () => string | undefined;
+  updateMetadata: (documentId: string, key: string, value: any) => void;
+  // USER MAPS / RECENT MAPS
+
   userMaps: Array<DocumentObject & {name?: string}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
   upsertUserMap: (props: {
@@ -389,6 +391,21 @@ export const useMapStore = create(
         setMapViews: mapViews => set({mapViews}),
         mapDocument: null,
         mapName: () => get().mapDocument?.metadata?.find(k => k.key === 'name')?.value || undefined,
+        updateMetadata: (documentId: string, key: string, value: any) =>
+          set(state => {
+            const updatedMaps = state.userMaps.map(map => {
+              if (map.document_id === documentId) {
+                const metadataItem = map.metadata?.find(item => item.key === key);
+                if (metadataItem) {
+                  metadataItem.value = value;
+                } else {
+                  map.metadata?.push({key, value});
+                }
+              }
+              return map;
+            });
+            return {userMaps: updatedMaps};
+          }),
         setMapDocument: mapDocument => {
           const {
             mapDocument: currentMapDocument,

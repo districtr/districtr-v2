@@ -2,7 +2,7 @@ import axios from 'axios';
 import 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {getEntryTotal} from '../summaryStats';
-import { useChartStore } from '@/app/store/chartStore';
+import {useChartStore} from '@/app/store/chartStore';
 
 export const FormatAssignments = () => {
   const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
@@ -68,7 +68,6 @@ export interface DocumentObject {
 }
 
 export interface DocumentMetadata {
-  document_id: string;
   key: string | null;
   value: string | null;
 }
@@ -159,7 +158,7 @@ export const getZonePopulations: (
   const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
   if (currentHash !== assignmentHash) {
     // return stale data if map already changed
-    return useChartStore.getState().mapMetrics?.data || []
+    return useChartStore.getState().mapMetrics?.data || [];
   }
   if (mapDocument) {
     return await axios
@@ -415,7 +414,6 @@ export interface AssignmentsReset {
   document_id: string;
 }
 
-
 /**
  *
  * @param assignments
@@ -513,10 +511,15 @@ export const patchUnShatterParents: (params: {
     });
 };
 
-export const saveMapDocumentMetadata = async (metadata: DocumentMetadata[]) => {
-  console.log(metadata);
+export const saveMapDocumentMetadata = async ({
+  document_id,
+  metadata,
+}: {
+  document_id: string;
+  metadata: DocumentMetadata[];
+}) => {
   return await axios
-    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/metadata`, metadata)
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/metadata/${document_id}`, metadata)
     .then(res => {
       return res.data;
     })

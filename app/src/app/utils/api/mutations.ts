@@ -118,17 +118,15 @@ export const document = new MutationObserver(queryClient, {
 
 export const metadata = new MutationObserver(queryClient, {
   mutationFn: saveMapDocumentMetadata,
-  onMutate: metadata => {
+  //
+  onMutate: ({document_id, metadata}) => {
     console.log('Saving metadata');
-    // useMapStore.getState().setAppLoadingState('loading');
-    return metadata;
+    return {document_id, metadata};
   },
   onError: error => {
     console.error('Error saving map metadata: ', error);
   },
   onSuccess: data => {
     console.log('Successfully saved metadata');
-    // useMapStore.getState().setMapDocument(data);
-    // useMapStore.getState().setAppLoadingState('loaded');
   },
 });

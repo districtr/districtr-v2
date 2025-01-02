@@ -92,12 +92,11 @@ export const ShareMapsModal = () => {
     ];
     const formattedMetadata: DocumentMetadata[] = metadataObjects.map(obj => {
       return {
-        document_id: mapDocument?.document_id,
         key: obj.key,
         value: obj.value ?? '',
       };
     });
-    metadata.mutate(formattedMetadata);
+    metadata.mutate({document_id: mapDocument?.document_id, metadata: formattedMetadata});
   };
 
   return (
@@ -119,14 +118,16 @@ export const ShareMapsModal = () => {
         </Flex>
         <BoxContainer>
           <Box maxWidth="200px">
+            <Text>Team or Plan Name</Text>
             <TextField.Root
-              // placeholder={mapName ?? 'Team or Plan Name'}
+              placeholder={mapName ?? 'Team or Plan Name'}
               size="3"
               value={name ?? mapName}
               onChange={e => handleChangeName(e.target.value)}
             ></TextField.Root>
           </Box>
           <Box maxWidth="200px">
+            <Text>Tags</Text>
             <TextField.Root
               placeholder={mapTags ?? 'Tag or Event Code'}
               size="3"

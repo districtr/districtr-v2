@@ -13,9 +13,9 @@ import {
   RadioCards,
 } from '@radix-ui/themes';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
-import {DocumentObject} from '../../utils/api/apiHandlers';
+import {DocumentObject, DocumentMetadata} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
-type NamedDocumentObject = DocumentObject & {name?: string};
+// type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxWidth: 'calc(100vw - 2rem)',
@@ -32,7 +32,7 @@ export const RecentMapsModal = () => {
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const [dialogOpen, setDialogOpen] = React.useState(false);
 
-  const handleMapDocument = (data: NamedDocumentObject) => {
+  const handleMapDocument = (data: DocumentObject) => {
     setMapDocument(data);
     const urlParams = new URLSearchParams(searchParams.toString());
     urlParams.set('document_id', data.document_id);
@@ -97,17 +97,22 @@ export const RecentMapsModal = () => {
 };
 
 const RecentMapsRow: React.FC<{
-  data: NamedDocumentObject;
-  onSelect: (data: NamedDocumentObject) => void;
+  data: DocumentObject;
+  onSelect: (data: DocumentObject) => void;
   active: boolean;
-  onChange?: (data?: NamedDocumentObject) => void;
+  onChange?: (data?: DocumentObject) => void;
 }> = ({data, onSelect, active, onChange}) => {
   const updatedDate = new Date(data.updated_at as string);
+  const updateMetadata = useMapStore(store => store.updateMetadata);
   const formattedData = updatedDate.toLocaleDateString();
-  const name = data?.name || data.gerrydb_table;
+  const name =
+    data?.metadata?.find((k: DocumentMetadata) => k.key === 'name')?.value || data.gerrydb_table;
 
   const handleChangeName = (name?: string) => {
-    name?.length && onChange?.({...data, name});
+    if (name) {
+      updateMetadata(data.document_id, 'name', name);
+      onChange?.({...data});
+    }
   };
 
   return (
