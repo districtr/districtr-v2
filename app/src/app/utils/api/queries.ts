@@ -21,7 +21,7 @@ import {useChartStore} from '@/app/store/chartStore';
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
 
-export const mapMetrics = new QueryObserver<ZonePopulation[]>(queryClient, {
+export const mapMetrics = new QueryObserver<{data: ZonePopulation[]; hash: string}>(queryClient, {
   queryKey: ['_zonePopulations'],
   queryFn: skipToken,
 });
@@ -34,7 +34,21 @@ export const updateMapMetrics = (mapDocument: DocumentObject) => {
 };
 
 mapMetrics.subscribe(result => {
-  useChartStore.getState().setMapMetrics(result);
+  // don't load the result if:
+  // no data
+  // if the query is currently fetching
+  // hash is stale, but not the initial hash
+  if (
+    result?.data?.data &&
+    !result.isFetching &&
+    (useMapStore.getState().lastUpdatedHash === result.data?.hash || result?.data.hash == '')
+  ) {
+    useChartStore.getState().setMapMetrics({
+      ...result,
+      // @ts-ignore data is not undefined
+      data: result.data.data,
+    });
+  }
 });
 
 export const mapViewsQuery = new QueryObserver<DistrictrMap[]>(queryClient, {

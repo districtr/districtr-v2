@@ -146,13 +146,16 @@ export let currentHash: string = '';
  */
 export const getZonePopulations: (
   mapDocument: DocumentObject
-) => Promise<ZonePopulation[]> = async mapDocument => {
+) => Promise<{data: ZonePopulation[], hash:string}> = async mapDocument => {
   populationAbortController?.abort();
   populationAbortController = new AbortController();
   const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
   if (currentHash !== assignmentHash) {
     // return stale data if map already changed
-    return useChartStore.getState().mapMetrics?.data || []
+    return {
+      data: useChartStore.getState().mapMetrics?.data || [],
+      hash: assignmentHash
+    }
   }
   if (mapDocument) {
     return await axios
@@ -160,9 +163,11 @@ export const getZonePopulations: (
         signal: populationAbortController.signal,
       })
       .then(res => {
-        return res.data;
-      })
-      .finally(() => {});
+        return {
+          data: res.data as ZonePopulation[],
+          hash: assignmentHash
+        }
+      });
   } else {
     throw new Error('No document provided');
   }
