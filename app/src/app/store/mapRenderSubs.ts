@@ -25,7 +25,7 @@ import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
 import GeometryWorker from '../utils/GeometryWorker';
 import {useHoverStore as _useHoverStore} from '@store/mapStore';
-import { calcPops } from '../utils/populaiton';
+import { calcPops } from '../utils/population';
 import { useChartStore } from './chartStore';
 
 const BBOX_TOLERANCE_DEG = 0.02;
@@ -315,10 +315,10 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
       if(mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT_CHILD)){
         mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-width', paintStyle['line-width']);
         mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-color', paintStyle['line-color']);
-      } 
+      }
     }
   );
-  
+
   const filterCountiesSub = useMapStore.subscribe<[string|undefined, MapStore['getMapRef']]>(state => [state.mapOptions.currentStateFp, state.getMapRef],
     ([stateFp, getMapRef]) => {
       const mapRef = getMapRef()
@@ -329,7 +329,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
       })
     }
   )
-  
+
   const _hoverMapSideEffectRender = useHoverStore.subscribe(
     state => state.hoverFeatures,
     (hoverFeatures, previousHoverFeatures) => {
