@@ -238,6 +238,7 @@ export interface MapStore {
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   assignmentsHash: string;
+  lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
   resetZoneAssignments: () => void;
@@ -382,7 +383,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
 
           useChartStore.getState().updateMetrics(popChanges);
           set({
-            isTemporalAction: false
+            isTemporalAction: false,
+            assignmentsHash: Date.now().toString(),
           })
         },
         mapViews: {isPending: true},
@@ -868,6 +870,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         setSelectedZone: zone => set({selectedZone: zone}),
         zoneAssignments: new Map(),
         assignmentsHash: '',
+        lastUpdatedHash: Date.now().toString(),
         setAssignmentsHash: hash => set({assignmentsHash: hash}),
         accumulatedGeoids: new Set<string>(),
         setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
@@ -919,9 +922,21 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         isPainting: false,
         setIsPainting: isPainting => {
           if (!isPainting) {
-            const {setZoneAssignments, accumulatedGeoids, selectedZone, activeTool} = get();
-            const zone = activeTool === 'eraser' ? null : selectedZone;
-            setZoneAssignments(zone, accumulatedGeoids);
+            const {
+              setZoneAssignments,
+              accumulatedGeoids,
+              selectedZone,
+              activeTool,
+              assignmentsHash,
+              lastUpdatedHash,
+            } = get();
+            if (assignmentsHash !== lastUpdatedHash) {
+              const zone = activeTool === 'eraser' ? null : selectedZone;
+              setZoneAssignments(zone, accumulatedGeoids);
+              set({
+                lastUpdatedHash: assignmentsHash,
+              });
+            }
           }
           set({isPainting});
         },
