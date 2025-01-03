@@ -827,6 +827,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           showBrokenDistricts: false,
           mode: 'default',
           lockPaintedAreas: false,
+          prominentCountyNames: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {

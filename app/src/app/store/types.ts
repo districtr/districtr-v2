@@ -14,6 +14,7 @@ export type DistrictrMapOptions = {
   paintByCounty?: boolean;
   currentStateFp?: string;
   showPopulationTooltip?: boolean;
+  prominentCountyNames?: boolean;
 };
 
 export type DistrictrChartOptions = {
