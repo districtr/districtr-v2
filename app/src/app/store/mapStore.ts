@@ -8,6 +8,7 @@ import {
   Assignment,
   DistrictrMap,
   DocumentObject,
+  lastSentAssignments,
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
   ShatterResult,
@@ -410,6 +411,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           const initialMapOptions = useMapStore.getInitialState().mapOptions;
           parentIdCache.clear();
           allPainted.clear();
+          lastSentAssignments.clear();
           setFreshMap(true);
           resetZoneAssignments();
 
@@ -493,7 +495,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           set({mapLock: false})
         },
         silentlyHeal: async (document_id, parentsToHeal) => {
-          const {getMapRef, zoneAssignments, mapDocument} = get()
+          const {getMapRef, zoneAssignments, mapDocument, shatterMappings, allPainted} = get()
           const mapRef = getMapRef();
           if (!mapRef) return;
           set({mapLock: true})
@@ -504,6 +506,12 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             zone: zoneAssignments.get(parentsToHeal[0])!,
             document_id
           });
+          const children = shatterMappings[parentsToHeal[0]];
+          children.forEach(child => {
+            // remove from allPainted
+            allPainted.delete(child);
+          })
+
           parentsToHeal.forEach(parent => {
             mapRef?.setFeatureState({
               source: BLOCK_SOURCE_ID,
@@ -624,6 +632,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             toggleHighlightBrokenDistricts,
             lockedFeatures,
             getMapRef,
+            allPainted
           } = get();
           const idsToCheck = [..._parentsToHeal, ...additionalIds];
           const mapRef = getMapRef();
@@ -654,6 +663,13 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               zone: parentsToHeal[0].zone as any,
               document_id: mapDocument?.document_id,
             });
+            const children = parentsToHeal.map(f => shatterMappings[f.parentId])
+              .forEach(childSet => {
+                childSet.forEach(child => {
+                // remove from allPainted
+                allPainted.delete(child);
+              })
+            })
             toggleHighlightBrokenDistricts(r.geoids, false);
             const newZoneAssignments = new Map(zoneAssignments);
             const newShatterIds = {
@@ -778,6 +794,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           if (resetResponse.document_id === document_id) {
             const initialState = useMapStore.getInitialState();
             useMapStore.temporal.getState().clear()
+            lastSentAssignments.clear();
             resetZoneColors({
               zoneAssignments,
               mapRef: getMapRef(),
@@ -911,6 +928,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           });
         },
         loadZoneAssignments: assignments => {
+          lastSentAssignments.clear();
           const zoneAssignments = new Map<string, number>();
           const shatterIds = {
             parents: new Set<string>(),
@@ -920,6 +938,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
 
           assignments.forEach(assignment => {
             zoneAssignments.set(assignment.geo_id, assignment.zone);
+            // preload last sent assignments with last fetched assignments
+            lastSentAssignments.set(assignment.geo_id, assignment.zone);
             if (assignment.parent_path) {
               if (!shatterMappings[assignment.parent_path]) {
                 shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
