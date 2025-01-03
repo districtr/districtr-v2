@@ -2,21 +2,40 @@ import axios from 'axios';
 import 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {getEntryTotal} from '../summaryStats';
-import { useChartStore } from '@/app/store/chartStore';
+import {useChartStore} from '@/app/store/chartStore';
+import {NullableZone} from '@/app/constants/types';
 
 export const FormatAssignments = () => {
-  const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
+  // track the geoids that have been painted, but are now not painted
+  const allPainted = useMapStore.getState().allPainted;
+  const assignmentsVisited = new Set([...allPainted]);
+  const assignments: Assignment[] = [];
+
+  Array.from(useMapStore.getState().zoneAssignments.entries()).forEach(
     // @ts-ignore
     ([geo_id, zone]: [string, number]): {
       document_id: string;
       geo_id: string;
-      zone: number;
-    } => ({
-      document_id: useMapStore.getState().mapDocument?.document_id.toString() ?? '',
-      geo_id,
-      zone,
-    })
+      zone: NullableZone;
+    } => {
+      assignmentsVisited.delete(geo_id);
+      assignments.push({
+        document_id: useMapStore.getState().mapDocument?.document_id || '',
+        geo_id,
+        zone,
+      });
+    }
   );
+  // fill in with nulls removes assignments from backend
+  // otherwise the previous assignment remains
+  assignmentsVisited.forEach(geo_id => {
+    assignments.push({
+      document_id: useMapStore.getState().mapDocument?.document_id || '',
+      geo_id,
+      // @ts-ignore assignment wants to be number
+      zone: null,
+    });
+  });
   return assignments;
 };
 
@@ -146,13 +165,16 @@ export let currentHash: string = '';
  */
 export const getZonePopulations: (
   mapDocument: DocumentObject
-) => Promise<ZonePopulation[]> = async mapDocument => {
+) => Promise<{data: ZonePopulation[], hash:string}> = async mapDocument => {
   populationAbortController?.abort();
   populationAbortController = new AbortController();
   const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
   if (currentHash !== assignmentHash) {
     // return stale data if map already changed
-    return useChartStore.getState().mapMetrics?.data || []
+    return {
+      data: useChartStore.getState().mapMetrics?.data || [],
+      hash: assignmentHash
+    }
   }
   if (mapDocument) {
     return await axios
@@ -160,9 +182,11 @@ export const getZonePopulations: (
         signal: populationAbortController.signal,
       })
       .then(res => {
-        return res.data;
-      })
-      .finally(() => {});
+        return {
+          data: res.data as ZonePopulation[],
+          hash: assignmentHash
+        }
+      });
   } else {
     throw new Error('No document provided');
   }

@@ -1,9 +1,15 @@
-import {useMapStore} from '@/app/store/mapStore';
 import {AlertDialog, Button, Flex} from '@radix-ui/themes';
+import {useMapStore} from '@/app/store/mapStore';
+import {useTemporalStore} from '@/app/store/temporalStore';
 
 export function ResetMapButton() {
-  const handleClickResetMap = useMapStore(state => state.handleReset);
   const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
+  const handleReset = useMapStore(state => state.handleReset);
+  const clear = useTemporalStore(state => state.clear); // TemporalState<MapStore>
+  const handleClickResetMap = () => {
+    clear();
+    handleReset();
+  };
 
   return (
     <AlertDialog.Root>
