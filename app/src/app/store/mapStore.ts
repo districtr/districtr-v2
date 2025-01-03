@@ -761,6 +761,7 @@ export const useMapStore = create(
           showBrokenDistricts: false,
           mode: 'default',
           lockPaintedAreas: false,
+          prominentCountyNames: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
