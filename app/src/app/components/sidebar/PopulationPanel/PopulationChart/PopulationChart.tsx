@@ -116,7 +116,7 @@ export const PopulationChart: React.FC<{
           </>
         )}
         {data.map((entry, index) => (
-          <>
+          <React.Fragment key={`pop-bar-group-${index}`}>
             {entry.total_pop > 0 && (
               <>
                 {hoveredIndex === index && (
@@ -137,7 +137,7 @@ export const PopulationChart: React.FC<{
                   key={`bar-${entry.zone}`}
                   x={0}
                   y={yScale(index) + 5}
-                  width={xScale(entry.total_pop)}
+                  width={entry.total_pop > 0 ? xScale(entry.total_pop) : 0}
                   height={barHeight}
                   fill={colorScheme[entry.zone - 1]}
                   fillOpacity={0.9}
@@ -195,6 +195,7 @@ export const PopulationChart: React.FC<{
                   yScale,
                   entry,
                   maxPop,
+                  idealPopulation,
                   index,
                   barHeight,
                   isHovered,
@@ -204,7 +205,7 @@ export const PopulationChart: React.FC<{
                 }}
               />
             )}
-          </>
+          </React.Fragment>
         ))}
         {/* Ocassionally, the "nice" formatting makes part of the axis missing */}
         <Line from={{x: 0, y: yMax + 6}} to={{x: xMax, y: yMax + 6}} stroke="black" />

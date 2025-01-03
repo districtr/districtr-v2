@@ -7,6 +7,7 @@ import React from 'react';
 import classNames from "classnames";
 import * as Accordion from "@radix-ui/react-accordion";
 import { ChevronDownIcon, DoubleArrowDownIcon } from "@radix-ui/react-icons";
+import {useMapStore} from '@/app/store/mapStore';
 
 interface DataPanelSpec {
   title: string;
@@ -16,7 +17,6 @@ interface DataPanelSpec {
 }
 
 interface DataPanelsProps {
-  defaultPanel?: string;
   panels?: DataPanelSpec[];
 }
 
@@ -39,14 +39,16 @@ const defaultPanels: DataPanelSpec[] = [
 ];
 
 const DataPanels: React.FC<DataPanelsProps> = ({
-  defaultPanel = defaultPanels[0].title,
   panels = defaultPanels,
 }) => {
+  const sidebarPanel = useMapStore(state => state.sidebarPanel);
+  const setSidebarPanel = useMapStore(state => state.setSidebarPanel);
   return (
     <Accordion.Root 
       type="multiple" 
       className="AccordionRoot" 
-      defaultValue={[defaultPanel]}
+      value={[sidebarPanel]}
+      onValueChange={setSidebarPanel}
       >
       {panels.map(panel => (
       <Accordion.Item 
@@ -54,6 +56,7 @@ const DataPanels: React.FC<DataPanelsProps> = ({
         value={panel.title} 
         className="AccordionItem border-[1px] border-gray-300 rounded-lg my-1 bg-white"
         defaultValue={'open'}
+        o
       >
         <AccordionTrigger className="AccordionTrigger">
         {panel.label}

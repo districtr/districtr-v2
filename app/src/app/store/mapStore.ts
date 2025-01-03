@@ -1,7 +1,7 @@
 'use client';
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
 import {create} from 'zustand';
-import {devtools, subscribeWithSelector, persist} from 'zustand/middleware';
+import {subscribeWithSelector, persist} from 'zustand/middleware';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '../constants/types';
 import {Zone, GDBPath} from '../constants/types';
 import {
@@ -11,11 +11,10 @@ import {
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
   ShatterResult,
-  ZonePopulation,
 } from '../utils/api/apiHandlers';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
-import {QueryObserverResult, UseQueryResult} from '@tanstack/react-query';
+import {QueryObserverResult} from '@tanstack/react-query';
 import {
   ContextMenuState,
   LayerVisibility,
@@ -32,7 +31,7 @@ import {getQueriesResultsSubs} from '../utils/api/queries';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
-import {DistrictrChartOptions, DistrictrMapOptions} from './types';
+import {DistrictrMapOptions} from './types';
 import {devToolsConfig, devwrapper, persistOptions} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
 import {parentIdCache} from './idCache';
@@ -222,6 +221,8 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
+  sidebarPanel: 'layers' | 'population' | 'evaluation';
+  setSidebarPanel: (panel: MapStore['sidebarPanel']) => void;
   // HIGHLIGHT
   toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
   activeTool: ActiveTool;
@@ -233,6 +234,7 @@ export interface MapStore {
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   assignmentsHash: string;
+  lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
   loadZoneAssignments: (assigments: Assignment[]) => void;
   resetZoneAssignments: () => void;
@@ -377,6 +379,9 @@ export const useMapStore = create(
           });
 
           useChartStore.getState().updateMetrics(popChanges);
+          set({
+            assignmentsHash: Date.now().toString(),
+          })
         },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
@@ -387,11 +392,11 @@ export const useMapStore = create(
             setFreshMap,
             resetZoneAssignments,
             upsertUserMap,
-            mapOptions,
           } = get();
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
           }
+          const initialMapOptions = useMapStore.getInitialState().mapOptions;
           parentIdCache.clear();
           setFreshMap(true);
           resetZoneAssignments();
@@ -411,9 +416,10 @@ export const useMapStore = create(
           set({
             mapDocument: mapDocument,
             mapOptions: {
-              ...mapOptions,
+              ...initialMapOptions,
               bounds: mapDocument.extent,
             },
+            sidebarPanel: 'population',
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
@@ -764,8 +770,11 @@ export const useMapStore = create(
           showBrokenDistricts: false,
           mode: 'default',
           lockPaintedAreas: false,
+          prominentCountyNames: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+        sidebarPanel: 'layers',
+        setSidebarPanel: sidebarPanel => set({sidebarPanel}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
           const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
           const mapRef = getMapRef();
@@ -819,6 +828,7 @@ export const useMapStore = create(
         setSelectedZone: zone => set({selectedZone: zone}),
         zoneAssignments: new Map(),
         assignmentsHash: '',
+        lastUpdatedHash: Date.now().toString(),
         setAssignmentsHash: hash => set({assignmentsHash: hash}),
         accumulatedGeoids: new Set<string>(),
         setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
@@ -870,9 +880,21 @@ export const useMapStore = create(
         isPainting: false,
         setIsPainting: isPainting => {
           if (!isPainting) {
-            const {setZoneAssignments, accumulatedGeoids, selectedZone, activeTool} = get();
-            const zone = activeTool === 'eraser' ? null : selectedZone;
-            setZoneAssignments(zone, accumulatedGeoids);
+            const {
+              setZoneAssignments,
+              accumulatedGeoids,
+              selectedZone,
+              activeTool,
+              assignmentsHash,
+              lastUpdatedHash,
+            } = get();
+            if (assignmentsHash !== lastUpdatedHash) {
+              const zone = activeTool === 'eraser' ? null : selectedZone;
+              setZoneAssignments(zone, accumulatedGeoids);
+              set({
+                lastUpdatedHash: assignmentsHash,
+              });
+            }
           }
           set({isPainting});
         },
@@ -952,7 +974,7 @@ export const useHoverStore = create(
         set({hoverFeatures});
       },
     })),
-    
+
     {
       ...devToolsConfig,
       name: "Districtr Hover Feature Store"

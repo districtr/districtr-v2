@@ -11,6 +11,8 @@ import {
   BLOCK_LAYER_ID_HIGHLIGHT,
   getHighlightLayerSpecification,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+  removeZoneMetaLayers,
+  debouncedAddZoneMetaLayers,
   COUNTY_LAYERS,
 } from '../constants/layers';
 import {
@@ -22,6 +24,7 @@ import {
 } from '../utils/helpers';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
+import GeometryWorker from '../utils/GeometryWorker';
 import { useHoverStore as _useHoverStore } from '@store/mapStore';
 
 const BBOX_TOLERANCE_DEG = 0.02;
@@ -90,9 +93,11 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
       state.appLoadingState,
       state.mapRenderingState,
       state.mapOptions.lockPaintedAreas,
+      state.mapOptions.showZoneNumbers
     ],
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
+
       const {
         captiveIds,
         shatterIds,
@@ -100,7 +105,17 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
         setLockedFeatures,
         lockedFeatures,
         mapRenderingState,
+        mapOptions
       } = useMapStore.getState();
+      if (mapOptions.showZoneNumbers){
+        GeometryWorker?.updateProps(
+          Array.from(curr[0].entries())
+        ).then(() => {
+          debouncedAddZoneMetaLayers({})
+        })
+      } else {
+        removeZoneMetaLayers()
+      }
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded') return;
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
@@ -304,12 +319,25 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
     ([stateFp, getMapRef]) => {
       const mapRef = getMapRef()
       if (!mapRef) return
-      const filterExpression = (stateFp ? ["==", "STATEFP", stateFp] : true) as any
+      const filterExpression = ["==", ["slice", ["get", "GEOID"], 0, 2], stateFp ? stateFp : '--'] as any
       COUNTY_LAYERS.forEach(layer => {
         mapRef.getLayer(layer) && mapRef.setFilter(layer,  ["any", filterExpression])
       })
     }
   )
+  const countyEmphasisSub = useMapStore.subscribe(state => state.mapOptions.prominentCountyNames, (prominentCountyNames) => {
+    const mapRef = useMapStore.getState().getMapRef();
+    if (!mapRef) return;
+    const layers = mapRef.getStyle().layers;
+    const layerLength = layers.length;
+    if (prominentCountyNames) {
+      mapRef.moveLayer('counties_labels', layers[layerLength - 1].id); // move to top
+      mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Bold']);
+    } else {
+      mapRef.moveLayer('counties_labels', 'counties_boundary'); // move to other county labes
+      mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Regular']);
+    }
+  })
   
   const _hoverMapSideEffectRender = useHoverStore.subscribe(
     state => state.hoverFeatures,

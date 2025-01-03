@@ -1,6 +1,6 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
@@ -297,7 +297,7 @@ async def get_total_population(
         return [
             ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()
         ]
-    except ProgrammingError as e:
+    except (ProgrammingError, InternalError) as e:
         logger.error(e)
         error_text = str(e)
         if f"Table name not found for document_id: {document_id}" in error_text:
@@ -351,7 +351,7 @@ async def get_summary_stat(
             "summary_stat": _summary_stat.value,
             "results": [SummaryStatsModel.model_validate(row) for row in results],
         }
-    except ProgrammingError as e:
+    except (ProgrammingError, InternalError) as e:
         logger.error(e)
         error_text = str(e)
         if f"Table name not found for document_id: {document_id}" in error_text:
@@ -396,7 +396,7 @@ async def get_gerrydb_summary_stat(
             "summary_stat": _summary_stat.value,
             "results": SummaryStatsModel.model_validate(results),
         }
-    except ProgrammingError as e:
+    except (ProgrammingError, InternalError) as e:
         logger.error(e)
         error_text = str(e)
         if f"Table {gerrydb_table} does not exist in gerrydb schema" in error_text:

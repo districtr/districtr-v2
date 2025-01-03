@@ -6,19 +6,20 @@ import type {
   Map as MapLibreMap,
   MapLayerMouseEvent,
   MapLayerTouchEvent,
-  MapDataEvent,
-  MapSourceDataEvent,
   MapGeoJSONFeature,
 } from 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
+  debouncedAddZoneMetaLayers,
   INTERACTIVE_LAYERS,
 } from '@/app/constants/layers';
 import {ResetMapSelectState} from '@utils/events/handlers';
-import {ActiveTool, MapFeatureInfo} from '@/app/constants/types';
-import {parentIdCache} from '@/app/store/idCache';
+import GeometryWorker from '../GeometryWorker';
+import { MinGeoJSONFeature } from '../GeometryWorker/geometryWorker.types';
+import {ActiveTool} from '@/app/constants/types';
+import { parentIdCache } from '@/app/store/idCache';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/mapStore';
@@ -56,16 +57,17 @@ export const handleMapClick = (
   map: MapLibreMap | null
 ) => {
   const mapStore = useMapStore.getState();
-  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures} = mapStore;
+  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures, setIsPainting} = mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
-
     if (sourceLayer && selectedFeatures && map && mapStore) {
       // select on both the map object and the store
       // @ts-ignore TODO fix typing on this function
       selectMapFeatures(selectedFeatures);
+      // end paint event to commit changes to zone assignments
+      setIsPainting(false)
     }
   } else if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
@@ -139,8 +141,10 @@ export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
-  useTooltipStore.getState().setTooltip(null);
+  setTimeout(() => {
+    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY)
+    useTooltipStore.getState().setTooltip(null);
+  }, 250);
   useMapStore.getState().setIsPainting(false);
 };
 
@@ -148,8 +152,10 @@ export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
-  useTooltipStore.getState().setTooltip(null);
+  setTimeout(() => {
+    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY)
+    useTooltipStore.getState().setTooltip(null);
+  }, 250);
   useMapStore.getState().setIsPainting(false);
 };
 
@@ -208,7 +214,12 @@ export const handleMapZoom = (
 
 export const handleMapIdle = () => {};
 
-export const handleMapMoveEnd = () => {};
+export const handleMapMoveEnd = () => {
+  const { mapOptions } = useMapStore.getState()
+  if (mapOptions.showZoneNumbers) {
+    debouncedAddZoneMetaLayers({})
+  }
+};
 
 export const handleMapZoomEnd = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
@@ -267,8 +278,8 @@ export const handleIdCache = (
   _e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  const e = _e as unknown as MapSourceDataEvent;
-  const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {};
+  const e = _e as any
+  const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
 
   if (
     !tiles_s3_path ||
@@ -280,21 +291,30 @@ export const handleIdCache = (
     return;
 
   const tileData = e.tile.latestFeatureIndex;
-  if (!tileData) return;
 
-  const index = `${tileData.x}-${tileData.y}-${tileData.z}`;
-  if (parentIdCache.hasCached(index)) return;
-  const vtLayers = tileData.loadVTLayers();
+  if (!tileData) return
 
-  const parentLayerData = vtLayers[parent_layer];
-  const numFeatures = parentLayerData.length;
-  const featureDataArray = parentLayerData._values;
-  const idArray = featureDataArray.slice(-numFeatures);
-  parentIdCache.add(index, idArray);
-  useMapStore.getState().setMapOptions({
-    currentStateFp: idArray[0].replace('vtd:', '').slice(0, 2),
-  });
+  const index = `${tileData.x}-${tileData.y}-${tileData.z}`
+  if (parentIdCache.hasCached(index)) return
+  const featureArray: MinGeoJSONFeature[] = []
+  for (let i = 0; i < e.features.length; i++) {
+    const feature = e.features[i]
+    if (!feature || feature.sourceLayer !== parent_layer) continue
+    const id = feature.id
+    featureArray.push({
+      type: "Feature",
+      properties: feature.properties,
+      geometry: feature.geometry,
+      sourceLayer: feature.sourceLayer
+    })
+  }
+  const currentStateFp = featureArray?.[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2)
+
+  GeometryWorker?.loadGeometry(featureArray, "path");
+  parentIdCache.loadFeatures(featureArray, index)
+  useMapStore.getState().setMapOptions({currentStateFp});
 };
+
 
 export const mapEvents = [
   {action: 'click', handler: handleMapClick},
@@ -317,3 +337,24 @@ export const mapEvents = [
   {action: 'contextmenu', handler: handleMapContextMenu},
   {action: 'data', handler: handleIdCache},
 ];
+
+export const handleWheelOrPinch = (
+  e: MouseEvent | TouchEvent,
+  map: MapLibreMap | null
+) => {
+  if (!map) return
+  // Both trackpad pinchn and mousewheel scroll (or two finger scroll)
+  // are 'wheel' events, except in safari which has gesture events
+  // The ctrlKey property is how most browsers indicate a pinch event
+  // https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent#browser_compatibility
+  const wheelRate = e.ctrlKey ? 100 : 450
+  const zoomRate = e.ctrlKey ? 50 : 100
+  // TODO: Safari on iOS does not use this standard and needs additional cases
+  // If the experience feels bad on mobile
+  if (map.scrollZoom._wheelZoomRate === (1/wheelRate)) return
+  map.scrollZoom.setWheelZoomRate(1 / wheelRate);
+  map.scrollZoom.setZoomRate(1 / zoomRate);
+}
+export const mapContainerEvents = [
+  {action: 'wheel', handler: handleWheelOrPinch}
+]

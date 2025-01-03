@@ -92,7 +92,7 @@ export default function SidebarComponent() {
               opacity: document_id ? 1 : 0.25,
             }}
           >
-            <DataPanels defaultPanel="population" />
+            <DataPanels />
           </Box>
         </Flex>
       </Box>

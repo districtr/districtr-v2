@@ -3,11 +3,11 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import {devToolsConfig, devwrapper} from './middlewareConfig';
 import {UseQueryResult} from '@tanstack/react-query';
 import {ZonePopulation} from '../utils/api/apiHandlers';
-import {DistrictrChartOptions} from './types';
+import {APIError, DistrictrChartOptions} from './types';
 
 export interface ChartStore {
-  mapMetrics: UseQueryResult<ZonePopulation[], Error> | null;
-  setMapMetrics: (metrics: UseQueryResult<ZonePopulation[], Error> | null) => void;
+  mapMetrics: UseQueryResult<ZonePopulation[], APIError | Error> | null;
+  setMapMetrics: (metrics: UseQueryResult<ZonePopulation[], APIError | Error> | null) => void;
   updateMetrics: (popChanges: Record<number, number>) => void;
   chartOptions: DistrictrChartOptions;
   setChartOptions: (options: Partial<ChartStore['chartOptions']>) => void;
