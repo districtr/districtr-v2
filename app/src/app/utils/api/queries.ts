@@ -140,14 +140,19 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 };
 
 fetchAssignments.subscribe(assignments => {
-  if (assignments.data?.length) {
-    const {loadZoneAssignments, loadedMapId} = useMapStore.getState();
-    if (assignments.data[0].document_id === loadedMapId) {
-      console.log("Map already loaded, skipping assignment load", assignments.data[0].document_id, loadedMapId);
+  if (assignments.data) {
+    const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
+    if (assignments.data?.length && assignments.data[0].document_id === loadedMapId) {
+      console.log(
+        'Map already loaded, skipping assignment load',
+        assignments.data[0].document_id,
+        loadedMapId
+      );
     } else {
       loadZoneAssignments(assignments.data);
-      useMapStore.temporal.getState().clear()
+      useMapStore.temporal.getState().clear();
     }
+    setAppLoadingState('loaded');
   }
 });
 
