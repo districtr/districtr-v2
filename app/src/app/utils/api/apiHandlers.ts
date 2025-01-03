@@ -43,7 +43,6 @@ export const FormatAssignments = () => {
       });
     }
   });
-  console.log("ASSIGNMENTS", assignments);
   return assignments;
 };
 
