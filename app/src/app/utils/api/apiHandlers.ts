@@ -5,6 +5,7 @@ import {getEntryTotal} from '../summaryStats';
 import {useChartStore} from '@/app/store/chartStore';
 import {NullableZone} from '@/app/constants/types';
 
+export const lastSentAssignments = new Map<string, NullableZone>();
 export const FormatAssignments = () => {
   // track the geoids that have been painted, but are now not painted
   const allPainted = useMapStore.getState().allPainted;
@@ -19,23 +20,30 @@ export const FormatAssignments = () => {
       zone: NullableZone;
     } => {
       assignmentsVisited.delete(geo_id);
-      assignments.push({
-        document_id: useMapStore.getState().mapDocument?.document_id || '',
-        geo_id,
-        zone,
-      });
+      if (lastSentAssignments.get(geo_id) !== zone) {
+        lastSentAssignments.set(geo_id, zone);
+        assignments.push({
+          document_id: useMapStore.getState().mapDocument?.document_id || '',
+          geo_id,
+          zone,
+        });
+      }
     }
   );
   // fill in with nulls removes assignments from backend
   // otherwise the previous assignment remains
   assignmentsVisited.forEach(geo_id => {
-    assignments.push({
-      document_id: useMapStore.getState().mapDocument?.document_id || '',
-      geo_id,
-      // @ts-ignore assignment wants to be number
-      zone: null,
-    });
+    if (lastSentAssignments.get(geo_id) !== null) {
+      lastSentAssignments.set(geo_id, null);
+      assignments.push({
+        document_id: useMapStore.getState().mapDocument?.document_id || '',
+        geo_id,
+        // @ts-ignore assignment wants to be number
+        zone: null,
+      });
+    }
   });
+  console.log("ASSIGNMENTS", assignments);
   return assignments;
 };
 
