@@ -768,6 +768,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
 
           if (resetResponse.document_id === document_id) {
             const initialState = useMapStore.getInitialState();
+            useMapStore.temporal.getState().clear()
             resetZoneColors({
               zoneAssignments,
               mapRef: getMapRef(),

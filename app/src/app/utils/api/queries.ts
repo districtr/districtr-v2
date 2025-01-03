@@ -144,6 +144,7 @@ fetchAssignments.subscribe(assignments => {
     const {loadZoneAssignments, appLoadingState} = useMapStore.getState();
     if (appLoadingState === 'initializing') {
       loadZoneAssignments(assignments.data);
+      useMapStore.temporal.getState().clear()
     } else {
       console.log('did not load prior map during rendering state: ' + appLoadingState);
     }
