@@ -1,12 +1,4 @@
-import {
-  Button,
-  Card,
-  Flex,
-  IconButton,
-  IconButtonProps,
-  Text,
-  Tooltip,
-} from '@radix-ui/themes';
+import {Button, Card, Flex, IconButton, IconButtonProps, Text, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {
   EraserIcon,
@@ -17,14 +9,17 @@ import {
   GearIcon,
   Cross2Icon,
   CounterClockwiseClockIcon,
+  ResetIcon,
 } from '@radix-ui/react-icons';
 import {RecentMapsModal} from '@components/sidebar/RecentMapsModal';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import Layers from './sidebar/Layers';
 import {BrushControls} from './BrushControls';
 import {ZoneLockPicker} from './sidebar/ZoneLockPicker';
 import {ActiveTool} from '../constants/types';
 import {ExitBlockViewButtons} from './sidebar/ExitBlockViewButtons';
+import { useTemporalStore } from '../store/temporalStore';
+import { debounce } from 'lodash';
 
 const ToolUtilitiesConfig: Record<
   Partial<ActiveTool>,
@@ -55,6 +50,9 @@ const ToolUtilitiesConfig: Record<
     Component: Layers,
     focused: true,
   },
+  undo: {
+    Component: () => <React.Fragment/>
+  },
   brush: {
     Component: BrushControls,
   },
@@ -77,9 +75,9 @@ const ToolUtilitiesConfig: Record<
 };
 
 const ToolUtilities: React.FC<{activeTool: ActiveTool}> = ({activeTool}) => {
-  const ContainerRef = useRef<HTMLDivElement|null>(null);
+  const ContainerRef = useRef<HTMLDivElement | null>(null);
   const {
-    Component, 
+    Component,
     // focused
   } = ToolUtilitiesConfig[activeTool] || {};
   // TODO: refinement. The idea here is to have an ephemeral menu that goes away on interaction
@@ -127,9 +125,11 @@ type ActiveToolConfig = {
   mode: ActiveTool;
   disabled?: boolean;
   label: string;
-  variant?: IconButtonProps['variant']
-  color?: IconButtonProps['color']
+  variant?: IconButtonProps['variant'];
+  color?: IconButtonProps['color'];
   icon: React.JSX.Element;
+  iconStyle?: React.CSSProperties;
+  onClick?: () => void;
 };
 
 export const MapToolbar = () => {
@@ -139,10 +139,58 @@ export const MapToolbar = () => {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
 
+  const { futureStates, pastStates, redo, undo } = useTemporalStore(
+    (state) => state,
+  ); // TemporalState<MapStore>
+  const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction)
+  const handleUndo = useCallback(debounce(undo, 100), [undo]);
+  const handleRedo = useCallback(debounce(redo, 100), [redo]);
+
   const activeTools: ActiveToolConfig[] = [
-    {hotkey: 'Digit1', mode: 'pan', disabled: !mapDocument?.document_id, label: 'Pan', icon: <HandIcon />},
-    {hotkey: 'Digit2', mode: 'brush', disabled: !mapDocument?.document_id, label: 'Paint', icon: <Pencil2Icon />},
-    {hotkey: 'Digit3', mode: 'eraser', disabled: !mapDocument?.document_id, label: 'Erase', icon: <EraserIcon />},
+    {
+      hotkey: 'Digit1',
+      mode: 'pan',
+      disabled: !mapDocument?.document_id,
+      label: 'Pan',
+      icon: <HandIcon />,
+    },
+    {
+      hotkey: 'Digit2',
+      mode: 'brush',
+      disabled: !mapDocument?.document_id,
+      label: 'Paint',
+      icon: <Pencil2Icon />,
+    },
+    {
+      hotkey: 'Digit3',
+      mode: 'eraser',
+      disabled: !mapDocument?.document_id,
+      label: 'Erase',
+      icon: <EraserIcon />,
+    },
+    {
+      hotkey: 'KeyZ',
+      mode: 'undo',
+      disabled: pastStates.length === 0,
+      label: 'Undo',
+      icon: <ResetIcon />,
+      onClick: () => {
+        setIsTemporalAction(true)
+        handleUndo()
+      }
+    },
+    {
+      hotkey: 'KeyX',
+      mode: 'undo',
+      disabled: futureStates.length === 0,
+      label: 'Redo',
+      icon: <ResetIcon />,
+      iconStyle: {transform: 'rotateY(180deg)'},
+      onClick: () => {
+        setIsTemporalAction(true)
+        handleRedo()
+      }
+    },
     {
       hotkey: 'Digit4',
       mode: 'shatter',
@@ -186,10 +234,11 @@ export const MapToolbar = () => {
     // add a listener for option or alt key press and release
     const handleKeyPress = (event: KeyboardEvent) => {
       if (event.altKey) {
+        console.log(event.code);
         setShowShortcuts(event.type === 'keydown');
         const tool = activeTools.find(f => f.hotkey === event.code);
         if (tool) {
-          setActiveTool(tool.mode);
+          tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
         }
       } else {
         if (event.type === 'keyup') {
@@ -229,17 +278,23 @@ export const MapToolbar = () => {
                 <IconButton
                   key={`${tool.mode}-flex`}
                   className="cursor-pointer"
-                  onClick={() => setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode)}
+                  onClick={() => {
+                    if (tool.onClick) {
+                      tool.onClick();
+                    } else {
+                      setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode)
+                    }
+                  }}
                   style={{
                     marginRight: i === activeTools.length - 1 ? 0 : -1,
                     padding: activeTool === tool.mode ? '0 0' : '.75rem',
+                    ...(tool?.iconStyle||{}),
                   }}
                   variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
                   color={tool.color}
                   radius="none"
                   disabled={tool.disabled}
                   size="3"
-
                 >
                   {tool.icon}
                 </IconButton>
