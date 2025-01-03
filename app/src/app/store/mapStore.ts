@@ -228,6 +228,8 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
+  sidebarPanel: 'layers' | 'population' | 'evaluation';
+  setSidebarPanel: (panel: MapStore['sidebarPanel']) => void;
   // HIGHLIGHT
   toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
   activeTool: ActiveTool;
@@ -399,12 +401,12 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             setFreshMap,
             resetZoneAssignments,
             upsertUserMap,
-            mapOptions,
             allPainted
           } = get();
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
           }
+          const initialMapOptions = useMapStore.getInitialState().mapOptions;
           parentIdCache.clear();
           allPainted.clear();
           setFreshMap(true);
@@ -425,10 +427,11 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           set({
             mapDocument: mapDocument,
             mapOptions: {
-              ...mapOptions,
+              ...initialMapOptions,
               bounds: mapDocument.extent,
             },
             appLoadingState: 'initializing',
+            sidebarPanel: 'population',
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
@@ -830,6 +833,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           prominentCountyNames: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+        sidebarPanel: 'layers',
+        setSidebarPanel: sidebarPanel => set({sidebarPanel}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
           const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
           const mapRef = getMapRef();
