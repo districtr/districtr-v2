@@ -52,7 +52,7 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @param map - Map | null, the maplibre map instance
  */
-export const handleMapClick = (
+export const handleMapClick = throttle((
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
@@ -87,7 +87,7 @@ export const handleMapClick = (
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
-};
+}, 25);
 
 export const handleMapMouseUp = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
