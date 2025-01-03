@@ -8,6 +8,7 @@ import {
   Assignment,
   DistrictrMap,
   DocumentObject,
+  lastSentAssignments,
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
   ShatterResult,
@@ -409,6 +410,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           const initialMapOptions = useMapStore.getInitialState().mapOptions;
           parentIdCache.clear();
           allPainted.clear();
+          lastSentAssignments.clear();
           setFreshMap(true);
           resetZoneAssignments();
 
@@ -776,6 +778,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           if (resetResponse.document_id === document_id) {
             const initialState = useMapStore.getInitialState();
             useMapStore.temporal.getState().clear()
+            lastSentAssignments.clear();
             resetZoneColors({
               zoneAssignments,
               mapRef: getMapRef(),
@@ -905,6 +908,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           });
         },
         loadZoneAssignments: assignments => {
+          lastSentAssignments.clear();
           const zoneAssignments = new Map<string, number>();
           const shatterIds = {
             parents: new Set<string>(),
@@ -914,6 +918,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
 
           assignments.forEach(assignment => {
             zoneAssignments.set(assignment.geo_id, assignment.zone);
+            // preload last sent assignments with last fetched assignments
+            lastSentAssignments.set(assignment.geo_id, assignment.zone);
             if (assignment.parent_path) {
               if (!shatterMappings[assignment.parent_path]) {
                 shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
