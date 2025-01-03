@@ -141,8 +141,10 @@ export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
-  useTooltipStore.getState().setTooltip(null);
+  setTimeout(() => {
+    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY)
+    useTooltipStore.getState().setTooltip(null);
+  }, 250);
   useMapStore.getState().setIsPainting(false);
 };
 
@@ -150,8 +152,10 @@ export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
-  useTooltipStore.getState().setTooltip(null);
+  setTimeout(() => {
+    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY)
+    useTooltipStore.getState().setTooltip(null);
+  }, 250);
   useMapStore.getState().setIsPainting(false);
 };
 
@@ -276,7 +280,7 @@ export const handleIdCache = (
 ) => {
   const e = _e as any
   const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
-  
+
   if (
     !tiles_s3_path ||
     !parent_layer ||
@@ -289,7 +293,7 @@ export const handleIdCache = (
   const tileData = e.tile.latestFeatureIndex;
 
   if (!tileData) return
-  
+
   const index = `${tileData.x}-${tileData.y}-${tileData.z}`
   if (parentIdCache.hasCached(index)) return
   const featureArray: MinGeoJSONFeature[] = []
@@ -304,7 +308,7 @@ export const handleIdCache = (
       sourceLayer: feature.sourceLayer
     })
   }
-  const currentStateFp = featureArray?.[0]?.properties?.id?.replace('vtd:', '')?.slice(0, 2)
+  const currentStateFp = featureArray?.[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2)
 
   GeometryWorker?.loadGeometry(featureArray, "path");
   parentIdCache.loadFeatures(featureArray, index)

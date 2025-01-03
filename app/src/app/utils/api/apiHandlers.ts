@@ -2,20 +2,40 @@ import axios from 'axios';
 import 'maplibre-gl';
 import {useMapStore} from '@/app/store/mapStore';
 import {getEntryTotal} from '../summaryStats';
+import {useChartStore} from '@/app/store/chartStore';
+import {NullableZone} from '@/app/constants/types';
 
 export const FormatAssignments = () => {
-  const assignments = Array.from(useMapStore.getState().zoneAssignments.entries()).map(
+  // track the geoids that have been painted, but are now not painted
+  const allPainted = useMapStore.getState().allPainted;
+  const assignmentsVisited = new Set([...allPainted]);
+  const assignments: Assignment[] = [];
+
+  Array.from(useMapStore.getState().zoneAssignments.entries()).forEach(
     // @ts-ignore
     ([geo_id, zone]: [string, number]): {
       document_id: string;
       geo_id: string;
-      zone: number;
-    } => ({
-      document_id: useMapStore.getState().mapDocument?.document_id.toString() ?? '',
-      geo_id,
-      zone,
-    })
+      zone: NullableZone;
+    } => {
+      assignmentsVisited.delete(geo_id);
+      assignments.push({
+        document_id: useMapStore.getState().mapDocument?.document_id || '',
+        geo_id,
+        zone,
+      });
+    }
   );
+  // fill in with nulls removes assignments from backend
+  // otherwise the previous assignment remains
+  assignmentsVisited.forEach(geo_id => {
+    assignments.push({
+      document_id: useMapStore.getState().mapDocument?.document_id || '',
+      geo_id,
+      // @ts-ignore assignment wants to be number
+      zone: null,
+    });
+  });
   return assignments;
 };
 
@@ -132,6 +152,12 @@ export interface ZonePopulation {
   total_pop: number;
 }
 
+// TODO: Tanstack has a built in abort controller, we should use that
+// https://tanstack.com/query/v5/docs/framework/react/guides/query-cancellation
+export let populationAbortController: AbortController | null = null;
+export let updateAbortController: AbortController | null = null;
+export let currentHash: string = '';
+
 /**
  * Get zone populations from the server.
  * @param mapDocument - DocumentObject, the document object
@@ -139,12 +165,27 @@ export interface ZonePopulation {
  */
 export const getZonePopulations: (
   mapDocument: DocumentObject
-) => Promise<ZonePopulation[]> = async mapDocument => {
+) => Promise<{data: ZonePopulation[], hash:string}> = async mapDocument => {
+  populationAbortController?.abort();
+  populationAbortController = new AbortController();
+  const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
+  if (currentHash !== assignmentHash) {
+    // return stale data if map already changed
+    return {
+      data: useChartStore.getState().mapMetrics?.data || [],
+      hash: assignmentHash
+    }
+  }
   if (mapDocument) {
     return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`)
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`, {
+        signal: populationAbortController.signal,
+      })
       .then(res => {
-        return res.data;
+        return {
+          data: res.data as ZonePopulation[],
+          hash: assignmentHash
+        }
       });
   } else {
     throw new Error('No document provided');
@@ -385,6 +426,7 @@ export interface AssignmentsReset {
   document_id: string;
 }
 
+
 /**
  *
  * @param assignments
@@ -393,9 +435,13 @@ export interface AssignmentsReset {
 export const patchUpdateAssignments: (
   assignments: Assignment[]
 ) => Promise<AssignmentsCreate> = async (assignments: Assignment[]) => {
+  updateAbortController = new AbortController();
+  currentHash = `${useMapStore.getState().assignmentsHash}`;
+
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
+      signal: updateAbortController?.signal,
     })
     .then(res => {
       return res.data;

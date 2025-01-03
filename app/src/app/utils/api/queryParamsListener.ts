@@ -2,7 +2,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {updateDocumentFromId, updateGetDocumentFromId} from './queries';
 export let previousDocumentID = '';
 
-export const getSearchParamsObersver = () => {
+export const getSearchParamsObserver = () => {
   // next ssr safety
   if (typeof window === 'undefined') {
     return;
@@ -11,8 +11,12 @@ export const getSearchParamsObersver = () => {
   // listener for tab refocus
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'visible') {
+      // resume temporal states on tab re-focus
+      useMapStore.temporal.getState().resume();
       updateDocumentFromId.refetch();
     } else {
+      // prevent temporal states from generating while tab is not visible
+      useMapStore.temporal.getState().pause();
       useMapStore.getState().setAppLoadingState('blurred');
     }
   };

@@ -12,6 +12,7 @@ import {ZonePicker} from './ZonePicker';
 import {ZoneLockPicker} from './ZoneLockPicker';
 import {MobileColorPicker} from './MobileColorPicker';
 import { ZoomToUnassigned } from './ZoomToUnassigned';
+import { UndoRedoButton } from './UndoRedoButton';
 
 export default function SidebarComponent() {
   const activeTool = useMapStore(state => state.activeTool);
@@ -66,6 +67,10 @@ export default function SidebarComponent() {
           <ZoomToUnassigned />
         )}
         <ResetMapButton />
+        <Flex direction="row" gap="3">
+          <UndoRedoButton isRedo={false} />
+          <UndoRedoButton isRedo />
+        </Flex>
         <ExitBlockViewButtons />
 
         <Box
@@ -74,7 +79,7 @@ export default function SidebarComponent() {
             md: 'inline',
           }}
         >
-          <DataPanels defaultPanel="layers" />
+          <DataPanels />
         </Box>
       </Flex>
     </Box>
