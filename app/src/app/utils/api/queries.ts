@@ -148,11 +148,10 @@ fetchAssignments.subscribe(assignments => {
         assignments.data[0].document_id,
         loadedMapId
       );
-      setAppLoadingState('loaded');
-      return;
+    } else {
+      loadZoneAssignments(assignments.data);
+      useMapStore.temporal.getState().clear();
     }
-    loadZoneAssignments(assignments.data);
-    useMapStore.temporal.getState().clear();
     setAppLoadingState('loaded');
   }
 });
