@@ -122,7 +122,7 @@ updateDocumentFromId.subscribe(mapDocument => {
     url.searchParams.delete('document_id');
     window.history.replaceState({}, document.title, url.toString());
   }
-  if (mapDocument.data) {
+  if (mapDocument.data && mapDocument.data.document_id !== useMapStore.getState().loadedMapId) {
     useMapStore.getState().setMapDocument(mapDocument.data);
   }
 });
@@ -140,13 +140,13 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 };
 
 fetchAssignments.subscribe(assignments => {
-  if (assignments.data) {
-    const {loadZoneAssignments, appLoadingState} = useMapStore.getState();
-    if (appLoadingState === 'initializing') {
+  if (assignments.data?.length) {
+    const {loadZoneAssignments, loadedMapId} = useMapStore.getState();
+    if (assignments.data[0].document_id === loadedMapId) {
+      console.log("Map already loaded, skipping assignment load", assignments.data[0].document_id, loadedMapId);
+    } else {
       loadZoneAssignments(assignments.data);
       useMapStore.temporal.getState().clear()
-    } else {
-      console.log('did not load prior map during rendering state: ' + appLoadingState);
     }
   }
 });

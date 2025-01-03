@@ -86,6 +86,8 @@ export interface MapStore {
    */
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  loadedMapId: string;
+  setLoadedMapId: (mapId: string) => void;
   summaryStats: {
     totpop?: {
       data: P1TotPopSummaryStats | P4TotPopSummaryStats;
@@ -430,6 +432,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
+        loadedMapId: '',
+        setLoadedMapId: loadedMapId => set({loadedMapId}),
         summaryStats: {},
         setSummaryStat: (stat, value) => {
           set({
@@ -914,7 +918,13 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               shatterIds.children.add(assignment.geo_id);
             }
           });
-          set({zoneAssignments, shatterIds, shatterMappings, appLoadingState: 'loaded'});
+          set({
+            zoneAssignments, 
+            shatterIds, 
+            shatterMappings, 
+            appLoadingState: 'loaded',
+            loadedMapId: assignments[0]?.document_id
+          });
         },
         zonePopulations: new Map(),
         setZonePopulations: (zone, population) =>
