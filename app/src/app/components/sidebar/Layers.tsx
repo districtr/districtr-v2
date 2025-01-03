@@ -62,9 +62,14 @@ export default function Layers() {
         >
           Show painted districts
         </CheckboxGroup.Item>
-        <CheckboxGroup.Item value="2" onClick={() => setMapOptions({
-          showZoneNumbers: !mapOptions.showZoneNumbers
-        })}>
+        <CheckboxGroup.Item
+          value="2"
+          onClick={() =>
+            setMapOptions({
+              showZoneNumbers: !mapOptions.showZoneNumbers,
+            })
+          }
+        >
           Show numbering for painted districts <i>(experimental)</i>
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
@@ -80,10 +85,23 @@ export default function Layers() {
       </Heading>
       <CheckboxGroup.Root
         name="contextualLayers"
-        value={COUNTY_LAYER_IDS.every(layerId => visibleLayerIds.includes(layerId)) ? ['1'] : []}
+        value={[
+          COUNTY_LAYER_IDS.every(layerId => visibleLayerIds.includes(layerId)) ? '1' : '',
+          mapOptions.prominentCountyNames ? 'prominentCountyNames' : '',
+        ]}
       >
         <CheckboxGroup.Item value="1" onClick={() => toggleLayers(COUNTY_LAYER_IDS)}>
           Show county boundaries
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item
+          value="prominentCountyNames"
+          onClick={() =>
+            setMapOptions({
+              prominentCountyNames: !mapOptions.prominentCountyNames,
+            })
+          }
+        >
+          Emphasize County Names
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>
           Show tribes and communities

@@ -318,12 +318,25 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
     ([stateFp, getMapRef]) => {
       const mapRef = getMapRef()
       if (!mapRef) return
-      const filterExpression = (stateFp ? ["==", ["slice", ["get", "GEOID"], 0, 2], stateFp] : true) as any
+      const filterExpression = ["==", ["slice", ["get", "GEOID"], 0, 2], stateFp ? stateFp : '--'] as any
       COUNTY_LAYERS.forEach(layer => {
         mapRef.getLayer(layer) && mapRef.setFilter(layer,  ["any", filterExpression])
       })
     }
   )
+  const countyEmphasisSub = useMapStore.subscribe(state => state.mapOptions.prominentCountyNames, (prominentCountyNames) => {
+    const mapRef = useMapStore.getState().getMapRef();
+    if (!mapRef) return;
+    const layers = mapRef.getStyle().layers;
+    const layerLength = layers.length;
+    if (prominentCountyNames) {
+      mapRef.moveLayer('counties_labels', layers[layerLength - 1].id); // move to top
+      mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Bold']);
+    } else {
+      mapRef.moveLayer('counties_labels', 'counties_boundary'); // move to other county labes
+      mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Regular']);
+    }
+  })
   
   const _hoverMapSideEffectRender = useHoverStore.subscribe(
     state => state.hoverFeatures,
