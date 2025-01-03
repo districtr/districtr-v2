@@ -1,4 +1,3 @@
-import {LngLatBoundsLike} from 'maplibre-gl';
 import {
   addBlockLayers,
   BLOCK_LAYER_ID,
@@ -25,7 +24,9 @@ import {
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
 import GeometryWorker from '../utils/GeometryWorker';
-import { useHoverStore as _useHoverStore } from '@store/mapStore';
+import {useHoverStore as _useHoverStore} from '@store/mapStore';
+import { calcPops } from '../utils/population';
+import { useChartStore } from './chartStore';
 
 const BBOX_TOLERANCE_DEG = 0.02;
 
@@ -97,7 +98,11 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
     ],
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
-
+      if (useMapStore.getState().isTemporalAction) {
+        useChartStore.getState().setMapMetrics({
+          data: calcPops(curr[0]),
+        } as any);
+      }
       const {
         captiveIds,
         shatterIds,
@@ -311,10 +316,10 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
       if(mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT_CHILD)){
         mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-width', paintStyle['line-width']);
         mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT_CHILD, 'line-color', paintStyle['line-color']);
-      } 
+      }
     }
   );
-  
+
   const filterCountiesSub = useMapStore.subscribe<[string|undefined, MapStore['getMapRef']]>(state => [state.mapOptions.currentStateFp, state.getMapRef],
     ([stateFp, getMapRef]) => {
       const mapRef = getMapRef()
@@ -359,6 +364,7 @@ export const getRenderSubscriptions = (useMapStore: typeof _useMapStore, useHove
   );
 
   return [
+    countyEmphasisSub,
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,

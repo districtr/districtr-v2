@@ -15,6 +15,7 @@ import {
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
+import { useTemporalStore } from '@/app/store/temporalStore';
 type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {
@@ -32,9 +33,11 @@ export const RecentMapsModal: React.FC<{defaultOpen?: boolean}> = ({defaultOpen}
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const setActiveTool = useMapStore(store => store.setActiveTool);
   const [dialogOpen, setDialogOpen] = React.useState(defaultOpen || false);
+  const clear = useTemporalStore(store => store.clear);
 
   const handleMapDocument = (data: NamedDocumentObject) => {
     setMapDocument(data);
+    clear();
     const urlParams = new URLSearchParams(searchParams.toString());
     urlParams.set('document_id', data.document_id);
     router.push(pathname + '?' + urlParams.toString());

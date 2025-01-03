@@ -10,6 +10,7 @@ import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
 import {MapToolbar} from './MapToolbar';
 import {MapTooltip} from './MapTooltip';
+import {MapLockShade} from './MapLockShade';
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -17,7 +18,7 @@ export const MapComponent: React.FC = () => {
   const mapLock = useMapStore(state => state.mapLock);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapStore(state => state.mapOptions);
-  const document_id = useMapStore(state => state.mapDocument?.document_id)
+  const document_id = useMapStore(state => state.mapDocument?.document_id);
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -72,12 +73,9 @@ export const MapComponent: React.FC = () => {
     });
 
     mapContainerEvents.forEach(action => {
-      mapContainer?.current?.addEventListener(
-        action.action as keyof MapLayerEventType,
-        (e) => {
-          action.handler(e, map.current);
-        }
-      );
+      mapContainer?.current?.addEventListener(action.action as keyof MapLayerEventType, e => {
+        action.handler(e, map.current);
+      });
     });
 
     return () => {
@@ -88,14 +86,11 @@ export const MapComponent: React.FC = () => {
       });
 
       mapContainerEvents.forEach(action => {
-        mapContainer?.current?.removeEventListener(
-          action.action as keyof MapLayerEventType,
-          (e) => {
-            action.handler(e, map.current);
-          }
-        );
+        mapContainer?.current?.removeEventListener(action.action as keyof MapLayerEventType, e => {
+          action.handler(e, map.current);
+        });
       });
-    }
+    };
   });
 
   return (
@@ -108,6 +103,7 @@ export const MapComponent: React.FC = () => {
         ref={mapContainer}
       />
       <MapToolbar />
+      <MapLockShade />
       <MapTooltip />
     </div>
   );

@@ -6,6 +6,10 @@ import {useMapStore} from '@/app/store/mapStore';
 import {ExitBlockViewButtons} from './ExitBlockViewButtons';
 import {Resizable} from 're-resizable';
 import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
+import {ZonePicker} from './ZonePicker';
+import {ZoneLockPicker} from './ZoneLockPicker';
+import {MobileColorPicker} from './MobileColorPicker';
+import { UndoRedoButton } from './UndoRedoButton';
 
 const HandleIconButton = () => {
   return (
@@ -26,7 +30,6 @@ const HandleIconButton = () => {
     </IconButton>
   );
 };
-
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
 

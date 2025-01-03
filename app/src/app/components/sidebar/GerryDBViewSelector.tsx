@@ -2,12 +2,14 @@ import {useState} from 'react';
 import {Flex, Popover, Select, Text, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
 import {document} from '@/app/utils/api/mutations';
+import { useTemporalStore } from '@/app/store/temporalStore';
 
 export function GerryDBViewSelector() {
   const [limit, setLimit] = useState<number>(30);
   const [offset, setOffset] = useState<number>(0);
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapViews = useMapStore(state => state.mapViews);
+  const clear = useTemporalStore(store => store.clear);
   const {isPending, isError, data, error} = mapViews || {};
 
   const selectedView = data?.find(view => view.gerrydb_table_name === mapDocument?.gerrydb_table);
@@ -24,6 +26,7 @@ export function GerryDBViewSelector() {
       return;
     }
     console.log('mutating to create new document');
+    clear();
     document.mutate({gerrydb_table: selectedDistrictrMap.gerrydb_table_name});
   };
 
