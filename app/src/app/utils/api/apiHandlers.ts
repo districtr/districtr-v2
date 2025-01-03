@@ -5,11 +5,15 @@ import {getEntryTotal} from '../summaryStats';
 import {useChartStore} from '@/app/store/chartStore';
 import {NullableZone} from '@/app/constants/types';
 
+const previouslySentAssignments = new Map<string, number>();
+
 export const FormatAssignments = () => {
   // track the geoids that have been painted, but are now not painted
   const allPainted = useMapStore.getState().allPainted;
   const assignmentsVisited = new Set([...allPainted]);
   const assignments: Assignment[] = [];
+
+  console.debug("hello world")
 
   Array.from(useMapStore.getState().zoneAssignments.entries()).forEach(
     // @ts-ignore
@@ -18,12 +22,16 @@ export const FormatAssignments = () => {
       geo_id: string;
       zone: NullableZone;
     } => {
+      previouslySentAssignments.set(geo_id, zone);
       assignmentsVisited.delete(geo_id);
-      assignments.push({
-        document_id: useMapStore.getState().mapDocument?.document_id || '',
-        geo_id,
-        zone,
-      });
+      let prevZone = previouslySentAssignments.get(geo_id);
+      if (!prevZone || prevZone !== zone) {
+        assignments.push({
+          document_id: useMapStore.getState().mapDocument?.document_id || '',
+          geo_id,
+          zone,
+        });
+      }
     }
   );
   // fill in with nulls removes assignments from backend

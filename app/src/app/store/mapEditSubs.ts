@@ -13,6 +13,7 @@ let allowSendZoneUpdates = true
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
   // locked during break or heal
   const mapIsLocked = _useMapStore.getState().mapLock;
+  console.debug(mapIsLocked)
   if (!mapIsLocked && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
     const assignments = FormatAssignments();
     patchUpdates.mutate(assignments);
