@@ -8,8 +8,9 @@ import {MAP_OPTIONS} from '../constants/configuration';
 import {handleWheelOrPinch, mapContainerEvents, mapEvents} from '../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
+import {MapToolbar} from './MapToolbar';
 import {MapTooltip} from './MapTooltip';
-import { MapLockShade } from './MapLockShade';
+import {MapLockShade} from './MapLockShade';
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -17,6 +18,7 @@ export const MapComponent: React.FC = () => {
   const mapLock = useMapStore(state => state.mapLock);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapStore(state => state.mapOptions);
+  const document_id = useMapStore(state => state.mapDocument?.document_id);
 
   useEffect(() => {
     let protocol = new Protocol();
@@ -71,12 +73,9 @@ export const MapComponent: React.FC = () => {
     });
 
     mapContainerEvents.forEach(action => {
-      mapContainer?.current?.addEventListener(
-        action.action as keyof MapLayerEventType,
-        (e) => {
-          action.handler(e, map.current);
-        }
-      );
+      mapContainer?.current?.addEventListener(action.action as keyof MapLayerEventType, e => {
+        action.handler(e, map.current);
+      });
     });
 
     return () => {
@@ -87,27 +86,25 @@ export const MapComponent: React.FC = () => {
       });
 
       mapContainerEvents.forEach(action => {
-        mapContainer?.current?.removeEventListener(
-          action.action as keyof MapLayerEventType,
-          (e) => {
-            action.handler(e, map.current);
-          }
-        );
+        mapContainer?.current?.removeEventListener(action.action as keyof MapLayerEventType, e => {
+          action.handler(e, map.current);
+        });
       });
-    }
+    };
   });
 
   return (
-    <>
+    <div className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen`}>
       <div
         className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen
-    ${mapLock ? 'pointer-events-none' : ''}
-    `}
+        ${mapLock ? 'pointer-events-none' : ''}
+        ${document_id ? '' : 'opacity-25 pointer-events-none'}
+        `}
         ref={mapContainer}
-      >
+      />
+      <MapToolbar />
       <MapLockShade />
-      </div>
       <MapTooltip />
-    </>
+    </div>
   );
 };

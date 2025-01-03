@@ -9,7 +9,7 @@ export default function Home() {
     <QueryClientProvider client={queryClient}>
       <main style={{background: 'red'}} id="test">
         <div
-          className="h-screen w-screen flex justify-between p"
+          className="h-screen w-screen flex justify-between p overflow-hidden"
           style={{
             flexDirection: 'column',
             background: 'red',
