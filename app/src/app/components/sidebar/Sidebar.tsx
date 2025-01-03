@@ -30,6 +30,7 @@ const HandleIconButton = () => {
     </IconButton>
   );
 };
+
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
 
@@ -53,39 +54,6 @@ export default function SidebarComponent() {
             Districtr
           </Heading>
           <GerryDBViewSelector />
-          {/* <MapModeSelector /> */}
-          {/* {activeTool === 'brush' || activeTool === 'eraser' ? (
-          <div
-            className="gap-4 lg:gap-0 landscape:gap-0
-          flex flex-row-reverse lg:flex-col landscape:flex-col
-          justify-around
-          "
-          >
-            <div className="flex-grow">
-              <BrushSizeSelector />
-              <PaintByCounty />{' '}
-            </div>
-            {activeTool === 'brush' ? (
-              <div className="flex-grow-0 flex-row">
-                <span className="hidden md:block landscape:block">
-                  <ZonePicker />
-                </span>
-                <span className="md:hidden landscape:hidden">
-                  <MobileColorPicker />
-                </span>
-              </div>
-            ) : null}
-          </div>
-        ) : null} */}
-
-          {/* {activeTool === 'lock' ? (
-          <div>
-            <ZoneLockPicker />
-          </div>
-        ) : null} */}
-          {/* <ResetMapButton /> */}
-          <ExitBlockViewButtons />
-
           <Box
             display={{
               initial: 'none',
