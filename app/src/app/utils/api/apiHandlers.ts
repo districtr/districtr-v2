@@ -11,6 +11,7 @@ export const FormatAssignments = () => {
   const assignmentsVisited = new Set([...allPainted]);
   const assignments: Assignment[] = [];
 
+  Array.from(useMapStore.getState().zoneAssignments.entries()).forEach(
     // @ts-ignore
     ([geo_id, zone]: [string, number]): {
       document_id: string;
@@ -23,6 +24,7 @@ export const FormatAssignments = () => {
         geo_id,
         zone,
       });
+    }
   );
   // fill in with nulls removes assignments from backend
   // otherwise the previous assignment remains
@@ -32,6 +34,8 @@ export const FormatAssignments = () => {
       geo_id,
       // @ts-ignore assignment wants to be number
       zone: null,
+    });
+  });
   return assignments;
 };
 
