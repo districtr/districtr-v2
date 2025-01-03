@@ -19,7 +19,7 @@ const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapS
   }
 };
 
-const debouncedZoneUpdate = debounce(zoneUpdates, 1000);
+const debouncedZoneUpdate = debounce(zoneUpdates, 500);
 
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const sendZoneUpdatesOnUpdate = useMapStore.subscribe<
