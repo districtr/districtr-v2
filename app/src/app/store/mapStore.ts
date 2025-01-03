@@ -577,7 +577,10 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               parents: existingParents,
               children: existingChildren,
             },
-            isTemporalAction: false,
+            // TODO: Should this be true instead?
+            // Is there a way to clean up the state history during
+            // break / shatter?
+            isTemporalAction: true,
             mapLock: false,
             captiveIds: newChildren,
             lockedFeatures: newLockedFeatures,
