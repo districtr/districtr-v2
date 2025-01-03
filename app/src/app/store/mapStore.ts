@@ -245,6 +245,7 @@ export interface MapStore {
   setZonePopulations: (zone: Zone, population: number) => void;
   handleReset: () => void;
   accumulatedGeoids: Set<string>;
+  allPainted: Set<string>;
   setAccumulatedGeoids: (geoids: MapStore['accumulatedGeoids']) => void;
   brushSize: number;
   setBrushSize: (size: number) => void;
@@ -333,6 +334,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             mapDocument,
             getMapRef,
             selectedZone: _selectedZone,
+            allPainted
           } = get();
 
           const map = getMapRef();
@@ -369,7 +371,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
                 popChanges[selectedZone] = (popChanges[selectedZone] || 0) + popValue;
               }
             }
-
+            allPainted.add(id);
             map.setFeatureState(
               {
                 source: BLOCK_SOURCE_ID,
@@ -396,11 +398,13 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             resetZoneAssignments,
             upsertUserMap,
             mapOptions,
+            allPainted
           } = get();
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
           }
           parentIdCache.clear();
+          allPainted.clear();
           setFreshMap(true);
           resetZoneAssignments();
 
@@ -874,6 +878,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         setAssignmentsHash: hash => set({assignmentsHash: hash}),
         accumulatedGeoids: new Set<string>(),
         setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
+        allPainted: new Set<string>(),
         setZoneAssignments: (zone, geoids) => {
           const zoneAssignments = get().zoneAssignments;
           const newZoneAssignments = new Map(zoneAssignments);
