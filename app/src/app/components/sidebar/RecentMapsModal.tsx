@@ -11,12 +11,14 @@ import {
   TextField,
   IconButton,
   RadioCards,
+  Checkbox,
 } from '@radix-ui/themes';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
-import { useTemporalStore } from '@/app/store/temporalStore';
-type NamedDocumentObject = DocumentObject & {name?: string};
+import {useTemporalStore} from '@/app/store/temporalStore';
+
+type NamedDocumentObject = DocumentObject & {name?: string, saved?: boolean};
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxWidth: 'calc(100vw - 2rem)',
@@ -33,7 +35,10 @@ export const RecentMapsModal = () => {
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const clear = useTemporalStore(store => store.clear);
   const [dialogOpen, setDialogOpen] = React.useState(false);
-
+  const [showAllMaps, setShowAllMaps] = React.useState(false);
+  const filteredMaps = showAllMaps
+    ? userMaps
+    : userMaps.filter(map => map.document_id === mapDocument?.document_id || map.saved);
   const handleMapDocument = (data: NamedDocumentObject) => {
     setMapDocument(data);
     clear();
@@ -53,13 +58,18 @@ export const RecentMapsModal = () => {
       <Dialog.Trigger>
         <RadioCards.Item value="recents">
           <CounterClockwiseClockIcon />
-          Recents
+          Saved
         </RadioCards.Item>
       </Dialog.Trigger>
       <DialogContentContainer className="max-w-[75vw]">
         <Flex align="center" className="mb-4">
-          <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
-
+          <Dialog.Title className="m-0 text-xl font-bold flex-1">Saved Maps</Dialog.Title>
+          <Text as="label" size="2">
+            <Flex as="span" gap="2">
+              <Checkbox checked={showAllMaps} onClick={() => setShowAllMaps(prev => !prev)} />
+              Show all recent maps
+            </Flex>
+          </Text>
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
             aria-label="Close"
@@ -78,14 +88,14 @@ export const RecentMapsModal = () => {
           </Table.Header>
 
           <Table.Body>
-            {userMaps.map((userMap, i) => (
+            {filteredMaps.map((userMap, i) => (
               <RecentMapsRow
                 key={i}
                 active={mapDocument?.document_id === userMap.document_id}
                 onChange={userMapData =>
                   upsertUserMap({
                     userMapData,
-                    userMapDocumentId: userMap.document_id,
+                    userMapDocumentId: userMap.document_id
                   })
                 }
                 data={userMap}
@@ -110,7 +120,7 @@ const RecentMapsRow: React.FC<{
   const name = data?.name || data.gerrydb_table;
 
   const handleChangeName = (name?: string) => {
-    name?.length && onChange?.({...data, name});
+    name?.length && onChange?.({...data, name, saved: true});
   };
 
   return (

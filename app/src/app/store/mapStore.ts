@@ -268,13 +268,14 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 
   // USER MAPS / RECENT MAPS
-  userMaps: Array<DocumentObject & {name?: string}>;
+  userMaps: Array<DocumentObject & {name?: string, saved?: boolean}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
   upsertUserMap: (props: {
     documentId?: string;
     mapDocument?: MapStore['mapDocument'];
     userMapDocumentId?: string;
-    userMapData?: MapStore['userMaps'][number];
+    userMapData?: DocumentObject & {name?: string, saved?: boolean};
+    saved?: boolean;
   }) => void;
 }
 
