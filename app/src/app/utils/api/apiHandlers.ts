@@ -8,7 +8,7 @@ import {NullableZone} from '@/app/constants/types';
 export const lastSentAssignments = new Map<string, NullableZone>();
 export const FormatAssignments = () => {
   // track the geoids that have been painted, but are now not painted
-  const allPainted = useMapStore.getState().allPainted;
+  const {allPainted, shatterIds} = useMapStore.getState();
   const assignmentsVisited = new Set([...allPainted]);
   const assignments: Assignment[] = [];
 
@@ -33,7 +33,7 @@ export const FormatAssignments = () => {
   // fill in with nulls removes assignments from backend
   // otherwise the previous assignment remains
   assignmentsVisited.forEach(geo_id => {
-    if (lastSentAssignments.get(geo_id) !== null) {
+    if (lastSentAssignments.get(geo_id) !== null && !shatterIds.parents.has(geo_id)) {
       lastSentAssignments.set(geo_id, null);
       assignments.push({
         document_id: useMapStore.getState().mapDocument?.document_id || '',
