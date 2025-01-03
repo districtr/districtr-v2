@@ -36,13 +36,11 @@ export const temporalConfig: ZundoOptions<any, MapStore> =  {
     // if not yet loaded, or is a temporal action (eg. silent heal) don't store
     if (past.mapRenderingState !== 'loaded' || curr.isTemporalAction) return null;
     // if current state has no zoneAssignments, don't store
-    if (curr.zoneAssignments?.size === 0) return null;
-    const pastAssignments = past.zoneAssignments || new Map();
-    const currAssignments = curr.zoneAssignments || new Map();
+    if (!past.zoneAssignments || !curr.zoneAssignments || curr.zoneAssignments?.size === 0) return null;
     // if assignments have changed size, do store the state
-    if (pastAssignments.size !== currAssignments.size) return past
-    for (const geoid of currAssignments.keys()) {
-      if (pastAssignments.get(geoid) !== currAssignments.get(geoid)) {
+    if (past.zoneAssignments.size !== curr.zoneAssignments.size) return past
+    for (const geoid of curr.zoneAssignments.keys()) {
+      if (past.zoneAssignments.get(geoid) !== curr.zoneAssignments.get(geoid)) {
         // if the same size, but one of the assignments has changed, store the state
         return past
       }
