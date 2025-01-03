@@ -148,6 +148,7 @@ fetchAssignments.subscribe(assignments => {
         assignments.data[0].document_id,
         loadedMapId
       );
+      setAppLoadingState('loaded');
       return;
     }
     loadZoneAssignments(assignments.data);
