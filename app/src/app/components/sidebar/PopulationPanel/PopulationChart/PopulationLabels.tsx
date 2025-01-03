@@ -7,6 +7,7 @@ export const PopulationLabels: React.FC<{
   yScale: (value: number) => number;
   entry: {zone: number; total_pop: number};
   maxPop: number;
+  idealPopulation?: number;
   index: number;
   barHeight: number;
   isHovered: boolean;
@@ -18,6 +19,7 @@ export const PopulationLabels: React.FC<{
   yScale,
   entry,
   maxPop,
+  idealPopulation,
   index,
   barHeight,
   isHovered,
@@ -25,7 +27,7 @@ export const PopulationLabels: React.FC<{
   showTopBottomDeviation,
   width,
 }) => {
-  const popDiffLabel = formatNumber(entry.total_pop - maxPop, 'string');
+  const popDiffLabel = formatNumber(entry.total_pop - (idealPopulation || 0), 'string');
   const popLabel = formatNumber(entry.total_pop, 'string');
   if (!popDiffLabel || !popLabel) return null;
   const [left, top] = [xScale(entry.total_pop), yScale(index) + barHeight];

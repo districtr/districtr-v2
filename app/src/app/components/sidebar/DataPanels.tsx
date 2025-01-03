@@ -4,6 +4,7 @@ import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {Tabs} from '@radix-ui/themes';
 import Layers from './Layers';
 import React from 'react';
+import {useMapStore} from '@/app/store/mapStore';
 
 interface DataPanelSpec {
   title: string;
@@ -13,7 +14,6 @@ interface DataPanelSpec {
 }
 
 interface DataPanelsProps {
-  defaultPanel?: string;
   panels?: DataPanelSpec[];
 }
 
@@ -36,14 +36,19 @@ const defaultPanels: DataPanelSpec[] = [
 ];
 
 const DataPanels: React.FC<DataPanelsProps> = ({
-  defaultPanel = defaultPanels[0].title,
   panels = defaultPanels,
 }) => {
+  const sidebarPanel = useMapStore(state => state.sidebarPanel);
+  const setSidebarPanel = useMapStore(state => state.setSidebarPanel);
   return (
-    <Tabs.Root defaultValue={defaultPanel}>
+    <Tabs.Root value={sidebarPanel}>
       <Tabs.List>
         {panels.map(panel => (
-          <Tabs.Trigger key={panel.title} value={panel.title}>
+          <Tabs.Trigger
+            key={panel.title}
+            value={panel.title}
+            onClick={_ => setSidebarPanel(panel.title as any)}
+          >
             {panel.label}
           </Tabs.Trigger>
         ))}
