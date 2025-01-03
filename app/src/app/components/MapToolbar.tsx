@@ -272,7 +272,7 @@ export const MapToolbar = () => {
           {activeTools.map((tool, i) => (
             <>
               <Tooltip
-                content={showShortcuts ? `⌥ ${tool.hotkey.replace('Digit', '')}` : tool.label}
+                content={showShortcuts ? `⌥ ${tool.hotkey.replace('Digit', '').replace('Key', '')}` : tool.label}
                 open={showShortcuts || undefined}
               >
                 <IconButton
