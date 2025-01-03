@@ -221,8 +221,8 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
-  sidebarPanel: 'layers' | 'population' | 'evaluation';
-  setSidebarPanel: (panel: MapStore['sidebarPanel']) => void;
+  sidebarPanels: Array<'layers' | 'population' | 'evaluation'>;
+  setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
   toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
   activeTool: ActiveTool;
@@ -419,7 +419,7 @@ export const useMapStore = create(
               ...initialMapOptions,
               bounds: mapDocument.extent,
             },
-            sidebarPanel: 'population',
+            sidebarPanels: ['population'],
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
@@ -773,8 +773,8 @@ export const useMapStore = create(
           prominentCountyNames: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
-        sidebarPanel: 'layers',
-        setSidebarPanel: sidebarPanel => set({sidebarPanel}),
+        sidebarPanels: ['population'],
+        setSidebarPanels: sidebarPanels => set({sidebarPanels}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
           const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
           const mapRef = getMapRef();

@@ -1,12 +1,10 @@
 import {Box} from '@radix-ui/themes';
 import Evaluation from '@components/sidebar/Evaluation';
 import PopulationPanel from '@components/sidebar/PopulationPanel';
-import {Tabs} from '@radix-ui/themes';
-import Layers from './Layers';
 import React from 'react';
 import classNames from "classnames";
 import * as Accordion from "@radix-ui/react-accordion";
-import { ChevronDownIcon, DoubleArrowDownIcon } from "@radix-ui/react-icons";
+import { DoubleArrowDownIcon } from "@radix-ui/react-icons";
 import {useMapStore} from '@/app/store/mapStore';
 
 interface DataPanelSpec {
@@ -41,14 +39,14 @@ const defaultPanels: DataPanelSpec[] = [
 const DataPanels: React.FC<DataPanelsProps> = ({
   panels = defaultPanels,
 }) => {
-  const sidebarPanel = useMapStore(state => state.sidebarPanel);
-  const setSidebarPanel = useMapStore(state => state.setSidebarPanel);
+  const sidebarPanels = useMapStore(state => state.sidebarPanels);
+  const setSidebarPanels = useMapStore(state => state.setSidebarPanels);
   return (
     <Accordion.Root 
       type="multiple" 
       className="AccordionRoot" 
-      value={[sidebarPanel]}
-      onValueChange={setSidebarPanel}
+      value={sidebarPanels}
+      onValueChange={setSidebarPanels}
       >
       {panels.map(panel => (
       <Accordion.Item 
