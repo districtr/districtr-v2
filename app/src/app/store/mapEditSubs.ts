@@ -15,7 +15,9 @@ const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapS
   const mapIsLocked = _useMapStore.getState().mapLock;
   if (!mapIsLocked && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
     const assignments = FormatAssignments();
-    patchUpdates.mutate(assignments);
+    if (assignments.length) {
+      patchUpdates.mutate(assignments);
+    }
   }
 };
 
