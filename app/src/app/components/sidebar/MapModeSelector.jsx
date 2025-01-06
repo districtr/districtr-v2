@@ -9,6 +9,8 @@ import {
   HandIcon,
   LockOpen1Icon,
   ViewGridIcon,
+  CopyIcon,
+  PaperPlaneIcon,
 } from '@radix-ui/react-icons';
 import {RecentMapsModal} from '@components/sidebar/RecentMapsModal';
 
@@ -34,6 +36,12 @@ export function MapModeSelector() {
       label: 'Lock',
       icon: <LockOpen1Icon />,
     },
+    {
+      mode: 'import-export',
+      disabled: false,
+      label: 'Import/Export',
+      icon: <PaperPlaneIcon />,
+    }
   ];
 
   const handleRadioChange = value => {

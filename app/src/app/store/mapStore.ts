@@ -923,6 +923,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         },
         loadZoneAssignments: assignments => {
           lastSentAssignments.clear();
+          if (!assignments.length) return;
+          
           const zoneAssignments = new Map<string, number>();
           const shatterIds = {
             parents: new Set<string>(),

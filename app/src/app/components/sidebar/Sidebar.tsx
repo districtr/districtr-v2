@@ -12,6 +12,7 @@ import {ZonePicker} from './ZonePicker';
 import {ZoneLockPicker} from './ZoneLockPicker';
 import {MobileColorPicker} from './MobileColorPicker';
 import { UndoRedoButton } from './UndoRedoButton';
+import { ZoneImportExport } from './ZoneImportExport';
 
 export default function SidebarComponent() {
   const activeTool = useMapStore(state => state.activeTool);
@@ -56,6 +57,7 @@ export default function SidebarComponent() {
             ) : null}
           </div>
         ) : null}
+        {activeTool === 'import-export' ? (<ZoneImportExport />) : null}
 
         {activeTool === 'lock' ? (
           <div>
