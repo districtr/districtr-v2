@@ -47,3 +47,19 @@ from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more
 details.
+
+## End to End testing
+
+We use Cypress to run end-to-end tests and load test local or Fly backends. We are still generating tests, which are tricky to get working for many canvas-based frontend interactions.
+
+```bash
+npm run cy:install
+# then, to open testing suite
+npm run cy:open
+```
+
+To load test, run:
+
+```bash
+sh app/scripts/load_test.sh
+```

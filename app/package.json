@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "prettier": "prettier --write src/**/*.{tsx,ts} --config .prettierrc.js"
+    "prettier": "prettier --write src/**/*.{tsx,ts} --config .prettierrc.js",
+    "cy:install": "cypress install",
+    "cy:open": "cypress open"
   },
   "dependencies": {
     "@emotion/react": "^11.13.0",
