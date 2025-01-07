@@ -1,4 +1,5 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
+import time
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
@@ -89,6 +90,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
 async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
+    start_time = time.time()
     results = session.execute(
         text("SELECT create_document(:gerrydb_table_name);"),
         {"gerrydb_table_name": data.gerrydb_table},
@@ -135,7 +137,9 @@ async def create_document(
             detail="Document creation failed",
         )
     session.commit()
-
+    process_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+    logging.info(f"Created document. Response Time: {process_time:.2f}ms")
+    
     return doc
 
 
@@ -143,12 +147,17 @@ async def create_document(
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
+    start_time = time.time()
     stmt = insert(Assignments).values(data.model_dump()["assignments"])
     stmt = stmt.on_conflict_do_update(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
     session.execute(stmt)
     session.commit()
+
+    process_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+    logging.info(f"Updated document {data.assignments[0].document_id}. Response Time: {process_time:.2f}ms")
+
     return {"assignments_upserted": len(data.assignments)}
 
 
@@ -159,6 +168,7 @@ async def update_assignments(
 async def shatter_parent(
     document_id: str, data: GEOIDS, session: Session = Depends(get_session)
 ):
+    start_time = time.time()
     stmt = text(
         """SELECT *
         FROM shatter_parent(:input_document_id, :parent_geoids)"""
@@ -180,6 +190,9 @@ async def shatter_parent(
     ]
     result = ShatterResult(parents=data, children=assignments)
     session.commit()
+
+    process_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+    logging.info(f"Shattered parents {document_id}. Response Time: {process_time:.2f}ms")
     return result
 
 
@@ -215,6 +228,7 @@ async def unshatter_parent(
 )
 async def reset_map(document_id: str, session: Session = Depends(get_session)):
     # Drop the partition for the given assignments
+    start_tme = time.time()
     partition_name = f'"document.assignments_{document_id}"'
     session.execute(text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;"))
 
@@ -228,13 +242,15 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
         )
     )
     session.commit()
-
+    process_time = (time.time() - start_tme) * 1000
+    logging.info(f"Reset map {document_id}. Response Time: {process_time:.2f}ms")
     return {"message": "Assignments partition reset", "document_id": document_id}
 
 
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
+    start_time = time.time()
     stmt = (
         select(
             Assignments.geo_id,
@@ -254,11 +270,14 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
     )
 
     results = session.exec(stmt)
+    process_time = (time.time() - start_time) * 1000
+    logging.info(f"Got assignments for document {document_id}. Response Time: {process_time:.2f}ms")
     return results
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document(document_id: str, session: Session = Depends(get_session)):
+    start_time = time.time()
     stmt = (
         select(
             Document.document_id,
@@ -281,7 +300,8 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
         .limit(1)
     )
     result = session.exec(stmt)
-
+    process_time = (time.time() - start_time) * 1000
+    logging.info(f"Got document {document_id}. Response Time: {process_time:.2f}ms")
     return result.one()
 
 
@@ -289,11 +309,14 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
 async def get_total_population(
     document_id: str, session: Session = Depends(get_session)
 ):
+    start_time = time.time()
     stmt = text(
         "SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL"
     )
     try:
         result = session.execute(stmt, {"document_id": document_id})
+        process_time = (time.time() - start_time) * 1000
+        logging.info(f"Got total population for document {document_id}. Response Time: {process_time:.2f}ms")
         return [
             ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()
         ]
@@ -413,6 +436,7 @@ async def get_projects(
     offset: int = 0,
     limit: int = Query(default=100, le=100),
 ):
+    start_time = time.time()
     gerrydb_views = session.exec(
         select(DistrictrMap)
         .filter(DistrictrMap.visible == true())  # pyright: ignore
@@ -420,4 +444,6 @@ async def get_projects(
         .offset(offset)
         .limit(limit)
     ).all()
+    process_time = (time.time() - start_time) * 1000
+    logging.info(f"Got gerrydb views. Response Time: {process_time:.2f}ms")
     return gerrydb_views
