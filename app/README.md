@@ -63,3 +63,5 @@ To load test, run:
 ```bash
 sh app/scripts/load_test.sh
 ```
+
+Note: This is not quite working with Docker/compose quite yet. You will need to run the `npm` and bash script from your host machine.
