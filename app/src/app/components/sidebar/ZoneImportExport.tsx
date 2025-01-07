@@ -10,6 +10,7 @@ export const ZoneImportExport = () => {
   const shatterMappings = useMapStore(state => state.shatterMappings);
   const mapDocument = useMapStore(state => state.mapDocument);
   const loadZoneAssignments = useMapStore(state => state.loadZoneAssignments);
+  const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
   const [textContent, setTextContent] = useState('');
 
   const exportToJSON = (format: 'clipboard' | 'file') => {
@@ -60,7 +61,8 @@ export const ZoneImportExport = () => {
       hash => {
         if (hash) {
           unsub();
-          loadZoneAssignments(parsed.zones);
+          setAppLoadingState('loaded')
+          loadZoneAssignments(parsed.zones, false)
         }
       }
     );
@@ -88,7 +90,7 @@ export const ZoneImportExport = () => {
       <Flex direction="row" gap="2">
         <Popover.Root>
           <Popover.Trigger>
-            <Button variant="outline">
+            <Button variant="outline" aria-label="Paste map data">
               <ClipboardCopyIcon />
               Paste map data
             </Button>
@@ -101,7 +103,7 @@ export const ZoneImportExport = () => {
                 value={textContent}
                 onChange={e => setTextContent(e.target.value)}
               />
-              <Button onClick={() => loadFromJson(textContent)} variant="outline">
+              <Button onClick={() => loadFromJson(textContent)} variant="outline" aria-label='Load map data from pasted JSON'>
                 Load map data
               </Button>
             </Flex>

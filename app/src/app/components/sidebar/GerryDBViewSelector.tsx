@@ -37,7 +37,7 @@ export function GerryDBViewSelector() {
   return (
     <Flex direction={'row'} width="100%" gap="3" align="center">
       <Select.Root size="3" onValueChange={handleValueChange} value={selectedView?.name}>
-        <Select.Trigger placeholder="Select a geography" style={{flexGrow: 1}} className="mr-1" />
+        <Select.Trigger placeholder="Select a geography" style={{flexGrow: 1}} className="mr-1" aria-label='Select a geography'/>
         <Select.Content>
           <Select.Group>
             <Select.Label>Districtr map options</Select.Label>
