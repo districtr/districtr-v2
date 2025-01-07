@@ -14,7 +14,7 @@ export function ResetMapButton() {
   return (
     <AlertDialog.Root>
       <AlertDialog.Trigger disabled={noZonesAreAssigned}>
-        <Button variant='outline'>Reset Map</Button>
+        <Button variant='outline' aria-label="Reset map">Reset Map</Button>
       </AlertDialog.Trigger>
       <AlertDialog.Content maxWidth="450px">
         <AlertDialog.Title>Reset Map</AlertDialog.Title>
@@ -30,7 +30,7 @@ export function ResetMapButton() {
             </Button>
           </AlertDialog.Cancel>
           <AlertDialog.Action>
-            <Button variant="solid" color="red" onClick={handleClickResetMap}>
+            <Button variant="solid" color="red" onClick={handleClickResetMap} aria-label="Confirm reset map">
               Reset Map
             </Button>
           </AlertDialog.Action>
