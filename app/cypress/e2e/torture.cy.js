@@ -14,11 +14,18 @@ const resetMap = () => {
   cy.get('button[aria-label="Confirm reset map"]').click().wait(1500)
 }
 
-describe('open prod site', () =>{
-  it('passes', () => {
-    cy.visit('http://localhost:3000/map').wait(1000)
-    // cklick button value="import-export"
-    loadData()
-    cy.get('button[value="pan"]').click().wait(1000)
+const iters = 10
+Cypress._.times(iters, () => {
+  describe('open prod site', () =>{
+    it('passes', () => {
+      cy.visit('http://localhost:3000/map').wait(1000)
+      // cklick button value="import-export"
+      loadData()
+      cy.get('button[value="pan"]').click().wait(1000)
+      resetMap()
+      // get button aria-label ="Reset map"
+      loadData()
+      
+    })
   })
-})
+});
