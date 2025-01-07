@@ -14,18 +14,25 @@ const resetMap = () => {
   cy.get('button[aria-label="Confirm reset map"]').click().wait(1500)
 }
 
+const siteUrl = 'https://districtr-v2-241-app.fly.dev/map'
+
+
 const iters = 10
 Cypress._.times(iters, () => {
-  describe('open prod site', () =>{
-    it('passes', () => {
-      cy.visit('http://localhost:3000/map').wait(1000)
-      // cklick button value="import-export"
+  describe('Open site and load data', () => {
+    it('Data loads', () => {
+      cy.visit(siteUrl).wait(1000)
       loadData()
       cy.get('button[value="pan"]').click().wait(1000)
+      cy.get('rect.visx-bar', { timeout: 10000 }).should('be.visible');
+      // find first g.visx-group
+      // then find the second g.visx-group within it
+      // then find the first instance of text and print the text
+      cy.get('g.visx-group').eq(0).find('g.visx-group').eq(1).find('text').eq(0).invoke('text').then((text) => {
+        // text should equal 4,609,400
+        expect(text).to.equal('4,609,400')
+      })
       resetMap()
-      // get button aria-label ="Reset map"
-      loadData()
-      
     })
   })
 });
