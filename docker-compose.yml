@@ -4,6 +4,14 @@ services:
       context: ./backend
       dockerfile: Dockerfile.dev
     container_name: backend
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '0.5'        # Limit the service to use 50% of a single CPU core
+    #       memory: '512M'     # Limit the service to use 512MB of memory
+    #     reservations:
+    #       cpus: '0.5'       # Reserve 50% of a single CPU core
+    #       memory: '256M'     # Reserve 256MB of memory
     volumes:
       - ./backend:/districtr-backend # Adjust volumes to point to the backend folder
       - ./sample_data:/districtr-backend/sample_data
@@ -34,6 +42,14 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '0.5'        # Limit the service to use 50% of a single CPU core
+    #       memory: '512M'     # Limit the service to use 512MB of memory
+    #     reservations:
+    #       cpus: '0.5'       # Reserve 50% of a single CPU core
+    #       memory: '256M'     # Reserve 256MB of memory
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
