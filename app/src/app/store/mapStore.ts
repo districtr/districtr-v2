@@ -244,7 +244,7 @@ export interface MapStore {
   assignmentsHash: string;
   lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
-  loadZoneAssignments: (assigments: Assignment[]) => void;
+  loadZoneAssignments: (assigments: Assignment[], cache?: boolean) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
@@ -898,7 +898,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           });
         },
         activeTool: 'pan',
-        setActiveTool: tool => set({activeTool: tool}),
+        setActiveTool: tool => set({activeTool: tool, isPainting: false}),
         spatialUnit: 'tract',
         setSpatialUnit: unit => set({spatialUnit: unit}),
         selectedZone: 1,
@@ -921,7 +921,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             accumulatedGeoids: new Set<string>(),
           });
         },
-        loadZoneAssignments: assignments => {
+        loadZoneAssignments: (assignments, cache=true) => {
           lastSentAssignments.clear();
           if (!assignments.length) return;
           
@@ -935,7 +935,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           assignments.forEach(assignment => {
             zoneAssignments.set(assignment.geo_id, assignment.zone);
             // preload last sent assignments with last fetched assignments
-            lastSentAssignments.set(assignment.geo_id, assignment.zone);
+            cache && lastSentAssignments.set(assignment.geo_id, assignment.zone);
             if (assignment.parent_path) {
               if (!shatterMappings[assignment.parent_path]) {
                 shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
@@ -951,7 +951,9 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             shatterIds, 
             shatterMappings, 
             appLoadingState: 'loaded',
-            loadedMapId: assignments[0]?.document_id
+            loadedMapId: assignments[0]?.document_id,
+            assignmentsHash: Date.now().toString(),
+            lastUpdatedHash: Date.now().toString(),
           });
         },
         zonePopulations: new Map(),
