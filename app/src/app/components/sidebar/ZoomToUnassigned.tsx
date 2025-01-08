@@ -2,10 +2,11 @@ import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import {Box, Button, Flex, Heading, Text} from '@radix-ui/themes';
 import { LngLatBoundsLike } from 'maplibre-gl';
-import React, {useEffect} from 'react';
+import React from 'react';
 
 export const ZoomToUnassigned = () => {
   const [unassignedFeatures, setUnassignedFeatures] = React.useState<GeoJSON.Feature[]>([]);
+  const [hasFoundUnassigned, setHasFoundUnassigned] = React.useState(false);
   const mapRef = useMapStore(state => state.getMapRef());
   const zoneAssignments = useMapStore(state => state.zoneAssignments);
 
@@ -23,12 +24,13 @@ export const ZoomToUnassigned = () => {
       })
     );
   };
-  useEffect(() => {
-    updateUnassignedFeatures();
-  }, []);
-
+  
   return (
     <div>
+      <Heading as="h3" size="3">Unassigned areas</Heading>
+      {!hasFoundUnassigned && (
+        <Text>Search for unassigned areas to complete your map.</Text>
+      )}
       {unassignedFeatures.length > 0 && (
         <Box>
           <Heading as="h3" size="3" mt="2">

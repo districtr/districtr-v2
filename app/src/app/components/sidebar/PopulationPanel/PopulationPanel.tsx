@@ -1,56 +1,23 @@
-import {CheckboxGroup, Flex, Heading, IconButton, Text, TextField} from '@radix-ui/themes';
-import React, {useMemo} from 'react';
+import {CheckboxGroup, Flex, Heading, Text} from '@radix-ui/themes';
+import React from 'react';
 import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import InfoTip from '@components/InfoTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
-import {calculateMinMaxRange} from '@utils/zone-helpers';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
-import { getEntryTotal } from '@/app/utils/summaryStats';
 
 export const PopulationPanel = () => {
   const mapMetrics = useChartStore(state => state.mapMetrics);
-  const summaryStats = useMapStore(state => state.summaryStats);
-  const numDistricts = useMapStore(state => state.mapDocument?.num_districts);
-  const idealPopulation = summaryStats?.idealpop?.data;
+  const idealPopulation = useMapStore(state => state.summaryStats?.idealpop?.data);
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const setChartOptions = useChartStore(state => state.setChartOptions);
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
-  const totPop = useMapStore(state => getEntryTotal(state.summaryStats.totpop?.data || {}));
-
-  const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
-  const {chartData, stats, unassigned} = useMemo(() => {
-    let unassigned = totPop
-    if (mapMetrics && mapMetrics.data && numDistricts) {
-      const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
-        (acc, district) => {
-          const totalPop = mapMetrics.data.reduce((acc, entry) => {
-            return entry.zone === district ? acc + entry.total_pop : acc;
-          }, 0);
-          unassigned -= totalPop;
-          return [...acc, {zone: district, total_pop: totalPop}];
-        },
-        [] as Array<{zone: number; total_pop: number}>
-      );
-      const allAreNonZero = chartData.every(entry => entry.total_pop > 0);
-      const stats = allAreNonZero ? calculateMinMaxRange(chartData) : undefined;
-      return {
-        stats,
-        chartData,
-        unassigned
-      };
-    } else {
-      return {
-        stats: undefined,
-        chartData: [],
-        unassigned:0
-      };
-    }
-  }, [mapMetrics]);
+  const chartInfo = useChartStore(state => state.chartInfo);
+  const {chartData, stats, unassigned} = chartInfo;
 
   if (mapMetrics?.isPending) {
     return <div>Loading...</div>;
@@ -108,7 +75,7 @@ export const PopulationPanel = () => {
             <Text>Ideal Population</Text>
             <Text weight={'bold'} className="mb-2">{formatNumber(idealPopulation, 'string')}</Text>
             <Text>Unassigned</Text>
-            <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>
+            <Text weight={'bold'}>{unassigned >= 0 ? formatNumber(unassigned, 'string') : '--'}</Text>
           </Flex>
 
           <Text>
