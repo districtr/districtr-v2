@@ -59,7 +59,7 @@ export type GeometryWorkerClass = {
   getUnassignedGeometries: () => {
     dissolved: GeoJSON.FeatureCollection;
     overall: GeoJSON.BBox;
-  }
+  };
   /**
    * Retrieves the collection of geometries.
    * @returns The collection of geometries.
