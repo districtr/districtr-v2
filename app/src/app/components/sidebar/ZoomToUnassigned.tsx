@@ -29,6 +29,7 @@ export const ZoomToUnassigned = () => {
     if (!GeometryWorker || !mapRef) return;
     GeometryWorker.updateProps(Array.from(zoneAssignments.entries())).then(() =>
       GeometryWorker!.getUnassignedGeometries().then(geometries => {
+        setHasFoundUnassigned(true);
         const {overall, dissolved} = geometries;
         if (dissolved.features.length) {
           setOverall(overall as LngLatBoundsLike);
@@ -51,6 +52,8 @@ export const ZoomToUnassigned = () => {
       <Heading as="h3" size="3">
         Unassigned areas
       </Heading>
+      {!hasFoundUnassigned && <Text>Loading...</Text>}
+      {hasFoundUnassigned && !unassignedFeatures.length && <Text>No unassigned areas found.</Text>}
       {unassignedPopulation >= 0 ? (
         <Text>{formatNumber(unassignedPopulation, 'string')} population are not yet assigned.</Text>
       ) : null}

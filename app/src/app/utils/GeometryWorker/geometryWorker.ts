@@ -136,6 +136,9 @@ const GeometryWorker: GeometryWorkerClass = {
         });
       }
     }
+    if (!geomsToDissolve.length) {
+      return {dissolved: {type: 'FeatureCollection', features: []}, overall: []};
+    }
     let dissolved = dissolve({
       type: 'FeatureCollection',
       features: geomsToDissolve as GeoJSON.Feature<GeoJSON.Polygon>[],
