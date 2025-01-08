@@ -39,7 +39,7 @@ const GeometryWorker: GeometryWorkerClass = {
       const id = f.properties?.[idProp];
       // TODO: Sometimes, geometries are split across tiles or reloaded at more detailed zoom levels
       // disambiguating and combining them could be very cool, but is tricky with lots of edge cases
-      // and computationally expensive. For now, we just take the first geometry of a given ID 
+      // and computationally expensive. For now, we just take the first geometry of a given ID
       if (id && !this.geometries[id]) {
         this.geometries[id] = structuredClone(f);
       }
@@ -65,7 +65,7 @@ const GeometryWorker: GeometryWorkerClass = {
       if (!zone) return;
       const featureArea = area(feature);
       // TODO: This makes sense for now given that we are not enforcing contiguity on zones,
-      // but could likely be refactored later when that rule is enforced. 
+      // but could likely be refactored later when that rule is enforced.
       if (!largestDissolvedFeatures[zone] || featureArea > largestDissolvedFeatures[zone].area) {
         largestDissolvedFeatures[zone] = {
           area: featureArea,
@@ -113,47 +113,57 @@ const GeometryWorker: GeometryWorkerClass = {
     return {dissolved, centroids};
   },
   getUnassignedGeometries() {
-    const geomsToDissolve = []
+    const geomsToDissolve = [];
 
     for (const id in this.geometries) {
-      const geom = this.geometries[id]
+      const geom = this.geometries[id];
       if (geom.properties?.zone == null) {
-        const featureBbox = bbox(geom)
+        const featureBbox = bbox(geom);
         geomsToDissolve.push({
-          type: "Feature",
+          type: 'Feature',
           geometry: {
-            coordinates: [[
-              [featureBbox[0], featureBbox[1]],
-              [featureBbox[0], featureBbox[3]],
-              [featureBbox[2], featureBbox[3]],
-              [featureBbox[2], featureBbox[1]],
-              [featureBbox[0], featureBbox[1]],
-            ]],
-            type: "Polygon"
-          }
-        })
+            coordinates: [
+              [
+                [featureBbox[0], featureBbox[1]],
+                [featureBbox[0], featureBbox[3]],
+                [featureBbox[2], featureBbox[3]],
+                [featureBbox[2], featureBbox[1]],
+                [featureBbox[0], featureBbox[1]],
+              ],
+            ],
+            type: 'Polygon',
+          },
+        });
       }
     }
     let dissolved = dissolve({
       type: 'FeatureCollection',
       features: geomsToDissolve as GeoJSON.Feature<GeoJSON.Polygon>[],
-    })
+    });
 
-    const overall = bbox(dissolved)
-    
-    for (let i=0; i<dissolved.features.length; i++) {
-      const geom = dissolved.features[i].geometry
+    const overall = bbox(dissolved);
+
+    for (let i = 0; i < dissolved.features.length; i++) {
+      const geom = dissolved.features[i].geometry;
       dissolved.features[i].properties = {
         ...(dissolved.features[i].properties || {}),
-        bbox: bbox(geom)
-      }
+        bbox: bbox(geom),
+        minX: geom.coordinates[0][0][0],
+        minY: geom.coordinates[0][0][1],
+      };
     }
-    
+    // sort by minX and minY
+    dissolved.features = dissolved.features.sort((a, b) => {
+      if (a.properties!.minY > b.properties!.minY) return -1;
+      if (a.properties!.minX < b.properties!.minX) return 1;
+      return 0;
+    });
+
     return {
       dissolved,
-      overall
-    }
-  }
+      overall,
+    };
+  },
 };
 
 expose(GeometryWorker);

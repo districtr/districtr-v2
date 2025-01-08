@@ -75,8 +75,6 @@ export const useChartStore = create(
 useChartStore.subscribe(
   store => store.mapMetrics,
   metrics => {
-    console.log("METRICS", metrics)
-    // const {chartData, stats, unassigned} = useMemo(() => {
     const mapMetrics = metrics as ChartStore['mapMetrics'];
     const numDistricts = useMapStore?.getState().mapDocument?.num_districts;
     const totPop = getEntryTotal(useMapStore?.getState().summaryStats.totpop?.data || {});
