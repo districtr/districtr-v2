@@ -73,9 +73,13 @@ export const PopulationPanel = () => {
         <Flex direction={'row'} justify={'between'} align={'start'}>
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
             <Text>Ideal Population</Text>
-            <Text weight={'bold'} className="mb-2">{formatNumber(idealPopulation, 'string')}</Text>
+            <Text weight={'bold'} className="mb-2">
+              {formatNumber(idealPopulation, 'string')}
+            </Text>
             <Text>Unassigned</Text>
-            <Text weight={'bold'}>{unassigned >= 0 ? formatNumber(unassigned, 'string') : '--'}</Text>
+            <Text weight={'bold'}>
+              {unassigned >= 0 ? formatNumber(unassigned, 'string') : '--'}
+            </Text>
           </Flex>
 
           <Text>
@@ -100,10 +104,10 @@ export const PopulationPanel = () => {
           mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
         ]}
       >
-        <hr className="my-2"/>
-      <Heading as="h3" weight="bold" size="3">
-        Map Options
-      </Heading>
+        <hr className="my-2" />
+        <Heading as="h3" weight="bold" size="3">
+          Map Options
+        </Heading>
         <CheckboxGroup.Item
           value="higlightUnassigned"
           onClick={() =>
