@@ -44,6 +44,16 @@ class IdCache {
     this.cachedTileIndices.clear();
   }
 
+  getTotalPopSeen(exclude: Set<string>){
+    let total = 0;
+    for (const [id, feature] of Object.entries(this.entries)) {
+      if (!exclude.has(id) && feature.properties && feature.properties.total_pop) {
+        total += +feature.properties.total_pop;
+      }
+    }
+    return total
+  }
+
   getFiltered(id: string) {
     const regex = new RegExp(`^${id}`);
     return Object.entries(this.entries).filter(([key]) => regex.test(key));
