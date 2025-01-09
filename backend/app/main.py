@@ -134,6 +134,27 @@ async def create_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Document creation failed",
         )
+    if not doc.parent_layer:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document creation failed",
+        )
+    # get gerrydb[doc.gerrydb_table] and create a partition for the assignments
+    partition_name = f'"document.assignments_{doc.document_id}"'
+    # get gerrydb[doc.gerrydb_table] and insert al
+    # insert in all values from 'path' from gerrydb[doc.gerrydb_table]
+    # document_id as doc.document_id
+    # zone as null
+    session.execute(
+        text(
+            f"""
+        INSERT INTO {partition_name} (document_id, geo_id, zone)
+        SELECT '{doc.document_id}', path, NULL
+        FROM gerrydb.{doc.parent_layer}
+    """
+        )
+    )
     session.commit()
 
     return doc
