@@ -455,7 +455,7 @@ export const checkIfSameZone = (
     if (zone === undefined) {
       zone = assigment;
     }
-    if (assigment !== null && assigment !== zone) {
+    if (assigment !== undefined && assigment !== zone) {
       shouldHeal = false;
     }
   });
