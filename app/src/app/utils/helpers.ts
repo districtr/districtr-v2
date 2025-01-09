@@ -15,7 +15,7 @@ import {
 } from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
-import {parentIdCache} from '../store/idCache';
+import {idCache} from '../store/idCache';
 
 /**
  * PaintEventHandler
@@ -142,7 +142,7 @@ export const getFeaturesIntersectingCounties = (
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
   const {mapDocument, shatterIds, checkParentsToHeal} = useMapStore.getState();
   const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
-  const cachedParentFeatures = parentIdCache.getFiltered(`${filterPrefix}${fips}`).map(([id, properties]) => ({
+  const cachedParentFeatures = idCache.getFiltered(`${filterPrefix}${fips}`).map(([id, properties]) => ({
     source: BLOCK_SOURCE_ID,
     sourceLayer: mapDocument?.parent_layer,
     id,

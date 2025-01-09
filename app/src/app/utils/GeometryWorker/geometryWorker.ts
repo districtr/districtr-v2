@@ -6,7 +6,7 @@ import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import bboxClip from '@turf/bbox-clip';
 import pointOnFeature from '@turf/point-on-feature';
 import pointsWithinPolygon from '@turf/points-within-polygon';
-import {MapGeoJSONFeature} from 'maplibre-gl';
+import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import bbox from '@turf/bbox';
 
 const GeometryWorker: GeometryWorkerClass = {
@@ -22,6 +22,11 @@ const GeometryWorker: GeometryWorkerClass = {
       if (this.geometries[id]?.properties) {
         this.geometries[id].properties['zone'] = zone;
       }
+    });
+  },
+  removeGeometries(ids) {
+    ids.forEach(id => {
+      delete this.geometries[id];
     });
   },
   loadGeometry(featuresOrStringified, idProp) {
@@ -137,14 +142,14 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     }
     if (!geomsToDissolve.length) {
-      return {dissolved: {type: 'FeatureCollection', features: []}, overall: []};
+      return {dissolved: {type: 'FeatureCollection', features: []}, overall: null};
     }
     let dissolved = dissolve({
       type: 'FeatureCollection',
       features: geomsToDissolve as GeoJSON.Feature<GeoJSON.Polygon>[],
     });
 
-    const overall = bbox(dissolved);
+    const overall = bbox(dissolved) as LngLatBoundsLike;
 
     for (let i = 0; i < dissolved.features.length; i++) {
       const geom = dissolved.features[i].geometry;

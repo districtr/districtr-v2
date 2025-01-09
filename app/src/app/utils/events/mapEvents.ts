@@ -19,7 +19,7 @@ import {ResetMapSelectState} from '@utils/events/handlers';
 import GeometryWorker from '../GeometryWorker';
 import {MinGeoJSONFeature} from '../GeometryWorker/geometryWorker.types';
 import {ActiveTool} from '@/app/constants/types';
-import {parentIdCache} from '@/app/store/idCache';
+import {idCache} from '@/app/store/idCache';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/mapStore';
@@ -280,8 +280,9 @@ export const handleIdCache = (
   map: MapLibreMap | null
 ) => {
   const e = _e as any;
-  const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {};
 
+  const { mapDocument, shatterMappings } = useMapStore.getState()
+  const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {}
   if (
     !tiles_s3_path ||
     !parent_layer ||
@@ -295,25 +296,42 @@ export const handleIdCache = (
 
   if (!tileData) return;
 
-  const index = `${tileData.x}-${tileData.y}-${tileData.z}`;
-  if (parentIdCache.hasCached(index)) return;
+  const isChild = child_layer && e.features?.length && e.features[0].sourceLayer === child_layer;
   const featureArray: MinGeoJSONFeature[] = [];
-  for (let i = 0; i < e.features.length; i++) {
-    const feature = e.features[i];
-    if (!feature || feature.sourceLayer !== parent_layer) continue;
-    const id = feature.id;
-    featureArray.push({
-      type: 'Feature',
-      properties: feature.properties,
-      geometry: feature.geometry,
-      sourceLayer: feature.sourceLayer,
-    });
+  const index = `${tileData.x}-${tileData.y}-${tileData.z}`;
+  if (isChild) {
+    const childId = e.features?.[0]?.properties?.path;
+    const parentSet = childId && Object.entries(shatterMappings).find(([parents, children]) => children.has(childId))
+    if (!parentSet || idCache.hasCached(parentSet[0])) return;
+    for (let i = 0; i < e.features.length; i++) {
+      const feature = e.features[i];
+      if (!feature || feature.sourceLayer !== child_layer) continue;
+      const id = feature.id;
+      featureArray.push({
+        type: 'Feature',
+        properties: feature.properties,
+        geometry: feature.geometry,
+        sourceLayer: feature.sourceLayer,
+      });
+    }
+  } else {
+    if (idCache.hasCached(index)) return;
+    for (let i = 0; i < e.features.length; i++) {
+      const feature = e.features[i];
+      if (!feature || feature.sourceLayer !== parent_layer) continue;
+      const id = feature.id;
+      featureArray.push({
+        type: 'Feature',
+        properties: feature.properties,
+        geometry: feature.geometry,
+        sourceLayer: feature.sourceLayer,
+      });
+    }
+    const currentStateFp = featureArray?.[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
+    useMapStore.getState().setMapOptions({currentStateFp});
   }
-  const currentStateFp = featureArray?.[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
-
   GeometryWorker?.loadGeometry(featureArray, 'path');
-  parentIdCache.loadFeatures(featureArray, index);
-  useMapStore.getState().setMapOptions({currentStateFp});
+  idCache.loadFeatures(featureArray, index);
 };
 
 export const mapEvents = [
