@@ -1,4 +1,5 @@
 import {useChartStore} from '@/app/store/chartStore';
+import { idCache } from '@/app/store/idCache';
 import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import {formatNumber} from '@/app/utils/numbers';
@@ -14,9 +15,11 @@ export const ZoomToUnassigned = () => {
   const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
   const mapRef = useMapStore(state => state.getMapRef());
   const zoneAssignments = useMapStore(state => state.zoneAssignments);
-  const unassignedPopulation = useChartStore(state => state.chartInfo.unassigned);
+  const chartInfo = useChartStore(state => state.chartInfo);
+  const { unassigned, totPop } = chartInfo;
   const mapRenderingState = useMapStore(state => state.mapRenderingState);
-
+  const shatterIds = useMapStore(state => state.shatterIds);
+  const mapDocument = useMapStore(state => state.mapDocument);
   useEffect(() => {
     if (selectedIndex !== null) {
       const feature = unassignedFeatures[selectedIndex];
@@ -25,22 +28,27 @@ export const ZoomToUnassigned = () => {
   }, [selectedIndex]);
 
   const fitToOverallBounds = () => overall && mapRef?.fitBounds(overall);
-  const updateUnassignedFeatures = () => {
+  const updateUnassignedFeatures = async () => {
+    const allPopSeen = idCache.getTotalPopSeen(shatterIds.parents) === totPop
     if (!GeometryWorker || !mapRef) return;
-    GeometryWorker.updateProps(Array.from(zoneAssignments.entries())).then(() =>
-      GeometryWorker!.getUnassignedGeometries().then(geometries => {
-        setHasFoundUnassigned(true);
-        const {overall, dissolved} = geometries;
-        if (dissolved.features.length) {
-          setOverall(overall as LngLatBoundsLike);
-          setSelectedIndex(null);
-          setUnassignedFeatures(dissolved.features);
-        } else {
-          setOverall(null);
-          setUnassignedFeatures([]);
-        }
-      })
-    );
+    await GeometryWorker.updateProps(Array.from(zoneAssignments.entries()))
+    const localGeometries = await GeometryWorker!.getUnassignedGeometries()
+    if (!allPopSeen) {
+      console.log("!!!Getting remote geos...")
+      const remoteResponse = await fetch(`http://localhost:8000/api/unassigned/${mapDocument?.document_id}`)
+      const remoteGeometries = await remoteResponse.json()
+      console.log('!!!remoteGeometries', remoteGeometries)
+    }
+    setHasFoundUnassigned(true);
+    const {overall, dissolved} = localGeometries;
+    if (dissolved.features.length) {
+      setOverall(overall as LngLatBoundsLike);
+      setSelectedIndex(null);
+      setUnassignedFeatures(dissolved.features);
+    } else {
+      setOverall(null);
+      setUnassignedFeatures([]);
+    }
   };
 
   useEffect(() => {
@@ -54,8 +62,8 @@ export const ZoomToUnassigned = () => {
       </Heading>
       {!hasFoundUnassigned && <Text>Loading...</Text>}
       {hasFoundUnassigned && !unassignedFeatures.length && <Text>No unassigned areas found.</Text>}
-      {unassignedPopulation >= 0 ? (
-        <Text>{formatNumber(unassignedPopulation, 'string')} population are not yet assigned.</Text>
+      {unassigned >= 0 ? (
+        <Text>{formatNumber(unassigned, 'string')} population are not yet assigned.</Text>
       ) : null}
       {!!unassignedFeatures.length && (
         <Box>
