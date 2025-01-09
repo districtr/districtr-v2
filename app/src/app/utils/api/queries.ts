@@ -140,7 +140,6 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 };
 
 fetchAssignments.subscribe(assignments => {
-  console.log("!!!assignments", assignments)
   if (assignments.data) {
     const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
     if (assignments.data?.length && assignments.data[0].document_id === loadedMapId) {
