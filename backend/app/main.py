@@ -422,17 +422,17 @@ async def get_unassigned_geoids(
     # return clean_results
 
     stmt = text(f"""
-        SELECT ids.geo_id, ST_AsGeoJSON(
-                -- BBox as GeoJSON
-                ST_Envelope(
-                    ST_Transform(
-                        -- COALESCE either the parent geo or child geo 
-                        -- depending on which exists
-                        -- and transform to 4326
-                        {'COALESCE(parentgeo.geometry, childgeo.geometry)' if districtr_map.child_layer else 'parentgeo.geometry'}, 
-                    4326)
-                )
-            ) as bbox
+        SELECT ST_AsGeoJSON(
+            ST_Dump(
+                ST_Transform(
+                    ST_Union(
+                        ST_Envelope(
+                            {'COALESCE(parentgeo.geometry, childgeo.geometry)' if districtr_map.child_layer else 'parentgeo.geometry'}
+                        )
+                    ),
+                4326)
+            )
+        ) as bbox
         -- Get all possible parents and children from gerrydb
         FROM ( SELECT DISTINCT geo_id
             FROM document.assignments
@@ -456,7 +456,7 @@ async def get_unassigned_geoids(
     """)
 
     results = session.execute(stmt, {"document_id": document_id}).fetchall()
-    return [{"geo_id": row[0], "bbox": json.loads(row[1])['coordinates']} for row in results]
+    return [row[0] for row in results]
 
 @app.get("/api/districtrmap/summary_stats/{summary_stat}/{gerrydb_table}")
 async def get_gerrydb_summary_stat(
