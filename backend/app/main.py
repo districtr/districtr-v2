@@ -441,6 +441,9 @@ async def get_unassigned_geoids(
             SELECT path as geo_id
             FROM gerrydb.{districtr_map.parent_layer}
         ) ids
+        -- This is slightly duplicative, but we either need to double join to assignments
+        -- or to filter gerrdb.parent_layer by NOT in assignments
+        -- I think this is the faster approach, if less elegant
         LEFT JOIN document.assignments doc
             ON ids.geo_id = doc.geo_id
             AND doc.document_id = :document_id
