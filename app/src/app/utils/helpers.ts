@@ -412,13 +412,11 @@ export const setZones = (
   parent: string,
   children: Set<string>
 ) => {
-  const zone = zoneAssignments.get(parent);
-  if (zone) {
-    children.forEach(childId => {
-      zoneAssignments.set(childId, zone);
-    });
-    zoneAssignments.delete(parent);
-  }
+  const zone = zoneAssignments.get(parent) || null
+  children.forEach(childId => {
+    zoneAssignments.set(childId, zone);
+  });
+  zoneAssignments.delete(parent);
 };
 
 export const shallowCompareArray = (curr: unknown[], prev: unknown[]) => {
