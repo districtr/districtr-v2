@@ -399,9 +399,6 @@ async def get_unassigned_geoids(
         select(DistrictrMap).where(DistrictrMap.gerrydb_table_name == doc.gerrydb_table)
     ).one()
 
-    # # assumes all relevant assignments always present
-    # # anecdotally, this is faster than the below
-    # # round trip from FE times of ~300-500ms
     # stmt = text(f"""
     #     SELECT geo_id, 
     #         ST_AsGeoJSON(ST_Envelope(ST_Transform({
@@ -424,10 +421,8 @@ async def get_unassigned_geoids(
     # ]
     # return clean_results
 
-    # anecdotally, this is slower than the above
-    # round trip from FE times of 1.7-2s
     stmt = text(f"""
-        SELECT gerry.path, ST_AsGeoJSON(
+        SELECT ids.geo_id, ST_AsGeoJSON(
                 -- BBox as GeoJSON
                 ST_Envelope(
                     ST_Transform(
@@ -439,26 +434,22 @@ async def get_unassigned_geoids(
                 )
             ) as bbox
         -- Get all possible parents and children from gerrydb
-        FROM gerrydb.{doc.gerrydb_table} gerry
-        -- Join to assignments to filter for non-null zones
+        FROM ( SELECT DISTINCT geo_id
+            FROM document.assignments
+            WHERE document_id = :document_id
+            UNION
+            SELECT path as geo_id
+            FROM gerrydb.{districtr_map.parent_layer}
+        ) ids
         LEFT JOIN document.assignments doc
-            ON gerry.path = doc.geo_id 
+            ON ids.geo_id = doc.geo_id
             AND doc.document_id = :document_id
-        -- Join to parent child edges to filter for only
-        -- present children (we can't differentiate from assignments alone)
-        -- if a geoid is a parent or child
-        LEFT JOIN parentchildedges edges
-            on gerry.path = edges.child_path
         -- Materialized view does not have geometry
         -- need to join both parent and child gerrydb tables
         LEFT JOIN gerrydb.{districtr_map.parent_layer} parentgeo
-            ON gerry.path = parentgeo.path
-        {f'LEFT JOIN gerrydb.{districtr_map.child_layer} childgeo ON gerry.path = childgeo.path' if districtr_map.child_layer else ''}
-        WHERE zone is null
-        -- Only include  geos that are children that have been broken
-        -- and have a null assignment (doc.geo_id is NOT null)
-        -- Or are parent assignements (edges.child_path is null)
-        {f'AND (doc.geo_id is not null OR edges.child_path is null)' if districtr_map.child_layer else ''}
+            ON ids.geo_id = parentgeo.path
+        {f'LEFT JOIN gerrydb.{districtr_map.child_layer} childgeo ON ids.geo_id = childgeo.path' if districtr_map.child_layer else ''}
+        WHERE doc.zone IS NULL
     """)
 
     results = session.execute(stmt, {"document_id": document_id}).fetchall()
