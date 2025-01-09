@@ -18,6 +18,7 @@ export interface ChartStore {
     stats?: {min: number; max: number; range: number};
     chartData: Array<{zone: number; total_pop: number}>;
     unassigned: number;
+    totPop: number;
   };
   setChartInfo: (info: ChartStore['chartInfo']) => void;
 }
@@ -62,6 +63,7 @@ export const useChartStore = create(
         stats: undefined,
         chartData: [],
         unassigned: 0,
+        totPop: 0
       },
       setChartInfo: chartInfo => set({chartInfo}),
     })),
@@ -78,7 +80,7 @@ useChartStore.subscribe(
     const mapMetrics = metrics as ChartStore['mapMetrics'];
     const numDistricts = useMapStore?.getState().mapDocument?.num_districts;
     const totPop = getEntryTotal(useMapStore?.getState().summaryStats.totpop?.data || {});
-    let unassigned = (totPop || 0) as number;
+    let unassigned = getEntryTotal(useMapStore?.getState().summaryStats.totpop?.data || {}) || 0;
     if (mapMetrics && mapMetrics.data && numDistricts) {
       const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
         (acc, district) => {
@@ -96,12 +98,14 @@ useChartStore.subscribe(
         stats,
         chartData,
         unassigned,
+        totPop
       });
     } else {
       useChartStore.getState().setChartInfo({
         stats: undefined,
         chartData: [],
         unassigned: 0,
+        totPop: 0
       });
     }
   }
