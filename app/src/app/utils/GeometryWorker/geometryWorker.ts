@@ -2,7 +2,7 @@ import {expose} from 'comlink';
 import {area} from '@turf/area';
 import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
-import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
+import {GeometryWorkerClass} from './geometryWorker.types';
 import bboxClip from '@turf/bbox-clip';
 import pointOnFeature from '@turf/point-on-feature';
 import pointsWithinPolygon from '@turf/points-within-polygon';
