@@ -3,30 +3,41 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
 import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
-import {Box, Button, Flex, Heading, IconButton, Select, Text} from '@radix-ui/themes';
-import React, {useEffect, useRef} from 'react';
+import {Button, Flex, Heading, IconButton, Select, Text} from '@radix-ui/themes';
+import React, {useEffect, useLayoutEffect, useRef} from 'react';
 
 export const ZoomToUnassigned = () => {
   const {
     updateUnassignedFeatures,
     selectedIndex,
     setSelectedIndex,
+    changeSelectedIndex,
     unassignedFeatureBboxes,
     hasFoundUnassigned,
     unassignedOverallBbox,
     reset,
+    lastUpdated,
   } = useUnassignFeaturesStore(state => state);
   const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
+  // prevent duplicate requests to get unassigned features
   const initialMapDocument = useRef(mapDocument);
   const unassigned = useChartStore(state => state.chartInfo.unassigned);
+  // on repeat visit, prevent zooming to bounds on first render
+  const [hasMounted, setHasMounted] = React.useState(false);
 
   useEffect(() => {
-    if (selectedIndex !== null) {
+    if (selectedIndex !== null && hasMounted) {
       const feature = unassignedFeatureBboxes[selectedIndex];
       feature.properties?.bbox && mapRef?.fitBounds(feature.properties.bbox);
     }
   }, [selectedIndex]);
+
+  // fires on first layout render
+  // after useEffect in component lifecycle
+  useLayoutEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const fitToOverallBounds = () =>
     unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox);
@@ -52,75 +63,105 @@ export const ZoomToUnassigned = () => {
       <Heading as="h3" size="3">
         Unassigned areas
       </Heading>
-      {!hasFoundUnassigned && <Text>Loading...</Text>}
-      {hasFoundUnassigned && !unassignedFeatureBboxes.length && (
-        <Text>No unassigned areas found.</Text>
-      )}
-      {unassigned >= 0 && (
-        <Text>{formatNumber(unassigned, 'string')} population are not yet assigned.</Text>
-      )}
-      {!!unassignedFeatureBboxes.length && (
-        <Box>
-          <Text mt="2">
-            {`There ${unassignedFeatureBboxes.length > 1 ? 'are' : 'is'} ${unassignedFeatureBboxes.length} `}
-            unassigned area
-            {unassignedFeatureBboxes.length > 1 ? 's' : ''}.
-          </Text>
-          <Flex direction="row" align={'center'} gapX="2" gapY="2" my="2" wrap="wrap">
-            {unassignedFeatureBboxes.length === 1 ? null : unassignedFeatureBboxes.length < 10 ? (
-              <>
-                {unassignedFeatureBboxes.map((feature, index) => (
-                  <Button
-                    key={index}
-                    variant="surface"
-                    className="btn p-4"
-                    onClick={() => setSelectedIndex(index)}
-                  >
-                    {index + 1}
-                  </Button>
-                ))}
-              </>
-            ) : (
-              <div>
-                <IconButton
-                  variant="outline"
-                  onClick={() => setSelectedIndex((selectedIndex || 0) - 1)}
-                  disabled={!selectedIndex || selectedIndex === 0}
-                >
-                  <ChevronLeftIcon />
-                </IconButton>
-                <Select.Root
-                  value={`${selectedIndex || 0}`}
-                  onValueChange={value => setSelectedIndex(parseInt(value))}
-                >
-                  <Select.Trigger mx="2" />
-                  <Select.Content>
-                    {unassignedFeatureBboxes.map((feature, index) => (
-                      <Select.Item key={index} value={`${index}`}>
-                        {index + 1}
-                      </Select.Item>
-                    ))}
-                  </Select.Content>
-                </Select.Root>
+      <InfoText
+        unassigned={unassigned}
+        hasFoundUnassigned={hasFoundUnassigned}
+        numFeatures={unassignedFeatureBboxes.length}
+      />
+      <Flex
+        direction={{
+          initial: 'column',
+          xl: 'row',
+        }}
+        gap="4"
+      >
+        {unassignedFeatureBboxes.length > 1 && (
+          <Flex
+            direction="row"
+            align={'center'}
+            gapX="2"
+            gapY="2"
+            wrap="wrap"
+            flexBasis={'66%'}
+            minWidth={'120px'}
+            justify={{
+              initial: 'center',
+              xl: 'start',
+            }}
+          >
+            <div>
+              <IconButton
+                variant="outline"
+                onClick={() => changeSelectedIndex(-1)}
+                disabled={!selectedIndex || selectedIndex === 0}
+              >
+                <ChevronLeftIcon />
+              </IconButton>
+              <Select.Root
+                value={`${selectedIndex || 0}`}
+                onValueChange={value => setSelectedIndex(parseInt(value))}
+              >
+                <Select.Trigger mx="2" />
+                <Select.Content>
+                  {unassignedFeatureBboxes.map((feature, index) => (
+                    <Select.Item key={index} value={`${index}`}>
+                      {index + 1}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
 
-                <IconButton
-                  variant="outline"
-                  onClick={() => setSelectedIndex((selectedIndex || 0) + 1)}
-                  disabled={selectedIndex === unassignedFeatureBboxes.length - 1}
-                >
-                  <ChevronRightIcon />
-                </IconButton>
-              </div>
-            )}
+              <IconButton
+                variant="outline"
+                onClick={() => changeSelectedIndex(1)}
+                disabled={selectedIndex === unassignedFeatureBboxes.length - 1}
+              >
+                <ChevronRightIcon />
+              </IconButton>
+            </div>
           </Flex>
-        </Box>
-      )}
-
-      {unassignedOverallBbox && (
-        <Button onClick={fitToOverallBounds} variant="outline" mb="2" className="block">
-          {`Zoom to ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
-        </Button>
+        )}
+        {unassignedOverallBbox && (
+          <Button onClick={fitToOverallBounds} variant="surface" className="block">
+            {`Zoom to ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
+          </Button>
+        )}
+        {unassignedOverallBbox && (
+          <Button onClick={updateUnassignedFeatures} variant="outline" className="block text-wrap">
+            Refresh unassigned areas
+          </Button>
+        )}
+      </Flex>
+      {!!lastUpdated && (
+        <Text size="1" mt="2">
+          <i>Last update {lastUpdated}</i>
+        </Text>
       )}
     </Flex>
+  );
+};
+
+const InfoText: React.FC<{
+  unassigned: number;
+  hasFoundUnassigned: boolean;
+  numFeatures: number;
+}> = ({unassigned, hasFoundUnassigned, numFeatures}) => {
+  if (!hasFoundUnassigned) {
+    return <Text my="1">Loading...</Text>;
+  }
+  if (hasFoundUnassigned && !numFeatures) {
+    <Text my="1">No unassigned areas found.</Text>;
+  }
+
+  return (
+    <Text my="1">
+      There {numFeatures > 1 ? 'are' : 'is'} <b>{numFeatures}</b> unassigned area
+      {numFeatures > 1 ? 's' : ''}.&nbsp;{' '}
+      {unassigned > 0 && (
+        <>
+          <b>{formatNumber(unassigned, 'string')}</b> population are not yet assigned.
+        </>
+      )}
+    </Text>
   );
 };

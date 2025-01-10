@@ -17,6 +17,8 @@ export function MapModeSelector() {
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const mapDocument = useMapStore(state => state.mapDocument);
+  const zonesExist = useMapStore(state => state.zoneAssignments.size);
+  const mapRenderingState = useMapStore(state => state.mapRenderingState);
 
   if (!activeTool) return null;
   const activeTools = [
@@ -37,7 +39,7 @@ export function MapModeSelector() {
     },
     {
       mode: 'zoomToUnassigned',
-      disabled: !mapDocument?.parent_layer,
+      disabled: !mapDocument?.parent_layer || !zonesExist || mapRenderingState !== 'loaded',
       label: 'Zoom To Unassigned',
       icon: <MagnifyingGlassIcon />,
     },

@@ -10,16 +10,26 @@ type UnassignedFeatureStore = {
   unassignedOverallBbox: LngLatBoundsLike | null;
   hasFoundUnassigned: boolean;
   selectedIndex: number | null;
+  lastUpdated: string | null;
+  changeSelectedIndex: (amount: number) => void;
   setSelectedIndex: (index: number | null) => void;
   reset: () => void;
   updateUnassignedFeatures: () => void;
 };
 
-export const useUnassignFeaturesStore = create<UnassignedFeatureStore>(set => ({
+export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set,get) => ({
   unassignedFeatureBboxes: [],
   unassignedOverallBbox: null,
   hasFoundUnassigned: false,
   selectedIndex: null,
+  lastUpdated: null,
+  changeSelectedIndex: (amount: number) => {
+    const {selectedIndex, unassignedFeatureBboxes} = get();
+    const prevIndex = selectedIndex || 0;
+    const newIndex = prevIndex + amount;
+    if (newIndex < 0 || newIndex >= unassignedFeatureBboxes.length) return;
+    set({selectedIndex: newIndex});
+  },
   setSelectedIndex: (index: number | null) => set({selectedIndex: index}),
   reset: () =>
     set({
@@ -34,7 +44,6 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>(set => ({
     if (!GeometryWorker || !mapRef) return;
     const useBackend =
       idCache.getTotalPopSeen(shatterIds.parents) !== useChartStore.getState().chartInfo.totPop;
-
     if (!useBackend) {
       await GeometryWorker.updateProps(Array.from(zoneAssignments.entries()));
     }
@@ -48,6 +57,7 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>(set => ({
       selectedIndex: null,
       unassignedOverallBbox: unassignedGeometries?.overall || null,
       unassignedFeatureBboxes: unassignedGeometries?.dissolved?.features || [],
+      lastUpdated: new Date().toLocaleTimeString(),
     });
   },
 }));
