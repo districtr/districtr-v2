@@ -1,59 +1,52 @@
 import {useChartStore} from '@/app/store/chartStore';
-import { idCache } from '@/app/store/idCache';
 import {useMapStore} from '@/app/store/mapStore';
-import GeometryWorker from '@/app/utils/GeometryWorker';
+import { useUnassignFeaturesStore } from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
 import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
 import {Box, Button, Flex, Heading, IconButton, Select, Text} from '@radix-ui/themes';
-import {LngLatBoundsLike} from 'maplibre-gl';
-import React, {useEffect} from 'react';
+import React, {useEffect, useRef} from 'react';
 
 export const ZoomToUnassigned = () => {
-  const [unassignedFeatures, setUnassignedFeatures] = React.useState<GeoJSON.Feature[]>([]);
-  const [overall, setOverall] = React.useState<LngLatBoundsLike | null>(null);
-  const [hasFoundUnassigned, setHasFoundUnassigned] = React.useState(false);
-  const [selectedIndex, setSelectedIndex] = React.useState<number | null>(null);
+  const {
+    updateUnassignedFeatures,
+    selectedIndex,
+    setSelectedIndex,
+    unassignedFeatureBboxes,
+    hasFoundUnassigned,
+    unassignedOverallBbox,
+    reset
+  } = useUnassignFeaturesStore(state => state);
   const mapRef = useMapStore(state => state.getMapRef());
-  const zoneAssignments = useMapStore(state => state.zoneAssignments);
-  const chartInfo = useChartStore(state => state.chartInfo);
-  const { unassigned, totPop } = chartInfo;
-  const mapRenderingState = useMapStore(state => state.mapRenderingState);
-  const shatterIds = useMapStore(state => state.shatterIds);
   const mapDocument = useMapStore(state => state.mapDocument);
+  const initialMapDocument = useRef(mapDocument)
+  const unassigned = useChartStore(state => state.chartInfo.unassigned);
+
   useEffect(() => {
     if (selectedIndex !== null) {
-      const feature = unassignedFeatures[selectedIndex];
+      const feature = unassignedFeatureBboxes[selectedIndex];
       feature.properties?.bbox && mapRef?.fitBounds(feature.properties.bbox);
     }
   }, [selectedIndex]);
 
-  const fitToOverallBounds = () => overall && mapRef?.fitBounds(overall);
-  const updateUnassignedFeatures = async () => {
-    const allPopSeen = idCache.getTotalPopSeen(shatterIds.parents) === totPop
-    if (!GeometryWorker || !mapRef) return;
-    await GeometryWorker.updateProps(Array.from(zoneAssignments.entries()))
-    const localGeometries = await GeometryWorker!.getUnassignedGeometries()
-    if (!allPopSeen) {
-      console.log("!!!Getting remote geos...")
-      const remoteResponse = await fetch(`http://localhost:8000/api/unassigned/${mapDocument?.document_id}`)
-      const remoteGeometries = await remoteResponse.json()
-      console.log('!!!remoteGeometries', remoteGeometries)
-    }
-    setHasFoundUnassigned(true);
-    const {overall, dissolved} = localGeometries;
-    if (dissolved.features.length) {
-      setOverall(overall as LngLatBoundsLike);
-      setSelectedIndex(null);
-      setUnassignedFeatures(dissolved.features);
-    } else {
-      setOverall(null);
-      setUnassignedFeatures([]);
-    }
-  };
+  const fitToOverallBounds = () => unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox);
 
   useEffect(() => {
-    updateUnassignedFeatures();
-  }, [mapRenderingState, zoneAssignments]);
+    console.log('updateUnassignedFeatures', unassignedFeatureBboxes.length, hasFoundUnassigned);
+    if (!unassignedFeatureBboxes.length && !hasFoundUnassigned) {
+      updateUnassignedFeatures();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (initialMapDocument?.current?.document_id !== mapDocument?.document_id) {
+      console.log("RESETTING")
+      initialMapDocument.current = mapDocument;
+      reset();
+      setTimeout(() => {
+        updateUnassignedFeatures();
+      }, 3000);
+    }
+  }, [mapDocument?.document_id])
 
   return (
     <Flex direction="column">
@@ -61,21 +54,21 @@ export const ZoomToUnassigned = () => {
         Unassigned areas
       </Heading>
       {!hasFoundUnassigned && <Text>Loading...</Text>}
-      {hasFoundUnassigned && !unassignedFeatures.length && <Text>No unassigned areas found.</Text>}
+      {hasFoundUnassigned && !unassignedFeatureBboxes.length && <Text>No unassigned areas found.</Text>}
       {unassigned >= 0 ? (
         <Text>{formatNumber(unassigned, 'string')} population are not yet assigned.</Text>
       ) : null}
-      {!!unassignedFeatures.length && (
+      {!!unassignedFeatureBboxes.length && (
         <Box>
           <Text mt="2">
-            There {unassignedFeatures.length > 1 ? 'are' : 'is'} {unassignedFeatures.length}{' '}
+            There {unassignedFeatureBboxes.length > 1 ? 'are' : 'is'} {unassignedFeatureBboxes.length}{' '}
             unassigned area
-            {unassignedFeatures.length > 1 ? 's' : ''}.
+            {unassignedFeatureBboxes.length > 1 ? 's' : ''}.
           </Text>
           <Flex direction="row" align={'center'} gapX="2" gapY="2" my="2" wrap="wrap">
-            {unassignedFeatures.length === 1 ? null : unassignedFeatures.length < 10 ? (
+            {unassignedFeatureBboxes.length === 1 ? null : unassignedFeatureBboxes.length < 10 ? (
               <>
-                {unassignedFeatures.map((feature, index) => (
+                {unassignedFeatureBboxes.map((feature, index) => (
                   <Button
                     key={index}
                     variant="surface"
@@ -90,7 +83,7 @@ export const ZoomToUnassigned = () => {
               <div>
                 <IconButton
                   variant="outline"
-                  onClick={() => setSelectedIndex(i => (i || 0) - 1)}
+                  onClick={() => setSelectedIndex((selectedIndex || 0) - 1)}
                   disabled={!selectedIndex || selectedIndex === 0}
                 >
                   <ChevronLeftIcon />
@@ -101,7 +94,7 @@ export const ZoomToUnassigned = () => {
                 >
                   <Select.Trigger mx="2" />
                   <Select.Content>
-                    {unassignedFeatures.map((feature, index) => (
+                    {unassignedFeatureBboxes.map((feature, index) => (
                       <Select.Item key={index} value={`${index}`}>
                         {index + 1}
                       </Select.Item>
@@ -111,8 +104,8 @@ export const ZoomToUnassigned = () => {
 
                 <IconButton
                   variant="outline"
-                  onClick={() => setSelectedIndex(i => (i || 0) + 1)}
-                  disabled={selectedIndex === unassignedFeatures.length - 1}
+                  onClick={() => setSelectedIndex((selectedIndex || 0) + 1)}
+                  disabled={selectedIndex === unassignedFeatureBboxes.length - 1}
                 >
                   <ChevronRightIcon />
                 </IconButton>
@@ -122,9 +115,9 @@ export const ZoomToUnassigned = () => {
         </Box>
       )}
 
-      {overall && (
+      {unassignedOverallBbox && (
         <Button onClick={fitToOverallBounds} variant="outline" mb="2" className="block">
-          Zoom to {unassignedFeatures.length === 1 ? 'unassigned area' : 'all unassigned areas'}
+          Zoom to {unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}
         </Button>
       )}
     </Flex>

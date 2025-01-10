@@ -117,28 +117,38 @@ const GeometryWorker: GeometryWorkerClass = {
     const {dissolved, centroids} = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
     return {dissolved, centroids};
   },
-  getUnassignedGeometries() {
-    const geomsToDissolve = [];
-
-    for (const id in this.geometries) {
-      const geom = this.geometries[id];
-      if (geom.properties?.zone == null) {
-        const featureBbox = bbox(geom);
-        geomsToDissolve.push({
-          type: 'Feature',
-          geometry: {
-            coordinates: [
-              [
-                [featureBbox[0], featureBbox[1]],
-                [featureBbox[0], featureBbox[3]],
-                [featureBbox[2], featureBbox[3]],
-                [featureBbox[2], featureBbox[1]],
-                [featureBbox[0], featureBbox[1]],
+  async getUnassignedGeometries(
+    useBackend=false,
+    documentId?: string
+  ) {
+    const geomsToDissolve: GeoJSON.Feature[] = [];
+    if (useBackend){
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/unassigned/${documentId}`)
+        .then(r => r.json())
+        .then(strigifiedGeos => strigifiedGeos.forEach(
+          (geo: string) => geomsToDissolve.push(JSON.parse(geo))
+        ))
+    } else {
+      for (const id in this.geometries) {
+        const geom = this.geometries[id];
+        if (geom.properties?.zone == null) {
+          const featureBbox = bbox(geom);
+          geomsToDissolve.push({
+            type: 'Feature',
+            geometry: {
+              coordinates: [
+                [
+                  [featureBbox[0], featureBbox[1]],
+                  [featureBbox[0], featureBbox[3]],
+                  [featureBbox[2], featureBbox[3]],
+                  [featureBbox[2], featureBbox[1]],
+                  [featureBbox[0], featureBbox[1]],
+                ],
               ],
-            ],
-            type: 'Polygon',
-          },
-        });
+              type: 'Polygon',
+            },
+          } as GeoJSON.Feature);
+        }
       }
     }
     if (!geomsToDissolve.length) {
