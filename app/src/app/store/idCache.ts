@@ -9,7 +9,7 @@ class IdCache {
     return this.cachedTileIndices.has(index) || this.cachedChildParents.has(index);
   }
 
-  loadFeatures(features: MinGeoJSONFeature[], index: string, isChild: boolean=false) {
+  loadFeatures(features: MinGeoJSONFeature[], index: string, isChild: boolean = false) {
     if (this.hasCached(index)) {
       return;
     } else {
@@ -24,15 +24,15 @@ class IdCache {
           if (!this.entries[id]) {
             this.entries[id] = {
               ...feature,
-              geometry: undefined
+              geometry: undefined,
             };
           }
         }
       });
     }
   }
-  
-  heal(parentId: string, childIds: string[]){
+
+  heal(parentId: string, childIds: string[]) {
     this.cachedChildParents.delete(parentId);
     childIds.forEach(childId => {
       delete this.entries[childId];
@@ -44,14 +44,14 @@ class IdCache {
     this.cachedTileIndices.clear();
   }
 
-  getTotalPopSeen(exclude: Set<string>){
+  getTotalPopSeen(exclude: Set<string>) {
     let total = 0;
     for (const [id, feature] of Object.entries(this.entries)) {
       if (!exclude.has(id) && feature.properties && feature.properties.total_pop) {
         total += +feature.properties.total_pop;
       }
     }
-    return total
+    return total;
   }
 
   getFiltered(id: string) {

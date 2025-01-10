@@ -281,8 +281,8 @@ export const handleIdCache = (
 ) => {
   const e = _e as any;
 
-  const { mapDocument, shatterMappings } = useMapStore.getState()
-  const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {}
+  const {mapDocument, shatterMappings} = useMapStore.getState();
+  const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {};
   if (
     !tiles_s3_path ||
     !parent_layer ||
@@ -301,7 +301,9 @@ export const handleIdCache = (
   const index = `${tileData.x}-${tileData.y}-${tileData.z}`;
   if (isChild) {
     const childId = e.features?.[0]?.properties?.path;
-    const parentSet = childId && Object.entries(shatterMappings).find(([parents, children]) => children.has(childId))
+    const parentSet =
+      childId &&
+      Object.entries(shatterMappings).find(([parents, children]) => children.has(childId));
     if (!parentSet || idCache.hasCached(parentSet[0])) return;
     for (let i = 0; i < e.features.length; i++) {
       const feature = e.features[i];

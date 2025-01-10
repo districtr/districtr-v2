@@ -1,6 +1,6 @@
 import {useChartStore} from '@/app/store/chartStore';
 import {useMapStore} from '@/app/store/mapStore';
-import { useUnassignFeaturesStore } from '@/app/store/unassignedFeatures';
+import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
 import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
 import {Box, Button, Flex, Heading, IconButton, Select, Text} from '@radix-ui/themes';
@@ -14,11 +14,11 @@ export const ZoomToUnassigned = () => {
     unassignedFeatureBboxes,
     hasFoundUnassigned,
     unassignedOverallBbox,
-    reset
+    reset,
   } = useUnassignFeaturesStore(state => state);
   const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
-  const initialMapDocument = useRef(mapDocument)
+  const initialMapDocument = useRef(mapDocument);
   const unassigned = useChartStore(state => state.chartInfo.unassigned);
 
   useEffect(() => {
@@ -28,10 +28,10 @@ export const ZoomToUnassigned = () => {
     }
   }, [selectedIndex]);
 
-  const fitToOverallBounds = () => unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox);
+  const fitToOverallBounds = () =>
+    unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox);
 
   useEffect(() => {
-    console.log('updateUnassignedFeatures', unassignedFeatureBboxes.length, hasFoundUnassigned);
     if (!unassignedFeatureBboxes.length && !hasFoundUnassigned) {
       updateUnassignedFeatures();
     }
@@ -39,14 +39,13 @@ export const ZoomToUnassigned = () => {
 
   useEffect(() => {
     if (initialMapDocument?.current?.document_id !== mapDocument?.document_id) {
-      console.log("RESETTING")
       initialMapDocument.current = mapDocument;
       reset();
       setTimeout(() => {
         updateUnassignedFeatures();
       }, 3000);
     }
-  }, [mapDocument?.document_id])
+  }, [mapDocument?.document_id]);
 
   return (
     <Flex direction="column">
@@ -54,14 +53,16 @@ export const ZoomToUnassigned = () => {
         Unassigned areas
       </Heading>
       {!hasFoundUnassigned && <Text>Loading...</Text>}
-      {hasFoundUnassigned && !unassignedFeatureBboxes.length && <Text>No unassigned areas found.</Text>}
-      {unassigned >= 0 ? (
+      {hasFoundUnassigned && !unassignedFeatureBboxes.length && (
+        <Text>No unassigned areas found.</Text>
+      )}
+      {unassigned >= 0 && (
         <Text>{formatNumber(unassigned, 'string')} population are not yet assigned.</Text>
-      ) : null}
+      )}
       {!!unassignedFeatureBboxes.length && (
         <Box>
           <Text mt="2">
-            There {unassignedFeatureBboxes.length > 1 ? 'are' : 'is'} {unassignedFeatureBboxes.length}{' '}
+            {`There ${unassignedFeatureBboxes.length > 1 ? 'are' : 'is'} ${unassignedFeatureBboxes.length} `}
             unassigned area
             {unassignedFeatureBboxes.length > 1 ? 's' : ''}.
           </Text>
@@ -117,7 +118,7 @@ export const ZoomToUnassigned = () => {
 
       {unassignedOverallBbox && (
         <Button onClick={fitToOverallBounds} variant="outline" mb="2" className="block">
-          Zoom to {unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}
+          {`Zoom to ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
         </Button>
       )}
     </Flex>

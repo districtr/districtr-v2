@@ -6,7 +6,7 @@ import {ZonePopulation} from '../utils/api/apiHandlers';
 import {APIError, DistrictrChartOptions} from './types';
 import {useMapStore} from './mapStore';
 import {calculateMinMaxRange} from '../utils/zone-helpers';
-import { getEntryTotal } from '../utils/summaryStats';
+import {getEntryTotal} from '../utils/summaryStats';
 
 export interface ChartStore {
   mapMetrics: UseQueryResult<ZonePopulation[], APIError | Error> | null;
@@ -63,7 +63,7 @@ export const useChartStore = create(
         stats: undefined,
         chartData: [],
         unassigned: 0,
-        totPop: 0
+        totPop: 0,
       },
       setChartInfo: chartInfo => set({chartInfo}),
     })),
@@ -98,14 +98,14 @@ useChartStore.subscribe(
         stats,
         chartData,
         unassigned,
-        totPop
+        totPop,
       });
     } else {
       useChartStore.getState().setChartInfo({
         stats: undefined,
         chartData: [],
         unassigned: 0,
-        totPop: 0
+        totPop: 0,
       });
     }
   }

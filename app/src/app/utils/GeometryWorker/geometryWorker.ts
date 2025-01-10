@@ -117,17 +117,14 @@ const GeometryWorker: GeometryWorkerClass = {
     const {dissolved, centroids} = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
     return {dissolved, centroids};
   },
-  async getUnassignedGeometries(
-    useBackend=false,
-    documentId?: string
-  ) {
+  async getUnassignedGeometries(useBackend = false, documentId?: string) {
     const geomsToDissolve: GeoJSON.Feature[] = [];
-    if (useBackend){
+    if (useBackend) {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/unassigned/${documentId}`)
         .then(r => r.json())
-        .then(strigifiedGeos => strigifiedGeos.forEach(
-          (geo: string) => geomsToDissolve.push(JSON.parse(geo))
-        ))
+        .then(strigifiedGeos =>
+          strigifiedGeos.forEach((geo: string) => geomsToDissolve.push(JSON.parse(geo)))
+        );
     } else {
       for (const id in this.geometries) {
         const geom = this.geometries[id];

@@ -60,10 +60,13 @@ export type GeometryWorkerClass = {
    * Retrieves a collection of geometries without a zone assignment.
    * @returns The collection of unassigned geometries.
    */
-  getUnassignedGeometries: (useRemote?: boolean, documentId?: string) => Promise<{
+  getUnassignedGeometries: (
+    useRemote?: boolean,
+    documentId?: string
+  ) => Promise<{
     dissolved: GeoJSON.FeatureCollection;
     overall: LngLatBoundsLike | null;
-  }>
+  }>;
   /**
    * Retrieves the collection of geometries.
    * @returns The collection of geometries.
