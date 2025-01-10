@@ -423,13 +423,14 @@ async def get_unassigned_geoids(
 
     stmt = text(f"""
         SELECT ST_AsGeoJSON(
+                ST_Dump(
                 ST_Transform(
                     ST_Union(
                         ST_Envelope(
                             {'COALESCE(parentgeo.geometry, childgeo.geometry)' if districtr_map.child_layer else 'parentgeo.geometry'}
                         )
                     ),
-                4326)
+                4326))
         ) as bbox
         -- Get all possible parents and children from gerrydb
         FROM ( SELECT DISTINCT geo_id
