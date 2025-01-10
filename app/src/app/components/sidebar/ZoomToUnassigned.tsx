@@ -2,8 +2,8 @@ import {useChartStore} from '@/app/store/chartStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
-import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
-import {Button, Flex, Heading, IconButton, Select, Text} from '@radix-ui/themes';
+import {ChevronLeftIcon, ChevronRightIcon, ReloadIcon} from '@radix-ui/react-icons';
+import {Button, Flex, Heading, IconButton, Select, Text, Tooltip} from '@radix-ui/themes';
 import React, {useEffect, useLayoutEffect, useRef} from 'react';
 
 export const ZoomToUnassigned = () => {
@@ -59,7 +59,7 @@ export const ZoomToUnassigned = () => {
   }, [mapDocument?.document_id]);
 
   return (
-    <Flex direction="column">
+    <Flex direction="column" mb="4">
       <Heading as="h3" size="3">
         Unassigned areas
       </Heading>
@@ -69,11 +69,10 @@ export const ZoomToUnassigned = () => {
         numFeatures={unassignedFeatureBboxes.length}
       />
       <Flex
-        direction={{
-          initial: 'column',
-          xl: 'row',
-        }}
+        direction={"row"}
         gap="4"
+        align="center"
+
       >
         {unassignedFeatureBboxes.length > 1 && (
           <Flex
@@ -82,8 +81,6 @@ export const ZoomToUnassigned = () => {
             gapX="2"
             gapY="2"
             wrap="wrap"
-            flexBasis={'66%'}
-            minWidth={'120px'}
             justify={{
               initial: 'center',
               xl: 'start',
@@ -123,20 +120,17 @@ export const ZoomToUnassigned = () => {
         )}
         {unassignedOverallBbox && (
           <Button onClick={fitToOverallBounds} variant="surface" className="block">
-            {`Zoom to ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
+            {`Show ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
           </Button>
         )}
         {unassignedOverallBbox && (
+          <Tooltip content={`Last update ${lastUpdated}`}>
           <Button onClick={updateUnassignedFeatures} variant="outline" className="block text-wrap">
-            Refresh unassigned areas
+            <ReloadIcon /> Refresh
           </Button>
+          </Tooltip>
         )}
       </Flex>
-      {!!lastUpdated && (
-        <Text size="1" mt="2">
-          <i>Last update {lastUpdated}</i>
-        </Text>
-      )}
     </Flex>
   );
 };
