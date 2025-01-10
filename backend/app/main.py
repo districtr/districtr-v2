@@ -8,6 +8,7 @@ import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
 import json
+import time
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
@@ -386,75 +387,13 @@ async def get_summary_stat(
 async def get_unassigned_geoids(
     document_id: str, session: Session = Depends(get_session)
 ):
-    doc = session.exec(
-        select(Document).where(Document.document_id == document_id)
-    ).one()
-    if not doc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document with ID {document_id} not found",
-        )
-    
-    districtr_map = session.exec(
-        select(DistrictrMap).where(DistrictrMap.gerrydb_table_name == doc.gerrydb_table)
-    ).one()
 
-    # stmt = text(f"""
-    #     SELECT geo_id, 
-    #         ST_AsGeoJSON(ST_Envelope(ST_Transform({
-    #             'COALESCE(parent.geometry, child.geometry)' 
-    #                 if districtr_map.child_layer 
-    #             else 'parent.geometry'
-    #         }, 4326))) as bbox
-    #     FROM document.assignments doc 
-    #     -- Materialized view does not have geometry
-    #     -- need to join both parent and child gerrydb tables
-    #     LEFT JOIN gerrydb.{districtr_map.parent_layer} parent
-    #     ON doc.geo_id = parent.path
-    #     {f"LEFT JOIN gerrydb.{districtr_map.child_layer} child ON doc.geo_id = child.path" if districtr_map.child_layer else ""}
-    #     WHERE doc.document_id = :document_id AND doc.zone IS NULL
-    # """)
-    
-    # results = session.execute(stmt, {"document_id": document_id}).fetchall()
-    # clean_results = [
-    #     {"geo_id": row[0], "bbox": json.loads(row[1])['coordinates']} for row in results
-    # ]
-    # return clean_results
-
-    stmt = text(f"""
-        SELECT ST_AsGeoJSON(
-                ST_Dump(
-                ST_Transform(
-                    ST_Union(
-                        ST_Envelope(
-                            {'COALESCE(parentgeo.geometry, childgeo.geometry)' if districtr_map.child_layer else 'parentgeo.geometry'}
-                        )
-                    ),
-                4326))
-        ) as bbox
-        -- Get all possible parents and children from gerrydb
-        FROM ( SELECT DISTINCT geo_id
-            FROM document.assignments
-            WHERE document_id = :document_id
-            UNION
-            SELECT path as geo_id
-            FROM gerrydb.{districtr_map.parent_layer}
-        ) ids
-        -- This is slightly duplicative, but we either need to double join to assignments
-        -- or to filter gerrdb.parent_layer by NOT in assignments
-        -- I think this is the faster approach, if less elegant
-        LEFT JOIN document.assignments doc
-            ON ids.geo_id = doc.geo_id
-            AND doc.document_id = :document_id
-        -- Materialized view does not have geometry
-        -- need to join both parent and child gerrydb tables
-        LEFT JOIN gerrydb.{districtr_map.parent_layer} parentgeo
-            ON ids.geo_id = parentgeo.path
-        {f'LEFT JOIN gerrydb.{districtr_map.child_layer} childgeo ON ids.geo_id = childgeo.path' if districtr_map.child_layer else ''}
-        WHERE doc.zone IS NULL
-    """)
-
-    results = session.execute(stmt, {"document_id": document_id}).fetchall()
+    stmt = text(
+        "SELECT * from get_unassigned_bboxes(:doc_uuid)"
+    ).bindparams(
+        bindparam(key="doc_uuid", type_=UUIDType),
+    )
+    results = session.execute(stmt, {"doc_uuid": document_id}).fetchall()
     return [row[0] for row in results]
 
 @app.get("/api/districtrmap/summary_stats/{summary_stat}/{gerrydb_table}")
