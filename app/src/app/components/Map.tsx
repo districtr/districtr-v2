@@ -95,6 +95,7 @@ export const MapComponent: React.FC = () => {
 
   return (
     <div className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen`}>
+      <MapToolbar />
       <div
         className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen
         ${mapLock ? 'pointer-events-none' : ''}
@@ -102,7 +103,6 @@ export const MapComponent: React.FC = () => {
         `}
         ref={mapContainer}
       />
-      <MapToolbar />
       <MapLockShade />
       <MapTooltip />
     </div>

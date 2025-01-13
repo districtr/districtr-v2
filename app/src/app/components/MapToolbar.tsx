@@ -1,3 +1,4 @@
+'use client';
 import {Button, Card, Flex, IconButton, IconButtonProps, Text, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {
@@ -10,16 +11,20 @@ import {
   Cross2Icon,
   CounterClockwiseClockIcon,
   ResetIcon,
+  MoveIcon,
 } from '@radix-ui/react-icons';
 import {RecentMapsModal} from '@components/sidebar/RecentMapsModal';
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {use, useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import Layers from './sidebar/Layers';
 import {BrushControls} from './BrushControls';
 import {ZoneLockPicker} from './sidebar/ZoneLockPicker';
 import {ActiveTool} from '../constants/types';
 import {ExitBlockViewButtons} from './sidebar/ExitBlockViewButtons';
-import { useTemporalStore } from '../store/temporalStore';
-import { debounce } from 'lodash';
+import {useTemporalStore} from '../store/temporalStore';
+import {debounce} from 'lodash';
+import {create} from 'zustand';
+import {persist} from 'zustand/middleware';
+import Draggable from 'react-draggable';
 
 const ToolUtilitiesConfig: Record<
   Partial<ActiveTool>,
@@ -51,7 +56,7 @@ const ToolUtilitiesConfig: Record<
     focused: true,
   },
   undo: {
-    Component: () => <React.Fragment/>
+    Component: () => <React.Fragment />,
   },
   brush: {
     Component: BrushControls,
@@ -74,8 +79,9 @@ const ToolUtilitiesConfig: Record<
   },
 };
 
-const ToolUtilities: React.FC<{activeTool: ActiveTool}> = ({activeTool}) => {
+const ToolUtilities: React.FC<{activeTool: ActiveTool; y: null | number}> = ({activeTool, y}) => {
   const ContainerRef = useRef<HTMLDivElement | null>(null);
+  const [topCollision, setTopCollision] = useState(false);
   const {
     Component,
     // focused
@@ -99,20 +105,29 @@ const ToolUtilities: React.FC<{activeTool: ActiveTool}> = ({activeTool}) => {
   //     document.removeEventListener('mousedown', handleClickOutside); // Clean up listener
   //   };
   // }, [focused, setActiveTool]);
+  useLayoutEffect(() => {
+    const bbox = ContainerRef?.current?.getBoundingClientRect?.();
+    if (bbox === undefined || y === null) return;
+    const collidesWithTop = bbox.top < 0 || (topCollision && bbox.height > y);
+    setTopCollision(collidesWithTop);
+  }, [y, Component, activeTool]);
 
   if (!Component) {
     return null;
   }
+
   return (
     <Card
       ref={ContainerRef}
       style={{
-        left: '50%',
-        transform: 'translateX(-50%)',
+        width: 'calc(100% - 20px)',
         position: 'absolute',
-        padding: '1rem',
+        bottom: topCollision ? undefined : '100%',
+        top: topCollision ? '100%' : undefined,
+        padding: '20px',
+        overflow: 'hidden',
       }}
-      className="bottom-20 bg-white shadow-2xl border-gray-500 border-2 w-auto absolute p-0"
+      className="bg-white shadow-sm border-gray-500 border-2 w-auto absolute p-0"
     >
       <Component />
       <ExitBlockViewButtons />
@@ -132,19 +147,95 @@ type ActiveToolConfig = {
   onClick?: () => void;
 };
 
+type ToolbarState = {
+  x: number | null;
+  y: number | null;
+  rotation: 'horizontal' | 'vertical' | null;
+  setXY: (x: number, y: number) => void;
+  maxXY: {maxX: number | null; maxY: number | null};
+  setRotation: (rotation: 'horizontal' | 'vertical' | null) => void;
+  setMaxXY: (maxX: number, maxY: number) => void;
+};
+
+const useToolbarStore = create(
+  persist<ToolbarState>(
+    (set, get) => ({
+      x: null,
+      y: null,
+      rotation: 'horizontal',
+      setXY: (_x, _y) => {
+        const {maxX, maxY} = get().maxXY;
+        const x = Math.min(Math.max(_x, 0), maxX || Math.pow(2, 16));
+        const y = Math.min(Math.max(_y, 0), maxY || Math.pow(2, 16));
+        set({
+          x,
+          y,
+        });
+      },
+      setRotation: rotation => set({rotation}),
+      maxXY: {maxX: null, maxY: null},
+      setMaxXY: (maxX, maxY) => {
+        set({
+          maxXY: {maxX, maxY},
+          x: Math.max(Math.min(get().x || 0, maxX), 0),
+          y: Math.max(Math.min(get().y || 0, maxY), 0),
+        });
+      },
+    }),
+    {
+      name: 'toolbarStore',
+    }
+  )
+);
+
 export const MapToolbar = () => {
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const mapDocument = useMapStore(state => state.mapDocument);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
-
-  const { futureStates, pastStates, redo, undo } = useTemporalStore(
-    (state) => state,
-  ); // TemporalState<MapStore>
-  const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction)
+  const {x, y, rotation, setXY, setRotation, setMaxXY} = useToolbarStore(state => state);
+  const {futureStates, pastStates, redo, undo} = useTemporalStore(state => state); // TemporalState<MapStore>
+  const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);
+  const [hovered, setHovered] = useState(false);
+  const mapRef = useMapStore(state => state.getMapRef());
+  const containerRef = mapRef?._canvas;
+  const toolbarItemsRef = useRef<HTMLDivElement | null>(null);
+  const previousActiveTool = useRef<ActiveTool | null>(null);
+
+  useLayoutEffect(() => {
+    // listen for whenever containerRef changes size
+    if (!containerRef) return;
+    const handleResize = () => {
+      const {width, height} = containerRef.getBoundingClientRect() || {
+        width: 0,
+        height: 0,
+      };
+      const {width: toolbarWidth, height: toolbarHeight} =
+        toolbarItemsRef.current?.getBoundingClientRect() || {width: 0, height: 0};
+      setMaxXY(
+        Math.round((width - toolbarWidth) / 10) * 10 - 25,
+        Math.round((height - toolbarHeight) / 10) * 10 - 25
+      );
+    };
+    handleResize();
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(containerRef);
+
+    if (x === null || y === null) {
+      const toolbarWidth = toolbarItemsRef.current?.getBoundingClientRect().width;
+      setXY(
+        containerRef.getBoundingClientRect().width / 2 - (toolbarWidth || 0) / 2,
+        containerRef.getBoundingClientRect().height - 100
+      );
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [mapRef]);
 
   const activeTools: ActiveToolConfig[] = [
     {
@@ -175,9 +266,9 @@ export const MapToolbar = () => {
       label: 'Undo',
       icon: <ResetIcon />,
       onClick: () => {
-        setIsTemporalAction(true)
-        handleUndo()
-      }
+        setIsTemporalAction(true);
+        handleUndo();
+      },
     },
     {
       hotkey: 'KeyX',
@@ -187,9 +278,9 @@ export const MapToolbar = () => {
       icon: <ResetIcon />,
       iconStyle: {transform: 'rotateY(180deg)'},
       onClick: () => {
-        setIsTemporalAction(true)
-        handleRedo()
-      }
+        setIsTemporalAction(true);
+        handleRedo();
+      },
     },
     {
       hotkey: 'Digit4',
@@ -255,55 +346,90 @@ export const MapToolbar = () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
   }, []);
+
   if (!activeTool) return null;
+
   return (
-    <>
-      <Card
+    <Draggable
+      defaultPosition={{x: x || 100, y: y || 100}}
+      handle="#handle"
+      onStart={() => {
+        previousActiveTool.current = activeTool;
+        setActiveTool('pan');
+      }}
+      onStop={(e, {x, y}) => {
+        setXY(x, y);
+        setActiveTool(previousActiveTool.current || 'pan');
+      }}
+      position={{x: x || 100, y: y || 100}}
+    >
+      <div
+        className="p-3 w-min absolute z-[1000]"
         style={{
-          left: '50%',
-          transform: 'translateX(-50%)',
-          position: 'absolute',
-          padding: 0,
-          overflow: 'visible',
+          opacity: x === null || y === null ? 0 : 1,
         }}
-        className="bottom-8 bg-white shadow-2xl border-gray-500 border-2 w-auto absolute p-0"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       >
-        <Flex justify={'center'} align="center" position={'relative'}>
-          {activeTools.map((tool, i) => (
-            <>
-              <Tooltip
-                content={showShortcuts ? `⌥ ${tool.hotkey.replace('Digit', '').replace('Key', '')}` : tool.label}
-                open={showShortcuts || undefined}
-              >
-                <IconButton
-                  key={`${tool.mode}-flex`}
-                  className="cursor-pointer"
-                  onClick={() => {
-                    if (tool.onClick) {
-                      tool.onClick();
-                    } else {
-                      setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode)
-                    }
-                  }}
-                  style={{
-                    marginRight: i === activeTools.length - 1 ? 0 : -1,
-                    padding: activeTool === tool.mode ? '0 0' : '.75rem',
-                    ...(tool?.iconStyle||{}),
-                  }}
-                  variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
-                  color={tool.color}
-                  radius="none"
-                  disabled={tool.disabled}
-                  size="3"
+        <div className="bg-white border-gray-500 border-2 rounded-lg shadow-md">
+          <Flex justify={'center'} align="center" overflow="hidden" ref={toolbarItemsRef}>
+            {activeTools.map((tool, i) => (
+              <>
+                <Tooltip
+                  content={
+                    showShortcuts
+                      ? `⌥ ${tool.hotkey.replace('Digit', '').replace('Key', '')}`
+                      : tool.label
+                  }
+                  open={showShortcuts || undefined}
                 >
-                  {tool.icon}
-                </IconButton>
-              </Tooltip>
-            </>
-          ))}
-        </Flex>
-      </Card>
-      {/* {showShortcuts && (
+                  <IconButton
+                    key={`${tool.mode}-flex`}
+                    className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
+                      i === activeTools.length - 1 ? 'rounded-r-lg' : ''
+                    }`}
+                    onClick={() => {
+                      if (tool.onClick) {
+                        tool.onClick();
+                      } else {
+                        setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
+                      }
+                    }}
+                    style={{
+                      marginRight: i === activeTools.length - 1 ? 0 : -1,
+                      padding: activeTool === tool.mode ? '0 0' : '.75rem',
+                      ...(tool?.iconStyle || {}),
+                    }}
+                    variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
+                    color={tool.color}
+                    radius="none"
+                    disabled={tool.disabled}
+                    size="3"
+                  >
+                    {tool.icon}
+                  </IconButton>
+                </Tooltip>
+              </>
+            ))}
+          </Flex>
+        </div>
+        {!!hovered && (
+          <IconButton
+            id="handle"
+            className={`absolute flex-none cursor-move rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+            variant="ghost"
+            style={{
+              position: 'absolute',
+              background: 'rgba(255,255,255,0.8)',
+              top: 0,
+              cursor: 'move',
+              left: 0,
+            }}
+          >
+            <MoveIcon fontSize={'12'} />
+          </IconButton>
+        )}
+        {/* {showShortcuts && (
         <Flex
           style={{
             left: '50%',
@@ -320,7 +446,8 @@ export const MapToolbar = () => {
         </Flex>
       )} */}
 
-      <ToolUtilities activeTool={activeTool} />
-    </>
+        <ToolUtilities activeTool={activeTool} y={y} />
+      </div>
+    </Draggable>
   );
 };
