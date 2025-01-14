@@ -8,8 +8,8 @@ import {MAP_OPTIONS} from '../constants/configuration';
 import {handleWheelOrPinch, mapContainerEvents, mapEvents} from '../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
-import {MapToolbar} from './MapToolbar';
-import {MapTooltip} from './MapTooltip';
+import {Toolbar} from '@components/Toolbar/Toolbar';
+import {MapTooltip} from '@components/MapTooltip';
 import {MapLockShade} from './MapLockShade';
 
 export const MapComponent: React.FC = () => {
@@ -95,7 +95,7 @@ export const MapComponent: React.FC = () => {
 
   return (
     <div className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen`}>
-      <MapToolbar />
+      <Toolbar />
       <div
         className={`h-full relative w-full flex-1 lg:h-screen landscape:h-screen
         ${mapLock ? 'pointer-events-none' : ''}
