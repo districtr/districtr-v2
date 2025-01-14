@@ -15,7 +15,6 @@ import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
-import {getEntryTotal} from '@utils/summaryStats';
 import {interpolateGreys} from 'd3-scale-chromatic';
 
 type EvalModes = 'share' | 'count' | 'totpop';
@@ -152,7 +151,7 @@ const Evaluation: React.FC = () => {
     let unassigned: Record<string, number> = {
       ...totPop,
       zone: -999,
-      total: getEntryTotal(totPop),
+      total: totPop.total
     };
 
     ZoneSummaryStatsKeys.forEach(key => {
