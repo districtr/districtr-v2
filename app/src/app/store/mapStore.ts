@@ -91,7 +91,7 @@ export interface MapStore {
   setLoadedMapId: (mapId: string) => void;
   summaryStats: {
     totpop?: {
-      data: P1TotPopSummaryStats | P4TotPopSummaryStats;
+      data: (P1TotPopSummaryStats | P4TotPopSummaryStats) & {total: number};
     };
     idealpop?: {
       data: number;

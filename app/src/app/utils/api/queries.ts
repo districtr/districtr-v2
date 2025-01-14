@@ -71,11 +71,13 @@ export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
   });
   fetchTotPop.subscribe(response => {
     if (response?.data?.results) {
-      useMapStore.getState().setSummaryStat('totpop', {data: response.data.results});
+      const data = {
+        ...response.data.results,
+        total: getEntryTotal(response.data.results),
+      }
+      useMapStore.getState().setSummaryStat('totpop', {data});
       useMapStore.getState().setSummaryStat('idealpop', {
-        data:
-          getEntryTotal(response.data.results) /
-          (useMapStore.getState().mapDocument?.num_districts ?? 1),
+        data: data.total / (useMapStore.getState().mapDocument?.num_districts ?? 1),
       });
     } else {
       useMapStore.getState().setSummaryStat('totpop', undefined);
