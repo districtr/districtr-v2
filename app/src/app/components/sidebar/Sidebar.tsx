@@ -3,7 +3,8 @@ import DataPanels from './DataPanels';
 import {Box, Flex, Heading, IconButton} from '@radix-ui/themes';
 import {GerryDBViewSelector} from '@components/sidebar/GerryDBViewSelector';
 import {useMapStore} from '@/app/store/mapStore';
-import {Resizable} from 're-resizable';
+// import {Resizable} from 're-resizable';
+import Draggable from 'react-draggable';
 import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 
 const HandleIconButton = () => {
@@ -28,12 +29,11 @@ const HandleIconButton = () => {
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
-
+  const [width, setWidth] = React.useState(window.innerWidth * 0.25);
   return (
-    <Resizable handleComponent={{left: <HandleIconButton />}}>
-      <Box
-        p="3"
-        className="z-10 flex-none overflow-y-auto 
+    <Box
+      p="3"
+      className="z-10 flex-none overflow-y-auto 
       border-t lg:border-t-0
       lg:h-screen
        landscape:border-t-0
@@ -41,27 +41,62 @@ export default function SidebarComponent() {
       border-l-2
       border-gray-500
       shadow-xl
+      relative
       "
-        style={{width: '100%'}}
+      style={{width: width, overflow: 'visible'}}
+    >
+      <div
+        style={{
+          zIndex: 999,
+          top: '50vh',
+          left: 0,
+          position: 'absolute',
+          transform: 'translate(-9px, -50%)',
+        }}
       >
-        <Flex direction="column" gap="3">
-          <Heading as="h3" size="3" className="hidden lg:block">
-            Districtr
-          </Heading>
-          <GerryDBViewSelector />
-          <Box
-            display={{
-              initial: 'none',
-              md: 'inline',
-            }}
+        <Draggable
+          handle="#sidebar-handle"
+          onDrag={(e: any) => {
+            if (e.clientX) {
+              setWidth(window.innerWidth - e.clientX);
+            }
+          }}
+          grid={[25, 0]}
+          bounds="parent"
+          axis="x"
+        >
+          <IconButton
+            variant="surface"
+            color="gray"
+            id="sidebar-handle"
             style={{
-              opacity: document_id ? 1 : 0.25,
+              width: '16px',
+              background: 'rgba(245, 245, 245)',
+              height: '40px',
+              cursor: 'ew-resize',
             }}
           >
-            <DataPanels />
-          </Box>
-        </Flex>
-      </Box>
-    </Resizable>
+            <DragHandleHorizontalIcon />
+          </IconButton>
+        </Draggable>
+      </div>
+      <Flex direction="column" gap="3">
+        <Heading as="h3" size="3" className="hidden lg:block">
+          Districtr
+        </Heading>
+        <GerryDBViewSelector />
+        <Box
+          display={{
+            initial: 'none',
+            md: 'inline',
+          }}
+          style={{
+            opacity: document_id ? 1 : 0.25,
+          }}
+        >
+          <DataPanels />
+        </Box>
+      </Flex>
+    </Box>
   );
 }

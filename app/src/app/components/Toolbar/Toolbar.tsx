@@ -95,6 +95,7 @@ export const Toolbar = () => {
     <Draggable
       defaultPosition={{x: x || 100, y: y || 100}}
       handle="#handle"
+      grid={[10, 10]}
       onStart={() => {
         previousActiveTool.current = activeTool;
         setActiveTool('pan');
