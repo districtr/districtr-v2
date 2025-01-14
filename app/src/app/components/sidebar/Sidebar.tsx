@@ -1,3 +1,4 @@
+"use client"
 import React from 'react';
 import DataPanels from './DataPanels';
 import {Box, Flex, Heading, IconButton} from '@radix-ui/themes';
@@ -29,7 +30,7 @@ const HandleIconButton = () => {
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
-  const [width, setWidth] = React.useState(window.innerWidth * 0.25);
+  const [width, setWidth] = React.useState(typeof window !== 'undefined' ? window.innerWidth * 0.25 : 300);
   const [hovered, setHovered] = React.useState(false);
   return (
     <Box
