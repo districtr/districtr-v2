@@ -95,7 +95,7 @@ export const ToolUtilities: React.FC = () => {
         position: 'absolute',
         bottom: isHorizontal ? shouldFlip ? undefined : '100%' : undefined,
         top: isHorizontal ? shouldFlip ? '100%' : undefined : '10px',
-        left: isHorizontal ? 0 : shouldFlip ? undefined : '100%',
+        left: isHorizontal ? '10px' : shouldFlip ? 'undefined' : '100%',
         right: isHorizontal ? 0 : shouldFlip ? '100%' : undefined,
         padding: '20px',
         overflow: 'hidden',

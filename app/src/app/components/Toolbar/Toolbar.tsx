@@ -36,7 +36,7 @@ export const Toolbar = () => {
       Math.round((height - toolbarHeight) / 10) * 10 - 25
     );
   };
-  
+
   useLayoutEffect(() => {
     // listen for whenever containerRef changes size
     if (!containerRef) return;
@@ -57,7 +57,7 @@ export const Toolbar = () => {
     };
   }, [mapRef]);
 
-  useLayoutEffect(handleResize, [rotation])
+  useLayoutEffect(handleResize, [rotation]);
 
   useEffect(() => {
     // add a listener for option or alt key press and release
@@ -103,9 +103,7 @@ export const Toolbar = () => {
       onDrag={(e, {x, y}) => {
         setXY(x, y);
       }}
-      
       onStop={(e, {x, y}) => {
-        console.log("!!!", x, y, e)
         setXY(x, y, true);
         setActiveTool(previousActiveTool.current || 'pan');
       }}
@@ -119,68 +117,66 @@ export const Toolbar = () => {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div className="bg-white border-gray-500 border-2 rounded-lg shadow-md">
-          <Flex
-            justify={'center'}
-            align="center"
-            ref={toolbarItemsRef}
-            direction={rotation === 'horizontal' ? 'row' : 'column'}
-          >
-            {activeTools.map((tool, i) => (
-              <>
-                <Tooltip.Provider>
-                  <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
-                    <Tooltip.Trigger asChild>
-                      <IconButton
-                        key={`${tool.mode}-flex`}
-                        className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
-                          i === activeTools.length - 1 ? 'rounded-r-lg' : ''
-                        }`}
-                        onMouseEnter={() => setActiveTooltip(tool.mode)}
-                        onMouseLeave={() => setActiveTooltip(null)}
-                        onClick={() => {
-                          if (tool.onClick) {
-                            tool.onClick();
-                          } else {
-                            setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
-                          }
-                        }}
-                        style={{
-                          marginRight: i === activeTools.length - 1 ? 0 : -1,
-                          padding: activeTool === tool.mode ? '0 0' : '.75rem',
-                          ...(tool?.iconStyle || {}),
-                        }}
-                        variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
-                        color={tool.color}
-                        radius="none"
-                        disabled={tool.disabled}
-                        size="3"
-                      >
-                        {tool.icon}
-                      </IconButton>
-                    </Tooltip.Trigger>
-                    <Tooltip.Portal>
-                      <Tooltip.Content
-                        side={rotation === 'horizontal' ? 'top' : 'right'}
-                        className="select-none rounded bg-white px-2 py-1 text-xs text-center"
-                        sideOffset={5}
-                      >
-                        {!showShortcuts && (
-                          <>
-                            {tool.label}
-                            <br />
-                          </>
-                        )}{' '}
-                        ⌨️ {tool.hotKeyLabel}
-                        <Tooltip.Arrow className="fill-white" />
-                      </Tooltip.Content>
-                    </Tooltip.Portal>
-                  </Tooltip.Root>
-                </Tooltip.Provider>
-              </>
-            ))}
-          </Flex>
-        </div>
+        <Flex
+          justify={'center'}
+          align="center"
+          ref={toolbarItemsRef}
+          direction={rotation === 'horizontal' ? 'row' : 'column'}
+          className="rounded-lg shadow-md overflow-hidden bg-white border-gray-500 border-2"
+        >
+          {activeTools.map((tool, i) => (
+            <>
+              <Tooltip.Provider>
+                <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
+                  <Tooltip.Trigger asChild>
+                    <IconButton
+                      key={`${tool.mode}-flex`}
+                      className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
+                        i === activeTools.length - 1 ? 'rounded-r-lg' : ''
+                      }`}
+                      onMouseEnter={() => setActiveTooltip(tool.mode)}
+                      onMouseLeave={() => setActiveTooltip(null)}
+                      onClick={() => {
+                        if (tool.onClick) {
+                          tool.onClick();
+                        } else {
+                          setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
+                        }
+                      }}
+                      style={{
+                        padding: activeTool === tool.mode ? '0 0' : '.75rem',
+                        ...(tool?.iconStyle || {}),
+                      }}
+                      variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
+                      color={tool.color}
+                      radius="none"
+                      disabled={tool.disabled}
+                      size="3"
+                    >
+                      {tool.icon}
+                    </IconButton>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      side={rotation === 'horizontal' ? 'top' : 'right'}
+                      className="select-none rounded bg-white px-2 py-1 text-xs text-center"
+                      sideOffset={5}
+                    >
+                      {!showShortcuts && (
+                        <>
+                          {tool.label}
+                          <br />
+                        </>
+                      )}{' '}
+                      ⌨️ {tool.hotKeyLabel}
+                      <Tooltip.Arrow className="fill-white" />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
+              </Tooltip.Provider>
+            </>
+          ))}
+        </Flex>
         {hovered && (
           <>
             <IconButton
