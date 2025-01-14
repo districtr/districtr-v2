@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {Flex, Popover, Select, Text, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
 import {document} from '@/app/utils/api/mutations';
-import { useTemporalStore } from '@/app/store/temporalStore';
+import {useTemporalStore} from '@/app/store/temporalStore';
 
 export function GerryDBViewSelector() {
   const [limit, setLimit] = useState<number>(30);
@@ -38,13 +38,12 @@ export function GerryDBViewSelector() {
     <Flex direction={'row'} width="100%" gap="3" align="center">
       <Select.Root size="3" onValueChange={handleValueChange} value={selectedView?.name}>
         <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
-            <Select.Trigger
-              placeholder="Select a geography"
-              style={{flexGrow: 1}}
-              className="mr-1"
-              color="blue"
-              
-            />
+          <Select.Trigger
+            placeholder="Select a geography"
+            style={{flexGrow: 1}}
+            className="mr-1"
+            color="blue"
+          />
         </Tooltip>
         <Select.Content>
           <Select.Group>

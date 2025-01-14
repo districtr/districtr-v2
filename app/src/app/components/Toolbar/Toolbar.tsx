@@ -125,54 +125,54 @@ export const Toolbar = () => {
           className="rounded-lg shadow-md overflow-hidden bg-white border-gray-500 border-2"
         >
           {activeTools.map((tool, i) => (
-              <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
-                <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
-                  <Tooltip.Trigger asChild>
-                    <IconButton
-                      key={`${tool.mode}-flex`}
-                      className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
-                        i === activeTools.length - 1 ? 'rounded-r-lg' : ''
-                      }`}
-                      onMouseEnter={() => setActiveTooltip(tool.mode)}
-                      onMouseLeave={() => setActiveTooltip(null)}
-                      onClick={() => {
-                        if (tool.onClick) {
-                          tool.onClick();
-                        } else {
-                          setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
-                        }
-                      }}
-                      style={{
-                        padding: activeTool === tool.mode ? '0 0' : '.75rem',
-                        ...(tool?.iconStyle || {}),
-                      }}
-                      variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
-                      color={tool.color}
-                      radius="none"
-                      disabled={tool.disabled}
-                      size="3"
-                    >
-                      {tool.icon}
-                    </IconButton>
-                  </Tooltip.Trigger>
-                  <Tooltip.Portal>
-                    <Tooltip.Content
-                      side={rotation === 'horizontal' ? 'top' : 'right'}
-                      className="select-none rounded bg-white px-2 py-1 text-xs text-center"
-                      sideOffset={5}
-                    >
-                      {!showShortcuts && (
-                        <>
-                          {tool.label}
-                          <br />
-                        </>
-                      )}{' '}
-                      ⌨️ {tool.hotKeyLabel}
-                      <Tooltip.Arrow className="fill-white" />
-                    </Tooltip.Content>
-                  </Tooltip.Portal>
-                </Tooltip.Root>
-              </Tooltip.Provider>
+            <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
+              <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
+                <Tooltip.Trigger asChild>
+                  <IconButton
+                    key={`${tool.mode}-flex`}
+                    className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
+                      i === activeTools.length - 1 ? 'rounded-r-lg' : ''
+                    }`}
+                    onMouseEnter={() => setActiveTooltip(tool.mode)}
+                    onMouseLeave={() => setActiveTooltip(null)}
+                    onClick={() => {
+                      if (tool.onClick) {
+                        tool.onClick();
+                      } else {
+                        setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
+                      }
+                    }}
+                    style={{
+                      padding: activeTool === tool.mode ? '0 0' : '.75rem',
+                      ...(tool?.iconStyle || {}),
+                    }}
+                    variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
+                    color={tool.color}
+                    radius="none"
+                    disabled={tool.disabled}
+                    size="3"
+                  >
+                    {tool.icon}
+                  </IconButton>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side={rotation === 'horizontal' ? 'top' : 'right'}
+                    className="select-none rounded bg-white px-2 py-1 text-xs text-center"
+                    sideOffset={5}
+                  >
+                    {!showShortcuts && (
+                      <>
+                        {tool.label}
+                        <br />
+                      </>
+                    )}{' '}
+                    ⌨️ {tool.hotKeyLabel}
+                    <Tooltip.Arrow className="fill-white" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
           ))}
         </Flex>
         {hovered && (

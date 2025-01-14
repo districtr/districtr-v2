@@ -17,8 +17,6 @@ export function ZonePicker() {
     setSelectedZone(value);
   };
 
-
-
   return (
     <div>
       <ColorPicker

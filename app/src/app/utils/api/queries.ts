@@ -74,7 +74,7 @@ export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
       const data = {
         ...response.data.results,
         total: getEntryTotal(response.data.results),
-      }
+      };
       useMapStore.getState().setSummaryStat('totpop', {data});
       useMapStore.getState().setSummaryStat('idealpop', {
         data: data.total / (useMapStore.getState().mapDocument?.num_districts ?? 1),

@@ -15,7 +15,7 @@ import {
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
-import { useTemporalStore } from '@/app/store/temporalStore';
+import {useTemporalStore} from '@/app/store/temporalStore';
 type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {

@@ -19,12 +19,12 @@ export const PopulationPanel = () => {
   const setChartOptions = useChartStore(state => state.setChartOptions);
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
-  const totPop = useMapStore(state => state.summaryStats.totpop?.data?.total)
+  const totPop = useMapStore(state => state.summaryStats.totpop?.data?.total);
 
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
   const {chartData, stats, unassigned} = useMemo(() => {
     if (mapMetrics && mapMetrics.data && numDistricts && totPop) {
-      let unassigned = structuredClone(totPop)
+      let unassigned = structuredClone(totPop);
       const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
         (acc, district) => {
           const totalPop = mapMetrics.data.reduce((acc, entry) => {
@@ -40,13 +40,13 @@ export const PopulationPanel = () => {
       return {
         stats,
         chartData,
-        unassigned
+        unassigned,
       };
     } else {
       return {
         stats: undefined,
         chartData: [],
-        unassigned:0
+        unassigned: 0,
       };
     }
   }, [totPop, mapMetrics]);
@@ -105,7 +105,9 @@ export const PopulationPanel = () => {
         <Flex direction={'row'} justify={'between'} align={'start'}>
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
             <Text>Ideal Population</Text>
-            <Text weight={'bold'} className="mb-2">{formatNumber(idealPopulation, 'string')}</Text>
+            <Text weight={'bold'} className="mb-2">
+              {formatNumber(idealPopulation, 'string')}
+            </Text>
             <Text>Unassigned</Text>
             <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>
           </Flex>

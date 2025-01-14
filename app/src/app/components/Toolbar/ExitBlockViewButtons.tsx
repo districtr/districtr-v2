@@ -6,7 +6,7 @@ export function ExitBlockViewButtons() {
   const exitBlockView = useMapStore(store => store.exitBlockView);
 
   return captiveIds.size ? (
-    <Flex mt={"1"} pt="1" className='border-black borer-t-2' direction={"column"} gap="2">
+    <Flex mt={'1'} pt="1" className="border-black borer-t-2" direction={'column'} gap="2">
       <Button onClick={() => exitBlockView()} variant={'solid'}>
         Return to Districts
       </Button>

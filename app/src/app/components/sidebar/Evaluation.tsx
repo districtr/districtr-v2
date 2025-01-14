@@ -151,7 +151,7 @@ const Evaluation: React.FC = () => {
     let unassigned: Record<string, number> = {
       ...totPop,
       zone: -999,
-      total: totPop.total
+      total: totPop.total,
     };
 
     ZoneSummaryStatsKeys.forEach(key => {

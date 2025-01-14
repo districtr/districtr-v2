@@ -1,4 +1,4 @@
-"use client"
+'use client';
 import React from 'react';
 import DataPanels from './DataPanels';
 import {Box, Flex, Heading, IconButton} from '@radix-ui/themes';
@@ -30,7 +30,9 @@ const HandleIconButton = () => {
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
-  const [width, setWidth] = React.useState(typeof window !== 'undefined' ? window.innerWidth * 0.25 : 300);
+  const [width, setWidth] = React.useState(
+    typeof window !== 'undefined' ? window.innerWidth * 0.25 : 300
+  );
   const [hovered, setHovered] = React.useState(false);
   return (
     <Box
@@ -88,23 +90,24 @@ export default function SidebarComponent() {
         </Draggable>
       </div>
       <Box className="size-full overflow-y-auto">
-      <Flex direction="column" gap="3">
-        <Heading as="h3" size="3" className="hidden lg:block">
-          Districtr
-        </Heading>
-        <GerryDBViewSelector />
-        <Box
-          display={{
-            initial: 'none',
-            md: 'inline',
-          }}
-          style={{
-            opacity: document_id ? 1 : 0.25,
-          }}
-        >
-          <DataPanels />
-        </Box>
-      </Flex></Box>
+        <Flex direction="column" gap="3">
+          <Heading as="h3" size="3" className="hidden lg:block">
+            Districtr
+          </Heading>
+          <GerryDBViewSelector />
+          <Box
+            display={{
+              initial: 'none',
+              md: 'inline',
+            }}
+            style={{
+              opacity: document_id ? 1 : 0.25,
+            }}
+          >
+            <DataPanels />
+          </Box>
+        </Flex>
+      </Box>
     </Box>
   );
 }

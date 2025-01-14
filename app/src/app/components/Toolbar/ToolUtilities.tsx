@@ -2,13 +2,13 @@
 import {Button, Card, Flex, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@/app/components/Toolbar/RecentMapsModal';
-import React, { useLayoutEffect, useRef, useState} from 'react';
+import React, {useLayoutEffect, useRef, useState} from 'react';
 import {ToolSettings} from '@/app/components/Toolbar/Settings';
 import {BrushControls} from '@components/BrushControls';
 import {ZoneLockPicker} from '@/app/components/Toolbar/ZoneLockPicker';
 import {ActiveTool} from '@constants/types';
 import {ExitBlockViewButtons} from '@/app/components/Toolbar/ExitBlockViewButtons';
-import { useToolbarStore } from '@/app/store/toolbarStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
 const ToolUtilitiesConfig: Record<
   Partial<ActiveTool>,
@@ -64,8 +64,8 @@ const ToolUtilitiesConfig: Record<
 };
 
 export const ToolUtilities: React.FC = () => {
-  const { Component } = useMapStore(state => ToolUtilitiesConfig[state.activeTool] || {});
-  const { x, y, maxXY, rotation } = useToolbarStore()
+  const {Component} = useMapStore(state => ToolUtilitiesConfig[state.activeTool] || {});
+  const {x, y, maxXY, rotation} = useToolbarStore();
   const isHorizontal = rotation === 'horizontal';
   const ContainerRef = useRef<HTMLDivElement | null>(null);
   const [shouldFlip, setShouldFlip] = useState(false);
@@ -74,10 +74,10 @@ export const ToolUtilities: React.FC = () => {
     const bbox = ContainerRef?.current?.getBoundingClientRect?.();
     if (bbox === undefined || y === null || x === null || maxXY === null) return;
     if (rotation === 'horizontal') {
-      const midPoint = maxXY.maxY ? maxXY.maxY / 2 : 0
+      const midPoint = maxXY.maxY ? maxXY.maxY / 2 : 0;
       setShouldFlip(y < midPoint);
     } else {
-      const midPoint = maxXY.maxX ? maxXY.maxX / 2 : 0
+      const midPoint = maxXY.maxX ? maxXY.maxX / 2 : 0;
       setShouldFlip(x > midPoint);
     }
   }, [y, x, rotation, Component]);
@@ -91,10 +91,10 @@ export const ToolUtilities: React.FC = () => {
       ref={ContainerRef}
       style={{
         width: 'calc(100% - 20px)',
-        minWidth: "max(20vw, 300px)",
+        minWidth: 'max(20vw, 300px)',
         position: 'absolute',
-        bottom: isHorizontal ? shouldFlip ? undefined : '100%' : undefined,
-        top: isHorizontal ? shouldFlip ? '100%' : undefined : '10px',
+        bottom: isHorizontal ? (shouldFlip ? undefined : '100%') : undefined,
+        top: isHorizontal ? (shouldFlip ? '100%' : undefined) : '10px',
         left: isHorizontal ? '10px' : shouldFlip ? 'undefined' : '100%',
         right: isHorizontal ? 0 : shouldFlip ? '100%' : undefined,
         padding: '20px',

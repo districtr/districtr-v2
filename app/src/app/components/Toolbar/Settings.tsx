@@ -133,4 +133,4 @@ export const ToolSettings: React.FC = () => {
       </CheckboxGroup.Root>
     </Flex>
   );
-}
+};

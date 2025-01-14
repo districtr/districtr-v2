@@ -31,7 +31,10 @@ const defaultPanels: DataPanelSpec[] = [
     content: <Evaluation />,
   },
 ];
-const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec, open: boolean}> = ({panel, open}) => {
+const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> = ({
+  panel,
+  open,
+}) => {
   const [height, setHeight] = React.useState<null | number>(null);
   const [hovered, setHovered] = React.useState(false);
   const itemRef = React.useRef<HTMLDivElement>(null);
@@ -51,7 +54,7 @@ const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec, open: boolean}> =
         style={{
           overflowY: 'auto',
           height: height === null ? 'auto' : height,
-          minHeight: "100px"
+          minHeight: '100px',
         }}
       >
         {panel.content}
@@ -101,7 +104,7 @@ const DataPanels: React.FC<DataPanelsProps> = ({panels = defaultPanels}) => {
       onValueChange={setSidebarPanels}
     >
       {panels.map((panel, i) => (
-        <ResizableAccordionPanel key={i} panel={panel} open={sidebarPanels.includes(panel.title)}/>
+        <ResizableAccordionPanel key={i} panel={panel} open={sidebarPanels.includes(panel.title)} />
       ))}
     </Accordion.Root>
   );
