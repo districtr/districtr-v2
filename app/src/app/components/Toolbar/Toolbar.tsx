@@ -125,8 +125,7 @@ export const Toolbar = () => {
           className="rounded-lg shadow-md overflow-hidden bg-white border-gray-500 border-2"
         >
           {activeTools.map((tool, i) => (
-            <>
-              <Tooltip.Provider>
+              <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
                 <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
                   <Tooltip.Trigger asChild>
                     <IconButton
@@ -174,7 +173,6 @@ export const Toolbar = () => {
                   </Tooltip.Portal>
                 </Tooltip.Root>
               </Tooltip.Provider>
-            </>
           ))}
         </Flex>
         {hovered && (
