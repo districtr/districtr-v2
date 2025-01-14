@@ -1,13 +1,13 @@
 'use client';
 import {Button, Card, Flex, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import {RecentMapsModal} from '@components/sidebar/RecentMapsModal';
+import {RecentMapsModal} from '@/app/components/Toolbar/RecentMapsModal';
 import React, { useLayoutEffect, useRef, useState} from 'react';
-import Layers from '@components/sidebar/Layers';
+import {ToolSettings} from '@/app/components/Toolbar/Settings';
 import {BrushControls} from '@components/BrushControls';
-import {ZoneLockPicker} from '@components/sidebar/ZoneLockPicker';
+import {ZoneLockPicker} from '@/app/components/Toolbar/ZoneLockPicker';
 import {ActiveTool} from '@constants/types';
-import {ExitBlockViewButtons} from '@components/sidebar/ExitBlockViewButtons';
+import {ExitBlockViewButtons} from '@/app/components/Toolbar/ExitBlockViewButtons';
 import { useToolbarStore } from '@/app/store/toolbarStore';
 
 const ToolUtilitiesConfig: Record<
@@ -36,7 +36,7 @@ const ToolUtilitiesConfig: Record<
     focused: true,
   },
   settings: {
-    Component: Layers,
+    Component: () => <ToolSettings />,
     focused: true,
   },
   undo: {

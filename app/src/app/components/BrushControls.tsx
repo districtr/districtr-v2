@@ -1,8 +1,8 @@
 import {useMapStore} from '../store/mapStore';
-import {BrushSizeSelector} from './sidebar/BrushSizeSelector';
-import {MobileColorPicker} from './sidebar/MobileColorPicker';
-import PaintByCounty from './sidebar/PaintByCounty';
-import {ZonePicker} from './sidebar/ZonePicker';
+import {BrushSizeSelector} from './Toolbar/BrushSizeSelector';
+import {MobileColorPicker} from './Toolbar/MobileColorPicker';
+import PaintByCounty from './Toolbar/PaintByCounty';
+import {ZonePicker} from './Toolbar/ZonePicker';
 
 export const BrushControls = () => {
   const activeTool = useMapStore(state => state.activeTool);

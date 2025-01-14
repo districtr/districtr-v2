@@ -8,6 +8,7 @@ import {
   BLOCK_LAYER_ID_CHILD,
 } from '../../constants/layers';
 import {toggleLayerVisibility} from '../../utils/helpers';
+import React from 'react';
 
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
@@ -17,7 +18,7 @@ import {toggleLayerVisibility} from '../../utils/helpers';
  * - Support numbering for painted districts
  * - Support tribes and communities
  */
-export default function Layers() {
+export const ToolSettings: React.FC = () => {
   const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
   const visibleLayerIds = useMapStore(state => state.visibleLayerIds);

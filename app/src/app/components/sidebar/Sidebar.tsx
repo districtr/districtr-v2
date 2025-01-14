@@ -1,15 +1,10 @@
 import React from 'react';
 import DataPanels from './DataPanels';
 import {Box, Flex, Heading, IconButton} from '@radix-ui/themes';
-import {GerryDBViewSelector} from './GerryDBViewSelector';
+import {GerryDBViewSelector} from '@components/sidebar/GerryDBViewSelector';
 import {useMapStore} from '@/app/store/mapStore';
-import {ExitBlockViewButtons} from './ExitBlockViewButtons';
 import {Resizable} from 're-resizable';
 import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
-import {ZonePicker} from './ZonePicker';
-import {ZoneLockPicker} from './ZoneLockPicker';
-import {MobileColorPicker} from './MobileColorPicker';
-import { UndoRedoButton } from './UndoRedoButton';
 
 const HandleIconButton = () => {
   return (
