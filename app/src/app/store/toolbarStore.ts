@@ -1,11 +1,11 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import {create} from 'zustand';
+import {persist} from 'zustand/middleware';
 
 export type ToolbarState = {
   x: number | null;
   y: number | null;
   rotation: 'horizontal' | 'vertical' | null;
-  setXY: (x: number, y: number) => void;
+  setXY: (x: number, y: number, rectify?: boolean) => void;
   maxXY: {maxX: number | null; maxY: number | null};
   setRotation: (rotation: 'horizontal' | 'vertical' | null) => void;
   setMaxXY: (maxX: number, maxY: number) => void;
@@ -17,10 +17,10 @@ export const useToolbarStore = create(
       x: null,
       y: null,
       rotation: 'horizontal',
-      setXY: (_x, _y) => {
+      setXY: (_x, _y, rectify) => {
         const {maxX, maxY} = get().maxXY;
-        const x = Math.min(Math.max(_x, 0), maxX || Math.pow(2, 16));
-        const y = Math.min(Math.max(_y, 0), maxY || Math.pow(2, 16));
+        const x = rectify ? Math.min(Math.max(_x, 0), maxX || Math.pow(2, 16)) : _x;
+        const y = rectify ? Math.min(Math.max(_y, 0), maxY || Math.pow(2, 16)) : _y;
         set({
           x,
           y,

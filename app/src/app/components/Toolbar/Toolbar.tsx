@@ -23,21 +23,23 @@ export const Toolbar = () => {
   const previousActiveTool = useRef<ActiveTool | null>(null);
   const activeTools = useActiveTools();
 
+  const handleResize = () => {
+    if (!containerRef) return;
+    const {width, height} = containerRef.getBoundingClientRect() || {
+      width: 0,
+      height: 0,
+    };
+    const {width: toolbarWidth, height: toolbarHeight} =
+      toolbarItemsRef.current?.getBoundingClientRect() || {width: 0, height: 0};
+    setMaxXY(
+      Math.round((width - toolbarWidth) / 10) * 10 - 25,
+      Math.round((height - toolbarHeight) / 10) * 10 - 25
+    );
+  };
+  
   useLayoutEffect(() => {
     // listen for whenever containerRef changes size
     if (!containerRef) return;
-    const handleResize = () => {
-      const {width, height} = containerRef.getBoundingClientRect() || {
-        width: 0,
-        height: 0,
-      };
-      const {width: toolbarWidth, height: toolbarHeight} =
-        toolbarItemsRef.current?.getBoundingClientRect() || {width: 0, height: 0};
-      setMaxXY(
-        Math.round((width - toolbarWidth) / 10) * 10 - 25,
-        Math.round((height - toolbarHeight) / 10) * 10 - 25
-      );
-    };
     handleResize();
     const observer = new ResizeObserver(handleResize);
     observer.observe(containerRef);
@@ -54,6 +56,8 @@ export const Toolbar = () => {
       observer.disconnect();
     };
   }, [mapRef]);
+
+  useLayoutEffect(handleResize, [rotation])
 
   useEffect(() => {
     // add a listener for option or alt key press and release
@@ -95,11 +99,16 @@ export const Toolbar = () => {
         previousActiveTool.current = activeTool;
         setActiveTool('pan');
       }}
-      onStop={(e, {x, y}) => {
+      onDrag={(e, {x, y}) => {
         setXY(x, y);
+      }}
+      
+      onStop={(e, {x, y}) => {
+        console.log("!!!", x, y, e)
+        setXY(x, y, true);
         setActiveTool(previousActiveTool.current || 'pan');
       }}
-      position={{x: x || 100, y: y || 100}}
+      position={{x: x || 0, y: y || 0}}
     >
       <div
         className="p-3 w-min absolute z-[1000]"

@@ -65,18 +65,20 @@ const ToolUtilitiesConfig: Record<
 
 export const ToolUtilities: React.FC = () => {
   const { Component } = useMapStore(state => ToolUtilitiesConfig[state.activeTool] || {});
-  const { x, y, rotation } = useToolbarStore()
+  const { x, y, maxXY, rotation } = useToolbarStore()
   const isHorizontal = rotation === 'horizontal';
   const ContainerRef = useRef<HTMLDivElement | null>(null);
   const [shouldFlip, setShouldFlip] = useState(false);
 
   useLayoutEffect(() => {
     const bbox = ContainerRef?.current?.getBoundingClientRect?.();
-    if (bbox === undefined || y === null || x === null) return;
+    if (bbox === undefined || y === null || x === null || maxXY === null) return;
     if (rotation === 'horizontal') {
-      setShouldFlip(bbox.top < 0 || (shouldFlip && bbox.height > y))
+      const midPoint = maxXY.maxY ? maxXY.maxY / 2 : 0
+      setShouldFlip(y < midPoint);
     } else {
-      setShouldFlip(bbox.left < 0 || (shouldFlip && bbox.width > x));
+      const midPoint = maxXY.maxX ? maxXY.maxX / 2 : 0
+      setShouldFlip(x > midPoint);
     }
   }, [y, x, rotation, Component]);
 
