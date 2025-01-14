@@ -125,39 +125,6 @@ export const PopulationPanel = () => {
           </Text>
         </Flex>
       )}
-      <CheckboxGroup.Root
-        defaultValue={[]}
-        name="districts"
-        value={[
-          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
-          mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-        ]}
-      >
-        <hr className="my-2"/>
-      <Heading as="h3" weight="bold" size="3">
-        Map Options
-      </Heading>
-        <CheckboxGroup.Item
-          value="higlightUnassigned"
-          onClick={() =>
-            setMapOptions({
-              higlightUnassigned: !mapOptions.higlightUnassigned,
-            })
-          }
-        >
-          Highlight unassigned units
-        </CheckboxGroup.Item>
-        <CheckboxGroup.Item
-          value="showPopulationTooltip"
-          onClick={() =>
-            setMapOptions({
-              showPopulationTooltip: !mapOptions.showPopulationTooltip,
-            })
-          }
-        >
-          Show population tooltip
-        </CheckboxGroup.Item>
-      </CheckboxGroup.Root>
     </Flex>
   );
 };

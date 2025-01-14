@@ -35,19 +35,32 @@ export default function Layers() {
 
   return (
     <Flex gap="3" direction="column">
-      <Heading as="h3" weight="bold" size="3">
-        My painted districts
-      </Heading>
       <CheckboxGroup.Root
         defaultValue={[]}
         name="districts"
         value={[
+          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
+          mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
+
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
           mapOptions.showZoneNumbers ? '2' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
           mapOptions.lockPaintedAreas === true ? '4' : '',
         ]}
       >
+        <Heading as="h3" weight="bold" size="3">
+          Map Options
+        </Heading>
+        <CheckboxGroup.Item
+          value="showPopulationTooltip"
+          onClick={() =>
+            setMapOptions({
+              showPopulationTooltip: !mapOptions.showPopulationTooltip,
+            })
+          }
+        >
+          Show population tooltip
+        </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="1"
           onClick={() =>
@@ -71,6 +84,16 @@ export default function Layers() {
           }
         >
           Show numbering for painted districts <i>(experimental)</i>
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item
+          value="higlightUnassigned"
+          onClick={() =>
+            setMapOptions({
+              higlightUnassigned: !mapOptions.higlightUnassigned,
+            })
+          }
+        >
+          Highlight unassigned areas
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="3"
@@ -101,7 +124,7 @@ export default function Layers() {
             })
           }
         >
-          Emphasize County Names
+          Show county names
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>
           Show tribes and communities
