@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {Button, Checkbox, CheckboxGroup, Flex, Text} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import {blackA} from '@radix-ui/colors';
 import {useMapStore} from '@/app/store/mapStore';
+import { map } from 'lodash';
 
 type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
@@ -29,6 +30,55 @@ export const ColorPicker = <T extends boolean>({
   multiple,
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const hotkeyRef = useRef<string | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const numDistricts = 20 //mapDocument?.num_districts || 4;
+
+  const handleKeyPressSubmit = () => {
+    if (!hotkeyRef.current) return;
+    const index = parseInt(hotkeyRef.current) - 1
+    const newValue = colorArray[index];
+    hotkeyRef.current = null;
+    if (multiple){
+      console.log('!!!', defaultValue, value, newValue)
+    } else {
+      onValueChange(index, newValue)
+    }
+  }
+    useEffect(() => {
+      // add a listener for option or alt key press and release
+      const handleKeyPress = (event: KeyboardEvent) => {
+        const activeElement = document.activeElement;
+        // if active element is an input, don't do anything
+        if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+          return;
+        // if command/control held down, don't do anything
+        if (event.metaKey || event.ctrlKey) return;
+        // if key is digit, set selected zone to that digit
+        if (!event.code.includes('Digit')) return
+        let value = event.key;
+        if (numDistricts >= 10){
+          hotkeyRef.current = (hotkeyRef.current || '') + value;
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          if (hotkeyRef?.current?.length === 2) {
+            handleKeyPressSubmit()
+          } else {
+            timeoutRef.current = setTimeout(() => {
+              handleKeyPressSubmit()
+            }, 250);
+          }
+        } else {
+          hotkeyRef.current = value;
+          handleKeyPressSubmit();
+        }
+      }
+  
+      document.addEventListener('keydown', handleKeyPress);
+  
+      return () => {
+        document.removeEventListener('keydown', handleKeyPress);
+      };
+    }, []);
 
   if (multiple) {
     return (
@@ -46,7 +96,7 @@ export const ColorPicker = <T extends boolean>({
         >
           <Flex direction="row" wrap="wrap">
             {!!mapDocument &&
-              colorArray.slice(0, mapDocument.num_districts ?? 0).map((color, i) => (
+              colorArray.slice(0, numDistricts).map((color, i) => (
                 <Flex direction="column" align="center" key={i}>
                   <CheckboxGroupItem
                     key={i}
@@ -77,7 +127,7 @@ export const ColorPicker = <T extends boolean>({
       >
         <Flex direction="row" wrap="wrap">
           {!!mapDocument &&
-            colorArray.slice(0, mapDocument.num_districts ?? 0).map((color, i) => (
+            colorArray.slice(0, numDistricts).map((color, i) => (
               <Flex direction="column" align="center" key={i}>
                 <RadioGroupItem key={i} style={{backgroundColor: color}} value={color}>
                   <RadioGroupIndicator />

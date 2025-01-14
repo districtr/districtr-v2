@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {colorScheme} from '../../constants/colors';
 import {Button} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
@@ -16,6 +16,8 @@ export function ZonePicker() {
     console.log('setting accumulated geoids to old zone', selectedZone, 'new zone is', value);
     setSelectedZone(value);
   };
+
+
 
   return (
     <div>

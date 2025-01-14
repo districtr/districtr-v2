@@ -1,5 +1,6 @@
 'use client';
-import {Button, Card, Flex, IconButton, IconButtonProps, Text, Tooltip} from '@radix-ui/themes';
+import {Button, Card, Flex, IconButton, IconButtonProps, Text} from '@radix-ui/themes';
+import * as Tooltip from '@radix-ui/react-tooltip';
 import {useMapStore} from '@store/mapStore';
 import {
   EraserIcon,
@@ -12,9 +13,10 @@ import {
   CounterClockwiseClockIcon,
   ResetIcon,
   MoveIcon,
+  RotateCounterClockwiseIcon,
 } from '@radix-ui/react-icons';
 import {RecentMapsModal} from '@components/sidebar/RecentMapsModal';
-import React, {use, useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import Layers from './sidebar/Layers';
 import {BrushControls} from './BrushControls';
 import {ZoneLockPicker} from './sidebar/ZoneLockPicker';
@@ -79,9 +81,10 @@ const ToolUtilitiesConfig: Record<
   },
 };
 
-const ToolUtilities: React.FC<{activeTool: ActiveTool; y: null | number}> = ({activeTool, y}) => {
+const ToolUtilities: React.FC<{activeTool: ActiveTool; y: null | number, x: null | number, rotation: 'horizontal' | 'vertical' | null}> = ({activeTool, y, x, rotation}) => {
   const ContainerRef = useRef<HTMLDivElement | null>(null);
-  const [topCollision, setTopCollision] = useState(false);
+  const [shouldFlip, setShouldFlip] = useState(false);
+  const isHorizontal = rotation === 'horizontal';
   const {
     Component,
     // focused
@@ -107,10 +110,13 @@ const ToolUtilities: React.FC<{activeTool: ActiveTool; y: null | number}> = ({ac
   // }, [focused, setActiveTool]);
   useLayoutEffect(() => {
     const bbox = ContainerRef?.current?.getBoundingClientRect?.();
-    if (bbox === undefined || y === null) return;
-    const collidesWithTop = bbox.top < 0 || (topCollision && bbox.height > y);
-    setTopCollision(collidesWithTop);
-  }, [y, Component, activeTool]);
+    if (bbox === undefined || y === null || x === null) return;
+    if (rotation === 'horizontal') {
+      setShouldFlip(bbox.top < 0 || (shouldFlip && bbox.height > y))
+    } else {
+      setShouldFlip(bbox.left < 0 || (shouldFlip && bbox.width > x));
+    }
+  }, [y, x, rotation, Component, activeTool]);
 
   if (!Component) {
     return null;
@@ -121,9 +127,12 @@ const ToolUtilities: React.FC<{activeTool: ActiveTool; y: null | number}> = ({ac
       ref={ContainerRef}
       style={{
         width: 'calc(100% - 20px)',
+        minWidth: "max(20vw, 300px)",
         position: 'absolute',
-        bottom: topCollision ? undefined : '100%',
-        top: topCollision ? '100%' : undefined,
+        bottom: isHorizontal ? shouldFlip ? undefined : '100%' : undefined,
+        top: isHorizontal ? shouldFlip ? '100%' : undefined : '10px',
+        left: isHorizontal ? 0 : shouldFlip ? undefined : '100%',
+        right: isHorizontal ? 0 : shouldFlip ? '100%' : undefined,
         padding: '20px',
         overflow: 'hidden',
       }}
@@ -137,6 +146,7 @@ const ToolUtilities: React.FC<{activeTool: ActiveTool; y: null | number}> = ({ac
 
 type ActiveToolConfig = {
   hotkey: string;
+  hotKeyLabel: string;
   mode: ActiveTool;
   disabled?: boolean;
   label: string;
@@ -193,6 +203,7 @@ export const MapToolbar = () => {
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const mapDocument = useMapStore(state => state.mapDocument);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
   const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
   const {x, y, rotation, setXY, setRotation, setMaxXY} = useToolbarStore(state => state);
   const {futureStates, pastStates, redo, undo} = useTemporalStore(state => state); // TemporalState<MapStore>
@@ -239,21 +250,24 @@ export const MapToolbar = () => {
 
   const activeTools: ActiveToolConfig[] = [
     {
-      hotkey: 'Digit1',
+      hotkey: 'KeyM',
+      hotKeyLabel: 'M',
       mode: 'pan',
       disabled: !mapDocument?.document_id,
-      label: 'Pan',
+      label: 'Move',
       icon: <HandIcon />,
     },
     {
-      hotkey: 'Digit2',
+      hotkey: 'KeyP',
+      hotKeyLabel: 'P',
       mode: 'brush',
       disabled: !mapDocument?.document_id,
       label: 'Paint',
       icon: <Pencil2Icon />,
     },
     {
-      hotkey: 'Digit3',
+      hotkey: 'KeyE',
+      hotKeyLabel: 'E',
       mode: 'eraser',
       disabled: !mapDocument?.document_id,
       label: 'Erase',
@@ -261,6 +275,7 @@ export const MapToolbar = () => {
     },
     {
       hotkey: 'KeyZ',
+      hotKeyLabel: 'Z',
       mode: 'undo',
       disabled: pastStates.length === 0,
       label: 'Undo',
@@ -271,7 +286,8 @@ export const MapToolbar = () => {
       },
     },
     {
-      hotkey: 'KeyX',
+      hotkey: 'KeyY',
+      hotKeyLabel: 'Y',
       mode: 'undo',
       disabled: futureStates.length === 0,
       label: 'Redo',
@@ -283,37 +299,42 @@ export const MapToolbar = () => {
       },
     },
     {
-      hotkey: 'Digit4',
+      hotkey: 'KeyB',
+      hotKeyLabel: 'B',
       mode: 'shatter',
       disabled: !mapDocument?.child_layer,
       label: 'Break',
       icon: <ViewGridIcon />,
     },
     {
-      hotkey: 'Digit5',
+      hotkey: 'KeyL',
+      hotKeyLabel: 'L',
       mode: 'lock',
       disabled: !mapDocument?.document_id,
       label: 'Lock',
       icon: <LockOpen1Icon />,
     },
     {
-      hotkey: 'Digit6',
+      hotkey: 'KeyS',
+      hotKeyLabel: 'S',
       mode: 'settings',
       disabled: false,
       label: 'Settings',
       icon: <GearIcon />,
     },
     {
-      hotkey: 'Digit7',
+      hotkey: 'KeyR',
+      hotKeyLabel: 'R',
       mode: 'recents',
       disabled: false,
-      label: 'Recent Maps',
+      label: 'Recent',
       icon: <CounterClockwiseClockIcon />,
     },
     {
-      hotkey: 'Digit8',
+      hotkey: 'KeyQ',
+      hotKeyLabel: 'Q',
       mode: 'reset',
-      label: 'Reset Map',
+      label: 'Reset',
       variant: 'outline',
       disabled: noZonesAreAssigned,
       color: 'red',
@@ -324,20 +345,24 @@ export const MapToolbar = () => {
   useEffect(() => {
     // add a listener for option or alt key press and release
     const handleKeyPress = (event: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      // if active element is an input, don't do anything
+      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+        return;
+      // if command/control held down, don't do anything
+      if (event.metaKey || event.ctrlKey) return;
+      // if alt, showShortcuts
       if (event.altKey) {
-        console.log(event.code);
-        setShowShortcuts(event.type === 'keydown');
-        const tool = activeTools.find(f => f.hotkey === event.code);
-        if (tool) {
-          tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
-        }
+        setShowShortcuts(true);
       } else {
-        if (event.type === 'keyup') {
-          setShowShortcuts(false);
-        }
         setShowShortcuts(false);
       }
+      const tool = activeTools.find(f => f.hotkey === event.code);
+      if (tool) {
+        tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
+      }
     };
+
     document.addEventListener('keydown', handleKeyPress);
     document.addEventListener('keyup', handleKeyPress);
 
@@ -372,48 +397,62 @@ export const MapToolbar = () => {
         onMouseLeave={() => setHovered(false)}
       >
         <div className="bg-white border-gray-500 border-2 rounded-lg shadow-md">
-          <Flex justify={'center'} align="center" overflow="hidden" ref={toolbarItemsRef}>
+          <Flex justify={'center'} align="center" ref={toolbarItemsRef} direction={rotation === 'horizontal' ? 'row' : 'column'}>
             {activeTools.map((tool, i) => (
               <>
-                <Tooltip
-                  content={
-                    showShortcuts
-                      ? `⌥ ${tool.hotkey.replace('Digit', '').replace('Key', '')}`
-                      : tool.label
-                  }
-                  open={showShortcuts || undefined}
-                >
-                  <IconButton
-                    key={`${tool.mode}-flex`}
-                    className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
-                      i === activeTools.length - 1 ? 'rounded-r-lg' : ''
-                    }`}
-                    onClick={() => {
-                      if (tool.onClick) {
-                        tool.onClick();
-                      } else {
-                        setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
-                      }
-                    }}
-                    style={{
-                      marginRight: i === activeTools.length - 1 ? 0 : -1,
-                      padding: activeTool === tool.mode ? '0 0' : '.75rem',
-                      ...(tool?.iconStyle || {}),
-                    }}
-                    variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
-                    color={tool.color}
-                    radius="none"
-                    disabled={tool.disabled}
-                    size="3"
-                  >
-                    {tool.icon}
-                  </IconButton>
-                </Tooltip>
+                <Tooltip.Provider>
+                  <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
+                    <Tooltip.Trigger asChild>
+                      <IconButton
+                        key={`${tool.mode}-flex`}
+                        className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
+                          i === activeTools.length - 1 ? 'rounded-r-lg' : ''
+                        }`}
+                        onMouseEnter={() => setActiveTooltip(tool.mode)}
+                        onMouseLeave={() => setActiveTooltip(null)}
+                        onClick={() => {
+                          if (tool.onClick) {
+                            tool.onClick();
+                          } else {
+                            setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
+                          }
+                        }}
+                        style={{
+                          marginRight: i === activeTools.length - 1 ? 0 : -1,
+                          padding: activeTool === tool.mode ? '0 0' : '.75rem',
+                          ...(tool?.iconStyle || {}),
+                        }}
+                        variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
+                        color={tool.color}
+                        radius="none"
+                        disabled={tool.disabled}
+                        size="3"
+                      >
+                        {tool.icon}
+                      </IconButton>
+                    </Tooltip.Trigger>
+                    <Tooltip.Portal>
+                      <Tooltip.Content
+                        side={rotation === 'horizontal' ? 'top' : 'right'}
+                        className="select-none rounded bg-white px-2 py-1 text-xs text-center"
+                        sideOffset={5}
+                      >
+                        {!showShortcuts && <>
+                          {tool.label}
+                          <br/>
+                        </>
+                          } ⌨️ {" "}{tool.hotKeyLabel}
+                        <Tooltip.Arrow className="fill-white" />
+                      </Tooltip.Content>
+                    </Tooltip.Portal>
+                  </Tooltip.Root>
+                </Tooltip.Provider>
               </>
             ))}
           </Flex>
         </div>
-        {!!hovered && (
+        {hovered && (
+          <>
           <IconButton
             id="handle"
             className={`absolute flex-none cursor-move rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
@@ -425,9 +464,27 @@ export const MapToolbar = () => {
               cursor: 'move',
               left: 0,
             }}
-          >
+            >
             <MoveIcon fontSize={'12'} />
           </IconButton>
+          <IconButton
+            id="rotate"
+            onClick={() => setRotation(rotation === 'horizontal' ? 'vertical' : 'horizontal')}
+            className={`absolute flex-none cursor-move rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+            variant="ghost"
+            style={{
+              position: 'absolute',
+              background: 'rgba(255,255,255,0.8)',
+              bottom: rotation === 'horizontal' ? 0 : undefined,
+              top: rotation !== 'horizontal' ? 0 : undefined,
+              cursor: 'rotate',
+              left: rotation === 'horizontal' ? 0 : undefined,
+              right: rotation !== 'horizontal' ? 0 : undefined,
+            }}
+            >
+            <RotateCounterClockwiseIcon fontSize={'12'} />
+          </IconButton>
+            </>
         )}
         {/* {showShortcuts && (
         <Flex
@@ -446,7 +503,7 @@ export const MapToolbar = () => {
         </Flex>
       )} */}
 
-        <ToolUtilities activeTool={activeTool} y={y} />
+        <ToolUtilities activeTool={activeTool} y={y} x={x} rotation={rotation}/>
       </div>
     </Draggable>
   );
