@@ -31,7 +31,7 @@ export const ColorPicker = <T extends boolean>({
   const mapDocument = useMapStore(state => state.mapDocument);
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const numDistricts = 20; //mapDocument?.num_districts || 4;
+  const numDistricts = mapDocument?.num_districts || 4;
 
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;

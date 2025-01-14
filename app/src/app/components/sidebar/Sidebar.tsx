@@ -30,10 +30,11 @@ const HandleIconButton = () => {
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
   const [width, setWidth] = React.useState(window.innerWidth * 0.25);
+  const [hovered, setHovered] = React.useState(false);
   return (
     <Box
       p="3"
-      className="z-10 flex-none overflow-y-auto 
+      className="z-10 flex-none
       border-t lg:border-t-0
       lg:h-screen
        landscape:border-t-0
@@ -42,8 +43,11 @@ export default function SidebarComponent() {
       border-gray-500
       shadow-xl
       relative
+      overflow-y-auto
       "
       style={{width: width, overflow: 'visible'}}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <div
         style={{
@@ -74,12 +78,15 @@ export default function SidebarComponent() {
               background: 'rgba(245, 245, 245)',
               height: '40px',
               cursor: 'ew-resize',
+              opacity: hovered ? 1 : 0,
+              transition: 'opacity 0.2s',
             }}
           >
             <DragHandleHorizontalIcon />
           </IconButton>
         </Draggable>
       </div>
+      <Box className="size-full overflow-y-auto">
       <Flex direction="column" gap="3">
         <Heading as="h3" size="3" className="hidden lg:block">
           Districtr
@@ -96,7 +103,7 @@ export default function SidebarComponent() {
         >
           <DataPanels />
         </Box>
-      </Flex>
+      </Flex></Box>
     </Box>
   );
 }
