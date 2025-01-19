@@ -9,7 +9,6 @@ import {calculateMinMaxRange} from '@utils/zone-helpers';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import { getEntryTotal } from '@/app/utils/summaryStats';
-import { fetchTotPop } from '@/app/utils/api/queries';
 
 export const PopulationPanel = () => {
   const mapMetrics = useChartStore(state => state.mapMetrics);
