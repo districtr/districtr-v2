@@ -20,12 +20,13 @@ export const PopulationPanel = () => {
   const setChartOptions = useChartStore(state => state.setChartOptions);
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
-  const totPop = useMapStore(state => getEntryTotal(state.summaryStats.totpop?.data || {}));
+  const totalPopData = useMapStore(state => state.summaryStats.totpop?.data);
+  const totPop = getEntryTotal(totalPopData || {})
 
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
   const {chartData, stats, unassigned} = useMemo(() => {
-    let unassigned = totPop
-    if (mapMetrics && mapMetrics.data && numDistricts) {
+    let unassigned = structuredClone(totPop)
+    if (mapMetrics && mapMetrics.data && numDistricts && totPop) {
       const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
         (acc, district) => {
           const totalPop = mapMetrics.data.reduce((acc, entry) => {
@@ -50,9 +51,9 @@ export const PopulationPanel = () => {
         unassigned:0
       };
     }
-  }, [mapMetrics]);
+  }, [mapMetrics, totalPopData, numDistricts]);
 
-  if (mapMetrics?.isPending) {
+  if (mapMetrics?.isPending || !totalPopData) {
     return <div>Loading...</div>;
   }
 
