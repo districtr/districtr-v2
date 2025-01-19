@@ -149,6 +149,7 @@ fetchAssignments.subscribe(assignments => {
         loadedMapId
       );
     } else {
+      fetchTotPop.refetch();
       loadZoneAssignments(assignments.data);
       useMapStore.temporal.getState().clear();
     }
