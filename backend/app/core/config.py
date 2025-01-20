@@ -14,6 +14,7 @@ from pydantic import (
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
+from pathlib import Path
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -97,6 +98,7 @@ class Settings(BaseSettings):
     # Volumes
 
     VOLUME_PATH: str = "/data"
+    SQL_DIR: Path = Path(__file__).parent.parent / "sql"
 
     # R2
 
