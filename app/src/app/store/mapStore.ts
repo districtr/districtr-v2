@@ -31,7 +31,7 @@ import {getMapEditSubs} from './mapEditSubs';
 import {getQueriesResultsSubs} from '../utils/api/queries';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
-import {BLOCK_SOURCE_ID} from '../constants/layers';
+import {BLOCK_SOURCE_ID, removeZoneMetaLayers} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
 import {devToolsConfig, devwrapper} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
@@ -413,6 +413,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           lastSentAssignments.clear();
           setFreshMap(true);
           resetZoneAssignments();
+          removeZoneMetaLayers();
 
           const upsertMapOnDrawSub = useMapStore.subscribe(
             state => state.zoneAssignments,

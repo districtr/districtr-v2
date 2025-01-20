@@ -17,6 +17,8 @@ import {
 import {getEntryTotal} from '@/app/utils/summaryStats';
 import {useMapStore} from '@/app/store/mapStore';
 import {useChartStore} from '@/app/store/chartStore';
+import GeometryWorker from '../GeometryWorker';
+import { debouncedAddZoneMetaLayers } from '@/app/constants/layers';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -152,6 +154,10 @@ fetchAssignments.subscribe(assignments => {
       fetchTotPop.refetch();
       loadZoneAssignments(assignments.data);
       useMapStore.temporal.getState().clear();
+      const entries = assignments.data.map(a => [a.geo_id, a.zone] as [string, unknown]);
+      GeometryWorker?.updateProps(entries).then(() => {
+        debouncedAddZoneMetaLayers({})
+      })
     }
     setAppLoadingState('loaded');
   }
