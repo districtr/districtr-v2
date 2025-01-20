@@ -1,4 +1,5 @@
-from fastapi import FastAPI, status, Depends, HTTPException, Query
+from fastapi import FastAPI, status, Depends, HTTPException, Query, BackgroundTasks
+from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
@@ -7,6 +8,7 @@ from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
+from datetime import datetime, UTC
 
 import sentry_sdk
 from app.core.db import engine
@@ -31,6 +33,12 @@ from app.models import (
     PopulationStatsP1,
     SummaryStatsP4,
     PopulationStatsP4,
+)
+from app.utils import remove_file
+from app.exports import (
+    get_export_sql_method,
+    DocumentExportType,
+    DocumentExportFormat,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -312,7 +320,7 @@ async def get_total_population(
             )
 
 
-@app.get("/api/document/{document_id}/{summary_stat}")
+@app.get("/api/document/{document_id}/evaluation/{summary_stat}")
 async def get_summary_stat(
     document_id: str, summary_stat: str, session: Session = Depends(get_session)
 ):
@@ -361,9 +369,9 @@ async def get_summary_stat(
             )
 
 
-@app.get("/api/districtrmap/summary_stats/{summary_stat}/{gerrydb_table}")
+@app.get("/api/districtrmap/{gerrydb_table}/evaluation/{summary_stat}")
 async def get_gerrydb_summary_stat(
-    summary_stat: str, gerrydb_table: str, session: Session = Depends(get_session)
+    gerrydb_table: str, summary_stat: str, session: Session = Depends(get_session)
 ):
     try:
         _summary_stat = SummaryStatisticType[summary_stat]
@@ -410,7 +418,7 @@ async def get_gerrydb_summary_stat(
 async def get_projects(
     *,
     session: Session = Depends(get_session),
-    offset: int = 0,
+    offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
 ):
     gerrydb_views = session.exec(
@@ -421,3 +429,60 @@ async def get_projects(
         .limit(limit)
     ).all()
     return gerrydb_views
+
+
+@app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
+async def get_survey_results(
+    *,
+    document_id: str,
+    background_tasks: BackgroundTasks,
+    format: str = "CSV",
+    export_type: str = "ZoneAssignments",
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=10_000, ge=0),
+    session: Session = Depends(get_session),
+) -> FileResponse:
+    try:
+        _format = DocumentExportFormat(format)
+        _export_type = DocumentExportType(export_type)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        )
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+    out_file_name = (
+        f"{document_id}_{_export_type.value}_{timestamp}.{_format.value.lower()}"
+    )
+
+    try:
+        get_sql = get_export_sql_method(_format)
+        sql, params = get_sql(
+            _export_type,
+            document_id=document_id,
+            offset=offset,
+            limit=limit,
+        )
+    except NotImplementedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        )
+
+    conn = session.connection().connection
+
+    with conn.cursor().copy(sql, params=params) as copy:
+        _out_file = f"/tmp/{out_file_name}"
+        with open(_out_file, "wb") as f:
+            while data := copy.read():
+                f.write(data)
+
+        media_type = {
+            DocumentExportFormat.csv: "text/csv; charset=utf-8",
+            DocumentExportFormat.geojson: "application/json",
+        }.get(_format, "text/plain; charset=utf-8")
+        background_tasks.add_task(remove_file, _out_file)
+        return FileResponse(
+            path=_out_file, media_type=media_type, filename=out_file_name
+        )
