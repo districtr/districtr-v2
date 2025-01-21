@@ -44,6 +44,7 @@
     "lodash": "^4.17.21",
     "maplibre-gl": "^4.7.1",
     "next": "^14.2.7",
+    "papaparse": "^5.5.1",
     "pmtiles": "^3.0.7",
     "re-resizable": "^6.10.1",
     "react": "^18",
