@@ -14,6 +14,7 @@ from pydantic import (
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
+from pathlib import Path
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -93,6 +94,8 @@ class Settings(BaseSettings):
         self._check_default_secret("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD)
 
         return self
+
+    SQL_DIR: Path = Path(__file__).parent.parent / "sql"
 
     # Volumes
 

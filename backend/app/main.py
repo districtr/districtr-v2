@@ -1,4 +1,4 @@
-from fastapi import FastAPI, status, Depends, HTTPException, Query
+from fastapi import FastAPI, Response, status, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
@@ -93,7 +93,11 @@ async def create_document(
         text("SELECT create_document(:gerrydb_table_name);"),
         {"gerrydb_table_name": data.gerrydb_table},
     )
-    document_id = results.one()[0]  # should be only one row, one column of results
+    (document_id,) = results.one()
+    session.execute(
+        text("CALL create_zone_assignments_geo_view(:document_id)"),
+        {"document_id": document_id},
+    )
 
     stmt = (
         select(
@@ -421,3 +425,56 @@ async def get_projects(
         .limit(limit)
     ).all()
     return gerrydb_views
+
+
+@app.get("/api/document/{document_id}/vectortiles/{z}/{x}/{y}.mvt")
+async def get_document_vectortile(
+    document_id: str, z: int, x: int, y: int, session: Session = Depends(get_session)
+):
+    stmt = text(
+        """WITH mvtgeom AS
+        (
+          SELECT ST_AsMVTGeom(ST_Transform(geometry, 3857), ST_TileEnvelope(:z, :x, :y), extent => 4096, buffer => 64) AS geom, geo_id, zone
+          FROM zone_assignments_geo(:document_id)
+          WHERE ST_Transform(geometry, 4326) && ST_Transform(ST_TileEnvelope(:z, :x, :y, margin => (64.0 / 4096)), 4326)
+        )
+        SELECT ST_AsMVT(mvtgeom.*)
+        FROM mvtgeom;
+        """
+    ).bindparams(
+        bindparam(key="document_id", type_=UUIDType),
+        bindparam(key="z", type_=INT),
+        bindparam(key="x", type_=INT),
+        bindparam(key="y", type_=INT),
+    )
+
+    result = session.execute(
+        stmt,
+        {
+            "document_id": document_id,
+            "z": z,
+            "x": x,
+            "y": y,
+        },
+    ).scalar()
+
+    if result:
+        return Response(
+            content=result,
+            media_type="application/x-protobuf",  # More specific media type for MVT
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "Access-Control-Allow-Origin": "*",  # If you need CORS
+                # 'Cache-Control': 'max-age=0' # Tried, didn't work
+            },
+        )
+    else:
+        return Response(
+            content=b"",
+            media_type="application/x-protobuf",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "Access-Control-Allow-Origin": "*",  # If you need CORS
+                # 'Cache-Control': 'max-age=0' # Tried, didn't work
+            },
+        )

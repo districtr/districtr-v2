@@ -306,6 +306,28 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
     );
   }
   map?.addLayer(getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT));
+
+  map?.addSource("testtest", {
+    type: 'vector',
+    tiles: [`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/vectortiles/{z}/{x}/{y}.mvt`],
+    minzoom: 0,
+    maxzoom: 14,
+  })
+  map?.addLayer({
+    id: "testtest",
+    source: "testtest",
+    'source-layer': "default",
+    type: 'line',
+    layout: {
+      visibility: 'visible',
+    },
+    paint: {
+      'line-opacity': 0.8,
+      'line-color': "#ff0000",
+      'line-width': 3,
+    },
+  });
+
   useMapStore.getState().setMapRenderingState('loaded');
 };
 
