@@ -334,6 +334,20 @@ async def get_total_population(
             )
 
 
+@app.get("/api/document/{document_id}/unassigned")
+async def get_unassigned_geoids(
+    document_id: str, session: Session = Depends(get_session)
+):
+
+    stmt = text(
+        "SELECT * from get_unassigned_bboxes(:doc_uuid)"
+    ).bindparams(
+        bindparam(key="doc_uuid", type_=UUIDType),
+    )
+    results = session.execute(stmt, {"doc_uuid": document_id}).fetchall()
+    return [row[0] for row in results]
+
+
 @app.get("/api/document/{document_id}/{summary_stat}")
 async def get_summary_stat(
     document_id: str, summary_stat: str, session: Session = Depends(get_session)
@@ -382,19 +396,6 @@ async def get_summary_stat(
                 detail=f"Document with ID {document_id} not found",
             )
 
-
-@app.get("/api/unassigned/{document_id}")
-async def get_unassigned_geoids(
-    document_id: str, session: Session = Depends(get_session)
-):
-
-    stmt = text(
-        "SELECT * from get_unassigned_bboxes(:doc_uuid)"
-    ).bindparams(
-        bindparam(key="doc_uuid", type_=UUIDType),
-    )
-    results = session.execute(stmt, {"doc_uuid": document_id}).fetchall()
-    return [row[0] for row in results]
 
 @app.get("/api/districtrmap/summary_stats/{summary_stat}/{gerrydb_table}")
 async def get_gerrydb_summary_stat(

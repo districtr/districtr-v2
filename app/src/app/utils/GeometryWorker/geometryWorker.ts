@@ -120,7 +120,7 @@ const GeometryWorker: GeometryWorkerClass = {
   async getUnassignedGeometries(useBackend = false, documentId?: string) {
     const geomsToDissolve: GeoJSON.Feature[] = [];
     if (useBackend) {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/unassigned/${documentId}`)
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`)
         .then(r => r.json())
         .then(strigifiedGeos =>
           strigifiedGeos.forEach((geo: GeoJSON.Feature) => geomsToDissolve.push(geo))
