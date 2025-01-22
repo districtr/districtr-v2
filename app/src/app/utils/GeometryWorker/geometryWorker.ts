@@ -29,17 +29,15 @@ const GeometryWorker: GeometryWorkerClass = {
       delete this.geometries[id];
     });
   },
+  clearGeometries() {
+    this.geometries = {};
+  },
   loadGeometry(featuresOrStringified, idProp) {
     const features: MapGeoJSONFeature[] =
       typeof featuresOrStringified === 'string'
         ? JSON.parse(featuresOrStringified)
         : featuresOrStringified;
     const firstEntry = Object.values(this.geometries)[0];
-    if (features.length && firstEntry) {
-      if (features[0].sourceLayer !== firstEntry.sourceLayer) {
-        this.geometries = {};
-      }
-    }
     features.forEach(f => {
       const id = f.properties?.[idProp];
       // TODO: Sometimes, geometries are split across tiles or reloaded at more detailed zoom levels

@@ -409,6 +409,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             return;
           }
           const initialMapOptions = useMapStore.getInitialState().mapOptions;
+          GeometryWorker?.clearGeometries()
           idCache.clear();
           allPainted.clear();
           lastSentAssignments.clear();
