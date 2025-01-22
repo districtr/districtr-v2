@@ -343,7 +343,7 @@ async def get_unassigned_geoids(
         bindparam(key="doc_uuid", type_=UUIDType),
     )
     results = session.execute(stmt, {"doc_uuid": document_id}).fetchall()
-    return {"unassigned": [row[0] for row in results]}
+    return {"features": [row[0] for row in results]}
 
 
 @app.get("/api/document/{document_id}/{summary_stat}")

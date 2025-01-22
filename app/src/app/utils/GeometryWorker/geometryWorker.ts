@@ -122,8 +122,8 @@ const GeometryWorker: GeometryWorkerClass = {
     if (useBackend) {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`)
         .then(r => r.json())
-        .then(strigifiedGeos =>
-          strigifiedGeos.forEach((geo: GeoJSON.Feature) => geomsToDissolve.push(geo))
+        .then(data =>
+          data.features.forEach((geo: GeoJSON.Feature) => geomsToDissolve.push(geo))
         );
     } else {
       for (const id in this.geometries) {
