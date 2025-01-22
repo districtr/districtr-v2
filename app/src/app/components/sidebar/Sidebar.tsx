@@ -91,10 +91,6 @@ export default function SidebarComponent() {
       </div>
       <Box className="size-full overflow-y-auto">
         <Flex direction="column" gap="3">
-          <Heading as="h3" size="3" className="hidden lg:block">
-            Districtr
-          </Heading>
-          <GerryDBViewSelector />
           <Box
             display={{
               initial: 'none',

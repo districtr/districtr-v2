@@ -58,10 +58,9 @@ export const RecentMapsModal: React.FC<{defaultOpen?: boolean}> = ({defaultOpen}
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       {!defaultOpen && (
         <Dialog.Trigger>
-          <RadioCards.Item value="recents">
-            <CounterClockwiseClockIcon />
-            Recents
-          </RadioCards.Item>
+          <Button variant="ghost">
+            Recent Maps
+          </Button>
         </Dialog.Trigger>
       )}
       <DialogContentContainer className="max-w-[50vw]">

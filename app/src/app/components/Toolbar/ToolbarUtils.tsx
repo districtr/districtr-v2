@@ -103,33 +103,7 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.document_id,
       label: 'Lock',
       icon: <LockOpen1Icon />,
-    },
-    {
-      hotkey: 'KeyS',
-      hotKeyLabel: 'S',
-      mode: 'settings',
-      disabled: false,
-      label: 'Settings',
-      icon: <GearIcon />,
-    },
-    {
-      hotkey: 'KeyR',
-      hotKeyLabel: 'R',
-      mode: 'recents',
-      disabled: false,
-      label: 'Recent',
-      icon: <CounterClockwiseClockIcon />,
-    },
-    {
-      hotkey: 'KeyQ',
-      hotKeyLabel: 'Q',
-      mode: 'reset',
-      label: 'Reset',
-      variant: 'outline',
-      disabled: noZonesAreAssigned,
-      color: 'red',
-      icon: <Cross2Icon />,
-    },
+    }
   ];
   return config;
 };

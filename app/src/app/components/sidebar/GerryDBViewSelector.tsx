@@ -35,27 +35,25 @@ export function GerryDBViewSelector() {
   if (isError) return <div>Error loading geographies: {error?.message}</div>;
 
   return (
-    <Flex direction={'row'} width="100%" gap="3" align="center">
-      <Select.Root size="3" onValueChange={handleValueChange} value={selectedView?.name}>
-        <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
-          <Select.Trigger
-            placeholder="Select a geography"
-            style={{flexGrow: 1}}
-            className="mr-1"
-            color="blue"
-          />
-        </Tooltip>
-        <Select.Content>
-          <Select.Group>
-            <Select.Label>Districtr map options</Select.Label>
-            {data?.map((view, index) => (
-              <Select.Item key={index} value={view.name}>
-                {view.name}
-              </Select.Item>
-            ))}
-          </Select.Group>
-        </Select.Content>
-      </Select.Root>
-    </Flex>
+    <Select.Root onValueChange={handleValueChange} value={selectedView?.name}>
+      <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
+        <Select.Trigger
+          placeholder="Select a geography"
+          className="mr-1"
+          color="blue"
+          variant="ghost"
+        />
+      </Tooltip>
+      <Select.Content>
+        <Select.Group>
+          <Select.Label>Districtr map options</Select.Label>
+          {data?.map((view, index) => (
+            <Select.Item key={index} value={view.name}>
+              {view.name}
+            </Select.Item>
+          ))}
+        </Select.Group>
+      </Select.Content>
+    </Select.Root>
   );
 }

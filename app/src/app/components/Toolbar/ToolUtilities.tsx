@@ -15,30 +15,6 @@ const ToolUtilitiesConfig: Record<
   {Component?: () => React.JSX.Element; focused?: boolean}
 > = {
   pan: {},
-  recents: {
-    Component: () => <RecentMapsModal defaultOpen />,
-  },
-  reset: {
-    Component: () => {
-      const handleReset = useMapStore(state => state.handleReset);
-      return (
-        <Flex direction={'column'}>
-          <Text size="2">
-            Are you sure? This will reset all zone assignments and broken geographies. Resetting
-            your map cannot be undone.
-          </Text>
-          <Button variant="solid" color="red" onClick={handleReset}>
-            Reset Map
-          </Button>
-        </Flex>
-      );
-    },
-    focused: true,
-  },
-  settings: {
-    Component: () => <ToolSettings />,
-    focused: true,
-  },
   undo: {
     Component: () => <React.Fragment />,
   },
