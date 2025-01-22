@@ -68,12 +68,7 @@ export const ZoomToUnassigned = () => {
         hasFoundUnassigned={hasFoundUnassigned}
         numFeatures={unassignedFeatureBboxes.length}
       />
-      <Flex
-        direction={"row"}
-        gap="4"
-        align="center"
-
-      >
+      <Flex direction={'row'} gap="4" align="center">
         {unassignedFeatureBboxes.length > 1 && (
           <Flex
             direction="row"
@@ -123,13 +118,11 @@ export const ZoomToUnassigned = () => {
             {`Show ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
           </Button>
         )}
-        {unassignedOverallBbox && (
-          <Tooltip content={`Last update ${lastUpdated}`}>
+        <Tooltip content={`Last update ${lastUpdated}`}>
           <Button onClick={updateUnassignedFeatures} variant="outline" className="block text-wrap">
             <ReloadIcon /> Refresh
           </Button>
-          </Tooltip>
-        )}
+        </Tooltip>
       </Flex>
     </Flex>
   );
@@ -146,11 +139,11 @@ const InfoText: React.FC<{
   if (hasFoundUnassigned && !numFeatures) {
     <Text my="1">No unassigned areas found.</Text>;
   }
-
+  const isPlural = numFeatures > 1 || numFeatures === 0;
   return (
     <Text my="1">
-      There {numFeatures > 1 ? 'are' : 'is'} <b>{numFeatures}</b> unassigned area
-      {numFeatures > 1 ? 's' : ''}.&nbsp;{' '}
+      There {isPlural ? 'are' : 'is'} <b>{numFeatures}</b> unassigned area
+      {isPlural ? 's' : ''}.&nbsp;{' '}
       {unassigned > 0 && (
         <>
           <b>{formatNumber(unassigned, 'string')}</b> population are not yet assigned.
