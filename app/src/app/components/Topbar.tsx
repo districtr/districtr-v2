@@ -25,7 +25,7 @@ export const Topbar: React.FC = () => {
             <DropdownMenu.TriggerIcon />
           </Button>
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content className="max-w-[200px]">
+        <DropdownMenu.Content className="max-w-[300px]">
           <Flex direction={'column'} gap="2" p="2">
             <Heading size="3">Reset Plan</Heading>
             <Text size="2">
@@ -46,7 +46,7 @@ export const Topbar: React.FC = () => {
             <DropdownMenu.TriggerIcon />
           </Button>
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content className="max-w-[200px]">
+        <DropdownMenu.Content className="max-w-[300px]">
           <ToolSettings />
         </DropdownMenu.Content>
       </DropdownMenu.Root>

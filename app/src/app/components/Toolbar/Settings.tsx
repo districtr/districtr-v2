@@ -1,4 +1,4 @@
-import {Heading, CheckboxGroup, Flex} from '@radix-ui/themes';
+import {Heading, CheckboxGroup, Flex, Button} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   COUNTY_LAYER_IDS,
@@ -9,7 +9,26 @@ import {
 } from '../../constants/layers';
 import {toggleLayerVisibility} from '../../utils/helpers';
 import React from 'react';
+import {ToolbarState, useToolbarStore} from '@/app/store/toolbarStore';
 
+const TOOLBAR_SIZES: Array<{label: string; value: ToolbarState['toolbarSize']}> = [
+  {
+    label: 'X-Small',
+    value: '1',
+  },
+  {
+    label: 'Small',
+    value: '2',
+  },
+  {
+    label: 'Medium',
+    value: '3',
+  },
+  {
+    label: 'Large',
+    value: '4',
+  },
+];
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
  * on and off in the map.
@@ -27,6 +46,8 @@ export const ToolSettings: React.FC = () => {
   const parentsAreBroken = useMapStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
+  const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
+  const toolbarSize = useToolbarStore(state => state.toolbarSize);
 
   const toggleLayers = (layerIds: string[]) => {
     if (!mapRef) return;
@@ -131,6 +152,22 @@ export const ToolSettings: React.FC = () => {
           Show tribes and communities
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>
+
+      <Heading as="h3" weight="bold" size="3">
+        Toolbar
+      </Heading>
+      <Flex direction="row" gap="0">
+        {TOOLBAR_SIZES.map(size => (
+          <Button
+            key={size.value}
+            variant={toolbarSize === size.value ? 'solid' : 'outline'}
+            className="rounded-none"
+            onClick={() => setToolbarSize(size.value)}
+          >
+            {size.label}
+          </Button>
+        ))}
+      </Flex>
     </Flex>
   );
 };

@@ -10,12 +10,13 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {ToolUtilities} from '@components/Toolbar/ToolUtilities';
 import {useActiveTools} from '@components/Toolbar/ToolbarUtils';
 
+
 export const Toolbar = () => {
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
-  const {x, y, rotation, setXY, setRotation, setMaxXY} = useToolbarStore(state => state);
+  const {x, y, rotation, setXY, setRotation, setMaxXY, toolbarSize} = useToolbarStore(state => state);
   const [hovered, setHovered] = useState(false);
   const mapRef = useMapStore(state => state.getMapRef());
   const containerRef = mapRef?._canvas;
@@ -129,6 +130,7 @@ export const Toolbar = () => {
               <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
                 <Tooltip.Trigger asChild>
                   <IconButton
+                    size={toolbarSize}
                     key={`${tool.mode}-flex`}
                     className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
                       i === activeTools.length - 1 ? 'rounded-r-lg' : ''
@@ -143,14 +145,12 @@ export const Toolbar = () => {
                       }
                     }}
                     style={{
-                      padding: activeTool === tool.mode ? '0 0' : '.75rem',
                       ...(tool?.iconStyle || {}),
                     }}
                     variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
                     color={tool.color}
                     radius="none"
                     disabled={tool.disabled}
-                    size="3"
                   >
                     {tool.icon}
                   </IconButton>
