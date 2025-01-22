@@ -122,7 +122,7 @@ export const Toolbar = () => {
           align="center"
           ref={toolbarItemsRef}
           direction={rotation === 'horizontal' ? 'row' : 'column'}
-          className="rounded-lg shadow-md overflow-hidden bg-white border-gray-500 border-2"
+          className="shadow-md overflow-hidden bg-white"
         >
           {activeTools.map((tool, i) => (
             <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
@@ -158,7 +158,7 @@ export const Toolbar = () => {
                 <Tooltip.Portal>
                   <Tooltip.Content
                     side={rotation === 'horizontal' ? 'top' : 'right'}
-                    className="select-none rounded bg-white px-2 py-1 text-xs text-center"
+                    className="select-none rounded bg-gray-900 px-2 py-1 text-xs text-center text-white"
                     sideOffset={5}
                   >
                     {!showShortcuts && (
@@ -168,7 +168,7 @@ export const Toolbar = () => {
                       </>
                     )}{' '}
                     ⌨️ {tool.hotKeyLabel}
-                    <Tooltip.Arrow className="fill-white" />
+                    <Tooltip.Arrow className="fill-gray-900" />
                   </Tooltip.Content>
                 </Tooltip.Portal>
               </Tooltip.Root>

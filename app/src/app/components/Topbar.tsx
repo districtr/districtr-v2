@@ -20,7 +20,7 @@ export const Topbar: React.FC = () => {
       <GerryDBViewSelector />
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
-          <Button variant="ghost">
+          <Button variant="ghost" color="ruby">
             Reset Plan
             <DropdownMenu.TriggerIcon />
           </Button>
@@ -33,7 +33,7 @@ export const Topbar: React.FC = () => {
               your map cannot be undone.
             </Text>
             <Button variant="solid" color="red" onClick={handleReset}>
-              Reset Map
+              Reset Plan
             </Button>
           </Flex>
         </DropdownMenu.Content>

@@ -20,7 +20,7 @@ export const useToolbarStore = create(
       setXY: (_x, _y, rectify) => {
         const {maxX, maxY} = get().maxXY;
         const x = rectify ? Math.min(Math.max(_x, 0), maxX || Math.pow(2, 16)) : _x;
-        const y = rectify ? Math.min(Math.max(_y, 0), maxY || Math.pow(2, 16)) : _y;
+        const y = rectify ? Math.min(Math.max(_y, 32), maxY || Math.pow(2, 16)) : _y;
         set({
           x,
           y,
