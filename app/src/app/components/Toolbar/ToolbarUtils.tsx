@@ -1,4 +1,4 @@
-import {IconButtonProps} from '@radix-ui/themes';
+import {IconButtonProps, IconProps} from '@radix-ui/themes';
 import {ActiveTool} from '@constants/types';
 import {useMapStore} from '@/app/store/mapStore';
 import {
@@ -24,7 +24,7 @@ export type ActiveToolConfig = {
   label: string;
   variant?: IconButtonProps['variant'];
   color?: IconButtonProps['color'];
-  icon: React.JSX.Element;
+  icon: React.ForwardRefExoticComponent<IconProps & React.RefAttributes<SVGSVGElement>>;
   iconStyle?: React.CSSProperties;
   onClick?: () => void;
 };
@@ -44,7 +44,7 @@ export const useActiveTools = () => {
       mode: 'pan',
       disabled: !mapDocument?.document_id,
       label: 'Move',
-      icon: <HandIcon />,
+      icon: HandIcon ,
       hotKeyAccessor: (e) => {
         return e.code === 'KeyM'
       }
@@ -54,7 +54,7 @@ export const useActiveTools = () => {
       mode: 'brush',
       disabled: !mapDocument?.document_id,
       label: 'Paint',
-      icon: <Pencil2Icon />,
+      icon: Pencil2Icon,
       hotKeyAccessor: (e) => {
         return e.code === 'KeyP'
       }
@@ -64,7 +64,7 @@ export const useActiveTools = () => {
       mode: 'eraser',
       disabled: !mapDocument?.document_id,
       label: 'Erase',
-      icon: <EraserIcon />,
+      icon: EraserIcon,
       hotKeyAccessor: (e) => {
         return e.code === 'KeyE'
       }
@@ -74,7 +74,7 @@ export const useActiveTools = () => {
       mode: 'undo',
       disabled: pastStates.length === 0,
       label: 'Undo',
-      icon: <ResetIcon />,
+      icon: ResetIcon,
       onClick: () => {
         setIsTemporalAction(true);
         handleUndo();
@@ -89,7 +89,7 @@ export const useActiveTools = () => {
       mode: 'undo',
       disabled: futureStates.length === 0,
       label: 'Redo',
-      icon: <ResetIcon />,
+      icon: ResetIcon,
       iconStyle: {transform: 'rotateY(180deg)'},
       onClick: () => {
         setIsTemporalAction(true);
@@ -105,7 +105,7 @@ export const useActiveTools = () => {
       mode: 'shatter',
       disabled: !mapDocument?.child_layer,
       label: 'Break',
-      icon: <ViewGridIcon />,
+      icon: ViewGridIcon,
       hotKeyAccessor: (e) => {
         return e.code === 'KeyB'
       }
@@ -115,7 +115,7 @@ export const useActiveTools = () => {
       mode: 'lock',
       disabled: !mapDocument?.document_id,
       label: 'Lock',
-      icon: <LockOpen1Icon />,
+      icon: LockOpen1Icon,
       hotKeyAccessor: (e) => {
         return e.code === 'KeyL'
       }

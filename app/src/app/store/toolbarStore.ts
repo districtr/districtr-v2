@@ -9,7 +9,7 @@ export type ToolbarState = {
   maxXY: {maxX: number | null; maxY: number | null};
   setRotation: (rotation: 'horizontal' | 'vertical' | null) => void;
   setMaxXY: (maxX: number, maxY: number) => void;
-  toolbarSize:  "1" | "2" | "3" | "4";
+  toolbarSize:  number;
   setToolbarSize: (size: ToolbarState['toolbarSize']) => void;
 };
 
@@ -37,7 +37,7 @@ export const useToolbarStore = create(
           y: Math.max(Math.min(get().y || 0, maxY), 0),
         });
       },
-      toolbarSize: "3",
+      toolbarSize: 40,
       setToolbarSize: size => set({toolbarSize: size}),
     }),
     {

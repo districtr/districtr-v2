@@ -1,4 +1,4 @@
-import {Heading, CheckboxGroup, Flex, Button} from '@radix-ui/themes';
+import {Heading, CheckboxGroup, Flex, Button, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   COUNTY_LAYER_IDS,
@@ -11,22 +11,22 @@ import {toggleLayerVisibility} from '../../utils/helpers';
 import React from 'react';
 import {ToolbarState, useToolbarStore} from '@/app/store/toolbarStore';
 
-const TOOLBAR_SIZES: Array<{label: string; value: ToolbarState['toolbarSize']}> = [
+const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
   {
     label: 'X-Small',
-    value: '1',
+    value: 20,
   },
   {
     label: 'Small',
-    value: '2',
+    value: 40,
   },
   {
     label: 'Medium',
-    value: '3',
+    value: 60,
   },
   {
     label: 'Large',
-    value: '4',
+    value: 80,
   },
 ];
 /** Layers
@@ -156,6 +156,7 @@ export const ToolSettings: React.FC = () => {
       <Heading as="h3" weight="bold" size="3">
         Toolbar
       </Heading>
+      <Text>Toolbar size:</Text>
       <Flex direction="row" gap="0">
         {TOOLBAR_SIZES.map(size => (
           <Button

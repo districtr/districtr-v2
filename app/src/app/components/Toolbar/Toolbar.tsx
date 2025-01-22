@@ -125,12 +125,12 @@ export const Toolbar = () => {
           direction={rotation === 'horizontal' ? 'row' : 'column'}
           className="shadow-md overflow-hidden bg-white"
         >
-          {activeTools.map((tool, i) => (
-            <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
+          {activeTools.map((tool, i) => {
+            const IconComponent = tool.icon;
+            return <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
               <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
                 <Tooltip.Trigger asChild>
                   <IconButton
-                    size={toolbarSize}
                     key={`${tool.mode}-flex`}
                     className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
                       i === activeTools.length - 1 ? 'rounded-r-lg' : ''
@@ -145,6 +145,8 @@ export const Toolbar = () => {
                       }
                     }}
                     style={{
+                      width: toolbarSize,
+                      height: toolbarSize,
                       ...(tool?.iconStyle || {}),
                     }}
                     variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
@@ -152,7 +154,10 @@ export const Toolbar = () => {
                     radius="none"
                     disabled={tool.disabled}
                   >
-                    {tool.icon}
+                    <IconComponent
+                      width={toolbarSize * 0.5}
+                      height={toolbarSize * 0.5}
+                    />
                   </IconButton>
                 </Tooltip.Trigger>
                 <Tooltip.Portal>
@@ -180,8 +185,8 @@ export const Toolbar = () => {
                   </Tooltip.Content>
                 </Tooltip.Portal>
               </Tooltip.Root>
-            </Tooltip.Provider>
-          ))}
+            </Tooltip.Provider>}
+          )}
         </Flex>
         {hovered && (
           <>

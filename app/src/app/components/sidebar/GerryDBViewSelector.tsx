@@ -42,7 +42,11 @@ export function GerryDBViewSelector() {
           className="mr-1"
           color="blue"
           variant="ghost"
-        />
+        >
+          <Flex align="center">
+            <Text>Map: {selectedView?.name}</Text>
+          </Flex>
+        </Select.Trigger>
       </Tooltip>
       <Select.Content>
         <Select.Group>
