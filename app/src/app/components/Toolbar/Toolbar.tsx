@@ -66,16 +66,16 @@ export const Toolbar = () => {
       // if active element is an input, don't do anything
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
         return;
-      // if command/control held down, don't do anything
-      if (event.metaKey || event.ctrlKey) return;
       // if alt, showShortcuts
       if (event.altKey) {
         setShowShortcuts(true);
       } else {
         setShowShortcuts(false);
       }
-      const tool = activeTools.find(f => f.hotkey === event.code);
+      
+      const tool = activeTools.find(f => f.hotKeyAccessor(event))
       if (tool) {
+        event.preventDefault();
         tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
       }
     };
@@ -167,7 +167,15 @@ export const Toolbar = () => {
                         <br />
                       </>
                     )}{' '}
-                    ⌨️ {tool.hotKeyLabel}
+
+                  {rotation === 'horizontal' ? tool.hotKeyLabel.split(' + ').map((key, i) => (
+                      <span key={i} className="text-xs">
+                        {key}
+                        <br/>
+                      </span>
+                    )) : (
+                      <span className="text-xs">{tool.hotKeyLabel}</span>
+                    )}
                     <Tooltip.Arrow className="fill-gray-900" />
                   </Tooltip.Content>
                 </Tooltip.Portal>

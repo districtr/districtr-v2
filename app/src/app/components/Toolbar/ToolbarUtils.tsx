@@ -17,7 +17,7 @@ import {useCallback} from 'react';
 import {debounce} from 'lodash';
 
 export type ActiveToolConfig = {
-  hotkey: string;
+  hotKeyAccessor: (event: KeyboardEvent) => boolean;
   hotKeyLabel: string;
   mode: ActiveTool;
   disabled?: boolean;
@@ -37,35 +37,40 @@ export const useActiveTools = () => {
   const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);
-
+  const metaKey = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
   const config: ActiveToolConfig[] = [
     {
-      hotkey: 'KeyM',
       hotKeyLabel: 'M',
       mode: 'pan',
       disabled: !mapDocument?.document_id,
       label: 'Move',
       icon: <HandIcon />,
+      hotKeyAccessor: (e) => {
+        return e.code === 'KeyM'
+      }
     },
     {
-      hotkey: 'KeyP',
       hotKeyLabel: 'P',
       mode: 'brush',
       disabled: !mapDocument?.document_id,
       label: 'Paint',
       icon: <Pencil2Icon />,
+      hotKeyAccessor: (e) => {
+        return e.code === 'KeyP'
+      }
     },
     {
-      hotkey: 'KeyE',
       hotKeyLabel: 'E',
       mode: 'eraser',
       disabled: !mapDocument?.document_id,
       label: 'Erase',
       icon: <EraserIcon />,
+      hotKeyAccessor: (e) => {
+        return e.code === 'KeyE'
+      }
     },
     {
-      hotkey: 'KeyZ',
-      hotKeyLabel: 'Z',
+      hotKeyLabel: `${metaKey} + Z`,
       mode: 'undo',
       disabled: pastStates.length === 0,
       label: 'Undo',
@@ -74,10 +79,13 @@ export const useActiveTools = () => {
         setIsTemporalAction(true);
         handleUndo();
       },
+      hotKeyAccessor: (e) => {
+        // command or control Z
+        return (e.metaKey || e.ctrlKey) && !e.shiftKey && e.code === 'KeyZ'
+      }
     },
     {
-      hotkey: 'KeyY',
-      hotKeyLabel: 'Y',
+      hotKeyLabel: `${metaKey} + Shift + Z`,
       mode: 'undo',
       disabled: futureStates.length === 0,
       label: 'Redo',
@@ -87,22 +95,30 @@ export const useActiveTools = () => {
         setIsTemporalAction(true);
         handleRedo();
       },
+      hotKeyAccessor: (e) => {
+        // command or control AND shift + y
+        return (e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyZ'
+      }
     },
     {
-      hotkey: 'KeyB',
       hotKeyLabel: 'B',
       mode: 'shatter',
       disabled: !mapDocument?.child_layer,
       label: 'Break',
       icon: <ViewGridIcon />,
+      hotKeyAccessor: (e) => {
+        return e.code === 'KeyB'
+      }
     },
     {
-      hotkey: 'KeyL',
       hotKeyLabel: 'L',
       mode: 'lock',
       disabled: !mapDocument?.document_id,
       label: 'Lock',
       icon: <LockOpen1Icon />,
+      hotKeyAccessor: (e) => {
+        return e.code === 'KeyL'
+      }
     }
   ];
   return config;
