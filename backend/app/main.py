@@ -332,17 +332,19 @@ async def get_total_population(
                 detail="Population column not found in GerryDB view",
             )
 
-
 @app.get(
     "/api/document/{document_id}/unassigned", response_model=UnassignedBboxGeoJSONs
 )
 async def get_unassigned_geoids(
-    document_id: str, session: Session = Depends(get_session)
+    document_id: str,
+    exclude_ids: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
 ):
-    stmt = text("SELECT * from get_unassigned_bboxes(:doc_uuid)").bindparams(
+    stmt = text("SELECT * from get_unassigned_bboxes(:doc_uuid, :exclude_ids)").bindparams(
         bindparam(key="doc_uuid", type_=UUIDType),
+        bindparam(key="exclude_ids", type_=ARRAY(String)),
     )
-    results = session.execute(stmt, {"doc_uuid": document_id}).fetchall()
+    results = session.execute(stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}).fetchall()
     return {"features": [row[0] for row in results]}
 
 

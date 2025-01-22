@@ -1,5 +1,5 @@
-DROP FUNCTION IF EXISTS get_unassigned_bboxes(doc_uuid uuid);
-CREATE OR REPLACE FUNCTION get_unassigned_bboxes(doc_uuid uuid)
+DROP FUNCTION IF EXISTS get_unassigned_bboxes(doc_uuid uuid, exclude_ids VARCHAR[]);
+CREATE OR REPLACE FUNCTION get_unassigned_bboxes(doc_uuid uuid, exclude_ids VARCHAR[])
 RETURNS TABLE (bbox json) AS $$
 DECLARE
   gerrydb_table text;
@@ -40,7 +40,8 @@ BEGIN
     LEFT JOIN gerrydb.%I parentgeo
       ON ids.geo_id = parentgeo.path
     %s
-    WHERE doc.zone IS NULL',
+    WHERE doc.zone IS NULL
+    AND doc.geo_id NOT IN (SELECT unnest($2))',
     CASE 
       WHEN child_layer IS NOT NULL THEN 'COALESCE(parentgeo.geometry, childgeo.geometry)'
       ELSE 'parentgeo.geometry'
@@ -51,6 +52,6 @@ BEGIN
       WHEN child_layer IS NOT NULL THEN format('LEFT JOIN gerrydb.%I childgeo ON ids.geo_id = childgeo.path', child_layer)
       ELSE ''
     END
-  ) USING doc_uuid;
+  ) USING doc_uuid, exclude_ids;
 END;
 $$ LANGUAGE plpgsql;

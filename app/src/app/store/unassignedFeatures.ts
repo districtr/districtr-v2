@@ -49,7 +49,8 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set,get)
     }
     const unassignedGeometries = await GeometryWorker.getUnassignedGeometries(
       useBackend,
-      mapDocument?.document_id
+      mapDocument?.document_id,
+      Array.from(shatterIds.parents)
     );
 
     set({

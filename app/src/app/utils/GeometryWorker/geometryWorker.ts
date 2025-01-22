@@ -115,10 +115,15 @@ const GeometryWorker: GeometryWorkerClass = {
     const {dissolved, centroids} = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
     return {dissolved, centroids};
   },
-  async getUnassignedGeometries(useBackend = false, documentId?: string) {
+  async getUnassignedGeometries(useBackend = false, documentId?: string, exclude_ids?: string[]) {
     const geomsToDissolve: GeoJSON.Feature[] = [];
     if (useBackend) {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`)
+      console.log('Fetching unassigned geometries from backend');
+      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`);
+      if (exclude_ids?.length) {
+        url.searchParams.append('exclude_ids', exclude_ids.join(','));
+      }
+      await fetch(url)
         .then(r => r.json())
         .then(data =>
           data.features.forEach((geo: GeoJSON.Feature) => geomsToDissolve.push(geo))
@@ -126,7 +131,7 @@ const GeometryWorker: GeometryWorkerClass = {
     } else {
       for (const id in this.geometries) {
         const geom = this.geometries[id];
-        if (geom.properties?.zone == null) {
+        if (!geom.properties?.zone && !exclude_ids?.includes(id)) {
           const featureBbox = bbox(geom);
           geomsToDissolve.push({
             type: 'Feature',

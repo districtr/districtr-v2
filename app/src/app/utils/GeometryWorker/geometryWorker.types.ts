@@ -35,6 +35,10 @@ export type GeometryWorkerClass = {
    */
   removeGeometries: (ids: string[]) => void;
   /**
+   * Clears the collection of geometries.
+   */
+  clearGeometries: () => void;
+  /**
    * Parses geometries and returns their centroids.
    * @param features - The features to parse.
    * @returns The centroids and dissolved outlines of the parsed features.
@@ -62,7 +66,8 @@ export type GeometryWorkerClass = {
    */
   getUnassignedGeometries: (
     useRemote?: boolean,
-    documentId?: string
+    documentId?: string,
+    exclude_ids?: string[]
   ) => Promise<{
     dissolved: GeoJSON.FeatureCollection;
     overall: LngLatBoundsLike | null;
