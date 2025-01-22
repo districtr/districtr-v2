@@ -32,6 +32,7 @@ from app.models import (
     PopulationStatsP1,
     SummaryStatsP4,
     PopulationStatsP4,
+    UnassignedBboxGeoJSONs,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -334,7 +335,9 @@ async def get_total_population(
             )
 
 
-@app.get("/api/document/{document_id}/unassigned")
+@app.get(
+    "/api/document/{document_id}/unassigned", response_model=UnassignedBboxGeoJSONs
+)
 async def get_unassigned_geoids(
     document_id: str, session: Session = Depends(get_session)
 ):
@@ -345,7 +348,7 @@ async def get_unassigned_geoids(
         bindparam(key="doc_uuid", type_=UUIDType),
     )
     results = session.execute(stmt, {"doc_uuid": document_id}).fetchall()
-    return [row[0] for row in results]
+    return {"unassigned": [row[0] for row in results]}
 
 
 @app.get("/api/document/{document_id}/{summary_stat}")

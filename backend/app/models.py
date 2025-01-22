@@ -195,6 +195,10 @@ class AssignedGEOIDS(GEOIDS):
     zone: int | None
 
 
+class UnassignedBboxGeoJSONs(BaseModel):
+    features: list[dict]
+
+
 class ShatterResult(BaseModel):
     parents: GEOIDS
     children: list[Assignments]
