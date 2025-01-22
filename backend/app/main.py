@@ -7,8 +7,6 @@ from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
-import json
-import time
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
@@ -142,7 +140,7 @@ async def create_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Document creation failed",
         )
-    
+
     # partition_name = f'"document.assignments_{doc.document_id}"'
     # # get gerrydb[doc.gerrydb_table]
     # # insert in all values from 'path' from gerrydb[doc.gerrydb_table]
@@ -341,10 +339,7 @@ async def get_total_population(
 async def get_unassigned_geoids(
     document_id: str, session: Session = Depends(get_session)
 ):
-
-    stmt = text(
-        "SELECT * from get_unassigned_bboxes(:doc_uuid)"
-    ).bindparams(
+    stmt = text("SELECT * from get_unassigned_bboxes(:doc_uuid)").bindparams(
         bindparam(key="doc_uuid", type_=UUIDType),
     )
     results = session.execute(stmt, {"doc_uuid": document_id}).fetchall()
