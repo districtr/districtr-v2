@@ -41,6 +41,7 @@ import {queryClient} from '../utils/api/queryClient';
 import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
+import { useUnassignFeaturesStore } from './unassignedFeatures';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -415,6 +416,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           lastSentAssignments.clear();
           setFreshMap(true);
           resetZoneAssignments();
+          useUnassignFeaturesStore.getState().reset();
 
           const upsertMapOnDrawSub = useMapStore.subscribe(
             state => state.zoneAssignments,
