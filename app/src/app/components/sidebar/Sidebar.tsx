@@ -1,32 +1,10 @@
 'use client';
 import React from 'react';
 import DataPanels from './DataPanels';
-import {Box, Flex, Heading, IconButton} from '@radix-ui/themes';
-import {GerryDBViewSelector} from '@components/sidebar/GerryDBViewSelector';
+import {Box, Flex, IconButton} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
-// import {Resizable} from 're-resizable';
 import Draggable from 'react-draggable';
 import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
-
-const HandleIconButton = () => {
-  return (
-    <IconButton
-      variant="classic"
-      color="gray"
-      style={{
-        zIndex: 999,
-        top: '50vh',
-        position: 'fixed',
-        width: '16px',
-        height: '60px',
-        transform: 'translate(-2px, -50%)',
-        cursor: 'ew-resize',
-      }}
-    >
-      <DragHandleHorizontalIcon />
-    </IconButton>
-  );
-};
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
@@ -35,9 +13,10 @@ export default function SidebarComponent() {
   );
   const [hovered, setHovered] = React.useState(false);
   return (
-    <Box
-      p="3"
-      className="z-10 flex-none
+    <div
+      className="
+      p-3
+      z-10 flex-none
       border-t lg:border-t-0
       lg:h-screen
        landscape:border-t-0
@@ -47,6 +26,8 @@ export default function SidebarComponent() {
       shadow-xl
       relative
       overflow-y-auto
+      hidden
+      lg:flex
       "
       style={{width: width, overflow: 'visible'}}
       onMouseEnter={() => setHovered(true)}
@@ -104,6 +85,6 @@ export default function SidebarComponent() {
           </Box>
         </Flex>
       </Box>
-    </Box>
+    </div>
   );
 }

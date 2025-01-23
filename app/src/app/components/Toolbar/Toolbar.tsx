@@ -16,9 +16,9 @@ export const Toolbar = () => {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
   const {
-    x,
-    y,
-    rotation,
+    x: userX,
+    y: userY,
+    rotation: userRotation,
     setXY,
     setRotation,
     setMaxXY,
@@ -34,6 +34,9 @@ export const Toolbar = () => {
   const toolbarItemsRef = useRef<HTMLDivElement | null>(null);
   const previousActiveTool = useRef<ActiveTool | null>(null);
   const activeTools = useActiveTools();
+
+  const [x, y] = customizeToolbar ? [userX, userY] : [defaultX, defaultY];
+  const rotation = customizeToolbar ? userRotation : 'horizontal';
 
   const handleResize = () => {
     if (!containerRef) return;
@@ -96,14 +99,11 @@ export const Toolbar = () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
   }, []);
-  
 
   if (!activeTool) return null;
-  const [xPos, yPos] = customizeToolbar ? [x, y] : [defaultX, defaultY];
-  const direction = customizeToolbar ? rotation : 'horizontal';
   return (
     <Draggable
-      defaultPosition={{x: xPos || 100, y: yPos || 100}}
+      defaultPosition={{x: x || 100, y: y || 100}}
       handle="#handle"
       grid={[10, 10]}
       onStart={() => {
@@ -117,7 +117,7 @@ export const Toolbar = () => {
         setXY(x, y, true);
         setActiveTool(previousActiveTool.current || 'pan');
       }}
-      position={{x: xPos || 100, y: yPos || 100}}
+      position={{x: x || 100, y: y || 100}}
     >
       <div
         className="p-3 w-min absolute z-[1000]"
@@ -131,7 +131,7 @@ export const Toolbar = () => {
           justify={'center'}
           align="center"
           ref={toolbarItemsRef}
-          direction={direction === 'horizontal' ? 'row' : 'column'}
+          direction={rotation === 'horizontal' ? 'row' : 'column'}
           className="shadow-md overflow-hidden bg-white"
         >
           {activeTools.map((tool, i) => {
@@ -164,11 +164,7 @@ export const Toolbar = () => {
                       radius="none"
                       disabled={tool.disabled}
                     >
-                      <IconComponent
-                        width={toolbarSize * 0.4}
-                        height={toolbarSize * 0.4}
-                        {...(tool.iconProps ?? {})}
-                      />
+                      <IconComponent width={toolbarSize * 0.4} height={toolbarSize * 0.4} />
                     </IconButton>
                   </Tooltip.Trigger>
                   <Tooltip.Portal>
