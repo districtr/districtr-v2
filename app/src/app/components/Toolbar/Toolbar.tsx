@@ -155,8 +155,9 @@ export const Toolbar = () => {
                     disabled={tool.disabled}
                   >
                     <IconComponent
-                      width={toolbarSize * 0.5}
-                      height={toolbarSize * 0.5}
+                      width={toolbarSize * 0.4}
+                      height={toolbarSize * 0.4}
+                      {...(tool.iconProps ?? {})}
                     />
                   </IconButton>
                 </Tooltip.Trigger>

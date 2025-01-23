@@ -13,19 +13,19 @@ import {ToolbarState, useToolbarStore} from '@/app/store/toolbarStore';
 
 const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
   {
-    label: 'X-Small',
-    value: 20,
-  },
-  {
     label: 'Small',
-    value: 40,
+    value: 30,
   },
   {
     label: 'Medium',
-    value: 60,
+    value: 40,
   },
   {
     label: 'Large',
+    value: 54,
+  },
+  {
+    label: 'Huge',
     value: 80,
   },
 ];
