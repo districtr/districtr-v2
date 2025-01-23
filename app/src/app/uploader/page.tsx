@@ -11,6 +11,8 @@ export default function Uploader() {
   const [totalRows, setTotalRows] = useState(0);
   const [mapLink, setMapLink] = useState('');
 
+  const ROWS_PER_BATCH = 2000;
+
   const gTable = useMapStore(state => state.mapDocument?.gerrydb_table);
 
   const handleDragOver = (event: React.DragEvent) => {
@@ -36,14 +38,14 @@ export default function Uploader() {
 
           const partialUploadStep = () => {
             const assignments: Assignment[] = [];
-            results.data.slice(rowCursor, rowCursor + 120).forEach(row => {
+            results.data.slice(rowCursor, rowCursor + ROWS_PER_BATCH).forEach(row => {
               if (row.length == 2 && row[1] !== '' && !isNaN(1 * row[1])) {
                 assignments.push({document_id, geo_id: row[0], zone: Number(row[1])});
               }
             });
             patchUpdateAssignments(assignments).then(stepResult => {
               setProgress(rowCursor + assignments.length);
-              rowCursor += 120;
+              rowCursor += ROWS_PER_BATCH;
               if (rowCursor > results.data.length) {
                 setMapLink(document_id);
               } else {
