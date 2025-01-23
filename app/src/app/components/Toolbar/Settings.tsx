@@ -1,4 +1,4 @@
-import {Heading, CheckboxGroup, Flex, Button, Text} from '@radix-ui/themes';
+import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   COUNTY_LAYER_IDS,
@@ -48,6 +48,8 @@ export const ToolSettings: React.FC = () => {
   const setMapOptions = useMapStore(state => state.setMapOptions);
   const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
+  const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
+  const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
 
   const toggleLayers = (layerIds: string[]) => {
     if (!mapRef) return;
@@ -153,22 +155,40 @@ export const ToolSettings: React.FC = () => {
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>
 
-      <Heading as="h3" weight="bold" size="3">
-        Toolbar
-      </Heading>
-      <Text>Toolbar size:</Text>
-      <Flex direction="row" gap="0">
-        {TOOLBAR_SIZES.map(size => (
-          <Button
-            key={size.value}
-            variant={toolbarSize === size.value ? 'solid' : 'outline'}
-            className="rounded-none"
-            onClick={() => setToolbarSize(size.value)}
-          >
-            {size.label}
-          </Button>
-        ))}
-      </Flex>
+      <CheckboxGroup.Root
+        defaultValue={[]}
+        name="toolbar"
+        value={[customizeToolbar ? 'customizeToolbar' : '']}
+      >
+        <Heading as="h3" weight="bold" size="3">
+          Toolbar Options
+        </Heading>
+        <CheckboxGroup.Item
+          value="customizeToolbar"
+          onClick={() => setCustomzieToolbar(!customizeToolbar)}
+        >
+          Enable draggable toolbar
+        </CheckboxGroup.Item>
+      </CheckboxGroup.Root>
+      <Box>
+        <Text size="2" className="p-0">
+          Toolbar size:
+        </Text>
+        <Flex direction="row" gapX="2" wrap="wrap" pt="0">
+          {TOOLBAR_SIZES.map(size => (
+            <Button
+              key={size.value}
+              variant={'ghost'}
+              style={{
+                fontWeight: toolbarSize === size.value ? 'bold' : 'normal',
+              }}
+              onClick={() => setToolbarSize(size.value)}
+            >
+              {size.label}
+            </Button>
+          ))}
+        </Flex>
+      </Box>
     </Flex>
   );
 };

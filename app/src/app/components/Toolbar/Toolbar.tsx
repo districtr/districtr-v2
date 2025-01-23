@@ -10,13 +10,24 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {ToolUtilities} from '@components/Toolbar/ToolUtilities';
 import {useActiveTools} from '@components/Toolbar/ToolbarUtils';
 
-
 export const Toolbar = () => {
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
-  const {x, y, rotation, setXY, setRotation, setMaxXY, toolbarSize} = useToolbarStore(state => state);
+  const {
+    x,
+    y,
+    rotation,
+    setXY,
+    setRotation,
+    setMaxXY,
+    toolbarSize,
+    setDefaultXY,
+    customizeToolbar,
+    defaultX,
+    defaultY,
+  } = useToolbarStore(state => state);
   const [hovered, setHovered] = useState(false);
   const mapRef = useMapStore(state => state.getMapRef());
   const containerRef = mapRef?._canvas;
@@ -36,6 +47,10 @@ export const Toolbar = () => {
       Math.round((width - toolbarWidth) / 10) * 10 - 25,
       Math.round((height - toolbarHeight) / 10) * 10 - 25
     );
+    setDefaultXY(
+      containerRef.getBoundingClientRect().width / 2 - (toolbarWidth || 0) / 2,
+      containerRef.getBoundingClientRect().height - 50
+    );
   };
 
   useLayoutEffect(() => {
@@ -45,20 +60,12 @@ export const Toolbar = () => {
     const observer = new ResizeObserver(handleResize);
     observer.observe(containerRef);
 
-    if (x === null || y === null) {
-      const toolbarWidth = toolbarItemsRef.current?.getBoundingClientRect().width;
-      setXY(
-        containerRef.getBoundingClientRect().width / 2 - (toolbarWidth || 0) / 2,
-        containerRef.getBoundingClientRect().height - 100
-      );
-    }
-
     return () => {
       observer.disconnect();
     };
   }, [mapRef]);
 
-  useLayoutEffect(handleResize, [rotation]);
+  useLayoutEffect(handleResize, [rotation, toolbarSize]);
 
   useEffect(() => {
     // add a listener for option or alt key press and release
@@ -73,8 +80,8 @@ export const Toolbar = () => {
       } else {
         setShowShortcuts(false);
       }
-      
-      const tool = activeTools.find(f => f.hotKeyAccessor(event))
+
+      const tool = activeTools.find(f => f.hotKeyAccessor(event));
       if (tool) {
         event.preventDefault();
         tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
@@ -89,12 +96,14 @@ export const Toolbar = () => {
       document.removeEventListener('keydown', handleKeyPress);
     };
   }, []);
+  
 
   if (!activeTool) return null;
-
+  const [xPos, yPos] = customizeToolbar ? [x, y] : [defaultX, defaultY];
+  const direction = customizeToolbar ? rotation : 'horizontal';
   return (
     <Draggable
-      defaultPosition={{x: x || 100, y: y || 100}}
+      defaultPosition={{x: xPos || 100, y: yPos || 100}}
       handle="#handle"
       grid={[10, 10]}
       onStart={() => {
@@ -108,7 +117,7 @@ export const Toolbar = () => {
         setXY(x, y, true);
         setActiveTool(previousActiveTool.current || 'pan');
       }}
-      position={{x: x || 0, y: y || 0}}
+      position={{x: xPos || 100, y: yPos || 100}}
     >
       <div
         className="p-3 w-min absolute z-[1000]"
@@ -122,74 +131,77 @@ export const Toolbar = () => {
           justify={'center'}
           align="center"
           ref={toolbarItemsRef}
-          direction={rotation === 'horizontal' ? 'row' : 'column'}
+          direction={direction === 'horizontal' ? 'row' : 'column'}
           className="shadow-md overflow-hidden bg-white"
         >
           {activeTools.map((tool, i) => {
             const IconComponent = tool.icon;
-            return <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
-              <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
-                <Tooltip.Trigger asChild>
-                  <IconButton
-                    key={`${tool.mode}-flex`}
-                    className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
-                      i === activeTools.length - 1 ? 'rounded-r-lg' : ''
-                    }`}
-                    onMouseEnter={() => setActiveTooltip(tool.mode)}
-                    onMouseLeave={() => setActiveTooltip(null)}
-                    onClick={() => {
-                      if (tool.onClick) {
-                        tool.onClick();
-                      } else {
-                        setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
-                      }
-                    }}
-                    style={{
-                      width: toolbarSize,
-                      height: toolbarSize,
-                      ...(tool?.iconStyle || {}),
-                    }}
-                    variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
-                    color={tool.color}
-                    radius="none"
-                    disabled={tool.disabled}
-                  >
-                    <IconComponent
-                      width={toolbarSize * 0.4}
-                      height={toolbarSize * 0.4}
-                      {...(tool.iconProps ?? {})}
-                    />
-                  </IconButton>
-                </Tooltip.Trigger>
-                <Tooltip.Portal>
-                  <Tooltip.Content
-                    side={rotation === 'horizontal' ? 'top' : 'right'}
-                    className="select-none rounded bg-gray-900 px-2 py-1 text-xs text-center text-white"
-                    sideOffset={5}
-                  >
-                    {!showShortcuts && (
-                      <>
-                        {tool.label}
-                        <br />
-                      </>
-                    )}{' '}
-
-                  {rotation === 'horizontal' ? tool.hotKeyLabel.split(' + ').map((key, i) => (
-                      <span key={i} className="text-xs">
-                        {key}
-                        <br/>
-                      </span>
-                    )) : (
-                      <span className="text-xs">{tool.hotKeyLabel}</span>
-                    )}
-                    <Tooltip.Arrow className="fill-gray-900" />
-                  </Tooltip.Content>
-                </Tooltip.Portal>
-              </Tooltip.Root>
-            </Tooltip.Provider>}
-          )}
+            return (
+              <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
+                <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
+                  <Tooltip.Trigger asChild>
+                    <IconButton
+                      key={`${tool.mode}-flex`}
+                      className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
+                        i === activeTools.length - 1 ? 'rounded-r-lg' : ''
+                      }`}
+                      onMouseEnter={() => setActiveTooltip(tool.mode)}
+                      onMouseLeave={() => setActiveTooltip(null)}
+                      onClick={() => {
+                        if (tool.onClick) {
+                          tool.onClick();
+                        } else {
+                          setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
+                        }
+                      }}
+                      style={{
+                        width: toolbarSize,
+                        height: toolbarSize,
+                        ...(tool?.iconStyle || {}),
+                      }}
+                      variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
+                      color={tool.color}
+                      radius="none"
+                      disabled={tool.disabled}
+                    >
+                      <IconComponent
+                        width={toolbarSize * 0.4}
+                        height={toolbarSize * 0.4}
+                        {...(tool.iconProps ?? {})}
+                      />
+                    </IconButton>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      side={rotation === 'horizontal' ? 'top' : 'right'}
+                      className="select-none rounded bg-gray-900 px-2 py-1 text-xs text-center text-white"
+                      sideOffset={5}
+                    >
+                      {!showShortcuts && (
+                        <>
+                          {tool.label}
+                          <br />
+                        </>
+                      )}{' '}
+                      {rotation === 'horizontal' ? (
+                        tool.hotKeyLabel.split(' + ').map((key, i) => (
+                          <span key={i} className="text-xs">
+                            {key}
+                            <br />
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs">{tool.hotKeyLabel}</span>
+                      )}
+                      <Tooltip.Arrow className="fill-gray-900" />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
+              </Tooltip.Provider>
+            );
+          })}
         </Flex>
-        {hovered && (
+        {hovered && customizeToolbar && (
           <>
             <IconButton
               id="handle"

@@ -49,11 +49,19 @@ export const MapComponent: React.FC = () => {
       center: MAP_OPTIONS.center,
       zoom: MAP_OPTIONS.zoom,
       maxZoom: MAP_OPTIONS.maxZoom,
+      pitchWithRotate: false,
+      maxPitch: 0,
+      minPitch: 0,
+      dragRotate: false,
     });
 
     fitMapToBounds();
     handleWheelOrPinch({} as TouchEvent, map.current);
-    map.current.addControl(new maplibregl.NavigationControl());
+    map.current.addControl(new maplibregl.NavigationControl({
+      showCompass: false,
+      showZoom: true
+    }),
+    'bottom-right');
 
     map.current.on('load', () => {
       setMapRef(map);

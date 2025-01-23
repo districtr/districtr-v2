@@ -23,7 +23,7 @@ const DialogContentContainer = styled(Dialog.Content, {
   maxHeight: 'calc(100vh-2rem)',
 });
 
-export const RecentMapsModal: React.FC<{defaultOpen?: boolean}> = ({defaultOpen}) => {
+export const RecentMapsModal: React.FC<{open?: boolean, onClose?: () => void, showTrigger?: boolean}> = ({open, onClose, showTrigger}) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -32,7 +32,12 @@ export const RecentMapsModal: React.FC<{defaultOpen?: boolean}> = ({defaultOpen}
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const setActiveTool = useMapStore(store => store.setActiveTool);
-  const [dialogOpen, setDialogOpen] = React.useState(defaultOpen || false);
+  const [dialogOpen, setDialogOpen] = React.useState(open || false);
+
+  useEffect(() => {
+    setDialogOpen(open || false);
+  }, [open]);
+
   const clear = useTemporalStore(store => store.clear);
 
   const handleMapDocument = (data: NamedDocumentObject) => {
@@ -50,13 +55,14 @@ export const RecentMapsModal: React.FC<{defaultOpen?: boolean}> = ({defaultOpen}
       setActiveTool('pan');
     }
   }, [dialogOpen]);
+
   if (!userMaps?.length) {
     return null;
   }
 
   return (
-    <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
-      {!defaultOpen && (
+    <Dialog.Root open={dialogOpen} onOpenChange={isOpen => isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen) }>
+      {!!showTrigger && (
         <Dialog.Trigger>
           <Button variant="ghost">
             Recent Maps
