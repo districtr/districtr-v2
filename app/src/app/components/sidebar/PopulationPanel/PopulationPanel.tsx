@@ -1,4 +1,4 @@
-import {CheckboxGroup, Flex, Heading, IconButton, Text, TextField} from '@radix-ui/themes';
+import {Flex, Heading, Text} from '@radix-ui/themes';
 import React, {useMemo} from 'react';
 import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
@@ -17,8 +17,6 @@ export const PopulationPanel = () => {
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const setChartOptions = useChartStore(state => state.setChartOptions);
-  const mapOptions = useMapStore(state => state.mapOptions);
-  const setMapOptions = useMapStore(state => state.setMapOptions);
   const totPop = useMapStore(state => state.summaryStats.totpop?.data?.total);
 
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones

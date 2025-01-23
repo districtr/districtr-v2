@@ -37,7 +37,7 @@ export const useActiveTools = () => {
   const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);
-  const metaKey = navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
+  const metaKey = typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
   const config: ActiveToolConfig[] = [
     {
       hotKeyLabel: 'M',
