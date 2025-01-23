@@ -104,7 +104,6 @@ export const MapComponent: React.FC = () => {
 
   return (
     <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
-      <Toolbar />
       <Topbar />
       <div
         className={`relative w-full flex-1 flex-grow
@@ -113,6 +112,7 @@ export const MapComponent: React.FC = () => {
         `}
         ref={mapContainer}
       />
+      <Toolbar />
       <MapLockShade />
       <MapTooltip />
     </div>

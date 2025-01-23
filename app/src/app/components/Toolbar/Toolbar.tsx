@@ -27,6 +27,8 @@ export const Toolbar = () => {
     customizeToolbar,
     defaultX,
     defaultY,
+    setIsMobile,
+    isMobile,
   } = useToolbarStore(state => state);
   const [hovered, setHovered] = useState(false);
   const mapRef = useMapStore(state => state.getMapRef());
@@ -38,7 +40,7 @@ export const Toolbar = () => {
   const [x, y] = customizeToolbar ? [userX, userY] : [defaultX, defaultY];
   const rotation = customizeToolbar ? userRotation : 'horizontal';
 
-  const handleResize = () => {
+  const handleContainerResize = () => {
     if (!containerRef) return;
     const {width, height} = containerRef.getBoundingClientRect() || {
       width: 0,
@@ -51,16 +53,17 @@ export const Toolbar = () => {
       Math.round((height - toolbarHeight) / 10) * 10 - 25
     );
     setDefaultXY(
-      containerRef.getBoundingClientRect().width / 2 - (toolbarWidth || 0) / 2,
+      containerRef.getBoundingClientRect().width / 2 - (toolbarWidth ?? 0) / 2,
       containerRef.getBoundingClientRect().height - 50
     );
+    setIsMobile(containerRef?.clientWidth < (activeTools.length * toolbarSize) * 2);
   };
 
   useLayoutEffect(() => {
     // listen for whenever containerRef changes size
     if (!containerRef) return;
-    handleResize();
-    const observer = new ResizeObserver(handleResize);
+    handleContainerResize();
+    const observer = new ResizeObserver(handleContainerResize);
     observer.observe(containerRef);
 
     return () => {
@@ -68,7 +71,7 @@ export const Toolbar = () => {
     };
   }, [mapRef]);
 
-  useLayoutEffect(handleResize, [rotation, toolbarSize]);
+  useLayoutEffect(handleContainerResize, [rotation, toolbarSize]);
 
   useEffect(() => {
     // add a listener for option or alt key press and release
@@ -103,7 +106,8 @@ export const Toolbar = () => {
   if (!activeTool) return null;
   return (
     <Draggable
-      defaultPosition={{x: x || 100, y: y || 100}}
+      defaultPosition={isMobile ? {x: 0, y: 0} : {x: x || 100, y: y || 100}}
+      position={isMobile ? {x: 0, y: 0} : {x: x || 100, y: y || 100}}
       handle="#handle"
       grid={[10, 10]}
       onStart={() => {
@@ -117,86 +121,20 @@ export const Toolbar = () => {
         setXY(x, y, true);
         setActiveTool(previousActiveTool.current || 'pan');
       }}
-      position={{x: x || 100, y: y || 100}}
     >
       <div
-        className="p-3 w-min absolute z-[1000]"
+        className={`w-full z-[1000] ${!isMobile && 'absolute w-min p-3'}`}
         style={{
           opacity: x === null || y === null ? 0 : 1,
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <Flex
-          justify={'center'}
-          align="center"
-          ref={toolbarItemsRef}
-          direction={rotation === 'horizontal' ? 'row' : 'column'}
-          className="shadow-md overflow-hidden bg-white"
-        >
-          {activeTools.map((tool, i) => {
-            const IconComponent = tool.icon;
-            return (
-              <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
-                <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
-                  <Tooltip.Trigger asChild>
-                    <IconButton
-                      key={`${tool.mode}-flex`}
-                      className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
-                        i === activeTools.length - 1 ? 'rounded-r-lg' : ''
-                      }`}
-                      onMouseEnter={() => setActiveTooltip(tool.mode)}
-                      onMouseLeave={() => setActiveTooltip(null)}
-                      onClick={() => {
-                        if (tool.onClick) {
-                          tool.onClick();
-                        } else {
-                          setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
-                        }
-                      }}
-                      style={{
-                        width: toolbarSize,
-                        height: toolbarSize,
-                        ...(tool?.iconStyle || {}),
-                      }}
-                      variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
-                      color={tool.color}
-                      radius="none"
-                      disabled={tool.disabled}
-                    >
-                      <IconComponent width={toolbarSize * 0.4} height={toolbarSize * 0.4} />
-                    </IconButton>
-                  </Tooltip.Trigger>
-                  <Tooltip.Portal>
-                    <Tooltip.Content
-                      side={rotation === 'horizontal' ? 'top' : 'right'}
-                      className="select-none rounded bg-gray-900 px-2 py-1 text-xs text-center text-white"
-                      sideOffset={5}
-                    >
-                      {!showShortcuts && (
-                        <>
-                          {tool.label}
-                          <br />
-                        </>
-                      )}{' '}
-                      {rotation === 'horizontal' ? (
-                        tool.hotKeyLabel.split(' + ').map((key, i) => (
-                          <span key={i} className="text-xs">
-                            {key}
-                            <br />
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-xs">{tool.hotKeyLabel}</span>
-                      )}
-                      <Tooltip.Arrow className="fill-gray-900" />
-                    </Tooltip.Content>
-                  </Tooltip.Portal>
-                </Tooltip.Root>
-              </Tooltip.Provider>
-            );
-          })}
-        </Flex>
+        <Tools
+          showShortcuts={showShortcuts}
+          isMobile={isMobile}
+          toolbarItemsRef={toolbarItemsRef}
+        />
         {hovered && customizeToolbar && (
           <>
             <IconButton
@@ -233,8 +171,100 @@ export const Toolbar = () => {
           </>
         )}
 
-        <ToolUtilities />
+        <ToolUtilities isMobile={isMobile} />
       </div>
     </Draggable>
+  );
+};
+
+const Tools: React.FC<{
+  showShortcuts: boolean;
+  toolbarItemsRef: React.RefObject<HTMLDivElement>;
+  isMobile?: boolean;
+}> = ({showShortcuts, isMobile, toolbarItemsRef}) => {
+  const activeTool = useMapStore(state => state.activeTool);
+  const setActiveTool = useMapStore(state => state.setActiveTool);
+  const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
+  const {rotation: userRotation, customizeToolbar, toolbarSize} = useToolbarStore(state => state);
+  const activeTools = useActiveTools();
+  const rotation = customizeToolbar ? userRotation : 'horizontal';
+
+  return (
+    <Flex
+      justify={'center'}
+      align="center"
+      ref={toolbarItemsRef}
+      direction={rotation === 'horizontal' ? 'row' : 'column'}
+      className="shadow-md overflow-hidden bg-white"
+      width="100%"
+    >
+      {activeTools.map((tool, i) => {
+        const IconComponent = tool.icon;
+        return (
+          <Tooltip.Provider key={`toolbar-tooltip-${i}`}>
+            <Tooltip.Root open={showShortcuts || activeTooltip === tool.mode || undefined}>
+              <Tooltip.Trigger
+                asChild
+                style={{
+                  flexGrow: isMobile ? 1 : undefined,
+                }}
+              >
+                <IconButton
+                  key={`${tool.mode}-flex`}
+                  className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
+                    i === activeTools.length - 1 ? 'rounded-r-lg' : ''
+                  }`}
+                  onMouseEnter={() => setActiveTooltip(tool.mode)}
+                  onMouseLeave={() => setActiveTooltip(null)}
+                  onClick={() => {
+                    if (tool.onClick) {
+                      tool.onClick();
+                    } else {
+                      setActiveTool(activeTool === tool.mode ? 'pan' : tool.mode);
+                    }
+                  }}
+                  style={{
+                    width: toolbarSize,
+                    height: toolbarSize,
+                    ...(tool?.iconStyle || {}),
+                  }}
+                  variant={tool.variant || activeTool === tool.mode ? 'solid' : 'surface'}
+                  color={tool.color}
+                  radius="none"
+                  disabled={tool.disabled}
+                >
+                  <IconComponent width={toolbarSize * 0.4} height={toolbarSize * 0.4} />
+                </IconButton>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  side={rotation === 'horizontal' ? 'top' : 'right'}
+                  className="select-none rounded bg-gray-900 px-2 py-1 text-xs text-center text-white"
+                  sideOffset={5}
+                >
+                  {!showShortcuts && (
+                    <>
+                      {tool.label}
+                      <br />
+                    </>
+                  )}{' '}
+                  {rotation === 'horizontal' ? (
+                    tool.hotKeyLabel.split(' + ').map((key, i) => (
+                      <span key={i} className="text-xs">
+                        {key}
+                        <br />
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs">{tool.hotKeyLabel}</span>
+                  )}
+                  <Tooltip.Arrow className="fill-gray-900" />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+        );
+      })}
+    </Flex>
   );
 };

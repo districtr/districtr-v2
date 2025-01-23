@@ -39,7 +39,11 @@ const ToolUtilitiesConfig: Record<
   },
 };
 
-export const ToolUtilities: React.FC = () => {
+export const ToolUtilities: React.FC<{
+  isMobile?: boolean;
+}> = ({
+  isMobile
+}) => {
   const {Component} = useMapStore(state => ToolUtilitiesConfig[state.activeTool] || {});
   const {x, y, maxXY, rotation, customizeToolbar} = useToolbarStore();
   const isHorizontal = !customizeToolbar || rotation === 'horizontal';
@@ -49,7 +53,9 @@ export const ToolUtilities: React.FC = () => {
   useLayoutEffect(() => {
     const bbox = ContainerRef?.current?.getBoundingClientRect?.();
     if (bbox === undefined || y === null || x === null || maxXY === null) return;
-    if (rotation === 'horizontal') {
+    if (isMobile) {
+      setShouldFlip(false);
+    } else if (rotation === 'horizontal') {
       const midPoint = maxXY.maxY ? maxXY.maxY / 2 : 0;
       setShouldFlip(y < midPoint);
     } else {
