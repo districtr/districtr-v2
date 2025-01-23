@@ -21,7 +21,7 @@ export default function SidebarComponent() {
       lg:h-screen
        landscape:border-t-0
       landscape:h-screen landscape:w-[40vw]
-      border-l-2
+      border-l-[1px]
       border-gray-500
       shadow-xl
       relative

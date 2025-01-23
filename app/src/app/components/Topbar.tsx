@@ -41,7 +41,7 @@ export const Topbar: React.FC = () => {
     <>
       <Flex
         dir="row"
-        className="border-b-2 border-gray-500 shadow-xl p-1 pl-5 pr-2 relative"
+        className="border-b-[1px] border-gray-500 shadow-xl p-1 pl-5 pr-2 relative"
         gap="4"
         align={'center'}
         justify={'between'}
@@ -111,8 +111,7 @@ export const Topbar: React.FC = () => {
         </Flex>
         {settingsOpen && (
           <Box
-            className="absolute right-[-2px] top-full max-w-64 w-[50vw] z-10 bg-white p-4 border-gray-500 border-2 max-h-[50vh] overflow-y-auto overflow-x-hidden"
-            style={{}}
+            className="absolute right-[-1px] top-full max-w-64 w-[50vw] z-10 bg-white p-4 border-gray-500 border-[1px] max-h-[50vh] overflow-y-auto overflow-x-hidden"
           >
             <ToolSettings />
           </Box>
