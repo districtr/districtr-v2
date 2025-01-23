@@ -16,6 +16,8 @@ export type ToolbarState = {
   setToolbarSize: (size: ToolbarState['toolbarSize']) => void;
   customizeToolbar: boolean;
   setCustomzieToolbar: (customize: boolean) => void;
+  isMobile: boolean;
+  setIsMobile: (isMobile: boolean) => void;
 };
 
 export const useToolbarStore = create(
@@ -25,6 +27,8 @@ export const useToolbarStore = create(
       y: null,
       defaultX: null,
       defaultY: null,
+      isMobile: false,
+      setIsMobile: isMobile => set({isMobile}),
       rotation: 'horizontal',
       setXY: (_x, _y, rectify) => {
         const {maxX, maxY} = get().maxXY;
@@ -57,6 +61,14 @@ export const useToolbarStore = create(
     }),
     {
       name: 'toolbarStore',
+      // @ts-ignore
+      partialize: state => ({
+        x: state.x,
+        y: state.y,
+        rotation: state.rotation,
+        toolbarSize: state.toolbarSize,
+        customizeToolbar: state.customizeToolbar,
+      }),
     }
   )
 );
