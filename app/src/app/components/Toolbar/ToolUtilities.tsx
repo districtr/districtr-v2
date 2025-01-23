@@ -41,8 +41,8 @@ const ToolUtilitiesConfig: Record<
 
 export const ToolUtilities: React.FC = () => {
   const {Component} = useMapStore(state => ToolUtilitiesConfig[state.activeTool] || {});
-  const {x, y, maxXY, rotation} = useToolbarStore();
-  const isHorizontal = rotation === 'horizontal';
+  const {x, y, maxXY, rotation, customizeToolbar} = useToolbarStore();
+  const isHorizontal = !customizeToolbar || rotation === 'horizontal';
   const ContainerRef = useRef<HTMLDivElement | null>(null);
   const [shouldFlip, setShouldFlip] = useState(false);
 
@@ -63,23 +63,19 @@ export const ToolUtilities: React.FC = () => {
   }
 
   return (
-    <Card
+    <div
       ref={ContainerRef}
       style={{
-        width: 'calc(100% - 20px)',
-        minWidth: 'max(20vw, 300px)',
-        position: 'absolute',
         bottom: isHorizontal ? (shouldFlip ? undefined : '100%') : undefined,
         top: isHorizontal ? (shouldFlip ? '100%' : undefined) : '10px',
-        left: isHorizontal ? '10px' : shouldFlip ? 'undefined' : '100%',
+        left: isHorizontal ? '0' : shouldFlip ? 'undefined' : '100%',
         right: isHorizontal ? 0 : shouldFlip ? '100%' : undefined,
-        padding: '20px',
-        overflow: 'hidden',
+        minWidth: isHorizontal ? '100%' : 'min(20rem, 30vw)',
       }}
-      className="bg-white shadow-sm border-gray-500 border-2 w-auto absolute p-0"
+      className="bg-white shadow-sm border-[1px] border-gray-500 w-full absolute p-4 overflow-hidden"
     >
       <Component />
       <ExitBlockViewButtons />
-    </Card>
+    </div>
   );
 };
