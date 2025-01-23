@@ -507,7 +507,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             document_id
           });
           const children = shatterMappings[parentsToHeal[0]];
-          children.forEach(child => {
+          children?.forEach(child => {
             // remove from allPainted
             allPainted.delete(child);
           })
