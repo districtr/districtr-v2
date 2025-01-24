@@ -45,7 +45,7 @@ export const ColorPicker = <T extends boolean>({
           }}
         >
           {!!mapDocument &&
-            colorArray.slice(0, mapDocument.num_districts ?? 0).map((color, i) => (
+            colorArray.slice(0, mapDocument.num_districts ?? 4).map((color, i) => (
               <CheckboxGroupItem
                 key={i}
                 // @ts-ignore Correct behavior, global CSS variables need to be extended
@@ -71,7 +71,7 @@ export const ColorPicker = <T extends boolean>({
         defaultValue={colorArray[defaultValue]}
       >
         {!!mapDocument &&
-          colorArray.slice(0, mapDocument.num_districts ?? 0).map((color, i) => (
+          colorArray.slice(0, mapDocument.num_districts ?? 4).map((color, i) => (
             <RadioGroupItem key={i} style={{backgroundColor: color}} value={color}>
               <RadioGroupIndicator />
             </RadioGroupItem>

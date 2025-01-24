@@ -195,6 +195,7 @@ export const PopulationChart: React.FC<{
                   yScale,
                   entry,
                   maxPop,
+                  idealPopulation,
                   index,
                   barHeight,
                   isHovered,

@@ -1,4 +1,4 @@
-import {Flex, Heading, IconButton, Text, TextField} from '@radix-ui/themes';
+import {CheckboxGroup, Flex, Heading, IconButton, Text, TextField} from '@radix-ui/themes';
 import React, {useMemo} from 'react';
 import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
@@ -8,6 +8,7 @@ import {useMapStore} from '@store/mapStore';
 import {calculateMinMaxRange} from '@utils/zone-helpers';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
+import { getEntryTotal } from '@/app/utils/summaryStats';
 
 export const PopulationPanel = () => {
   const mapMetrics = useChartStore(state => state.mapMetrics);
@@ -17,14 +18,21 @@ export const PopulationPanel = () => {
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const setChartOptions = useChartStore(state => state.setChartOptions);
+  const mapOptions = useMapStore(state => state.mapOptions);
+  const setMapOptions = useMapStore(state => state.setMapOptions);
+  const totalPopData = useMapStore(state => state.summaryStats.totpop?.data);
+  const totPop = getEntryTotal(totalPopData || {})
+
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
-  const {chartData, stats} = useMemo(() => {
-    if (mapMetrics && mapMetrics.data && numDistricts) {
+  const {chartData, stats, unassigned} = useMemo(() => {
+    let unassigned = structuredClone(totPop)
+    if (mapMetrics && mapMetrics.data && numDistricts && totPop) {
       const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
         (acc, district) => {
           const totalPop = mapMetrics.data.reduce((acc, entry) => {
             return entry.zone === district ? acc + entry.total_pop : acc;
           }, 0);
+          unassigned -= totalPop;
           return [...acc, {zone: district, total_pop: totalPop}];
         },
         [] as Array<{zone: number; total_pop: number}>
@@ -34,16 +42,18 @@ export const PopulationPanel = () => {
       return {
         stats,
         chartData,
+        unassigned
       };
     } else {
       return {
         stats: undefined,
         chartData: [],
+        unassigned:0
       };
     }
-  }, [mapMetrics]);
+  }, [mapMetrics, totalPopData, numDistricts]);
 
-  if (mapMetrics?.isPending) {
+  if (mapMetrics?.isPending || !totalPopData) {
     return <div>Loading...</div>;
   }
 
@@ -66,12 +76,16 @@ export const PopulationPanel = () => {
   }
 
   return (
-    <Flex gap="3" direction="column">
+    <Flex gap="0" direction="column">
       <Flex direction="row" gap={'2'} align="center">
         <Heading as="h3" size="3">
           Total population by district
         </Heading>
-        <PopulationPanelOptions chartOptions={chartOptions} setChartOptions={setChartOptions} />
+        <PopulationPanelOptions
+          chartOptions={chartOptions}
+          setChartOptions={setChartOptions}
+          idealPopulation={idealPopulation}
+        />
       </Flex>
       <ParentSize
         style={{
@@ -93,7 +107,9 @@ export const PopulationPanel = () => {
         <Flex direction={'row'} justify={'between'} align={'start'}>
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
             <Text>Ideal Population</Text>
-            <Text weight={'bold'}>{formatNumber(idealPopulation, 'string')}</Text>
+            <Text weight={'bold'} className="mb-2">{formatNumber(idealPopulation, 'string')}</Text>
+            <Text>Unassigned</Text>
+            <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>
           </Flex>
 
           <Text>
@@ -110,68 +126,39 @@ export const PopulationPanel = () => {
           </Text>
         </Flex>
       )}
-      {!!idealPopulation && (
-        <Flex direction="row" align="start" gapX="2" pt="2">
-          <Text>
-            Target deviation from ideal
-            <InfoTip tips="maxDeviation" />
-          </Text>
-          <Flex direction="row" align="center" gapX="2" flexGrow={'1'}>
-            <Flex direction="column" flexGrow={'1'}>
-              <TextField.Root
-                placeholder="% Deviation"
-                type="number"
-                max={100}
-                step={0.1}
-                value={chartOptions.popTargetPopDeviationPct || undefined}
-                onChange={e => {
-                  if (e.target.value === '') {
-                    setChartOptions({
-                      popTargetPopDeviation: undefined,
-                      popTargetPopDeviationPct: undefined,
-                    });
-                  } else {
-                    const value = Math.max(0, +e.target.value);
-                    setChartOptions({
-                      popTargetPopDeviation: Math.round((value / 100) * idealPopulation),
-                      popTargetPopDeviationPct: value,
-                    });
-                  }
-                }}
-              >
-                <TextField.Slot side="right">
-                  <IconButton size="1" variant="ghost">
-                    %
-                  </IconButton>
-                </TextField.Slot>
-              </TextField.Root>
-              <Text size="1">Percent</Text>
-            </Flex>
-            <Flex direction="column" flexGrow={'1'}>
-              <TextField.Root
-                placeholder="Pop Deviation"
-                type="number"
-                value={chartOptions.popTargetPopDeviation || undefined}
-                onChange={e => {
-                  if (e.target.value === '') {
-                    setChartOptions({
-                      popTargetPopDeviation: undefined,
-                      popTargetPopDeviationPct: undefined,
-                    });
-                  } else {
-                    const value = Math.max(0, +e.target.value);
-                    setChartOptions({
-                      popTargetPopDeviation: value,
-                      popTargetPopDeviationPct: Math.round((value / idealPopulation) * 10000) / 100,
-                    });
-                  }
-                }}
-              ></TextField.Root>
-              <Text size="1">Population</Text>
-            </Flex>
-          </Flex>
-        </Flex>
-      )}
+      <CheckboxGroup.Root
+        defaultValue={[]}
+        name="districts"
+        value={[
+          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
+          mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
+        ]}
+      >
+        <hr className="my-2"/>
+      <Heading as="h3" weight="bold" size="3">
+        Map Options
+      </Heading>
+        <CheckboxGroup.Item
+          value="higlightUnassigned"
+          onClick={() =>
+            setMapOptions({
+              higlightUnassigned: !mapOptions.higlightUnassigned,
+            })
+          }
+        >
+          Highlight unassigned units
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item
+          value="showPopulationTooltip"
+          onClick={() =>
+            setMapOptions({
+              showPopulationTooltip: !mapOptions.showPopulationTooltip,
+            })
+          }
+        >
+          Show population tooltip
+        </CheckboxGroup.Item>
+      </CheckboxGroup.Root>
     </Flex>
   );
 };

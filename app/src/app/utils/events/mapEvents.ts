@@ -52,7 +52,7 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @param map - Map | null, the maplibre map instance
  */
-export const handleMapClick = (
+export const handleMapClick = throttle((
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
@@ -87,7 +87,7 @@ export const handleMapClick = (
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
-};
+}, 25);
 
 export const handleMapMouseUp = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
@@ -141,8 +141,10 @@ export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
-  useTooltipStore.getState().setTooltip(null);
+  setTimeout(() => {
+    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY)
+    useTooltipStore.getState().setTooltip(null);
+  }, 250);
   useMapStore.getState().setIsPainting(false);
 };
 
@@ -150,8 +152,10 @@ export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
-  useTooltipStore.getState().setTooltip(null);
+  setTimeout(() => {
+    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY)
+    useTooltipStore.getState().setTooltip(null);
+  }, 250);
   useMapStore.getState().setIsPainting(false);
 };
 
@@ -276,7 +280,7 @@ export const handleIdCache = (
 ) => {
   const e = _e as any
   const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
-  
+
   if (
     !tiles_s3_path ||
     !parent_layer ||
@@ -289,7 +293,7 @@ export const handleIdCache = (
   const tileData = e.tile.latestFeatureIndex;
 
   if (!tileData) return
-  
+
   const index = `${tileData.x}-${tileData.y}-${tileData.z}`
   if (parentIdCache.hasCached(index)) return
   const featureArray: MinGeoJSONFeature[] = []

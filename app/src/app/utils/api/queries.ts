@@ -21,7 +21,7 @@ import {useChartStore} from '@/app/store/chartStore';
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
 
-export const mapMetrics = new QueryObserver<ZonePopulation[]>(queryClient, {
+export const mapMetrics = new QueryObserver<{data: ZonePopulation[]; hash: string}>(queryClient, {
   queryKey: ['_zonePopulations'],
   queryFn: skipToken,
 });
@@ -34,7 +34,21 @@ export const updateMapMetrics = (mapDocument: DocumentObject) => {
 };
 
 mapMetrics.subscribe(result => {
-  useChartStore.getState().setMapMetrics(result);
+  // don't load the result if:
+  // no data
+  // if the query is currently fetching
+  // hash is stale, but not the initial hash
+  if (
+    result?.data?.data &&
+    !result.isFetching &&
+    (useMapStore.getState().lastUpdatedHash === result.data?.hash || result?.data.hash == '')
+  ) {
+    useChartStore.getState().setMapMetrics({
+      ...result,
+      // @ts-ignore data is not undefined
+      data: result.data.data,
+    });
+  }
 });
 
 export const mapViewsQuery = new QueryObserver<DistrictrMap[]>(queryClient, {
@@ -108,7 +122,7 @@ updateDocumentFromId.subscribe(mapDocument => {
     url.searchParams.delete('document_id');
     window.history.replaceState({}, document.title, url.toString());
   }
-  if (mapDocument.data) {
+  if (mapDocument.data && mapDocument.data.document_id !== useMapStore.getState().loadedMapId) {
     useMapStore.getState().setMapDocument(mapDocument.data);
   }
 });
@@ -127,7 +141,19 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    useMapStore.getState().loadZoneAssignments(assignments.data);
+    const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
+    if (assignments.data?.length && assignments.data[0].document_id === loadedMapId) {
+      console.log(
+        'Map already loaded, skipping assignment load',
+        assignments.data[0].document_id,
+        loadedMapId
+      );
+    } else {
+      fetchTotPop.refetch();
+      loadZoneAssignments(assignments.data);
+      useMapStore.temporal.getState().clear();
+    }
+    setAppLoadingState('loaded');
   }
 });
 
