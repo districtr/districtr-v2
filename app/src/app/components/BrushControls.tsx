@@ -1,12 +1,9 @@
 import {useMapStore} from '../store/mapStore';
 import {BrushSizeSelector} from './Toolbar/BrushSizeSelector';
-import {MobileColorPicker} from './Toolbar/MobileColorPicker';
 import PaintByCounty from './Toolbar/PaintByCounty';
 import {ZonePicker} from './Toolbar/ZonePicker';
-
 export const BrushControls = () => {
   const activeTool = useMapStore(state => state.activeTool);
-
   return (
     <div className="gap-0 flex flex-col justify-around min-w-60">
       <div className="flex-grow">

@@ -1,22 +1,9 @@
 import {Slider, Flex, Heading, Text, IconButton} from '@radix-ui/themes';
-import {useMapStore} from '../../store/mapStore';
-import { MinusIcon, PlusIcon } from '@radix-ui/react-icons';
-import { useEffect } from 'react';
-import { debounce } from 'lodash';
+import {useMapStore} from '@store/mapStore';
+import {MinusIcon, PlusIcon} from '@radix-ui/react-icons';
+import {useEffect} from 'react';
 const BRUSH_MIN_SIZE = 1;
 const BRUSH_MAX_SIZE = 100;
-
-const handlePlusMinus = (change: number) => {
-  const {brushSize, setBrushSize} = useMapStore.getState();
-  let newValue = brushSize + change;
-  if (newValue > BRUSH_MAX_SIZE) {
-    newValue = BRUSH_MAX_SIZE;
-  } else if (newValue < BRUSH_MIN_SIZE) {
-    newValue = BRUSH_MIN_SIZE;
-  }
-  setBrushSize(newValue);
-}
-
 /**
  * BrushSizeSelector
  * Note: right now the brush size is an arbitrary value between
@@ -32,6 +19,15 @@ export function BrushSizeSelector() {
 
   const handleChangeEnd = (value: Array<number>) => {
     setBrushSize(value.length ? value[0] : 0);
+  };
+  const handlePlusMinus = (change: number) => {
+    let newValue = brushSize + change;
+    if (newValue > BRUSH_MAX_SIZE) {
+      newValue = BRUSH_MAX_SIZE;
+    } else if (newValue < BRUSH_MIN_SIZE) {
+      newValue = BRUSH_MIN_SIZE;
+    }
+    setBrushSize(newValue);
   };
 
   useEffect(() => {
@@ -54,7 +50,7 @@ export function BrushSizeSelector() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [])
+  }, []);
 
   return (
     <Flex direction="row" gap="2" maxWidth="300px" mb="3" align="center">

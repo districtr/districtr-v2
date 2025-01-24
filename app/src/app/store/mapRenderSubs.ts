@@ -13,20 +13,20 @@ import {
   removeZoneMetaLayers,
   debouncedAddZoneMetaLayers,
   COUNTY_LAYERS,
-} from '../constants/layers';
+} from '@constants/layers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
   getFeaturesInBbox,
   getFeaturesIntersectingCounties,
   shallowCompareArray,
-} from '../utils/helpers';
+} from '@utils/helpers';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
-import GeometryWorker from '../utils/GeometryWorker';
+import GeometryWorker from '@utils/GeometryWorker';
 import {useHoverStore as _useHoverStore} from '@store/mapStore';
-import {calcPops} from '../utils/population';
-import {useChartStore} from './chartStore';
+import {calcPops} from '@utils/population';
+import {useChartStore} from '@store/chartStore';
 
 const BBOX_TOLERANCE_DEG = 0.02;
 

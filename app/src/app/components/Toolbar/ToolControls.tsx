@@ -1,16 +1,14 @@
 'use client';
-import {Button, Card, Flex, Text} from '@radix-ui/themes';
+import {Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import {RecentMapsModal} from '@/app/components/Toolbar/RecentMapsModal';
 import React, {useLayoutEffect, useRef, useState} from 'react';
-import {ToolSettings} from '@/app/components/Toolbar/Settings';
 import {BrushControls} from '@components/BrushControls';
 import {ZoneLockPicker} from '@/app/components/Toolbar/ZoneLockPicker';
 import {ActiveTool} from '@constants/types';
 import {ExitBlockViewButtons} from '@/app/components/Toolbar/ExitBlockViewButtons';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 
-const ToolUtilitiesConfig: Record<
+const ToolControlsConfig: Record<
   Partial<ActiveTool>,
   {Component?: () => React.JSX.Element; focused?: boolean}
 > = {
@@ -39,17 +37,14 @@ const ToolUtilitiesConfig: Record<
   },
 };
 
-export const ToolUtilities: React.FC<{
+export const ToolControls: React.FC<{
   isMobile?: boolean;
-}> = ({
-  isMobile
-}) => {
-  const {Component} = useMapStore(state => ToolUtilitiesConfig[state.activeTool] || {});
+}> = ({isMobile}) => {
+  const {Component} = useMapStore(state => ToolControlsConfig[state.activeTool] || {});
   const {x, y, maxXY, rotation, customizeToolbar} = useToolbarStore();
   const isHorizontal = !customizeToolbar || rotation === 'horizontal';
   const ContainerRef = useRef<HTMLDivElement | null>(null);
   const [shouldFlip, setShouldFlip] = useState(false);
-
   useLayoutEffect(() => {
     const bbox = ContainerRef?.current?.getBoundingClientRect?.();
     if (bbox === undefined || y === null || x === null || maxXY === null) return;
@@ -63,11 +58,9 @@ export const ToolUtilities: React.FC<{
       setShouldFlip(x > midPoint);
     }
   }, [y, x, rotation, Component]);
-
   if (!Component) {
     return null;
   }
-
   return (
     <div
       ref={ContainerRef}

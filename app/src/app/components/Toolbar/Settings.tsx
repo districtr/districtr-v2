@@ -1,15 +1,15 @@
+import React from 'react';
 import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes';
-import {useMapStore} from '@/app/store/mapStore';
+import {useMapStore} from '@store/mapStore';
 import {
   COUNTY_LAYER_IDS,
   BLOCK_LAYER_ID,
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_CHILD,
-} from '../../constants/layers';
-import {toggleLayerVisibility} from '../../utils/helpers';
-import React from 'react';
-import {ToolbarState, useToolbarStore} from '@/app/store/toolbarStore';
+} from '@constants/layers';
+import {toggleLayerVisibility} from '@utils/helpers';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
 const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
   {

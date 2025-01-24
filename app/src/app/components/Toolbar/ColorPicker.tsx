@@ -1,5 +1,5 @@
 import React, {useEffect, useRef} from 'react';
-import {Button, CheckboxGroup, Flex, Text} from '@radix-ui/themes';
+import {Button, CheckboxGroup} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import {blackA} from '@radix-ui/colors';
@@ -179,8 +179,6 @@ const groupIndicatorCSS = {
   },
 };
 const RadioGroupIndicator = styled(RadioGroup.Indicator, groupIndicatorCSS);
-// const CheckBoxGroupIndicator = styled(Checkbox.., groupIndicatorCSS);
-
 const groupRootCSS = {};
 const RadioGroupRoot = styled(RadioGroup.Root, groupRootCSS);
 const CheckboxGroupRoot = styled(CheckboxGroup.Root, {

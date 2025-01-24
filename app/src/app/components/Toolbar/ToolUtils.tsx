@@ -7,9 +7,6 @@ import {
   HandIcon,
   LockOpen1Icon,
   ViewGridIcon,
-  GearIcon,
-  Cross2Icon,
-  CounterClockwiseClockIcon,
   ResetIcon,
 } from '@radix-ui/react-icons';
 import {useTemporalStore} from '@/app/store/temporalStore';
@@ -31,13 +28,12 @@ export type ActiveToolConfig = {
 
 export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
-
-  const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
   const {futureStates, pastStates, redo, undo} = useTemporalStore(state => state); // TemporalState<MapStore>
   const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);
   const metaKey = typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
+  
   const config: ActiveToolConfig[] = [
     {
       hotKeyLabel: 'M',

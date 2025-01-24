@@ -6,7 +6,7 @@ import {useTemporalStore} from '@/app/store/temporalStore';
 export const ResetMapButton: React.FC<{dialogOnly?: boolean}> = ({dialogOnly}) => {
   const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
   const handleReset = useMapStore(state => state.handleReset);
-  const clear = useTemporalStore(state => state.clear); // TemporalState<MapStore>
+  const clear = useTemporalStore(state => state.clear);
   const handleClickResetMap = () => {
     clear();
     handleReset();

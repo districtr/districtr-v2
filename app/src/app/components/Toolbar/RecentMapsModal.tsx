@@ -1,6 +1,6 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
-import {Cross2Icon, CounterClockwiseClockIcon} from '@radix-ui/react-icons';
+import {Cross2Icon} from '@radix-ui/react-icons';
 import {
   Button,
   Flex,
@@ -23,7 +23,11 @@ const DialogContentContainer = styled(Dialog.Content, {
   maxHeight: 'calc(100vh-2rem)',
 });
 
-export const RecentMapsModal: React.FC<{open?: boolean, onClose?: () => void, showTrigger?: boolean}> = ({open, onClose, showTrigger}) => {
+export const RecentMapsModal: React.FC<{
+  open?: boolean;
+  onClose?: () => void;
+  showTrigger?: boolean;
+}> = ({open, onClose, showTrigger}) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -61,12 +65,15 @@ export const RecentMapsModal: React.FC<{open?: boolean, onClose?: () => void, sh
   }
 
   return (
-    <Dialog.Root open={dialogOpen} onOpenChange={isOpen => isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen) }>
+    <Dialog.Root
+      open={dialogOpen}
+      onOpenChange={isOpen =>
+        isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen)
+      }
+    >
       {!!showTrigger && (
         <Dialog.Trigger>
-          <Button variant="ghost">
-            Recent Maps
-          </Button>
+          <Button variant="ghost">Recent Maps</Button>
         </Dialog.Trigger>
       )}
       <DialogContentContainer className="max-w-[50vw]">

@@ -10,7 +10,7 @@ import {
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
-import React, { useRef } from 'react';
+import React, {useRef} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {RecentMapsModal} from './Toolbar/RecentMapsModal';
 import {ToolSettings} from './Toolbar/Settings';
@@ -137,41 +137,37 @@ export const MobileDataTabs: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState(mobileTabPanels[0].title);
   const activePanel = mobileTabPanels?.find(panel => panel.title === activeTab);
   const tabContainerRef = useRef<HTMLDivElement>(null);
-  const tabContainerBottom = tabContainerRef.current?.getBoundingClientRect()?.bottom || 80
+  const tabContainerBottom = tabContainerRef.current?.getBoundingClientRect()?.bottom || 80;
   return (
     <>
-      <div className="block shadow-xl border-b-[1px] border-gray-500 lg:hidden" ref={tabContainerRef}>
+      <div
+        className="block shadow-xl border-b-[1px] border-gray-500 lg:hidden"
+        ref={tabContainerRef}
+      >
         <Tabs.Root defaultValue="account" value={activeTab} onValueChange={setActiveTab}>
-          <Tabs.List justify={"center"}>
+          <Tabs.List justify={'center'}>
             {mobileTabPanels.map(f => (
               <Tabs.Trigger key={f.title} value={f.title}>
                 {f.label}
               </Tabs.Trigger>
             ))}
           </Tabs.List>
-
-          {/* <Box pt="3">
-            <Tabs.Content value="account">
-              <Text size="2">Make changes to your account.</Text>
-            </Tabs.Content>
-
-            <Tabs.Content value="documents">
-              <Text size="2">Access and update your documents.</Text>
-            </Tabs.Content>
-
-            <Tabs.Content value="settings">
-              <Text size="2">Edit your profile or update contact information.</Text>
-            </Tabs.Content>
-          </Box> */}
         </Tabs.Root>
       </div>
+      {/* Ideally these components would mount/unmount in the main app space to avoid absolute positioning, however
+        the map is kind of sensitive to mounting/unmounting in the current iteration.
+        TODO: Make map less itchy about mounting/unmounting and have the amin "app space" on mobile have a better DOM structure
+      */}
       {!!activePanel?.content && (
-        <div className="absolute w-full left-0 z-[10000] bg-white overflow-y-auto p-4"
+        <div
+          className="absolute w-full left-0 z-[10000] bg-white overflow-y-auto p-4"
           style={{
             top: tabContainerBottom,
             height: `calc(100vh - ${tabContainerBottom}px)`,
           }}
-        >{activePanel.content}</div>
+        >
+          {activePanel.content}
+        </div>
       )}
     </>
   );
