@@ -908,7 +908,12 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         spatialUnit: 'tract',
         setSpatialUnit: unit => set({spatialUnit: unit}),
         selectedZone: 1,
-        setSelectedZone: zone => set({selectedZone: zone}),
+        setSelectedZone: zone => {
+          const numDistricts = get().mapDocument?.num_districts ?? 4;
+          if (zone <= numDistricts) {
+            set({selectedZone: zone})
+          }
+        },
         zoneAssignments: new Map(),
         assignmentsHash: '',
         lastUpdatedHash: Date.now().toString(),
