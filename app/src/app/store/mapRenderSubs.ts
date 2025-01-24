@@ -34,6 +34,19 @@ export const getRenderSubscriptions = (
   useMapStore: typeof _useMapStore,
   useHoverStore: typeof _useHoverStore
 ) => {
+  const addColorSchemeSub = useMapStore.subscribe<MapStore['colorScheme']>(
+    state => state.colorScheme,
+    colorScheme => {
+      removeZoneMetaLayers();
+      debouncedAddZoneMetaLayers({});
+      const {getMapRef, mapDocument, addVisibleLayerIds} = useMapStore.getState();
+      if (mapDocument) {
+        addBlockLayers(getMapRef(), mapDocument);
+      }
+    },
+    {equalityFn: shallowCompareArray}
+  );
+
   const addLayerSubMapDocument = useMapStore.subscribe<
     [MapStore['mapDocument'], MapStore['getMapRef']]
   >(
@@ -390,6 +403,7 @@ export const getRenderSubscriptions = (
 
   return [
     countyEmphasisSub,
+    addColorSchemeSub,
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,

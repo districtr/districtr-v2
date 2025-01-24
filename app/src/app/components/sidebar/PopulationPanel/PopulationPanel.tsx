@@ -67,6 +67,7 @@ export const PopulationPanel = () => {
             width={width}
             height={height}
             data={chartData}
+            colorScheme={colorScheme}
             idealPopulation={idealPopulation}
             lockPaintedAreas={lockPaintedAreas}
           />

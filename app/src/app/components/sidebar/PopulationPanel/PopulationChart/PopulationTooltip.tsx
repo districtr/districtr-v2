@@ -1,9 +1,14 @@
 import React from 'react';
-import {colorScheme} from '@/app/constants/colors';
 import {formatNumber} from '@/app/utils/numbers';
 import {Card, Text} from '@radix-ui/themes';
 
-export const PopulationCustomTooltip = ({y, pop, index, idealPopulation}: TooltipInput) => {
+export const PopulationCustomTooltip = ({
+  y,
+  pop,
+  index,
+  idealPopulation,
+  colorScheme,
+}: TooltipInput) => {
   const deviationFromIdeal = idealPopulation ? (idealPopulation - pop) * -1 : 0;
   const deviationDir = deviationFromIdeal > 0 ? '+' : '';
   const deviationPercent = idealPopulation

@@ -1,5 +1,4 @@
 import React, {useState} from 'react';
-import {colorScheme} from '../../constants/colors';
 import {Button} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
 import * as RadioGroup from '@radix-ui/react-radio-group';
@@ -13,6 +12,7 @@ export function ZoneLockPicker() {
   const mapDocument = useMapStore(state => state.mapDocument);
   const numDistricts = mapDocument?.num_districts || 40;
   const allDistrictsNumbers = new Array(numDistricts).fill(null).map((_, i) => i + 1);
+  const colorScheme = useMapStore(state => state.colorScheme);
   const pickerValue = Array.isArray(lockedZones)
     ? lockedZones.map(f => (null === f ? 0 : f - 1))
     : lockedZones === true
@@ -30,13 +30,7 @@ export function ZoneLockPicker() {
 
   return (
     <div>
-      <ColorPicker
-        onValueChange={handleChange}
-        colorArray={colorScheme}
-        defaultValue={[]}
-        value={pickerValue}
-        multiple
-      />
+      <ColorPicker onValueChange={handleChange} defaultValue={[]} value={pickerValue} multiple />
       <Button onClick={lockAll} mr="2" mt="2" variant="outline">
         <LockClosedIcon />
         Lock all

@@ -1,5 +1,4 @@
 import {MapStore} from '@/app/store/mapStore';
-import {colorScheme} from '@/app/constants/colors';
 import React, {useCallback, useState} from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
@@ -16,6 +15,7 @@ export const PopulationChart: React.FC<{
   height: number;
   data: Array<{zone: number; total_pop: number}>;
   lockPaintedAreas: MapStore['mapOptions']['lockPaintedAreas'];
+  colorScheme: string[];
   margins?: {left: number; right: number; top: number; bottom: number};
   idealPopulation?: number;
 }> = ({
@@ -24,6 +24,7 @@ export const PopulationChart: React.FC<{
   data,
   idealPopulation,
   lockPaintedAreas,
+  colorScheme,
   margins = {left: 15, right: 20, top: 20, bottom: 80},
 }) => {
   const chartOptions = useChartStore(state => state.chartOptions);
@@ -226,6 +227,7 @@ export const PopulationChart: React.FC<{
             pop={data[hoveredIndex].total_pop}
             idealPopulation={idealPopulation}
             maxPop={maxPop}
+            colorScheme={colorScheme}
           />
         )}
       </Group>
