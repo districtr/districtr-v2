@@ -64,7 +64,7 @@ def get_geojson_export_sql(
         """
         params += [kwargs["document_id"]]
         geom_type = "Polygon"
-        _id = "geo_id"
+        _id = "zone"
 
     if not all({stmt, geom_type, _id}):
         raise NotImplementedError("Survey export type is not yet supported")
