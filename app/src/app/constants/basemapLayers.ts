@@ -1102,7 +1102,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     paint: {
       'line-color': '#333',
       'line-opacity': 0.8,
-      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 0.625, 9, 1.625, 18, 2.25],
+      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, .625, 9, 1.625, 18, 2.25],
     },
   },
   {
@@ -1280,6 +1280,6 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       'text-color': '#666',
       'text-halo-color': '#ffffff',
       'text-halo-width': 2,
-    },
+    }
   },
 ];

@@ -1,8 +1,8 @@
 import {Slider, Flex, Heading, Text, IconButton} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
-import {MinusIcon, PlusIcon} from '@radix-ui/react-icons';
-import {useEffect} from 'react';
-import {debounce} from 'lodash';
+import { MinusIcon, PlusIcon } from '@radix-ui/react-icons';
+import { useEffect } from 'react';
+import { debounce } from 'lodash';
 const BRUSH_MIN_SIZE = 1;
 const BRUSH_MAX_SIZE = 100;
 
@@ -15,7 +15,7 @@ const handlePlusMinus = (change: number) => {
     newValue = BRUSH_MIN_SIZE;
   }
   setBrushSize(newValue);
-};
+}
 
 /**
  * BrushSizeSelector
@@ -54,7 +54,7 @@ export function BrushSizeSelector() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [])
 
   return (
     <Flex direction="row" gap="2" maxWidth="300px" mb="3" align="center">

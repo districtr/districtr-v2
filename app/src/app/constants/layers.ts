@@ -13,6 +13,7 @@ import {colorScheme} from './colors';
 import {throttle} from 'lodash';
 import GeometryWorker from '../utils/GeometryWorker';
 
+
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
 export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';
@@ -25,7 +26,7 @@ export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CH
 export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const;
 export const ZONE_LABEL_LAYERS = ['ZONE_OUTLINE', 'ZONE_LABEL', 'ZONE_LABEL_BG'];
 export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
-export const COUNTY_LAYERS = ['counties_fill', 'counties_boundary', 'counties_labels'];
+export const COUNTY_LAYERS = ['counties_fill', 'counties_boundary','counties_labels']
 
 export const CHILD_LAYERS = [
   BLOCK_LAYER_ID_CHILD,
@@ -334,7 +335,7 @@ const getDissolved = async () => {
   const mapRef = getMapRef();
   if (!mapRef || !GeometryWorker) return;
   const currentView = mapRef.getBounds();
-  const {centroids, dissolved} = await GeometryWorker.getCentroidsFromView(
+  const { centroids, dissolved} = await GeometryWorker.getCentroidsFromView(
     currentView.getWest(),
     currentView.getSouth(),
     currentView.getEast(),
@@ -413,10 +414,11 @@ const addZoneMetaLayers = async ({
   }
 };
 
-const debouncedAddZoneMetaLayers = throttle(addZoneMetaLayers, 1000, {
-  leading: true,
-  trailing: true,
-});
+const debouncedAddZoneMetaLayers = throttle(
+  addZoneMetaLayers,
+  1000,
+  { leading: true, trailing: true }
+);
 
 export {
   addBlockLayers,

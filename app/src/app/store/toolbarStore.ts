@@ -12,7 +12,7 @@ export type ToolbarState = {
   maxXY: {maxX: number | null; maxY: number | null};
   setRotation: (rotation: 'horizontal' | 'vertical' | null) => void;
   setMaxXY: (maxX: number, maxY: number) => void;
-  toolbarSize: number;
+  toolbarSize:  number;
   setToolbarSize: (size: ToolbarState['toolbarSize']) => void;
   customizeToolbar: boolean;
   setCustomzieToolbar: (customize: boolean) => void;

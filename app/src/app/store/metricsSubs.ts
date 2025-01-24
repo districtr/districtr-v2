@@ -7,7 +7,7 @@ export const getMapMetricsSubs = (useMapStore: typeof _useMapStore) => {
     mapDocument => {
       if (mapDocument) {
         updateMapMetrics(mapDocument);
-        updateTotPop(mapDocument);
+        updateTotPop(mapDocument)
       }
     }
   );

@@ -5,7 +5,7 @@ import * as Accordion from '@radix-ui/react-accordion';
 import {DoubleArrowDownIcon, DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 import {useMapStore} from '@/app/store/mapStore';
 import Draggable from 'react-draggable';
-import {DataPanelSpec, DataPanelsProps, defaultPanels} from './DataPanelUtils';
+import { DataPanelSpec, DataPanelsProps, defaultPanels } from './DataPanelUtils';
 
 const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> = ({
   panel,

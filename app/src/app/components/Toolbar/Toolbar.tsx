@@ -56,7 +56,7 @@ export const Toolbar = () => {
       containerRef.getBoundingClientRect().width / 2 - (toolbarWidth ?? 0) / 2,
       containerRef.getBoundingClientRect().height - 50
     );
-    setIsMobile(containerRef?.clientWidth < activeTools.length * toolbarSize * 2);
+    setIsMobile(containerRef?.clientWidth < (activeTools.length * toolbarSize) * 2);
   };
 
   useLayoutEffect(() => {
