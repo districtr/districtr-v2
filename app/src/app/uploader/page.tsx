@@ -38,8 +38,9 @@ export default function Uploader() {
 
           const partialUploadStep = () => {
             const assignments: Assignment[] = [];
-            results.data.slice(rowCursor, rowCursor + ROWS_PER_BATCH).forEach(row => {
-              if (row.length == 2 && row[1] !== '' && !isNaN(1 * row[1])) {
+            const rows = results.data as Array<Array<string>>;
+            rows.slice(rowCursor, rowCursor + ROWS_PER_BATCH).forEach(row => {
+              if (row.length == 2 && row[1] !== '' && !isNaN(Number(row[1]))) {
                 assignments.push({document_id, geo_id: row[0], zone: Number(row[1])});
               }
             });
@@ -66,9 +67,11 @@ export default function Uploader() {
     processFile(file);
   };
 
-  const handleFileSelected = (event: React.ChangeEvent) => {
+  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    processFile(file);
+    if (file) {
+      processFile(file);
+    }
   };
 
   return (
