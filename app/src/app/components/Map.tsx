@@ -1,3 +1,4 @@
+'use client';
 import type {Map, MapLayerEventType} from 'maplibre-gl';
 import maplibregl, {MapLayerMouseEvent, MapLayerTouchEvent} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
