@@ -142,12 +142,14 @@ export const getFeaturesIntersectingCounties = (
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
   const {mapDocument, shatterIds, checkParentsToHeal} = useMapStore.getState();
   const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
-  const cachedParentFeatures = parentIdCache.getFiltered(`${filterPrefix}${fips}`).map(([id, properties]) => ({
-    source: BLOCK_SOURCE_ID,
-    sourceLayer: mapDocument?.parent_layer,
-    id,
-    ...properties,
-  }));
+  const cachedParentFeatures = parentIdCache
+    .getFiltered(`${filterPrefix}${fips}`)
+    .map(([id, properties]) => ({
+      source: BLOCK_SOURCE_ID,
+      sourceLayer: mapDocument?.parent_layer,
+      id,
+      ...properties,
+    }));
 
   const childFeatures = shatterIds.children.size
     ? (Array.from(shatterIds.children).map(id => ({
@@ -155,11 +157,11 @@ export const getFeaturesIntersectingCounties = (
         source: BLOCK_SOURCE_ID,
         sourceLayer: mapDocument?.child_layer,
         properties: {
-          path: id
-        }
+          path: id,
+        },
       })) as any)
     : [];
-  
+
   if (shatterIds.children.size) {
     checkParentsToHeal(cachedParentFeatures.map(f => f.id));
   }
@@ -245,7 +247,9 @@ export type ColorZoneAssignmentsState = [
 
 export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
   const mapRef = _getMapRef?.() || useMapStore.getState().getMapRef();
-  if (mapRef?.getStyle().layers.findIndex((layer: any) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1) {
+  if (
+    mapRef?.getStyle().layers.findIndex((layer: any) => layer.id === BLOCK_HOVER_LAYER_ID) !== -1
+  ) {
     return null;
   }
 
@@ -275,12 +279,23 @@ export const colorZoneAssignments = (
   state: ColorZoneAssignmentsState,
   previousState?: ColorZoneAssignmentsState
 ) => {
-  const [zoneAssignments, mapDocument, getMapRef, currentShatterIds, appLoadingState, mapRenderingState] = state;
-  const [previousZoneAssignments, prevShatterIds] = [previousState?.[0]  || new Map(), previousState?.[3] || null];
+  const [
+    zoneAssignments,
+    mapDocument,
+    getMapRef,
+    currentShatterIds,
+    appLoadingState,
+    mapRenderingState,
+  ] = state;
+  const [previousZoneAssignments, prevShatterIds] = [
+    previousState?.[0] || new Map(),
+    previousState?.[3] || null,
+  ];
   const mapRef = getMapRef();
   const isTemporal = useMapStore.getState().isTemporalAction;
 
-  if (!mapRef || // map does not exist
+  if (
+    !mapRef || // map does not exist
     !mapDocument || // map document is not loaded
     (appLoadingState !== 'loaded' && !isTemporal) || // app was blurred, loading, or temporal state was mutatated
     mapRenderingState !== 'loaded' // map layers are not loaded
@@ -290,15 +305,15 @@ export const colorZoneAssignments = (
   const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
   if (!featureStateCache) return;
   const isInitialRender = previousState?.[4] !== 'loaded' || previousState?.[5] !== 'loaded';
-  
+
   zoneAssignments.forEach((zone, id) => {
-    if (!id) return
+    if (!id) return;
     const isChild = currentShatterIds.children.has(id);
     const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
     if (!sourceLayer) return;
-    const featureState = featureStateCache?.[sourceLayer]?.[id]
+    const featureState = featureStateCache?.[sourceLayer]?.[id];
     if (!isInitialRender && featureState?.zone === zone) return;
-    
+
     mapRef?.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
@@ -327,9 +342,9 @@ export const colorZoneAssignments = (
         selected: false,
         zone: null,
       }
-    )
-  })
-}
+    );
+  });
+};
 /**
  * resetZoneColors
  * Resets the zone colors for the specified feature IDs on the map.

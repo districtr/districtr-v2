@@ -1,4 +1,4 @@
-"use client"
+'use client';
 import {useEffect, useState} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {AlertDialog, Button, Flex, Text} from '@radix-ui/themes';

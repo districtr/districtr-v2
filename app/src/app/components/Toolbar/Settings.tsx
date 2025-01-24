@@ -9,7 +9,7 @@ import {
 } from '../../constants/layers';
 import {toggleLayerVisibility} from '../../utils/helpers';
 import React from 'react';
-import {ToolbarState, useToolbarStore} from '@/app/store/toolbarStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
 const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
   {
@@ -29,14 +29,7 @@ const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
     value: 80,
   },
 ];
-/** Layers
- * This component is responsible for rendering the layers that can be toggled
- * on and off in the map.
- *
- * TODO:
- * - Support numbering for painted districts
- * - Support tribes and communities
- */
+
 export const ToolSettings: React.FC = () => {
   const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);

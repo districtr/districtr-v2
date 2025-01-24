@@ -1,5 +1,5 @@
-import { parentIdCache } from "../store/idCache";
-import { MapStore } from "../store/mapStore";
+import {parentIdCache} from '../store/idCache';
+import {MapStore} from '../store/mapStore';
 
 export const calcPops = (zoneAssignments: MapStore['zoneAssignments']) => {
   const zonePops: Record<number, number> = {};

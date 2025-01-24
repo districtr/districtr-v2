@@ -41,9 +41,7 @@ const ToolUtilitiesConfig: Record<
 
 export const ToolUtilities: React.FC<{
   isMobile?: boolean;
-}> = ({
-  isMobile
-}) => {
+}> = ({isMobile}) => {
   const {Component} = useMapStore(state => ToolUtilitiesConfig[state.activeTool] || {});
   const {x, y, maxXY, rotation, customizeToolbar} = useToolbarStore();
   const isHorizontal = !customizeToolbar || rotation === 'horizontal';

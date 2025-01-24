@@ -19,7 +19,7 @@ class IdCache {
           if (!this.parents[id]) {
             this.parents[id] = {
               ...feature,
-              geometry: undefined
+              geometry: undefined,
             };
           }
         }

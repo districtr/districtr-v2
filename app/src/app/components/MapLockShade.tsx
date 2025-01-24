@@ -5,7 +5,7 @@ import {Spinner} from '@radix-ui/themes';
 export const MapLockShade: React.FC = () => {
   const mapLock = useMapStore(state => state.mapLock);
   const isLoading = useMapStore(state => state.appLoadingState === 'loading');
-  const isLocked = mapLock || isLoading
+  const isLocked = mapLock || isLoading;
   return (
     <div
       style={{

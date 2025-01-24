@@ -9,7 +9,7 @@ import {
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
-import React, { useRef } from 'react';
+import React, {useRef} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {RecentMapsModal} from './Toolbar/RecentMapsModal';
 import {ToolSettings} from './Toolbar/Settings';
@@ -136,12 +136,15 @@ export const MobileDataTabs: React.FC = () => {
   const [activeTab, setActiveTab] = React.useState(mobileTabPanels[0].title);
   const activePanel = mobileTabPanels?.find(panel => panel.title === activeTab);
   const tabContainerRef = useRef<HTMLDivElement>(null);
-  const tabContainerBottom = tabContainerRef.current?.getBoundingClientRect()?.bottom || 80
+  const tabContainerBottom = tabContainerRef.current?.getBoundingClientRect()?.bottom || 80;
   return (
     <>
-      <div className="block shadow-xl border-b-[1px] border-gray-500 lg:hidden" ref={tabContainerRef}>
+      <div
+        className="block shadow-xl border-b-[1px] border-gray-500 lg:hidden"
+        ref={tabContainerRef}
+      >
         <Tabs.Root defaultValue="account" value={activeTab} onValueChange={setActiveTab}>
-          <Tabs.List justify={"center"}>
+          <Tabs.List justify={'center'}>
             {mobileTabPanels.map(f => (
               <Tabs.Trigger key={f.title} value={f.title}>
                 {f.label}
@@ -165,12 +168,15 @@ export const MobileDataTabs: React.FC = () => {
         </Tabs.Root>
       </div>
       {!!activePanel?.content && (
-        <div className="absolute w-full left-0 z-[10000] bg-white overflow-y-auto p-4"
+        <div
+          className="absolute w-full left-0 z-[10000] bg-white overflow-y-auto p-4"
           style={{
             top: tabContainerBottom,
             height: `calc(100vh - ${tabContainerBottom}px)`,
           }}
-        >{activePanel.content}</div>
+        >
+          {activePanel.content}
+        </div>
       )}
     </>
   );
