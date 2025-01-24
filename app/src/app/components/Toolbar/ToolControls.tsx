@@ -45,10 +45,13 @@ export const ToolControls: React.FC<{
   const isHorizontal = !customizeToolbar || rotation === 'horizontal';
   const ContainerRef = useRef<HTMLDivElement | null>(null);
   const [shouldFlip, setShouldFlip] = useState(false);
+
   useLayoutEffect(() => {
     const bbox = ContainerRef?.current?.getBoundingClientRect?.();
-    if (bbox === undefined || y === null || x === null || maxXY === null) return;
-    if (isMobile) {
+    if (bbox === undefined || y === null || x === null || maxXY === null) {
+      return;
+    }
+    if (isMobile || !customizeToolbar) {
       setShouldFlip(false);
     } else if (rotation === 'horizontal') {
       const midPoint = maxXY.maxY ? maxXY.maxY / 2 : 0;
@@ -58,6 +61,7 @@ export const ToolControls: React.FC<{
       setShouldFlip(x > midPoint);
     }
   }, [y, x, rotation, Component]);
+
   if (!Component) {
     return null;
   }
