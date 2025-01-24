@@ -54,6 +54,18 @@ def get_geojson_export_sql(
         geom_type = "Polygon"
         _id = "geo_id"
 
+    elif export_type == DocumentExportType.districts:
+        stmt = """WITH geos AS ( SELECT * FROM get_zone_assignments_geo(%s::UUID) )
+        SELECT
+            zone::TEXT AS zone,
+            ST_Union(geometry) AS geometry
+        FROM geos
+        GROUP BY zone
+        """
+        params += [kwargs["document_id"]]
+        geom_type = "Polygon"
+        _id = "geo_id"
+
     if not all({stmt, geom_type, _id}):
         raise NotImplementedError("Survey export type is not yet supported")
 
