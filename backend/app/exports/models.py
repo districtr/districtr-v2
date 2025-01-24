@@ -9,3 +9,4 @@ class DocumentExportFormat(Enum):
 class DocumentExportType(Enum):
     zone_assignments = "ZoneAssignments"
     block_zone_assignments = "BlockZoneAssignments"
+    districts = "Districts"
