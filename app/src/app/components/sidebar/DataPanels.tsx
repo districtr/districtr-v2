@@ -1,36 +1,12 @@
-import {Box, IconButton} from '@radix-ui/themes';
-import Evaluation from '@components/sidebar/Evaluation';
-import PopulationPanel from '@components/sidebar/PopulationPanel';
+import {IconButton} from '@radix-ui/themes';
 import React from 'react';
 import classNames from 'classnames';
 import * as Accordion from '@radix-ui/react-accordion';
 import {DoubleArrowDownIcon, DragHandleHorizontalIcon} from '@radix-ui/react-icons';
-import {MapStore, useMapStore} from '@/app/store/mapStore';
+import {useMapStore} from '@/app/store/mapStore';
 import Draggable from 'react-draggable';
+import { DataPanelSpec, DataPanelsProps, defaultPanels } from './DataPanelUtils';
 
-interface DataPanelSpec {
-  title: MapStore['sidebarPanels'][number];
-  label: string;
-  icon?: React.ReactNode;
-  content?: React.ReactNode;
-}
-
-interface DataPanelsProps {
-  panels?: DataPanelSpec[];
-}
-
-const defaultPanels: DataPanelSpec[] = [
-  {
-    title: 'population',
-    label: 'Population',
-    content: <PopulationPanel />,
-  },
-  {
-    title: 'evaluation',
-    label: 'Evaluation',
-    content: <Evaluation />,
-  },
-];
 const ResizableAccordionPanel: React.FC<{panel: DataPanelSpec; open: boolean}> = ({
   panel,
   open,

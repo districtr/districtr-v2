@@ -8,10 +8,6 @@ import {MAP_OPTIONS} from '../constants/configuration';
 import {handleWheelOrPinch, mapContainerEvents, mapEvents} from '../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
-import {Toolbar} from '@components/Toolbar/Toolbar';
-import {MapTooltip} from '@components/MapTooltip';
-import {MapLockShade} from './MapLockShade';
-import { Topbar } from './Topbar';
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -57,11 +53,13 @@ export const MapComponent: React.FC = () => {
 
     fitMapToBounds();
     handleWheelOrPinch({} as TouchEvent, map.current);
-    map.current.addControl(new maplibregl.NavigationControl({
-      showCompass: false,
-      showZoom: true
-    }),
-    'bottom-right');
+    map.current.addControl(
+      new maplibregl.NavigationControl({
+        showCompass: false,
+        showZoom: true,
+      }),
+      'bottom-right'
+    );
 
     map.current.on('load', () => {
       setMapRef(map);
@@ -103,18 +101,12 @@ export const MapComponent: React.FC = () => {
   });
 
   return (
-    <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
-      <Topbar />
-      <div
-        className={`relative w-full flex-1 flex-grow
+    <div
+      className={`relative w-full flex-1 flex-grow
         ${mapLock ? 'pointer-events-none' : ''}
         ${document_id ? '' : 'opacity-25 pointer-events-none'}
         `}
-        ref={mapContainer}
-      />
-      <Toolbar />
-      <MapLockShade />
-      <MapTooltip />
-    </div>
+      ref={mapContainer}
+    />
   );
 };

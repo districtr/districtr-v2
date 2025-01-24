@@ -37,8 +37,8 @@ export const Toolbar = () => {
   const previousActiveTool = useRef<ActiveTool | null>(null);
   const activeTools = useActiveTools();
 
-  const [x, y] = customizeToolbar ? [userX, userY] : [defaultX, defaultY];
-  const rotation = customizeToolbar ? userRotation : 'horizontal';
+  const [x, y] = customizeToolbar && !isMobile ? [userX, userY] : [defaultX, defaultY];
+  const rotation = customizeToolbar && !isMobile ? userRotation : 'horizontal';
 
   const handleContainerResize = () => {
     if (!containerRef) return;
@@ -187,7 +187,7 @@ const Tools: React.FC<{
   const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
   const {rotation: userRotation, customizeToolbar, toolbarSize} = useToolbarStore(state => state);
   const activeTools = useActiveTools();
-  const rotation = customizeToolbar ? userRotation : 'horizontal';
+  const rotation = customizeToolbar && !isMobile ? userRotation : 'horizontal';
 
   return (
     <Flex
