@@ -93,22 +93,17 @@ export const ColorPicker = <T extends boolean>({
             justifyContent: 'flex-start',
           }}
         >
-          <Flex direction="row" wrap="wrap">
-            {!!mapDocument &&
-              colorArray.slice(0, numDistricts).map((color, i) => (
-                <Flex direction="column" align="center" key={i}>
-                  <CheckboxGroupItem
-                    key={i}
-                    // @ts-ignore Correct behavior, global CSS variables need to be extended
-                    style={{'--accent-indicator': color}}
-                    value={color}
-                  >
-                    {/* <RadioGroupIndicator /> */}
-                  </CheckboxGroupItem>
-                  <Text size="1">{i + 1}</Text>
-                </Flex>
-              ))}
-          </Flex>
+          {!!mapDocument &&
+            colorArray.slice(0, mapDocument.num_districts ?? 4).map((color, i) => (
+              <CheckboxGroupItem
+                key={i}
+                // @ts-ignore Correct behavior, global CSS variables need to be extended
+                style={{'--accent-indicator': color}}
+                value={color}
+              >
+                {/* <RadioGroupIndicator /> */}
+              </CheckboxGroupItem>
+            ))}
         </CheckboxGroupRoot>
       </div>
     );
@@ -124,17 +119,12 @@ export const ColorPicker = <T extends boolean>({
         value={value !== undefined ? colorArray[value] : undefined}
         defaultValue={colorArray[defaultValue]}
       >
-        <Flex direction="row" wrap="wrap">
-          {!!mapDocument &&
-            colorArray.slice(0, numDistricts).map((color, i) => (
-              <Flex direction="column" align="center" key={i}>
-                <RadioGroupItem key={i} style={{backgroundColor: color}} value={color}>
-                  <RadioGroupIndicator />
-                </RadioGroupItem>
-                <Text size="1">{i + 1}</Text>
-              </Flex>
-            ))}
-        </Flex>
+        {!!mapDocument &&
+          colorArray.slice(0, mapDocument.num_districts ?? 4).map((color, i) => (
+            <RadioGroupItem key={i} style={{backgroundColor: color}} value={color}>
+              <RadioGroupIndicator />
+            </RadioGroupItem>
+          ))}
       </RadioGroupRoot>
     </div>
   );

@@ -8,6 +8,7 @@ import {useMapStore} from '@store/mapStore';
 import {calculateMinMaxRange} from '@utils/zone-helpers';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
+import { getEntryTotal } from '@/app/utils/summaryStats';
 
 export const PopulationPanel = () => {
   const mapMetrics = useChartStore(state => state.mapMetrics);
@@ -17,12 +18,15 @@ export const PopulationPanel = () => {
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const setChartOptions = useChartStore(state => state.setChartOptions);
-  const totPop = useMapStore(state => state.summaryStats.totpop?.data?.total);
+  const mapOptions = useMapStore(state => state.mapOptions);
+  const setMapOptions = useMapStore(state => state.setMapOptions);
+  const totalPopData = useMapStore(state => state.summaryStats.totpop?.data);
+  const totPop = getEntryTotal(totalPopData || {})
 
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
   const {chartData, stats, unassigned} = useMemo(() => {
+    let unassigned = structuredClone(totPop)
     if (mapMetrics && mapMetrics.data && numDistricts && totPop) {
-      let unassigned = structuredClone(totPop);
       const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
         (acc, district) => {
           const totalPop = mapMetrics.data.reduce((acc, entry) => {
@@ -47,9 +51,9 @@ export const PopulationPanel = () => {
         unassigned: 0,
       };
     }
-  }, [totPop, mapMetrics]);
+  }, [mapMetrics, totalPopData, numDistricts]);
 
-  if (mapMetrics?.isPending) {
+  if (mapMetrics?.isPending || !totalPopData) {
     return <div>Loading...</div>;
   }
 
