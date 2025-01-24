@@ -17,6 +17,7 @@ export const PopulationPanel = () => {
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const setChartOptions = useChartStore(state => state.setChartOptions);
+  const colorScheme = useMapStore(state => state.colorScheme);
   const totalPopData = useMapStore(state => state.summaryStats.totpop?.data);
   const unassigned = useChartStore(state => state.chartInfo.unassigned);
   const chartData = useChartStore(state => state.chartInfo.chartData);
