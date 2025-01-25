@@ -141,19 +141,6 @@ async def create_document(
             detail="Document creation failed",
         )
 
-    # partition_name = f'"document.assignments_{doc.document_id}"'
-    # # get gerrydb[doc.gerrydb_table]
-    # # insert in all values from 'path' from gerrydb[doc.gerrydb_table]
-    # # document_id as doc.document_id with zone as null
-    # session.execute(
-    #     text(
-    #         f"""
-    #     INSERT INTO {partition_name} (document_id, geo_id, zone)
-    #     SELECT '{doc.document_id}', path, NULL
-    #     FROM gerrydb.{doc.parent_layer}
-    # """
-    #     )
-    # )
 
     session.commit()
 
