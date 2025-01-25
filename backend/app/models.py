@@ -160,7 +160,7 @@ class DistrictrMapMetadata(BaseModel):
 class MapDocumentMetadata(TimeStampMixin, SQLModel, table=True):
     __tablename__ = "map_document_metadata"
     __table_args__ = (
-        UniqueConstraint("document_id", name="document_id_unique"),
+        # UniqueConstraint("document_id", name="document_id_unique"),
         {"schema": DOCUMENT_SCHEMA},
     )
 
@@ -168,12 +168,10 @@ class MapDocumentMetadata(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(Integer, primary_key=True, autoincrement=True)
     )
 
-    document_id: str = Field(
+    document_id: UUID4 = Field(
         sa_column=Column(
-            UUIDType,
+            UUID,
             ForeignKey("document.document_id"),
-            nullable=False,
-            unique=True,
         )
     )
     map_metadata: DistrictrMapMetadata = Field(
