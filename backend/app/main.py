@@ -471,9 +471,10 @@ async def get_survey_results(
         )
 
     conn = session.connection().connection
+    _out_file = f"/tmp/{out_file_name}"
+    background_tasks.add_task(remove_file, _out_file)
 
     with conn.cursor().copy(sql, params=params) as copy:
-        _out_file = f"/tmp/{out_file_name}"
         with open(_out_file, "wb") as f:
             while data := copy.read():
                 f.write(data)
@@ -482,7 +483,6 @@ async def get_survey_results(
             DocumentExportFormat.csv: "text/csv; charset=utf-8",
             DocumentExportFormat.geojson: "application/json",
         }.get(_format, "text/plain; charset=utf-8")
-        background_tasks.add_task(remove_file, _out_file)
         return FileResponse(
             path=_out_file, media_type=media_type, filename=out_file_name
         )

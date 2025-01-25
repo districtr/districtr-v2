@@ -32,6 +32,10 @@ def get_csv_export_sql(
         ORDER BY geo_id"""
         params += [kwargs["document_id"]]
 
+    elif export_type == DocumentExportType.block_zone_assignments:
+        stmt = """SELECT * FROM get_block_assignments(%s)"""
+        params += [kwargs["document_id"]]
+
     if stmt is None:
         raise NotImplementedError("Document export type is not yet supported")
 
@@ -53,6 +57,18 @@ def get_geojson_export_sql(
         params += [kwargs["document_id"]]
         geom_type = "Polygon"
         _id = "geo_id"
+
+    elif export_type == DocumentExportType.block_zone_assignments:
+        # Sadly, most GeoJSON block exports are too large to go over HTTP
+        # as a JSON FileResponse. Need to think through a better method.
+        raise NotImplementedError(
+            "Block export type is not yet supported for GeoJSON as files are too large"
+        )
+
+        # stmt = """SELECT * FROM get_block_assignments_geo(%s)"""
+        # params += [kwargs["document_id"]]
+        # geom_type = "Polygon"
+        # _id = "geo_id"
 
     elif export_type == DocumentExportType.districts:
         stmt = """WITH geos AS ( SELECT * FROM get_zone_assignments_geo(%s::UUID) )
