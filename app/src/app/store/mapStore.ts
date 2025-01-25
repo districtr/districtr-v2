@@ -270,7 +270,14 @@ export interface MapStore {
 
   mapName: () => string | undefined;
   metadata: DocumentObject['metadata'];
-  updateMetadata: (documentId: string, key: string, value: any) => void;
+  updateMetadata: (
+    documentId: string,
+    name: any,
+    tags: any,
+    description: any,
+    eventId: any
+  ) => void;
+
   // USER MAPS / RECENT MAPS
 
   userMaps: Array<DocumentObject & {name?: string}>;
@@ -403,21 +410,35 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setMapViews: mapViews => set({mapViews}),
   mapDocument: null,
   mapName: () => get().mapDocument?.metadata?.find(k => k.key === 'name')?.value || undefined,
-  metadata: new Array(),
+  metadata: {
+    name: null,
+    tags: null,
+    description: null,
+    eventId: null,
+  },
   updateMetadata: (documentId: string, key: string, value: any) =>
     set(state => {
+      console.log('Saving metadata');
       const updatedMaps = state.userMaps.map(map => {
-        if (map.document_id === documentId) {
-          const metadataItem = map.metadata?.find(item => item.key === key);
-          if (metadataItem) {
-            metadataItem.value = value;
-          } else {
-            map.metadata?.push({key, value});
-          }
+        if (map.document_id === documentId && map.metadata) {
+          map.metadata = {...map.metadata, [key]: value ?? null};
         }
         return map;
       });
       return {userMaps: updatedMaps};
+
+      // const updatedMaps = state.userMaps.map(map => {
+      //   if (map.document_id === documentId) {
+      //     const metadataItem = map.metadata?.find(item => item.key === key);
+      //     if (metadataItem) {
+      //       metadataItem.value = value;
+      //     } else {
+      //       map.metadata?.push({key, value});
+      //     }
+      //   }
+      //   return map;
+      // });
+      // return {userMaps: updatedMaps};
     }),
   setMapDocument: mapDocument => {
     const {

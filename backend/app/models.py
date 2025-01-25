@@ -168,9 +168,9 @@ class MapDocumentMetadata(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(Integer, primary_key=True, autoincrement=True)
     )
 
-    document_id: UUID4 = Field(
+    document_id: str = Field(
         sa_column=Column(
-            UUID,
+            UUIDType,
             ForeignKey("document.document_id"),
         )
     )

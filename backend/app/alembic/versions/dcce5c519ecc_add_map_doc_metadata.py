@@ -11,6 +11,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from app.models import UUIDType
 
 # revision identifiers, used by Alembic.
 revision: str = "dcce5c519ecc"
@@ -36,7 +37,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("metadata_id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("document_id", sa.String(), nullable=False),
+        sa.Column("document_id", UUIDType(), nullable=False),
         sa.Column(
             "map_metadata", postgresql.JSON(astext_type=sa.Text()), nullable=False
         ),

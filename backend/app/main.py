@@ -2,6 +2,7 @@ from fastapi import FastAPI, status, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
+from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
@@ -20,7 +21,7 @@ from app.models import (
     DistrictrMap,
     Document,
     DocumentCreate,
-    DocumentMetadata,
+    MapDocumentMetadata,
     DocumentPublic,
     GEOIDS,
     AssignedGEOIDS,
@@ -113,6 +114,10 @@ async def create_document(
             DistrictrMap.available_summary_stats.label(
                 "available_summary_stats"
             ),  # pyright: ignore
+            # send metadata as a null object on init of document
+            coalesce(
+                None,
+            ).label("map_metadata"),
         )
         .where(Document.document_id == document_id)
         .join(
@@ -278,17 +283,8 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.available_summary_stats.label(
                 "available_summary_stats"
             ),  # pyright: ignore
-            func.coalesce(
-                func.json_agg(
-                    func.json_build_object(
-                        "key",
-                        DocumentMetadata.key,
-                        "value",
-                        DocumentMetadata.value,
-                    )
-                ).filter(DocumentMetadata.key.isnot(None)),
-                func.cast([], JSON),
-            ).label("metadata"),
+            # get metadata as a json object
+            MapDocumentMetadata.map_metadata.label("map_metadata"),  # pyright: ignore
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
@@ -297,24 +293,10 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             isouter=True,
         )
         .join(
-            DocumentMetadata,
-            cast(Document.document_id, UUIDType)
-            == cast(DocumentMetadata.document_id, UUIDType),
+            MapDocumentMetadata,
+            Document.document_id == MapDocumentMetadata.document_id,
             isouter=True,
         )
-        .group_by(
-            Document.document_id,
-            Document.created_at,
-            Document.gerrydb_table,
-            Document.updated_at,
-            DistrictrMap.parent_layer,
-            DistrictrMap.child_layer,
-            DistrictrMap.tiles_s3_path,
-            DistrictrMap.num_districts,
-            DistrictrMap.extent,
-            DistrictrMap.available_summary_stats,
-        )
-        .limit(1)
     )
     result = session.exec(stmt)
 
@@ -442,21 +424,37 @@ async def get_gerrydb_summary_stat(
             )
 
 
-@app.post("/api/document/metadata/{document_id}", status_code=status.HTTP_200_OK)
+@app.post("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
     document_id: str,
-    metadata: List[DocumentMetadata],  # Accept metadata as a dictionary
+    # metadata: List[MapDocumentMetadata],  # Accept metadata as a dictionary
+    metadata: MapDocumentMetadata,
     session: Session = Depends(get_session),
 ):
     try:
-        metadata_dict = jsonable_encoder(metadata)
+        print(document_id)
+        print(metadata)
+        metadata_dict = metadata.from_dict()
 
-        session.execute(
-            text(
-                f"SELECT document.update_metadata('{document_id}', '{json.dumps(metadata_dict)}'::jsonb)"
-            ),
+        # create or update metadata record
+        stmt = insert(MapDocumentMetadata).values(
+            document_id=document_id, map_metadata=metadata_dict
         )
+
+        stmt = stmt.on_conflict_do_update(
+            constraint=MapDocumentMetadata.__table__.primary_key,
+            set_={"map_metadata": stmt.excluded.map_metadata},
+        )
+
+        session.execute(stmt)
         session.commit()
+
+        # session.execute(
+        #     text(
+        #         f"SELECT document.update_metadata('{document_id}', '{json.dumps(metadata_dict)}'::jsonb)"
+        #     ),
+        # )
+        # session.commit()
     except Exception as e:
         logger.error(e)
         session.rollback()

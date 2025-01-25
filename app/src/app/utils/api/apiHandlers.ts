@@ -90,12 +90,14 @@ export interface DocumentObject {
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   available_summary_stats: string[];
-  metadata?: DocumentMetadata[];
+  metadata?: DocumentMetadata;
 }
 
 export interface DocumentMetadata {
-  key: string | null;
-  value: string | null;
+  name: string | null;
+  tags: string[] | null;
+  description: string | null;
+  eventId: string | null;
 }
 
 /**
@@ -549,8 +551,9 @@ export const saveMapDocumentMetadata = async ({
   document_id: string;
   metadata: DocumentMetadata[];
 }) => {
+  console.log(metadata);
   return await axios
-    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/metadata/${document_id}`, metadata)
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/metadata`, metadata)
     .then(res => {
       return res.data;
     })
