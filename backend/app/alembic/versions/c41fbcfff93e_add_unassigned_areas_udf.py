@@ -10,6 +10,7 @@ from typing import Sequence, Union
 from pathlib import Path
 
 from alembic import op
+import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
