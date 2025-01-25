@@ -8,7 +8,6 @@ import {useMapStore} from '@store/mapStore';
 import {calculateMinMaxRange} from '@utils/zone-helpers';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
-import { getEntryTotal } from '@/app/utils/summaryStats';
 
 export const PopulationPanel = () => {
   const mapMetrics = useChartStore(state => state.mapMetrics);
@@ -21,11 +20,11 @@ export const PopulationPanel = () => {
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
   const totalPopData = useMapStore(state => state.summaryStats.totpop?.data);
-  const totPop = getEntryTotal(totalPopData || {})
+  const totPop = totalPopData?.total
 
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
   const {chartData, stats, unassigned} = useMemo(() => {
-    let unassigned = structuredClone(totPop)
+    let unassigned = structuredClone(totPop!)
     if (mapMetrics && mapMetrics.data && numDistricts && totPop) {
       const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
         (acc, district) => {
