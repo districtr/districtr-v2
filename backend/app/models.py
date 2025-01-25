@@ -17,6 +17,7 @@ from sqlmodel import (
 )
 from typing import List, Dict
 from sqlalchemy.types import ARRAY, TEXT
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import Float
 from app.constants import DOCUMENT_SCHEMA
 from enum import Enum
@@ -149,6 +150,52 @@ class DocumentCreate(BaseModel):
     gerrydb_table: str | None
 
 
+class DistrictrMapMetadata(BaseModel):
+    name: str | None
+    tags: list[str] | None
+    description: str | None
+    event_id: str | None
+
+
+class MapDocumentMetadata(TimeStampMixin, SQLModel, table=True):
+    __tablename__ = "map_document_metadata"
+    __table_args__ = (
+        UniqueConstraint("document_id", name="document_id_unique"),
+        {"schema": DOCUMENT_SCHEMA},
+    )
+
+    metadata_id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True)
+    )
+
+    document_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("document.document_id"),
+            nullable=False,
+            unique=True,
+        )
+    )
+    map_metadata: DistrictrMapMetadata = Field(
+        sa_column=Column(
+            JSON,
+            nullable=False,
+        )
+    )
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(
+            **data,
+            map_metadata=DistrictrMapMetadata(**data.get("map_metadata", {})),
+        )
+
+    def to_dict(self):
+        data = self.dict()
+        data["map_metadata"] = self.map_metadata.dict()
+        return data
+
+
 class DocumentPublic(BaseModel):
     document_id: UUID4
     gerrydb_table: str | None
@@ -160,30 +207,7 @@ class DocumentPublic(BaseModel):
     updated_at: datetime
     extent: list[float] | None = None
     available_summary_stats: list[str] | None = None
-    metadata: List[Dict[str, Any]] = []
-
-
-class DocumentMetadata(TimeStampMixin, SQLModel, table=True):
-    """
-    Made for user-defined metadata for a document
-    """
-
-    __tablename__ = "document_metadata"
-    __table_args__ = {"schema": "document"}
-
-    metadata_id: int = Field(
-        sa_column=Column(Integer, primary_key=True, autoincrement=True)
-    )
-
-    document_id: UUID4 = Field(
-        sa_column=Column(
-            UUIDType,
-            ForeignKey("Document.document_id"),
-            nullable=False,
-        )
-    )
-    key: str | None = Field(nullable=False)
-    value: str | None = Field(nullable=False)
+    map_metadata: DistrictrMapMetadata | None
 
 
 class AssignmentsBase(SQLModel):
