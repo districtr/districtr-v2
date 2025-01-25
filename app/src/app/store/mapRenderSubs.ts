@@ -61,8 +61,6 @@ export const getRenderSubscriptions = (
       }
 
       const layersToFilter = mapDocument?.child_layer ? CHILD_LAYERS : [];
-
-      if (mapDocument?.child_layer) layersToFilter.push(...CHILD_LAYERS);
       // Hide broken parents on parent layer
       // Show broken children on child layer
       layersToFilter.forEach(
