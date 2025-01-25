@@ -28,7 +28,7 @@ export default function PaintByCounty() {
   };
 
   return (
-    <Box>
+    <Box pb="3">
       <Text as="label" size="2">
         <Flex gap="2">
           <Checkbox checked={paintByCounty} defaultChecked={false} onClick={handleToggle} />

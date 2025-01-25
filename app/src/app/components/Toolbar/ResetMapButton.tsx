@@ -1,21 +1,24 @@
 import {AlertDialog, Button, Flex} from '@radix-ui/themes';
+import React from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useTemporalStore} from '@/app/store/temporalStore';
 
-export function ResetMapButton() {
+export const ResetMapButton: React.FC<{dialogOnly?: boolean}> = ({dialogOnly}) => {
   const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
   const handleReset = useMapStore(state => state.handleReset);
-  const clear = useTemporalStore(state => state.clear); // TemporalState<MapStore>
+  const clear = useTemporalStore(state => state.clear);
   const handleClickResetMap = () => {
     clear();
     handleReset();
   };
 
   return (
-    <AlertDialog.Root>
-      <AlertDialog.Trigger disabled={noZonesAreAssigned}>
-        <Button variant='outline'>Reset Map</Button>
-      </AlertDialog.Trigger>
+    <AlertDialog.Root defaultOpen={dialogOnly}>
+      {!dialogOnly && (
+        <AlertDialog.Trigger disabled={noZonesAreAssigned}>
+          <Button variant="outline">Reset Map</Button>
+        </AlertDialog.Trigger>
+      )}
       <AlertDialog.Content maxWidth="450px">
         <AlertDialog.Title>Reset Map</AlertDialog.Title>
         <AlertDialog.Description size="2">
@@ -38,4 +41,4 @@ export function ResetMapButton() {
       </AlertDialog.Content>
     </AlertDialog.Root>
   );
-}
+};

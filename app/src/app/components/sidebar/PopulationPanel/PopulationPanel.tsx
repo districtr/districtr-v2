@@ -1,4 +1,4 @@
-import {CheckboxGroup, Flex, Heading, IconButton, Text, TextField} from '@radix-ui/themes';
+import {Flex, Heading, Text} from '@radix-ui/themes';
 import React, {useMemo} from 'react';
 import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
@@ -42,13 +42,13 @@ export const PopulationPanel = () => {
       return {
         stats,
         chartData,
-        unassigned
+        unassigned,
       };
     } else {
       return {
         stats: undefined,
         chartData: [],
-        unassigned:0
+        unassigned: 0,
       };
     }
   }, [mapMetrics, totalPopData, numDistricts]);
@@ -107,7 +107,9 @@ export const PopulationPanel = () => {
         <Flex direction={'row'} justify={'between'} align={'start'}>
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
             <Text>Ideal Population</Text>
-            <Text weight={'bold'} className="mb-2">{formatNumber(idealPopulation, 'string')}</Text>
+            <Text weight={'bold'} className="mb-2">
+              {formatNumber(idealPopulation, 'string')}
+            </Text>
             <Text>Unassigned</Text>
             <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>
           </Flex>
@@ -126,39 +128,6 @@ export const PopulationPanel = () => {
           </Text>
         </Flex>
       )}
-      <CheckboxGroup.Root
-        defaultValue={[]}
-        name="districts"
-        value={[
-          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
-          mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-        ]}
-      >
-        <hr className="my-2"/>
-      <Heading as="h3" weight="bold" size="3">
-        Map Options
-      </Heading>
-        <CheckboxGroup.Item
-          value="higlightUnassigned"
-          onClick={() =>
-            setMapOptions({
-              higlightUnassigned: !mapOptions.higlightUnassigned,
-            })
-          }
-        >
-          Highlight unassigned units
-        </CheckboxGroup.Item>
-        <CheckboxGroup.Item
-          value="showPopulationTooltip"
-          onClick={() =>
-            setMapOptions({
-              showPopulationTooltip: !mapOptions.showPopulationTooltip,
-            })
-          }
-        >
-          Show population tooltip
-        </CheckboxGroup.Item>
-      </CheckboxGroup.Root>
     </Flex>
   );
 };
