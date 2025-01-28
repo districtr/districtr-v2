@@ -20,18 +20,16 @@ export const PopulationPanel = () => {
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
   const totalPopData = useMapStore(state => state.summaryStats.totpop?.data);
-  const totPop = totalPopData?.total
-
+  const totPop = totalPopData?.total;
+  const unassigned = useChartStore(state => state.chartInfo.unassigned);
   const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
-  const {chartData, stats, unassigned} = useMemo(() => {
-    let unassigned = structuredClone(totPop!)
+  const {chartData, stats} = useMemo(() => {
     if (mapMetrics && mapMetrics.data && numDistricts && totPop) {
       const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
         (acc, district) => {
           const totalPop = mapMetrics.data.reduce((acc, entry) => {
             return entry.zone === district ? acc + entry.total_pop : acc;
           }, 0);
-          unassigned -= totalPop;
           return [...acc, {zone: district, total_pop: totalPop}];
         },
         [] as Array<{zone: number; total_pop: number}>
@@ -41,13 +39,11 @@ export const PopulationPanel = () => {
       return {
         stats,
         chartData,
-        unassigned,
       };
     } else {
       return {
         stats: undefined,
         chartData: [],
-        unassigned: 0,
       };
     }
   }, [mapMetrics, totalPopData, numDistricts]);
@@ -109,8 +105,12 @@ export const PopulationPanel = () => {
             <Text weight={'bold'} className="mb-2">
               {formatNumber(idealPopulation, 'string')}
             </Text>
-            <Text>Unassigned</Text>
-            <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>
+            {unassigned !== null && (
+              <>
+                <Text>Unassigned</Text>
+                <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>
+              </>
+            )}
           </Flex>
 
           <Text>
