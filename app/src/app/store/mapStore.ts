@@ -270,14 +270,6 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 
   mapName: () => string | undefined;
-  mapMetadata: DocumentObject['map_metadata'];
-  updateMetadata: (
-    documentId: string,
-    name?: any,
-    tags?: any,
-    description?: any,
-    eventId?: any
-  ) => void;
 
   // USER MAPS / RECENT MAPS
 
@@ -411,33 +403,6 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setMapViews: mapViews => set({mapViews}),
   mapDocument: null,
   mapName: () => get().mapDocument?.map_metadata?.name || undefined,
-  mapMetadata: {
-    name: null,
-    tags: null,
-    description: null,
-    eventId: null,
-  },
-  updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
-    set(state => {
-      const userMaps = get().userMaps;
-      const updatedMaps = userMaps.map(map => {
-        if (map.document_id === documentId) {
-          console.log('map is in usermaps');
-          const updatedMetadata = {
-            ...map.map_metadata,
-            [key]: value,
-          };
-          console.log(updatedMetadata);
-          return {
-            ...map,
-            map_metadata: updatedMetadata,
-          };
-        }
-        return map;
-      }) as DocumentObject[];
-      return {userMaps: updatedMaps};
-    }),
-
   setMapDocument: mapDocument => {
     const {
       mapDocument: currentMapDocument,

@@ -430,30 +430,24 @@ async def update_districtrmap_metadata(
     metadata: dict = Body(...),
     session: Session = Depends(get_session),
 ):
-    # todo: handle incomplete records
-    print(metadata)
     try:
-        metadata_dict = MapDocumentMetadata.from_dict(data=metadata)
-        print(metadata_dict)
+        metadata_obj = MapDocumentMetadata.from_dict(
+            {"document_id": document_id, "map_metadata": metadata}
+        )
+
         # create or update metadata record
         stmt = insert(MapDocumentMetadata).values(
-            document_id=document_id, map_metadata=metadata_dict
+            document_id=document_id, map_metadata=metadata_obj.map_metadata.dict()
         )
 
         stmt = stmt.on_conflict_do_update(
-            constraint=MapDocumentMetadata.__table__.primary_key,
+            index_elements=["document_id"],
             set_={"map_metadata": stmt.excluded.map_metadata},
         )
 
         session.execute(stmt)
         session.commit()
 
-        # session.execute(
-        #     text(
-        #         f"SELECT document.update_metadata('{document_id}', '{json.dumps(metadata_dict)}'::jsonb)"
-        #     ),
-        # )
-        # session.commit()
     except Exception as e:
         logger.error(e)
         session.rollback()

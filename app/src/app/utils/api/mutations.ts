@@ -121,9 +121,7 @@ export const document = new MutationObserver(queryClient, {
 
 export const metadata = new MutationObserver(queryClient, {
   mutationFn: saveMapDocumentMetadata,
-  //
   onMutate: ({document_id, metadata}) => {
-    console.log('writing to db');
     return {document_id, metadata};
   },
   onError: error => {

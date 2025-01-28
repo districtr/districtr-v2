@@ -13,7 +13,7 @@ import {
   RadioCards,
 } from '@radix-ui/themes';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
-import {DocumentObject, DocumentMetadata} from '../../utils/api/apiHandlers';
+import {DocumentObject} from '../../utils/api/apiHandlers';
 import {metadata} from '@/app/utils/api/mutations';
 import {styled} from '@stitches/react';
 import {useTemporalStore} from '@/app/store/temporalStore';
@@ -108,20 +108,24 @@ const RecentMapsRow: React.FC<{
   onChange?: (data?: DocumentObject) => void;
 }> = ({data, onSelect, active, onChange}) => {
   const updatedDate = new Date(data.updated_at as string);
-  const updateMetadata = useMapStore(store => store.updateMetadata);
   const formattedData = updatedDate.toLocaleDateString();
   const name = data?.map_metadata?.name || data.gerrydb_table;
   const [newName, setNewName] = React.useState(name);
   const [nameIsChanged, setNameIsChanged] = React.useState(false);
 
   const handleChangeName = () => {
-    updateMetadata(data.document_id, 'name', newName);
-    onChange?.({...data});
+    onChange?.({...data, map_metadata: {...data.map_metadata, name: newName}});
 
     // update db
+    const savedMapMetadata = useMapStore
+      .getState()
+      .userMaps.find(map => map.document_id === data.document_id)?.map_metadata;
+    if (!savedMapMetadata) {
+      return;
+    }
     metadata.mutate({
       document_id: data.document_id,
-      metadata: data.map_metadata || {},
+      metadata: savedMapMetadata,
     });
     setNameIsChanged(false);
   };

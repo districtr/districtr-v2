@@ -151,10 +151,10 @@ class DocumentCreate(BaseModel):
 
 
 class DistrictrMapMetadata(BaseModel):
-    name: str | None
-    tags: list[str] | None
-    description: str | None
-    event_id: str | None
+    name: Optional[str] | None = None
+    tags: Optional[list[str]] | None = None
+    description: Optional[str] | None = None
+    event_id: Optional[str] | None = None
 
 
 class MapDocumentMetadata(TimeStampMixin, SQLModel, table=True):
@@ -184,7 +184,7 @@ class MapDocumentMetadata(TimeStampMixin, SQLModel, table=True):
     @classmethod
     def from_dict(cls, data: dict):
         return cls(
-            **data,
+            document_id=data.get("document_id"),
             map_metadata=DistrictrMapMetadata(**data.get("map_metadata", {})),
         )
 

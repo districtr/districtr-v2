@@ -90,7 +90,7 @@ export interface DocumentObject {
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   available_summary_stats: string[];
-  map_metadata?: DocumentMetadata;
+  map_metadata: DocumentMetadata;
 }
 
 export interface DocumentMetadata {
@@ -551,7 +551,6 @@ export const saveMapDocumentMetadata = async ({
   document_id: string;
   metadata: DocumentMetadata;
 }) => {
-  console.log(metadata);
   return await axios
     .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/metadata`, metadata)
     .then(res => {
