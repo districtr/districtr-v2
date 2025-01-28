@@ -1,3 +1,4 @@
+'use client';
 import React from 'react';
 import {useMapStore} from '../store/mapStore';
 import {Spinner} from '@radix-ui/themes';

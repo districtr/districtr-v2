@@ -1,25 +1,58 @@
-import {CheckboxGroup, Flex, Heading, Text} from '@radix-ui/themes';
-import React from 'react';
+import {Flex, Heading, Text} from '@radix-ui/themes';
+import React, {useMemo} from 'react';
 import {formatNumber} from '@utils/numbers';
 import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import InfoTip from '@components/InfoTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
+import {calculateMinMaxRange} from '@utils/zone-helpers';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 
 export const PopulationPanel = () => {
   const mapMetrics = useChartStore(state => state.mapMetrics);
-  const idealPopulation = useMapStore(state => state.summaryStats?.idealpop?.data);
+  const summaryStats = useMapStore(state => state.summaryStats);
+  const numDistricts = useMapStore(state => state.mapDocument?.num_districts);
+  const idealPopulation = summaryStats?.idealpop?.data;
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const setChartOptions = useChartStore(state => state.setChartOptions);
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
-  const chartInfo = useChartStore(state => state.chartInfo);
-  const {chartData, stats, unassigned} = chartInfo;
+  const totalPopData = useMapStore(state => state.summaryStats.totpop?.data);
+  const totPop = totalPopData?.total
 
-  if (mapMetrics?.isPending) {
+  const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
+  const {chartData, stats, unassigned} = useMemo(() => {
+    let unassigned = structuredClone(totPop!)
+    if (mapMetrics && mapMetrics.data && numDistricts && totPop) {
+      const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
+        (acc, district) => {
+          const totalPop = mapMetrics.data.reduce((acc, entry) => {
+            return entry.zone === district ? acc + entry.total_pop : acc;
+          }, 0);
+          unassigned -= totalPop;
+          return [...acc, {zone: district, total_pop: totalPop}];
+        },
+        [] as Array<{zone: number; total_pop: number}>
+      );
+      const allAreNonZero = chartData.every(entry => entry.total_pop > 0);
+      const stats = allAreNonZero ? calculateMinMaxRange(chartData) : undefined;
+      return {
+        stats,
+        chartData,
+        unassigned,
+      };
+    } else {
+      return {
+        stats: undefined,
+        chartData: [],
+        unassigned: 0,
+      };
+    }
+  }, [mapMetrics, totalPopData, numDistricts]);
+
+  if (mapMetrics?.isPending || !totalPopData) {
     return <div>Loading...</div>;
   }
 
@@ -77,9 +110,7 @@ export const PopulationPanel = () => {
               {formatNumber(idealPopulation, 'string')}
             </Text>
             <Text>Unassigned</Text>
-            <Text weight={'bold'}>
-              {unassigned >= 0 ? formatNumber(unassigned, 'string') : '--'}
-            </Text>
+            <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>
           </Flex>
 
           <Text>
@@ -96,39 +127,6 @@ export const PopulationPanel = () => {
           </Text>
         </Flex>
       )}
-      <CheckboxGroup.Root
-        defaultValue={[]}
-        name="districts"
-        value={[
-          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
-          mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-        ]}
-      >
-        <hr className="my-2" />
-        <Heading as="h3" weight="bold" size="3">
-          Map Options
-        </Heading>
-        <CheckboxGroup.Item
-          value="higlightUnassigned"
-          onClick={() =>
-            setMapOptions({
-              higlightUnassigned: !mapOptions.higlightUnassigned,
-            })
-          }
-        >
-          Highlight unassigned units
-        </CheckboxGroup.Item>
-        <CheckboxGroup.Item
-          value="showPopulationTooltip"
-          onClick={() =>
-            setMapOptions({
-              showPopulationTooltip: !mapOptions.showPopulationTooltip,
-            })
-          }
-        >
-          Show population tooltip
-        </CheckboxGroup.Item>
-      </CheckboxGroup.Root>
     </Flex>
   );
 };

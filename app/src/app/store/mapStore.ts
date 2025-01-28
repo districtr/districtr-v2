@@ -93,7 +93,7 @@ export interface MapStore {
   setLoadedMapId: (mapId: string) => void;
   summaryStats: {
     totpop?: {
-      data: P1TotPopSummaryStats | P4TotPopSummaryStats;
+      data: (P1TotPopSummaryStats | P4TotPopSummaryStats) & {total: number};
     };
     idealpop?: {
       data: number;
@@ -231,8 +231,8 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
-  sidebarPanel: 'layers' | 'population' | 'evaluation';
-  setSidebarPanel: (panel: MapStore['sidebarPanel']) => void;
+  sidebarPanels: Array<'layers' | 'population' | 'evaluation'>;
+  setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
   toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
   activeTool: ActiveTool;
@@ -313,6 +313,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               ...mapOptions,
               mode: 'default',
             },
+            activeTool: 'shatter'
           });
 
           const parentId = focusFeatures?.[0].id?.toString();
@@ -436,8 +437,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               ...initialMapOptions,
               bounds: mapDocument.extent,
             },
+            sidebarPanels: ['population'],
             appLoadingState: 'initializing',
-            sidebarPanel: 'population',
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
@@ -510,7 +511,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             document_id
           });
           const children = shatterMappings[parentsToHeal[0]];
-          children.forEach(child => {
+          children?.forEach(child => {
             // remove from allPainted
             allPainted.delete(child);
           })
@@ -599,7 +600,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             // TODO: Should this be true instead?
             // Is there a way to clean up the state history during
             // break / shatter?
-            isTemporalAction: true,
+            isTemporalAction: false,
             mapLock: false,
             captiveIds: newChildren,
             lockedFeatures: newLockedFeatures,
@@ -610,6 +611,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
                 sourceLayer: get().mapDocument?.parent_layer,
               },
             ],
+            activeTool: 'brush',
             zoneAssignments,
             parentsToHeal: [...get().parentsToHeal, features?.[0]?.id?.toString() || '']
               .filter(onlyUnique)
@@ -812,11 +814,15 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             });
 
             set({
-              zonePopulations: initialState.zonePopulations,
-              zoneAssignments: initialState.zoneAssignments,
-              shatterIds: initialState.shatterIds,
+              zonePopulations: new Map(),
+              zoneAssignments: new Map(),
+              shatterIds: {
+                parents: new Set(),
+                children: new Set()
+              },
               appLoadingState: 'loaded',
               mapLock: false,
+              activeTool: 'pan'
             });
           }
         },
@@ -861,8 +867,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           prominentCountyNames: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
-        sidebarPanel: 'layers',
-        setSidebarPanel: sidebarPanel => set({sidebarPanel}),
+        sidebarPanels: ['population'],
+        setSidebarPanels: sidebarPanels => set({sidebarPanels}),
         toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
           const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
           const mapRef = getMapRef();
@@ -913,7 +919,12 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         spatialUnit: 'tract',
         setSpatialUnit: unit => set({spatialUnit: unit}),
         selectedZone: 1,
-        setSelectedZone: zone => set({selectedZone: zone}),
+        setSelectedZone: zone => {
+          const numDistricts = get().mapDocument?.num_districts ?? 4;
+          if (zone <= numDistricts) {
+            set({selectedZone: zone})
+          }
+        },
         zoneAssignments: new Map(),
         assignmentsHash: '',
         lastUpdatedHash: Date.now().toString(),

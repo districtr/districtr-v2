@@ -1,14 +1,34 @@
-import {Heading, CheckboxGroup, Flex} from '@radix-ui/themes';
-import {useMapStore} from '@/app/store/mapStore';
+import React from 'react';
+import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes';
+import {useMapStore} from '@store/mapStore';
 import {
   COUNTY_LAYER_IDS,
   BLOCK_LAYER_ID,
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_CHILD,
-} from '../../constants/layers';
-import {toggleLayerVisibility} from '../../utils/helpers';
+} from '@constants/layers';
+import {toggleLayerVisibility} from '@utils/helpers';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
+const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
+  {
+    label: 'Small',
+    value: 30,
+  },
+  {
+    label: 'Medium',
+    value: 40,
+  },
+  {
+    label: 'Large',
+    value: 54,
+  },
+  {
+    label: 'Huge',
+    value: 80,
+  },
+];
 /** Layers
  * This component is responsible for rendering the layers that can be toggled
  * on and off in the map.
@@ -17,7 +37,7 @@ import {toggleLayerVisibility} from '../../utils/helpers';
  * - Support numbering for painted districts
  * - Support tribes and communities
  */
-export default function Layers() {
+export const ToolSettings: React.FC = () => {
   const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
   const visibleLayerIds = useMapStore(state => state.visibleLayerIds);
@@ -26,6 +46,10 @@ export default function Layers() {
   const parentsAreBroken = useMapStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
+  const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
+  const toolbarSize = useToolbarStore(state => state.toolbarSize);
+  const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
+  const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
 
   const toggleLayers = (layerIds: string[]) => {
     if (!mapRef) return;
@@ -35,19 +59,32 @@ export default function Layers() {
 
   return (
     <Flex gap="3" direction="column">
-      <Heading as="h3" weight="bold" size="3">
-        My painted districts
-      </Heading>
       <CheckboxGroup.Root
         defaultValue={[]}
         name="districts"
         value={[
+          mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
+          mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
+
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
           mapOptions.showZoneNumbers ? '2' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
           mapOptions.lockPaintedAreas === true ? '4' : '',
         ]}
       >
+        <Heading as="h3" weight="bold" size="3">
+          Map Options
+        </Heading>
+        <CheckboxGroup.Item
+          value="showPopulationTooltip"
+          onClick={() =>
+            setMapOptions({
+              showPopulationTooltip: !mapOptions.showPopulationTooltip,
+            })
+          }
+        >
+          Show population tooltip
+        </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="1"
           onClick={() =>
@@ -71,6 +108,16 @@ export default function Layers() {
           }
         >
           Show numbering for painted districts <i>(experimental)</i>
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item
+          value="higlightUnassigned"
+          onClick={() =>
+            setMapOptions({
+              higlightUnassigned: !mapOptions.higlightUnassigned,
+            })
+          }
+        >
+          Highlight unassigned areas
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="3"
@@ -101,12 +148,47 @@ export default function Layers() {
             })
           }
         >
-          Emphasize County Names
+          Show county names
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>
           Show tribes and communities
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>
+
+      <CheckboxGroup.Root
+        defaultValue={[]}
+        name="toolbar"
+        value={[customizeToolbar ? 'customizeToolbar' : '']}
+      >
+        <Heading as="h3" weight="bold" size="3">
+          Toolbar Options
+        </Heading>
+        <CheckboxGroup.Item
+          value="customizeToolbar"
+          onClick={() => setCustomzieToolbar(!customizeToolbar)}
+        >
+          Enable draggable toolbar
+        </CheckboxGroup.Item>
+      </CheckboxGroup.Root>
+      <Box>
+        <Text size="2" className="p-0">
+          Toolbar size:
+        </Text>
+        <Flex direction="row" gapX="2" wrap="wrap" pt="0">
+          {TOOLBAR_SIZES.map(size => (
+            <Button
+              key={size.value}
+              variant={'ghost'}
+              style={{
+                fontWeight: toolbarSize === size.value ? 'bold' : 'normal',
+              }}
+              onClick={() => setToolbarSize(size.value)}
+            >
+              {size.label}
+            </Button>
+          ))}
+        </Flex>
+      </Box>
     </Flex>
   );
-}
+};
