@@ -110,8 +110,7 @@ const RecentMapsRow: React.FC<{
   const updatedDate = new Date(data.updated_at as string);
   const updateMetadata = useMapStore(store => store.updateMetadata);
   const formattedData = updatedDate.toLocaleDateString();
-  const name =
-    data?.metadata?.find((k: DocumentMetadata) => k.key === 'name')?.value || data.gerrydb_table;
+  const name = data?.map_metadata?.name || data.gerrydb_table;
   const [newName, setNewName] = React.useState(name);
   const [nameIsChanged, setNameIsChanged] = React.useState(false);
 
@@ -122,7 +121,7 @@ const RecentMapsRow: React.FC<{
     // update db
     metadata.mutate({
       document_id: data.document_id,
-      metadata: data.metadata || [],
+      metadata: data.map_metadata || {},
     });
     setNameIsChanged(false);
   };

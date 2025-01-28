@@ -1,5 +1,5 @@
 import {useMapStore} from '@/app/store/mapStore';
-import React from 'react';
+import React, from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {
   Button,
@@ -17,6 +17,7 @@ import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {metadata} from '@/app/utils/api/mutations';
+
 type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content);
@@ -36,6 +37,8 @@ export const ShareMapsModal = () => {
   const gerryDBTable = mapDocument?.gerrydb_table;
   const userMaps = useMapStore(store => store.userMaps);
   const updateMetadata = useMapStore(store => store.updateMetadata);
+  const upsertUserMap = useMapStore(store => store.upsertUserMap);
+  const mapMetadata = useMapStore.getState().mapMetadata;
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [clickToCopyPrompt, setClickToCopyPrompt] = React.useState('Click to copy');
 
@@ -59,8 +62,8 @@ export const ShareMapsModal = () => {
   };
 
   // get map name from metadata if it exists
-  const mapName = mapDocument?.metadata?.find(k => k.key === 'name')?.value || undefined;
-  const mapTags = mapDocument?.metadata?.find(k => k.key === 'tags')?.value || undefined;
+  const mapName = mapDocument?.map_metadata?.name || undefined;
+  const mapTags = mapDocument?.map_metadata?.tags || undefined;
 
   const [name, setName] = React.useState(mapName);
   const [tagsTeam, setTagsTeam] = React.useState(mapTags);
@@ -70,7 +73,17 @@ export const ShareMapsModal = () => {
   const handleChangeName = (name?: string) => {
     if (mapDocument?.document_id) {
       setName(name);
-      updateMetadata(mapDocument?.document_id, 'name', name);
+      upsertUserMap({
+        documentId: mapDocument?.document_id,
+        mapDocument: {
+          ...mapDocument,
+          map_metadata: {
+            ...mapDocument.map_metadata,
+            name: name ?? null,
+            tags: mapDocument.map_metadata?.tags ?? null,
+          },
+        }        
+      });
       // if name does not match metadata, make eligible to save
       if (name !== mapName) {
         setNameIsSaved(false);
@@ -80,8 +93,17 @@ export const ShareMapsModal = () => {
 
   const handleChangeTag = (tag?: string) => {
     if (mapDocument?.document_id) {
-      setTagsTeam(tag);
-      updateMetadata(mapDocument?.document_id, 'tags', tag);
+      setTagsTeam([tag || '']);
+      upsertUserMap({
+        documentId: mapDocument?.document_id,
+        mapDocument: {
+          ...mapDocument,
+          map_metadata: {
+            ...mapDocument.map_metadata,
+            name: name,
+          },
+        }        
+      });
 
       if (tag !== mapTags) {
         setTagsIsSaved(false);
@@ -89,23 +111,43 @@ export const ShareMapsModal = () => {
     }
   };
 
+  const handleMetadataChange = (key: keyof DocumentMetadata, value: any) => {
+    if (mapDocument?.document_id) {
+      upsertUserMap({
+        documentId: mapDocument?.document_id,
+        mapDocument: {
+          ...mapDocument,
+          map_metadata: {
+            ...mapDocument.map_metadata,
+            [key]: value,
+          },
+        },
+      });
+    }
+  }
+
   // if no gerrydb table selected or no edits made, return null
   if (!gerryDBTable || !userMaps?.length) {
     return null;
   }
 
+  const checkIfMapInUserMaps = (document_id: string) => {
+    return userMaps.some(map => map.document_id === document_id);
+  }
+
   const handleMapSave = () => {
-    const metadataObjects = [
-      {key: 'name', value: name},
-      {key: 'tags', value: tagsTeam},
-    ];
-    const formattedMetadata: DocumentMetadata[] = metadataObjects.map(obj => {
-      return {
-        key: obj.key,
-        value: obj.value ?? '',
-      };
-    });
-    metadata.mutate({document_id: mapDocument?.document_id, metadata: formattedMetadata});
+    const metadataObjects = useMapStore.getState().mapMetadata;
+    if (mapDocument?.document_id) {
+      
+      const savedMapMetadata = userMaps.find(map => map.document_id === mapDocument?.document_id)?.map_metadata;
+      if (!savedMapMetadata) {
+        return;
+      }
+      metadata.mutate({
+        document_id: mapDocument?.document_id,
+        metadata: savedMapMetadata,
+      });
+    }
 
     setNameIsSaved(true);
     setTagsIsSaved(true);
@@ -135,7 +177,7 @@ export const ShareMapsModal = () => {
               placeholder={mapName ?? 'Team or Plan Name'}
               size="3"
               value={mapName}
-              onChange={e => handleChangeName(e.target.value)}
+              onChange={e => handleMetadataChange('name', e.target.value)}
             ></TextField.Root>
           </Box>
           <Box maxWidth="200px">
@@ -144,7 +186,7 @@ export const ShareMapsModal = () => {
               placeholder={mapTags ?? 'Tag or Event Code'}
               size="3"
               value={tagsTeam}
-              onChange={e => handleChangeTag(e.target.value)}
+              onChange={e => handleMetadataChange('tags', e.target.value)}
             ></TextField.Root>
           </Box>
           <Text as="label" size="2">

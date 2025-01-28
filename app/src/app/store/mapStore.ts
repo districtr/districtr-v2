@@ -12,6 +12,7 @@ import {
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
   ShatterResult,
+  DocumentMetadata,
 } from '../utils/api/apiHandlers';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
@@ -269,13 +270,13 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 
   mapName: () => string | undefined;
-  metadata: DocumentObject['metadata'];
+  mapMetadata: DocumentObject['map_metadata'];
   updateMetadata: (
     documentId: string,
-    name: any,
-    tags: any,
-    description: any,
-    eventId: any
+    name?: any,
+    tags?: any,
+    description?: any,
+    eventId?: any
   ) => void;
 
   // USER MAPS / RECENT MAPS
@@ -409,37 +410,34 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   mapViews: {isPending: true},
   setMapViews: mapViews => set({mapViews}),
   mapDocument: null,
-  mapName: () => get().mapDocument?.metadata?.find(k => k.key === 'name')?.value || undefined,
-  metadata: {
+  mapName: () => get().mapDocument?.map_metadata?.name || undefined,
+  mapMetadata: {
     name: null,
     tags: null,
     description: null,
     eventId: null,
   },
-  updateMetadata: (documentId: string, key: string, value: any) =>
+  updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
     set(state => {
-      console.log('Saving metadata');
-      const updatedMaps = state.userMaps.map(map => {
-        if (map.document_id === documentId && map.metadata) {
-          map.metadata = {...map.metadata, [key]: value ?? null};
+      const userMaps = get().userMaps;
+      const updatedMaps = userMaps.map(map => {
+        if (map.document_id === documentId) {
+          console.log('map is in usermaps');
+          const updatedMetadata = {
+            ...map.map_metadata,
+            [key]: value,
+          };
+          console.log(updatedMetadata);
+          return {
+            ...map,
+            map_metadata: updatedMetadata,
+          };
         }
         return map;
-      });
+      }) as DocumentObject[];
       return {userMaps: updatedMaps};
-
-      // const updatedMaps = state.userMaps.map(map => {
-      //   if (map.document_id === documentId) {
-      //     const metadataItem = map.metadata?.find(item => item.key === key);
-      //     if (metadataItem) {
-      //       metadataItem.value = value;
-      //     } else {
-      //       map.metadata?.push({key, value});
-      //     }
-      //   }
-      //   return map;
-      // });
-      // return {userMaps: updatedMaps};
     }),
+
   setMapDocument: mapDocument => {
     const {
       mapDocument: currentMapDocument,
@@ -785,11 +783,13 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     let userMaps = [...get().userMaps];
     const mapViews = get().mapViews.data;
     if (mapDocument?.document_id && mapViews) {
+      console.log('upserting user map');
       const documentIndex = userMaps.findIndex(f => f.document_id === mapDocument?.document_id);
       const documentInfo = mapViews.find(
         view => view.gerrydb_table_name === mapDocument.gerrydb_table
       );
       if (documentIndex !== -1) {
+        console.log(mapDocument); // confirm that we are seeing the updated metadata here
         userMaps[documentIndex] = {
           ...documentInfo,
           ...userMaps[documentIndex],

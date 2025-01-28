@@ -1,4 +1,4 @@
-from fastapi import FastAPI, status, Depends, HTTPException, Query
+from fastapi import FastAPI, status, Depends, HTTPException, Query, Body
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
@@ -427,15 +427,14 @@ async def get_gerrydb_summary_stat(
 @app.post("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
     document_id: str,
-    # metadata: List[MapDocumentMetadata],  # Accept metadata as a dictionary
-    metadata: MapDocumentMetadata,
+    metadata: dict = Body(...),
     session: Session = Depends(get_session),
 ):
+    # todo: handle incomplete records
+    print(metadata)
     try:
-        print(document_id)
-        print(metadata)
-        metadata_dict = metadata.from_dict()
-
+        metadata_dict = MapDocumentMetadata.from_dict(data=metadata)
+        print(metadata_dict)
         # create or update metadata record
         stmt = insert(MapDocumentMetadata).values(
             document_id=document_id, map_metadata=metadata_dict

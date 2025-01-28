@@ -107,7 +107,8 @@ export const document = new MutationObserver(queryClient, {
     console.error('Error creating map document: ', error);
   },
   onSuccess: data => {
-    const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} = useMapStore.getState();
+    const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} =
+      useMapStore.getState();
     setMapDocument(data);
     setLoadedMapId(data.document_id);
     setAssignmentsHash(Date.now().toString());
@@ -122,7 +123,7 @@ export const metadata = new MutationObserver(queryClient, {
   mutationFn: saveMapDocumentMetadata,
   //
   onMutate: ({document_id, metadata}) => {
-    console.log('Saving metadata');
+    console.log('writing to db');
     return {document_id, metadata};
   },
   onError: error => {
