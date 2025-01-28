@@ -61,7 +61,7 @@ export const useChartStore = create(
       chartInfo: {
         stats: undefined,
         chartData: [],
-        unassigned: 0,
+        unassigned: null,
         totPop: 0,
       },
       setChartInfo: chartInfo => set({chartInfo}),
@@ -78,7 +78,7 @@ useChartStore.subscribe(
   metrics => {
     const mapMetrics = metrics as ChartStore['mapMetrics'];
     const numDistricts = useMapStore?.getState().mapDocument?.num_districts;
-    const totPop = useMapStore?.getState().summaryStats.totpop?.data?.total
+    const totPop = useMapStore?.getState().summaryStats.totpop?.data?.total;
     let unassigned = structuredClone(totPop)!;
     if (mapMetrics && mapMetrics.data && numDistricts && totPop && unassigned) {
       const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
