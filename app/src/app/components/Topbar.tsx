@@ -10,7 +10,7 @@ import {
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
-import React, {useRef} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {RecentMapsModal} from './Toolbar/RecentMapsModal';
 import {ToolSettings} from './Toolbar/Settings';
@@ -19,6 +19,7 @@ import {useTemporalStore} from '../store/temporalStore';
 import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
+import {districtrLocalStorageCache} from '../utils/cache';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -28,7 +29,8 @@ export const Topbar: React.FC = () => {
   const mapViews = useMapStore(state => state.mapViews);
 
   const clear = useTemporalStore(store => store.clear);
-  const {data} = mapViews || {};
+  const data = mapViews?.data || districtrLocalStorageCache.mapViews || [];
+
   const handleSelectMap = (selectedMap: DistrictrMap) => {
     if (selectedMap.gerrydb_table_name === mapDocument?.gerrydb_table) {
       console.log('No document or same document');
@@ -37,6 +39,12 @@ export const Topbar: React.FC = () => {
     clear();
     document.mutate({gerrydb_table: selectedMap.gerrydb_table_name});
   };
+  useEffect(() => {
+    if (mapViews?.data?.length) {
+      districtrLocalStorageCache.cacheViews(mapViews.data);
+    }
+  }, [mapViews]);
+  console.log('VIEWS', mapViews.data, districtrLocalStorageCache.mapViews);
 
   return (
     <>
