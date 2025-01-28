@@ -10,6 +10,8 @@
 -- The reason for providing this parameter from the frontend is to avoid running a query
 -- that requires the full materialized view of the document !!AND!! the parent child edges
 -- to identify which parents are broken and which children are expected to be assigned.
+-- Important! The alternative version of this function (See ALT_get_unassgigned_bbox_udf.sql)
+-- does NOT require user-supplied broken parents, but is slower.
 --
 -- PARAMETERS:
 -- - doc_uuid (uuid): The unique identifier of the document.
