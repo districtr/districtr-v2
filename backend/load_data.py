@@ -98,8 +98,10 @@ def load_sample_data(config):
                 view["gerrydb_table_name"],
                 "--tiles-s3-path",
                 view["tiles_s3_path"],
+                "--num-districts",
+                view["num_districts"],
             ]
-            if "child-layer-name" in view:
+            if "child_layer_name" in view:
                 args.extend(
                     [
                         "--child-layer-name",
