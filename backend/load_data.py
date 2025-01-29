@@ -66,16 +66,6 @@ def load_sample_data(config):
                 ]
             )
 
-        subprocess.run(
-            [
-                "python3",
-                "cli.py",
-                "create-parent-child-edges",
-                "--districtr-map",
-                view["gerrydb_table_name"],
-            ]
-        )
-
     for view in config["districtr_map"]:
         session = next(get_session())
         name = view["name"]
@@ -109,7 +99,19 @@ def load_sample_data(config):
                         view["child_layer_name"],
                     ]
                 )
+
             subprocess.run(args)
+
+            if "child_layer_name" in view:
+                subprocess.run(
+                    [
+                        "python3",
+                        "cli.py",
+                        "create-parent-child-edges",
+                        "--districtr-map",
+                        view["gerrydb_table_name"],
+                    ]
+                )
 
 
 if __name__ == "__main__":
