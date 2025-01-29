@@ -291,7 +291,7 @@ def document_id_fixture(
 def test_shattering(client, session: Session, document_id):
     response = client.patch(
         "/api/update_assignments",
-        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
+        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}], "updated_at": "2023-10-01T00:00:00Z"},
     )
     assert response.status_code == 200
 
