@@ -13,6 +13,8 @@ import {
   getTotPopSummaryStats,
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
+  LocalAssignmentsResponse,
+  RemoteAssignmentsResponse,
 } from './apiHandlers';
 import {getEntryTotal} from '@/app/utils/summaryStats';
 import {useMapStore} from '@/app/store/mapStore';
@@ -129,7 +131,7 @@ updateDocumentFromId.subscribe(mapDocument => {
   }
 });
 
-export const fetchAssignments = new QueryObserver<null | Assignment[]>(queryClient, {
+export const fetchAssignments = new QueryObserver<null | LocalAssignmentsResponse | RemoteAssignmentsResponse>(queryClient, {
   queryKey: ['assignments'],
   queryFn: () => getAssignments(useMapStore.getState().mapDocument),
 });
@@ -143,19 +145,10 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
-    if (assignments.data?.length && assignments.data[0].document_id === loadedMapId) {
-      console.log(
-        'Map already loaded, skipping assignment load',
-        assignments.data[0].document_id,
-        loadedMapId
-      );
-    } else {
-      fetchTotPop.refetch();
-      loadZoneAssignments(assignments.data);
-      useMapStore.temporal.getState().clear();
-    }
-    setAppLoadingState('loaded');
+    const {loadZoneAssignments} = useMapStore.getState();
+    loadZoneAssignments(assignments.data);
+    fetchTotPop.refetch();
+    useMapStore.temporal.getState().clear();
   }
 });
 
