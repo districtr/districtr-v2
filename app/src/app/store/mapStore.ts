@@ -37,11 +37,13 @@ import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
 import {devToolsConfig, devwrapper} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
-import {parentIdCache} from './idCache';
+import {idCache} from './idCache';
 import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
-import { useChartStore } from './chartStore';
-import { createWithMiddlewares } from './middlewares';
+import {useChartStore} from './chartStore';
+import {createWithMiddlewares} from './middlewares';
+import GeometryWorker from '../utils/GeometryWorker';
+import { useUnassignFeaturesStore } from './unassignedFeatures';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -413,11 +415,13 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             return;
           }
           const initialMapOptions = useMapStore.getInitialState().mapOptions;
-          parentIdCache.clear();
+          GeometryWorker?.clearGeometries()
+          idCache.clear();
           allPainted.clear();
           lastSentAssignments.clear();
           setFreshMap(true);
           resetZoneAssignments();
+          useUnassignFeaturesStore.getState().reset();
 
           const upsertMapOnDrawSub = useMapStore.subscribe(
             state => state.zoneAssignments,
@@ -667,13 +671,20 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               zone: parentsToHeal[0].zone as any,
               document_id: mapDocument?.document_id,
             });
-            const children = parentsToHeal.map(f => shatterMappings[f.parentId])
-              .forEach(childSet => {
-                childSet.forEach(child => {
-                // remove from allPainted
-                allPainted.delete(child);
-              })
-            })
+            const children = parentsToHeal
+              .map(f => ({
+                parent: f.parentId,
+                children: shatterMappings[f.parentId],
+              }))
+              .forEach(entry => {
+                const {children, parent} = entry;
+                idCache.heal(parent, Array.from(children));
+                GeometryWorker?.removeGeometries(Array.from(children));
+                children.forEach(child => {
+                  // remove from allPainted
+                  allPainted.delete(child);
+                });
+              });
             toggleHighlightBrokenDistricts(r.geoids, false);
             const newZoneAssignments = new Map(zoneAssignments);
             const newShatterIds = {

@@ -16,6 +16,7 @@ from sqlmodel import (
 )
 from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
+from pydantic_geojson import FeatureModel
 from app.constants import DOCUMENT_SCHEMA
 from enum import Enum
 from typing import Any
@@ -194,6 +195,10 @@ class GEOIDS(BaseModel):
 
 class AssignedGEOIDS(GEOIDS):
     zone: int | None
+
+
+class UnassignedBboxGeoJSONs(BaseModel):
+    features: list[FeatureModel]
 
 
 class ShatterResult(BaseModel):
