@@ -152,6 +152,7 @@ fetchAssignments.subscribe(assignments => {
       );
     } else {
       fetchTotPop.refetch();
+      mapMetrics.refetch();
       loadZoneAssignments(assignments.data);
       useMapStore.temporal.getState().clear();
     }
