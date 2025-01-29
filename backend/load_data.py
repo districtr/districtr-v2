@@ -21,6 +21,12 @@ def load_sample_data(config):
     specified data directory, and for each file, it runs a script to load the
     GerryDB view.
 
+    The order of adding views MUST be:
+    - Add base gerrydb layer
+    - Add shatterable view, if using shatterable layers
+    - Add districtr map, which is the gerrydb view or the shatterable view
+    - Add parent child edges, if using shatterable layers
+
     Args:
       None
     Returns:
