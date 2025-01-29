@@ -65,7 +65,7 @@ def load_sample_data(config):
                     view["child_layer_name"],
                 ]
             )
-        
+
         subprocess.run(
             [
                 "python3",
