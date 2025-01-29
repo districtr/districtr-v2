@@ -1,4 +1,4 @@
-import {MapGeoJSONFeature} from 'maplibre-gl';
+import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 
 export type CentroidReturn = {
   dissolved: GeoJSON.FeatureCollection;
@@ -29,7 +29,15 @@ export type GeometryWorkerClass = {
    * @param idProp - The property to use as the ID.
    */
   loadGeometry: (features: MinGeoJSONFeature[] | string, idProp: string) => void;
-
+  /**
+   * Removes geometries from the collection.
+   * @param ids - The IDs of the geometries to remove.
+   */
+  removeGeometries: (ids: string[]) => void;
+  /**
+   * Clears the collection of geometries.
+   */
+  clearGeometries: () => void;
   /**
    * Parses geometries and returns their centroids.
    * @param features - The features to parse.
@@ -52,6 +60,18 @@ export type GeometryWorkerClass = {
     maxLat: number
   ) => CentroidReturn;
 
+  /**
+   * Retrieves a collection of geometries without a zone assignment.
+   * @returns The collection of unassigned geometries.
+   */
+  getUnassignedGeometries: (
+    useRemote?: boolean,
+    documentId?: string,
+    exclude_ids?: string[]
+  ) => Promise<{
+    dissolved: GeoJSON.FeatureCollection;
+    overall: LngLatBoundsLike | null;
+  }>;
   /**
    * Retrieves the collection of geometries.
    * @returns The collection of geometries.

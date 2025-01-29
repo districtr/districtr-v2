@@ -7,6 +7,7 @@ import {ZoneLockPicker} from '@/app/components/Toolbar/ZoneLockPicker';
 import {ActiveTool} from '@constants/types';
 import {ExitBlockViewButtons} from '@/app/components/Toolbar/ExitBlockViewButtons';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import { ZoomToUnassigned } from '../sidebar/ZoomToUnassigned';
 
 const ToolControlsConfig: Record<
   Partial<ActiveTool>,
@@ -35,6 +36,9 @@ const ToolControlsConfig: Record<
       }
     },
   },
+  zoomToUnassigned: {
+    Component: ZoomToUnassigned
+  }
 };
 
 export const ToolControls: React.FC<{

@@ -7,7 +7,6 @@ from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
-
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
@@ -31,6 +30,7 @@ from app.models import (
     PopulationStatsP1,
     SummaryStatsP4,
     PopulationStatsP4,
+    UnassignedBboxGeoJSONs,
 )
 
 if settings.ENVIRONMENT == "production":
@@ -134,6 +134,13 @@ async def create_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Document creation failed",
         )
+    if not doc.parent_layer:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document creation failed",
+        )
+
     session.commit()
 
     return doc
@@ -310,6 +317,26 @@ async def get_total_population(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Population column not found in GerryDB view",
             )
+
+
+@app.get(
+    "/api/document/{document_id}/unassigned", response_model=UnassignedBboxGeoJSONs
+)
+async def get_unassigned_geoids(
+    document_id: str,
+    exclude_ids: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
+    stmt = text(
+        "SELECT * from get_unassigned_bboxes(:doc_uuid, :exclude_ids)"
+    ).bindparams(
+        bindparam(key="doc_uuid", type_=UUIDType),
+        bindparam(key="exclude_ids", type_=ARRAY(String)),
+    )
+    results = session.execute(
+        stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
+    ).fetchall()
+    return {"features": [row[0] for row in results]}
 
 
 @app.get("/api/document/{document_id}/{summary_stat}")
