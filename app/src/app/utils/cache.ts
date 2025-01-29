@@ -2,27 +2,32 @@ import {DistrictrMap, Assignment} from '@utils/api/apiHandlers';
 import {openDB, IDBPDatabase} from 'idb';
 import { MapStore } from '@store/mapStore';
 
-const stringifyWithMapsAndSets = (obj: object) => {
-  return JSON.stringify(obj, (key, value) => {
-    if (value instanceof Map) {
-      return {__type: 'Map', value: Array.from(value.entries())};
-    } else if (value instanceof Set) {
-      return {__type: 'Set', value: Array.from(value.values())};
-    }
-    return value;
-  });
-};
+type MapStoreCache = {
+  zoneAssignments: MapStore['zoneAssignments'],
+  shatterIds: MapStore['shatterIds'],
+  shatterMappings: MapStore['shatterMappings'],
+}
+export const convertStateObjToObj = (state: MapStoreCache) => {
+  return {
+    zoneAssignments: Array.from(state.zoneAssignments.entries()),
+    shatterIds: {
+      children: Array.from(state.shatterIds.children),
+      parents: Array.from(state.shatterIds.parents),
+    },
+    shatterMappings: Object.entries(state.shatterMappings).map(([key, value]) => [key, Array.from(value)]),
+  }
+}
 
-export const parseWithMapsAndSets = (json: string) => {
-  return JSON.parse(json, (key, value) => {
-    if (value && value.__type === 'Map') {
-      return new Map(value.value);
-    } else if (value && value.__type === 'Set') {
-      return new Set(value.value);
-    }
-    return value;
-  });
-};
+export const hydrateStateObjFromObj = (obj: any) => {
+  return {
+    zoneAssignments: new Map(obj.zoneAssignments),
+    shatterIds: {
+      children: new Set(obj.shatterIds.children),
+      parents: new Set(obj.shatterIds.parents),
+    },
+    shatterMappings: Object.fromEntries(obj.shatterMappings.map(([key, value]: [string, string[]]) => [key, new Set(value)])),
+  } as MapStoreCache;
+}
 
 class DistrictrIdbCache {
   db: IDBPDatabase | undefined = undefined;
@@ -31,7 +36,7 @@ class DistrictrIdbCache {
   }
   async init() {
     if (!this.db) {
-      this.db = await openDB('districtr', 1.1, {
+      this.db = await openDB('districtr', 1.2, {
         upgrade(db) {
           db.createObjectStore('mapViews');
           db.createObjectStore('map_states');
@@ -40,7 +45,7 @@ class DistrictrIdbCache {
     }
     return this.db!;
   }
-  async cacheAssignments(document_id: string, updated_at: string, assignments: {
+  async cacheAssignments(document_id: string, updated_at: string, state: {
     zoneAssignments: MapStore['zoneAssignments'],
     shatterIds: MapStore['shatterIds'],
     shatterMappings: MapStore['shatterMappings'],
@@ -50,10 +55,10 @@ class DistrictrIdbCache {
     const tx = db.transaction('map_states', 'readwrite');
     await Promise.all([
       tx.store.put(updated_at, `${document_id}_updated_at`),
-      tx.store.put(stringifyWithMapsAndSets(assignments), `${document_id}_state`),
+      tx.store.put(convertStateObjToObj(state), `${document_id}_state`),
       tx.done,
     ]);
-    console.log("cached assignments in", performance.now() - t0, "ms");
+    console.log("!!!cached assignments in", performance.now() - t0, "ms");
   }
 
   async getCachedAssignments(document_id: string) {
@@ -74,13 +79,13 @@ class DistrictrIdbCache {
 
   cacheViews = async (views: DistrictrMap[]) => {
     const db  = await this.init();
-    await db.put('mapViews', JSON.stringify(views), 'views');
+    await db.put('mapViews', views, 'views');
   };
   getCachedViews = async () => {
     const db  = await this.init();
     const views = await db.get('mapViews', 'views');
     if (views) {
-      return JSON.parse(views) as DistrictrMap[];
+      return views as DistrictrMap[];
     }
   };
 }

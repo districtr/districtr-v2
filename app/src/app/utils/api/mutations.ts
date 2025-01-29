@@ -31,7 +31,6 @@ export const patchShatter = new MutationObserver(queryClient, {
   },
   onSuccess: data => {
     console.log(`Successfully shattered parents into ${data.children.length} children`);
-    useMapStore.getState().setAssignmentsHash(Date.now().toString());
     return data;
   },
 });

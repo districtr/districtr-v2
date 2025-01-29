@@ -1,10 +1,10 @@
 import axios from 'axios';
 import 'maplibre-gl';
-import {MapStore, useMapStore} from '@/app/store/mapStore';
-import {getEntryTotal} from '../summaryStats';
-import {useChartStore} from '@/app/store/chartStore';
-import {NullableZone} from '@/app/constants/types';
-import {districtrIdbCache, parseWithMapsAndSets} from '../cache';
+import {MapStore, useMapStore} from '@store/mapStore';
+import {getEntryTotal} from '@utils/summaryStats';
+import {useChartStore} from '@store/chartStore';
+import {NullableZone} from '@constants/types';
+import {districtrIdbCache, hydrateStateObjFromObj} from '@utils/cache';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
 export const FormatAssignments = () => {
@@ -172,12 +172,10 @@ export const getAssignments: (
       new Date(lastUpdatedServer).toISOString() === new Date(localCached?.updated_at).toISOString()
     ) {
       try {
-        console.log('Last update is live, not fetching assignments');
-        const state = parseWithMapsAndSets(localCached.state);
         return {
           type: 'local',
           documentId: mapDocument.document_id,
-          data: state,
+          data: hydrateStateObjFromObj(localCached.state)
         };
       } catch (e) {
         console.error(e);
@@ -496,14 +494,14 @@ export interface AssignmentsReset {
  */
 export const patchUpdateAssignments: (upadteData: {
   assignments: Assignment[];
-  updated_at?: string;
-}) => Promise<AssignmentsCreate> = async ({assignments, updated_at}) => {
+  updateHash: string;
+}) => Promise<AssignmentsCreate> = async ({assignments, updateHash}) => {
   updateAbortController = new AbortController();
   currentHash = `${useMapStore.getState().assignmentsHash}`;
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
-      updated_at: updated_at,
+      updated_at: updateHash,
       signal: updateAbortController?.signal,
     })
     .then(res => {
@@ -549,12 +547,14 @@ export interface ShatterResult {
 export const patchShatterParents: (params: {
   document_id: string;
   geoids: string[];
-}) => Promise<ShatterResult> = async ({document_id, geoids}) => {
+  updateHash: string;
+}) => Promise<ShatterResult> = async ({document_id, geoids, updateHash}) => {
   return await axios
     .patch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/shatter_parents`,
       {
         geoids: geoids,
+        updated_at: updateHash,
       }
     )
     .then(res => {
@@ -573,13 +573,15 @@ export const patchUnShatterParents: (params: {
   document_id: string;
   geoids: string[];
   zone: number;
-}) => Promise<{geoids: string[]}> = async ({document_id, geoids, zone}) => {
+  updateHash: string;
+}) => Promise<{geoids: string[]}> = async ({document_id, geoids, zone, updateHash}) => {
   return await axios
     .patch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/unshatter_parents`,
       {
         geoids,
         zone,
+        updated_at: updateHash,
       }
     )
     .then(res => {

@@ -4,31 +4,28 @@ import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
-import { districtrIdbCache } from '../utils/cache';
+import {districtrIdbCache} from '../utils/cache';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
 // We want to prevent intermediary state changes from being sent to the backend.
-let allowSendZoneUpdates = true
+let allowSendZoneUpdates = true;
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
   // locked during break or heal
-  const {mapLock, mapDocument, shatterIds, shatterMappings} = _useMapStore.getState();
+  const {mapLock, mapDocument, shatterIds, shatterMappings, lastUpdatedHash} =
+    _useMapStore.getState();
   const document_id = mapDocument?.document_id;
-  if (!mapLock && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded' && document_id) {
+  if (
+    !mapLock &&
+    getMapRef?.() &&
+    zoneAssignments?.size &&
+    appLoadingState === 'loaded' &&
+    document_id
+  ) {
     const assignments = FormatAssignments();
-    const updated_at = new Date().toISOString();
-    districtrIdbCache.cacheAssignments(
-      document_id,
-      updated_at,
-      {
-        zoneAssignments,
-        shatterIds,
-        shatterMappings,
-      }
-    )
     if (assignments.length) {
-      patchUpdates.mutate({assignments, updated_at});
+      patchUpdates.mutate({assignments, updateHash: lastUpdatedHash});
     }
   }
 };
@@ -41,11 +38,29 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   >(
     state => [state.zoneAssignments, state.appLoadingState],
     ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
-      if (previousAppLoadingState !== 'loaded' || appLoadingState === 'blurred' || !allowSendZoneUpdates) return;
+      if (
+        previousAppLoadingState !== 'loaded' ||
+        appLoadingState === 'blurred' ||
+        !allowSendZoneUpdates
+      )
+        return;
       const {getMapRef} = useMapStore.getState();
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
     },
     {equalityFn: shallowCompareArray}
+  );
+
+  const cacheAssignmentsSub = useMapStore.subscribe(
+    state => state.lastUpdatedHash,
+    lastUpdatedHash => {
+      const {zoneAssignments, shatterIds, shatterMappings, mapDocument} = useMapStore.getState();
+      if (!mapDocument) return;
+      districtrIdbCache.cacheAssignments(mapDocument.document_id, lastUpdatedHash, {
+        zoneAssignments,
+        shatterIds,
+        shatterMappings,
+      });
+    }
   );
 
   const fetchAssignmentsSub = useMapStore.subscribe(
@@ -64,56 +79,56 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     {equalityFn: shallowCompareArray}
   );
 
-  const lockMapOnShatterIdChange = useMapStore.subscribe<[MapStore['shatterIds']['parents'], MapStore['appLoadingState']]>(
+  const lockMapOnShatterIdChange = useMapStore.subscribe<
+    [MapStore['shatterIds']['parents'], MapStore['appLoadingState']]
+  >(
     state => [state.shatterIds.parents, state.appLoadingState],
     (curr, prev) => {
-      const isTemporalAction = useMapStore.getState().isTemporalAction
-      if (!isTemporalAction) return
-      const appLoadingState = prev[1]
-      const [shatterIds, pastShatterIds] = [curr[0], prev[0]]
-      let shatterIdsChanged = shatterIds.size !== pastShatterIds.size
+      const isTemporalAction = useMapStore.getState().isTemporalAction;
+      if (!isTemporalAction) return;
+      const appLoadingState = prev[1];
+      const [shatterIds, pastShatterIds] = [curr[0], prev[0]];
+      let shatterIdsChanged = shatterIds.size !== pastShatterIds.size;
       if (!shatterIdsChanged) {
-        shatterIds.forEach((v) => {
+        shatterIds.forEach(v => {
           if (!pastShatterIds.has(v)) {
-            shatterIdsChanged = true
+            shatterIdsChanged = true;
           }
-        })
-        pastShatterIds.forEach((v) => {
+        });
+        pastShatterIds.forEach(v => {
           if (!shatterIds.has(v)) {
-            shatterIdsChanged = true
+            shatterIdsChanged = true;
           }
-        })
+        });
       }
       if (appLoadingState === 'loaded' && shatterIdsChanged) {
-        allowSendZoneUpdates = false
-        const addedIds = (shatterIds as any).difference(pastShatterIds)
-        const removedIds = (pastShatterIds as any).difference(shatterIds)
+        allowSendZoneUpdates = false;
+        const addedIds = (shatterIds as any).difference(pastShatterIds);
+        const removedIds = (pastShatterIds as any).difference(shatterIds);
         if (addedIds.size) {
-          const {mapDocument, silentlyShatter} = useMapStore.getState()
+          const {mapDocument, silentlyShatter} = useMapStore.getState();
           if (!mapDocument) {
-            allowSendZoneUpdates = true
-            return
+            allowSendZoneUpdates = true;
+            return;
           }
-          silentlyShatter(mapDocument.document_id, Array.from(addedIds)).then((r) => {
-            allowSendZoneUpdates = true
-          })
+          silentlyShatter(mapDocument.document_id, Array.from(addedIds)).then(r => {
+            allowSendZoneUpdates = true;
+          });
         } else if (removedIds.size) {
-
-          const {mapDocument, silentlyHeal} = useMapStore.getState()
+          const {mapDocument, silentlyHeal} = useMapStore.getState();
           if (!mapDocument) {
-            allowSendZoneUpdates = true
-            return
+            allowSendZoneUpdates = true;
+            return;
           }
           silentlyHeal(mapDocument.document_id, Array.from(removedIds)).then(() => {
-            allowSendZoneUpdates = true
-          })
+            allowSendZoneUpdates = true;
+          });
         } else {
-          allowSendZoneUpdates = true
+          allowSendZoneUpdates = true;
         }
-
       }
     }
-  )
+  );
 
-  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange];
+  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange, cacheAssignmentsSub];
 };

@@ -191,10 +191,12 @@ class AssignmentsResponse(SQLModel):
 
 class GEOIDS(BaseModel):
     geoids: list[str]
+    updated_at: datetime
 
 
 class AssignedGEOIDS(GEOIDS):
     zone: int | None
+    updated_at: datetime
 
 
 class UnassignedBboxGeoJSONs(BaseModel):
