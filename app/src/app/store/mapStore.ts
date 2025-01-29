@@ -2,17 +2,19 @@
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
-import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '../constants/types';
-import {Zone, GDBPath} from '../constants/types';
+import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '@constants/types';
+import {Zone, GDBPath} from '@constants/types';
 import {
   Assignment,
   DistrictrMap,
   DocumentObject,
   lastSentAssignments,
+  LocalAssignmentsResponse,
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
+  RemoteAssignmentsResponse,
   ShatterResult,
-} from '../utils/api/apiHandlers';
+} from '@utils/api/apiHandlers';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
@@ -244,7 +246,9 @@ export interface MapStore {
   assignmentsHash: string;
   lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
-  loadZoneAssignments: (assigments: Assignment[]) => void;
+  loadZoneAssignments: (
+    assignmentsData: RemoteAssignmentsResponse | LocalAssignmentsResponse
+  ) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
@@ -932,36 +936,50 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             accumulatedGeoids: new Set<string>(),
           });
         },
-        loadZoneAssignments: assignments => {
+        loadZoneAssignments: assignmentsData => {
           lastSentAssignments.clear();
-          const zoneAssignments = new Map<string, number>();
-          const shatterIds = {
-            parents: new Set<string>(),
-            children: new Set<string>(),
-          };
-          const shatterMappings: MapStore['shatterMappings'] = {};
-
-          assignments.forEach(assignment => {
-            zoneAssignments.set(assignment.geo_id, assignment.zone);
-            // preload last sent assignments with last fetched assignments
-            lastSentAssignments.set(assignment.geo_id, assignment.zone);
-            if (assignment.parent_path) {
-              if (!shatterMappings[assignment.parent_path]) {
-                shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
-              } else {
-                shatterMappings[assignment.parent_path].add(assignment.geo_id);
+          if (assignmentsData.type === 'local') {
+            assignmentsData.data.zoneAssignments.forEach((v, k) => {
+              lastSentAssignments.set(k, v);
+            });
+            set({
+              zoneAssignments: assignmentsData.data.zoneAssignments,
+              appLoadingState: 'loaded',
+              loadedMapId: assignmentsData.documentId,
+              shatterIds: assignmentsData.data.shatterIds,
+              shatterMappings: assignmentsData.data.shatterMappings,
+            })
+          } else {
+            const assignments = assignmentsData.assignments;
+            const zoneAssignments = new Map<string, number>();
+            const shatterIds = {
+              parents: new Set<string>(),
+              children: new Set<string>(),
+            };
+            const shatterMappings: MapStore['shatterMappings'] = {};
+      
+            assignments.forEach(assignment => {
+              zoneAssignments.set(assignment.geo_id, assignment.zone);
+              // preload last sent assignments with last fetched assignments
+              lastSentAssignments.set(assignment.geo_id, assignment.zone);
+              if (assignment.parent_path) {
+                if (!shatterMappings[assignment.parent_path]) {
+                  shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
+                } else {
+                  shatterMappings[assignment.parent_path].add(assignment.geo_id);
+                }
+                shatterIds.parents.add(assignment.parent_path);
+                shatterIds.children.add(assignment.geo_id);
               }
-              shatterIds.parents.add(assignment.parent_path);
-              shatterIds.children.add(assignment.geo_id);
-            }
-          });
-          set({
-            zoneAssignments, 
-            shatterIds, 
-            shatterMappings, 
-            appLoadingState: 'loaded',
-            loadedMapId: assignments[0]?.document_id
-          });
+            });
+            set({
+              zoneAssignments,
+              shatterIds,
+              shatterMappings,
+              appLoadingState: 'loaded',
+              loadedMapId: assignmentsData.documentId,
+            });
+          }
         },
         zonePopulations: new Map(),
         setZonePopulations: (zone, population) =>
