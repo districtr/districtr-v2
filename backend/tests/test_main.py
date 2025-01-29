@@ -271,7 +271,8 @@ def assignments_no_gerrydb_pop_fixture(client, document_no_gerrydb_pop):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
