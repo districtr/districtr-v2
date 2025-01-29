@@ -12,11 +12,12 @@ let allowSendZoneUpdates = true
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
   // locked during break or heal
-  const mapIsLocked = _useMapStore.getState().mapLock;
-  if (!mapIsLocked && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
+  const {mapLock, mapDocument, shatterIds, shatterMappings} = _useMapStore.getState();
+  const document_id = mapDocument?.document_id;
+  if (!mapLock && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded' && document_id) {
     const assignments = FormatAssignments();
     if (assignments.length) {
-      patchUpdates.mutate(assignments);
+      patchUpdates.mutate({assignments, updated_at});
     }
   }
 };

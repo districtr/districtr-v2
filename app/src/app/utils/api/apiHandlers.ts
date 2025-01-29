@@ -439,15 +439,16 @@ export interface AssignmentsReset {
  * @param assignments
  * @returns server object containing the updated assignments per geoid
  */
-export const patchUpdateAssignments: (
-  assignments: Assignment[]
-) => Promise<AssignmentsCreate> = async (assignments: Assignment[]) => {
+export const patchUpdateAssignments: (upadteData: {
+  assignments: Assignment[],
+  updated_at?: string
+}) => Promise<AssignmentsCreate> = async ({assignments, updated_at}) => {
   updateAbortController = new AbortController();
   currentHash = `${useMapStore.getState().assignmentsHash}`;
-
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
+      updated_at: updated_at,
       signal: updateAbortController?.signal,
     })
     .then(res => {

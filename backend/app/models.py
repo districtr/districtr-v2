@@ -178,6 +178,7 @@ class Assignments(AssignmentsBase, table=True):
 
 class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
+    updated_at: datetime
 
 
 class AssignmentsResponse(SQLModel):

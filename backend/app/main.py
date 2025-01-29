@@ -1,5 +1,5 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
@@ -148,6 +148,15 @@ async def update_assignments(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
     session.execute(stmt)
+
+    doc_id = data.model_dump()["assignments"][0]["document_id"]
+    # update document.document updated_at where document_id = doc_id
+    update_stmt = (
+        update(Document)
+        .where(Document.document_id == doc_id)
+        .values(updated_at=data.updated_at)
+    )
+    session.execute(update_stmt)
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
 
@@ -404,7 +413,6 @@ async def get_gerrydb_summary_stat(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Gerrydb Table with ID {gerrydb_table} not found",
             )
-
 
 @app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
 async def get_projects(
