@@ -4,6 +4,7 @@ import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
+import { districtrIdbCache } from '../utils/cache';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
@@ -16,6 +17,16 @@ const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapS
   const document_id = mapDocument?.document_id;
   if (!mapLock && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded' && document_id) {
     const assignments = FormatAssignments();
+    const updated_at = new Date().toISOString();
+    districtrIdbCache.cacheAssignments(
+      document_id,
+      updated_at,
+      {
+        zoneAssignments,
+        shatterIds,
+        shatterMappings,
+      }
+    )
     if (assignments.length) {
       patchUpdates.mutate({assignments, updated_at});
     }
