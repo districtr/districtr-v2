@@ -13,7 +13,7 @@ const stringifyWithMapsAndSets = (obj: object) => {
   });
 };
 
-export const parseWithMapsAndSets = (json: string) => {
+const parseWithMapsAndSets = (json: string) => {
   return JSON.parse(json, (key, value) => {
     if (value && value.__type === 'Map') {
       return new Map(value.value);
@@ -49,8 +49,8 @@ class DistrictrIdbCache {
     const db  = await this.init();
     const tx = db.transaction('map_states', 'readwrite');
     await Promise.all([
-      tx.store.put(updated_at, `${document_id}_updated_at`),
-      tx.store.put(stringifyWithMapsAndSets(assignments), `${document_id}_state`),
+      tx.store.put(`${document_id}_updated_at`, updated_at),
+      tx.store.put(`${document_id}_state`, stringifyWithMapsAndSets(assignments)),
       tx.done,
     ]);
     console.log("cached assignments in", performance.now() - t0, "ms");
@@ -63,11 +63,14 @@ class DistrictrIdbCache {
       db.get('map_states', `${document_id}_updated_at`),
       db.get('map_states', `${document_id}_state`),
     ]);
+    const t1 = performance.now();
+    const parsed = parseWithMapsAndSets(state)
+    const t2 = performance.now();
     if (updated_at && state) {
-      console.log("fetched assignments in", performance.now() - t0, "ms");
+      console.log("fetched assignments in", t2 - t0, "ms, parsed in", t2 - t1, "ms");
       return {
         updated_at,
-        state
+        state: parsed
       };
     }
   }
