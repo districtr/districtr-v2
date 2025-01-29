@@ -19,7 +19,7 @@ import {useTemporalStore} from '../store/temporalStore';
 import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
-import {districtrIdbCache, districtrLocalStorageCache} from '../utils/cache';
+import {districtrIdbCache} from '../utils/cache';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);

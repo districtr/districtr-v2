@@ -1,6 +1,6 @@
-import {Assignment, DistrictrMap} from '@utils/api/apiHandlers';
-import {openDB, deleteDB, wrap, unwrap, IDBPDatabase} from 'idb';
-import { MapStore } from '../store/mapStore';
+import {DistrictrMap, Assignment} from '@utils/api/apiHandlers';
+import {openDB, IDBPDatabase} from 'idb';
+import { MapStore } from '@store/mapStore';
 
 const stringifyWithMapsAndSets = (obj: object) => {
   return JSON.stringify(obj, (key, value) => {
@@ -115,4 +115,4 @@ class DistrictrLocalStorageCache {
   };
 }
 
-export const districtrLocalStorageCache = new DistrictrLocalStorageCache();
+export const districtrLocalStorageCache = typeof window === 'undefined' ? {} : new DistrictrLocalStorageCache();
