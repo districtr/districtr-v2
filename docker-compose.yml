@@ -11,7 +11,7 @@ services:
     env_file:
       - ./backend/.env.docker # Ensure the env file is also from the backend folder
     environment:
-      LOAD_GERRY_DB_DATA: true
+      LOAD_GERRY_DB_DATA: false
       GPKG_DATA_DIR: sample_data
     depends_on:
       db:
