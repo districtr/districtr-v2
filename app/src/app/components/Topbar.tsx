@@ -19,17 +19,18 @@ import {useTemporalStore} from '../store/temporalStore';
 import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
-import {districtrLocalStorageCache} from '../utils/cache';
+import {districtrIdbCache, districtrLocalStorageCache} from '../utils/cache';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [cachedViews, setCachedViews] = React.useState<DistrictrMap[]>();
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapViews = useMapStore(state => state.mapViews);
 
   const clear = useTemporalStore(store => store.clear);
-  const data = mapViews?.data || districtrLocalStorageCache.mapViews || [];
+  const data = mapViews?.data || cachedViews || [];
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
     if (selectedMap.gerrydb_table_name === mapDocument?.gerrydb_table) {
@@ -39,12 +40,21 @@ export const Topbar: React.FC = () => {
     clear();
     document.mutate({gerrydb_table: selectedMap.gerrydb_table_name});
   };
+
+  useEffect(() => {
+    const fetchCachedViews = async () => {
+      districtrIdbCache.getCachedViews().then((cachedViews) => {
+        cachedViews && setCachedViews(cachedViews);
+      })
+    };
+    fetchCachedViews();
+  }, [])
+
   useEffect(() => {
     if (mapViews?.data?.length) {
-      districtrLocalStorageCache.cacheViews(mapViews.data);
+      districtrIdbCache.cacheViews(mapViews.data);
     }
   }, [mapViews]);
-  console.log('VIEWS', mapViews.data, districtrLocalStorageCache.mapViews);
 
   return (
     <>
