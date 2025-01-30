@@ -157,6 +157,28 @@ class DistrictrMapMetadata(BaseModel):
     event_id: Optional[str] | None = None
 
 
+class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
+    """
+    Tracks the user session for a given document
+    """
+
+    __tablename__ = "map_document_user_session"
+    __table_args__ = (
+        # UniqueConstraint("document_id", name="document_id_unique"),
+        {"schema": DOCUMENT_SCHEMA},
+    )
+    session_id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True)
+    )
+    user_id: str = Field(sa_column=Column(String, nullable=False))
+    document_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("document.document_id"),
+        )
+    )
+
+
 class MapDocumentMetadata(TimeStampMixin, SQLModel, table=True):
     __tablename__ = "map_document_metadata"
     __table_args__ = (
