@@ -10,6 +10,7 @@ import {
   DistrictrMap,
   DocumentObject,
   lastSentAssignments,
+  saveColorScheme,
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
   ShatterResult,
@@ -448,7 +449,10 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         loadedMapId: '',
         setLoadedMapId: loadedMapId => set({loadedMapId}),
         colorScheme: DefaultColorScheme,
-        setColorScheme: colorScheme => set({colorScheme}),
+        setColorScheme: colorScheme => {
+          set({colorScheme});
+          saveColorScheme({ document_id: get().mapDocument.document_id, colors: colorScheme });
+        },
         summaryStats: {},
         setSummaryStat: (stat, value) => {
           set({
@@ -828,6 +832,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               appLoadingState: 'loaded',
               mapLock: false,
               activeTool: 'pan'
+              colorScheme: DefaultColorScheme,
             });
           }
         },
@@ -972,9 +977,9 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             }
           });
           set({
-            zoneAssignments, 
-            shatterIds, 
-            shatterMappings, 
+            zoneAssignments,
+            shatterIds,
+            shatterMappings,
             appLoadingState: 'loaded',
             loadedMapId: assignments[0]?.document_id
           });
