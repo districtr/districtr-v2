@@ -27,6 +27,7 @@ import GeometryWorker from '@utils/GeometryWorker';
 import {useHoverStore as _useHoverStore} from '@store/mapStore';
 import {calcPops} from '@utils/population';
 import {useChartStore} from '@store/chartStore';
+import {updateChartData} from '../utils/events/charts';
 
 const BBOX_TOLERANCE_DEG = 0.02;
 
@@ -44,6 +45,23 @@ export const getRenderSubscriptions = (
       if (mapRef && mapDocument) {
         addBlockLayers(mapRef, mapDocument);
         mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
+      }
+    },
+    {equalityFn: shallowCompareArray}
+  );
+
+  const chartRenderSubs = useMapStore.subscribe<
+    [MapStore['assignmentsHash'], number | undefined | null, number | undefined]
+  >(
+    store => [
+      store.assignmentsHash,
+      store.mapDocument?.num_districts,
+      store.summaryStats.totpop?.data?.total,
+    ],
+    ([paintedPopulation]) => {
+      if (Object.keys(paintedPopulation).length) {
+        const mapMetrics = useChartStore.getState().mapMetrics;
+        updateChartData(mapMetrics);
       }
     },
     {equalityFn: shallowCompareArray}
@@ -390,6 +408,7 @@ export const getRenderSubscriptions = (
 
   return [
     countyEmphasisSub,
+    chartRenderSubs,
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,

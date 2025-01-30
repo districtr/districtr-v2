@@ -6,6 +6,7 @@ import {ZonePopulation} from '../utils/api/apiHandlers';
 import {APIError, DistrictrChartOptions} from './types';
 import {useMapStore} from './mapStore';
 import {calculateMinMaxRange} from '../utils/zone-helpers';
+import { paintedPopulation, updateChartData } from '../utils/events/charts';
 
 export interface ChartStore {
   mapMetrics: UseQueryResult<ZonePopulation[], APIError | Error> | null;
@@ -76,50 +77,8 @@ export const useChartStore = create(
 useChartStore.subscribe(
   store => store.mapMetrics,
   metrics => {
+    paintedPopulation.clear();
     const mapMetrics = metrics as ChartStore['mapMetrics'];
     updateChartData(mapMetrics);
   }
 );
-
-const updateChartData = (mapMetrics: ChartStore['mapMetrics']) => {
-  const numDistricts = useMapStore?.getState().mapDocument?.num_districts;
-  const totPop = useMapStore?.getState().summaryStats.totpop?.data?.total;
-  let unassigned = structuredClone(totPop)!;
-  if (totPop === undefined || numDistricts === undefined) {
-    console.log('TotPop or numDistricts is undefined subscribing to changes');
-    const sub = useMapStore.subscribe(
-      store => [store.mapDocument?.num_districts, store.summaryStats.totpop?.data?.total],
-      ([_numDistricts, _totPop]) => {
-        const mapMetrics = useChartStore.getState().mapMetrics;
-        updateChartData(mapMetrics);
-        sub();
-      }
-    );
-  } else if (mapMetrics && mapMetrics.data && numDistricts && totPop) {
-    const chartData = Array.from({length: numDistricts}, (_, i) => i + 1).reduce(
-      (acc, district) => {
-        const totalPop = mapMetrics.data.reduce((acc, entry) => {
-          return entry.zone === district ? acc + entry.total_pop : acc;
-        }, 0);
-        unassigned -= totalPop;
-        return [...acc, {zone: district, total_pop: totalPop}];
-      },
-      [] as Array<{zone: number; total_pop: number}>
-    );
-    const allAreNonZero = chartData.every(entry => entry.total_pop > 0);
-    const stats = allAreNonZero ? calculateMinMaxRange(chartData) : undefined;
-    useChartStore.getState().setChartInfo({
-      stats,
-      chartData,
-      unassigned,
-      totPop,
-    });
-  } else {
-    useChartStore.getState().setChartInfo({
-      stats: undefined,
-      chartData: [],
-      unassigned: null,
-      totPop: 0,
-    });
-  }
-};

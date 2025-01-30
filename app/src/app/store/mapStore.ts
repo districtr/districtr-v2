@@ -42,6 +42,7 @@ import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
+import {paintedPopulation, updateChartData} from '../utils/events/charts';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -77,7 +78,7 @@ export interface MapStore {
    * Debounced zone updates will be sent to backend after a delay.
    * @param {Array<MapGeoJSONFeature>} features - The features to select on the map.
    */
-  selectMapFeatures: (features: Array<MapGeoJSONFeature>) => void;
+  selectMapFeatures: (features: Array<MapGeoJSONFeature>, type: 'click' | 'mousemove' | string) => void;
   // MAP DOCUMENT
   /**
    * Available districtr views
@@ -335,16 +336,17 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         setMapLock: mapLock => set({mapLock}),
         errorNotification: {},
         setErrorNotification: errorNotification => set({errorNotification}),
-        selectMapFeatures: features => {
+        selectMapFeatures: (features, type) => {
           let {
             accumulatedGeoids,
             activeTool,
             mapDocument,
             getMapRef,
             selectedZone: _selectedZone,
-            allPainted
+            allPainted,
+            zoneAssignments,
           } = get();
-
+      
           const map = getMapRef();
           const selectedZone = activeTool === 'eraser' ? null : _selectedZone;
           if (!map || !mapDocument?.document_id) {
@@ -354,30 +356,21 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
           // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
           // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
-          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
-          if (!featureStateCache) return;
-          // PAINT
-          const popChanges: Record<number, number> = {};
-          selectedZone !== null && (popChanges[selectedZone] = 0);
-
           features?.forEach(feature => {
             const id = feature?.id?.toString() ?? undefined;
             if (!id || !feature.sourceLayer) return;
-            const featureState = featureStateCache[feature.sourceLayer][id];
-            const prevAssignment = featureState?.['zone'] || false;
-            const shouldSkip = accumulatedGeoids.has(id) || featureState?.['locked'] || prevAssignment === selectedZone || false;
-            if (shouldSkip) return;
-
+            const prevAssignment = zoneAssignments.get(id) ?? null;
             accumulatedGeoids.add(feature.properties?.path);
             // TODO: Tiles should have population values as numbers, not strings
             const popValue = parseInt(feature.properties?.total_pop);
-            if (!isNaN(popValue)) {
-              if (prevAssignment) {
-                popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
-              }
-              if (selectedZone) {
-                popChanges[selectedZone] = (popChanges[selectedZone] || 0) + popValue;
-              }
+            if (prevAssignment === selectedZone) {
+              paintedPopulation.delete(id);
+            } else {
+              paintedPopulation.set(id, {
+                from: prevAssignment,
+                to: selectedZone,
+                population: popValue,
+              })
             }
             allPainted.add(id);
             map.setFeatureState(
@@ -389,12 +382,11 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               {selected: true, zone: selectedZone}
             );
           });
-
-          useChartStore.getState().updateMetrics(popChanges);
           set({
             isTemporalAction: false,
             assignmentsHash: Date.now().toString(),
-          })
+            isPainting: ['click','mouseup'].includes(type) ? false : true
+          });
         },
         mapViews: {isPending: true},
         setMapViews: mapViews => set({mapViews}),
