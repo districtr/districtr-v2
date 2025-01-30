@@ -162,7 +162,6 @@ export interface ZonePopulation {
 // TODO: Tanstack has a built in abort controller, we should use that
 // https://tanstack.com/query/v5/docs/framework/react/guides/query-cancellation
 export let populationAbortController: AbortController | null = null;
-export let updateAbortController: AbortController | null = null;
 export let currentHash: string = '';
 
 /**
@@ -442,13 +441,11 @@ export interface AssignmentsReset {
 export const patchUpdateAssignments: (
   assignments: Assignment[]
 ) => Promise<AssignmentsCreate> = async (assignments: Assignment[]) => {
-  updateAbortController = new AbortController();
   currentHash = `${useMapStore.getState().assignmentsHash}`;
 
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
-      signal: updateAbortController?.signal,
     })
     .then(res => {
       return res.data;
