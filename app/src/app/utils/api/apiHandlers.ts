@@ -176,13 +176,6 @@ export const getZonePopulations: (
   populationAbortController?.abort();
   populationAbortController = new AbortController();
   const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
-  if (currentHash !== assignmentHash) {
-    // return stale data if map already changed
-    return {
-      data: useChartStore.getState().mapMetrics?.data || [],
-      hash: assignmentHash
-    }
-  }
   if (mapDocument) {
     return await axios
       .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`, {
