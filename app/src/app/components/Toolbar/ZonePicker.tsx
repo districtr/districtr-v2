@@ -6,8 +6,10 @@ import {ColorPicker} from './ColorPicker';
 export function ZonePicker() {
   const selectedZone = useMapStore(state => state.selectedZone);
   const setSelectedZone = useMapStore(state => state.setSelectedZone);
+  const isPainting = useMapStore(state => state.isPainting);
 
   const handleRadioChange = (index: number, _color: string) => {
+    if (isPainting) return;
     const value = index + 1;
     console.log('setting accumulated geoids to old zone', selectedZone, 'new zone is', value);
     setSelectedZone(value);
