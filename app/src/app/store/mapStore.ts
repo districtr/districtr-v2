@@ -921,8 +921,11 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         selectedZone: 1,
         setSelectedZone: zone => {
           const numDistricts = get().mapDocument?.num_districts ?? 4;
-          if (zone <= numDistricts) {
-            set({selectedZone: zone})
+          const isPainting = get().isPainting;
+          if (zone <= numDistricts && !isPainting) {
+            set({
+              selectedZone: zone
+            })
           }
         },
         zoneAssignments: new Map(),
