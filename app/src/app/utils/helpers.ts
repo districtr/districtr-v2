@@ -539,18 +539,6 @@ const filterFeatures = (
   return filteredFeatures;
 };
 
-
-
-
-// export const paintedPopulation: Map<
-//     string,
-//     {
-//       from: NullableZone;
-//       to: NullableZone;
-//       population: number;
-//     }
-//   > = new Map();
-
 export const updateChartData = (
   mapMetrics: ChartStore['mapMetrics'],
   numDistricts: number | undefined,
@@ -564,16 +552,6 @@ export const updateChartData = (
       const zone = i + 1;
       populations[zone] = mapMetrics.data.find(f => f.zone === zone)?.total_pop ?? 0;
     });
-    // paintedPopulation.forEach(({from, to, population}) => {
-    //   if (from === to) return
-    //   if (from) {
-    //     populations[from] -= population;
-    //   }
-    //   if (to) {
-    //     populations[to] += population;
-    //   }
-    // });
-
     const chartData = Object.entries(populations).map(([zone, total_pop]) => {
       unassigned -= total_pop;
       return {zone: +zone, total_pop};
@@ -597,4 +575,3 @@ export const updateChartData = (
     });
   }
 };
-// export const updateChartData = debounce(_updateChartData, 50);
