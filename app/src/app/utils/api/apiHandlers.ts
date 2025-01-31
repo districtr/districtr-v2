@@ -91,6 +91,7 @@ export interface DocumentObject {
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   available_summary_stats: string[];
   map_metadata: DocumentMetadata;
+  status: string;
 }
 
 export interface DocumentMetadata {
@@ -125,14 +126,18 @@ export const createMapDocument: (document: DocumentCreate) => Promise<DocumentOb
 /**
  * Get data from current document.
  * @param document_id - string, the document id
+ * @param userID - string, the user id against which to check document status
  * @returns Promise<DocumentObject>
  */
 export const getDocument: (document_id: string) => Promise<DocumentObject> = async (
   document_id: string
 ) => {
-  if (document_id) {
+  const userID = useMapStore.getState().userId;
+  if (document_id && userID) {
     return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`)
+      .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`, {
+        user_id: userID,
+      })
       .then(res => {
         return res.data;
       });

@@ -24,6 +24,7 @@ from app.models import (
     MapDocumentMetadata,
     DocumentPublic,
     GEOIDS,
+    UserID,
     AssignedGEOIDS,
     UUIDType,
     ZonePopulation,
@@ -267,8 +268,42 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
     return results
 
 
-@app.get("/api/document/{document_id}", response_model=DocumentPublic)
-async def get_document(document_id: str, session: Session = Depends(get_session)):
+@app.post("/api/document/{document_id}", response_model=DocumentPublic)
+async def get_document(
+    document_id: str,
+    data: UserID = Body(...),
+    session: Session = Depends(get_session),
+    status_code=status.HTTP_200_OK,
+):
+    # first check if document is loaded via map_document_user_session table
+    results = session.execute(
+        text(
+            """SELECT * from document.map_document_user_session
+            where document_id = :document_id"""
+        )
+        .bindparams(bindparam(key="document_id", type_=UUIDType))
+        .params(document_id=document_id)
+    )
+    row = results.fetchone()
+
+    if not row:
+        # if no record for doc, load the document for the user
+        session.execute(
+            text(
+                f"""INSERT INTO document.map_document_user_session (document_id, user_id)
+                VALUES ('{document_id}', '{data.user_id}')"""
+            )
+        )
+        session.commit()
+        status = "unlocked"
+
+    # if is loaded and user id matches, return the document unlocked
+    if row.user_id == data.user_id:
+        status = "unlocked"
+
+    else:
+        status = "locked"
+
     stmt = (
         select(
             Document.document_id,
@@ -285,6 +320,9 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             ),  # pyright: ignore
             # get metadata as a json object
             MapDocumentMetadata.map_metadata.label("map_metadata"),  # pyright: ignore
+            coalesce(
+                status,
+            ).label("status"),
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(

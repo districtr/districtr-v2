@@ -228,6 +228,7 @@ class DocumentPublic(BaseModel):
     extent: list[float] | None = None
     available_summary_stats: list[str] | None = None
     map_metadata: DistrictrMapMetadata | None
+    status: str = "unlocked"
 
 
 class AssignmentsBase(SQLModel):
@@ -259,6 +260,10 @@ class AssignmentsResponse(SQLModel):
 
 class GEOIDS(BaseModel):
     geoids: list[str]
+
+
+class UserID(BaseModel):
+    user_id: str
 
 
 class AssignedGEOIDS(GEOIDS):
