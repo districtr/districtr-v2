@@ -291,17 +291,21 @@ def document_id_fixture(
 def test_shattering(client, session: Session, document_id):
     response = client.patch(
         "/api/update_assignments",
-        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}], "updated_at": "2023-10-01T00:00:00Z"},
+        json={
+            "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
+            "updated_at": "2023-10-01T00:00:00Z",
+        },
     )
     assert response.status_code == 200
 
     # Test
     response = client.patch(
-        f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"], "updated_at": "2023-10-01T00:00:00Z"}
+        f"/api/update_assignments/{document_id}/shatter_parents",
+        json={"geoids": ["A"], "updated_at": "2023-10-01T00:00:00Z"},
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data["parents"]['geoids']) == 1
+    assert len(data["parents"]["geoids"]) == 1
     assert data["parents"]["geoids"][0] == "A"
     assert len(data["children"]) == 2
     assert len({d["document_id"] for d in data["children"]}) == 1
@@ -324,12 +328,16 @@ def test_get_available_summary_stats(
 def test_unshatter_process(client, document_id):
     response = client.patch(
         "/api/update_assignments",
-        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}], "updated_at": "2023-10-01T00:00:00Z"},
+        json={
+            "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
+            "updated_at": "2023-10-01T00:00:00Z",
+        },
     )
 
     # Test
     response = client.patch(
-        f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"], "updated_at": "2023-10-01T00:00:00Z"}
+        f"/api/update_assignments/{document_id}/shatter_parents",
+        json={"geoids": ["A"], "updated_at": "2023-10-01T00:00:00Z"},
     )
     assignments_response = client.get(f"/api/get_assignments/{document_id}")
     assignments_data = assignments_response.json()
@@ -337,11 +345,7 @@ def test_unshatter_process(client, document_id):
     # Unshatter
     response = client.patch(
         f"/api/update_assignments/{document_id}/unshatter_parents",
-        json={
-            "geoids": ["A"], 
-            "zone": 1,
-            "updated_at": "2023-10-01T00:00:00Z"
-        },
+        json={"geoids": ["A"], "zone": 1, "updated_at": "2023-10-01T00:00:00Z"},
     )
     assert response.status_code == 200
     data = response.json()

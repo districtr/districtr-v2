@@ -62,13 +62,14 @@ def get_session():
     with Session(engine) as session:
         yield session
 
+
 def update_timestamp(
-        session: Session,
-        document_id: str,
-        updated_at: str,
-        execute: bool = True,
-        commit: bool = False,
-): 
+    session: Session,
+    document_id: str,
+    updated_at: str,
+    execute: bool = True,
+    commit: bool = False,
+):
     update_stmt = (
         update(Document)
         .where(Document.document_id == document_id)
@@ -78,6 +79,7 @@ def update_timestamp(
         session.execute(update_stmt)
     if commit:
         session.commit()
+
 
 @app.get("/")
 async def root():
@@ -256,7 +258,7 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
     """
         )
     )
-    
+
     session.commit()
 
     return {"message": "Assignments partition reset", "document_id": document_id}
@@ -454,6 +456,7 @@ async def get_gerrydb_summary_stat(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Gerrydb Table with ID {gerrydb_table} not found",
             )
+
 
 @app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
 async def get_projects(
