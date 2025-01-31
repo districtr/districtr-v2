@@ -19,6 +19,7 @@ import {useTemporalStore} from '../store/temporalStore';
 import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
+import { toggleUseRTree } from '../utils/helpers';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -100,6 +101,9 @@ export const Topbar: React.FC = () => {
               </DropdownMenu.Sub>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
+          <Button variant="solid" color="cyan" onClick={toggleUseRTree}>
+            Toggle R-Tree
+          </Button>
           <Flex direction="row" align="center" gapX="2">
             <Button variant="outline" className="mr-2" disabled>
               Share

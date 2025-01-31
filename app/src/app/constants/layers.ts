@@ -12,6 +12,7 @@ import {MapStore, useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
 import {throttle} from 'lodash';
 import GeometryWorker from '../utils/GeometryWorker';
+import { featureCache } from '../utils/featureCache';
 
 
 export const BLOCK_SOURCE_ID = 'blocks';
@@ -280,8 +281,18 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
     console.log('map or mapDocument not ready', mapDocument);
     return;
   }
+
   const blockSource = getBlocksSource(mapDocument.tiles_s3_path);
   removeBlockLayers(map);
+  fetch(`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/tilesets/co_rtree_test.json`)
+    .then((response) => response.json())
+    .then((data) => {
+      featureCache.addFeatures(
+        data,
+        BLOCK_SOURCE_ID,
+        mapDocument.parent_layer
+      );
+    });
   map?.addSource(BLOCK_SOURCE_ID, blockSource);
   map?.addLayer(
     getBlocksLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID),
