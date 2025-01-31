@@ -41,6 +41,7 @@ import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
 import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
+import {v4 as uuidv4} from 'uuid';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -281,6 +282,10 @@ export interface MapStore {
     userMapDocumentId?: string;
     userMapData?: MapStore['userMaps'][number];
   }) => void;
+
+  // user id
+  userId: string | null;
+  setUserId: () => void;
 }
 
 const initialLoadingState =
@@ -1024,6 +1029,17 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setContextMenu: contextMenu => set({contextMenu}),
   userMaps: [],
   setUserMaps: userMaps => set({userMaps}),
+  userId: String(localStorage.getItem('userId')) || null,
+  setUserId: () => {
+    set(state => {
+      const userID = state.userId;
+      if (userID === null) {
+        return {userId: uuidv4()};
+      } else {
+        return {userID};
+      }
+    });
+  },
 }));
 
 export interface HoverFeatureStore {

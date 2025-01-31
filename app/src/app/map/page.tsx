@@ -6,9 +6,16 @@ import SidebarComponent from '../components/sidebar/Sidebar';
 import MobileTopNav from '../components/sidebar/MobileTopNav';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '../utils/api/queryClient';
-import { ErrorNotification } from '../components/ErrorNotification';
+import {ErrorNotification} from '../components/ErrorNotification';
+import {useMapStore} from '../store/mapStore';
 
 export default function Map() {
+  // check if userid in local storage; if not, create one
+  const userId = useMapStore(state => state.userId);
+  if (!userId) {
+    useMapStore.getState().setUserId();
+  }
+
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
