@@ -355,6 +355,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
           // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
           const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
+          const featureStateChangesCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.stateChanges;
+
           if (!featureStateCache) return;
           // PAINT
           const popChanges: Record<number, number> = {};
@@ -363,9 +365,12 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           features?.forEach(feature => {
             const id = feature?.id?.toString() ?? undefined;
             if (!id || !feature.sourceLayer) return;
-            const featureState = featureStateCache[feature.sourceLayer][id];
-            const prevAssignment = featureState?.['zone'] || false;
-            const shouldSkip = accumulatedGeoids.has(id) || featureState?.['locked'] || prevAssignment === selectedZone || false;
+            const state = featureStateCache[feature.sourceLayer]?.[id];
+            const stateChanges = featureStateChangesCache?.[feature.sourceLayer]?.[id];
+
+            const prevAssignment = stateChanges?.zone || state?.zone || false;
+            
+            const shouldSkip = accumulatedGeoids.has(id) || state?.['locked'] || prevAssignment === selectedZone || false;
             if (shouldSkip) return;
 
             accumulatedGeoids.add(feature.properties?.path);
