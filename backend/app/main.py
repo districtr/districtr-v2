@@ -328,7 +328,7 @@ async def get_unassigned_geoids(
     session: Session = Depends(get_session),
 ):
     stmt = text(
-        "SELECT * from get_unassigned_bboxes(:doc_uuid, :exclude_ids)"
+        "SELECT * from find_unassigned_areas(:doc_uuid, :exclude_ids)"
     ).bindparams(
         bindparam(key="doc_uuid", type_=UUIDType),
         bindparam(key="exclude_ids", type_=ARRAY(String)),

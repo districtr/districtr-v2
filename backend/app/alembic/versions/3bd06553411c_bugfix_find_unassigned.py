@@ -23,10 +23,12 @@ SQL_PATH = Path(__file__).parent.parent.parent / "sql"
 
 def upgrade() -> None:
     # run get_unassigned_bboxes_udf.sql
-    with open(SQL_PATH / "get_unassigned_bboxes_udf.sql") as f:
+    with open(SQL_PATH / "find_unassigned_areas_udf.sql") as f:
         sql = f.read()
         op.execute(sa.text(sql))
 
 
 def downgrade() -> None:
+    # drop if exists
+    op.execute("DROP FUNCTION IF EXISTS find_unassigned_areas")
     pass
