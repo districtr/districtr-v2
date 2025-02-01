@@ -8,6 +8,7 @@ import {
   LockOpen1Icon,
   ViewGridIcon,
   ResetIcon,
+  ValueNoneIcon
 } from '@radix-ui/react-icons';
 import {useTemporalStore} from '@/app/store/temporalStore';
 import {useCallback} from 'react';
@@ -114,6 +115,16 @@ export const useActiveTools = () => {
       icon: LockOpen1Icon,
       hotKeyAccessor: (e) => {
         return e.code === 'KeyL'
+      }
+    },
+    {
+      hotKeyLabel: 'F',
+      mode: 'zoomToUnassigned',
+      disabled: !mapDocument?.document_id,
+      label: 'Find Unassigned',
+      icon: ValueNoneIcon,
+      hotKeyAccessor: (e) => {
+        return e.code === 'KeyF'
       }
     }
   ];

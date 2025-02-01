@@ -1,11 +1,11 @@
-import { parentIdCache } from "../store/idCache";
-import { MapStore } from "../store/mapStore";
+import {idCache} from '../store/idCache';
+import {MapStore} from '../store/mapStore';
 
 export const calcPops = (zoneAssignments: MapStore['zoneAssignments']) => {
   const zonePops: Record<number, number> = {};
   zoneAssignments.forEach((zone, id) => {
     if (zone !== null) {
-      const pop = parseInt(parentIdCache.parents[id]?.properties?.total_pop);
+      const pop = parseInt(idCache.entries[id]?.properties?.total_pop);
       if (!pop) return;
       zonePops[+zone] = (zonePops[+zone] || 0) + pop;
     }

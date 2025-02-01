@@ -15,7 +15,8 @@ export type ActiveTool =
   | 'eraser'
   | 'shatter'
   | 'lock'
-  | 'undo'; // others?
+  | 'undo'
+  | 'zoomToUnassigned'; // others?
 
 export type SpatialUnit = 'county' | 'tract' | 'block' | 'block_group' | 'voting_district'; // others?
 
