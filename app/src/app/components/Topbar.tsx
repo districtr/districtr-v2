@@ -85,8 +85,28 @@ export const Topbar: React.FC = () => {
                   Export Assignments
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.SubContent>
+                  <DropdownMenu.Item>
+                    <Tooltip content="Download a CSV of Census GEOIDs and zone IDs">
+                      <a
+                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=ZoneAssignments`}
+                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                      >
+                        Assignments (CSV)
+                      </a>
+                    </Tooltip>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item>
+                    <Tooltip content="Download a GeoJSON of Census GEOIDs and zone IDs">
+                      <a
+                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=ZoneAssignments`}
+                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                      >
+                        Assignments (GeoJSON)
+                      </a>
+                    </Tooltip>
+                  </DropdownMenu.Item>
                   <DropdownMenu.Item disabled={!mapDocument?.child_layer}>
-                    <Tooltip content="Download a CSV of Census GEOIDs and Zone IDs">
+                    <Tooltip content="Download a CSV of Census Block GEOIDs and zone IDs">
                       <a
                         href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=BlockZoneAssignments`}
                         download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
@@ -95,7 +115,16 @@ export const Topbar: React.FC = () => {
                       </a>
                     </Tooltip>
                   </DropdownMenu.Item>
-                  {/*  ...other formats */}
+                  <DropdownMenu.Item>
+                    <Tooltip content="Download a GeoJSON of district boundaries">
+                      <a
+                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=Districts`}
+                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                      >
+                        District boundaries (GeoJSON)
+                      </a>
+                    </Tooltip>
+                  </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
               <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
