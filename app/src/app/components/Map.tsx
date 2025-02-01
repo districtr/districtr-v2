@@ -9,7 +9,8 @@ import {handleWheelOrPinch, mapContainerEvents, mapEvents} from '../utils/events
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
 import {MapTooltip} from './MapTooltip';
-import { MapLockShade } from './MapLockShade';
+import {MapLockShade} from './MapLockShade';
+import {unlockMapDocument} from '../utils/api/apiHandlers';
 
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
@@ -25,6 +26,15 @@ export const MapComponent: React.FC = () => {
       maplibregl.removeProtocol('pmtiles');
     };
   }, []);
+
+  if (window) {
+    window.addEventListener('beforeunload', async () => {
+      const mapDocument = useMapStore.getState().mapDocument;
+      if (map && map.current && mapDocument && mapDocument.document_id !== null) {
+        await unlockMapDocument(mapDocument.document_id);
+      }
+    });
+  }
 
   const fitMapToBounds = () => {
     if (map.current && mapOptions.bounds) {
@@ -71,12 +81,9 @@ export const MapComponent: React.FC = () => {
     });
 
     mapContainerEvents.forEach(action => {
-      mapContainer?.current?.addEventListener(
-        action.action as keyof MapLayerEventType,
-        (e) => {
-          action.handler(e, map.current);
-        }
-      );
+      mapContainer?.current?.addEventListener(action.action as keyof MapLayerEventType, e => {
+        action.handler(e, map.current);
+      });
     });
 
     return () => {
@@ -87,14 +94,11 @@ export const MapComponent: React.FC = () => {
       });
 
       mapContainerEvents.forEach(action => {
-        mapContainer?.current?.removeEventListener(
-          action.action as keyof MapLayerEventType,
-          (e) => {
-            action.handler(e, map.current);
-          }
-        );
+        mapContainer?.current?.removeEventListener(action.action as keyof MapLayerEventType, e => {
+          action.handler(e, map.current);
+        });
       });
-    }
+    };
   });
 
   return (
@@ -105,7 +109,7 @@ export const MapComponent: React.FC = () => {
     `}
         ref={mapContainer}
       >
-      <MapLockShade />
+        <MapLockShade />
       </div>
       <MapTooltip />
     </>

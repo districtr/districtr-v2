@@ -146,6 +146,40 @@ export const getDocument: (document_id: string) => Promise<DocumentObject> = asy
   }
 };
 
+/**
+ *
+ * @param mapDocument Unlock the document
+ * @returns
+ */
+
+export const unlockMapDocument: (document_id: string) => Promise<DocumentObject> = async (
+  document_id: string
+) => {
+  const userID = useMapStore.getState().userId;
+  if (document_id && userID) {
+    return await axios
+      .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/unlock`, {
+        user_id: userID,
+      })
+      .then(res => {
+        return res.data;
+      });
+  } else {
+    throw new Error('No document id found');
+  }
+};
+
+export const getMapLockStatus: (document_id: string) => Promise<string> = (document_id: string) => {
+  const userID = useMapStore.getState().userId;
+  return axios
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/status`, {
+      user_id: userID,
+    })
+    .then(res => {
+      return res.data.status;
+    });
+};
+
 export const getAssignments: (
   mapDocument: DocumentObject | null
 ) => Promise<Assignment[]> = async mapDocument => {

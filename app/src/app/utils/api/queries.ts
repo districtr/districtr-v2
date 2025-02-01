@@ -122,6 +122,14 @@ updateDocumentFromId.subscribe(mapDocument => {
     url.searchParams.delete('document_id');
     window.history.replaceState({}, document.title, url.toString());
   }
+  // TODO- this should really be a warning and not an error
+  if (mapDocument.data?.status === 'locked') {
+    useMapStore.getState().setErrorNotification({
+      severity: 2,
+      id: 'map-document-locked',
+      message: `The requested map "${mapDocument.data?.map_metadata?.name ?? documentId}" is locked by another user. Please create a copy or create a new map.`,
+    });
+  }
   if (mapDocument.data && mapDocument.data.document_id !== useMapStore.getState().loadedMapId) {
     useMapStore.getState().setMapDocument(mapDocument.data);
   }

@@ -6,14 +6,14 @@ from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam, func, cast
-from sqlmodel import ARRAY, INT, JSON
-import json
+from sqlalchemy import bindparam
+from sqlmodel import ARRAY, INT
 import sentry_sdk
-from typing import List
-from fastapi.encoders import jsonable_encoder
+from fastapi_utils.tasks import repeat_every
 from app.core.db import engine
 from app.core.config import settings
+import datetime as dt
+from sqlalchemy.orm import sessionmaker
 from app.models import (
     Assignments,
     AssignmentsCreate,
@@ -275,6 +275,9 @@ async def get_document(
     session: Session = Depends(get_session),
     status_code=status.HTTP_200_OK,
 ):
+    print("\n")
+    print("running get_document")
+    print("\n")
     # first check if document is loaded via map_document_user_session table
     results = session.execute(
         text(
@@ -339,6 +342,84 @@ async def get_document(
     result = session.exec(stmt)
 
     return result.one()
+
+
+@app.post("/api/document/{document_id}/unlock")
+async def unlock_document(
+    document_id: str, data: UserID = Body(...), session: Session = Depends(get_session)
+):
+    try:
+        print("\n")
+        print("running unlock_document")
+        print("\n")
+        stmt = session.execute(
+            text(
+                """DELETE FROM document.map_document_user_session
+                WHERE document_id = :document_id AND user_id = :user_id"""
+            )
+            .bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+                bindparam(key="user_id", type_=String),
+            )
+            .params(document_id=document_id, user_id=data.user_id)
+        )
+        print(stmt)
+        session.execute(stmt)
+        session.commit()
+        return {"status": "unlocked"}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/document/{document_id}/status")
+async def get_document_status(
+    document_id: str, data: UserID = Body(...), session: Session = Depends(get_session)
+):
+    stmt = (
+        text(
+            "SELECT * from document.map_document_user_session WHERE document_id = :document_id"
+        )
+        .bindparams(bindparam(key="document_id", type_=UUIDType))
+        .params(document_id=document_id)
+    )
+    result = session.execute(stmt).fetchone()
+    if result:
+        # the map is already checked out; should return as locked
+        return {"status": "locked"}
+    else:
+        # the map is able to be checked out;
+        # should return as unlocked, but should now
+        # create a record in the map_document_user_session table
+        session.execute(
+            text(
+                f"""INSERT INTO document.map_document_user_session (document_id, user_id)
+                VALUES ('{document_id}', '{data.user_id}')"""
+            )
+        )
+        session.commit()
+
+        return {"status": "unlocked"}
+
+
+@app.on_event("startup")
+@repeat_every(seconds=60)  # Run every minute
+def cleanup_expired_locks():
+    session = sessionmaker(bind=engine)()
+    try:
+        N_HOURS = 1  # arbitrary for now
+        expiry = dt.datetime.now() - dt.timedelta(hours=N_HOURS)
+        print(expiry)
+        stmt = text(
+            "DELETE FROM document.map_document_user_session WHERE updated_at < :expiry"
+        )
+
+        result = session.execute(stmt, {"expiry": expiry})
+        session.commit()
+        print(f"Deleted {result.rowcount} expired locks.")
+    except Exception as e:
+        session.rollback()
+        print(f"Error deleting expired locks: {e}")
 
 
 @app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])

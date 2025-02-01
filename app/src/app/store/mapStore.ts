@@ -13,6 +13,7 @@ import {
   P4TotPopSummaryStats,
   ShatterResult,
   DocumentMetadata,
+  getMapLockStatus,
 } from '../utils/api/apiHandlers';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
@@ -438,15 +439,19 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       }
     );
 
-    set({
-      mapDocument: mapDocument,
-      mapOptions: {
-        ...initialMapOptions,
-        bounds: mapDocument.extent,
-      },
-      appLoadingState: 'initializing',
-      sidebarPanel: 'population',
-      shatterIds: {parents: new Set(), children: new Set()},
+    // check if map is already loaded somewhere else
+    getMapLockStatus(mapDocument.document_id).then(isLoadedElsewhere => {
+      console.log('isLoadedElsewhere', isLoadedElsewhere);
+      set({
+        mapDocument: {...mapDocument, status: isLoadedElsewhere},
+        mapOptions: {
+          ...initialMapOptions,
+          bounds: mapDocument.extent,
+        },
+        appLoadingState: 'initializing',
+        sidebarPanel: 'population',
+        shatterIds: {parents: new Set(), children: new Set()},
+      });
     });
   },
   loadedMapId: '',
@@ -1029,7 +1034,7 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setContextMenu: contextMenu => set({contextMenu}),
   userMaps: [],
   setUserMaps: userMaps => set({userMaps}),
-  userId: String(localStorage.getItem('userId')) || null,
+  userId: null,
   setUserId: () => {
     set(state => {
       const userID = state.userId;
