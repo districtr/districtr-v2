@@ -20,8 +20,20 @@ export function MapModeSelector() {
   if (!activeTool) return null;
   const activeTools = [
     {mode: 'pan', disabled: false, label: 'Pan', icon: <HandIcon />},
-    {mode: 'brush', disabled: false, label: 'Paint', icon: <Pencil2Icon />},
-    {mode: 'eraser', disabled: false, label: 'Erase', icon: <EraserIcon />},
+    {
+      mode: 'brush',
+      disabled: false,
+      label: 'Paint',
+      icon: <Pencil2Icon />,
+      disabled: mapDocument?.status === 'locked',
+    },
+    {
+      mode: 'eraser',
+      disabled: false,
+      label: 'Erase',
+      icon: <EraserIcon />,
+      disabled: mapDocument?.status === 'locked',
+    },
     {
       mode: 'shatter',
       disabled: !mapDocument?.child_layer,
@@ -30,7 +42,7 @@ export function MapModeSelector() {
     },
     {
       mode: 'lock',
-      disabled: false,
+      disabled: mapDocument?.status === 'locked',
       label: 'Lock',
       icon: <LockOpen1Icon />,
     },
@@ -46,7 +58,7 @@ export function MapModeSelector() {
         defaultValue="default"
         value={activeTool}
         onValueChange={handleRadioChange}
-        columns={{ initial: "3" }}
+        columns={{initial: '3'}}
       >
         {activeTools.map(tool => (
           <Flex key={`${tool.mode}-flex`}>

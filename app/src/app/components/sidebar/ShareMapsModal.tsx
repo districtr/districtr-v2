@@ -17,6 +17,7 @@ import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {metadata} from '@/app/utils/api/mutations';
+import {map, set} from 'lodash';
 
 type NamedDocumentObject = DocumentObject & {name?: string};
 
@@ -71,6 +72,8 @@ export const ShareMapsModal = () => {
   const [tagsTeam, setTagsTeam] = React.useState(mapTags);
   const [nameIsSaved, setNameIsSaved] = React.useState(false);
   const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const [copiedPlanName, setCopiedPlanName] = React.useState(null);
 
   const handleChangeName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
@@ -105,10 +108,20 @@ export const ShareMapsModal = () => {
     }
   };
 
-  // if no gerrydb table selected or no edits made, return null
-  if (!gerryDBTable || !userMaps?.length) {
-    return null;
-  }
+  const handleCopyMetadataChange = (key: keyof DocumentMetadata, value: any) => {
+    // todo: handle copy metadata change
+    setCopiedPlanName(value);
+  };
+
+  const handleCreateMapCopy = () => {
+    // todo: handle create map copy
+    // make a db request to copy the map and return a new document_id
+    // upsert the new map to the userMaps store
+    // set the new map as the mapDocument
+    // update url params
+
+    setCopied(true);
+  };
 
   const handleMapSave = () => {
     if (mapDocument?.document_id) {
@@ -127,16 +140,21 @@ export const ShareMapsModal = () => {
     setTagsIsSaved(true);
   };
 
+  // if no gerrydb table selected return null
+  if (!gerryDBTable) {
+    return null;
+  }
+  console.log(mapDocument);
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <Dialog.Trigger>
         <Button value="share" variant="outline">
-          Save / Share
+          Save and Collaborate
         </Button>
       </Dialog.Trigger>
       <DialogContentContainer className="max-w-[75vw]">
         <Flex align="center" className="mb-4">
-          <Dialog.Title className="m-0 text-xl font-bold flex-1">Save and Share Map</Dialog.Title>
+          <Dialog.Title className="m-0 text-xl font-bold flex-1">Save and Collaborate</Dialog.Title>
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
             aria-label="Close"
@@ -145,10 +163,28 @@ export const ShareMapsModal = () => {
           </Dialog.Close>
         </Flex>
         <BoxContainer>
+          {/*<div>
+            <Box maxWidth="200px">
+              <Text>Plan Name</Text>
+              <TextField.Root
+                placeholder={`${mapDocument?.map_metadata.name} copy`}
+                size="3"
+                onChange={e => handleCopyMetadataChange('name', e.target.value)}
+              ></TextField.Root>
+            </Box>
+            <Button variant="soft" className="flex items-center" onClick={handleCreateMapCopy}>
+              {copied ? 'Copy Created!' : 'Create Copy'}
+            </Button>
+          </div> */}
+
           <Box maxWidth="200px">
-            <Text>Team or Plan Name</Text>
+            {mapDocument?.status && mapDocument?.status === 'locked' ? (
+              <Text>Name your Copy </Text>
+            ) : (
+              <Text>Team or Plan Name</Text>
+            )}
             <TextField.Root
-              placeholder={mapName ?? 'Team or Plan Name'}
+              placeholder={mapName ?? 'Plan Name'}
               size="3"
               value={mapName}
               onChange={e => handleMetadataChange('name', e.target.value)}
@@ -180,14 +216,20 @@ export const ShareMapsModal = () => {
             className="items-center"
             onClick={handleClickToCopy}
           ></TextField.Root>
+
           <Button
             variant="soft"
             className="flex items-center"
             onClick={handleMapSave}
             disabled={nameIsSaved && tagsIsSaved}
           >
-            {nameIsSaved && tagsIsSaved ? 'Saved!' : 'Save'}
+            {mapDocument.status !== 'locked' && nameIsSaved && tagsIsSaved
+              ? 'Saved!'
+              : mapDocument.status === 'locked'
+                ? 'Create Copy'
+                : 'Save'}
           </Button>
+
           <Button
             variant="soft"
             className="flex items-center"
