@@ -33,11 +33,12 @@ from app.models import (
     UnassignedBboxGeoJSONs,
 )
 
-if settings.ENVIRONMENT == "production":
+if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
         dsn="https://b14aae02017e3a9c425de4b22af7dd0c@o4507623009091584.ingest.us.sentry.io/4507623009746944",
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
+        environment=settings.ENVIRONMENT,
     )
 
 app = FastAPI()
