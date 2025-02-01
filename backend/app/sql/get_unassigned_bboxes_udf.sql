@@ -90,7 +90,7 @@ BEGIN
     %s
     WHERE doc.zone IS NULL
     -- Exclude broken parents
-    AND doc.geo_id NOT IN (SELECT unnest($2))',
+    AND ids.geo_id NOT IN (SELECT unnest($2))',
     CASE 
       WHEN child_layer IS NOT NULL THEN 'COALESCE(parentgeo.geometry, childgeo.geometry)'
       ELSE 'parentgeo.geometry'
