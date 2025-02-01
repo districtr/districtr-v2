@@ -432,6 +432,26 @@ async def get_gerrydb_summary_stat(
                 detail=f"Gerrydb Table with ID {gerrydb_table} not found",
             )
 
+# FOR DEBUG ONLY DON'T USE IN PRODUCTION
+@app.get("/api/gerrydb/dump/{gerrydb_table}")
+async def get_gerrydb_dump(
+    gerrydb_table: str, session: Session = Depends(get_session)
+):
+    stmt = text(
+        f"""SELECT path, total_pop
+        FROM gerrydb.{gerrydb_table}"""
+    )
+    try:
+        results = session.execute(stmt).fetchall()
+        return [{"path": r[0], "total_pop": r[1]} for r in results]
+    except (ProgrammingError, InternalError) as e:
+        logger.error(e)
+        error_text = str(e)
+        if f"Table {gerrydb_table} does not exist in gerrydb schema" in error_text:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Gerrydb Table with ID {gerrydb_table} not found",
+            )
 
 @app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
 async def get_projects(
