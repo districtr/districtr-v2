@@ -91,7 +91,7 @@ export const Topbar: React.FC = () => {
                         href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=ZoneAssignments`}
                         download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
                       >
-                        Assignments (CSV)
+                        VTD Assignments (CSV)
                       </a>
                     </Tooltip>
                   </DropdownMenu.Item>
@@ -101,7 +101,7 @@ export const Topbar: React.FC = () => {
                         href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=ZoneAssignments`}
                         download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
                       >
-                        Assignments (GeoJSON)
+                        VTD Assignments (GeoJSON)
                       </a>
                     </Tooltip>
                   </DropdownMenu.Item>

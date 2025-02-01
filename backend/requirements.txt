@@ -69,10 +69,12 @@ pycparser==2.22
 pydantic==2.6.4
     # via
     #   fastapi
+    #   pydantic-geojson
     #   pydantic-settings
     #   sqlmodel
 pydantic-core==2.16.3
     # via pydantic
+pydantic-geojson==0.2.0
 pydantic-settings==2.2.1
 pyjwt==2.8.0
 pytest==8.2.0
@@ -123,4 +125,3 @@ uvicorn==0.29.0
 uvloop==0.19.0
 watchfiles==0.21.0
 websockets==12.0
-pydantic_geojson==0.2.0
