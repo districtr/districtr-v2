@@ -385,6 +385,10 @@ async def get_document_status(
     )
     result = session.execute(stmt).fetchone()
     if result:
+        # if user id matches, return the document checked out, otherwise return locked
+        if result.user_id == data.user_id:
+            return {"status": "checked_out"}
+
         # the map is already checked out; should return as locked
         return {"status": "locked"}
     else:
@@ -399,7 +403,7 @@ async def get_document_status(
         )
         session.commit()
 
-        return {"status": "unlocked"}
+        return {"status": "checked_out"}
 
 
 @app.on_event("startup")
