@@ -59,10 +59,11 @@ packaging==24.0
     #   geoalchemy2
     #   pytest
 pandas==2.2.1
+pip==25.0
 pluggy==1.5.0
     # via pytest
 psycopg==3.1.18
-psycopg2-binary==2.9.9
+psycopg-binary==3.1.18
 pyarrow==15.0.2
 pycparser==2.22
     # via cffi
