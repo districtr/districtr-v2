@@ -121,7 +121,7 @@ const GeometryWorker: GeometryWorkerClass = {
       console.log('Fetching unassigned geometries from backend');
       const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`);
       if (exclude_ids?.length) {
-        url.searchParams.append('exclude_ids', exclude_ids.join(','));
+        exclude_ids.forEach(id => url.searchParams.append('exclude_ids', id));
       }
       await fetch(url)
         .then(r => r.json())
