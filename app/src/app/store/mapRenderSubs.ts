@@ -14,6 +14,7 @@ import {
   debouncedAddZoneMetaLayers,
   COUNTY_LAYERS,
 } from '@constants/layers';
+import {saveColorScheme} from '@utils/api/apiHandlers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
@@ -42,6 +43,7 @@ export const getRenderSubscriptions = (
       const {getMapRef, mapDocument, addVisibleLayerIds} = useMapStore.getState();
       if (mapDocument) {
         addBlockLayers(getMapRef(), mapDocument);
+        saveColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
       }
     },
     {equalityFn: shallowCompareArray}

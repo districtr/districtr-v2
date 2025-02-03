@@ -54,7 +54,7 @@ export const ColorPicker = <T extends boolean>({
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
     const index = parseInt(hotkeyRef.current) - 1;
-    const newValue = colorArray[index];
+    const newValue = colorScheme[index];
     hotkeyRef.current = null;
     if (multiple) {
       console.log('!!!', defaultValue, value, newValue);
