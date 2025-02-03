@@ -14,7 +14,6 @@ import {Button, CheckboxGroup, Heading} from '@radix-ui/themes';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
-import {getEntryTotal} from '@utils/summaryStats';
 import {interpolateGreys} from 'd3-scale-chromatic';
 
 type EvalModes = 'share' | 'count' | 'totpop';

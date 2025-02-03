@@ -101,10 +101,10 @@ export const ColorPicker = <T extends boolean>({
     return (
       <div>
         <CheckboxGroupRoot
-          defaultValue={defaultValue.map(i => colorScheme[i])}
-          value={value?.map(i => colorScheme[i]) || []}
+          defaultValue={defaultValue.map(i => String(i))}
+          value={value?.map(i => String(i)) || []}
           onValueChange={values => {
-            const indices = values.map(f => colorScheme.indexOf(f));
+            const indices = values.map(f => Number(f));
             onValueChange(indices, values);
           }}
           style={{
@@ -119,7 +119,7 @@ export const ColorPicker = <T extends boolean>({
                     key={i}
                     // @ts-ignore Correct behavior, global CSS variables need to be extended
                     style={{'--accent-indicator': color}}
-                    value={color}
+                    value={String(i)}
                   >
                     {/* <RadioGroupIndicator /> */}
                   </CheckboxGroupItem>
@@ -158,8 +158,9 @@ export const ColorPicker = <T extends boolean>({
                   <div
                     style={{
                       display: i === colorSelectIndex ? 'block' : 'none',
-                      marginTop: -50,
-                      marginLeft: 35,
+                      position: 'absolute',
+                      left: 10,
+                      top: 2,
                     }}
                   >
                     <TwitterPicker
