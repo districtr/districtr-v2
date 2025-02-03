@@ -9,6 +9,18 @@ import pointsWithinPolygon from '@turf/points-within-polygon';
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import bbox from '@turf/bbox';
 
+const explodeMultiPolygonToPolygons = (
+  feature: GeoJSON.MultiPolygon
+): Array<GeoJSON.Feature<GeoJSON.Polygon>> => {
+  return feature.coordinates.map(coords => ({
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: coords,
+    },
+  })) as Array<GeoJSON.Feature<GeoJSON.Polygon>>;
+};
+
 const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
   getGeos() {
@@ -119,15 +131,17 @@ const GeometryWorker: GeometryWorkerClass = {
     const geomsToDissolve: GeoJSON.Feature[] = [];
     if (useBackend) {
       console.log('Fetching unassigned geometries from backend');
-      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`);
+      const url = new URL(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`
+      );
       if (exclude_ids?.length) {
         exclude_ids.forEach(id => url.searchParams.append('exclude_ids', id));
       }
-      await fetch(url)
-        .then(r => r.json())
-        .then(data =>
-          data.features.forEach((geo: GeoJSON.Feature) => geomsToDissolve.push(geo))
-        );
+      const remoteMultipolygon = await fetch(url).then(r => r.json());
+      remoteMultipolygon.features.forEach((geo: GeoJSON.MultiPolygon) => {
+        const polygons = explodeMultiPolygonToPolygons(geo);
+        polygons.forEach(p => geomsToDissolve.push(p));
+      });
     } else {
       for (const id in this.geometries) {
         const geom = this.geometries[id];
