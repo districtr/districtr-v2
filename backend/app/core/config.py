@@ -2,7 +2,7 @@ import secrets
 import warnings
 import boto3
 from functools import lru_cache
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from pydantic import (
     AnyUrl,
@@ -15,6 +15,7 @@ from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 from pathlib import Path
+from enum import Enum
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -23,6 +24,13 @@ def parse_cors(v: Any) -> list[str] | str:
     elif isinstance(v, list | str):
         return v
     raise ValueError(v)
+
+
+class Environment(str, Enum):
+    production = "production"
+    qa = "qa"
+    local = "local"
+    test = "test"
 
 
 class Settings(BaseSettings):
@@ -34,7 +42,7 @@ class Settings(BaseSettings):
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     DOMAIN: str = "localhost"
-    ENVIRONMENT: Literal["local", "staging", "production", "test"] = "local"
+    ENVIRONMENT: Environment = Environment.local
 
     @computed_field  # type: ignore[misc]
     @property
