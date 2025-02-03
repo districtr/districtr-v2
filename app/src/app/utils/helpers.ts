@@ -164,9 +164,6 @@ export const getFeaturesIntersectingCounties = (
       })) as any)
     : [];
 
-  if (shatterIds.children.size) {
-    checkParentsToHeal(cachedParentFeatures.map(f => f.id));
-  }
   return filterFeatures([...cachedParentFeatures, ...childFeatures], true, [
     feature => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips),
   ]);
