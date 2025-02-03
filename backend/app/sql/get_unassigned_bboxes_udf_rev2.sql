@@ -54,7 +54,6 @@ BEGIN
   RETURN QUERY EXECUTE format(
     'SELECT ST_AsGeoJSON(
       -- Explode multipolygon into individual polygons
-      ST_Dump(
         -- To web projection
         ST_Transform(
           -- Union the envelopes into a single contiguous bbox
@@ -65,7 +64,6 @@ BEGIN
             )
           ),
           4326
-        )
       )
     )::json as bbox
     FROM (
