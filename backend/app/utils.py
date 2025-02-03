@@ -347,3 +347,18 @@ def download_file_from_s3(s3, url: ParseResult, replace=False) -> str:
         s3.download_file(url.netloc, file_name, path)
 
     return path
+
+
+def remove_file(filename: str) -> None:
+    """
+    Remove a file, quietly warning of failure rather than raising an Error.
+
+    Args:
+        filename (str): The name of the file to remove.
+    """
+    try:
+        os.remove(filename)
+        logger.info(f"Removed file {filename}")
+    except FileNotFoundError:
+        logger.warning(f"File {filename} not found")
+        pass
