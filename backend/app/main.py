@@ -349,6 +349,67 @@ async def get_unassigned_geoids(
     return {"features": [row[0] for row in results]}
 
 
+@app.get(
+    "/api/document/{document_id}/unassigned", response_model=UnassignedBboxGeoJSONs
+)
+async def get_unassigned_geoids(
+    document_id: str,
+    exclude_ids: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
+    print("!!!", exclude_ids)
+    stmt = text(
+        "SELECT * from find_unassigned_areas(:doc_uuid, :exclude_ids)"
+    ).bindparams(
+        bindparam(key="doc_uuid", type_=UUIDType),
+        bindparam(key="exclude_ids", type_=ARRAY(String)),
+    )
+    results = session.execute(
+        stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
+    ).fetchall()
+    return {"features": [row[0] for row in results]}
+
+
+@app.get(
+    "/api/__unassigned/{document_id}", response_model=UnassignedBboxGeoJSONs
+)
+
+async def get_unassigned_geoids(
+    document_id: str,
+    exclude_ids: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
+    stmt = text(
+        "SELECT * from find_unassigned_areas(:doc_uuid, :exclude_ids)"
+    ).bindparams(
+        bindparam(key="doc_uuid", type_=UUIDType),
+        bindparam(key="exclude_ids", type_=ARRAY(String)),
+    )
+    results = session.execute(
+        stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
+    ).fetchall()
+    return {"features": [row[0] for row in results]}
+
+@app.get(
+    "/api/__unassigned_slow/{document_id}", response_model=UnassignedBboxGeoJSONs
+)
+
+async def get_unassigned_geoids(
+    document_id: str,
+    session: Session = Depends(get_session),
+):
+    stmt = text(
+        "SELECT * from get_unassigned_bboxes_slow(:doc_uuid)"
+    ).bindparams(
+        bindparam(key="doc_uuid", type_=UUIDType),
+        bindparam(key="exclude_ids", type_=ARRAY(String)),
+    )
+    results = session.execute(
+        stmt, {"doc_uuid": document_id}
+    ).fetchall()
+    return {"features": [row[0] for row in results]}
+
+
 @app.get("/api/document/{document_id}/evaluation/{summary_stat}")
 async def get_summary_stat(
     document_id: str, summary_stat: str, session: Session = Depends(get_session)

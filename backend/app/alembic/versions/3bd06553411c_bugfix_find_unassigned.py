@@ -26,6 +26,9 @@ def upgrade() -> None:
     with open(SQL_PATH / "get_unassigned_bboxes_udf_rev2.sql") as f:
         sql = f.read()
         op.execute(sa.text(sql))
+    with open(SQL_PATH / "ALT_get_unassigned_bbox_udf.sql") as f:
+        sql = f.read()
+        op.execute(sa.text(sql))
 
 
 def downgrade() -> None:
