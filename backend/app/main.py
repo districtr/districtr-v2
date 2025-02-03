@@ -346,7 +346,7 @@ async def get_unassigned_geoids(
         stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
     ).fetchall()
     # returns a list of multipolygons of bboxes
-    return {"features": results}
+    return {"features": [row[0] for row in results]}
 
 
 @app.get("/api/document/{document_id}/evaluation/{summary_stat}")
