@@ -345,6 +345,7 @@ async def get_unassigned_geoids(
     results = session.execute(
         stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
     ).fetchall()
+    # returns a list of multipolygons of bboxes
     return {"features": [row[0] for row in results]}
 
 
