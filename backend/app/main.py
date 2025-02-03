@@ -400,9 +400,9 @@ async def get_unassigned_geoids_slow(
     stmt = text(
         "SELECT * from get_unassigned_bboxes_slow(:doc_uuid)"
     ).bindparams(
-        bindparam(key="doc_uuid", type_=UUIDType),
-        bindparam(key="exclude_ids", type_=ARRAY(String)),
+        bindparam(key="doc_uuid", type_=UUIDType)
     )
+    
     results = session.execute(
         stmt, {"doc_uuid": document_id}
     ).fetchall()
