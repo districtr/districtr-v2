@@ -329,7 +329,7 @@ async def get_unassigned_geoids(
 ):
     print("!!!", exclude_ids)
     stmt = text(
-        "SELECT * from get_unassigned_bboxes(:doc_uuid, :exclude_ids)"
+        "SELECT * from find_unassigned_areas(:doc_uuid, :exclude_ids)"
     ).bindparams(
         bindparam(key="doc_uuid", type_=UUIDType),
         bindparam(key="exclude_ids", type_=ARRAY(String)),
