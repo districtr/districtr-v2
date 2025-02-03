@@ -329,8 +329,7 @@ async def get_total_population(
 
 
 @app.get(
-    "/api/document/{document_id}/unassigned",
-#   response_model=UnassignedBboxGeoJSONs
+    "/api/document/{document_id}/unassigned", response_model=UnassignedBboxGeoJSONs
 )
 async def get_unassigned_geoids(
     document_id: str,

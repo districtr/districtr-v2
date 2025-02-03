@@ -52,17 +52,16 @@ BEGIN
 
   RETURN QUERY EXECUTE format(
     'SELECT ST_AsGeoJSON(
-      -- Explode multipolygon into individual polygons
-        -- To web projection
-        ST_Transform(
-          -- Union the envelopes into a single contiguous bbox
-          ST_Union(
-            ST_Envelope(
-            -- See 92-95 - coalesce parentgeo.geometry with childgeo.geometry depending on which type of geo
-              %s
-            )
-          ),
-          4326
+      -- To web projection
+      ST_Transform(
+        -- Union the envelopes into a single contiguous bbox
+        ST_Union(
+          ST_Envelope(
+          -- See 92-95 - coalesce parentgeo.geometry with childgeo.geometry depending on which type of geo
+            %s
+          )
+        ),
+      4326
       )
     )::json as bbox
     FROM (
