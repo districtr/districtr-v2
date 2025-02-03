@@ -71,3 +71,4 @@ PG:*
 
 *.dev
 sample_data/*
+!sample_data/config.json
