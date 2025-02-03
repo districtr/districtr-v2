@@ -36,8 +36,7 @@
 --    e. Compute the bounding boxes (bboxes) of the remaining unassigned geometries.
 -- 3. Return the resulting bounding boxes in JSON format.
 DROP FUNCTION IF EXISTS get_unassigned_bboxes(doc_uuid uuid, exclude_ids VARCHAR[]);
-DROP FUNCTION IF EXISTS find_unassigned_areas(doc_uuid uuid, exclude_ids VARCHAR[]);
-CREATE OR REPLACE FUNCTION find_unassigned_areas(doc_uuid uuid, exclude_ids VARCHAR[])
+CREATE OR REPLACE FUNCTION get_unassigned_bboxes(doc_uuid uuid, exclude_ids VARCHAR[])
 RETURNS TABLE (bbox json) AS $$
 DECLARE
   gerrydb_table text;
