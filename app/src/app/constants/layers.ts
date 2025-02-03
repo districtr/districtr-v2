@@ -9,10 +9,8 @@ import {Map} from 'maplibre-gl';
 import {getBlocksSource} from './sources';
 import {DocumentObject} from '../utils/api/apiHandlers';
 import {MapStore, useMapStore} from '../store/mapStore';
-import {colorScheme} from './colors';
 import {throttle} from 'lodash';
 import GeometryWorker from '../utils/GeometryWorker';
-
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -44,31 +42,6 @@ export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
 export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels'];
 
 export const LABELS_BREAK_LAYER_ID = 'places_subplace';
-
-const colorStyleBaseline: any[] = ['case'];
-
-export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = colorScheme.reduce((val, color, i) => {
-  val.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
-  return val;
-}, colorStyleBaseline);
-ZONE_ASSIGNMENT_STYLE_DYNAMIC.push('#cecece');
-
-// cast the above as an ExpressionSpecification
-// @ts-ignore
-export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = ZONE_ASSIGNMENT_STYLE_DYNAMIC;
-
-export const ZONE_LABEL_STYLE_DYNAMIC = colorScheme.reduce(
-  (val, color, i) => {
-    val.push(['==', ['get', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
-    return val;
-  },
-  ['case'] as any
-);
-ZONE_LABEL_STYLE_DYNAMIC.push('#cecece');
-
-// cast the above as an ExpressionSpecification
-// @ts-ignore
-export const ZONE_LABEL_STYLE: ExpressionSpecification = ZONE_LABEL_STYLE_DYNAMIC;
 
 const LAYER_LINE_WIDTHS = {
   [BLOCK_LAYER_ID]: 2,
@@ -252,10 +225,33 @@ export function getBlocksLayerSpecification(
   return layerSpec;
 }
 
-export function getBlocksHoverLayerSpecification(
+const ZONE_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
+  const colorStyleBaseline: any[] = ['case'];
+  let group = [...colorScheme].reduce((val, color, i) => {
+    val.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+    return val;
+  }, colorStyleBaseline);
+  group.push('#cecece');
+  return group as ExpressionSpecification;
+};
+
+const ZONE_LABEL_STYLE = (colorScheme: string[]) => {
+  let group = [...colorScheme].reduce(
+    (val, color, i) => {
+      val.push(['==', ['get', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+      return val;
+    },
+    ['case'] as any
+  );
+  group.push('#cecece');
+  return group as ExpressionSpecification;
+};
+
+function getBlocksHoverLayerSpecification(
   sourceLayer: string,
   layerId: string
 ): LayerSpecification {
+  const {colorScheme} = useMapStore.getState();
   const layerSpec: LayerSpecification = {
     id: layerId,
     source: BLOCK_SOURCE_ID,
@@ -266,7 +262,7 @@ export function getBlocksHoverLayerSpecification(
     },
     paint: {
       'fill-opacity': getLayerFill(),
-      'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
+      'fill-color': ZONE_ASSIGNMENT_STYLE(colorScheme) || '#000000',
     },
   };
   if (CHILD_LAYERS.includes(layerId)) {
@@ -370,7 +366,7 @@ const addZoneMetaLayers = async ({
           dissolved,
         }
       : await getDissolved();
-  const {getMapRef} = useMapStore.getState();
+  const {getMapRef, colorScheme} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !geoms) return;
   const zoneLabelSource = mapRef.getSource('ZONE_LABEL');
@@ -387,7 +383,7 @@ const addZoneMetaLayers = async ({
         'circle-color': '#fff',
         'circle-radius': 15,
         'circle-opacity': 0.8,
-        'circle-stroke-color': ZONE_LABEL_STYLE || '#000',
+        'circle-stroke-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
         'circle-stroke-width': 2,
       },
 

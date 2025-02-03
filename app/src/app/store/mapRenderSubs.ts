@@ -14,6 +14,7 @@ import {
   debouncedAddZoneMetaLayers,
   COUNTY_LAYERS,
 } from '@constants/layers';
+import {saveColorScheme} from '@utils/api/apiHandlers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
@@ -34,6 +35,20 @@ export const getRenderSubscriptions = (
   useMapStore: typeof _useMapStore,
   useHoverStore: typeof _useHoverStore
 ) => {
+  const addColorSchemeSub = useMapStore.subscribe<MapStore['colorScheme']>(
+    state => state.colorScheme,
+    colorScheme => {
+      removeZoneMetaLayers();
+      debouncedAddZoneMetaLayers({});
+      const {getMapRef, mapDocument, addVisibleLayerIds} = useMapStore.getState();
+      if (mapDocument) {
+        addBlockLayers(getMapRef(), mapDocument);
+        saveColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
+      }
+    },
+    {equalityFn: shallowCompareArray}
+  );
+
   const addLayerSubMapDocument = useMapStore.subscribe<
     [MapStore['mapDocument'], MapStore['getMapRef']]
   >(
@@ -390,6 +405,7 @@ export const getRenderSubscriptions = (
 
   return [
     countyEmphasisSub,
+    addColorSchemeSub,
     addLayerSubMapDocument,
     _shatterMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,

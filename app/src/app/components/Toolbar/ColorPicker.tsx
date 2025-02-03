@@ -1,5 +1,6 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Button, CheckboxGroup, Flex, Text} from '@radix-ui/themes';
+import {TwitterPicker, type ColorResult} from 'react-color';
 import {styled} from '@stitches/react';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import {blackA} from '@radix-ui/colors';
@@ -10,14 +11,12 @@ type ColorPickerProps<T extends boolean = false> = T extends true
       defaultValue: number[];
       value?: number[];
       onValueChange: (indices: number[], color: string[]) => void;
-      colorArray: string[];
       multiple: true;
     }
   : {
       defaultValue: number;
       value?: number;
       onValueChange: (i: number, color: string) => void;
-      colorArray: string[];
       multiple?: false;
     };
 
@@ -25,18 +24,37 @@ export const ColorPicker = <T extends boolean>({
   defaultValue,
   value,
   onValueChange,
-  colorArray,
   multiple,
 }: ColorPickerProps<T>) => {
+  const colorScheme = useMapStore(state => state.colorScheme);
+  const setColorScheme = useMapStore(state => state.setColorScheme);
   const mapDocument = useMapStore(state => state.mapDocument);
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const numDistricts = mapDocument?.num_districts ?? 4;
+  const [colorSelectIndex, setColorSelectIndex] = useState(-1);
+
+  const filteredColors = useMemo(
+    () =>
+      colorScheme.filter(color => !colorScheme.slice(0, numDistricts).includes(color)).slice(0, 17),
+    [colorScheme, numDistricts]
+  );
+
+  const handleColorPick = (idx: Number, color: ColorResult) => {
+    if (colorScheme.slice(0, numDistricts).includes(color.hex)) {
+      // reject repeating a district color
+      return;
+    }
+    let dupe = [...colorScheme];
+    dupe[colorSelectIndex] = color.hex;
+    setColorScheme(dupe);
+    setColorSelectIndex(-1);
+  };
 
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
     const index = parseInt(hotkeyRef.current) - 1;
-    const newValue = colorArray[index];
+    const newValue = colorScheme[index];
     hotkeyRef.current = null;
     if (multiple) {
       console.log('!!!', defaultValue, value, newValue);
@@ -83,10 +101,10 @@ export const ColorPicker = <T extends boolean>({
     return (
       <div>
         <CheckboxGroupRoot
-          defaultValue={defaultValue.map(i => colorArray[i])}
-          value={value?.map(i => colorArray[i]) || []}
+          defaultValue={defaultValue.map(i => String(i))}
+          value={value?.map(i => String(i)) || []}
           onValueChange={values => {
-            const indices = values.map(f => colorArray.indexOf(f));
+            const indices = values.map(f => Number(f));
             onValueChange(indices, values);
           }}
           style={{
@@ -95,13 +113,13 @@ export const ColorPicker = <T extends boolean>({
         >
           <Flex direction="row" wrap="wrap">
             {!!mapDocument &&
-              colorArray.slice(0, numDistricts).map((color, i) => (
+              colorScheme.slice(0, numDistricts).map((color, i) => (
                 <Flex direction="column" align="center" key={i}>
                   <CheckboxGroupItem
                     key={i}
                     // @ts-ignore Correct behavior, global CSS variables need to be extended
                     style={{'--accent-indicator': color}}
-                    value={color}
+                    value={String(i)}
                   >
                     {/* <RadioGroupIndicator /> */}
                   </CheckboxGroupItem>
@@ -115,21 +133,43 @@ export const ColorPicker = <T extends boolean>({
   }
 
   return (
-    <div>
+    <div onMouseLeave={() => setColorSelectIndex(-1)}>
       <RadioGroupRoot
-        onValueChange={value => {
-          const index = colorArray.indexOf(value);
-          if (index !== -1) onValueChange(index, value);
+        onValueChange={(value: String) => {
+          const index = Number(value);
+          onValueChange(index, colorScheme[index]);
         }}
-        value={value !== undefined ? colorArray[value] : undefined}
-        defaultValue={colorArray[defaultValue]}
+        value={String(value)}
       >
         <Flex direction="row" wrap="wrap">
           {!!mapDocument &&
-            colorArray.slice(0, numDistricts).map((color, i) => (
+            colorScheme.slice(0, numDistricts).map((color, i) => (
               <Flex direction="column" align="center" key={i}>
-                <RadioGroupItem key={i} style={{backgroundColor: color}} value={color}>
+                <RadioGroupItem
+                  key={i}
+                  style={{backgroundColor: color, verticalAlign: 'top'}}
+                  value={String(i)}
+                  onContextMenu={e => {
+                    e.preventDefault();
+                    setColorSelectIndex(i);
+                  }}
+                >
                   <RadioGroupIndicator />
+                  <div
+                    style={{
+                      display: i === colorSelectIndex ? 'block' : 'none',
+                      position: 'absolute',
+                      left: 10,
+                      top: 2,
+                    }}
+                  >
+                    <TwitterPicker
+                      color={color}
+                      colors={filteredColors}
+                      triangle={'hide'}
+                      onChangeComplete={color => handleColorPick(i, color)}
+                    />
+                  </div>
                 </RadioGroupItem>
                 <Text size="1">{i + 1}</Text>
               </Flex>

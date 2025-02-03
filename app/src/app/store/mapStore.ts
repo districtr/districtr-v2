@@ -2,6 +2,7 @@
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
+import {colorScheme as DefaultColorScheme} from '../constants/colors';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '../constants/types';
 import {Zone, GDBPath} from '../constants/types';
 import {
@@ -89,6 +90,8 @@ export interface MapStore {
    */
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  colorScheme: string[];
+  setColorScheme: (colors: string[]) => void;
   loadedMapId: string;
   setLoadedMapId: (mapId: string) => void;
   summaryStats: {
@@ -449,6 +452,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         },
         loadedMapId: '',
         setLoadedMapId: loadedMapId => set({loadedMapId}),
+        colorScheme: DefaultColorScheme,
+        setColorScheme: colorScheme => set({colorScheme}),
         summaryStats: {},
         setSummaryStat: (stat, value) => {
           set({
@@ -827,7 +832,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               },
               appLoadingState: 'loaded',
               mapLock: false,
-              activeTool: 'pan'
+              activeTool: 'pan',
+              colorScheme: DefaultColorScheme,
             });
           }
         },
@@ -975,9 +981,9 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             }
           });
           set({
-            zoneAssignments, 
-            shatterIds, 
-            shatterMappings, 
+            zoneAssignments,
+            shatterIds,
+            shatterMappings,
             appLoadingState: 'loaded',
             loadedMapId: assignments[0]?.document_id
           });

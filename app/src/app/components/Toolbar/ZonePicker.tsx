@@ -15,12 +15,7 @@ export function ZonePicker() {
 
   return (
     <div>
-      <ColorPicker
-        onValueChange={handleRadioChange}
-        colorArray={colorScheme}
-        defaultValue={0}
-        value={selectedZone - 1}
-      />
+      <ColorPicker onValueChange={handleRadioChange} defaultValue={0} value={selectedZone - 1} />
     </div>
   );
 }
