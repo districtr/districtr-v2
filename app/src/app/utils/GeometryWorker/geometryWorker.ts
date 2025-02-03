@@ -137,10 +137,18 @@ const GeometryWorker: GeometryWorkerClass = {
       if (exclude_ids?.length) {
         exclude_ids.forEach(id => url.searchParams.append('exclude_ids', id));
       }
-      const remoteMultipolygon = await fetch(url).then(r => r.json());
-      remoteMultipolygon.features.forEach((geo: GeoJSON.MultiPolygon) => {
-        const polygons = explodeMultiPolygonToPolygons(geo);
-        polygons.forEach(p => geomsToDissolve.push(p));
+      const remoteUnassignedFeatures = await fetch(url).then(r => r.json());
+      remoteUnassignedFeatures.features.forEach((geo: GeoJSON.MultiPolygon | GeoJSON.Polygon) => {
+        if (geo.type === 'Polygon') {
+          geomsToDissolve.push({
+            type: 'Feature',
+            properties: {},
+            geometry: geo,
+          });
+        } else if (geo.type === 'MultiPolygon') {
+          const polygons = explodeMultiPolygonToPolygons(geo);
+          polygons.forEach(p => geomsToDissolve.push(p));
+        }
       });
     } else {
       for (const id in this.geometries) {
