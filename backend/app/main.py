@@ -374,7 +374,7 @@ async def get_unassigned_geoids(
     "/api/__unassigned/{document_id}", response_model=UnassignedBboxGeoJSONs
 )
 
-async def get_unassigned_geoids(
+async def _get_unassigned_geoids(
     document_id: str,
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
@@ -393,8 +393,7 @@ async def get_unassigned_geoids(
 @app.get(
     "/api/__unassigned_slow/{document_id}", response_model=UnassignedBboxGeoJSONs
 )
-
-async def get_unassigned_geoids(
+async def get_unassigned_geoids_slow(
     document_id: str,
     session: Session = Depends(get_session),
 ):
