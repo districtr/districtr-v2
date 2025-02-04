@@ -210,7 +210,6 @@ export interface ZonePopulation {
 // TODO: Tanstack has a built in abort controller, we should use that
 // https://tanstack.com/query/v5/docs/framework/react/guides/query-cancellation
 export let populationAbortController: AbortController | null = null;
-export let updateAbortController: AbortController | null = null;
 export let currentHash: string = '';
 
 /**
@@ -376,7 +375,7 @@ export const getSummaryStats: (
     return await axios
       .get<
         SummaryStatsResult<P1ZoneSummaryStats[] | P4ZoneSummaryStats[]>
-      >(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/${summaryType}`)
+      >(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/evaluation/${summaryType}`)
       .then(res => {
         const results = res.data.results.map(row => {
           const total = getEntryTotal(row);
@@ -429,7 +428,7 @@ export const getTotPopSummaryStats: (
     return await axios
       .get<
         SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats>
-      >(`${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/summary_stats/${summaryType}/${mapDocument.parent_layer}`)
+      >(`${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/${mapDocument.parent_layer}/evaluation/${summaryType}`)
       .then(res => res.data);
   } else {
     throw new Error('No document provided');
@@ -496,13 +495,11 @@ export const patchUpdateAssignments: (upadteData: {
   assignments: Assignment[];
   updateHash: string;
 }) => Promise<AssignmentsCreate> = async ({assignments, updateHash}) => {
-  updateAbortController = new AbortController();
   currentHash = `${useMapStore.getState().assignmentsHash}`;
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
       updated_at: updateHash,
-      signal: updateAbortController?.signal,
     })
     .then(res => {
       return res.data;

@@ -1,5 +1,5 @@
-DROP FUNCTION IF EXISTS get_unassigned_bboxes(doc_uuid uuid, exclude_ids VARCHAR[]);
-CREATE OR REPLACE FUNCTION get_unassigned_bboxes(doc_uuid uuid, exclude_ids VARCHAR[])
+DROP FUNCTION IF EXISTS get_unassigned_bboxes_slow(doc_uuid uuid);
+CREATE OR REPLACE FUNCTION get_unassigned_bboxes_slow(doc_uuid uuid)
 RETURNS TABLE (bbox json) AS $$
 DECLARE
   gerrydb_table text;
@@ -51,7 +51,7 @@ BEGIN
     %s
     WHERE doc.zone IS NULL
     -- Exclude broken parents
-  AND doc.geo_id NOT IN (
+  AND ids.geo_id NOT IN (
     SELECT DISTINCT edges.parent_path
     FROM public."parentchildedges_%s" edges
     INNER JOIN ids
@@ -69,6 +69,6 @@ BEGIN
       ELSE ''
     END,
     dm_uuid
-  ) USING doc_uuid, exclude_ids;
+  ) USING doc_uuid;
 END;
 $$ LANGUAGE plpgsql;

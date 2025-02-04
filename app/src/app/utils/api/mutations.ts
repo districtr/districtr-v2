@@ -10,7 +10,6 @@ import {
   patchUpdateAssignments,
   patchUpdateReset,
   populationAbortController,
-  updateAbortController,
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
@@ -59,7 +58,6 @@ export const patchUpdates = new MutationObserver(queryClient, {
   onMutate: () => {
     console.log('Updating assignments');
     populationAbortController?.abort();
-    updateAbortController?.abort();
   },
   onError: error => {
     console.log('Error updating assignments: ', error);

@@ -59,20 +59,23 @@ packaging==24.0
     #   geoalchemy2
     #   pytest
 pandas==2.2.1
+pip==25.0
 pluggy==1.5.0
     # via pytest
 psycopg==3.1.18
-psycopg2-binary==2.9.9
+psycopg-binary==3.1.18
 pyarrow==15.0.2
 pycparser==2.22
     # via cffi
 pydantic==2.6.4
     # via
     #   fastapi
+    #   pydantic-geojson
     #   pydantic-settings
     #   sqlmodel
 pydantic-core==2.16.3
     # via pydantic
+pydantic-geojson==0.2.0
 pydantic-settings==2.2.1
 pyjwt==2.8.0
 pytest==8.2.0
@@ -123,4 +126,3 @@ uvicorn==0.29.0
 uvloop==0.19.0
 watchfiles==0.21.0
 websockets==12.0
-pydantic_geojson==0.2.0

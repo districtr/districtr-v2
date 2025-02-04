@@ -19,6 +19,7 @@ import {
 import {getEntryTotal} from '@/app/utils/summaryStats';
 import {useMapStore} from '@/app/store/mapStore';
 import {useChartStore} from '@/app/store/chartStore';
+import { updateChartData } from '../helpers';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -77,10 +78,20 @@ export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
         ...response.data.results,
         total: getEntryTotal(response.data.results),
       };
-      useMapStore.getState().setSummaryStat('totpop', {data});
-      useMapStore.getState().setSummaryStat('idealpop', {
-        data: data.total / (useMapStore.getState().mapDocument?.num_districts ?? 1),
+      const {setSummaryStat, mapDocument} = _useMapStore.getState();
+      setSummaryStat('totpop', {data});
+      setSummaryStat('idealpop', {
+        data: data.total / (mapDocument?.num_districts ?? 1),
       });
+      
+      const mapMetrics = useChartStore.getState().mapMetrics;
+      if (mapMetrics && mapDocument?.num_districts && data.total) {
+        updateChartData(
+          mapMetrics,
+          mapDocument.num_districts,
+          data.total
+        )
+      }
     } else {
       useMapStore.getState().setSummaryStat('totpop', undefined);
     }
@@ -145,10 +156,19 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    const {loadZoneAssignments} = useMapStore.getState();
-    loadZoneAssignments(assignments.data);
-    fetchTotPop.refetch();
-    useMapStore.temporal.getState().clear();
+  const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
+    if (assignments.data.documentId === loadedMapId) {
+      console.log(
+        'Map already loaded, skipping assignment load',
+        assignments.data.documentId,
+        loadedMapId
+      );
+    } else {
+      loadZoneAssignments(assignments.data);
+      fetchTotPop.refetch();
+      useMapStore.temporal.getState().clear();
+    }
+    setAppLoadingState('loaded');
   }
 });
 
