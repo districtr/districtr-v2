@@ -12,6 +12,7 @@ export const FormatAssignments = () => {
   const {allPainted, shatterIds} = useMapStore.getState();
   const assignmentsVisited = new Set([...allPainted]);
   const assignments: Assignment[] = [];
+  const subZoneAssignments = new Map();
 
   Array.from(useMapStore.getState().zoneAssignments.entries()).forEach(
     // @ts-ignore
@@ -23,6 +24,7 @@ export const FormatAssignments = () => {
       assignmentsVisited.delete(geo_id);
       if (lastSentAssignments.get(geo_id) !== zone) {
         lastSentAssignments.set(geo_id, zone);
+        subZoneAssignments.set(geo_id, zone);
         assignments.push({
           document_id: useMapStore.getState().mapDocument?.document_id || '',
           geo_id,
@@ -42,6 +44,7 @@ export const FormatAssignments = () => {
         // @ts-ignore assignment wants to be number
         zone: null,
       });
+      subZoneAssignments.set(geo_id, null);
     }
   });
   return assignments;
@@ -164,21 +167,21 @@ export const getAssignments: (
     return null;
   }
   if (mapDocument) {
-    const localCached = await districtrIdbCache.getCachedAssignments(mapDocument.document_id);
-    const lastUpdatedServer = mapDocument.updated_at;
-    if (
-      localCached &&
-      lastUpdatedServer &&
-      new Date(lastUpdatedServer).toISOString() === new Date(localCached?.updated_at).toISOString()
-    ) {
-      try {
-        return {
-          type: 'local',
-          documentId: mapDocument.document_id,
-          data: hydrateStateObjFromObj(localCached.state)
-        };
-      } catch (e) {
-        console.error(e);
+    if (mapDocument.updated_at) {
+      const localCached = await districtrIdbCache.getCachedAssignments(
+        mapDocument.document_id,
+        mapDocument.updated_at
+      );
+      if (localCached) {
+        try {
+          return {
+            type: 'local',
+            documentId: mapDocument.document_id,
+            data: localCached
+          };
+        } catch (e) {
+          console.error(e);
+        }
       }
     }
     return await axios

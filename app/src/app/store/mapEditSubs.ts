@@ -50,19 +50,6 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     {equalityFn: shallowCompareArray}
   );
 
-  const cacheAssignmentsSub = useMapStore.subscribe(
-    state => state.lastUpdatedHash,
-    lastUpdatedHash => {
-      const {zoneAssignments, shatterIds, shatterMappings, mapDocument} = useMapStore.getState();
-      if (!mapDocument) return;
-      districtrIdbCache.cacheAssignments(mapDocument.document_id, lastUpdatedHash, {
-        zoneAssignments,
-        shatterIds,
-        shatterMappings,
-      });
-    }
-  );
-
   const fetchAssignmentsSub = useMapStore.subscribe(
     state => state.mapDocument,
     mapDocument => mapDocument && updateAssignments(mapDocument)
@@ -130,5 +117,5 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     }
   );
 
-  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange, cacheAssignmentsSub];
+  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange];
 };
