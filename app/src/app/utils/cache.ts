@@ -2,22 +2,37 @@ import {DistrictrMap, LocalAssignmentsResponse} from '@utils/api/apiHandlers';
 import {openDB, IDBPDatabase, DBSchema} from 'idb';
 import {NullableZone} from '../constants/types';
 interface DistrictrIDB extends DBSchema {
+  /**
+   * Stores the last updated time for a given document ID.
+   */
   lastUpdated: {
     key: string;
     value: string;
   };
+  /**
+   * Stores the last shatter IDs for a given document ID.
+   */
   shatterIds: {
     key: string;
     value: Record<'children' | 'parents', Set<string>>;
   };
+  /**
+   * Stores the last shatter mappings for a given document ID. 
+   */
   shatterMappings: {
     key: string;
     value: Record<string, Set<string>>;
   };
+  /**
+   * Stores the last assignments for a given document ID.
+   */
   assignments: {
     key: string;
     value: Map<string, NullableZone>;
   };
+  /**
+   * Stores the gerrydb map views
+   */
   mapViews: {
     value: DistrictrMap[];
     key: 'views';
