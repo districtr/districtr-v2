@@ -4,7 +4,7 @@ import {MapStore, useMapStore} from '@store/mapStore';
 import {getEntryTotal} from '@utils/summaryStats';
 import {useChartStore} from '@store/chartStore';
 import {NullableZone} from '@constants/types';
-import {districtrIdbCache, hydrateStateObjFromObj} from '@utils/cache';
+import {districtrIdbCache} from '@utils/cache';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
 export const FormatAssignments = () => {
