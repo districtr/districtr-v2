@@ -25,27 +25,27 @@ class FeatureCache {
 
   addFeatures(
     features: Record<string,{
-    props: Data;
-    bounds: [number, number, number, number][];
+    properties: Data;
+    bboxes: RBushBbox[];
   }>,
   source: string,
   sourceLayer: string
 ) {
     // const t0 = performance.now();
-    const formattedData = Object.values(features).map(({props, bounds}) => {
-      this.features[props.path] = {
-        properties: props,
-        id: props.path,
+    const formattedData = Object.entries(features).map(([id, {properties, bboxes}]) => {
+      this.features[id] = {
+        id,
+        properties: {
+          ...properties,
+          path: id
+        },
         source,
         sourceLayer,
       };
-      return bounds.map((bbox) => {
+      return bboxes.map((bbox) => {
         return {
-          minX: bbox[0],
-          minY: bbox[1],
-          maxX: bbox[2],
-          maxY: bbox[3],
-          path: props.path,
+          ...bbox,
+          path: id
         }
       })
     }).flat()

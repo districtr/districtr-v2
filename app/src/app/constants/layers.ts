@@ -284,7 +284,7 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
 
   const blockSource = getBlocksSource(mapDocument.tiles_s3_path);
   removeBlockLayers(map);
-  fetch(`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/tilesets/co_rtree_test.json`)
+  fetch(`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/tilesets/${mapDocument.parent_layer}_rects.json`)
     .then((response) => response.json())
     .then((data) => {
       featureCache.addFeatures(
