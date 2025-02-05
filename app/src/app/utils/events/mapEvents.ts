@@ -60,7 +60,23 @@ export const handleMapClick = throttle((
   const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures, setIsPainting} =
     mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
-  if (activeTool === 'brush' || activeTool === 'eraser') {
+  if (activeTool === 'shatter') {
+    const documentId = mapStore.mapDocument?.document_id;
+    if (documentId && e.features?.length) {
+      handleShatter(
+        documentId,
+        e.features.filter(f => f.layer.id === BLOCK_HOVER_LAYER_ID)
+      );
+    }
+    return;
+  } else if (activeTool === 'lock') {
+    const documentId = mapStore.mapDocument?.document_id;
+    if (documentId && e.features?.length) {
+      const feature = e.features[0];
+      const id = feature.id?.toString() || '';
+      lockFeature(id, !lockedFeatures.has(id));
+    }
+  } else if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
     if (sourceLayer && selectedFeatures && map && mapStore) {
@@ -69,21 +85,6 @@ export const handleMapClick = throttle((
       selectMapFeatures(selectedFeatures);
       // end paint event to commit changes to zone assignments
       setIsPainting(false);
-    }
-  } else if (activeTool === 'shatter') {
-    const documentId = mapStore.mapDocument?.document_id;
-    if (documentId && e.features?.length) {
-      handleShatter(
-        documentId,
-        e.features.filter(f => f.layer.id === BLOCK_HOVER_LAYER_ID)
-      );
-    }
-  } else if (activeTool === 'lock') {
-    const documentId = mapStore.mapDocument?.document_id;
-    if (documentId && e.features?.length) {
-      const feature = e.features[0];
-      const id = feature.id?.toString() || '';
-      lockFeature(id, !lockedFeatures.has(id));
     }
   } else {
     // tbd, for pan mode - is there an info mode on click?
@@ -170,9 +171,14 @@ export const handleMapMouseMove = throttle(
       mapStore.mapDocument?.child_layer,
       activeTool
     );
+
+    const isBrushingTool = sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
+    if (!isBrushingTool) {
+      useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
+      useTooltipStore.getState().setTooltip(null);
+      return;
+    }
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
-    const isBrushingTool =
-      sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
     // sourceCapabilities exists on the UIEvent constructor, which does not appear
     // properly tpyed in the default map events
     // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
