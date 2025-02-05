@@ -83,9 +83,7 @@ def update_timestamp(
         .where(Document.document_id == document_id)
         .values(updated_at=updated_at)
     )
-    if execute:
-        session.execute(update_stmt)
-        session.commit()
+    session.execute(update_stmt)
 
 
 @app.get("/")
