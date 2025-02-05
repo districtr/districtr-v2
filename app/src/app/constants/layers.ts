@@ -45,6 +45,12 @@ export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels
 
 export const LABELS_BREAK_LAYER_ID = 'places_subplace';
 
+const vap_choropleths: Record<string, boolean> = {
+  co_vtd_p1_view: true,
+  co_block_p1_view: true,
+  co_p1_view: true,
+};
+
 const colorStyleBaseline: any[] = ['case'];
 
 export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = colorScheme.reduce((val, color, i) => {
@@ -305,6 +311,33 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
       LABELS_BREAK_LAYER_ID
     );
   }
+  if (mapDocument.gerrydb_table in vap_choropleths) {
+    const demoLayerSpec: LayerSpecification = {
+      id: DEMO_LAYER,
+      source: BLOCK_SOURCE_ID,
+      'source-layer': mapDocument.parent_layer,
+      type: 'fill',
+      layout: {
+        visibility: 'visible',
+      },
+      paint: {
+        'fill-opacity': 0.8,
+        'fill-color': [
+          'rgba',
+          0,
+          0,
+          139,
+          [
+            'case',
+            ['==', ['get', 'total_pop'], 0],
+            0, // if VAP is 0, return 0 opacity
+            ['/', ['to-number', ['get', 'black_pop']], ['to-number', ['get', 'total_pop']]], // opacity is %bvap
+          ],
+        ],
+      },
+    };
+    map?.addLayer(demoLayerSpec);
+  }
   map?.addLayer(getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT));
   useMapStore.getState().setMapRenderingState('loaded');
 };
@@ -321,6 +354,7 @@ export function removeBlockLayers(map: Map | null) {
     BLOCK_LAYER_ID_CHILD,
     BLOCK_HOVER_LAYER_ID_CHILD,
     BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
+    DEMO_LAYER,
   ].forEach(layer => {
     map.getLayer(layer) && map.removeLayer(layer);
   });
