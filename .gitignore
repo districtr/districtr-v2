@@ -71,3 +71,5 @@ PG:*
 
 *.dev
 sample_data/*
+temp/*
+pipelines/build_client_rects/output/*

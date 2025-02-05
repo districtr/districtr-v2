@@ -1,0 +1,6 @@
+
+numpy==1.26.4
+pandas==2.2.2
+geopandas==0.14.4
+tqdm==4.67.1
+shapely==2.0.4
