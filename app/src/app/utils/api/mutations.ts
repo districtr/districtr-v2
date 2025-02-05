@@ -10,11 +10,11 @@ import {
   patchUpdateAssignments,
   patchUpdateReset,
   populationAbortController,
-  updateAbortController,
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
 import {useChartStore} from '@/app/store/chartStore';
+import {districtrIdbCache} from '../cache';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -31,7 +31,6 @@ export const patchShatter = new MutationObserver(queryClient, {
   },
   onSuccess: data => {
     console.log(`Successfully shattered parents into ${data.children.length} children`);
-    useMapStore.getState().setAssignmentsHash(Date.now().toString());
     return data;
   },
 });
@@ -60,7 +59,15 @@ export const patchUpdates = new MutationObserver(queryClient, {
   onMutate: () => {
     console.log('Updating assignments');
     populationAbortController?.abort();
-    updateAbortController?.abort();
+
+    const {zoneAssignments, shatterIds, shatterMappings, mapDocument, lastUpdatedHash} =
+      useMapStore.getState();
+    if (!mapDocument) return;
+    districtrIdbCache.cacheAssignments(mapDocument.document_id, lastUpdatedHash, {
+      zoneAssignments,
+      shatterIds,
+      shatterMappings,
+    });
   },
   onError: error => {
     console.log('Error updating assignments: ', error);
@@ -106,7 +113,8 @@ export const document = new MutationObserver(queryClient, {
     console.error('Error creating map document: ', error);
   },
   onSuccess: data => {
-    const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} = useMapStore.getState();
+    const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} =
+      useMapStore.getState();
     setMapDocument(data);
     setLoadedMapId(data.document_id);
     setAssignmentsHash(Date.now().toString());

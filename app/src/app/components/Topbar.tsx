@@ -10,7 +10,7 @@ import {
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
-import React, {useRef} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {RecentMapsModal} from './Toolbar/RecentMapsModal';
 import {ToolSettings} from './Toolbar/Settings';
@@ -20,16 +20,19 @@ import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import { toggleUseRTree } from '../utils/helpers';
+import {districtrIdbCache} from '../utils/cache';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [cachedViews, setCachedViews] = React.useState<DistrictrMap[]>();
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapViews = useMapStore(state => state.mapViews);
 
   const clear = useTemporalStore(store => store.clear);
-  const {data} = mapViews || {};
+  const data = mapViews?.data || cachedViews || [];
+
   const handleSelectMap = (selectedMap: DistrictrMap) => {
     if (selectedMap.gerrydb_table_name === mapDocument?.gerrydb_table) {
       console.log('No document or same document');
@@ -38,6 +41,21 @@ export const Topbar: React.FC = () => {
     clear();
     document.mutate({gerrydb_table: selectedMap.gerrydb_table_name});
   };
+
+  useEffect(() => {
+    const fetchCachedViews = async () => {
+      districtrIdbCache.getCachedViews().then((cachedViews) => {
+        cachedViews && setCachedViews(cachedViews);
+      })
+    };
+    fetchCachedViews();
+  }, [])
+
+  useEffect(() => {
+    if (mapViews?.data?.length) {
+      districtrIdbCache.cacheViews(mapViews.data);
+    }
+  }, [mapViews]);
 
   return (
     <>
@@ -81,7 +99,53 @@ export const Topbar: React.FC = () => {
                   )}
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item disabled>Export Assignments</DropdownMenu.Item>
+              <DropdownMenu.Sub>
+                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
+                  Export Assignments
+                </DropdownMenu.SubTrigger>
+                <DropdownMenu.SubContent>
+                  <DropdownMenu.Item>
+                    <Tooltip content="Download a CSV of Census GEOIDs and zone IDs">
+                      <a
+                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=ZoneAssignments`}
+                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                      >
+                        VTD Assignments (CSV)
+                      </a>
+                    </Tooltip>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item>
+                    <Tooltip content="Download a GeoJSON of Census GEOIDs and zone IDs">
+                      <a
+                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=ZoneAssignments`}
+                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                      >
+                        VTD Assignments (GeoJSON)
+                      </a>
+                    </Tooltip>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item disabled={!mapDocument?.child_layer}>
+                    <Tooltip content="Download a CSV of Census Block GEOIDs and zone IDs">
+                      <a
+                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=BlockZoneAssignments`}
+                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                      >
+                        Block Assignment (CSV)
+                      </a>
+                    </Tooltip>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item>
+                    <Tooltip content="Download a GeoJSON of district boundaries">
+                      <a
+                        href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=Districts`}
+                        download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
+                      >
+                        District boundaries (GeoJSON)
+                      </a>
+                    </Tooltip>
+                  </DropdownMenu.Item>
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Sub>
               <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
                 View Recent Maps
               </DropdownMenu.Item>

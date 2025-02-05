@@ -17,6 +17,8 @@ import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {idCache} from '../store/idCache';
 import { featureCache } from './featureCache';
+import {ChartStore, useChartStore} from '@/app/store/chartStore';
+import { calculateMinMaxRange } from './zone-helpers';
 
 /**
  * PaintEventHandler
@@ -564,4 +566,41 @@ const filterFeatures = (
   });
   parentIdsToHeal.length && checkParentsToHeal(parentIdsToHeal);
   return filteredFeatures;
+};
+
+export const updateChartData = (
+  mapMetrics: ChartStore['mapMetrics'],
+  numDistricts: number | undefined,
+  totPop: number | undefined
+) => {
+  let unassigned = structuredClone(totPop)!;
+  if (totPop && numDistricts && mapMetrics && mapMetrics.data && numDistricts && totPop) {
+    const populations: Record<string, number> = {};
+
+    new Array(numDistricts).fill(null).forEach((_, i) => {
+      const zone = i + 1;
+      populations[zone] = mapMetrics.data.find(f => f.zone === zone)?.total_pop ?? 0;
+    });
+    const chartData = Object.entries(populations).map(([zone, total_pop]) => {
+      unassigned -= total_pop;
+      return {zone: +zone, total_pop};
+    });
+
+    const allAreNonZero = chartData.every(entry => entry.total_pop > 0);
+    const stats = allAreNonZero ? calculateMinMaxRange(chartData) : undefined;
+    
+    useChartStore.getState().setChartInfo({
+      stats,
+      chartData,
+      unassigned,
+      totPop,
+    });
+  } else {
+    useChartStore.getState().setChartInfo({
+      stats: undefined,
+      chartData: [],
+      unassigned: null,
+      totPop: 0,
+    });
+  }
 };

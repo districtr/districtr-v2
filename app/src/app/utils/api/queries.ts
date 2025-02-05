@@ -13,10 +13,13 @@ import {
   getTotPopSummaryStats,
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
+  LocalAssignmentsResponse,
+  RemoteAssignmentsResponse,
 } from './apiHandlers';
 import {getEntryTotal} from '@/app/utils/summaryStats';
 import {useMapStore} from '@/app/store/mapStore';
 import {useChartStore} from '@/app/store/chartStore';
+import { updateChartData } from '../helpers';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -75,10 +78,20 @@ export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
         ...response.data.results,
         total: getEntryTotal(response.data.results),
       };
-      useMapStore.getState().setSummaryStat('totpop', {data});
-      useMapStore.getState().setSummaryStat('idealpop', {
-        data: data.total / (useMapStore.getState().mapDocument?.num_districts ?? 1),
+      const {setSummaryStat, mapDocument} = _useMapStore.getState();
+      setSummaryStat('totpop', {data});
+      setSummaryStat('idealpop', {
+        data: data.total / (mapDocument?.num_districts ?? 1),
       });
+      
+      const mapMetrics = useChartStore.getState().mapMetrics;
+      if (mapMetrics && mapDocument?.num_districts && data.total) {
+        updateChartData(
+          mapMetrics,
+          mapDocument.num_districts,
+          data.total
+        )
+      }
     } else {
       useMapStore.getState().setSummaryStat('totpop', undefined);
     }
@@ -129,7 +142,7 @@ updateDocumentFromId.subscribe(mapDocument => {
   }
 });
 
-export const fetchAssignments = new QueryObserver<null | Assignment[]>(queryClient, {
+export const fetchAssignments = new QueryObserver<null | LocalAssignmentsResponse | RemoteAssignmentsResponse>(queryClient, {
   queryKey: ['assignments'],
   queryFn: () => getAssignments(useMapStore.getState().mapDocument),
 });
@@ -143,16 +156,16 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
-    if (assignments.data?.length && assignments.data[0].document_id === loadedMapId) {
+  const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
+    if (assignments.data.documentId === loadedMapId) {
       console.log(
         'Map already loaded, skipping assignment load',
-        assignments.data[0].document_id,
+        assignments.data.documentId,
         loadedMapId
       );
     } else {
-      fetchTotPop.refetch();
       loadZoneAssignments(assignments.data);
+      fetchTotPop.refetch();
       useMapStore.temporal.getState().clear();
     }
     setAppLoadingState('loaded');

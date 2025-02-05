@@ -73,3 +73,4 @@ PG:*
 sample_data/*
 temp/*
 pipelines/build_client_rects/output/*
+!sample_data/config.json

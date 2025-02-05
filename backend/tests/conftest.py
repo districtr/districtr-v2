@@ -12,7 +12,12 @@ from tests.constants import (
     TEARDOWN_TEST_DB,
     TEST_SQLALCHEMY_DATABASE_URI,
     TEST_POSTGRES_CONNECTION_STRING,
+    FIXTURES_PATH,
+    OGR2OGR_PG_CONNECTION_STRING,
+    GERRY_DB_FIXTURE_NAME,
 )
+from app.constants import GERRY_DB_SCHEMA
+from app.utils import create_districtr_map
 
 client = TestClient(app)
 
@@ -109,3 +114,60 @@ def session_fixture(engine):
     session.close()
     transaction.rollback()
     connection.close()
+
+
+@pytest.fixture(name=GERRY_DB_FIXTURE_NAME)
+def ks_demo_view_census_blocks_fixture(session: Session):
+    layer = GERRY_DB_FIXTURE_NAME
+    subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+        ],
+    )
+
+
+@pytest.fixture(name="ks_demo_view_census_blocks_districtrmap")
+def ks_demo_view_census_blocks_districtrmap_fixture(
+    session: Session, ks_demo_view_census_blocks: None
+):
+    upsert_query = text(
+        """
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """
+    )
+
+    session.begin()
+    session.execute(upsert_query, {"name": GERRY_DB_FIXTURE_NAME})
+    create_districtr_map(
+        session=session,
+        name=f"Districtr map {GERRY_DB_FIXTURE_NAME}",
+        gerrydb_table_name=GERRY_DB_FIXTURE_NAME,
+        parent_layer_name=GERRY_DB_FIXTURE_NAME,
+    )
+    session.commit()
+
+
+@pytest.fixture(name="document_id")
+def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+        },
+    )
+    document_id = response.json()["document_id"]
+    return document_id
