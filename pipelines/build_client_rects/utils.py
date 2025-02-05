@@ -6,20 +6,21 @@ from tqdm import tqdm
 import json
 
 OUT_DATA_COLS = [
-    'total_pop',
-    'nhpi_pop',
-    'other_pop',
-    'amin_pop',
-    'asian_pop',
-    'white_pop',
-    'black_pop',
-    'two_or_more_races_pop',
+    "total_pop",
+    "nhpi_pop",
+    "other_pop",
+    "amin_pop",
+    "asian_pop",
+    "white_pop",
+    "black_pop",
+    "two_or_more_races_pop",
 ]
 
+
 def generate_cells(
-        bounds: tuple,
-        size: float,
-): 
+    bounds: tuple,
+    size: float,
+):
     """Generate a grid of cells within the given bounds."""
     minx, miny, maxx, maxy = bounds
     cells = []
@@ -105,17 +106,18 @@ def merge_squares_to_rectangles(gdf):
     # Create new GeoDataFrame
     return gdf
 
+
 def convert_geometry_to_cells(
-        geometry: sg.Polygon | sg.MultiPolygon,
-        min_coverage: float,
-        max_coverage_overlap: float,
-        crs: str = "EPSG:26913",
-        min_cell_coverage: float = 0.75,
-        max_iters: int = 10,
+    geometry: sg.Polygon | sg.MultiPolygon,
+    min_coverage: float,
+    max_coverage_overlap: float,
+    crs: str = "EPSG:26913",
+    min_cell_coverage: float = 0.75,
+    max_iters: int = 10,
 ):
     bounds = geometry.bounds
     coverage = False
-    iters = 0;
+    iters = 0
     # start at 20% of geometry
     cell_size = None
 
@@ -129,11 +131,13 @@ def convert_geometry_to_cells(
         cells = generate_cells(bounds, cell_size)
         cells = gpd.GeoDataFrame(geometry=cells, crs=crs)
         # print(f"Cell size: {cell_size} ; {len(cells)} cells")
-        cells['area'] = cells.geometry.area
+        cells["area"] = cells.geometry.area
         cells = cells[cells.intersects(geometry)]
         # filter for cells that are outside the geometry
-        cells = cells[cells.intersection(geometry).area / cells.area >= min_cell_coverage]
-        if (len(cells) == 0):
+        cells = cells[
+            cells.intersection(geometry).area / cells.area >= min_cell_coverage
+        ]
+        if len(cells) == 0:
             continue
         # dissolve the cells, then check the overall coverage
         dissolved = cells.dissolve()
@@ -147,52 +151,49 @@ def convert_geometry_to_cells(
 
 
 def process_geodataframe(
-  gdf: gpd.GeoDataFrame,
-  cols: list[str] = OUT_DATA_COLS,
-  min_coverage: float = 0.85,
-  max_coverage_overlap: float = 1.15,
-  min_cell_coverage: float = 0.75,
-  output_json: bool = True,
-  output_gpkg: bool = True,
-  outpath: str = "",
+    gdf: gpd.GeoDataFrame,
+    cols: list[str] = OUT_DATA_COLS,
+    min_coverage: float = 0.85,
+    max_coverage_overlap: float = 1.15,
+    min_cell_coverage: float = 0.75,
+    output_json: bool = True,
+    output_gpkg: bool = True,
+    outpath: str = "",
 ):
-  """Processes a GeoDataFrame to convert geometries into fitted rectandles."""
-  co_simplified_dict = {}
-  gdfs = []
-  for _, row in tqdm(gdf.iterrows()):
-      cells = convert_geometry_to_cells(
-          row.geometry,
-          min_coverage=min_coverage,
-          max_coverage_overlap=max_coverage_overlap,
-          min_cell_coverage=min_cell_coverage,
-          crs=gdf.crs
-      )
-      merged = merge_squares_to_rectangles(cells).to_crs("EPSG:4326")
-      merged["path"] = row["path"]
-      gdfs.append(merged)
-      co_simplified_dict[row["path"]] = {
-          "properties": {
-              col: row[col] for col in cols
-          },
-          "bboxes": list(merged.bounds.apply(
-              lambda row: {
-                  "minX": round(row.iloc[0], 5),
-                  "minY": round(row.iloc[1], 5),
-                  "maxX": round(row.iloc[2], 5),
-                  "maxY": round(row.iloc[3], 5),
-              },
-              axis=1,
-          )),
-      }
-  combined_gdf = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
-  
-  if output_gpkg:
-    combined_gdf.to_file(outpath + "rects.gpkg")
-  if output_json:
-    with open(outpath + "rects.json", "w") as f:
-      f.write(json.dumps(co_simplified_dict))
+    """Processes a GeoDataFrame to convert geometries into fitted rectandles."""
+    co_simplified_dict = {}
+    gdfs = []
+    for _, row in tqdm(gdf.iterrows()):
+        cells = convert_geometry_to_cells(
+            row.geometry,
+            min_coverage=min_coverage,
+            max_coverage_overlap=max_coverage_overlap,
+            min_cell_coverage=min_cell_coverage,
+            crs=gdf.crs,
+        )
+        merged = merge_squares_to_rectangles(cells).to_crs("EPSG:4326")
+        merged["path"] = row["path"]
+        gdfs.append(merged)
+        co_simplified_dict[row["path"]] = {
+            "properties": {col: row[col] for col in cols},
+            "bboxes": list(
+                merged.bounds.apply(
+                    lambda row: {
+                        "minX": round(row.iloc[0], 5),
+                        "minY": round(row.iloc[1], 5),
+                        "maxX": round(row.iloc[2], 5),
+                        "maxY": round(row.iloc[3], 5),
+                    },
+                    axis=1,
+                )
+            ),
+        }
+    combined_gdf = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
 
-  return {
-      "json_output": co_simplified_dict, 
-      "gdf": combined_gdf
-  }
+    if output_gpkg:
+        combined_gdf.to_file(outpath + "rects.gpkg")
+    if output_json:
+        with open(outpath + "rects.json", "w") as f:
+            f.write(json.dumps(co_simplified_dict))
+
+    return {"json_output": co_simplified_dict, "gdf": combined_gdf}
