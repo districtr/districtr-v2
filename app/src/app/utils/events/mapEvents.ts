@@ -23,6 +23,7 @@ import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/mapStore';
+import path from 'path';
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -318,7 +319,11 @@ export const handleDataLoad = (
       const id = feature.id;
       featureArray.push({
         type: 'Feature',
-        properties: feature.properties,
+        properties: {
+          ...feature.properties,
+          id,
+          path: id
+        },
         geometry: feature.geometry,
         sourceLayer: feature.sourceLayer,
       });
