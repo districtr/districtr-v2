@@ -1,5 +1,5 @@
 import {updateMapMetrics, updateTotPop} from '../utils/api/queries';
-import { useChartStore } from './chartStore';
+import {useChartStore} from './chartStore';
 import {useMapStore as _useMapStore} from './mapStore';
 
 export const getMapMetricsSubs = (useMapStore: typeof _useMapStore) => {
@@ -9,7 +9,7 @@ export const getMapMetricsSubs = (useMapStore: typeof _useMapStore) => {
       useChartStore.getState().setMapMetrics(null);
       if (mapDocument) {
         updateMapMetrics(mapDocument);
-        updateTotPop(mapDocument)
+        updateTotPop(mapDocument);
       }
     }
   );
