@@ -76,7 +76,6 @@ def update_timestamp(
     session: Session,
     document_id: str,
     updated_at: str,
-    execute: bool = True,
 ):
     update_stmt = (
         update(Document)
