@@ -10,7 +10,7 @@ import {
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
-import React, {useRef} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {RecentMapsModal} from './Toolbar/RecentMapsModal';
 import {ToolSettings} from './Toolbar/Settings';
@@ -19,16 +19,19 @@ import {useTemporalStore} from '../store/temporalStore';
 import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
+import {districtrIdbCache} from '../utils/cache';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [cachedViews, setCachedViews] = React.useState<DistrictrMap[]>();
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapViews = useMapStore(state => state.mapViews);
 
   const clear = useTemporalStore(store => store.clear);
-  const {data} = mapViews || {};
+  const data = mapViews?.data || cachedViews || [];
+
   const handleSelectMap = (selectedMap: DistrictrMap) => {
     if (selectedMap.gerrydb_table_name === mapDocument?.gerrydb_table) {
       console.log('No document or same document');
@@ -37,6 +40,21 @@ export const Topbar: React.FC = () => {
     clear();
     document.mutate({gerrydb_table: selectedMap.gerrydb_table_name});
   };
+
+  useEffect(() => {
+    const fetchCachedViews = async () => {
+      districtrIdbCache.getCachedViews().then((cachedViews) => {
+        cachedViews && setCachedViews(cachedViews);
+      })
+    };
+    fetchCachedViews();
+  }, [])
+
+  useEffect(() => {
+    if (mapViews?.data?.length) {
+      districtrIdbCache.cacheViews(mapViews.data);
+    }
+  }, [mapViews]);
 
   return (
     <>

@@ -2,17 +2,19 @@
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
-import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '../constants/types';
-import {Zone, GDBPath} from '../constants/types';
+import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '@constants/types';
+import {Zone, GDBPath} from '@constants/types';
 import {
   Assignment,
   DistrictrMap,
   DocumentObject,
   lastSentAssignments,
+  LocalAssignmentsResponse,
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
+  RemoteAssignmentsResponse,
   ShatterResult,
-} from '../utils/api/apiHandlers';
+} from '@utils/api/apiHandlers';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
@@ -42,6 +44,7 @@ import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
+import { districtrIdbCache } from '../utils/cache';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -246,7 +249,9 @@ export interface MapStore {
   assignmentsHash: string;
   lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
-  loadZoneAssignments: (assigments: Assignment[]) => void;
+  loadZoneAssignments: (
+    assignmentsData: RemoteAssignmentsResponse | LocalAssignmentsResponse
+  ) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
@@ -398,7 +403,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           useChartStore.getState().updateMetrics(popChanges);
           set({
             isTemporalAction: false,
-            assignmentsHash: Date.now().toString(),
+            assignmentsHash: new Date().toISOString(),
           })
         },
         mapViews: {isPending: true},
@@ -487,9 +492,11 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           const mapRef = getMapRef();
           if (!mapRef) return;
           set({mapLock: true})
+          const updateHash = new Date().toISOString();
           const r = await patchShatter.mutate({
             document_id,
             geoids,
+            updateHash
           });
           geoids.forEach(geoid => {
             mapRef?.setFeatureState({
@@ -501,19 +508,21 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               zone: null
             })
           })
-          set({mapLock: false})
+          set({mapLock: false, assignmentsHash: updateHash, lastUpdatedHash: updateHash})
         },
         silentlyHeal: async (document_id, parentsToHeal) => {
           const {getMapRef, zoneAssignments, mapDocument, shatterMappings, allPainted} = get()
           const mapRef = getMapRef();
           if (!mapRef) return;
           set({mapLock: true})
+          const updateHash = new Date().toISOString();
           const zone = zoneAssignments.get(parentsToHeal[0])!
           const sourceLayer = mapDocument?.parent_layer;
           const r = await patchUnShatter.mutate({
             geoids: parentsToHeal,
             zone: zoneAssignments.get(parentsToHeal[0])!,
-            document_id
+            document_id,
+            updateHash
           });
           const children = shatterMappings[parentsToHeal[0]];
           children?.forEach(child => {
@@ -531,7 +540,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               zone
             })
           })
-          set({mapLock: false})
+          set({mapLock: false, assignmentsHash: updateHash, lastUpdatedHash: updateHash})
         },
         handleShatter: async (document_id, features) => {
           if (!features.length) {
@@ -542,7 +551,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           // set BLOCK_LAYER_ID based on features[0] to focused true
 
           const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
-
+          const updateHash = new Date().toISOString();
           const {shatterIds, shatterMappings, lockedFeatures} = get();
           const isAlreadyShattered = geoids.some(id => shatterMappings.hasOwnProperty(id));
           const shatterResult: ShatterResult = isAlreadyShattered
@@ -557,6 +566,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             : await patchShatter.mutate({
                 document_id,
                 geoids,
+                updateHash
               });
 
           if (!shatterResult.children.length) {
@@ -602,6 +612,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               parents: existingParents,
               children: existingChildren,
             },
+            assignmentsHash: updateHash,
+            lastUpdatedHash: updateHash,
             // TODO: Should this be true instead?
             // Is there a way to clean up the state history during
             // break / shatter?
@@ -630,6 +642,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         },
         parentsToHeal: [],
         processHealParentsQueue: async (additionalIds = []) => {
+          const updateHash = new Date().toISOString();
           const {
             isPainting,
             parentsToHeal: _parentsToHeal,
@@ -671,6 +684,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               geoids: parentsToHeal.map(f => f.parentId),
               zone: parentsToHeal[0].zone as any,
               document_id: mapDocument?.document_id,
+              updateHash
             });
             const children = parentsToHeal
               .map(f => ({
@@ -729,8 +743,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
                   broken: false,
                 }
               );
-            });
-
+            }); 
             set({
               shatterIds: newShatterIds,
               mapLock: false,
@@ -738,6 +751,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               shatterMappings: {...shatterMappings},
               zoneAssignments: newZoneAssignments,
               lockedFeatures: newLockedFeatures,
+              lastUpdatedHash: updateHash,
+              assignmentsHash: updateHash,
               // parents may have been added while this is firing off
               // get curernt, and filter for any that were removed by this event
               parentsToHeal: get().parentsToHeal.filter(f => !r.geoids.includes(f)),
@@ -805,6 +820,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             mapLock: true,
             appLoadingState: 'loading',
           });
+          const updateHash = new Date().toISOString();
           const resetResponse = await patchReset.mutate(document_id);
 
           if (resetResponse.document_id === document_id) {
@@ -827,7 +843,9 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               },
               appLoadingState: 'loaded',
               mapLock: false,
-              activeTool: 'pan'
+              activeTool: 'pan',
+              assignmentsHash: updateHash,
+              lastUpdatedHash: updateHash,
             });
           }
         },
@@ -949,38 +967,61 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           set({
             zoneAssignments: newZoneAssignments,
             accumulatedGeoids: new Set<string>(),
+            lastUpdatedHash: new Date().toISOString(),
           });
         },
-        loadZoneAssignments: assignments => {
+        loadZoneAssignments: assignmentsData => {
           lastSentAssignments.clear();
-          const zoneAssignments = new Map<string, number>();
-          const shatterIds = {
-            parents: new Set<string>(),
-            children: new Set<string>(),
-          };
-          const shatterMappings: MapStore['shatterMappings'] = {};
-
-          assignments.forEach(assignment => {
-            zoneAssignments.set(assignment.geo_id, assignment.zone);
-            // preload last sent assignments with last fetched assignments
-            lastSentAssignments.set(assignment.geo_id, assignment.zone);
-            if (assignment.parent_path) {
-              if (!shatterMappings[assignment.parent_path]) {
-                shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
-              } else {
-                shatterMappings[assignment.parent_path].add(assignment.geo_id);
+          if (assignmentsData.type === 'local') {
+            assignmentsData.data.zoneAssignments.forEach((v, k) => {
+              lastSentAssignments.set(k, v);
+            });
+            set({
+              zoneAssignments: assignmentsData.data.zoneAssignments,
+              appLoadingState: 'loaded',
+              loadedMapId: assignmentsData.documentId,
+              shatterIds: assignmentsData.data.shatterIds,
+              shatterMappings: assignmentsData.data.shatterMappings,
+            })
+          } else {
+            const assignments = assignmentsData.assignments;
+            const zoneAssignments = new Map<string, number>();
+            const shatterIds = {
+              parents: new Set<string>(),
+              children: new Set<string>(),
+            };
+            const shatterMappings: MapStore['shatterMappings'] = {};
+      
+            assignments.forEach(assignment => {
+              zoneAssignments.set(assignment.geo_id, assignment.zone);
+              // preload last sent assignments with last fetched assignments
+              lastSentAssignments.set(assignment.geo_id, assignment.zone);
+              if (assignment.parent_path) {
+                if (!shatterMappings[assignment.parent_path]) {
+                  shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
+                } else {
+                  shatterMappings[assignment.parent_path].add(assignment.geo_id);
+                }
+                shatterIds.parents.add(assignment.parent_path);
+                shatterIds.children.add(assignment.geo_id);
               }
-              shatterIds.parents.add(assignment.parent_path);
-              shatterIds.children.add(assignment.geo_id);
+            });
+            set({
+              zoneAssignments,
+              shatterIds,
+              shatterMappings,
+              appLoadingState: 'loaded',
+              loadedMapId: assignmentsData.documentId,
+            });
+            const mapDocument = get().mapDocument;
+            if (mapDocument?.document_id && mapDocument?.updated_at) {
+              districtrIdbCache.cacheAssignments(mapDocument.document_id, mapDocument.updated_at, {
+                zoneAssignments,
+                shatterIds,
+                shatterMappings,
+              });
             }
-          });
-          set({
-            zoneAssignments, 
-            shatterIds, 
-            shatterMappings, 
-            appLoadingState: 'loaded',
-            loadedMapId: assignments[0]?.document_id
-          });
+          }
         },
         zonePopulations: new Map(),
         setZonePopulations: (zone, population) =>
@@ -1008,9 +1049,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             if (assignmentsHash !== lastUpdatedHash) {
               const zone = activeTool === 'eraser' ? null : selectedZone;
               setZoneAssignments(zone, accumulatedGeoids);
-              set({
-                lastUpdatedHash: assignmentsHash,
-              });
             }
           }
           set({isPainting});

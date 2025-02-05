@@ -178,7 +178,8 @@ def assignments_fixture(client, document_id):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -195,7 +196,8 @@ def assignments_total_vap_fixture(client, document_id_total_vap):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -212,7 +214,8 @@ def assignments_no_gerrydb_pop_fixture(client, document_no_gerrydb_pop):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -259,7 +262,8 @@ def test_patch_assignments(client, document_id):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -274,7 +278,8 @@ def test_patch_assignments_nulls(client, document_id):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": None},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -288,7 +293,8 @@ def test_patch_assignments_twice(client, document_id):
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 0},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 0},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -300,7 +306,8 @@ def test_patch_assignments_twice(client, document_id):
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 1},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -337,7 +344,8 @@ def test_get_document_population_totals_null_assignments(
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": None},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -510,7 +518,8 @@ def test_get_p1_summary_stats(client, document_id_p1_summary_stats):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
 
@@ -600,7 +609,8 @@ def test_get_p4_summary_stats(client, document_id_p4_summary_stats):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
 
