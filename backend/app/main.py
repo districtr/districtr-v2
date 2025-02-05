@@ -1,6 +1,6 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import FileResponse
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
@@ -70,6 +70,19 @@ if settings.BACKEND_CORS_ORIGINS:
 def get_session():
     with Session(engine) as session:
         yield session
+
+
+def update_timestamp(
+    session: Session,
+    document_id: str,
+    updated_at: str,
+):
+    update_stmt = (
+        update(Document)
+        .where(Document.document_id == document_id)
+        .values(updated_at=updated_at)
+    )
+    session.execute(update_stmt)
 
 
 @app.get("/")
@@ -159,11 +172,14 @@ async def create_document(
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
-    stmt = insert(Assignments).values(data.model_dump()["assignments"])
+    assignments = data.model_dump()["assignments"]
+    stmt = insert(Assignments).values(assignments)
     stmt = stmt.on_conflict_do_update(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
     session.execute(stmt)
+    if len(data.assignments) > 0:
+        update_timestamp(session, assignments[0]["document_id"], data.updated_at)
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
 
@@ -195,6 +211,7 @@ async def shatter_parent(
         for document_id, geo_id, zone in results
     ]
     result = ShatterResult(parents=data, children=assignments)
+    update_timestamp(session, document_id, data.updated_at)
     session.commit()
     return result
 
@@ -222,8 +239,10 @@ async def unshatter_parent(
             "input_zone": data.zone,
         },
     ).first()
+
+    update_timestamp(session, document_id, data.updated_at)
     session.commit()
-    return {"geoids": results[0]}
+    return {"geoids": results[0], "updated_at": data.updated_at}
 
 
 @app.patch(
@@ -243,6 +262,7 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
     """
         )
     )
+
     session.commit()
 
     return {"message": "Assignments partition reset", "document_id": document_id}

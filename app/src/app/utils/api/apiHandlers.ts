@@ -1,9 +1,10 @@
 import axios from 'axios';
 import 'maplibre-gl';
-import {useMapStore} from '@/app/store/mapStore';
-import {getEntryTotal} from '../summaryStats';
-import {useChartStore} from '@/app/store/chartStore';
-import {NullableZone} from '@/app/constants/types';
+import {MapStore, useMapStore} from '@store/mapStore';
+import {getEntryTotal} from '@utils/summaryStats';
+import {useChartStore} from '@store/chartStore';
+import {NullableZone} from '@constants/types';
+import {districtrIdbCache} from '@utils/cache';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
 export const FormatAssignments = () => {
@@ -11,6 +12,7 @@ export const FormatAssignments = () => {
   const {allPainted, shatterIds} = useMapStore.getState();
   const assignmentsVisited = new Set([...allPainted]);
   const assignments: Assignment[] = [];
+  const subZoneAssignments = new Map();
 
   Array.from(useMapStore.getState().zoneAssignments.entries()).forEach(
     // @ts-ignore
@@ -22,6 +24,7 @@ export const FormatAssignments = () => {
       assignmentsVisited.delete(geo_id);
       if (lastSentAssignments.get(geo_id) !== zone) {
         lastSentAssignments.set(geo_id, zone);
+        subZoneAssignments.set(geo_id, zone);
         assignments.push({
           document_id: useMapStore.getState().mapDocument?.document_id || '',
           geo_id,
@@ -41,6 +44,7 @@ export const FormatAssignments = () => {
         // @ts-ignore assignment wants to be number
         zone: null,
       });
+      subZoneAssignments.set(geo_id, null);
     }
   });
   return assignments;
@@ -133,14 +137,61 @@ export const getDocument: (document_id: string) => Promise<DocumentObject> = asy
   }
 };
 
+export type RemoteAssignmentsResponse = {
+  type: 'remote';
+  documentId: string;
+  assignments: Assignment[];
+};
+
+export type LocalAssignmentsResponse = {
+  type: 'local';
+  documentId: string;
+  data: {
+    zoneAssignments: MapStore['zoneAssignments'];
+    shatterIds: MapStore['shatterIds'];
+    shatterMappings: MapStore['shatterMappings'];
+  };
+};
+
+type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | LocalAssignmentsResponse | null>;
+
 export const getAssignments: (
   mapDocument: DocumentObject | null
-) => Promise<Assignment[]> = async mapDocument => {
+) => GetAssignmentsResponse = async mapDocument => {
+  if (mapDocument && mapDocument.document_id === useMapStore.getState().loadedMapId) {
+    console.log(
+      'Map already loaded, skipping assignment load',
+      mapDocument.document_id,
+      useMapStore.getState().loadedMapId
+    );
+    return null;
+  }
   if (mapDocument) {
+    if (mapDocument.updated_at) {
+      const localCached = await districtrIdbCache.getCachedAssignments(
+        mapDocument.document_id,
+        mapDocument.updated_at
+      );
+      if (localCached) {
+        try {
+          return {
+            type: 'local',
+            documentId: mapDocument.document_id,
+            data: localCached
+          };
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
     return await axios
       .get(`${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument.document_id}`)
       .then(res => {
-        return res.data;
+        return {
+          type: 'remote',
+          documentId: mapDocument.document_id,
+          assignments: res.data as Assignment[],
+        };
       });
   } else {
     throw new Error('No document provided');
@@ -171,7 +222,7 @@ export let currentHash: string = '';
  */
 export const getZonePopulations: (
   mapDocument: DocumentObject
-) => Promise<{data: ZonePopulation[], hash:string}> = async mapDocument => {
+) => Promise<{data: ZonePopulation[]; hash: string}> = async mapDocument => {
   populationAbortController?.abort();
   populationAbortController = new AbortController();
   const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
@@ -179,8 +230,8 @@ export const getZonePopulations: (
     // return stale data if map already changed
     return {
       data: useChartStore.getState().mapMetrics?.data || [],
-      hash: assignmentHash
-    }
+      hash: assignmentHash,
+    };
   }
   if (mapDocument) {
     return await axios
@@ -190,8 +241,8 @@ export const getZonePopulations: (
       .then(res => {
         return {
           data: res.data as ZonePopulation[],
-          hash: assignmentHash
-        }
+          hash: assignmentHash,
+        };
       });
   } else {
     throw new Error('No document provided');
@@ -255,7 +306,6 @@ export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
   two_or_more_races_pop_pct: number;
 }
 
-
 /**
  * P4ZoneSummaryStats
  *
@@ -265,14 +315,14 @@ export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
  */
 export interface P4ZoneSummaryStats {
   zone: number;
-  hispanic_vap: number,
-  non_hispanic_asian_vap: number,
-  non_hispanic_amin_vap: number,
-  non_hispanic_nhpi_vap: number,
-  non_hispanic_black_vap: number,
-  non_hispanic_white_vap: number,
-  non_hispanic_other_vap: number,
-  non_hispanic_two_or_more_races_vap: number
+  hispanic_vap: number;
+  non_hispanic_asian_vap: number;
+  non_hispanic_amin_vap: number;
+  non_hispanic_nhpi_vap: number;
+  non_hispanic_black_vap: number;
+  non_hispanic_white_vap: number;
+  non_hispanic_other_vap: number;
+  non_hispanic_two_or_more_races_vap: number;
 }
 export type P4TotPopSummaryStats = Omit<P4ZoneSummaryStats, 'zone'>;
 
@@ -284,7 +334,7 @@ export const P4ZoneSummaryStatsKeys = [
   'non_hispanic_black_vap',
   'non_hispanic_white_vap',
   'non_hispanic_other_vap',
-  'non_hispanic_two_or_more_races_vap'
+  'non_hispanic_two_or_more_races_vap',
 ] as const;
 
 export const CleanedP4ZoneSummaryStatsKeys = [
@@ -297,19 +347,19 @@ export const CleanedP4ZoneSummaryStatsKeys = [
   'non_hispanic_black_vap',
   'non_hispanic_white_vap',
   'non_hispanic_other_vap',
-  'non_hispanic_two_or_more_races_vap'
+  'non_hispanic_two_or_more_races_vap',
 ] as const;
 
 export interface CleanedP4ZoneSummaryStats extends P4ZoneSummaryStats {
   total: number;
-  hispanic_vap: number,
-  non_hispanic_asian_vap: number,
-  non_hispanic_amin_vap: number,
-  non_hispanic_nhpi_vap: number,
-  non_hispanic_black_vap: number,
-  non_hispanic_white_vap: number,
-  non_hispanic_other_vap: number,
-  non_hispanic_two_or_more_races_vap: number
+  hispanic_vap: number;
+  non_hispanic_asian_vap: number;
+  non_hispanic_amin_vap: number;
+  non_hispanic_nhpi_vap: number;
+  non_hispanic_black_vap: number;
+  non_hispanic_white_vap: number;
+  non_hispanic_other_vap: number;
+  non_hispanic_two_or_more_races_vap: number;
 }
 
 /**
@@ -321,7 +371,9 @@ export interface CleanedP4ZoneSummaryStats extends P4ZoneSummaryStats {
 export const getSummaryStats: (
   mapDocument: DocumentObject,
   summaryType: string | null | undefined
-) => Promise<SummaryStatsResult<CleanedP1ZoneSummaryStats[] | CleanedP4ZoneSummaryStats[]>> = async (mapDocument, summaryType) => {
+) => Promise<
+  SummaryStatsResult<CleanedP1ZoneSummaryStats[] | CleanedP4ZoneSummaryStats[]>
+> = async (mapDocument, summaryType) => {
   if (mapDocument && summaryType) {
     return await axios
       .get<
@@ -332,13 +384,15 @@ export const getSummaryStats: (
           const total = getEntryTotal(row);
 
           const zoneSummaryStatsKeys = (() => {
-                      switch(summaryType) {
-                        case "P1": return P1ZoneSummaryStatsKeys;
-                        case "P4": return P4ZoneSummaryStatsKeys;
-                        default: throw new Error('Invalid summary type');
-                      }
-                    })();
-
+            switch (summaryType) {
+              case 'P1':
+                return P1ZoneSummaryStatsKeys;
+              case 'P4':
+                return P4ZoneSummaryStatsKeys;
+              default:
+                throw new Error('Invalid summary type');
+            }
+          })();
 
           return zoneSummaryStatsKeys.reduce<any>(
             (acc, key) => {
@@ -369,7 +423,10 @@ export const getSummaryStats: (
 export const getTotPopSummaryStats: (
   mapDocument: DocumentObject | null,
   summaryType: string | null | undefined
-) => Promise<SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats>> = async (mapDocument, summaryType) => {
+) => Promise<SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats>> = async (
+  mapDocument,
+  summaryType
+) => {
   if (mapDocument && summaryType) {
     return await axios
       .get<
@@ -432,20 +489,20 @@ export interface AssignmentsReset {
   document_id: string;
 }
 
-
 /**
  *
  * @param assignments
  * @returns server object containing the updated assignments per geoid
  */
-export const patchUpdateAssignments: (
-  assignments: Assignment[]
-) => Promise<AssignmentsCreate> = async (assignments: Assignment[]) => {
+export const patchUpdateAssignments: (upadteData: {
+  assignments: Assignment[];
+  updateHash: string;
+}) => Promise<AssignmentsCreate> = async ({assignments, updateHash}) => {
   currentHash = `${useMapStore.getState().assignmentsHash}`;
-
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
+      updated_at: updateHash,
     })
     .then(res => {
       return res.data;
@@ -490,12 +547,14 @@ export interface ShatterResult {
 export const patchShatterParents: (params: {
   document_id: string;
   geoids: string[];
-}) => Promise<ShatterResult> = async ({document_id, geoids}) => {
+  updateHash: string;
+}) => Promise<ShatterResult> = async ({document_id, geoids, updateHash}) => {
   return await axios
     .patch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/shatter_parents`,
       {
         geoids: geoids,
+        updated_at: updateHash,
       }
     )
     .then(res => {
@@ -514,13 +573,15 @@ export const patchUnShatterParents: (params: {
   document_id: string;
   geoids: string[];
   zone: number;
-}) => Promise<{geoids: string[]}> = async ({document_id, geoids, zone}) => {
+  updateHash: string;
+}) => Promise<{geoids: string[]}> = async ({document_id, geoids, zone, updateHash}) => {
   return await axios
     .patch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/unshatter_parents`,
       {
         geoids,
         zone,
+        updated_at: updateHash,
       }
     )
     .then(res => {
