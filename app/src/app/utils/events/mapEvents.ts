@@ -12,6 +12,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_SOURCE_ID,
   debouncedAddZoneMetaLayers,
   INTERACTIVE_LAYERS,
 } from '@/app/constants/layers';
@@ -19,7 +20,6 @@ import {ResetMapSelectState} from '@utils/events/handlers';
 import GeometryWorker from '../GeometryWorker';
 import {MinGeoJSONFeature} from '../GeometryWorker/geometryWorker.types';
 import {ActiveTool} from '@/app/constants/types';
-import {idCache} from '@/app/store/idCache';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/mapStore';
@@ -275,7 +275,7 @@ export const handleMapContextMenu = (
   });
 };
 
-export const handleIdCache = (
+export const handleDataLoad = (
   _e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
@@ -300,11 +300,12 @@ export const handleIdCache = (
   const featureArray: MinGeoJSONFeature[] = [];
   const index = `${tileData.x}-${tileData.y}-${tileData.z}`;
   if (isChild) {
+    const featureDict: Record<string, any> = {};
     const childId = e.features?.[0]?.properties?.path;
     const parentSet =
       childId &&
       Object.entries(shatterMappings).find(([parents, children]) => children.has(childId));
-    if (!parentSet || idCache.hasCached(parentSet[0])) return;
+    if (!parentSet) return;
     for (let i = 0; i < e.features.length; i++) {
       const feature = e.features[i];
       if (!feature || feature.sourceLayer !== child_layer) continue;
@@ -317,7 +318,6 @@ export const handleIdCache = (
       });
     }
   } else {
-    if (idCache.hasCached(index)) return;
     for (let i = 0; i < e.features.length; i++) {
       const feature = e.features[i];
       if (!feature || feature.sourceLayer !== parent_layer) continue;
@@ -333,7 +333,6 @@ export const handleIdCache = (
     useMapStore.getState().setMapOptions({currentStateFp});
   }
   GeometryWorker?.loadGeometry(featureArray, 'path');
-  idCache.loadFeatures(featureArray, index);
 };
 
 export const mapEvents = [
@@ -355,7 +354,7 @@ export const mapEvents = [
   {action: 'moveend', handler: handleMapMoveEnd},
   {action: 'zoomend', handler: handleMapZoomEnd},
   {action: 'contextmenu', handler: handleMapContextMenu},
-  {action: 'data', handler: handleIdCache},
+  {action: 'data', handler: handleDataLoad},
 ];
 
 export const handleWheelOrPinch = (e: MouseEvent | TouchEvent, map: MapLibreMap | null) => {

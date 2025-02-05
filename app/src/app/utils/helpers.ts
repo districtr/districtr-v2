@@ -15,7 +15,6 @@ import {
 } from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
-import {idCache} from '../store/idCache';
 import {featureCache} from './featureCache';
 import {ChartStore, useChartStore} from '@/app/store/chartStore';
 import {calculateMinMaxRange} from './zone-helpers';
@@ -91,6 +90,7 @@ export const getFeaturesInBbox = (
   _layers: string[] = [BLOCK_HOVER_LAYER_ID],
   filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
+  const thereAreChildren = useMapStore.getState().shatterIds.children.size > 0;
   if (useDevStore.getState().useRtree) {
     if (!map) return [];
     const bbox = boxAroundPoint(e, brushSize);
@@ -107,7 +107,11 @@ export const getFeaturesInBbox = (
       minY: bottomRightLatLon.lat,
     };
     const t0 = performance.now();
-    const features = featureCache.searchFeaturesinBbox(bboxLatLon);
+    const parentFeatures = featureCache.searchFeaturesinBbox(bboxLatLon);
+    const childFeatures = thereAreChildren
+      ? map?.queryRenderedFeatures(bbox, {layers: [BLOCK_HOVER_LAYER_ID_CHILD]}) || []
+      : []
+    const features = [...parentFeatures, ...childFeatures];
     const t1 = performance.now();
     useDevStore.getState().addQueryTime(
       features.length,

@@ -37,7 +37,6 @@ import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
 import {devToolsConfig, devwrapper} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
-import {idCache} from './idCache';
 import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
 import {useChartStore} from './chartStore';
@@ -45,6 +44,7 @@ import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
 import { districtrIdbCache } from '../utils/cache';
+import { featureCache } from '../utils/featureCache';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -422,7 +422,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           }
           const initialMapOptions = useMapStore.getInitialState().mapOptions;
           GeometryWorker?.clearGeometries()
-          idCache.clear();
+          featureCache.clear();
           allPainted.clear();
           lastSentAssignments.clear();
           setFreshMap(true);
@@ -693,7 +693,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               }))
               .forEach(entry => {
                 const {children, parent} = entry;
-                idCache.heal(parent, Array.from(children));
                 GeometryWorker?.removeGeometries(Array.from(children));
                 children.forEach(child => {
                   // remove from allPainted
