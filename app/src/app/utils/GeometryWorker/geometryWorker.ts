@@ -8,7 +8,7 @@ import pointOnFeature from '@turf/point-on-feature';
 import pointsWithinPolygon from '@turf/points-within-polygon';
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import bbox from '@turf/bbox';
-import * as polyclip from 'polyclip-ts';
+
 const explodeMultiPolygonToPolygons = (
   feature: GeoJSON.MultiPolygon
 ): Array<GeoJSON.Feature<GeoJSON.Polygon>> => {
@@ -45,47 +45,57 @@ const GeometryWorker: GeometryWorkerClass = {
     this.geometries = {};
   },
   loadGeometry(featuresOrStringified, idProp) {
-    const features: MapGeoJSONFeature[] =
-      typeof featuresOrStringified === 'string'
-        ? JSON.parse(featuresOrStringified)
-        : featuresOrStringified;
-    const firstEntry = Object.values(this.geometries)[0];
-    features.forEach(f => {
-      const id = f.properties?.[idProp];
-      // TODO: Sometimes, geometries are split across tiles or reloaded at more detailed zoom levels
-      // disambiguating and combining them could be very cool, but is tricky with lots of edge cases
-      // and computationally expensive. For now, we just take the first geometry of a given ID
-      if (id && !this.geometries[id]) {
-        this.geometries[id] = structuredClone(f);
-      }
-    });
+    // const features: MapGeoJSONFeature[] =
+    //   typeof featuresOrStringified === 'string'
+    //     ? JSON.parse(featuresOrStringified)
+    //     : featuresOrStringified;
+    // const firstEntry = Object.values(this.geometries)[0];
+    // features.forEach(f => {
+    //   const id = f.properties?.[idProp];
+    //   // TODO: Sometimes, geometries are split across tiles or reloaded at more detailed zoom levels
+    //   // disambiguating and combining them could be very cool, but is tricky with lots of edge cases
+    //   // and computationally expensive. For now, we just take the first geometry of a given ID
+    //   if (id && !this.geometries[id]) {
+    //     this.geometries[id] = structuredClone(f);
+    //   }
+    // });
   },
   loadRectFeatures(featureDict) {
     Object.entries(featureDict).forEach(([id, feature]) => {
       const {properties, bboxes} = feature;
-      const polyclipGeoms = bboxes.map(bbox => {
-        const {
-          minX, minY, maxX, maxY
-        } =  bbox;
-        return [[
-          [minX, minY],
-          [maxX, maxY],
-          [maxX, minY],
-          [minX, maxY],
-        ]];
-      })
-      // const unioned = polyclip.union(...polyclipGeoms);
-      // this.geometries[id] = {
-      //   type: 'Feature',
-      //   properties: {
-      //     ...properties,
-      //   },
-      //   geometry: {
-      //     type: 'Polygon',
-      //     coordinates: unioned,
-      //   },
-      // }
-    })
+      const geoms: GeoJSON.Feature<GeoJSON.Polygon>[] = bboxes.map(bbox => {
+        const {minX, minY, maxX, maxY} = bbox;
+        return {
+          type: 'Feature',
+          properties: {
+            ...properties,
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [minX, minY],
+                [minX, maxY],
+                [maxX, maxY],
+                [maxX, minY],
+                [minX, minY],
+              ],
+            ],
+          },
+        };
+      });
+
+      const dissolved =
+        geoms.length === 1
+          ? geoms[0]
+          : dissolve({type: 'FeatureCollection', features: geoms}).features[0];
+      this.geometries[id] = {
+        ...dissolved,
+        properties: {
+          ...properties,
+        },
+      };
+    });
   },
   dissolveGeometry(features) {
     let dissolved: GeoJSON.FeatureCollection = dissolve(

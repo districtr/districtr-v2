@@ -317,22 +317,13 @@ export const handleDataLoad = (
         sourceLayer: feature.sourceLayer,
       });
     }
+    GeometryWorker?.loadGeometry(featureArray, 'path');
   } else {
-    for (let i = 0; i < e.features.length; i++) {
-      const feature = e.features[i];
-      if (!feature || feature.sourceLayer !== parent_layer) continue;
-      const id = feature.id;
-      featureArray.push({
-        type: 'Feature',
-        properties: feature.properties,
-        geometry: feature.geometry,
-        sourceLayer: feature.sourceLayer,
-      });
-    }
-    const currentStateFp = featureArray?.[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
+    if (e.features?.length) {
+    const currentStateFp = e.features?.[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
     useMapStore.getState().setMapOptions({currentStateFp});
+    }
   }
-  GeometryWorker?.loadGeometry(featureArray, 'path');
 };
 
 export const mapEvents = [

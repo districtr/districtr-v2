@@ -287,7 +287,7 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
   fetch(`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/tilesets/${mapDocument.parent_layer}_rects.json`)
     .then((response) => response.json())
     .then((data) => {
-      // GeometryWorker?.loadRectFeatures(data);
+      GeometryWorker?.loadRectFeatures(data);
       featureCache.addFeatures(
         data,
         BLOCK_SOURCE_ID,
