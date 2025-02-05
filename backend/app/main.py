@@ -77,7 +77,6 @@ def update_timestamp(
     document_id: str,
     updated_at: str,
     execute: bool = True,
-    commit: bool = False,
 ):
     update_stmt = (
         update(Document)
@@ -86,7 +85,6 @@ def update_timestamp(
     )
     if execute:
         session.execute(update_stmt)
-    if commit:
         session.commit()
 
 
