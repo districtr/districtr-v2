@@ -23,6 +23,7 @@
     "@turf/area": "^7.1.0",
     "@turf/bbox": "^7.1.0",
     "@turf/bbox-clip": "^7.1.0",
+    "@turf/boolean-intersects": "^7.2.0",
     "@turf/center-of-mass": "^7.1.0",
     "@turf/dissolve": "^7.1.0",
     "@turf/helpers": "^7.1.0",

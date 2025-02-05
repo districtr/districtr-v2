@@ -8,7 +8,7 @@ import pointOnFeature from '@turf/point-on-feature';
 import pointsWithinPolygon from '@turf/points-within-polygon';
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import bbox from '@turf/bbox';
-
+import * as polyclip from 'polyclip-ts';
 const explodeMultiPolygonToPolygons = (
   feature: GeoJSON.MultiPolygon
 ): Array<GeoJSON.Feature<GeoJSON.Polygon>> => {
@@ -59,6 +59,33 @@ const GeometryWorker: GeometryWorkerClass = {
         this.geometries[id] = structuredClone(f);
       }
     });
+  },
+  loadRectFeatures(featureDict) {
+    Object.entries(featureDict).forEach(([id, feature]) => {
+      const {properties, bboxes} = feature;
+      const polyclipGeoms = bboxes.map(bbox => {
+        const {
+          minX, minY, maxX, maxY
+        } =  bbox;
+        return [[
+          [minX, minY],
+          [maxX, maxY],
+          [maxX, minY],
+          [minX, maxY],
+        ]];
+      })
+      // const unioned = polyclip.union(...polyclipGeoms);
+      // this.geometries[id] = {
+      //   type: 'Feature',
+      //   properties: {
+      //     ...properties,
+      //   },
+      //   geometry: {
+      //     type: 'Polygon',
+      //     coordinates: unioned,
+      //   },
+      // }
+    })
   },
   dissolveGeometry(features) {
     let dissolved: GeoJSON.FeatureCollection = dissolve(
