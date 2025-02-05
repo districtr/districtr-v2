@@ -16,9 +16,10 @@ import {
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {idCache} from '../store/idCache';
-import { featureCache } from './featureCache';
+import {featureCache} from './featureCache';
 import {ChartStore, useChartStore} from '@/app/store/chartStore';
-import { calculateMinMaxRange } from './zone-helpers';
+import {calculateMinMaxRange} from './zone-helpers';
+import {useDevStore} from '../store/devStore';
 
 /**
  * PaintEventHandler
@@ -75,17 +76,6 @@ export const boxAroundPoint = (
   ];
 };
 
-let USE_RTREE = true
-let searchTimesPer1kFeatures: number[] = []
-
-export const toggleUseRTree = () => {
-  USE_RTREE = !USE_RTREE
-  searchTimesPer1kFeatures = []
-  alert(USE_RTREE ? "Using RTree" : "Not using RTree")
-}
-export const getSearchTimes = () => {
-  alert(`Time in MS to query 1000 features: ${searchTimesPer1kFeatures.reduce((a,b)=>a+b,0)/searchTimesPer1kFeatures.length}`)
-}
 /**
  * getFeaturesInBbox
  * Get the features in a bounding box on the map.
@@ -101,33 +91,46 @@ export const getFeaturesInBbox = (
   _layers: string[] = [BLOCK_HOVER_LAYER_ID],
   filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
-  if (USE_RTREE) {
+  if (useDevStore.getState().useRtree) {
     if (!map) return [];
     const bbox = boxAroundPoint(e, brushSize);
     // bbox to latlon
-    const [topLeft, bottomRight] = bbox
-    const [topLeftLatLon, bottomRightLatLon] = [map?.unproject(topLeft),map?.unproject(bottomRight)]
+    const [topLeft, bottomRight] = bbox;
+    const [topLeftLatLon, bottomRightLatLon] = [
+      map?.unproject(topLeft),
+      map?.unproject(bottomRight),
+    ];
     const bboxLatLon = {
       minX: topLeftLatLon.lng,
       maxY: topLeftLatLon.lat,
       maxX: bottomRightLatLon.lng,
-      minY: bottomRightLatLon.lat
-    }
-    const features = featureCache.searchFeaturesinBbox(bboxLatLon)
+      minY: bottomRightLatLon.lat,
+    };
+    const t0 = performance.now();
+    const features = featureCache.searchFeaturesinBbox(bboxLatLon);
+    const t1 = performance.now();
+    useDevStore.getState().addQueryTime(
+      features.length,
+      t1 - t0
+    );
     return filterFeatures(features as any, filterLocked);
   } else {
     const bbox = boxAroundPoint(e, brushSize);
     const {captiveIds} = useMapStore.getState();
-    
+
     const layers = _layers?.length
-    ? _layers
-    : captiveIds.size
-    ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
-    : [BLOCK_HOVER_LAYER_ID];
+      ? _layers
+      : captiveIds.size
+        ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+        : [BLOCK_HOVER_LAYER_ID];
+
     const t0 = performance.now();
     let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
     const t1 = performance.now();
-    searchTimesPer1kFeatures.push((t1 - t0)/features.length*1000)
+    useDevStore.getState().addQueryTime(
+      features.length,
+      t1 - t0
+    );
     return filterFeatures(features, filterLocked);
   }
 };
@@ -588,7 +591,7 @@ export const updateChartData = (
 
     const allAreNonZero = chartData.every(entry => entry.total_pop > 0);
     const stats = allAreNonZero ? calculateMinMaxRange(chartData) : undefined;
-    
+
     useChartStore.getState().setChartInfo({
       stats,
       chartData,

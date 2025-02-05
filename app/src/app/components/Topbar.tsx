@@ -19,8 +19,8 @@ import {useTemporalStore} from '../store/temporalStore';
 import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
-import { toggleUseRTree } from '../utils/helpers';
 import {districtrIdbCache} from '../utils/cache';
+import {useDevStore} from '../store/devStore';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -29,6 +29,11 @@ export const Topbar: React.FC = () => {
   const [cachedViews, setCachedViews] = React.useState<DistrictrMap[]>();
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapViews = useMapStore(state => state.mapViews);
+
+  const useRTree = useDevStore(state => state.useRtree);
+  const toggleUseRTree = useDevStore(state => state.toggleUse);
+
+  const queryTime = useDevStore(state => state.queryTime);
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || cachedViews || [];
@@ -44,12 +49,12 @@ export const Topbar: React.FC = () => {
 
   useEffect(() => {
     const fetchCachedViews = async () => {
-      districtrIdbCache.getCachedViews().then((cachedViews) => {
+      districtrIdbCache.getCachedViews().then(cachedViews => {
         cachedViews && setCachedViews(cachedViews);
-      })
+      });
     };
     fetchCachedViews();
-  }, [])
+  }, []);
 
   useEffect(() => {
     if (mapViews?.data?.length) {
@@ -166,8 +171,13 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Button variant="solid" color="cyan" onClick={toggleUseRTree}>
-            Toggle R-Tree
+            Toggle ({useRTree ? 'Using RTree' : 'Using QRF'})
           </Button>
+          <Text>
+            {queryTime?.time
+              ? `Queried ${queryTime?.feautres} features in ${Math.round(queryTime?.time * 10)/10}ms`
+              : `Hover or paint to get query time`}
+          </Text>
           <Flex direction="row" align="center" gapX="2">
             <Button variant="outline" className="mr-2" disabled>
               Share
