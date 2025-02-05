@@ -81,6 +81,13 @@ class FeatureCache {
     return results
   }
 
+  searchIds(
+    prefix:string
+  ): [string, Data][] {
+    const ids = Object.keys(this.features).filter((id) => id.startsWith(prefix));
+    return ids.map((id) => [id, this.features[id].properties]);
+  }
+
   clear(){
     this.tree.clear();
     this.features = {};

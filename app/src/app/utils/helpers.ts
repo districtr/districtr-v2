@@ -176,13 +176,13 @@ export const getFeaturesIntersectingCounties = (
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
   const {mapDocument, shatterIds, checkParentsToHeal} = useMapStore.getState();
   const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
-  const cachedParentFeatures = idCache
-    .getFiltered(`${filterPrefix}${fips}`)
+  const cachedParentFeatures = featureCache
+    .searchIds(`${filterPrefix}${fips}`)
     .map(([id, properties]) => ({
       source: BLOCK_SOURCE_ID,
       sourceLayer: mapDocument?.parent_layer,
       id,
-      ...properties,
+      properties,
     }));
 
   const childFeatures = shatterIds.children.size
