@@ -15,7 +15,10 @@ import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
+import {VAP_CHOROPLETHS, showVAPlayer, hideVAPlayer} from '@/app/constants/layers';
 import {interpolateGreys} from 'd3-scale-chromatic';
+
+import './Evaluation.css';
 
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
@@ -93,12 +96,15 @@ const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
+  const [showVAP, setShowVAP] = useState<boolean>(false);
 
   const numberFormat = numberFormats[evalMode];
   const columnGetter = getColConfig(evalMode);
   const totPop = useMapStore(state => state.summaryStats.totpop?.data);
   const mapDocument = useMapStore(state => state.mapDocument);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
+  const getMapRef = useMapStore(state => state.getMapRef);
+
   const columnConfig = useMemo(() => {
     const summaryType = mapDocument?.available_summary_stats?.[0];
 
@@ -188,9 +194,54 @@ const Evaluation: React.FC = () => {
   const rows = unassigned && showUnassigned ? [...data.results, unassigned] : data.results;
   return (
     <div className="w-full">
+      {mapDocument?.gerrydb_table && mapDocument.gerrydb_table in VAP_CHOROPLETHS ? (
+        <div className="mb-5">
+          <Heading as="h3" size="3">
+            Visualize VAP
+          </Heading>
+          <CheckboxGroup.Root defaultValue={[]} name="vap" value={[showVAP ? 'bvap' : '']}>
+            <CheckboxGroup.Item
+              value="bvap"
+              onClick={() => {
+                const m = getMapRef();
+                showVAP ? hideVAPlayer(m) : showVAPlayer(m);
+                setShowVAP(!showVAP);
+              }}
+              style={{cursor: 'pointer', userSelect: 'none'}}
+            >
+              Show BVAP layer
+            </CheckboxGroup.Item>
+          </CheckboxGroup.Root>
+        </div>
+      ) : null}
+
       <Heading as="h3" size="3">
         Voting age population
       </Heading>
+
+      {showVAP ? (
+        <div className="color-legend" id="color-demographics">
+          <span className="gradientbar "></span>
+          <br />
+          <div className="notches" id="notches-demographics">
+            <span className="notch">|</span>
+            <span className="notch">|</span>
+            <span className="notch">|</span>
+            <span className="notch">|</span>
+            <span className="notch">|</span>
+            <span className="notch">|</span>
+          </div>
+          <div className="labels" id="percents-demographics">
+            <span className="square">0%</span>
+            <span className="square">20%</span>
+            <span className="square">40%</span>
+            <span className="square">60%</span>
+            <span className="square">80%</span>
+            <span className="square">100%</span>
+          </div>
+        </div>
+      ) : null}
+
       <Flex align="center" gap="3" my="2">
         {modeButtonConfig.map((mode, i) => (
           <Button

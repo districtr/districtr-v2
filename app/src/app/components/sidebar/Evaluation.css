@@ -1,0 +1,27 @@
+.color-legend {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 10px;
+  font-size: 80%;
+}
+.color-legend .gradientbar {
+  width: 191px;
+  height: 24px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(0, 0, 139, 0.81));
+  display: inline-block;
+  border: 1px solid #ddd;
+  border-left: none;
+  border-right: none;
+}
+.color-legend .notch {
+  width: 35px;
+  display: inline-block;
+  font-size: 10px;
+  height: 10px;
+}
+.color-legend .square {
+  width: 35px;
+  height: 24px;
+  display: inline-block;
+}

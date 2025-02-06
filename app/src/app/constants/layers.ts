@@ -21,6 +21,7 @@ export const BLOCK_LAYER_ID_HIGHLIGHT_CHILD = BLOCK_LAYER_ID + '-highlight-child
 export const BLOCK_LAYER_ID_CHILD = 'blocks-child';
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
+const DEMO_LAYER = 'demo-layer';
 
 export const INTERACTIVE_LAYERS = [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD];
 export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const;
@@ -45,7 +46,7 @@ export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels
 
 export const LABELS_BREAK_LAYER_ID = 'places_subplace';
 
-const vap_choropleths: Record<string, boolean> = {
+export const VAP_CHOROPLETHS: Record<string, boolean> = {
   co_vtd_p1_view: true,
   co_block_p1_view: true,
   co_p1_view: true,
@@ -311,7 +312,9 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
       LABELS_BREAK_LAYER_ID
     );
   }
-  if (mapDocument.gerrydb_table in vap_choropleths) {
+  map?.addLayer(getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT));
+
+  if (mapDocument.gerrydb_table in VAP_CHOROPLETHS) {
     const demoLayerSpec: LayerSpecification = {
       id: DEMO_LAYER,
       source: BLOCK_SOURCE_ID,
@@ -321,7 +324,7 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
         visibility: 'visible',
       },
       paint: {
-        'fill-opacity': 0.8,
+        'fill-opacity': 0,
         'fill-color': [
           'rgba',
           0,
@@ -329,16 +332,16 @@ const addBlockLayers = (map: Map | null, mapDocument: DocumentObject) => {
           139,
           [
             'case',
-            ['==', ['get', 'total_pop'], 0],
+            ['==', ['get', 'total_pop'], '0'],
             0, // if VAP is 0, return 0 opacity
             ['/', ['to-number', ['get', 'black_pop']], ['to-number', ['get', 'total_pop']]], // opacity is %bvap
           ],
         ],
       },
     };
-    map?.addLayer(demoLayerSpec);
+    map.addLayer(demoLayerSpec);
   }
-  map?.addLayer(getHighlightLayerSpecification(mapDocument.parent_layer, BLOCK_LAYER_ID_HIGHLIGHT));
+
   useMapStore.getState().setMapRenderingState('loaded');
 };
 
@@ -362,6 +365,14 @@ export function removeBlockLayers(map: Map | null) {
   [BLOCK_SOURCE_ID].forEach(source => {
     map.getSource(source) && map.removeSource(source);
   });
+}
+
+export function showVAPlayer(map: Map | null) {
+  map?.setPaintProperty(DEMO_LAYER, 'fill-opacity', 0.8);
+}
+
+export function hideVAPlayer(map: Map | null) {
+  map?.setPaintProperty(DEMO_LAYER, 'fill-opacity', 0);
 }
 
 const getDissolved = async () => {
