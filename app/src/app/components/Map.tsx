@@ -27,14 +27,14 @@ export const MapComponent: React.FC = () => {
     };
   }, []);
 
-  if (window) {
+  useEffect(() => {
     window.addEventListener('beforeunload', async () => {
       const mapDocument = useMapStore.getState().mapDocument;
       if (map && map.current && mapDocument && mapDocument.document_id !== null) {
         await unlockMapDocument(mapDocument.document_id);
       }
     });
-  }
+  });
 
   const fitMapToBounds = () => {
     if (map.current && mapOptions.bounds) {

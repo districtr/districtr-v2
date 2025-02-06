@@ -100,6 +100,10 @@ async def create_document(
     )
     document_id = results.one()[0]  # should be only one row, one column of results
 
+    # check if there is a metadata item in the request
+    if data.metadata:
+        update_districtrmap_metadata(document_id, data.metadata.dict(), session)
+
     stmt = (
         select(
             Document.document_id,

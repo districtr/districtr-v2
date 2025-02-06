@@ -146,15 +146,16 @@ class Document(TimeStampMixin, SQLModel, table=True):
     gerrydb_table: str | None = Field(nullable=True)
 
 
-class DocumentCreate(BaseModel):
-    gerrydb_table: str | None
-
-
 class DistrictrMapMetadata(BaseModel):
     name: Optional[str] | None = None
     tags: Optional[list[str]] | None = None
     description: Optional[str] | None = None
     event_id: Optional[str] | None = None
+
+
+class DocumentCreate(BaseModel):
+    gerrydb_table: str | None
+    metadata: DistrictrMapMetadata | None = None
 
 
 class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):

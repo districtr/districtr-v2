@@ -16,7 +16,7 @@ import {
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
-import {metadata} from '@/app/utils/api/mutations';
+import {metadata, document} from '@/app/utils/api/mutations';
 import {map, set} from 'lodash';
 
 type NamedDocumentObject = DocumentObject & {name?: string};
@@ -113,16 +113,6 @@ export const ShareMapsModal = () => {
     setCopiedPlanName(value);
   };
 
-  const handleCreateMapCopy = () => {
-    // todo: handle create map copy
-    // make a db request to copy the map and return a new document_id
-    // upsert the new map to the userMaps store
-    // set the new map as the mapDocument
-    // update url params
-
-    setCopied(true);
-  };
-
   const handleMapSave = () => {
     if (mapDocument?.document_id) {
       const savedMapMetadata = userMaps.find(
@@ -131,11 +121,21 @@ export const ShareMapsModal = () => {
       if (!savedMapMetadata) {
         return;
       }
-      metadata.mutate({
-        document_id: mapDocument?.document_id,
-        metadata: savedMapMetadata,
-      });
+      if (mapDocument?.status === 'locked') {
+        // if you have a locked map, save a copy
+        document.mutate({
+          gerrydb_table: mapDocument?.gerrydb_table,
+          metadata: savedMapMetadata,
+        });
+      } else {
+        // otherwise just update
+        metadata.mutate({
+          document_id: mapDocument?.document_id,
+          metadata: savedMapMetadata,
+        });
+      }
     }
+
     setNameIsSaved(true);
     setTagsIsSaved(true);
   };
@@ -144,7 +144,7 @@ export const ShareMapsModal = () => {
   if (!gerryDBTable) {
     return null;
   }
-  console.log(mapDocument);
+
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <Dialog.Trigger>
@@ -163,20 +163,6 @@ export const ShareMapsModal = () => {
           </Dialog.Close>
         </Flex>
         <BoxContainer>
-          {/*<div>
-            <Box maxWidth="200px">
-              <Text>Plan Name</Text>
-              <TextField.Root
-                placeholder={`${mapDocument?.map_metadata.name} copy`}
-                size="3"
-                onChange={e => handleCopyMetadataChange('name', e.target.value)}
-              ></TextField.Root>
-            </Box>
-            <Button variant="soft" className="flex items-center" onClick={handleCreateMapCopy}>
-              {copied ? 'Copy Created!' : 'Create Copy'}
-            </Button>
-          </div> */}
-
           <Box maxWidth="200px">
             {mapDocument?.status && mapDocument?.status === 'locked' ? (
               <Text>Name your Copy </Text>

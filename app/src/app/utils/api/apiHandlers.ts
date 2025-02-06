@@ -4,6 +4,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {getEntryTotal} from '../summaryStats';
 import {useChartStore} from '@/app/store/chartStore';
 import {NullableZone} from '@/app/constants/types';
+import {metadata} from './mutations';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
 export const FormatAssignments = () => {
@@ -109,6 +110,7 @@ export interface DocumentMetadata {
  */
 export interface DocumentCreate {
   gerrydb_table: string;
+  metadata?: DocumentMetadata;
 }
 
 export const createMapDocument: (document: DocumentCreate) => Promise<DocumentObject> = async (
@@ -116,7 +118,7 @@ export const createMapDocument: (document: DocumentCreate) => Promise<DocumentOb
 ) => {
   return await axios
     .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
-      gerrydb_table: document.gerrydb_table,
+      document_create: document,
     })
     .then(res => {
       return res.data;

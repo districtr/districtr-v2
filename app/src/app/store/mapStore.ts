@@ -764,7 +764,6 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         view => view.gerrydb_table_name === mapDocument.gerrydb_table
       );
       if (documentIndex !== -1) {
-        console.log(mapDocument); // confirm that we are seeing the updated metadata here
         userMaps[documentIndex] = {
           ...documentInfo,
           ...userMaps[documentIndex],
