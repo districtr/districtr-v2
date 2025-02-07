@@ -300,7 +300,7 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
 def test_get_document(client, document_id):
     payload = {"user_id": "test-user-id"}
 
-    response = client.post(f"/api/document/{document_id}", json=payload)
+    response = client.post(f"/api/document/{document_id}", data=payload)
     assert response.status_code == 200
     data = response.json()
     assert data.get("document_id") == document_id

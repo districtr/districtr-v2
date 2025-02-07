@@ -280,33 +280,24 @@ async def get_document(
     status_code=status.HTTP_200_OK,
 ):
 
-    results = session.execute(
+    result = session.execute(
         text(
-            """SELECT * from document.map_document_user_session
-            where document_id = :document_id"""
-        )
-        .bindparams(bindparam(key="document_id", type_=UUIDType))
-        .params(document_id=document_id)
-    )
-    row = results.fetchone()
-
-    if not row:
-        # if no record for doc, load the document for the user
-        session.execute(
-            text(
-                f"""INSERT INTO document.map_document_user_session (document_id, user_id)
-                VALUES ('{document_id}', '{data.user_id}')"""
+            """WITH ins AS (
+                INSERT INTO document.map_document_user_session (document_id, user_id)
+                VALUES (:document_id, :user_id)
+                ON CONFLICT (document_id) DO NOTHING
+                RETURNING user_id
             )
-        )
-        session.commit()
-        status = "unlocked"
+            SELECT user_id FROM ins
+            UNION ALL
+            SELECT user_id FROM document.map_document_user_session
+            WHERE document_id = :document_id
+            LIMIT 1"""
+        ),
+        {"document_id": document_id, "user_id": data.user_id},
+    ).fetchone()
 
-    # if is loaded and user id matches, return the document unlocked
-    if row.user_id == data.user_id:
-        status = "unlocked"
-
-    else:
-        status = "locked"
+    status = "unlocked" if result and result.user_id == data.user_id else "locked"
 
     stmt = (
         select(
