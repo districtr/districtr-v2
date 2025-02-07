@@ -298,13 +298,17 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
 
 
 def test_get_document(client, document_id):
-    response = client.get(f"/api/document/{document_id}")
+    payload = {"user_id": "test-user-id"}
+
+    response = client.post(f"/api/document/{document_id}", json=payload)
     assert response.status_code == 200
     data = response.json()
     assert data.get("document_id") == document_id
     assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
     assert data.get("updated_at")
     assert data.get("created_at")
+    assert data.get("status") in ["locked", "unlocked"]
+
     # assert data.get("tiles_s3_path") is None
 
 

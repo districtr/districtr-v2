@@ -279,10 +279,7 @@ async def get_document(
     session: Session = Depends(get_session),
     status_code=status.HTTP_200_OK,
 ):
-    print("\n")
-    print("running get_document")
-    print("\n")
-    # first check if document is loaded via map_document_user_session table
+
     results = session.execute(
         text(
             """SELECT * from document.map_document_user_session
