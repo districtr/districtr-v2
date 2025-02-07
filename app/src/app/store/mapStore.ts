@@ -1,5 +1,6 @@
 'use client';
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
+import type {MapRef} from 'react-map-gl/maplibre';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '@constants/types';
@@ -65,8 +66,8 @@ export interface MapStore {
   isTemporalAction: boolean;
   setIsTemporalAction: (isTemporal: boolean) => void;
   // MAP CANVAS REF AND CONTROLS
-  getMapRef: () => maplibregl.Map | null;
-  setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
+  getMapRef: () => maplibregl.Map | undefined;
+  setMapRef: (map: MutableRefObject<MapRef | null>) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
   errorNotification: {
@@ -328,10 +329,10 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           const children = shatterMappings[parentId];
           if (lock && !willHeal && children?.size) lockFeatures(children, true);
         },
-        getMapRef: () => null,
+        getMapRef: () => undefined,
         setMapRef: mapRef => {
           set({
-            getMapRef: () => mapRef.current,
+            getMapRef: () => mapRef.current?.getMap(),
             appLoadingState:
               initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
           });
@@ -1107,12 +1108,11 @@ export interface HoverFeatureStore {
 export const useHoverStore = create(
   devwrapper(
     subscribeWithSelector<HoverFeatureStore>((set, get) => ({
-
       hoverFeatures: [],
       setHoverFeatures: _features => {
         const hoverFeatures = _features
           ? _features.map(f => ({
-              source: f.source,
+            source: f.source,
               sourceLayer: f.sourceLayer,
               id: f.id,
             }))
@@ -1126,7 +1126,8 @@ export const useHoverStore = create(
       ...devToolsConfig,
       name: "Districtr Hover Feature Store"
     }
-  )
+  ) as any
+  // TODO: Zustand is releasing a major version bump and we have breaking issues
 );
 
 

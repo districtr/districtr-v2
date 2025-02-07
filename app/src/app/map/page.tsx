@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import {MapContextMenu} from '../components/ContextMenu';
-import {MapComponent} from '../components/Map';
+import {MapComponent} from '../components/Map/Map';
 import SidebarComponent from '../components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '../utils/api/queryClient';
