@@ -297,11 +297,18 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
     assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
 
 
-def test_get_document(client, document_id):
-    payload = {"user_id": "test-user-id"}
+@pytest.fixture
+def user_id():
+    return "b097794f-8eba-4892-84b5-ad0dd5931795"
 
-    response = client.post(f"/api/document/{document_id}", data=payload)
+
+def test_get_document(client, document_id, user_id):
+    payload = {"user_id": user_id}
+
+    doc_uuid = uuid.UUID(document_id)
+    response = client.post(f"/api/document/{doc_uuid}", json=payload)
     assert response.status_code == 200
+
     data = response.json()
     assert data.get("document_id") == document_id
     assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME

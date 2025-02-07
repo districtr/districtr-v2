@@ -165,7 +165,7 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
 
     __tablename__ = "map_document_user_session"
     __table_args__ = (
-        UniqueConstraint("document_id", name="document_id_unique"),
+        UniqueConstraint("document_id", name="unique_document"),
         {"schema": DOCUMENT_SCHEMA},
     )
     session_id: int = Field(
