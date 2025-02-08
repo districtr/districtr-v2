@@ -14,8 +14,8 @@ import {Topbar} from '@components/Topbar';
 
 export default function Map() {
   // check if userid in local storage; if not, create one
-  const userId = useMapStore(state => state.userID);
-  if (!userId) {
+  const userID = useMapStore(state => state.userID);
+  if (!userID) {
     useMapStore.getState().setUserID();
   }
 
