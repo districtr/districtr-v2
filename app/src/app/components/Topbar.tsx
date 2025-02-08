@@ -20,10 +20,11 @@ import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {districtrIdbCache} from '../utils/cache';
-
+import {ShareMapsModal} from './Toolbar/ShareMapsModal';
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
+  const [saveMapsModal, setSaveMapsModal] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [cachedViews, setCachedViews] = React.useState<DistrictrMap[]>();
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -147,6 +148,12 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
+              <DropdownMenu.Item
+                onClick={() => setSaveMapsModal(true)}
+                disabled={!mapDocument?.document_id}
+              >
+                Save and Collaborate
+              </DropdownMenu.Item>
               <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
                 View Recent Maps
               </DropdownMenu.Item>
@@ -186,6 +193,7 @@ export const Topbar: React.FC = () => {
         <MobileDataTabs />
       </Flex>
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
+      <ShareMapsModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} />
     </>
   );
 };

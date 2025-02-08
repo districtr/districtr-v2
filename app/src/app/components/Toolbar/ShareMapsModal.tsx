@@ -1,5 +1,5 @@
 import {useMapStore} from '@/app/store/mapStore';
-import React from 'react';
+import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {
   Button,
@@ -29,7 +29,11 @@ const BoxContainer = styled(Box, {
   gap: '1rem',
 });
 
-export const ShareMapsModal = () => {
+export const ShareMapsModal: React.FC<{
+  open?: boolean;
+  onClose?: () => void;
+  showTrigger?: boolean;
+}> = ({open, onClose, showTrigger}) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -38,8 +42,12 @@ export const ShareMapsModal = () => {
   const gerryDBTable = mapDocument?.gerrydb_table;
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
-  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [clickToCopyPrompt, setClickToCopyPrompt] = React.useState('Click to copy');
+
+  useEffect(() => {
+    setDialogOpen(open || false);
+  }, [open]);
 
   const handleClickToCopy = () => {
     navigator.clipboard.writeText(
@@ -142,7 +150,7 @@ export const ShareMapsModal = () => {
 
   // if no gerrydb table selected return null
   if (!gerryDBTable) {
-    return null;
+    return <></>;
   }
 
   return (
