@@ -587,3 +587,13 @@ async def get_projects(
         .limit(limit)
     ).all()
     return gerrydb_views
+
+
+@app.post("api/{document_id}/share_plan")
+async def share_districtr_plan(
+    document_id: str,
+    params: dict = Body(...),
+    session: Session = Depends(get_session),
+):
+    # take share params and return a jwt token that can be used to access the shared plan
+    pass

@@ -191,7 +191,37 @@ export const ShareMapsModal = () => {
               <Checkbox size="1" disabled /> Save as Draft (coming soon)
             </Flex>
           </Text>
-          <Text as="label" size="2">
+          {/* share logic */}
+          <Text as="label" size="3">
+            <Flex gap="2">Sharing</Flex>
+          </Text>
+          {/* 
+              - button for share view only mode
+                - optional add password
+              - button for make editable
+                - optional add password
+              */}
+          <Text size="2">
+            You can share your plan with others! Share as <b>View Only</b> to let others see and
+            copy your plan. <b>Share and make editable</b> to allow others to directly edit your
+            plan. You can optionally <b>set a password</b> to restrict who can interact with it.
+          </Text>
+          <TextField.Root
+            variant="soft"
+            placeholder="(Optional) Set a password"
+            size="2"
+            className="items-center"
+          ></TextField.Root>
+          <Flex gap="2" className="flex-col">
+            <Button variant="soft" className="flex items-center" disabled={false}>
+              Share View Only
+            </Button>
+            <Button variant="soft" className="flex items-center" disabled={false}>
+              Share and make editable
+            </Button>
+          </Flex>
+          {/* end share logic */}
+          {/*<Text as="label" size="2">
             <Flex gap="2">{clickToCopyPrompt}</Flex>
           </Text>
           <TextField.Root
@@ -201,8 +231,10 @@ export const ShareMapsModal = () => {
             readOnly
             className="items-center"
             onClick={handleClickToCopy}
-          ></TextField.Root>
+          ></TextField.Root> */}
 
+          <Box className="border-t border-gray-200"></Box>
+          {/* save + close */}
           <Button
             variant="soft"
             className="flex items-center"
@@ -215,7 +247,6 @@ export const ShareMapsModal = () => {
                 ? 'Create Copy'
                 : 'Save'}
           </Button>
-
           <Button
             variant="soft"
             className="flex items-center"
