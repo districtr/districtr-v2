@@ -10,14 +10,19 @@ import {Source, Layer} from 'react-map-gl/maplibre';
 export const MetaLayers = () => {
   const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
+  const getMapRef = useMapStore(state => state.getMapRef);
   const [zoneNumberData, setZoneNumberData] = useState<any>([]);
 
   const addZoneMetaLayers = async () => {
-    const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
-    await GeometryWorker?.updateProps(zoneEntries);
-    const geoms = await getDissolved();
-    console.log("!!!", geoms?.centroids)
-    geoms && setZoneNumberData(geoms.centroids);
+    const showZoneNumbers = useMapStore.getState().mapOptions.showZoneNumbers;
+    if (showZoneNumbers) {
+      const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
+      await GeometryWorker?.updateProps(zoneEntries);
+      const geoms = await getDissolved();
+      geoms && setZoneNumberData(geoms.centroids);
+    } else {
+      setZoneNumberData([]);
+    }
   };
 
   const throttleUpdateZoneMetaLayers = useCallback(
@@ -29,10 +34,22 @@ export const MetaLayers = () => {
   );
 
   useEffect(() => {
-    if (showZoneNumbers) {
       throttleUpdateZoneMetaLayers();
-    }
   }, [showZoneNumbers, assignmentsHash]);
+
+  useEffect(() => {
+    const map = getMapRef();
+    if (map) {
+      map.on('moveend', throttleUpdateZoneMetaLayers);
+      map.on('zoomend', throttleUpdateZoneMetaLayers);
+    }
+    return () => {
+      if (map) {
+        map.off('moveend', throttleUpdateZoneMetaLayers);
+        map.off('zoomend', throttleUpdateZoneMetaLayers);
+      }
+    };
+  }, [getMapRef])
 
   return (
     <>

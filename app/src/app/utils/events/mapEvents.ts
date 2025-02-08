@@ -14,8 +14,6 @@
  import {
    BLOCK_HOVER_LAYER_ID,
    BLOCK_HOVER_LAYER_ID_CHILD,
-   BLOCK_SOURCE_ID,
-   debouncedAddZoneMetaLayers,
    INTERACTIVE_LAYERS,
  } from '@/app/constants/layers';
  import {ResetMapSelectState} from '@utils/events/handlers';
@@ -198,10 +196,6 @@
  export const handleMapIdle = () => {};
  
  export const handleMapMoveEnd = () => {
-   const {mapOptions} = useMapStore.getState();
-   if (mapOptions.showZoneNumbers) {
-     debouncedAddZoneMetaLayers({});
-   }
  };
  
  export const handleMapZoomEnd = (e: ViewStateChangeEvent) => {};
