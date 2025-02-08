@@ -1,4 +1,5 @@
-import {Box, Flex, Popover, Text} from '@radix-ui/themes';
+'use client';
+import {Box, Popover, Text} from '@radix-ui/themes';
 import {useMapStore} from '../store/mapStore';
 import {formatNumber} from '../utils/numbers';
 import {useTooltipStore} from '../store/tooltipStore';

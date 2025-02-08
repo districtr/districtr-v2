@@ -1,5 +1,14 @@
-from fastapi import FastAPI, status, Depends, HTTPException, Query, Body
-from sqlalchemy import text
+from fastapi import (
+    FastAPI,
+    status,
+    Depends,
+    HTTPException,
+    Query,
+    BackgroundTasks,
+    Body,
+)
+from fastapi.responses import FileResponse
+from sqlalchemy import text, update
 from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
 from sqlalchemy.sql.functions import coalesce
@@ -8,11 +17,12 @@ from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
+from datetime import datetime, UTC
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import engine
 from app.core.config import settings
-import datetime as dt
+
 from sqlalchemy.orm import sessionmaker
 from app.models import (
     Assignments,
@@ -36,13 +46,21 @@ from app.models import (
     PopulationStatsP1,
     SummaryStatsP4,
     PopulationStatsP4,
+    UnassignedBboxGeoJSONs,
+)
+from app.utils import remove_file
+from app.exports import (
+    get_export_sql_method,
+    DocumentExportType,
+    DocumentExportFormat,
 )
 
-if settings.ENVIRONMENT == "production":
+if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
         dsn="https://b14aae02017e3a9c425de4b22af7dd0c@o4507623009091584.ingest.us.sentry.io/4507623009746944",
         traces_sample_rate=1.0,
         profiles_sample_rate=1.0,
+        environment=settings.ENVIRONMENT.value,
     )
 
 app = FastAPI()
@@ -66,6 +84,19 @@ if settings.BACKEND_CORS_ORIGINS:
 def get_session():
     with Session(engine) as session:
         yield session
+
+
+def update_timestamp(
+    session: Session,
+    document_id: str,
+    updated_at: str,
+):
+    update_stmt = (
+        update(Document)
+        .where(Document.document_id == document_id)
+        .values(updated_at=updated_at)
+    )
+    session.execute(update_stmt)
 
 
 @app.get("/")
@@ -149,6 +180,13 @@ async def create_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Document creation failed",
         )
+    if not doc.parent_layer:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document creation failed",
+        )
+
     session.commit()
 
     return doc
@@ -158,11 +196,14 @@ async def create_document(
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
-    stmt = insert(Assignments).values(data.model_dump()["assignments"])
+    assignments = data.model_dump()["assignments"]
+    stmt = insert(Assignments).values(assignments)
     stmt = stmt.on_conflict_do_update(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
     session.execute(stmt)
+    if len(data.assignments) > 0:
+        update_timestamp(session, assignments[0]["document_id"], data.updated_at)
     session.commit()
     return {"assignments_upserted": len(data.assignments)}
 
@@ -194,6 +235,7 @@ async def shatter_parent(
         for document_id, geo_id, zone in results
     ]
     result = ShatterResult(parents=data, children=assignments)
+    update_timestamp(session, document_id, data.updated_at)
     session.commit()
     return result
 
@@ -221,8 +263,10 @@ async def unshatter_parent(
             "input_zone": data.zone,
         },
     ).first()
+
+    update_timestamp(session, document_id, data.updated_at)
     session.commit()
-    return {"geoids": results[0]}
+    return {"geoids": results[0], "updated_at": data.updated_at}
 
 
 @app.patch(
@@ -242,6 +286,7 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
     """
         )
     )
+
     session.commit()
 
     return {"message": "Assignments partition reset", "document_id": document_id}
@@ -404,7 +449,7 @@ def cleanup_expired_locks():
     session = sessionmaker(bind=engine)()
     try:
         N_HOURS = 1  # arbitrary for now
-        expiry = dt.datetime.now() - dt.timedelta(hours=N_HOURS)
+        expiry = datetime.now() - datetime.timedelta(hours=N_HOURS)
         print(expiry)
         stmt = text(
             "DELETE FROM document.map_document_user_session WHERE updated_at < :expiry"
@@ -445,7 +490,28 @@ async def get_total_population(
             )
 
 
-@app.get("/api/document/{document_id}/{summary_stat}")
+@app.get(
+    "/api/document/{document_id}/unassigned", response_model=UnassignedBboxGeoJSONs
+)
+async def get_unassigned_geoids(
+    document_id: str,
+    exclude_ids: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
+    stmt = text(
+        "SELECT * from get_unassigned_bboxes(:doc_uuid, :exclude_ids)"
+    ).bindparams(
+        bindparam(key="doc_uuid", type_=UUIDType),
+        bindparam(key="exclude_ids", type_=ARRAY(String)),
+    )
+    results = session.execute(
+        stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
+    ).fetchall()
+    # returns a list of multipolygons of bboxes
+    return {"features": [row[0] for row in results]}
+
+
+@app.get("/api/document/{document_id}/evaluation/{summary_stat}")
 async def get_summary_stat(
     document_id: str, summary_stat: str, session: Session = Depends(get_session)
 ):
@@ -494,9 +560,9 @@ async def get_summary_stat(
             )
 
 
-@app.get("/api/districtrmap/summary_stats/{summary_stat}/{gerrydb_table}")
+@app.get("/api/districtrmap/{gerrydb_table}/evaluation/{summary_stat}")
 async def get_gerrydb_summary_stat(
-    summary_stat: str, gerrydb_table: str, session: Session = Depends(get_session)
+    gerrydb_table: str, summary_stat: str, session: Session = Depends(get_session)
 ):
     try:
         _summary_stat = SummaryStatisticType[summary_stat]
@@ -576,7 +642,7 @@ async def update_districtrmap_metadata(
 async def get_projects(
     *,
     session: Session = Depends(get_session),
-    offset: int = 0,
+    offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
 ):
     gerrydb_views = session.exec(
@@ -597,3 +663,60 @@ async def share_districtr_plan(
 ):
     # take share params and return a jwt token that can be used to access the shared plan
     pass
+
+
+@app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
+async def get_survey_results(
+    *,
+    document_id: str,
+    background_tasks: BackgroundTasks,
+    format: str = "CSV",
+    export_type: str = "ZoneAssignments",
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=10_000, ge=0),
+    session: Session = Depends(get_session),
+) -> FileResponse:
+    try:
+        _format = DocumentExportFormat(format)
+        _export_type = DocumentExportType(export_type)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        )
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+    out_file_name = (
+        f"{document_id}_{_export_type.value}_{timestamp}.{_format.value.lower()}"
+    )
+
+    try:
+        get_sql = get_export_sql_method(_format)
+        sql, params = get_sql(
+            _export_type,
+            document_id=document_id,
+            offset=offset,
+            limit=limit,
+        )
+    except NotImplementedError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        )
+
+    conn = session.connection().connection
+    _out_file = f"/tmp/{out_file_name}"
+    background_tasks.add_task(remove_file, _out_file)
+
+    with conn.cursor().copy(sql, params=params) as copy:
+        with open(_out_file, "wb") as f:
+            while data := copy.read():
+                f.write(data)
+
+        media_type = {
+            DocumentExportFormat.csv: "text/csv; charset=utf-8",
+            DocumentExportFormat.geojson: "application/json",
+        }.get(_format, "text/plain; charset=utf-8")
+        return FileResponse(
+            path=_out_file, media_type=media_type, filename=out_file_name
+        )

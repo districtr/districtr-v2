@@ -21,6 +21,12 @@ def load_sample_data(config):
     specified data directory, and for each file, it runs a script to load the
     GerryDB view.
 
+    The order of adding views MUST be:
+    - Add base gerrydb layer
+    - Add shatterable view, if using shatterable layers
+    - Add districtr map, which is the gerrydb view or the shatterable view
+    - Add parent child edges, if using shatterable layers
+
     Args:
       None
     Returns:
@@ -77,32 +83,41 @@ def load_sample_data(config):
         if result is not None and result > 0:
             print(f"Districtr map {name} already exists.")
         else:
-            subprocess.run(
-                [
-                    "python3",
-                    "cli.py",
-                    "create-districtr-map",
-                    "--name",
-                    view["name"],
-                    "--parent-layer-name",
-                    view["parent_layer_name"],
-                    "--child-layer-name",
-                    view["child_layer_name"],
-                    "--gerrydb-table-name",
-                    view["gerrydb_table_name"],
-                    "--tiles-s3-path",
-                    view["tiles_s3_path"],
-                ]
-            )
-            subprocess.run(
-                [
-                    "python3",
-                    "cli.py",
-                    "create-parent-child-edges",
-                    "--districtr-map",
-                    view["gerrydb_table_name"],
-                ]
-            )
+            args = [
+                "python3",
+                "cli.py",
+                "create-districtr-map",
+                "--name",
+                view["name"],
+                "--parent-layer-name",
+                view["parent_layer_name"],
+                "--gerrydb-table-name",
+                view["gerrydb_table_name"],
+                "--tiles-s3-path",
+                view["tiles_s3_path"],
+                "--num-districts",
+                view["num_districts"],
+            ]
+            if "child_layer_name" in view:
+                args.extend(
+                    [
+                        "--child-layer-name",
+                        view["child_layer_name"],
+                    ]
+                )
+
+            subprocess.run(args)
+
+            if "child_layer_name" in view:
+                subprocess.run(
+                    [
+                        "python3",
+                        "cli.py",
+                        "create-parent-child-edges",
+                        "--districtr-map",
+                        view["gerrydb_table_name"],
+                    ]
+                )
 
 
 if __name__ == "__main__":

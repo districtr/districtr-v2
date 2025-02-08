@@ -1,85 +1,90 @@
+'use client';
 import React from 'react';
 import DataPanels from './DataPanels';
-import {Box, Flex, Heading} from '@radix-ui/themes';
-import {MapModeSelector} from './MapModeSelector';
-import {ResetMapButton} from './ResetMapButton';
-import {GerryDBViewSelector} from './GerryDBViewSelector';
+import {Box, Flex, IconButton} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
-import PaintByCounty from './PaintByCounty';
-import {BrushSizeSelector} from './BrushSizeSelector';
-import {ExitBlockViewButtons} from './ExitBlockViewButtons';
-import {ZonePicker} from './ZonePicker';
-import {ZoneLockPicker} from './ZoneLockPicker';
-import {MobileColorPicker} from './MobileColorPicker';
-import {ShareMapsModal} from './ShareMapsModal';
-import {UndoRedoButton} from './UndoRedoButton';
+import Draggable from 'react-draggable';
+import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 
 export default function SidebarComponent() {
-  const activeTool = useMapStore(state => state.activeTool);
-
+  const document_id = useMapStore(store => store.mapDocument?.document_id);
+  const [width, setWidth] = React.useState(
+    typeof window !== 'undefined' ? window.innerWidth * 0.25 : 300
+  );
+  const [hovered, setHovered] = React.useState(false);
   return (
-    <Box
-      p="3"
-      className="w-full z-10 shadow-md flex-none overflow-y-auto 
+    <div
+      className="
+      p-3
+      z-10 flex-none
       border-t lg:border-t-0
-      lg:h-screen lg:max-w-sidebar lg:w-sidebar
+      lg:h-screen
        landscape:border-t-0
-      landscape:h-screen landscape:max-w-[40vw] landscape:w-[40vw]
-      
+      landscape:h-screen landscape:w-[40vw]
+      border-l-[1px]
+      border-gray-500
+      shadow-xl
+      relative
+      overflow-y-auto
+      hidden
+      lg:flex
       "
+      style={{width: width, overflow: 'visible'}}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <Flex direction="column" gap="3">
-        <Heading as="h3" size="3" className="hidden lg:block">
-          Districtr
-        </Heading>
-        <GerryDBViewSelector />
-        <ShareMapsModal />
-        <MapModeSelector />
-        {activeTool === 'brush' || activeTool === 'eraser' ? (
-          <div
-            className="gap-4 lg:gap-0 landscape:gap-0
-          flex flex-row-reverse lg:flex-col landscape:flex-col
-          justify-around
-          "
-          >
-            <div className="flex-grow">
-              <BrushSizeSelector />
-              <PaintByCounty />{' '}
-            </div>
-            {activeTool === 'brush' ? (
-              <div className="flex-grow-0 flex-row">
-                <span className="hidden md:block landscape:block">
-                  <ZonePicker />
-                </span>
-                <span className="md:hidden landscape:hidden">
-                  <MobileColorPicker />
-                </span>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {activeTool === 'lock' ? (
-          <div>
-            <ZoneLockPicker />
-          </div>
-        ) : null}
-        <ResetMapButton />
-        <Flex direction="row" gap="3">
-          <UndoRedoButton isRedo={false} />
-          <UndoRedoButton isRedo />
-        </Flex>
-        <ExitBlockViewButtons />
-
-        <Box
-          display={{
-            initial: 'none',
-            md: 'inline',
+      <div
+        style={{
+          zIndex: 999,
+          top: '50vh',
+          left: 0,
+          position: 'absolute',
+          transform: 'translate(-9px, -50%)',
+        }}
+      >
+        <Draggable
+          handle="#sidebar-handle"
+          onDrag={(e: any) => {
+            if (e.clientX) {
+              setWidth(window.innerWidth - e.clientX);
+            }
           }}
+          grid={[25, 0]}
+          bounds="parent"
+          axis="x"
         >
-          <DataPanels />
-        </Box>
-      </Flex>
-    </Box>
+          <IconButton
+            variant="surface"
+            color="gray"
+            id="sidebar-handle"
+            style={{
+              width: '16px',
+              background: 'rgba(245, 245, 245)',
+              height: '40px',
+              cursor: 'ew-resize',
+              opacity: hovered ? 1 : 0,
+              transition: 'opacity 0.2s',
+            }}
+          >
+            <DragHandleHorizontalIcon />
+          </IconButton>
+        </Draggable>
+      </div>
+      <Box className="size-full overflow-y-auto">
+        <Flex direction="column" gap="3">
+          <Box
+            display={{
+              initial: 'none',
+              md: 'inline',
+            }}
+            style={{
+              opacity: document_id ? 1 : 0.25,
+            }}
+          >
+            <DataPanels />
+          </Box>
+        </Flex>
+      </Box>
+    </div>
   );
 }

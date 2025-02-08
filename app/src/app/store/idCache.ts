@@ -2,24 +2,29 @@ import {MinGeoJSONFeature} from '../utils/GeometryWorker/geometryWorker.types';
 
 class IdCache {
   cachedTileIndices: Set<string> = new Set();
-  parents: Record<string, Partial<MinGeoJSONFeature>> = {};
+  cachedChildParents: Set<string> = new Set();
+  entries: Record<string, Partial<MinGeoJSONFeature>> = {};
 
   hasCached(index: string) {
-    return this.cachedTileIndices.has(index);
+    return this.cachedTileIndices.has(index) || this.cachedChildParents.has(index);
   }
 
-  loadFeatures(features: MinGeoJSONFeature[], tileIndex: string) {
-    if (this.hasCached(tileIndex)) {
+  loadFeatures(features: MinGeoJSONFeature[], index: string, isChild: boolean = false) {
+    if (this.hasCached(index)) {
       return;
     } else {
-      this.cachedTileIndices.add(tileIndex);
+      if (isChild) {
+        this.cachedChildParents.add(index);
+      } else {
+        this.cachedTileIndices.add(index);
+      }
       features.forEach(feature => {
         if (feature.properties && feature.properties.path) {
           const id = feature.properties.path;
-          if (!this.parents[id]) {
-            this.parents[id] = {
+          if (!this.entries[id]) {
+            this.entries[id] = {
               ...feature,
-              geometry: undefined
+              geometry: undefined,
             };
           }
         }
@@ -27,15 +32,32 @@ class IdCache {
     }
   }
 
+  heal(parentId: string, childIds: string[]) {
+    this.cachedChildParents.delete(parentId);
+    childIds.forEach(childId => {
+      delete this.entries[childId];
+    });
+  }
+
   clear() {
-    this.parents = {};
+    this.entries = {};
     this.cachedTileIndices.clear();
+  }
+
+  getTotalPopSeen(exclude: Set<string>) {
+    let total = 0;
+    for (const [id, feature] of Object.entries(this.entries)) {
+      if (!exclude.has(id) && feature.properties && feature.properties.total_pop) {
+        total += +feature.properties.total_pop;
+      }
+    }
+    return total;
   }
 
   getFiltered(id: string) {
     const regex = new RegExp(`^${id}`);
-    return Object.entries(this.parents).filter(([key]) => regex.test(key));
+    return Object.entries(this.entries).filter(([key]) => regex.test(key));
   }
 }
 
-export const parentIdCache = new IdCache();
+export const idCache = new IdCache();

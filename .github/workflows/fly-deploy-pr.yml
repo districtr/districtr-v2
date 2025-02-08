@@ -106,13 +106,14 @@ jobs:
               run: |
                     flyctl secrets set \
                     -a ${{ github.event.repository.name }}-${{ github.event.number }}-api \
+                    ENVIRONMENT="qa" \
                     POSTGRES_SCHEME="postgresql+psycopg" \
                     POSTGRES_SERVER="${{ github.event.repository.name }}-${{ github.event.number }}-db.flycast" \
                     POSTGRES_USER="postgres" \
                     POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                     POSTGRES_DB="districtr_v2_api" \
                     BACKEND_CORS_ORIGINS="https://${{ github.event.repository.name }}-${{ github.event.number }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
-                    DATABASE_URL="postgresql://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5432/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
+                    DATABASE_URL="postgresql+psycopg://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5433/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
                     
                     flyctl deploy \
                     --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
@@ -154,6 +155,7 @@ jobs:
                 
                 flyctl secrets set \
                 -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
+                ENVIRONMENT="qa" \
                 NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
                 NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com
             
