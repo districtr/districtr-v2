@@ -181,7 +181,7 @@ export const ShareMapsModal = () => {
             <TextField.Root
               placeholder={'Tag or Event Code'}
               size="3"
-              value={tagsTeam}
+              value={tagsTeam ?? ''}
               disabled
               onChange={e => handleMetadataChange('tags', e.target.value)}
             ></TextField.Root>

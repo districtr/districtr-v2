@@ -10,6 +10,7 @@ import {handleWheelOrPinch, mapContainerEvents, mapEvents} from '../utils/events
 import {INTERACTIVE_LAYERS} from '../constants/layers';
 import {useMapStore} from '../store/mapStore';
 import {unlockMapDocument} from '../utils/api/apiHandlers';
+
 export const MapComponent: React.FC = () => {
   const map: MutableRefObject<Map | null> = useRef(null);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);

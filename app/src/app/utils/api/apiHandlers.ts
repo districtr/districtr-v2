@@ -101,7 +101,7 @@ export interface DocumentObject {
 
 export interface DocumentMetadata {
   name: string | null;
-  tags: string[] | null;
+  tags: string | null;
   description: string | null;
   eventId: string | null;
 }
