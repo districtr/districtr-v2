@@ -99,7 +99,7 @@ export const MapComponent: React.FC = () => {
         onZoomStart={mapEventHandlers.onZoom}
         onIdle={mapEventHandlers.onIdle}
         onMoveEnd={mapEventHandlers.onMoveEnd}
-        onData={mapEventHandlers.onData}
+        onData={mapEventHandlers.onData as any}
         interactiveLayerIds={INTERACTIVE_LAYERS}
         reuseMaps
       >

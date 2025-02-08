@@ -292,7 +292,7 @@
    } else {
      const t0 = performance.now();
      const {x, y, z} = tileData;
-     const tileFeatures = e?.tile?.latestFeatureIndex?.vtLayers?.[mapDocument?.parent_layer];
+     const tileFeatures = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer];
      for (let i = 0; i < tileFeatures.length; i++) {
        let feature = tileFeatures.feature(i).toGeoJSON(x, y, z);
        feature.id = feature.properties.path;
