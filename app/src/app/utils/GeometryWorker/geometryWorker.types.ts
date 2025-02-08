@@ -1,4 +1,6 @@
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
+import { FeatureIndex } from 'maplibre-gl/src/data/feature_index';
+import {type Tile} from 'maplibre-gl/src/source/tile';
 
 export type CentroidReturn = {
   dissolved: GeoJSON.FeatureCollection;
@@ -29,6 +31,11 @@ export type GeometryWorkerClass = {
    * @param idProp - The property to use as the ID.
    */
   loadGeometry: (features: MinGeoJSONFeature[] | string, idProp: string) => void;
+  loadTileData: (data: {
+    tileID: {x: number, y: number, z: number};
+    layer: any;
+    id: string;
+  }) => void;
   /**
    * Removes geometries from the collection.
    * @param ids - The IDs of the geometries to remove.

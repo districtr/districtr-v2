@@ -3,11 +3,6 @@ import {
   CHILD_LAYERS,
   getLayerFill,
   BLOCK_SOURCE_ID,
-  BLOCK_LAYER_ID_HIGHLIGHT,
-  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
-  removeZoneMetaLayers,
-  debouncedAddZoneMetaLayers,
-  COUNTY_LAYERS,
 } from '@constants/layers';
 import {
   ColorZoneAssignmentsState,
@@ -92,13 +87,6 @@ export const getRenderSubscriptions = (
         mapRenderingState,
         mapOptions,
       } = useMapStore.getState();
-      if (mapOptions.showZoneNumbers) {
-        GeometryWorker?.updateProps(Array.from(curr[0].entries())).then(() => {
-          debouncedAddZoneMetaLayers({});
-        });
-      } else {
-        removeZoneMetaLayers();
-      }
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded') return;
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {

@@ -12,7 +12,8 @@ import {useMapStore} from '../../store/mapStore';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import { CountyLayers } from './CountyLayers';
-import { ZoneLayerGroup } from './ZoneLayers';
+import { ZoneLayerGroup, ZoneLayers } from './ZoneLayers';
+import { MetaLayers } from './MetaLayers';
 
 export const MapComponent: React.FC = () => {
   const mapRef: MutableRefObject<MapRef | null> = useRef(null);
@@ -78,9 +79,11 @@ export const MapComponent: React.FC = () => {
         minPitch={0}
         dragRotate={false}
         onLoad={() => {
-          if (mapRef.current) setMapRef(mapRef);
-          handleWheelOrPinch({} as TouchEvent, mapRef.current);
-          fitMapToBounds();
+          if (mapRef.current) {
+            setMapRef(mapRef);
+            handleWheelOrPinch({} as TouchEvent, mapRef.current);
+            fitMapToBounds();
+          }
         }}
         onClick={mapEventHandlers.onClick}
         onZoom={mapEventHandlers.onZoom}
@@ -96,13 +99,13 @@ export const MapComponent: React.FC = () => {
         onZoomStart={mapEventHandlers.onZoom}
         onIdle={mapEventHandlers.onIdle}
         onMoveEnd={mapEventHandlers.onMoveEnd}
-        onSourceData={mapEventHandlers.onData}
+        onData={mapEventHandlers.onData}
         interactiveLayerIds={INTERACTIVE_LAYERS}
         reuseMaps
       >
         <CountyLayers />
-        <ZoneLayerGroup />
-        <ZoneLayerGroup child />
+        <ZoneLayers />
+        <MetaLayers />
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
 
       </GlMap>

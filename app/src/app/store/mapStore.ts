@@ -360,8 +360,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
           // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
           // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
-          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
-          const featureStateChangesCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.stateChanges;
+          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+          const featureStateChangesCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
 
           if (!featureStateCache) return;
           // PAINT
