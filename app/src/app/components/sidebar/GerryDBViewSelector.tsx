@@ -27,7 +27,10 @@ export function GerryDBViewSelector() {
     }
     console.log('mutating to create new document');
     clear();
-    document.mutate({gerrydb_table: selectedDistrictrMap.gerrydb_table_name});
+    document.mutate({
+      gerrydb_table: selectedDistrictrMap.gerrydb_table_name,
+      user_id: useMapStore.getState().userID,
+    });
   };
 
   if (isPending) return <div>Loading geographies... 🌎</div>;
