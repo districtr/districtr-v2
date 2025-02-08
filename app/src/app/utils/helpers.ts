@@ -304,7 +304,8 @@ export const colorZoneAssignments = (
   ) {
     return;
   }
-  const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
+  const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+  const featureStateChangesCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
   if (!featureStateCache) return;
   const isInitialRender = previousState?.[4] !== 'loaded' || previousState?.[5] !== 'loaded';
 
@@ -314,7 +315,8 @@ export const colorZoneAssignments = (
     const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
     if (!sourceLayer) return;
     const featureState = featureStateCache?.[sourceLayer]?.[id];
-    if (!isInitialRender && featureState?.zone === zone) return;
+    const futureState = featureStateChangesCache?.[sourceLayer]?.[id];
+    if (!isInitialRender && (featureState?.zone === zone || futureState?.zone === zone)) return;
 
     mapRef?.setFeatureState(
       {
