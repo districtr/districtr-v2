@@ -134,6 +134,7 @@ export const ShareMapsModal: React.FC<{
         document.mutate({
           gerrydb_table: mapDocument?.gerrydb_table,
           metadata: savedMapMetadata,
+          user_id: useMapStore.getState().userID,
         });
       } else {
         // otherwise just update

@@ -644,6 +644,7 @@ export const patchUnShatterParents: (params: {
 export const saveMapDocumentMetadata = async ({
   document_id,
   metadata,
+  // for consistency, does it make sense to also require a user id? not convinced but
 }: {
   document_id: string;
   metadata: DocumentMetadata;
