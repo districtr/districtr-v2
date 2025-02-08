@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import engine
@@ -125,71 +125,81 @@ async def db_is_alive(session: Session = Depends(get_session)):
 async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
-    results = session.execute(
-        text("SELECT create_document(:gerrydb_table_name);"),
-        {"gerrydb_table_name": data.gerrydb_table},
-    )
-    document_id = results.one()[0]  # should be only one row, one column of results
+    try:
 
-    # check if there is a metadata item in the request
-    if data.metadata:
-        update_districtrmap_metadata(document_id, data.metadata.dict(), session)
+        results = session.execute(
+            text("SELECT create_document(:gerrydb_table_name);"),
+            {"gerrydb_table_name": data.gerrydb_table},
+        )
 
-    stmt = (
-        select(
-            Document.document_id,
-            Document.created_at,
-            Document.gerrydb_table,
-            Document.updated_at,
-            DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
-            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
-            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
-            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
-            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
-            DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label(
-                "available_summary_stats"
-            ),  # pyright: ignore
-            # send metadata as a null object on init of document
-            coalesce(
-                None,
-            ).label("map_metadata"),
+        document_id = results.one()[0]  # should be only one row, one column of results
+
+        # check if there is a metadata item in the request
+        if data.metadata:
+            update_districtrmap_metadata(document_id, data.metadata.dict(), session)
+
+        stmt = (
+            select(
+                Document.document_id,
+                Document.created_at,
+                Document.gerrydb_table,
+                Document.updated_at,
+                DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
+                DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
+                DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
+                DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+                DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+                DistrictrMap.extent.label("extent"),  # pyright: ignore
+                DistrictrMap.available_summary_stats.label(
+                    "available_summary_stats"
+                ),  # pyright: ignore
+                # send metadata as a null object on init of document
+                coalesce(
+                    None,
+                ).label("map_metadata"),
+            )
+            .where(Document.document_id == document_id)
+            .join(
+                DistrictrMap,
+                Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+                isouter=True,
+            )
+            .limit(1)
         )
-        .where(Document.document_id == document_id)
-        .join(
-            DistrictrMap,
-            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
-            isouter=True,
-        )
-        .limit(1)
-    )
-    # Document id has a unique constraint so I'm not sure we need to hit the DB again here
-    # more valuable would be to check that the assignments table
-    doc = session.exec(
-        stmt,
-    ).one()  # again if we've got more than one, we have problems.
-    if not doc.map_uuid:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"DistrictrMap matching {data.gerrydb_table} does not exist.",
-        )
-    if not doc.document_id:
+        # Document id has a unique constraint so I'm not sure we need to hit the DB again here
+        # more valuable would be to check that the assignments table
+        doc = session.exec(
+            stmt,
+        ).one()  # again if we've got more than one, we have problems.
+        if not doc.map_uuid:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"DistrictrMap matching {data.gerrydb_table} does not exist.",
+            )
+        if not doc.document_id:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Document creation failed",
+            )
+        if not doc.parent_layer:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Document creation failed",
+            )
+
+        session.commit()
+
+        return doc
+    except Exception as e:
+        logger.error(e)
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Document creation failed",
         )
-    if not doc.parent_layer:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Document creation failed",
-        )
-
-    session.commit()
-
-    return doc
 
 
 @app.patch("/api/update_assignments")
@@ -449,7 +459,7 @@ def cleanup_expired_locks():
     session = sessionmaker(bind=engine)()
     try:
         N_HOURS = 1  # arbitrary for now
-        expiry = datetime.now() - datetime.timedelta(hours=N_HOURS)
+        expiry = datetime.now() - timedelta(hours=N_HOURS)
         print(expiry)
         stmt = text(
             "DELETE FROM document.map_document_user_session WHERE updated_at < :expiry"

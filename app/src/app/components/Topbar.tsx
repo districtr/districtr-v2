@@ -38,17 +38,19 @@ export const Topbar: React.FC = () => {
       return;
     }
     clear();
-    document.mutate({gerrydb_table: selectedMap.gerrydb_table_name});
+    document.mutate({
+      gerrydb_table: selectedMap.gerrydb_table_name,
+    });
   };
 
   useEffect(() => {
     const fetchCachedViews = async () => {
-      districtrIdbCache.getCachedViews().then((cachedViews) => {
+      districtrIdbCache.getCachedViews().then(cachedViews => {
         cachedViews && setCachedViews(cachedViews);
-      })
+      });
     };
     fetchCachedViews();
-  }, [])
+  }, []);
 
   useEffect(() => {
     if (mapViews?.data?.length) {

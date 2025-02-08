@@ -120,12 +120,14 @@ export interface DocumentCreate {
 export const createMapDocument: (document: DocumentCreate) => Promise<DocumentObject> = async (
   document: DocumentCreate
 ) => {
+  console.log('Creating document', document);
   return await axios
-    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
-      document_create: document,
-    })
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, document)
     .then(res => {
       return res.data;
+    })
+    .catch(err => {
+      console.error(err);
     });
 };
 
