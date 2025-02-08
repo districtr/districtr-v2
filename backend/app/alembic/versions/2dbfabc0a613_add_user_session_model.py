@@ -1,7 +1,7 @@
 """add user session model
 
 Revision ID: 2dbfabc0a613
-Revises: dcce5c519ecc
+Revises: 3bd06553411c
 Create Date: 2025-01-29 19:54:16.597158
 
 """
@@ -14,9 +14,9 @@ from app.models import UUIDType
 
 # revision identifiers, used by Alembic.
 revision: str = "2dbfabc0a613"
-down_revision: Union[str, None] = "dcce5c519ecc"
+down_revision: Union[str, None] = "3bd06553411c"
 branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = "dcce5c519ecc"
+depends_on: Union[str, Sequence[str], None] = "3bd06553411c"
 
 
 def upgrade() -> None:
