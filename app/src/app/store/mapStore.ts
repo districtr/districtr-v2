@@ -279,8 +279,8 @@ export interface MapStore {
   setContextMenu: (menu: ContextMenuState | null) => void;
 
   // user id
-  userId: string | null;
-  setUserId: () => void;
+  userID: string | null;
+  setUserID: () => void;
 
   // USER MAPS / RECENT MAPS
   userMaps: Array<DocumentObject & {name?: string}>;
@@ -1098,12 +1098,12 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setContextMenu: contextMenu => set({contextMenu}),
   userMaps: [],
   setUserMaps: userMaps => set({userMaps}),
-  userId: null,
-  setUserId: () => {
+  userID: null,
+  setUserID: () => {
     set(state => {
-      const userID = state.userId;
+      const userID = state.userID;
       if (userID === null) {
-        return {userId: uuidv4()};
+        return {userID: uuidv4()};
       } else {
         return {userID};
       }

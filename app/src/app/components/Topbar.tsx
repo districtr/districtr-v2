@@ -28,6 +28,7 @@ export const Topbar: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [cachedViews, setCachedViews] = React.useState<DistrictrMap[]>();
   const mapDocument = useMapStore(state => state.mapDocument);
+  const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
 
   const clear = useTemporalStore(store => store.clear);
@@ -41,6 +42,7 @@ export const Topbar: React.FC = () => {
     clear();
     document.mutate({
       gerrydb_table: selectedMap.gerrydb_table_name,
+      user_id: userID,
     });
   };
 

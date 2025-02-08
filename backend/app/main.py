@@ -116,6 +116,29 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
+def check_map_lock(document_id, user_id, session):
+    result = session.execute(
+        text(
+            """WITH ins AS (
+                INSERT INTO document.map_document_user_session (document_id, user_id)
+                VALUES (:document_id, :user_id)
+                ON CONFLICT (document_id) DO NOTHING
+                RETURNING user_id
+            )
+            SELECT user_id FROM ins
+            UNION ALL
+            SELECT user_id FROM document.map_document_user_session
+            WHERE document_id = :document_id
+            LIMIT 1"""
+        ),
+        {"document_id": document_id, "user_id": user_id},
+    ).fetchone()
+
+    status = "unlocked" if result and result.user_id == user_id else "locked"
+
+    return status
+
+
 # matches createMapObject in apiHandlers.ts
 @app.post(
     "/api/create_document",
@@ -126,13 +149,18 @@ async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
     try:
-
+        print(data)
         results = session.execute(
             text("SELECT create_document(:gerrydb_table_name);"),
             {"gerrydb_table_name": data.gerrydb_table},
         )
 
         document_id = results.one()[0]  # should be only one row, one column of results
+
+        status = check_map_lock(document_id, data.user_id, session)
+        print("\n")
+        print(f"status: {status}")
+        print("\n")
 
         # check if there is a metadata item in the request
         if data.metadata:
@@ -157,6 +185,10 @@ async def create_document(
                 coalesce(
                     None,
                 ).label("map_metadata"),
+                coalesce(
+                    None,
+                    status,
+                ).label("status"),
             )
             .where(Document.document_id == document_id)
             .join(
@@ -335,24 +367,7 @@ async def get_document(
     status_code=status.HTTP_200_OK,
 ):
 
-    result = session.execute(
-        text(
-            """WITH ins AS (
-                INSERT INTO document.map_document_user_session (document_id, user_id)
-                VALUES (:document_id, :user_id)
-                ON CONFLICT (document_id) DO NOTHING
-                RETURNING user_id
-            )
-            SELECT user_id FROM ins
-            UNION ALL
-            SELECT user_id FROM document.map_document_user_session
-            WHERE document_id = :document_id
-            LIMIT 1"""
-        ),
-        {"document_id": document_id, "user_id": data.user_id},
-    ).fetchone()
-
-    status = "unlocked" if result and result.user_id == data.user_id else "locked"
+    status = check_map_lock(document_id, data.user_id, session)
 
     stmt = (
         select(

@@ -114,13 +114,14 @@ export interface DocumentMetadata {
  */
 export interface DocumentCreate {
   gerrydb_table: string;
+  user_id: string | null;
   metadata?: DocumentMetadata;
 }
 
 export const createMapDocument: (document: DocumentCreate) => Promise<DocumentObject> = async (
   document: DocumentCreate
 ) => {
-  console.log('Creating document', document);
+  if (!document.user_id) return;
   return await axios
     .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, document)
     .then(res => {
@@ -140,7 +141,7 @@ export const createMapDocument: (document: DocumentCreate) => Promise<DocumentOb
 export const getDocument: (document_id: string) => Promise<DocumentObject> = async (
   document_id: string
 ) => {
-  const userID = useMapStore.getState().userId;
+  const userID = useMapStore.getState().userID;
   if (document_id && userID) {
     return await axios
       .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`, {
@@ -163,7 +164,7 @@ export const getDocument: (document_id: string) => Promise<DocumentObject> = asy
 export const unlockMapDocument: (document_id: string) => Promise<DocumentObject> = async (
   document_id: string
 ) => {
-  const userID = useMapStore.getState().userId;
+  const userID = useMapStore.getState().userID;
   if (document_id && userID) {
     return await axios
       .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/unlock`, {
@@ -178,7 +179,7 @@ export const unlockMapDocument: (document_id: string) => Promise<DocumentObject>
 };
 
 export const getMapLockStatus: (document_id: string) => Promise<string> = (document_id: string) => {
-  const userID = useMapStore.getState().userId;
+  const userID = useMapStore.getState().userID;
   return axios
     .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/status`, {
       user_id: userID,

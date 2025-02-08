@@ -157,6 +157,7 @@ class DistrictrMapMetadata(BaseModel):
 
 class DocumentCreate(BaseModel):
     gerrydb_table: str | None
+    user_id: str | None
     metadata: Optional[DistrictrMapMetadata] | None = None
 
 
