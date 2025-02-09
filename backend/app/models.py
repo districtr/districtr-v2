@@ -183,6 +183,36 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     )
 
 
+class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
+    """
+    Manages sharing of plans between users.
+
+    Deliberately no user id for now, so that a user could theoretically re-access a plan from another machine.
+    """
+
+    __tablename__ = "map_document_token"
+    __table_args__ = (
+        UniqueConstraint("document_id", name="unique_document"),
+        {"schema": DOCUMENT_SCHEMA},
+    )
+    token_id: str = Field(
+        UUIDType,
+        primary_key=True,
+    )
+    document_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("document.document_id"),
+        )
+    )
+    password_hash: str = Field(
+        sa_column=Column(String, nullable=True)  # optional password
+    )
+    expiration_date: datetime = Field(
+        sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
+    )  # expiration date
+
+
 class MapDocumentMetadata(TimeStampMixin, SQLModel, table=True):
     __tablename__ = "map_document_metadata"
     __table_args__ = (

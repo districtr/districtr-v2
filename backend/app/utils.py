@@ -6,12 +6,16 @@ import logging
 from urllib.parse import ParseResult
 import os
 from app.core.config import settings
-
+import bcrypt
 
 from app.models import SummaryStatisticType, UUIDType, DistrictrMap, DistrictrMapUpdate
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def create_districtr_map(
@@ -103,7 +107,9 @@ def update_districtrmap(
 
     stmt = (
         update(DistrictrMap)
-        .where(DistrictrMap.gerrydb_table_name == data.gerrydb_table_name)  # pyright: ignore
+        .where(
+            DistrictrMap.gerrydb_table_name == data.gerrydb_table_name
+        )  # pyright: ignore
         .values(update_districtrmap)
         .returning(DistrictrMap)
     )
@@ -214,7 +220,8 @@ def add_extent_to_districtrmap(
         raise ValueError(
             f"Districtr map with UUID {districtr_map_uuid} does not exist."
         )
-    stmt = text(f"""
+    stmt = text(
+        f"""
         DO $$
         DECLARE
             rec RECORD;
@@ -243,7 +250,8 @@ def add_extent_to_districtrmap(
             EXCEPTION WHEN undefined_table THEN
                 RAISE NOTICE 'Table % does not exist for layer %', rec.parent_layer, rec.name;
         END $$;
-        """)
+        """
+    )
     session.execute(stmt)
 
 

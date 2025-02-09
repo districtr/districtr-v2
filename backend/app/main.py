@@ -22,6 +22,8 @@ import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import engine
 from app.core.config import settings
+from app.utils import hash_password
+import jwt
 
 from sqlalchemy.orm import sessionmaker
 from app.models import (
@@ -475,7 +477,7 @@ def cleanup_expired_locks():
     try:
         N_HOURS = 1  # arbitrary for now
         expiry = datetime.now() - timedelta(hours=N_HOURS)
-        print(expiry)
+
         stmt = text(
             "DELETE FROM document.map_document_user_session WHERE updated_at < :expiry"
         )
@@ -683,11 +685,18 @@ async def get_projects(
 @app.post("api/{document_id}/share_plan")
 async def share_districtr_plan(
     document_id: str,
-    params: dict = Body(...),
+    params: dict = Body(...),  # what else needs to be included
     session: Session = Depends(get_session),
 ):
+
+    payload = {"doc_id": document_id, "exp": datetime.now(UTC) + timedelta(days=30)}
     # take share params and return a jwt token that can be used to access the shared plan
-    pass
+    if "password" in params:
+        hashed_password = hash_password(params["password"])
+        payload["password"] = hashed_password
+
+    token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+    return {"token": token}
 
 
 @app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
