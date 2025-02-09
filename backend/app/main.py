@@ -5,6 +5,7 @@ from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
+import io
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
@@ -14,6 +15,7 @@ from app.core.db import engine
 from app.core.config import settings
 from app.models import (
     Assignments,
+    AssignmentsBulkUpload,
     AssignmentsCreate,
     AssignmentsResponse,
     DistrictrMap,
@@ -266,6 +268,31 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
     session.commit()
 
     return {"message": "Assignments partition reset", "document_id": document_id}
+
+
+@app.patch("/api/upload_assignments")
+async def upload_assignments(
+    data: AssignmentsBulkUpload, session: Session = Depends(get_session)
+):
+    d = data.model_dump()
+    csv_file = io.StringIO(d["assignmentTXT"])
+
+    session.execute(text("DROP TABLE IF EXISTS temploader"))
+    session.execute(text("""CREATE TABLE temploader (
+        geo_id TEXT,
+        zone INT
+    )"""))
+    session.connection().connection.cursor().copy_expert(
+        "COPY temploader FROM STDIN WITH CSV HEADER", csv_file
+    )
+    session.execute(text("""
+        INSERT INTO document.assignments (geo_id, zone, document_id)
+        SELECT geo_id, zone, :document_id
+        FROM temploader
+    """), {"document_id":  d["document_id"]})
+    session.commit()
+
+    return {"assignments_upserted": 1}
 
 
 # called by getAssignments in apiHandlers.ts

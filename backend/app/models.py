@@ -183,6 +183,11 @@ class AssignmentsCreate(BaseModel):
     updated_at: datetime
 
 
+class AssignmentsBulkUpload(BaseModel):
+    assignmentTXT: str
+    document_id: str
+
+
 class AssignmentsResponse(SQLModel):
     geo_id: str
     zone: int | None
