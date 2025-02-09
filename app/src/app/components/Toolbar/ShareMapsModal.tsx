@@ -17,7 +17,6 @@ import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {metadata, document} from '@/app/utils/api/mutations';
-import {map, set} from 'lodash';
 
 type NamedDocumentObject = DocumentObject & {name?: string};
 
@@ -82,6 +81,9 @@ export const ShareMapsModal: React.FC<{
   const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const [copiedPlanName, setCopiedPlanName] = React.useState(null);
+  const [sharetype, setSharetype] = React.useState('viewOnly');
+  const [linkCopied, setLinkCopied] = React.useState(false);
+  const [password, setPassword] = React.useState(null);
 
   const handleChangeName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
@@ -121,6 +123,36 @@ export const ShareMapsModal: React.FC<{
     setCopiedPlanName(value);
   };
 
+  const handleCreateShareLink = () => {
+    // create and return a shareable link
+    const payload = {
+      document_id: mapDocument?.document_id,
+      share_type: sharetype,
+      password: password,
+    };
+
+    // make request against endpoint
+    // const token = createShareLink(payload); // TODO
+
+    // actually copy the link to the users clipboard
+    // TODO
+    // use window location and append the returned token to the end
+    navigator.clipboard.writeText(
+      `${window.location.origin}${window.location.pathname}?document_id=${mapDocument?.document_id}`
+    );
+
+    // set link copied to true for two seconds, then revert
+    setLinkCopied(true);
+    setTimeout(() => {
+      setLinkCopied(false);
+    }, 2000);
+  };
+
+  const handleShareTypeChange = (value: string) => {
+    // handle share type change
+    setSharetype(value);
+  };
+
   const handleMapSave = () => {
     if (mapDocument?.document_id) {
       const savedMapMetadata = userMaps.find(
@@ -156,11 +188,6 @@ export const ShareMapsModal: React.FC<{
 
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
-      <Dialog.Trigger>
-        <Button value="share" variant="outline">
-          Save and Collaborate
-        </Button>
-      </Dialog.Trigger>
       <DialogContentContainer className="max-w-[75vw]">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Save and Collaborate</Dialog.Title>
@@ -204,12 +231,6 @@ export const ShareMapsModal: React.FC<{
           <Text as="label" size="3">
             <Flex gap="2">Sharing</Flex>
           </Text>
-          {/* 
-              - button for share view only mode
-                - optional add password
-              - button for make editable
-                - optional add password
-              */}
           <Text size="2">
             You can share your plan with others! Share as <b>View Only</b> to let others see and
             copy your plan. <b>Share and make editable</b> to allow others to directly edit your
@@ -219,14 +240,22 @@ export const ShareMapsModal: React.FC<{
             variant="soft"
             placeholder="(Optional) Set a password"
             size="2"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
             className="items-center"
           ></TextField.Root>
           <Flex gap="2" className="flex-col">
-            <Button variant="soft" className="flex items-center" disabled={false}>
-              Share View Only
-            </Button>
-            <Button variant="soft" className="flex items-center" disabled={false}>
-              Share and make editable
+            <RadioCards.Root onValueChange={handleShareTypeChange} value={sharetype}>
+              <RadioCards.Item value="view">Share View Only</RadioCards.Item>
+              <RadioCards.Item value="edit">Share and make editable</RadioCards.Item>
+            </RadioCards.Root>
+            <Button
+              variant="soft"
+              className="flex items-center"
+              onClick={handleCreateShareLink}
+              disabled={linkCopied ?? false}
+            >
+              {linkCopied ? 'Copied!' : 'Click to copy link'}
             </Button>
           </Flex>
           {/* end share logic */}

@@ -126,7 +126,7 @@ def check_map_lock(document_id, user_id, session):
             """WITH ins AS (
                 INSERT INTO document.map_document_user_session (document_id, user_id)
                 VALUES (:document_id, :user_id)
-                ON CONFLICT DO NOTHING 
+                ON CONFLICT DO NOTHING
                 RETURNING user_id
             )
             SELECT user_id FROM ins
