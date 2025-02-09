@@ -466,7 +466,7 @@ export interface AssignmentsReset {
  * @param assignments
  * @returns server object containing the updated assignments per geoid
  */
-export const patchUpdateAssignments: (upadteData: {
+export const patchUpdateAssignments: (updateData: {
   assignments: Assignment[];
   updateHash: string;
 }) => Promise<AssignmentsCreate> = async ({assignments, updateHash}) => {
@@ -556,6 +556,25 @@ export const patchUnShatterParents: (params: {
         updated_at: updateHash,
       }
     )
+    .then(res => {
+      return res.data;
+    });
+};
+
+/**
+ *
+ * @param assignmentTXT
+ * @returns true if upload succeeds
+ */
+export const uploadAssignments: (updateData: {
+  assignmentTXT: string;
+  document_id: string;
+}) => Promise<AssignmentsCreate> = async ({assignmentTXT, document_id}) => {
+  return await axios
+    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload_assignments`, {
+      assignmentTXT: assignmentTXT,
+      document_id,
+    })
     .then(res => {
       return res.data;
     });

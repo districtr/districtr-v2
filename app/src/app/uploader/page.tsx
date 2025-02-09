@@ -4,7 +4,7 @@ import Papa from 'papaparse';
 import {ErrorNotification} from '../components/ErrorNotification';
 import {GerryDBViewSelector} from '../components/sidebar/GerryDBViewSelector';
 import {useMapStore} from '@/app/store/mapStore';
-import {Assignment, createMapDocument, patchUpdateAssignments} from '@/app/utils/api/apiHandlers';
+import {Assignment, createMapDocument, uploadAssignments} from '@/app/utils/api/apiHandlers';
 
 type MapLink = {
   document_id: string;
@@ -16,7 +16,7 @@ export default function Uploader() {
   const [totalRows, setTotalRows] = useState<number>(0);
   const [mapLinks, setMapLinks] = useState<MapLink[]>([]);
 
-  const ROWS_PER_BATCH = 2000;
+  const ROWS_PER_BATCH = 200000;
 
   const gTable = useMapStore(state => state.mapDocument?.gerrydb_table);
 
@@ -40,17 +40,19 @@ export default function Uploader() {
         }).then(response => {
           const {document_id} = response;
           let rowCursor = 0;
+          let assignmentTXT = 'geo_id,zone\n';
 
           const partialUploadStep = () => {
             const assignments: Assignment[] = [];
             const rows = results.data as Array<Array<string>>;
             rows.slice(rowCursor, rowCursor + ROWS_PER_BATCH).forEach(row => {
               if (row.length == 2 && row[1] !== '' && !isNaN(Number(row[1]))) {
-                assignments.push({document_id, geo_id: row[0], zone: Number(row[1])});
+                assignmentTXT += `${row[0]},${row[1]}\n`;
               }
             });
-            patchUpdateAssignments(assignments).then(stepResult => {
+            uploadAssignments({assignmentTXT, document_id}).then(stepResult => {
               setProgress(rowCursor + assignments.length);
+              assignmentTXT = 'geo_id,zone\n';
               rowCursor += ROWS_PER_BATCH;
               if (rowCursor > results.data.length) {
                 setMapLinks([...mapLinks, {document_id, name: file.name}]);
