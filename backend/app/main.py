@@ -22,8 +22,9 @@ import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import engine
 from app.core.config import settings
-from app.utils import hash_password
+from app.utils import hash_password, verify_password
 import jwt
+from uuid import uuid4
 
 from sqlalchemy.orm import sessionmaker
 from app.models import (
@@ -121,10 +122,11 @@ async def db_is_alive(session: Session = Depends(get_session)):
 def check_map_lock(document_id, user_id, session):
     result = session.execute(
         text(
+            # something is wrong with the conflict check
             """WITH ins AS (
                 INSERT INTO document.map_document_user_session (document_id, user_id)
                 VALUES (:document_id, :user_id)
-                ON CONFLICT (document_id) DO NOTHING
+                ON CONFLICT DO NOTHING 
                 RETURNING user_id
             )
             SELECT user_id FROM ins
@@ -685,18 +687,131 @@ async def get_projects(
 @app.post("api/{document_id}/share_plan")
 async def share_districtr_plan(
     document_id: str,
-    params: dict = Body(...),  # what else needs to be included
+    params: dict = Body(...),  # pw and access mode- what else needs to be included?
     session: Session = Depends(get_session),
 ):
 
-    payload = {"doc_id": document_id, "exp": datetime.now(UTC) + timedelta(days=30)}
-    # take share params and return a jwt token that can be used to access the shared plan
-    if "password" in params:
-        hashed_password = hash_password(params["password"])
-        payload["password"] = hashed_password
+    # check if there's already a record for a document
+    existing_token = session.execute(
+        """
+        SELECT token_id, password_hash FROM document.map_document_token
+        WHERE document_id = :doc_id
+        """,
+        {"doc_id": document_id},
+    ).fetchone()
+
+    if existing_token:
+        token_uuid = existing_token.token_id
+
+        if params["password"] and not existing_token.password_hash:
+            hashed_password = hash_password(params["password"])
+            session.execute(
+                text(
+                    """
+                    UPDATE document.map_document_token
+                    SET password_hash = :password_hash
+                    WHERE token_id = :token_id
+                    """
+                ),
+                {"password_hash": hashed_password, "token_id": token_uuid},
+            )
+            session.commit()
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password already set for document",
+            )
+    else:
+        token_uuid = str(uuid4())
+        hashed_password = (
+            hash_password(params["password"]) if "password" in params else None
+        )
+        expiry = (
+            datetime.now(UTC) + timedelta(days=params["expiry_days"])
+            if "expiry_days" in params
+            else None
+        )
+
+        session.execute(
+            text(
+                """
+                    INSERT INTO document.map_document_token 
+                    (token_id, document_id, password_hash, expiration_date)
+                    VALUES (:token_id, :document_id, :password_hash, :expiration_date)
+                """
+            ),
+            {
+                "token_id": token_uuid,
+                "document_id": document_id,
+                "password_hash": hashed_password,
+                "expiration_date": expiry,
+            },
+        )
+
+        session.commit()
+
+    payload = {
+        "token": token_uuid,
+        "access": params["access_type"] if "access_type" in params else "read",
+    }
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
     return {"token": token}
+
+
+@app.post("api/load_plan_from_share", status_code=status.HTTP_200_OK)
+async def load_plan_from_share(
+    data: str = Body(...),
+    session: Session = Depends(get_session),
+):
+    try:
+        payload = jwt.decode(data.token, settings.SECRET_KEY, algorithms=["HS256"])
+        token_id = payload["token"]
+
+        result = session.execute(
+            text(
+                """
+                SELECT document_id, password_hash, expiration_date
+                FROM document.map_document_token
+                WHERE token_id = :token
+                """
+            ),
+            {"token": token_id},
+        ).fetchone()
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Token not found",
+            )
+        if result.password_hash:
+            if not payload["password"]:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Password required",
+                )
+            if not verify_password(payload["password"], result.password_hash):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid password",
+                )
+
+            # return the document to the user with the password
+            return get_document(result.document_id, {"user_id": data.user_id}, session)
+        else:
+            # return the document to the user
+            return get_document(result.document_id, {"user_id": data.user_id}, session)
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
 
 
 @app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
