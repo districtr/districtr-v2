@@ -7,7 +7,7 @@ import {Source, Layer} from 'react-map-gl/maplibre';
 
 export const MetaLayers = () => {
   const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
-  const assignmentsHash = useMapStore(state => state.assignmentsHash);
+  const zoneAssignments = useMapStore(state => state.zoneAssignments);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
   const [zoneNumberData, setZoneNumberData] = useState<any>(EMPTY_FT_COLLECTION);
@@ -37,7 +37,7 @@ export const MetaLayers = () => {
     }
   };
 
-  useEffect(handleUpdate, [showZoneNumbers, assignmentsHash]);
+  useEffect(handleUpdate, [showZoneNumbers, zoneAssignments]);
 
   useEffect(() => {
     const map = getMapRef();
