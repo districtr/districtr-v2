@@ -29,7 +29,7 @@ export type GeometryWorkerClass = {
    * Updates the zone assignments of the geometries.
    * @param entries - An array of [id, zone] pairs to update.
    */
-  updateProps: (entries: Array<[string, unknown]>) => void;
+  updateProps: (entries: Array<[string, unknown]>, iters?: number) => void;
   handleShatterHeal: (data: {
     parents: string[];
     children: string[];
@@ -74,7 +74,8 @@ export type GeometryWorkerClass = {
     minLon: number,
     minLat: number,
     maxLon: number,
-    maxLat: number
+    maxLat: number,
+    fast?: boolean
   ) => CentroidReturn;
 
   /**

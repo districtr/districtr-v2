@@ -18,7 +18,6 @@
  } from '@/app/constants/layers';
  import {ResetMapSelectState} from '@utils/events/handlers';
  import GeometryWorker from '../GeometryWorker';
- import {MinGeoJSONFeature} from '../GeometryWorker/geometryWorker.types';
  import {ActiveTool} from '@/app/constants/types';
  import {throttle} from 'lodash';
  import {useTooltipStore} from '@/app/store/tooltipStore';
@@ -247,7 +246,6 @@
  };
  
  export const handleDataLoad = (e: MapSourceDataEvent) => {
-   if (!e.isSourceLoaded) return;
    const {mapDocument, shatterMappings} = useMapStore.getState();
    const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {};
    if (
@@ -266,13 +264,14 @@
    const ft = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer]
    const currentStateFp = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
    currentStateFp && useMapStore.getState().setMapOptions({currentStateFp});
+   console.log("LOADING TILE DATA EVENT")
    if (mapDocument) {
-     GeometryWorker?.loadTileData({
+    GeometryWorker?.loadTileData({
       tileData: e.tile.latestRawTileData, 
       tileID: e.tile.tileID.canonical,
       mapDocument,
       idProp: 'path',
-     });
+    });
    }
  };
  

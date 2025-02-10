@@ -10,6 +10,7 @@ import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import bbox from '@turf/bbox';
 import { VectorTile } from "@mapbox/vector-tile";
 import Protobuf from "pbf";
+import booleanWithin from '@turf/boolean-within';
 
 
 const explodeMultiPolygonToPolygons = (
@@ -37,12 +38,26 @@ const GeometryWorker: GeometryWorkerClass = {
       features: Object.values(this.activeGeometries),
     };
   },
-  updateProps(entries) {
+  updateProps(entries, iters=0) {
+    let ok = 0;
+    let missing = 0;
+    if (iters > 5) {
+      return;
+    };
     entries.forEach(([id, zone]) => {
       if (this.geometries[id]?.properties) {
+        ok++;
         this.geometries[id].properties['zone'] = zone;
+      } else {
+        missing++;
       }
     });
+    const total = ok + missing;
+    if (missing/total > 0.5) {
+      setTimeout(() => {
+        this.updateProps(entries, iters+1);
+      }, 500);
+    }
   },
   handleShatterHeal({parents, children}) {
     const toAdd = [
@@ -182,20 +197,71 @@ const GeometryWorker: GeometryWorkerClass = {
       dissolved,
     };
   },
-  getCentroidsFromView(minLon, minLat, maxLon, maxLat) {
-    const clippedFeatures: GeoJSON.Feature[] = [];
-    this.getGeos().features.forEach(f => {
-      if (f.properties?.zone == null) return;
-      const clipped = bboxClip(f.geometry as GeoJSON.Polygon, [minLon, minLat, maxLon, maxLat]);
-      if (clipped.geometry?.coordinates.length) {
-        clippedFeatures.push({
-          ...f,
-          geometry: clipped.geometry,
-        });
+  getCentroidsFromView(minLon, minLat, maxLon, maxLat, fast) {
+    if (fast) {
+      const t0 = performance.now();
+      const visitedZones = new Set();
+      const centroids: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: [],
+      };
+      const dissolved: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: [],
+      };
+      const bboxGeom: GeoJSON.Polygon = {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [minLon, minLat],
+            [minLon, maxLat],
+            [maxLon, maxLat],
+            [maxLon, minLat],
+            [minLon, minLat],
+          ],
+        ],
       }
-    });
-    const {dissolved, centroids} = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
-    return {dissolved, centroids};
+      const keys = Object.keys(this.activeGeometries);
+      // randomize the order of the keys
+      const shuffledKeys = keys.sort(() => Math.random() - 0.5);
+      shuffledKeys.forEach(key => {
+        const f = this.activeGeometries[key];
+        if (f.properties?.zone == null) return;
+        const zone = f.properties.zone;
+        if (visitedZones.has(zone) || f.geometry.type !== 'Polygon') return;
+        const within = booleanWithin(f, bboxGeom);
+        if (!within) return;
+        try {
+
+          let centroid = centerOfMass(f);
+          centroid.properties = {zone};
+          // @ts-ignore
+          centroids.features.push(centroid);
+          visitedZones.add(zone);
+        } catch (e) {
+        }
+      })
+      return {
+        centroids,
+        dissolved
+      }
+    } else {
+
+
+      const clippedFeatures: GeoJSON.Feature[] = [];
+      this.getGeos().features.forEach(f => {
+        if (f.properties?.zone == null) return;
+        const clipped = bboxClip(f.geometry as GeoJSON.Polygon, [minLon, minLat, maxLon, maxLat]);
+        if (clipped.geometry?.coordinates.length) {
+          clippedFeatures.push({
+            ...f,
+            geometry: clipped.geometry,
+          });
+        }
+      });
+      const {dissolved, centroids} = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
+      return {dissolved, centroids};
+    }
   },
   async getUnassignedGeometries(useBackend = false, documentId?: string, exclude_ids?: string[]) {
     const geomsToDissolve: GeoJSON.Feature[] = [];
