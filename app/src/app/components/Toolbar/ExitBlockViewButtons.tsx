@@ -8,9 +8,9 @@ export function ExitBlockViewButtons() {
       <Button onClick={() => exitBlockView()} variant={'solid'}>
         Return to Districts
       </Button>
-      <Button onClick={() => exitBlockView(true)} variant={'surface'}>
+      {/* <Button onClick={() => exitBlockView(true)} variant={'surface'}>
         Lock & Return to Districts
-      </Button>
+      </Button> */}
     </Flex>
   ) : null;
 }
