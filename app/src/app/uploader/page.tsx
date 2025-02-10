@@ -19,6 +19,7 @@ export default function Uploader() {
   const ROWS_PER_BATCH = 200000;
 
   const gTable = useMapStore(state => state.mapDocument?.gerrydb_table);
+  const upsertUserMap = useMapStore(state => state.upsertUserMap);
 
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
@@ -38,6 +39,9 @@ export default function Uploader() {
         createMapDocument({
           gerrydb_table: gTable ?? '',
         }).then(response => {
+          upsertUserMap({
+            mapDocument: response,
+          });
           const {document_id} = response;
           let rowCursor = 0;
           let uploadRows: [string, string][] = [];
