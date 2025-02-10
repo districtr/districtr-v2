@@ -117,7 +117,7 @@ export const getFeatureUnderCursor = (
   brushSize: number,
   layers: string[] = [BLOCK_HOVER_LAYER_ID]
 ): MapGeoJSONFeature[] | undefined => {
-  return filterFeatures(map?.queryRenderedFeatures(e.point, {layers}) || []);
+  return filterFeatures(map?.queryRenderedFeatures(e.point, {layers}) || [], true);
 };
 
 /**
@@ -511,6 +511,8 @@ const filterFeatures = (
     checkParentsToHeal,
     selectedZone,
     shatterIds,
+    zoneAssignments,
+    activeTool,
   } = useMapStore.getState();
   const parentIdsToHeal: MapStore['parentsToHeal'] = [];
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
@@ -521,13 +523,17 @@ const filterFeatures = (
     if (
       mapOptions.lockPaintedAreas === true ||
       (Array.isArray(mapOptions.lockPaintedAreas) &&
+        activeTool === 'brush' &&
         mapOptions.lockPaintedAreas.includes(selectedZone))
     ) {
       return [];
     } else if (Array.isArray(mapOptions.lockPaintedAreas) && mapOptions.lockPaintedAreas.length) {
       const lockedAreas = mapOptions.lockPaintedAreas;
+
       filterFunctions.push(
-        f => !lockedFeatures.has(f.id?.toString() || '') && !lockedAreas.includes(selectedZone)
+        f =>
+          !lockedFeatures.has(f.id?.toString() || '') &&
+          !lockedAreas.includes(zoneAssignments.get(f.id?.toString() || '') || null)
       );
     }
   }
