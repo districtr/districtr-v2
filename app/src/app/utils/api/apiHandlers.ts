@@ -567,12 +567,12 @@ export const patchUnShatterParents: (params: {
  * @returns true if upload succeeds
  */
 export const uploadAssignments: (updateData: {
-  assignmentTXT: string;
+  assignments: [string, string][];
   document_id: string;
-}) => Promise<AssignmentsCreate> = async ({assignmentTXT, document_id}) => {
+}) => Promise<AssignmentsCreate> = async ({assignments, document_id}) => {
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload_assignments`, {
-      assignmentTXT: assignmentTXT,
+      assignments,
       document_id,
     })
     .then(res => {

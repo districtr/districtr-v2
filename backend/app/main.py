@@ -5,7 +5,6 @@ from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
-import io
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
@@ -275,21 +274,23 @@ async def upload_assignments(
     data: AssignmentsBulkUpload, session: Session = Depends(get_session)
 ):
     d = data.model_dump()
-    csv_file = io.StringIO(d["assignmentTXT"])
+    csv_rows = d["assignments"]
+    document_id = d["document_id"]
 
-    session.execute(text("DROP TABLE IF EXISTS temploader"))
-    session.execute(text("""CREATE TABLE temploader (
+    session.execute(text("""CREATE TEMP TABLE temploader (
         geo_id TEXT,
         zone INT
     )"""))
-    session.connection().connection.cursor().copy_expert(
-        "COPY temploader FROM STDIN WITH CSV HEADER", csv_file
-    )
+    cursor = session.connection().connection.cursor()
+    with cursor.copy("COPY temploader (geo_id, zone) FROM STDIN") as copy:
+        for record in csv_rows:
+            copy.write_row([record[0], int(record[1])])
+
     session.execute(text("""
         INSERT INTO document.assignments (geo_id, zone, document_id)
         SELECT geo_id, zone, :document_id
         FROM temploader
-    """), {"document_id":  d["document_id"]})
+    """), {"document_id":  document_id})
     session.commit()
 
     return {"assignments_upserted": 1}
