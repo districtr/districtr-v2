@@ -263,48 +263,17 @@
    if (!tileData.vtLayers) {
      tileData.loadVTLayers();
    }
-   const isChild = false; // child_layer && e.features?.length && e.features[0].sourceLayer === child_layer;
-   const featureArray: MinGeoJSONFeature[] = [];
-   // const index = `${tileData.x}-${tileData.y}-${tileData.z}`;
-   if (isChild) {
-     // const featureDict: Record<string, any> = {};
-     // const childId = e.features?.[0]?.properties?.path;
-     // const parentSet =
-     //   childId &&
-     //   Object.entries(shatterMappings).find(([parents, children]) => children.has(childId));
-     // if (!parentSet) return;
-     // for (let i = 0; i < e.features.length; i++) {
-     //   const feature = e.features[i];
-     //   if (!feature || feature.sourceLayer !== child_layer) continue;
-     //   const id = feature.id;
-     //   featureArray.push({
-     //     type: 'Feature',
-     //     properties: {
-     //       ...feature.properties,
-     //       id,
-     //       path: feature.properties.path,
-     //     },
-     //     geometry: feature.geometry,
-     //     sourceLayer: feature.sourceLayer,
-     //   });
-     // }
-     // GeometryWorker?.loadGeometry(featureArray, 'path');
-   } else {
-     const t0 = performance.now();
-     const {x, y, z} = tileData;
-     const tileFeatures = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer];
-     for (let i = 0; i < tileFeatures.length; i++) {
-       let feature = tileFeatures.feature(i).toGeoJSON(x, y, z);
-       feature.id = feature.properties.path;
-       feature.sourceLayer = parent_layer;
-       featureArray.push(feature);
-     }
-     const t1 = performance.now();
-     console.log(`Call to loadGeometry took ${t1 - t0} milliseconds.`);
-     const currentStateFp = featureArray[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
-     currentStateFp && useMapStore.getState().setMapOptions({currentStateFp});
+   const ft = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer]
+   const currentStateFp = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
+   currentStateFp && useMapStore.getState().setMapOptions({currentStateFp});
+   if (mapDocument) {
+     GeometryWorker?.loadTileData({
+      tileData: e.tile.latestRawTileData, 
+      tileID: e.tile.tileID.canonical,
+      mapDocument,
+      idProp: 'path',
+     });
    }
-   GeometryWorker?.loadGeometry(featureArray, 'path');
  };
  
  export const mapEventHandlers = {

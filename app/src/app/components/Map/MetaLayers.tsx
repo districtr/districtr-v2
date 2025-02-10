@@ -1,55 +1,55 @@
 import {getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
-import {throttle} from 'lodash';
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import {useEffect} from 'react';
-import {useCallback} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 
 export const MetaLayers = () => {
   const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
+  const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
   const [zoneNumberData, setZoneNumberData] = useState<any>([]);
+  const [dataDocumentId, setDataDocumentId] = useState<string | null>(null);
+  const updateTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const showLayer = dataDocumentId === mapDocumentId;
 
   const addZoneMetaLayers = async () => {
     const showZoneNumbers = useMapStore.getState().mapOptions.showZoneNumbers;
+    const id = `${mapDocumentId}`;
     if (showZoneNumbers) {
       const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
       await GeometryWorker?.updateProps(zoneEntries);
       const geoms = await getDissolved();
       geoms && setZoneNumberData(geoms.centroids);
+      setDataDocumentId(id);
     } else {
       setZoneNumberData([]);
     }
   };
+  const handleUpdate = () => {
+    updateTimeout.current && clearTimeout(updateTimeout.current);
+    updateTimeout.current = setTimeout(() => {
+      addZoneMetaLayers();
+    }, 1000);
+  }
 
-  const throttleUpdateZoneMetaLayers = useCallback(
-    throttle(addZoneMetaLayers, 1000, {
-      leading: true,
-      trailing: true,
-    }),
-    []
-  );
-
-  useEffect(() => {
-      throttleUpdateZoneMetaLayers();
-  }, [showZoneNumbers, assignmentsHash]);
+  useEffect(handleUpdate, [showZoneNumbers, assignmentsHash]);
 
   useEffect(() => {
     const map = getMapRef();
     if (map) {
-      map.on('moveend', throttleUpdateZoneMetaLayers);
-      map.on('zoomend', throttleUpdateZoneMetaLayers);
+      map.on('moveend', handleUpdate);
+      map.on('zoomend', handleUpdate);
     }
     return () => {
       if (map) {
-        map.off('moveend', throttleUpdateZoneMetaLayers);
-        map.off('zoomend', throttleUpdateZoneMetaLayers);
+        map.off('moveend', handleUpdate);
+        map.off('zoomend', handleUpdate);
       }
     };
-  }, [getMapRef])
+  }, [getMapRef]);
 
   return (
     <>
@@ -59,6 +59,9 @@ export const MetaLayers = () => {
             id="ZONE_LABEL_BG"
             type="circle"
             source="ZONE_LABEL"
+            layout={{
+              visibility: showLayer ? 'visible' : 'none',
+            }}
             paint={{
               'circle-color': '#fff',
               'circle-radius': 15,
@@ -73,6 +76,7 @@ export const MetaLayers = () => {
             type="symbol"
             source="ZONE_LABEL"
             layout={{
+              visibility: showLayer ? 'visible' : 'none',
               'text-field': ['get', 'zone'],
               'text-font': ['Barlow Bold'],
               'text-size': 18,

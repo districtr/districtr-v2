@@ -5,6 +5,7 @@ import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
 import {districtrIdbCache} from '../utils/cache';
+import GeometryWorker from '../utils/GeometryWorker';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
@@ -66,6 +67,16 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     {equalityFn: shallowCompareArray}
   );
 
+  const updateGeometryWorkerState = useMapStore.subscribe(
+    state => state.shatterIds,
+    (curr) => {
+      GeometryWorker?.handleShatterHeal({
+        parents: Array.from(curr.parents),
+        children: Array.from(curr.children),
+      })
+    }
+  )
+
   const lockMapOnShatterIdChange = useMapStore.subscribe<
     [MapStore['shatterIds']['parents'], MapStore['appLoadingState']]
   >(
@@ -117,5 +128,5 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     }
   );
 
-  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange];
+  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange, updateGeometryWorkerState];
 };

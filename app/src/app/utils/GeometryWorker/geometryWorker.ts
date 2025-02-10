@@ -8,54 +8,8 @@ import pointOnFeature from '@turf/point-on-feature';
 import pointsWithinPolygon from '@turf/points-within-polygon';
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import bbox from '@turf/bbox';
-import { VectorTileFeature } from '@mapbox/vector-tile';
-export class GeoJSONFeature {
-    type: 'Feature';
-    // @ts-ignore
-    _geometry: GeoJSON.Geometry;
-    properties: { [name: string]: any };
-    id: number | string | undefined;
-
-    _vectorTileFeature: VectorTileFeature;
-
-    constructor(vectorTileFeature: VectorTileFeature, z: number, x: number, y: number, id: string | number | undefined) {
-        this.type = 'Feature';
-
-        this._vectorTileFeature = vectorTileFeature;
-        (vectorTileFeature as any)._z = z;
-        (vectorTileFeature as any)._x = x;
-        (vectorTileFeature as any)._y = y;
-
-        this.properties = vectorTileFeature.properties;
-        this.id = id;
-    }
-
-    get geometry(): GeoJSON.Geometry {
-        if (this._geometry === undefined) {
-            this._geometry = this._vectorTileFeature.toGeoJSON(
-                (this._vectorTileFeature as any)._x,
-                (this._vectorTileFeature as any)._y,
-                (this._vectorTileFeature as any)._z).geometry;
-        }
-        return this._geometry;
-    }
-
-    set geometry(g: GeoJSON.Geometry) {
-        this._geometry = g;
-    }
-
-    toJSON() {
-        const json: any = {
-            geometry: this.geometry
-        };
-        for (const i in this) {
-            if (i === '_geometry' || i === '_vectorTileFeature') continue;
-            json[i] = (this)[i];
-        }
-        return json;
-    }
-}
-
+import { VectorTile } from "@mapbox/vector-tile";
+import Protobuf from "pbf";
 
 
 const explodeMultiPolygonToPolygons = (
@@ -72,10 +26,15 @@ const explodeMultiPolygonToPolygons = (
 
 const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
+  activeGeometries: {},
+  shatterIds: {
+    parents: [],
+    children: [],
+  },
   getGeos() {
     return {
       type: 'FeatureCollection',
-      features: Object.values(this.geometries),
+      features: Object.values(this.activeGeometries),
     };
   },
   updateProps(entries) {
@@ -85,6 +44,26 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     });
   },
+  handleShatterHeal({parents, children}) {
+    const toAdd = [
+      ...this.shatterIds.parents.filter(id => !parents.includes(id)),
+      ...children.filter(id => !this.shatterIds.children.includes(id)),
+    ]
+    const toRemove = [
+      ...this.shatterIds.children.filter(id => !children.includes(id)),
+      ...parents.filter(id => !this.shatterIds.parents.includes(id)),
+    ]
+    toAdd.forEach(id => {
+      this.geometries[id] && (this.activeGeometries[id] = this.geometries[id]);
+    })
+    toRemove.forEach(id => {
+      this.activeGeometries[id] && (delete this.activeGeometries[id]);
+    })
+    this.shatterIds = {
+      parents,
+      children,
+    }
+  },
   removeGeometries(ids) {
     ids.forEach(id => {
       delete this.geometries[id];
@@ -92,17 +71,50 @@ const GeometryWorker: GeometryWorkerClass = {
   },
   clearGeometries() {
     this.geometries = {};
+    this.activeGeometries = {};
+    this.shatterIds = {
+      parents: [],
+      children: [],
+    };
   },
   loadTileData({
+    tileData,
     tileID,
-    layer,
-    id
+    mapDocument,
+    idProp
   }){
-    console.log('Loading tile data');
-    const {z,x,y} = tileID;
+    const tile = new VectorTile(new Protobuf(tileData));
+    // Iterate through each layer in the tile
+    const parentLayer = mapDocument.parent_layer;
+    const childLayer = mapDocument.child_layer;
+    for (const layerName in tile.layers) {
+      const isParent = layerName === parentLayer;
+      const layer = tile.layers[layerName];
+
+        // Extract features from the layer
+        for (let i = 0; i < layer.length; i++) {
+            const feature = layer.feature(i);
+            const id = feature?.properties?.[idProp] as string;
+            const prevZoom = this.geometries?.[id]?.zoom
+
+            if (!id || (prevZoom && prevZoom > tileID.z)) continue;
+            let geojsonFeature: any = feature.toGeoJSON(tileID.x, tileID.y, tileID.z);
+            geojsonFeature.zoom = tileID.z;
+            geojsonFeature.id = id;
+            geojsonFeature.sourceLayer = layerName;
+            geojsonFeature.properties = feature.properties;
+            this.geometries[id as string] = geojsonFeature;
+            if (
+              (isParent && !this.shatterIds.parents.includes(id))
+              || (!isParent && this.shatterIds.children.includes(id))
+            ) {
+              this.activeGeometries[id] = geojsonFeature;
+            }
+
+        }
+    }
   },
   loadGeometry(featuresOrStringified, idProp) {
-    console.log(featuresOrStringified[0])
     const features: MapGeoJSONFeature[] =
       typeof featuresOrStringified === 'string'
         ? JSON.parse(featuresOrStringified)
@@ -188,7 +200,6 @@ const GeometryWorker: GeometryWorkerClass = {
   async getUnassignedGeometries(useBackend = false, documentId?: string, exclude_ids?: string[]) {
     const geomsToDissolve: GeoJSON.Feature[] = [];
     if (useBackend) {
-      console.log('Fetching unassigned geometries from backend');
       const url = new URL(
         `${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`
       );
