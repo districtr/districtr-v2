@@ -264,7 +264,6 @@
    const ft = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer]
    const currentStateFp = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
    currentStateFp && useMapStore.getState().setMapOptions({currentStateFp});
-   console.log("LOADING TILE DATA EVENT")
    if (mapDocument) {
     GeometryWorker?.loadTileData({
       tileData: e.tile.latestRawTileData, 

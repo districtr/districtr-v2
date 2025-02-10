@@ -22,7 +22,6 @@ export const MetaLayers = () => {
       const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
       await GeometryWorker?.updateProps(zoneEntries);
       const geoms = await getDissolved();
-      console.log("geoms", geoms?.centroids);
       geoms && setZoneNumberData(geoms.centroids);
       setDataDocumentId(id);
     } else {
