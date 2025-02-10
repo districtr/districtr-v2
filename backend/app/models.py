@@ -184,7 +184,7 @@ class AssignmentsCreate(BaseModel):
 
 
 class AssignmentsBulkUpload(BaseModel):
-    assignmentTXT: str
+    assignments: list[list[str]]
     document_id: str
 
 

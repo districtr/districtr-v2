@@ -40,19 +40,19 @@ export default function Uploader() {
         }).then(response => {
           const {document_id} = response;
           let rowCursor = 0;
-          let assignmentTXT = 'geo_id,zone\n';
+          let uploadRows: [string, number][] = [];
 
           const partialUploadStep = () => {
             const assignments: Assignment[] = [];
             const rows = results.data as Array<Array<string>>;
             rows.slice(rowCursor, rowCursor + ROWS_PER_BATCH).forEach(row => {
               if (row.length == 2 && row[1] !== '' && !isNaN(Number(row[1]))) {
-                assignmentTXT += `${row[0]},${row[1]}\n`;
+                uploadRows.push([row[0], row[1]]);
               }
             });
-            uploadAssignments({assignmentTXT, document_id}).then(stepResult => {
+            uploadAssignments({assignments: uploadRows, document_id}).then(stepResult => {
               setProgress(rowCursor + assignments.length);
-              assignmentTXT = 'geo_id,zone\n';
+              uploadRows = [];
               rowCursor += ROWS_PER_BATCH;
               if (rowCursor > results.data.length) {
                 setMapLinks([...mapLinks, {document_id, name: file.name}]);
