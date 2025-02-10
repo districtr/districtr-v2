@@ -54,7 +54,8 @@ export type GeometryWorkerClass = {
   /**
    * Clears the collection of geometries.
    */
-  clearGeometries: () => void;
+  clear: () => void;
+  resetZones: () => void;
   /**
    * Parses geometries and returns their centroids.
    * @param features - The features to parse.

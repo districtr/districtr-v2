@@ -84,13 +84,18 @@ const GeometryWorker: GeometryWorkerClass = {
       delete this.geometries[id];
     });
   },
-  clearGeometries() {
+  clear() {
     this.geometries = {};
     this.activeGeometries = {};
     this.shatterIds = {
       parents: [],
       children: [],
     };
+  },
+  resetZones() {
+    for (const id in this.geometries) {
+      this.geometries[id].properties.zone = null;
+    }
   },
   loadTileData({
     tileData,

@@ -422,7 +422,11 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             return;
           }
           const initialMapOptions = useMapStore.getInitialState().mapOptions;
-          GeometryWorker?.clearGeometries()
+          if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
+            GeometryWorker?.clear()
+          } else {
+            GeometryWorker?.resetZones();
+          }
           idCache.clear();
           allPainted.clear();
           lastSentAssignments.clear();
@@ -827,6 +831,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           if (resetResponse.document_id === document_id) {
             const initialState = useMapStore.getInitialState();
             useMapStore.temporal.getState().clear()
+            GeometryWorker?.resetZones();
             lastSentAssignments.clear();
             resetZoneColors({
               zoneAssignments,
