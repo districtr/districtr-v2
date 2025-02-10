@@ -5,8 +5,6 @@ import {
   MapLayerMouseEvent,
   MapLayerTouchEvent,
   MapGeoJSONFeature,
-  LngLat,
-  LngLatLike,
 } from 'maplibre-gl';
 import {
   BLOCK_HOVER_LAYER_ID,
@@ -142,7 +140,7 @@ export const getFeaturesIntersectingCounties = (
 
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
-  const {mapDocument, shatterIds, checkParentsToHeal} = useMapStore.getState();
+  const {mapDocument, shatterIds} = useMapStore.getState();
   const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
   const cachedParentFeatures = idCache
     .getFiltered(`${filterPrefix}${fips}`)
