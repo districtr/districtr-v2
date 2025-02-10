@@ -63,6 +63,7 @@ export const ZoneLayerGroup: React.FC<{
     const filterBase: FilterSpecification = ['in', ['get', 'path'], ['literal', cleanIds]];
     return child ? filterBase : (['!', filterBase] as FilterSpecification);
   }, [shatterIds, child]);
+
   const lineWidth = child ? 1 : 2;
 
   const layerOpacity = useMemo(() => getLayerFill(
@@ -116,7 +117,7 @@ export const ZoneLayerGroup: React.FC<{
         id={child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID}
         source={BLOCK_SOURCE_ID}
         source-layer={id}
-        filter={layerFilter}
+        filter={child ? layerFilter : ['literal', true]}
         beforeId={LABELS_BREAK_LAYER_ID}
         type="fill"
         layout={{
