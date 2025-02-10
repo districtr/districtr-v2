@@ -65,6 +65,12 @@ export const ZoneLayerGroup: React.FC<{
   }, [shatterIds, child]);
   const lineWidth = child ? 1 : 2;
 
+  const layerOpacity = useMemo(() => getLayerFill(
+    captiveIds,
+    child ? shatterIds.children : shatterIds.parents,
+    child
+  ), [captiveIds, shatterIds, child])
+
   if (!id || !mapDocument) return null;
 
   return (
@@ -117,10 +123,7 @@ export const ZoneLayerGroup: React.FC<{
           visibility: 'visible',
         }}
         paint={{
-          'fill-opacity': getLayerFill(
-            captiveIds,
-            child ? shatterIds.children : shatterIds.parents
-          ),
+          'fill-opacity': layerOpacity,
           'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
         }}
       />
