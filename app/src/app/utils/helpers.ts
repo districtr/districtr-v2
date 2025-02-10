@@ -17,7 +17,7 @@ import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {idCache} from '../store/idCache';
 import {ChartStore, useChartStore} from '@/app/store/chartStore';
-import { calculateMinMaxRange } from './zone-helpers';
+import {calculateMinMaxRange} from './zone-helpers';
 
 /**
  * PaintEventHandler
@@ -503,17 +503,33 @@ const filterFeatures = (
   filterLocked: boolean = true,
   additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = []
 ) => {
-  const {captiveIds, lockedFeatures, mapDocument, mapOptions, checkParentsToHeal, selectedZone, shatterIds} =
-    useMapStore.getState();
+  const {
+    captiveIds,
+    lockedFeatures,
+    mapDocument,
+    mapOptions,
+    checkParentsToHeal,
+    selectedZone,
+    shatterIds,
+  } = useMapStore.getState();
   const parentIdsToHeal: MapStore['parentsToHeal'] = [];
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
   if (captiveIds.size) {
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
   if (filterLocked) {
-    filterFunctions.push(f => !lockedFeatures.has(f.id?.toString() || '') &&
-      mapOptions.lockPaintedAreas !== true && (mapOptions.lockPaintedAreas === false || !mapOptions.lockPaintedAreas.includes(selectedZone))
-    );
+    if (
+      mapOptions.lockPaintedAreas === true ||
+      (Array.isArray(mapOptions.lockPaintedAreas) &&
+        mapOptions.lockPaintedAreas.includes(selectedZone))
+    ) {
+      return [];
+    } else if (Array.isArray(mapOptions.lockPaintedAreas) && mapOptions.lockPaintedAreas.length) {
+      const lockedAreas = mapOptions.lockPaintedAreas;
+      filterFunctions.push(
+        f => !lockedFeatures.has(f.id?.toString() || '') && !lockedAreas.includes(selectedZone)
+      );
+    }
   }
   if (mapDocument?.child_layer && shatterIds.parents.size) {
     filterFunctions.push(f => {
@@ -561,7 +577,7 @@ export const updateChartData = (
 
     const allAreNonZero = chartData.every(entry => entry.total_pop > 0);
     const stats = allAreNonZero ? calculateMinMaxRange(chartData) : undefined;
-    
+
     useChartStore.getState().setChartInfo({
       stats,
       chartData,
