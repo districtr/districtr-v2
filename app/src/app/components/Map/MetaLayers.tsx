@@ -1,4 +1,4 @@
-import {getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
+import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import {useRef, useState} from 'react';
@@ -10,7 +10,7 @@ export const MetaLayers = () => {
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
-  const [zoneNumberData, setZoneNumberData] = useState<any>([]);
+  const [zoneNumberData, setZoneNumberData] = useState<any>(EMPTY_FT_COLLECTION);
   const [dataDocumentId, setDataDocumentId] = useState<string | null>(null);
   const updateTimeout = useRef<ReturnType<typeof setTimeout>>();
   const showLayer = dataDocumentId === mapDocumentId;
@@ -25,7 +25,7 @@ export const MetaLayers = () => {
       geoms && setZoneNumberData(geoms.centroids);
       setDataDocumentId(id);
     } else {
-      setZoneNumberData([]);
+      setZoneNumberData(EMPTY_FT_COLLECTION);
     }
   };
   const handleUpdate = () => {
@@ -33,7 +33,7 @@ export const MetaLayers = () => {
     updateTimeout.current = setTimeout(() => {
       addZoneMetaLayers();
     }, 1000);
-  }
+  };
 
   useEffect(handleUpdate, [showZoneNumbers, assignmentsHash]);
 

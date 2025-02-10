@@ -251,9 +251,7 @@
    if (
      !tiles_s3_path ||
      !parent_layer ||
-     // e.dataType !== 'source' ||
-     !('url' in e.source) ||
-     !e.source.url?.includes(tiles_s3_path)
+     !(e?.source as any)?.url?.includes(tiles_s3_path)
    )
      return;
    const tileData = e?.tile?.latestFeatureIndex;
