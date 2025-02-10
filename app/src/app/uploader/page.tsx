@@ -40,7 +40,7 @@ export default function Uploader() {
         }).then(response => {
           const {document_id} = response;
           let rowCursor = 0;
-          let uploadRows: [string, number][] = [];
+          let uploadRows: [string, string][] = [];
 
           const partialUploadStep = () => {
             const assignments: Assignment[] = [];
