@@ -195,12 +195,13 @@ export const PopulationChart: React.FC<{
                   yScale,
                   entry,
                   maxPop,
+                  idealPopulation,
                   index,
                   barHeight,
                   isHovered,
                   showPopNumbers,
                   showTopBottomDeviation,
-                  width
+                  width,
                 }}
               />
             )}

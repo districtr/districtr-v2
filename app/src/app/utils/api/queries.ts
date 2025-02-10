@@ -13,15 +13,18 @@ import {
   getTotPopSummaryStats,
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
+  LocalAssignmentsResponse,
+  RemoteAssignmentsResponse,
 } from './apiHandlers';
 import {getEntryTotal} from '@/app/utils/summaryStats';
 import {useMapStore} from '@/app/store/mapStore';
 import {useChartStore} from '@/app/store/chartStore';
+import { updateChartData } from '../helpers';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
 
-export const mapMetrics = new QueryObserver<ZonePopulation[]>(queryClient, {
+export const mapMetrics = new QueryObserver<{data: ZonePopulation[]; hash: string}>(queryClient, {
   queryKey: ['_zonePopulations'],
   queryFn: skipToken,
 });
@@ -34,7 +37,21 @@ export const updateMapMetrics = (mapDocument: DocumentObject) => {
 };
 
 mapMetrics.subscribe(result => {
-  useChartStore.getState().setMapMetrics(result);
+  // don't load the result if:
+  // no data
+  // if the query is currently fetching
+  // hash is stale, but not the initial hash
+  if (
+    result?.data?.data &&
+    !result.isFetching &&
+    (useMapStore.getState().lastUpdatedHash === result.data?.hash || result?.data.hash == '')
+  ) {
+    useChartStore.getState().setMapMetrics({
+      ...result,
+      // @ts-ignore data is not undefined
+      data: result.data.data,
+    });
+  }
 });
 
 export const mapViewsQuery = new QueryObserver<DistrictrMap[]>(queryClient, {
@@ -57,13 +74,24 @@ export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
   });
   fetchTotPop.subscribe(response => {
     if (response?.data?.results) {
-      console.log(response?.data?.results);
-      useMapStore.getState().setSummaryStat('totpop', {data: response.data.results});
-      useMapStore.getState().setSummaryStat('idealpop', {
-        data:
-          getEntryTotal(response.data.results) /
-          (useMapStore.getState().mapDocument?.num_districts ?? 1),
+      const data = {
+        ...response.data.results,
+        total: getEntryTotal(response.data.results),
+      };
+      const {setSummaryStat, mapDocument} = _useMapStore.getState();
+      setSummaryStat('totpop', {data});
+      setSummaryStat('idealpop', {
+        data: data.total / (mapDocument?.num_districts ?? 1),
       });
+      
+      const mapMetrics = useChartStore.getState().mapMetrics;
+      if (mapMetrics && mapDocument?.num_districts && data.total) {
+        updateChartData(
+          mapMetrics,
+          mapDocument.num_districts,
+          data.total
+        )
+      }
     } else {
       useMapStore.getState().setSummaryStat('totpop', undefined);
     }
@@ -109,12 +137,12 @@ updateDocumentFromId.subscribe(mapDocument => {
     url.searchParams.delete('document_id');
     window.history.replaceState({}, document.title, url.toString());
   }
-  if (mapDocument.data) {
+  if (mapDocument.data && mapDocument.data.document_id !== useMapStore.getState().loadedMapId) {
     useMapStore.getState().setMapDocument(mapDocument.data);
   }
 });
 
-export const fetchAssignments = new QueryObserver<null | Assignment[]>(queryClient, {
+export const fetchAssignments = new QueryObserver<null | LocalAssignmentsResponse | RemoteAssignmentsResponse>(queryClient, {
   queryKey: ['assignments'],
   queryFn: () => getAssignments(useMapStore.getState().mapDocument),
 });
@@ -128,7 +156,19 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    useMapStore.getState().loadZoneAssignments(assignments.data);
+  const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
+    if (assignments.data.documentId === loadedMapId) {
+      console.log(
+        'Map already loaded, skipping assignment load',
+        assignments.data.documentId,
+        loadedMapId
+      );
+    } else {
+      loadZoneAssignments(assignments.data);
+      fetchTotPop.refetch();
+      useMapStore.temporal.getState().clear();
+    }
+    setAppLoadingState('loaded');
   }
 });
 

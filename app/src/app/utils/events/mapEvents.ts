@@ -17,9 +17,9 @@ import {
 } from '@/app/constants/layers';
 import {ResetMapSelectState} from '@utils/events/handlers';
 import GeometryWorker from '../GeometryWorker';
-import { MinGeoJSONFeature } from '../GeometryWorker/geometryWorker.types';
+import {MinGeoJSONFeature} from '../GeometryWorker/geometryWorker.types';
 import {ActiveTool} from '@/app/constants/types';
-import { parentIdCache } from '@/app/store/idCache';
+import {idCache} from '@/app/store/idCache';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/mapStore';
@@ -52,12 +52,13 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
  * @param map - Map | null, the maplibre map instance
  */
-export const handleMapClick = (
+export const handleMapClick = throttle((
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
   const mapStore = useMapStore.getState();
-  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures, setIsPainting} = mapStore;
+  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures, setIsPainting} =
+    mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
@@ -67,7 +68,7 @@ export const handleMapClick = (
       // @ts-ignore TODO fix typing on this function
       selectMapFeatures(selectedFeatures);
       // end paint event to commit changes to zone assignments
-      setIsPainting(false)
+      setIsPainting(false);
     }
   } else if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
@@ -87,7 +88,7 @@ export const handleMapClick = (
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
-};
+}, 25);
 
 export const handleMapMouseUp = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
@@ -110,7 +111,7 @@ export const handleMapMouseDown = (
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
 
-  if (activeTool === 'pan') {
+  if (activeTool === 'pan' || activeTool === 'zoomToUnassigned') {
     // enable drag pan
     map?.dragPan.enable();
   } else if (activeTool === 'brush' || activeTool === 'eraser') {
@@ -141,8 +142,10 @@ export const handleMapMouseLeave = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
-  useTooltipStore.getState().setTooltip(null);
+  setTimeout(() => {
+    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
+    useTooltipStore.getState().setTooltip(null);
+  }, 250);
   useMapStore.getState().setIsPainting(false);
 };
 
@@ -150,8 +153,10 @@ export const handleMapMouseOut = (
   e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
-  useTooltipStore.getState().setTooltip(null);
+  setTimeout(() => {
+    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
+    useTooltipStore.getState().setTooltip(null);
+  }, 250);
   useMapStore.getState().setIsPainting(false);
 };
 
@@ -211,9 +216,9 @@ export const handleMapZoom = (
 export const handleMapIdle = () => {};
 
 export const handleMapMoveEnd = () => {
-  const { mapOptions } = useMapStore.getState()
+  const {mapOptions} = useMapStore.getState();
   if (mapOptions.showZoneNumbers) {
-    debouncedAddZoneMetaLayers({})
+    debouncedAddZoneMetaLayers({});
   }
 };
 
@@ -274,9 +279,10 @@ export const handleIdCache = (
   _e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
-  const e = _e as any
-  const {tiles_s3_path, parent_layer} = useMapStore.getState().mapDocument || {}
-  
+  const e = _e as any;
+
+  const {mapDocument, shatterMappings} = useMapStore.getState();
+  const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {};
   if (
     !tiles_s3_path ||
     !parent_layer ||
@@ -288,29 +294,47 @@ export const handleIdCache = (
 
   const tileData = e.tile.latestFeatureIndex;
 
-  if (!tileData) return
-  
-  const index = `${tileData.x}-${tileData.y}-${tileData.z}`
-  if (parentIdCache.hasCached(index)) return
-  const featureArray: MinGeoJSONFeature[] = []
-  for (let i = 0; i < e.features.length; i++) {
-    const feature = e.features[i]
-    if (!feature || feature.sourceLayer !== parent_layer) continue
-    const id = feature.id
-    featureArray.push({
-      type: "Feature",
-      properties: feature.properties,
-      geometry: feature.geometry,
-      sourceLayer: feature.sourceLayer
-    })
+  if (!tileData) return;
+
+  const isChild = child_layer && e.features?.length && e.features[0].sourceLayer === child_layer;
+  const featureArray: MinGeoJSONFeature[] = [];
+  const index = `${tileData.x}-${tileData.y}-${tileData.z}`;
+  if (isChild) {
+    const childId = e.features?.[0]?.properties?.path;
+    const parentSet =
+      childId &&
+      Object.entries(shatterMappings).find(([parents, children]) => children.has(childId));
+    if (!parentSet || idCache.hasCached(parentSet[0])) return;
+    for (let i = 0; i < e.features.length; i++) {
+      const feature = e.features[i];
+      if (!feature || feature.sourceLayer !== child_layer) continue;
+      const id = feature.id;
+      featureArray.push({
+        type: 'Feature',
+        properties: feature.properties,
+        geometry: feature.geometry,
+        sourceLayer: feature.sourceLayer,
+      });
+    }
+  } else {
+    if (idCache.hasCached(index)) return;
+    for (let i = 0; i < e.features.length; i++) {
+      const feature = e.features[i];
+      if (!feature || feature.sourceLayer !== parent_layer) continue;
+      const id = feature.id;
+      featureArray.push({
+        type: 'Feature',
+        properties: feature.properties,
+        geometry: feature.geometry,
+        sourceLayer: feature.sourceLayer,
+      });
+    }
+    const currentStateFp = featureArray?.[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
+    useMapStore.getState().setMapOptions({currentStateFp});
   }
-  const currentStateFp = featureArray?.[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2)
-
-  GeometryWorker?.loadGeometry(featureArray, "path");
-  parentIdCache.loadFeatures(featureArray, index)
-  useMapStore.getState().setMapOptions({currentStateFp});
+  GeometryWorker?.loadGeometry(featureArray, 'path');
+  idCache.loadFeatures(featureArray, index);
 };
-
 
 export const mapEvents = [
   {action: 'click', handler: handleMapClick},
@@ -334,23 +358,18 @@ export const mapEvents = [
   {action: 'data', handler: handleIdCache},
 ];
 
-export const handleWheelOrPinch = (
-  e: MouseEvent | TouchEvent,
-  map: MapLibreMap | null
-) => {
-  if (!map) return
+export const handleWheelOrPinch = (e: MouseEvent | TouchEvent, map: MapLibreMap | null) => {
+  if (!map) return;
   // Both trackpad pinchn and mousewheel scroll (or two finger scroll)
   // are 'wheel' events, except in safari which has gesture events
   // The ctrlKey property is how most browsers indicate a pinch event
   // https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent#browser_compatibility
-  const wheelRate = e.ctrlKey ? 100 : 450
-  const zoomRate = e.ctrlKey ? 50 : 100
+  const wheelRate = e.ctrlKey ? 100 : 450;
+  const zoomRate = e.ctrlKey ? 50 : 100;
   // TODO: Safari on iOS does not use this standard and needs additional cases
   // If the experience feels bad on mobile
-  if (map.scrollZoom._wheelZoomRate === (1/wheelRate)) return
+  if (map.scrollZoom._wheelZoomRate === 1 / wheelRate) return;
   map.scrollZoom.setWheelZoomRate(1 / wheelRate);
   map.scrollZoom.setZoomRate(1 / zoomRate);
-}
-export const mapContainerEvents = [
-  {action: 'wheel', handler: handleWheelOrPinch}
-]
+};
+export const mapContainerEvents = [{action: 'wheel', handler: handleWheelOrPinch}];

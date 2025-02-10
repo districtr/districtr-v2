@@ -4,17 +4,33 @@ import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
-import {queryClient} from '../utils/api/queryClient';
+import {districtrIdbCache} from '../utils/cache';
+
+// allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
+// when shattering/healing vtds during an undo/redo operation.
+// We want to prevent intermediary state changes from being sent to the backend.
+let allowSendZoneUpdates = true;
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
-  const isMutating = queryClient.isMutating();
-  if (!isMutating && getMapRef?.() && zoneAssignments?.size && appLoadingState === 'loaded') {
+  // locked during break or heal
+  const {mapLock, mapDocument, shatterIds, shatterMappings, lastUpdatedHash} =
+    _useMapStore.getState();
+  const document_id = mapDocument?.document_id;
+  if (
+    !mapLock &&
+    getMapRef?.() &&
+    zoneAssignments?.size &&
+    appLoadingState === 'loaded' &&
+    document_id
+  ) {
     const assignments = FormatAssignments();
-    patchUpdates.mutate(assignments);
+    if (assignments.length) {
+      patchUpdates.mutate({assignments, updateHash: lastUpdatedHash});
+    }
   }
 };
 
-const debouncedZoneUpdate = debounce(zoneUpdates, 25);
+const debouncedZoneUpdate = debounce(zoneUpdates, 500);
 
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const sendZoneUpdatesOnUpdate = useMapStore.subscribe<
@@ -22,7 +38,12 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   >(
     state => [state.zoneAssignments, state.appLoadingState],
     ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
-      if (previousAppLoadingState !== 'loaded') return;
+      if (
+        previousAppLoadingState !== 'loaded' ||
+        appLoadingState === 'blurred' ||
+        !allowSendZoneUpdates
+      )
+        return;
       const {getMapRef} = useMapStore.getState();
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
     },
@@ -45,5 +66,56 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     {equalityFn: shallowCompareArray}
   );
 
-  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits];
+  const lockMapOnShatterIdChange = useMapStore.subscribe<
+    [MapStore['shatterIds']['parents'], MapStore['appLoadingState']]
+  >(
+    state => [state.shatterIds.parents, state.appLoadingState],
+    (curr, prev) => {
+      const isTemporalAction = useMapStore.getState().isTemporalAction;
+      if (!isTemporalAction) return;
+      const appLoadingState = prev[1];
+      const [shatterIds, pastShatterIds] = [curr[0], prev[0]];
+      let shatterIdsChanged = shatterIds.size !== pastShatterIds.size;
+      if (!shatterIdsChanged) {
+        shatterIds.forEach(v => {
+          if (!pastShatterIds.has(v)) {
+            shatterIdsChanged = true;
+          }
+        });
+        pastShatterIds.forEach(v => {
+          if (!shatterIds.has(v)) {
+            shatterIdsChanged = true;
+          }
+        });
+      }
+      if (appLoadingState === 'loaded' && shatterIdsChanged) {
+        allowSendZoneUpdates = false;
+        const addedIds = (shatterIds as any).difference(pastShatterIds);
+        const removedIds = (pastShatterIds as any).difference(shatterIds);
+        if (addedIds.size) {
+          const {mapDocument, silentlyShatter} = useMapStore.getState();
+          if (!mapDocument) {
+            allowSendZoneUpdates = true;
+            return;
+          }
+          silentlyShatter(mapDocument.document_id, Array.from(addedIds)).then(r => {
+            allowSendZoneUpdates = true;
+          });
+        } else if (removedIds.size) {
+          const {mapDocument, silentlyHeal} = useMapStore.getState();
+          if (!mapDocument) {
+            allowSendZoneUpdates = true;
+            return;
+          }
+          silentlyHeal(mapDocument.document_id, Array.from(removedIds)).then(() => {
+            allowSendZoneUpdates = true;
+          });
+        } else {
+          allowSendZoneUpdates = true;
+        }
+      }
+    }
+  );
+
+  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange];
 };

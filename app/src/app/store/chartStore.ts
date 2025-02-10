@@ -4,6 +4,9 @@ import {devToolsConfig, devwrapper} from './middlewareConfig';
 import {UseQueryResult} from '@tanstack/react-query';
 import {ZonePopulation} from '../utils/api/apiHandlers';
 import {APIError, DistrictrChartOptions} from './types';
+import {useMapStore} from './mapStore';
+import {calculateMinMaxRange} from '../utils/zone-helpers';
+import { updateChartData } from '../utils/helpers';
 
 export interface ChartStore {
   mapMetrics: UseQueryResult<ZonePopulation[], APIError | Error> | null;
@@ -11,6 +14,13 @@ export interface ChartStore {
   updateMetrics: (popChanges: Record<number, number>) => void;
   chartOptions: DistrictrChartOptions;
   setChartOptions: (options: Partial<ChartStore['chartOptions']>) => void;
+  chartInfo: {
+    stats?: {min: number; max: number; range: number};
+    chartData: Array<{zone: number; total_pop: number}>;
+    unassigned: number | null;
+    totPop: number;
+  };
+  setChartInfo: (info: ChartStore['chartInfo']) => void;
 }
 
 export const useChartStore = create(
@@ -49,10 +59,33 @@ export const useChartStore = create(
           } as ChartStore['mapMetrics'],
         });
       },
+      chartInfo: {
+        stats: undefined,
+        chartData: [],
+        unassigned: null,
+        totPop: 0,
+      },
+      setChartInfo: chartInfo => set({chartInfo}),
     })),
     {
       ...devToolsConfig,
       name: 'Districtr Chart Store',
     }
   )
+);
+
+useChartStore.subscribe(
+  store => store.mapMetrics,
+  metrics => {
+    const mapMetrics = metrics as ChartStore['mapMetrics'];
+    const numDistricts = useMapStore?.getState().mapDocument?.num_districts;
+    const totPop = useMapStore?.getState().summaryStats.totpop?.data?.total;
+    if (mapMetrics?.data && numDistricts && totPop) {
+      updateChartData(
+        mapMetrics,
+        numDistricts,
+        totPop,
+      )
+    }
+  }
 );

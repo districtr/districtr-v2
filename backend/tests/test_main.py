@@ -10,6 +10,7 @@ import uuid
 from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     FIXTURES_PATH,
+    GERRY_DB_FIXTURE_NAME,
 )
 from app.utils import create_districtr_map, add_available_summary_stats_to_districtrmap
 
@@ -27,7 +28,6 @@ def test_get_session():
         assert isinstance(s, Session)
 
 
-GERRY_DB_FIXTURE_NAME = "ks_demo_view_census_blocks"
 GERRY_DB_TOTAL_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_total_vap"
 GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 GERRY_DB_P1_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
@@ -35,51 +35,6 @@ GERRY_DB_P4_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_p4"
 
 
 ## Test DB
-
-
-@pytest.fixture(name=GERRY_DB_FIXTURE_NAME)
-def ks_demo_view_census_blocks_fixture(session: Session):
-    layer = GERRY_DB_FIXTURE_NAME
-    subprocess.run(
-        args=[
-            "ogr2ogr",
-            "-f",
-            "PostgreSQL",
-            OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
-            "-lco",
-            "OVERWRITE=yes",
-            "-lco",
-            "GEOMETRY_NAME=geometry",
-            "-nln",
-            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
-        ],
-    )
-
-
-@pytest.fixture(name="ks_demo_view_census_blocks_districtrmap")
-def ks_demo_view_census_blocks_districtrmap_fixture(
-    session: Session, ks_demo_view_census_blocks_total_vap: None
-):
-    upsert_query = text(
-        """
-        INSERT INTO gerrydbtable (uuid, name, updated_at)
-        VALUES (gen_random_uuid(), :name, now())
-        ON CONFLICT (name)
-        DO UPDATE SET
-            updated_at = now()
-    """
-    )
-
-    session.begin()
-    session.execute(upsert_query, {"name": GERRY_DB_FIXTURE_NAME})
-    create_districtr_map(
-        session=session,
-        name=f"Districtr map {GERRY_DB_FIXTURE_NAME}",
-        gerrydb_table_name=GERRY_DB_FIXTURE_NAME,
-        parent_layer_name=GERRY_DB_FIXTURE_NAME,
-    )
-    session.commit()
 
 
 @pytest.fixture(name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME)
@@ -186,18 +141,6 @@ def districtr_map_fixtures(
     session.commit()
 
 
-@pytest.fixture(name="document_id")
-def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
-    response = client.post(
-        "/api/create_document",
-        json={
-            "gerrydb_table": GERRY_DB_FIXTURE_NAME,
-        },
-    )
-    document_id = response.json()["document_id"]
-    return document_id
-
-
 @pytest.fixture(name="document_id_total_vap")
 def document_total_vap_fixture(
     client, ks_demo_view_census_total_vap_blocks_districtrmap
@@ -235,7 +178,8 @@ def assignments_fixture(client, document_id):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -252,7 +196,8 @@ def assignments_total_vap_fixture(client, document_id_total_vap):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -269,7 +214,8 @@ def assignments_no_gerrydb_pop_fixture(client, document_no_gerrydb_pop):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -316,7 +262,8 @@ def test_patch_assignments(client, document_id):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -331,7 +278,8 @@ def test_patch_assignments_nulls(client, document_id):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": None},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -345,7 +293,8 @@ def test_patch_assignments_twice(client, document_id):
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 0},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 0},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -357,7 +306,8 @@ def test_patch_assignments_twice(client, document_id):
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 1},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -394,7 +344,8 @@ def test_get_document_population_totals_null_assignments(
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": None},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
     assert response.status_code == 200
@@ -567,12 +518,13 @@ def test_get_p1_summary_stats(client, document_id_p1_summary_stats):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
 
     summary_stat = "P1"
-    response = client.get(f"/api/document/{document_id}/{summary_stat}")
+    response = client.get(f"/api/document/{document_id}/evaluation/{summary_stat}")
     data = response.json()
     assert response.status_code == 200
     assert data.get("summary_stat") == "Population by Race"
@@ -657,12 +609,13 @@ def test_get_p4_summary_stats(client, document_id_p4_summary_stats):
                 {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ]
+            ],
+            "updated_at": "2023-01-01T00:00:00",
         },
     )
 
     summary_stat = "P4"
-    response = client.get(f"/api/document/{document_id}/{summary_stat}")
+    response = client.get(f"/api/document/{document_id}/evaluation/{summary_stat}")
     data = response.json()
     assert response.status_code == 200
     assert (
