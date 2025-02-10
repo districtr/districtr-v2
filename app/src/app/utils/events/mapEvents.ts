@@ -72,10 +72,11 @@ export const handleMapClick = throttle((
     }
   } else if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
+    const selectedFeatures = mapStore.paintFunction(map, e, 0, [BLOCK_HOVER_LAYER_ID]);
     if (documentId && e.features?.length) {
       handleShatter(
         documentId,
-        e.features.filter(f => f.layer.id === BLOCK_HOVER_LAYER_ID)
+        selectedFeatures || []
       );
     }
   } else if (activeTool === 'lock') {
