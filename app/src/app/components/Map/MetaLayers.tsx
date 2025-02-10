@@ -12,7 +12,7 @@ export const MetaLayers = () => {
   const getMapRef = useMapStore(state => state.getMapRef);
   const [zoneNumberData, setZoneNumberData] = useState<any>(EMPTY_FT_COLLECTION);
   const [dataDocumentId, setDataDocumentId] = useState<string | null>(null);
-  const updateTimeout = useRef<ReturnType<typeof setTimeout>>();
+  const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
   const showLayer = dataDocumentId === mapDocumentId;
 
   const addZoneMetaLayers = async () => {
@@ -29,10 +29,12 @@ export const MetaLayers = () => {
     }
   };
   const handleUpdate = () => {
-    updateTimeout.current && clearTimeout(updateTimeout.current);
-    updateTimeout.current = setTimeout(() => {
+    if (!updateTimeout.current) {
       addZoneMetaLayers();
-    }, 1000);
+      updateTimeout.current = setTimeout(() => {
+        updateTimeout.current = null;
+      }, 1000);
+    }
   };
 
   useEffect(handleUpdate, [showZoneNumbers, assignmentsHash]);
