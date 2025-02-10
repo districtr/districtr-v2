@@ -146,15 +146,7 @@ export const getRenderSubscriptions = (
         JSON.stringify(lockPaintedAreas) === JSON.stringify(prevLockPaintedAreas);
       const zoneAssignments = curr[0];
       // if lockPaintedAreas, lock all zones
-      if (lockPaintedAreas === true) {
-        const nonNullZones = new Set(
-          [...zoneAssignments.entries()]
-            .filter(([key, value]) => value !== null)
-            .map(([key]) => key)
-        );
-        setLockedFeatures(nonNullZones);
-        // now unlocked, was previously locked
-      } else if (Array.isArray(lockPaintedAreas)) {
+      if (lockPaintedAreas.length) {
         const previousWasArray = Array.isArray(prevLockPaintedAreas);
         const nonNullZones = new Set(
           [...zoneAssignments.entries()]
@@ -175,7 +167,7 @@ export const getRenderSubscriptions = (
             .map(([key]) => key)
         );
         setLockedFeatures(nonNullZones);
-      } else if (!lockPaintedAreas && prevLockPaintedAreas) {
+      } else if (!lockPaintedAreas.length && prevLockPaintedAreas) {
         setLockedFeatures(new Set());
       }
     },

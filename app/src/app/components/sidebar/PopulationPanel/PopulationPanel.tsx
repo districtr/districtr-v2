@@ -24,12 +24,11 @@ export const PopulationPanel = () => {
   const chartData = useChartStore(state => state.chartInfo.chartData);
   const stats = useChartStore(state => state.chartInfo.stats);
   const setLockedZones = useMapStore(state => state.setLockedZones);
+  const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
+  const allAreLocked = chartData.every(d => lockPaintedAreas?.includes(d.zone));
 
   const handleLockChange = (zone: number) => {
-    if (lockPaintedAreas === true) {
-      const lockedZones = chartData.map(d => d.zone).filter(z => z !== zone);
-      setLockedZones(lockedZones);
-    } else if (Array.isArray(lockPaintedAreas) && lockPaintedAreas.includes(zone)) {
+    if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
     } else {
       setLockedZones([...(lockPaintedAreas || []), zone]);
@@ -74,15 +73,19 @@ export const PopulationPanel = () => {
         <Flex
           direction={'column'}
           gap={'2'}
-          className="flex-grow-0 pt-[25px] pb-[80px]"
+          className="flex-grow-0 p-0 pb-[80px]"
           justify={'between'}
         >
+          <Flex justify="end">
+            <IconButton onClick={toggleLockAllAreas} variant="ghost" >
+              {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+            </IconButton>
+          </Flex>
           {chartData.map((d, i) => (
-            <Flex key={d.zone} direction={'row'} gap={'1'} align={'center'} className="p-0 m-0">
+            <Flex key={d.zone} direction={'row'} gap={'1'} align={'center'} className="p-0 m-0" justify={"between"}>
               {!!showDistrictNumbers && <Text weight={'bold'}>{d.zone}</Text>}
               <IconButton onClick={() => handleLockChange(d.zone)} variant="ghost">
-                {lockPaintedAreas === true ||
-                (Array.isArray(lockPaintedAreas) && lockPaintedAreas.includes(d.zone)) ? (
+                {lockPaintedAreas.includes(d.zone) ? (
                   <LockClosedIcon />
                 ) : (
                   <LockOpen2Icon />
