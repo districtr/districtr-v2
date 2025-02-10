@@ -277,6 +277,8 @@ async def upload_assignments(
     csv_rows = d["assignments"]
     document_id = d["document_id"]
 
+    # process CSV via temp tables
+    session.execute(text("DROP TABLE IF EXISTS temploader"))
     session.execute(text("""CREATE TEMP TABLE temploader (
         geo_id TEXT,
         zone INT
@@ -284,13 +286,43 @@ async def upload_assignments(
     cursor = session.connection().connection.cursor()
     with cursor.copy("COPY temploader (geo_id, zone) FROM STDIN") as copy:
         for record in csv_rows:
-            copy.write_row([record[0], int(record[1])])
+            if record[1] == "":
+                copy.write_row([record[0], None])
+            else:
+                copy.write_row([record[0], int(record[1])])
 
+    # insert into actual assignments table
     session.execute(text("""
         INSERT INTO document.assignments (geo_id, zone, document_id)
         SELECT geo_id, zone, :document_id
         FROM temploader
     """), {"document_id":  document_id})
+
+    # find items to unshatter
+    results = session.execute(text("""
+        SELECT DISTINCT(SUBSTR(geo_id, 1, 11)) AS vtd, zone
+        FROM document.assignments
+        WHERE document_id = :document_id
+        AND geo_id NOT LIKE 'vtd:%'
+        GROUP BY vtd, zone
+        HAVING COUNT(DISTINCT zone) = 1
+    """), {"document_id":  document_id})
+    zoneVTDs = {}
+    for row in results:
+        vtd, zone = row
+        if zone not in zoneVTDs:
+            zoneVTDs[zone] = []
+        zoneVTDs[zone].append('vtd:' + vtd)
+
+    session.commit()
+
+    # unshatter block imports
+    for zone, vtds in zoneVTDs.items():
+        session.execute(text("SELECT unshatter_parent( :document_id, :vtds, :zone)"), {
+            "document_id":  document_id,
+            "vtds": vtds,
+            "zone": zone
+        })
     session.commit()
 
     return {"assignments_upserted": 1}

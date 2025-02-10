@@ -16,7 +16,7 @@ export default function Uploader() {
   const [totalRows, setTotalRows] = useState<number>(0);
   const [mapLinks, setMapLinks] = useState<MapLink[]>([]);
 
-  const ROWS_PER_BATCH = 200000;
+  const ROWS_PER_BATCH = 20000000000;
 
   const gTable = useMapStore(state => state.mapDocument?.gerrydb_table);
   const upsertUserMap = useMapStore(state => state.upsertUserMap);
@@ -50,7 +50,7 @@ export default function Uploader() {
             const assignments: Assignment[] = [];
             const rows = results.data as Array<Array<string>>;
             rows.slice(rowCursor, rowCursor + ROWS_PER_BATCH).forEach(row => {
-              if (row.length == 2 && row[1] !== '' && !isNaN(Number(row[1]))) {
+              if (row.length == 2 && !isNaN(Number(row[1]))) {
                 uploadRows.push([row[0], row[1]]);
               }
             });
