@@ -289,20 +289,6 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
     )
 
     results = session.execute(stmt, {"document_id": document_id}).fetchall()
-    # stmt = text("""
-    #         SELECT 
-    #         assignments.geo_id, assignments.zone, assignments.document_id, parentchildedges.parent_path 
-    #         FROM document.assignments assignments
-    #         JOIN document.document 
-    #             ON assignments.document_id = document.document.document_id 
-    #         JOIN districtrmap 
-    #             ON document.document.gerrydb_table = districtrmap.gerrydb_table_name 
-    #         LEFT OUTER JOIN parentchildedges 
-    #             ON assignments.geo_id = parentchildedges.child_path
-    #             AND parentchildedges.districtr_map = districtrmap.uuid
-    #         WHERE assignments.document_id = :document_id
-    # """).bindparams(bindparam("document_id", type_=UUIDType))
-    # results = session.execute(stmt, {"document_id": document_id}).fetchall()
 
     return [
         {
