@@ -35,6 +35,13 @@ def upgrade() -> None:
     pass
 
 
-def downgrade() -> None:
-    op.drop_index('idx_parentchildedges_child_path_districtr_map', table_name='parentchildedges')
+def downgrade() -> None:    # Check if the index already exists before creating it
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT to_regclass('public.idx_parentchildedges_child_path_districtr_map')"
+        )
+    )
+    if result.scalar() is not None:
+        op.drop_index('idx_parentchildedges_child_path_districtr_map', table_name='parentchildedges')
     pass
