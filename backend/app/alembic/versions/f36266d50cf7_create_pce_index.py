@@ -19,12 +19,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.drop_index('idx_parentchildedges_child_path_districtr_map', table_name='parentchildedges')
-    op.create_index(
-        'idx_parentchildedges_child_path_districtr_map',
-        'parentchildedges',
-        ['child_path', 'districtr_map'],
+    # Check if the index already exists before creating it
+    conn = op.get_bind()
+    result = conn.execute(
+        sa.text(
+            "SELECT to_regclass('public.idx_parentchildedges_child_path_districtr_map')"
+        )
     )
+    if result.scalar() is None:
+        op.create_index(
+            'idx_parentchildedges_child_path_districtr_map',
+            'parentchildedges',
+            ['child_path', 'districtr_map'],
+        )
     pass
 
 
