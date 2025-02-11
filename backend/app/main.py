@@ -271,26 +271,29 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
-    stmt = (
-        select(
-            Assignments.geo_id,
-            Assignments.zone,
-            Assignments.document_id,
-            ParentChildEdges.parent_path,
-        )
-        .join(Document, Assignments.document_id == Document.document_id)
-        .join(
-            DistrictrMap,
-            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
-        )
-        .outerjoin(ParentChildEdges, Assignments.geo_id == ParentChildEdges.child_path)
-        .where(
-            Assignments.document_id == document_id,
-        )
-    )
-
-    results = session.exec(stmt)
-    return results
+    stmt = text("""
+            SELECT 
+            assignments.geo_id, assignments.zone, assignments.document_id, parentchildedges.parent_path 
+            FROM document.assignments assignments
+            JOIN document.document 
+                ON assignments.document_id = document.document.document_id 
+            JOIN districtrmap 
+                ON document.document.gerrydb_table = districtrmap.gerrydb_table_name 
+            LEFT OUTER JOIN parentchildedges 
+                ON assignments.geo_id = parentchildedges.child_path
+                AND parentchildedges.districtr_map = districtrmap.uuid
+            WHERE assignments.document_id = :document_id
+    """).bindparams(bindparam("document_id", type_=UUIDType))
+    results = session.execute(stmt, {"document_id": document_id}).fetchall()
+    return [
+        {
+            "geo_id": row.geo_id,
+            "zone": row.zone,
+            "document_id": str(row.document_id),
+            "parent_path": row.parent_path,
+        }
+        for row in results
+    ]
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
