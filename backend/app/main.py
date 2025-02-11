@@ -267,22 +267,6 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 
     return {"message": "Assignments partition reset", "document_id": document_id}
 
-@app.get("/api/explain_get_assignments/{document_id}")
-async def get_explain_assignments(document_id: str, session: Session = Depends(get_session)):
-    explain_stmt = text(f"""EXPLAIN ANALYZE (
-        SELECT document.assignments.geo_id, document.assignments.zone, document.assignments.document_id, parentchildedges.parent_path 
-        FROM document.assignments 
-        JOIN document.document 
-            ON document.assignments.document_id = document.document.document_id 
-        JOIN districtrmap ON document.document.gerrydb_table = districtrmap.gerrydb_table_name 
-        LEFT OUTER JOIN parentchildedges 
-            ON document.assignments.geo_id = parentchildedges.child_path 
-            AND parentchildedges.districtr_map = districtrmap.uuid 
-        WHERE document.assignments.document_id = '{document_id}'
-    )""")
-    results = session.execute(explain_stmt).fetchall()
-    return {"explanation": [row[0] for row in results]}
-
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
