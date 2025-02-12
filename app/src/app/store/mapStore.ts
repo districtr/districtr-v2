@@ -886,7 +886,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           container: '',
           showBrokenDistricts: false,
           mode: 'default',
-          lockPaintedAreas: false,
+          lockPaintedAreas: [],
           prominentCountyNames: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
@@ -920,11 +920,12 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           });
         },
         toggleLockAllAreas: () => {
-          const {mapOptions} = get();
+          const {mapOptions, mapDocument} = get();
+          const num_districts = mapDocument?.num_districts ?? 4;
           set({
             mapOptions: {
               ...mapOptions,
-              lockPaintedAreas: !mapOptions.lockPaintedAreas,
+              lockPaintedAreas: mapOptions.lockPaintedAreas.length ? [] : new Array(num_districts).fill(0).map((_, i) => i + 1),
             },
           });
         },

@@ -1,4 +1,4 @@
-import {MapStore} from '@/app/store/mapStore';
+import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {colorScheme} from '@/app/constants/colors';
 import React, {useCallback, useState} from 'react';
 import {formatNumber} from '@/app/utils/numbers';
@@ -7,7 +7,6 @@ import {Bar, Line} from '@visx/shape';
 import {scaleLinear} from '@visx/scale';
 import {AxisBottom} from '@visx/axis';
 import {useChartStore} from '@/app/store/chartStore';
-import {LockIcon} from './LockIcon';
 import {PopulationLabels} from './PopulationLabels';
 import {PopulationCustomTooltip} from './PopulationTooltip';
 
@@ -15,7 +14,6 @@ export const PopulationChart: React.FC<{
   width: number;
   height: number;
   data: Array<{zone: number; total_pop: number}>;
-  lockPaintedAreas: MapStore['mapOptions']['lockPaintedAreas'];
   margins?: {left: number; right: number; top: number; bottom: number};
   idealPopulation?: number;
 }> = ({
@@ -23,10 +21,10 @@ export const PopulationChart: React.FC<{
   height,
   data,
   idealPopulation,
-  lockPaintedAreas,
-  margins = {left: 15, right: 20, top: 20, bottom: 80},
+  margins = {left: 5, right: 20, top: 20, bottom: 80},
 }) => {
   const chartOptions = useChartStore(state => state.chartOptions);
+
   const {
     popBarScaleToCurrent: scaleToCurrent,
     popTargetPopDeviation: targetDeviation,
@@ -34,7 +32,6 @@ export const PopulationChart: React.FC<{
     popShowDistrictNumbers: showDistrictrNumbers,
     popShowTopBottomDeviation: showTopBottomDeviation,
   } = chartOptions;
-
   const [xMax, yMax] = [
     width - margins.left - margins.right,
     height - margins.top - margins.bottom,
@@ -157,36 +154,6 @@ export const PopulationChart: React.FC<{
                   onMouseLeave={() => setHoveredIndex(null)}
                 />
               </>
-            )}
-            {!!showDistrictrNumbers && (
-              <>
-                <text
-                  x={-margins.left}
-                  y={yScale(index) + barHeight * 0.75}
-                  fontSize={14}
-                  fontWeight={'bold'}
-                  stroke="white"
-                  strokeWidth={2}
-                >
-                  {entry.zone}
-                </text>
-                <text
-                  x={-margins.left}
-                  y={yScale(index) + barHeight * 0.75}
-                  fontSize={14}
-                  fontWeight={'bold'}
-                >
-                  {entry.zone}
-                </text>
-              </>
-            )}
-            {!!(
-              lockPaintedAreas === true ||
-              (Array.isArray(lockPaintedAreas) && lockPaintedAreas.includes(entry.zone))
-            ) && (
-              <g transform={`translate(${15}, ${yScale(index) + 2}), scale(1)`}>
-                <LockIcon />
-              </g>
             )}
             {entry.total_pop > 0 && (
               <PopulationLabels
