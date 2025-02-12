@@ -299,7 +299,8 @@ export interface MapStore {
     name?: any,
     tags?: any,
     description?: any,
-    eventId?: any
+    eventId?: any,
+    token?: any
   ) => void;
 }
 

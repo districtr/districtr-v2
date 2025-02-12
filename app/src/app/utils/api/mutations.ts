@@ -11,11 +11,13 @@ import {
   patchUpdateReset,
   saveMapDocumentMetadata,
   populationAbortController,
+  getSharePlanLink,
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
 import {useChartStore} from '@/app/store/chartStore';
 import {districtrIdbCache} from '../cache';
+import {useMutation} from '@tanstack/react-query';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -136,5 +138,38 @@ export const metadata = new MutationObserver(queryClient, {
   },
   onSuccess: data => {
     console.log('Successfully saved metadata');
+  },
+});
+
+export const sharePlan = new MutationObserver(queryClient, {
+  mutationFn: getSharePlanLink,
+  onMutate: ({
+    document_id,
+    password,
+    access_type,
+  }: {
+    document_id: string | undefined;
+    password: string | null;
+    access_type: string | undefined;
+  }) => {
+    return {document_id, password, access_type};
+  },
+  onError: error => {
+    console.error('Error getting share plan link: ', error);
+  },
+  onSuccess: data => {
+    const {userMaps, mapDocument, upsertUserMap} = useMapStore.getState();
+    const plan = userMaps.find(map => map.document_id === mapDocument?.document_id);
+
+    // upsert the user map with the new share token
+    if (!plan) return;
+    upsertUserMap({
+      documentId: mapDocument?.document_id,
+      mapDocument: {
+        ...plan,
+        token: data.token,
+      },
+    });
+    return data.token;
   },
 });

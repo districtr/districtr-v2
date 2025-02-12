@@ -16,7 +16,7 @@ import {
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
-import {metadata, document} from '@/app/utils/api/mutations';
+import {metadata, document, sharePlan} from '@/app/utils/api/mutations';
 
 type NamedDocumentObject = DocumentObject & {name?: string};
 
@@ -81,9 +81,9 @@ export const ShareMapsModal: React.FC<{
   const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const [copiedPlanName, setCopiedPlanName] = React.useState(null);
-  const [sharetype, setSharetype] = React.useState('viewOnly');
+  const [sharetype, setSharetype] = React.useState('view');
   const [linkCopied, setLinkCopied] = React.useState(false);
-  const [password, setPassword] = React.useState(null);
+  const [password, setPassword] = React.useState<string | undefined>(null);
 
   const handleChangeName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
@@ -123,29 +123,37 @@ export const ShareMapsModal: React.FC<{
     setCopiedPlanName(value);
   };
 
-  const handleCreateShareLink = () => {
-    // create and return a shareable link
+  const handleCreateShareLink = async () => {
     const payload = {
       document_id: mapDocument?.document_id,
-      share_type: sharetype,
-      password: password,
+      password: password ?? null,
+      access_type: sharetype,
     };
 
-    // make request against endpoint
-    // const token = createShareLink(payload); // TODO
+    try {
+      // get the share link
+      sharePlan.mutate(payload);
 
-    // actually copy the link to the users clipboard
-    // TODO
-    // use window location and append the returned token to the end
-    navigator.clipboard.writeText(
-      `${window.location.origin}${window.location.pathname}?document_id=${mapDocument?.document_id}`
-    );
+      const token = useMapStore
+        .getState()
+        .userMaps.find(map => map.document_id === mapDocument?.document_id)?.token;
 
-    // set link copied to true for two seconds, then revert
-    setLinkCopied(true);
-    setTimeout(() => {
-      setLinkCopied(false);
-    }, 2000);
+      if (!token) {
+        console.error('No token found for map: ', mapDocument?.document_id);
+        return;
+      }
+      // copy to clipboard
+      const shareableLink = `${window.location.origin}${window.location.pathname}?share=${token}`;
+      await navigator.clipboard.writeText(shareableLink);
+
+      console.log('Copied link to clipboard: ', shareableLink);
+
+      // Set link copied state
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (error) {
+      console.error('Error creating share link: ', error);
+    }
   };
 
   const handleShareTypeChange = (value: string) => {
@@ -227,6 +235,21 @@ export const ShareMapsModal: React.FC<{
               <Checkbox size="1" disabled /> Save as Draft (coming soon)
             </Flex>
           </Text>
+
+          {/* save + close */}
+          <Button
+            variant="soft"
+            className="flex items-center"
+            onClick={handleMapSave}
+            disabled={nameIsSaved && tagsIsSaved}
+          >
+            {mapDocument.status !== 'locked' && nameIsSaved && tagsIsSaved
+              ? 'Saved!'
+              : mapDocument.status === 'locked'
+                ? 'Create Copy'
+                : 'Save'}
+          </Button>
+          <Box className="border-t border-gray-200"></Box>
           {/* share logic */}
           <Text as="label" size="3">
             <Flex gap="2">Sharing</Flex>
@@ -259,32 +282,7 @@ export const ShareMapsModal: React.FC<{
             </Button>
           </Flex>
           {/* end share logic */}
-          {/*<Text as="label" size="2">
-            <Flex gap="2">{clickToCopyPrompt}</Flex>
-          </Text>
-          <TextField.Root
-            variant="soft"
-            value={`${window.location.origin}${window.location.pathname}?document_id=${mapDocument?.document_id}`}
-            size="2"
-            readOnly
-            className="items-center"
-            onClick={handleClickToCopy}
-          ></TextField.Root> */}
-
           <Box className="border-t border-gray-200"></Box>
-          {/* save + close */}
-          <Button
-            variant="soft"
-            className="flex items-center"
-            onClick={handleMapSave}
-            disabled={nameIsSaved && tagsIsSaved}
-          >
-            {mapDocument.status !== 'locked' && nameIsSaved && tagsIsSaved
-              ? 'Saved!'
-              : mapDocument.status === 'locked'
-                ? 'Create Copy'
-                : 'Save'}
-          </Button>
           <Button
             variant="soft"
             className="flex items-center"

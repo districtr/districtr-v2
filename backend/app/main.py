@@ -684,26 +684,35 @@ async def get_projects(
     return gerrydb_views
 
 
-@app.post("api/{document_id}/share_plan")
+@app.post("/api/document/{document_id}/share")
 async def share_districtr_plan(
     document_id: str,
     params: dict = Body(...),  # pw and access mode- what else needs to be included?
     session: Session = Depends(get_session),
 ):
-
+    try:
+        print(params)
+    except Exception as e:
+        logger.error(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Share failed",
+        )
     # check if there's already a record for a document
     existing_token = session.execute(
-        """
+        text(
+            """
         SELECT token_id, password_hash FROM document.map_document_token
         WHERE document_id = :doc_id
-        """,
+        """
+        ),
         {"doc_id": document_id},
     ).fetchone()
 
     if existing_token:
         token_uuid = existing_token.token_id
-
-        if params["password"] and not existing_token.password_hash:
+        print("theres already a token!!")
+        if params["password"] is not None and not existing_token.password_hash:
             hashed_password = hash_password(params["password"])
             session.execute(
                 text(
@@ -716,15 +725,20 @@ async def share_districtr_plan(
                 {"password_hash": hashed_password, "token_id": token_uuid},
             )
             session.commit()
+        elif params["password"] is None:
+            return {"token": token_uuid}
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Password already set for document",
             )
+
     else:
         token_uuid = str(uuid4())
         hashed_password = (
-            hash_password(params["password"]) if "password" in params else None
+            hash_password(params["password"])
+            if "password" in params and params["password"] is not None
+            else None
         )
         expiry = (
             datetime.now(UTC) + timedelta(days=params["expiry_days"])
@@ -735,8 +749,7 @@ async def share_districtr_plan(
         session.execute(
             text(
                 """
-                    INSERT INTO document.map_document_token 
-                    (token_id, document_id, password_hash, expiration_date)
+                    INSERT INTO document.map_document_token (token_id, document_id, password_hash, expiration_date)
                     VALUES (:token_id, :document_id, :password_hash, :expiration_date)
                 """
             ),
@@ -759,7 +772,7 @@ async def share_districtr_plan(
     return {"token": token}
 
 
-@app.post("api/load_plan_from_share", status_code=status.HTTP_200_OK)
+@app.post("/api/load_plan_from_share", status_code=status.HTTP_200_OK)
 async def load_plan_from_share(
     data: str = Body(...),
     session: Session = Depends(get_session),
