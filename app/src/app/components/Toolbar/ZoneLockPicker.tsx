@@ -1,9 +1,6 @@
-import React, {useState} from 'react';
+import React from 'react';
 import {colorScheme} from '../../constants/colors';
 import {Button} from '@radix-ui/themes';
-import {styled} from '@stitches/react';
-import * as RadioGroup from '@radix-ui/react-radio-group';
-import {blackA} from '@radix-ui/colors';
 import {useMapStore} from '../../store/mapStore';
 import {ColorPicker} from './ColorPicker';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';

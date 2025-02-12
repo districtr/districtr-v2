@@ -8,7 +8,7 @@ import {MapStore} from './mapStore';
 export type DistrictrMapOptions = {
   showBrokenDistricts?: boolean;
   higlightUnassigned?: boolean;
-  lockPaintedAreas: boolean | Array<NullableZone>;
+  lockPaintedAreas: Array<NullableZone>;
   mode: 'default' | 'break';
   showZoneNumbers?: boolean
   paintByCounty?: boolean;

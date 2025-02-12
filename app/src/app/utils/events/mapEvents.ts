@@ -191,7 +191,7 @@ export const handleMapMouseMove = throttle(
               selectedFeatures?.reduce(
                 (acc, curr) => acc + parseInt(curr.properties.total_pop),
                 0
-              ) || 'N/A',
+              ) ?? 'N/A',
           },
         ],
       });
