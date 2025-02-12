@@ -515,16 +515,10 @@ const filterFeatures = (
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
   if (filterLocked) {
-    if (
-      mapOptions.lockPaintedAreas === true ||
-      (Array.isArray(mapOptions.lockPaintedAreas) &&
-        activeTool === 'brush' &&
-        mapOptions.lockPaintedAreas.includes(selectedZone))
-    ) {
+    if (activeTool === 'brush' && mapOptions.lockPaintedAreas.includes(selectedZone)) {
       return [];
-    } else if (Array.isArray(mapOptions.lockPaintedAreas) && mapOptions.lockPaintedAreas.length) {
+    } else if (mapOptions.lockPaintedAreas.length) {
       const lockedAreas = mapOptions.lockPaintedAreas;
-
       filterFunctions.push(
         f =>
           !lockedFeatures.has(f.id?.toString() || '') &&
