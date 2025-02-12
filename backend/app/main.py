@@ -267,6 +267,7 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 
     return {"message": "Assignments partition reset", "document_id": document_id}
 
+
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
@@ -287,7 +288,7 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
         .where(Assignments.document_id == document_id)
     )
 
-    return  session.execute(stmt).fetchall()
+    return session.execute(stmt).fetchall()
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
@@ -364,6 +365,76 @@ async def get_unassigned_geoids(
     ).fetchall()
     # returns a list of multipolygons of bboxes
     return {"features": [row[0] for row in results]}
+
+
+@app.get("/api/document/{document_id}/demography")
+async def get_map_demography(document_id: str, session: Session = Depends(get_session)):
+    # get districtrmap
+    document = session.exec(
+        select(Document).filter(Document.document_id == document_id)
+    ).one()
+
+    dm = session.exec(
+        select(DistrictrMap).filter(
+            DistrictrMap.gerrydb_table_name == document.gerrydb_table
+        )
+    ).one()
+
+    stmt = text(
+        f"""
+                SELECT path, 
+                    total_pop,
+                    white_pop,
+                    black_pop,
+                    asian_pop,
+                    nhpi_pop,
+                    other_pop,
+                    amin_pop,
+                    two_or_more_races_pop,
+                    non_hispanic_white_vap,
+                    non_hispanic_black_vap,
+                    non_hispanic_asian_vap,
+                    non_hispanic_nhpi_vap,
+                    non_hispanic_other_vap,
+                    non_hispanic_amin_vap,
+                    hispanic_vap,
+                    total_vap
+                FROM (
+                    SELECT distinct geo_id
+                    FROM document.assignments 
+                    WHERE document_id = '{document_id}'
+                    UNION
+                    SELECT path as geo_id
+                    FROM gerrydb.{dm.parent_layer}
+                ) as ids
+                LEFT JOIN gerrydb.{dm.gerrydb_table_name} gdb
+                on gdb.path = ids.geo_id
+                WHERE gdb.total_pop > 0
+                """
+    )
+    results = session.execute(stmt).fetchall()
+    return {
+        "columns": [
+            "path",
+            "total_pop",
+            "white_pop",
+            "black_pop",
+            "asian_pop",
+            "nhpi_pop",
+            "other_pop",
+            "amin_pop",
+            "two_or_more_races_pop",
+            "non_hispanic_white_vap",
+            "non_hispanic_black_vap",
+            "non_hispanic_asian_vap",
+            "non_hispanic_nhpi_vap",
+            "non_hispanic_other_vap",
+            "non_hispanic_amin_vap",
+            "hispanic_vap",
+            "total_vap",
+        ],
+        "results": [[*row] for row in results],
+    }
 
 
 @app.get("/api/document/{document_id}/evaluation/{summary_stat}")
