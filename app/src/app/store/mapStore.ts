@@ -27,6 +27,7 @@ import {
   getFeaturesInBbox,
   resetZoneColors,
   setZones,
+  shallowCompareArray,
 } from '../utils/helpers';
 import {getRenderSubscriptions} from './mapRenderSubs';
 import {getSearchParamsObserver} from '../utils/api/queryParamsListener';
@@ -46,6 +47,8 @@ import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
 import { districtrIdbCache } from '../utils/cache';
+import { AllDemographyVariables, DEFAULT_COLOR_SCHEME, demographyVariables, getRowHandler } from './demographicMap';
+import * as scale from 'd3-scale'
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -1136,9 +1139,114 @@ export const useHoverStore = create(
   // TODO: Zustand is releasing a major version bump and we have breaking issues
 );
 
+interface DemographicMapStore {
+  getMapRef: () => maplibregl.Map | undefined;
+  setGetMapRef: (getMapRef: () => maplibregl.Map | undefined) => void;
+  variable: AllDemographyVariables;
+  setVariable: (variable: AllDemographyVariables) => void;
+  dataHash: string;
+  data: Array<Record<AllDemographyVariables | 'path', number>>;
+  scale: any;
+  updateData: (
+    mapDocument: MapStore['mapDocument'],
+    shatterIds: MapStore['shatterIds']['parents']
+  ) => Promise<void>;
+}
+
+export const useDemographicMapStore = create(
+  subscribeWithSelector<DemographicMapStore>((set, get) => ({
+    getMapRef: () => undefined,
+    setGetMapRef: getMapRef => set({getMapRef}),
+    variable: 'total_pop',
+    scale: null,
+    setVariable: variable => {
+      const {data, getMapRef} = get();
+      const {shatterIds, mapDocument} = useMapStore.getState();
+      const mapRef = getMapRef();
+      if (!data.length || !mapRef || !mapDocument) return;
+      const config = demographyVariables.find(f => f.value === variable.replace("_percent", ""));
+      const colorscheme = config && 'colorScheme' in config ? config?.colorScheme : DEFAULT_COLOR_SCHEME;
+      const values = data.map(f => f[variable]);
+      const colorScale = scale.scaleQuantile()
+        .domain(values)
+        // @ts-ignore
+        .range(colorscheme);
+        
+      data.forEach((row, i) => {
+        const id = row.path;
+        const value = row[variable];
+        if (!id || !value) return;
+        const color = colorScale(value);
+        const isChildLayer = shatterIds.children.has(`${id}`);
+        mapRef.setFeatureState({
+          source: BLOCK_SOURCE_ID,
+          sourceLayer: isChildLayer && mapDocument.child_layer ? mapDocument.child_layer : mapDocument.parent_layer,
+          id,
+        }, {
+          color,
+          hasColor: true,
+        })
+      })
+
+      set({
+        variable,
+        scale: colorScale,
+      })
+    },
+    dataHash: '',
+    data: [],
+    updateData: async (mapDocument, shatterIds) => {
+      const {getMapRef, dataHash: currDataHash, setVariable, variable} = get();
+      const mapRef = getMapRef();
+      if (!mapRef || !mapDocument) return;
+      const dataHash = `${Array.from(shatterIds).join(',')}|${mapDocument.document_id}`;
+      if (currDataHash === dataHash) return;
+      const data = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/demography`
+      )
+        .then(res => res.json())
+        .then(data => {
+          const rowHandler = getRowHandler(data.columns);
+          return data.results.map(rowHandler);
+        });
+      set({data, dataHash});
+      setVariable(variable)
+
+    },
+  }))
+);
+
+useMapStore.subscribe<
+  [
+    MapStore['mapDocument'],
+    MapStore['shatterIds']['parents'],
+    MapStore['mapOptions']['showDemographicMap'],
+  ]
+>(
+  state => [state.mapDocument, state.shatterIds.parents, state.mapOptions.showDemographicMap],
+  ([mapDocument, parentShatterIds, showDemographicMap]) => {
+    if (showDemographicMap) {
+      useDemographicMapStore.getState().updateData(mapDocument, parentShatterIds);
+    }
+  },
+  {equalityFn: shallowCompareArray}
+);
+
+useDemographicMapStore.subscribe(
+  state => state.getMapRef,
+  getMapRef => {
+    const mapRef = getMapRef();
+    if (!mapRef) return;
+    const {mapDocument, shatterIds, mapOptions} = useMapStore.getState();
+    if (mapOptions.showDemographicMap) {
+      useDemographicMapStore.getState().updateData(mapDocument, shatterIds.parents);
+    }
+  }
+);
+
 
 // these need to initialize after the map store
-getRenderSubscriptions(useMapStore, useHoverStore);
+getRenderSubscriptions(useMapStore, useHoverStore, useDemographicMapStore);
 getQueriesResultsSubs(useMapStore);
 getMapEditSubs(useMapStore);
 getMapMetricsSubs(useMapStore)

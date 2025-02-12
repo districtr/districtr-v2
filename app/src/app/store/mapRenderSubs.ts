@@ -11,18 +11,19 @@ import {
   getFeaturesIntersectingCounties,
   shallowCompareArray,
 } from '@utils/helpers';
-import {useMapStore as _useMapStore, HoverFeatureStore, MapStore} from '@store/mapStore';
+import {useMapStore as _useMapStore, HoverFeatureStore, MapStore, useDemographicMapStore as _useDemographicMapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
-import GeometryWorker from '@utils/GeometryWorker';
 import {useHoverStore as _useHoverStore} from '@store/mapStore';
 import {calcPops} from '@utils/population';
 import {useChartStore} from '@store/chartStore';
+import {  } from './demographicMap';
 
 const BBOX_TOLERANCE_DEG = 0.02;
 
 export const getRenderSubscriptions = (
   useMapStore: typeof _useMapStore,
-  useHoverStore: typeof _useHoverStore
+  useHoverStore: typeof _useHoverStore,
+  useDemographicMapStore: typeof _useDemographicMapStore
 ) => {
 
   const _shatterMapSideEffectRender = useMapStore.subscribe<
@@ -264,7 +265,7 @@ export const getRenderSubscriptions = (
     (state: HoverFeatureStore) => state.hoverFeatures,
     (hoverFeatures: HoverFeatureStore['hoverFeatures'], previousHoverFeatures: HoverFeatureStore['hoverFeatures'] ) => {
       const mapRef = useMapStore.getState().getMapRef();
-
+      const demoMapRef = useDemographicMapStore.getState().getMapRef();
       if (!mapRef) {
         return;
       }
@@ -276,6 +277,15 @@ export const getRenderSubscriptions = (
       hoverFeatures.forEach(feature => {
         mapRef.setFeatureState(feature, {hover: true});
       });
+      if (demoMapRef) {
+        previousHoverFeatures.forEach(feature => {
+          demoMapRef.setFeatureState(feature, {hover: false});
+        });
+  
+        hoverFeatures.forEach(feature => {
+          demoMapRef.setFeatureState(feature, {hover: true});
+        });
+      }
     }
   );
 
