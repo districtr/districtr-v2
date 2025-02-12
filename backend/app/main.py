@@ -291,6 +291,57 @@ async def upload_assignments(
             else:
                 copy.write_row([record[0], int(record[1])])
 
+    # get edges table
+    tableCheck = session.execute(text("""
+        SELECT districtrmap.uuid
+        FROM document.document
+        INNER JOIN districtrmap
+        ON document.gerrydb_table = districtrmap.gerrydb_table_name
+        WHERE document.document_id = :document_id
+    """), {"document_id":  document_id})
+    table_name = str(tableCheck.first()[0]).replace('"', '')
+
+    # find parents which are fully one zone
+    # coalesce includes nulls (so we can account for fully and partially blank parents)
+    results = session.execute(text(f"""
+        SELECT parent_path, MIN(zone) FROM "parentchildedges_{table_name}"
+        JOIN temploader ON geo_id = "parentchildedges_{table_name}".child_path
+        GROUP BY parent_path
+        HAVING COUNT(DISTINCT COALESCE(zone, -1)) = 1
+    """))
+
+    # re-import VTDs that are fully uniform zone
+    vtds = []
+    with cursor.copy("COPY temploader (geo_id, zone) FROM STDIN") as copy:
+        for row in results:
+            vtd, zone = row
+            vtds.append(vtd)
+            copy.write_row([vtd, zone])
+    logger.info("uniform parents")
+    logger.info(vtds)
+
+    # clean up blocks from uniform VTDs
+    session.execute(text(f"""
+        DELETE FROM temploader
+        WHERE geo_id = ANY(
+            SELECT child_path FROM "parentchildedges_{table_name}"
+            WHERE parent_path = ANY(:vtds)
+        )
+    """), { "vtds": vtds })
+
+    # find vtds which are non-uniform
+    results = session.execute(text(f"""
+        SELECT parent_path FROM "parentchildedges_{table_name}"
+        JOIN temploader ON geo_id = "parentchildedges_{table_name}".child_path
+        GROUP BY parent_path
+        HAVING COUNT(DISTINCT COALESCE(zone, -1)) > 1
+    """))
+    shatter = []
+    for row in results:
+        shatter.append(row[0])
+    logger.info("to shatter")
+    logger.info(shatter)
+
     # insert into actual assignments table
     session.execute(text("""
         INSERT INTO document.assignments (geo_id, zone, document_id)
@@ -298,31 +349,6 @@ async def upload_assignments(
         FROM temploader
     """), {"document_id":  document_id})
 
-    # find items to unshatter
-    results = session.execute(text("""
-        SELECT DISTINCT(SUBSTR(geo_id, 1, 11)) AS vtd, zone
-        FROM document.assignments
-        WHERE document_id = :document_id
-        AND geo_id NOT LIKE 'vtd:%'
-        GROUP BY vtd, zone
-        HAVING COUNT(DISTINCT zone) = 1
-    """), {"document_id":  document_id})
-    zoneVTDs = {}
-    for row in results:
-        vtd, zone = row
-        if zone not in zoneVTDs:
-            zoneVTDs[zone] = []
-        zoneVTDs[zone].append('vtd:' + vtd)
-
-    session.commit()
-
-    # unshatter block imports
-    for zone, vtds in zoneVTDs.items():
-        session.execute(text("SELECT unshatter_parent( :document_id, :vtds, :zone)"), {
-            "document_id":  document_id,
-            "vtds": vtds,
-            "zone": zone
-        })
     session.commit()
 
     return {"assignments_upserted": 1}
