@@ -79,14 +79,6 @@ export const handleMapClick = throttle((
         selectedFeatures || []
       );
     }
-  } else if (activeTool === 'lock') {
-    // removing this functionality for now
-    // const documentId = mapStore.mapDocument?.document_id;
-    // if (documentId && e.features?.length) {
-    //   const feature = e.features[0];
-    //   const id = feature.id?.toString() || '';
-    //   lockFeature(id, !lockedFeatures.has(id));
-    // }
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
