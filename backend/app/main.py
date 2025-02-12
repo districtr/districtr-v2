@@ -279,10 +279,12 @@ async def upload_assignments(
 
     # process CSV via temp tables
     session.execute(text("DROP TABLE IF EXISTS temploader"))
-    session.execute(text("""CREATE TEMP TABLE temploader (
+    session.execute(
+        text("""CREATE TEMP TABLE temploader (
         geo_id TEXT,
         zone INT
-    )"""))
+    )""")
+    )
     cursor = session.connection().connection.cursor()
     with cursor.copy("COPY temploader (geo_id, zone) FROM STDIN") as copy:
         for record in csv_rows:
@@ -292,23 +294,28 @@ async def upload_assignments(
                 copy.write_row([record[0], int(record[1])])
 
     # get edges table
-    tableCheck = session.execute(text("""
+    tableCheck = session.execute(
+        text("""
         SELECT districtrmap.uuid
         FROM document.document
         INNER JOIN districtrmap
         ON document.gerrydb_table = districtrmap.gerrydb_table_name
         WHERE document.document_id = :document_id
-    """), {"document_id":  document_id})
-    table_name = str(tableCheck.first()[0]).replace('"', '')
+    """),
+        {"document_id": document_id},
+    )
+    table_name = str(tableCheck.first()[0]).replace('"', "")
 
     # find parents which are fully one zone
     # coalesce includes nulls (so we can account for fully and partially blank parents)
-    results = session.execute(text(f"""
+    results = session.execute(
+        text(f"""
         SELECT parent_path, MIN(zone) FROM "parentchildedges_{table_name}"
         JOIN temploader ON geo_id = "parentchildedges_{table_name}".child_path
         GROUP BY parent_path
         HAVING COUNT(DISTINCT COALESCE(zone, -1)) = 1
-    """))
+    """)
+    )
 
     # re-import VTDs that are fully uniform zone
     vtds = []
@@ -321,21 +328,26 @@ async def upload_assignments(
     logger.info(vtds)
 
     # clean up blocks from uniform VTDs
-    session.execute(text(f"""
+    session.execute(
+        text(f"""
         DELETE FROM temploader
         WHERE geo_id = ANY(
             SELECT child_path FROM "parentchildedges_{table_name}"
             WHERE parent_path = ANY(:vtds)
         )
-    """), { "vtds": vtds })
+    """),
+        {"vtds": vtds},
+    )
 
     # find vtds which are non-uniform
-    results = session.execute(text(f"""
+    results = session.execute(
+        text(f"""
         SELECT parent_path FROM "parentchildedges_{table_name}"
         JOIN temploader ON geo_id = "parentchildedges_{table_name}".child_path
         GROUP BY parent_path
         HAVING COUNT(DISTINCT COALESCE(zone, -1)) > 1
-    """))
+    """)
+    )
     shatter = []
     for row in results:
         shatter.append(row[0])
@@ -343,11 +355,14 @@ async def upload_assignments(
     logger.info(shatter)
 
     # insert into actual assignments table
-    session.execute(text("""
+    session.execute(
+        text("""
         INSERT INTO document.assignments (geo_id, zone, document_id)
         SELECT geo_id, zone, :document_id
         FROM temploader
-    """), {"document_id":  document_id})
+    """),
+        {"document_id": document_id},
+    )
 
     session.commit()
 
