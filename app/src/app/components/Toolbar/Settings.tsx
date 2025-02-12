@@ -69,8 +69,7 @@ export const ToolSettings: React.FC = () => {
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
           mapOptions.showZoneNumbers ? '2' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
-          mapOptions.lockPaintedAreas === true ? '4' : '',
-
+          (mapOptions.lockPaintedAreas.length === (mapDocument?.num_districts ?? 4)) ? 'lockAll' : '',
         ]}
       >
         <Heading as="h3" weight="bold" size="3">
