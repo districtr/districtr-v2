@@ -267,7 +267,6 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 
     return {"message": "Assignments partition reset", "document_id": document_id}
 
-
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
@@ -279,18 +278,16 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
             ParentChildEdges.parent_path,
         )
         .join(Document, Assignments.document_id == Document.document_id)
-        .join(
-            DistrictrMap,
-            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+        .join(DistrictrMap, Document.gerrydb_table == DistrictrMap.gerrydb_table_name)
+        .outerjoin(
+            ParentChildEdges,
+            (Assignments.geo_id == ParentChildEdges.child_path)
+            & (ParentChildEdges.districtr_map == DistrictrMap.uuid),
         )
-        .outerjoin(ParentChildEdges, Assignments.geo_id == ParentChildEdges.child_path)
-        .where(
-            Assignments.document_id == document_id,
-        )
+        .where(Assignments.document_id == document_id)
     )
 
-    results = session.exec(stmt)
-    return results
+    return  session.execute(stmt).fetchall()
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
