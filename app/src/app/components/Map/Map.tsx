@@ -58,7 +58,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         synced.current = false;
       }
       if (isDemographicMap){
-        useDemographicMapStore.getState().setGetMapRef(() => undefined);
+        useDemographicMapStore.getState().unmount()
         mapRef.current = null;
       }
     }
