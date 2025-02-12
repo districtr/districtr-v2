@@ -268,6 +268,25 @@ const GeometryWorker: GeometryWorkerClass = {
       return {dissolved, centroids};
     }
   },
+  getPropertiesCentroids(ids) {
+    const features: GeoJSON.Feature<GeoJSON.Point>[] = []
+
+    ids.forEach(id => {
+      const f = this.geometries[id];
+      if (f) {
+        let center = centerOfMass(f);
+        center.properties = f.properties;
+        features.push(center)
+      } else {
+        console.log("Could not find geography", id)
+      }
+    })
+
+    return {
+      type: 'FeatureCollection',
+      features,
+    }
+  },
   async getUnassignedGeometries(useBackend = false, documentId?: string, exclude_ids?: string[]) {
     const geomsToDissolve: GeoJSON.Feature[] = [];
     if (useBackend) {

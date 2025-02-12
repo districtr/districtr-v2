@@ -6,6 +6,51 @@ import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 
 export const MetaLayers = () => {
+
+  return (
+    <>
+      <ZoneNumbersLayer />
+      <PopulationTextLayer />
+    </>
+  );
+};
+
+const PopulationTextLayer = () => {
+  const captiveIds = useMapStore(state => state.captiveIds);
+  const [pointFeatureCollection, setPointFeatureCollection] = useState<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
+  
+  useEffect(() => {
+    GeometryWorker?.getPropertiesCentroids(Array.from(captiveIds)).then(setPointFeatureCollection);
+  }, [captiveIds])
+
+  if (!pointFeatureCollection.features.length || !captiveIds.size) {
+    return null
+  }
+
+  return (
+    <Source id="population-text" type="geojson" data={pointFeatureCollection}>
+      <Layer
+        id="POPULATION_TEXT"
+        type="symbol"
+        source="POPULATION_TEXT"
+        layout={{
+          'text-field': ['get', 'total_pop'],
+          'text-font': ['Barlow Bold'],
+          'text-size': 18,
+          'text-anchor': 'center',
+          'text-offset': [0, 0],
+        }}
+        paint={{
+          'text-color': '#000',
+          'text-halo-color': '#fff',
+          'text-halo-width': 2,
+        }}
+      ></Layer>
+    </Source>
+  );
+}
+
+const ZoneNumbersLayer = () => {
   const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
   const zoneAssignments = useMapStore(state => state.zoneAssignments);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
@@ -53,44 +98,43 @@ export const MetaLayers = () => {
     };
   }, [getMapRef]);
 
+  if (!showZoneNumbers) {
+    return null
+  }
   return (
-    <>
-      {showZoneNumbers && (
-        <Source id="zone-label" type="geojson" data={zoneNumberData}>
-          <Layer
-            id="ZONE_LABEL_BG"
-            type="circle"
-            source="ZONE_LABEL"
-            layout={{
-              visibility: showLayer ? 'visible' : 'none',
-            }}
-            paint={{
-              'circle-color': '#fff',
-              'circle-radius': 15,
-              'circle-opacity': 0.8,
-              'circle-stroke-color': ZONE_LABEL_STYLE || '#000',
-              'circle-stroke-width': 2,
-            }}
-            filter={['==', ['get', 'zone'], ['get', 'zone']]}
-          ></Layer>
-          <Layer
-            id="ZONE_LABEL"
-            type="symbol"
-            source="ZONE_LABEL"
-            layout={{
-              visibility: showLayer ? 'visible' : 'none',
-              'text-field': ['get', 'zone'],
-              'text-font': ['Barlow Bold'],
-              'text-size': 18,
-              'text-anchor': 'center',
-              'text-offset': [0, 0],
-            }}
-            paint={{
-              'text-color': '#000',
-            }}
-          ></Layer>
-        </Source>
-      )}
-    </>
+    <Source id="zone-label" type="geojson" data={zoneNumberData}>
+      <Layer
+        id="ZONE_LABEL_BG"
+        type="circle"
+        source="ZONE_LABEL"
+        layout={{
+          visibility: showLayer ? 'visible' : 'none',
+        }}
+        paint={{
+          'circle-color': '#fff',
+          'circle-radius': 15,
+          'circle-opacity': 0.8,
+          'circle-stroke-color': ZONE_LABEL_STYLE || '#000',
+          'circle-stroke-width': 2,
+        }}
+        filter={['==', ['get', 'zone'], ['get', 'zone']]}
+      ></Layer>
+      <Layer
+        id="ZONE_LABEL"
+        type="symbol"
+        source="ZONE_LABEL"
+        layout={{
+          visibility: showLayer ? 'visible' : 'none',
+          'text-field': ['get', 'zone'],
+          'text-font': ['Barlow Bold'],
+          'text-size': 18,
+          'text-anchor': 'center',
+          'text-offset': [0, 0],
+        }}
+        paint={{
+          'text-color': '#000',
+        }}
+      ></Layer>
+    </Source>
   );
 };

@@ -26,7 +26,7 @@ export const CHILD_LAYERS = [
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
 ];
 
-export const EMPTY_FT_COLLECTION = {type: 'FeatureCollection', features: []};
+export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {type: 'FeatureCollection', features: []};
 
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   'case',

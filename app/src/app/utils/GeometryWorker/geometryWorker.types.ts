@@ -78,7 +78,7 @@ export type GeometryWorkerClass = {
     maxLat: number,
     fast?: boolean
   ) => CentroidReturn;
-
+  getPropertiesCentroids: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
   /**
    * Retrieves a collection of geometries without a zone assignment.
    * @returns The collection of unassigned geometries.
