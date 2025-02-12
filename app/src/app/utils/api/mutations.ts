@@ -12,6 +12,7 @@ import {
   saveMapDocumentMetadata,
   populationAbortController,
   getSharePlanLink,
+  getLoadPlanFromShare,
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
@@ -171,5 +172,28 @@ export const sharePlan = new MutationObserver(queryClient, {
       },
     });
     return data.token;
+  },
+});
+
+export const sharedDocument = new MutationObserver(queryClient, {
+  mutationFn: getLoadPlanFromShare,
+  onMutate: (token: string) => {
+    console.log('Fetching shared document with token: ', token);
+    useMapStore.getState().setAppLoadingState('loading');
+    return {token};
+  },
+  onError: error => {
+    console.error('Error fetching shared document: ', error);
+  },
+  onSuccess: data => {
+    const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} =
+      useMapStore.getState();
+    setMapDocument(data);
+    setLoadedMapId(data.document_id);
+    setAssignmentsHash(Date.now().toString());
+    setAppLoadingState('loaded');
+    const documentUrl = new URL(window.location.toString());
+    documentUrl.searchParams.set('document_id', data.document_id);
+    history.pushState({}, '', documentUrl.toString());
   },
 });

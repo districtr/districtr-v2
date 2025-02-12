@@ -32,6 +32,12 @@ class UUIDType(UUID):
         super().__init__(*args, **kwargs)
 
 
+class TokenRequest(BaseModel):
+    token: str
+    password: str | None = None
+    user_id: str | None = None
+
+
 class TimeStampMixin(SQLModel):
     created_at: Optional[datetime] = Field(
         sa_type=TIMESTAMP(timezone=True),

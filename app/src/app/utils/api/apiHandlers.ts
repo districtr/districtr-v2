@@ -686,3 +686,20 @@ export const getSharePlanLink = async ({
     throw err;
   }
 };
+
+export const getLoadPlanFromShare = async (token: string) => {
+  try {
+    const res = await axios.post(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/document/load_plan_from_share`,
+      {
+        token: token,
+        user_id: useMapStore.getState().userID,
+      },
+      {headers: {'Content-Type': 'application/json'}}
+    );
+    return res.data;
+  } catch (err) {
+    console.error('Error in getLoadPlanFromShare: ', err);
+    throw err;
+  }
+};

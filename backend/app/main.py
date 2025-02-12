@@ -50,6 +50,7 @@ from app.models import (
     SummaryStatsP4,
     PopulationStatsP4,
     UnassignedBboxGeoJSONs,
+    TokenRequest,
 )
 from app.utils import remove_file
 from app.exports import (
@@ -162,9 +163,6 @@ async def create_document(
         document_id = results.one()[0]  # should be only one row, one column of results
 
         status = check_map_lock(document_id, data.user_id, session)
-        print("\n")
-        print(f"status: {status}")
-        print("\n")
 
         # check if there is a metadata item in the request
         if data.metadata:
@@ -363,15 +361,13 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
     return results
 
 
-@app.post("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document(
     document_id: str,
-    data: UserID = Body(...),
+    user_id: UserID,
     session: Session = Depends(get_session),
-    status_code=status.HTTP_200_OK,
 ):
 
-    status = check_map_lock(document_id, data.user_id, session)
+    status = check_map_lock(document_id, user_id, session)
 
     stmt = (
         select(
@@ -408,6 +404,16 @@ async def get_document(
     result = session.exec(stmt)
 
     return result.one()
+
+
+@app.post("/api/document/{document_id}", response_model=DocumentPublic)
+async def get_document_object(
+    document_id: str,
+    data: UserID = Body(...),
+    session: Session = Depends(get_session),
+    status_code=status.HTTP_200_OK,
+):
+    return await get_document(document_id, data.user_id, session)
 
 
 @app.post("/api/document/{document_id}/unlock")
@@ -725,13 +731,25 @@ async def share_districtr_plan(
                 {"password_hash": hashed_password, "token_id": token_uuid},
             )
             session.commit()
+
         elif params["password"] is None:
-            return {"token": token_uuid}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password already set for document",
-            )
+            payload = {
+                "token": token_uuid,
+                "access": params["access_type"] if "access_type" in params else "read",
+            }
+
+        # else:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_400_BAD_REQUEST,
+        #         detail="Password already set for document",
+        #     )
+        payload = {
+            "token": token_uuid,
+            "access": params["access_type"] if "access_type" in params else "read",
+            "password_required": True if existing_token.password_hash else False,
+        }
+        token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+        return {"token": token}
 
     else:
         token_uuid = str(uuid4())
@@ -766,20 +784,21 @@ async def share_districtr_plan(
     payload = {
         "token": token_uuid,
         "access": params["access_type"] if "access_type" in params else "read",
+        "password_required": True if hashed_password else False,
     }
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
     return {"token": token}
 
 
-@app.post("/api/load_plan_from_share", status_code=status.HTTP_200_OK)
+@app.post("/api/document/load_plan_from_share", status_code=status.HTTP_200_OK)
 async def load_plan_from_share(
-    data: str = Body(...),
+    data: TokenRequest,
     session: Session = Depends(get_session),
 ):
     try:
-        payload = jwt.decode(data.token, settings.SECRET_KEY, algorithms=["HS256"])
-        token_id = payload["token"]
+
+        token_id = data.token
 
         result = session.execute(
             text(
@@ -798,22 +817,24 @@ async def load_plan_from_share(
                 detail="Token not found",
             )
         if result.password_hash:
-            if not payload["password"]:
+            if data.password is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Password required",
                 )
-            if not verify_password(payload["password"], result.password_hash):
+            if not verify_password(data.password, result.password_hash):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid password",
                 )
-
-            # return the document to the user with the password
-            return get_document(result.document_id, {"user_id": data.user_id}, session)
-        else:
-            # return the document to the user
-            return get_document(result.document_id, {"user_id": data.user_id}, session)
+        print("\n")
+        print(token_id)
+        print("\n")
+        # return the document to the user with the password
+        return await get_document("foo", token_id, data.user_id, session)
+        # else:
+        #     # return the document to the user
+        #     return get_document(result.document_id, {"user_id": data.user_id}, session)
 
     except jwt.ExpiredSignatureError:
         raise HTTPException(
