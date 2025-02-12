@@ -10,8 +10,12 @@ import {Toolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@components/Topbar';
+import { Flex } from '@radix-ui/themes';
+import { useMapStore } from '../store/mapStore';
 
 export default function Map() {
+  const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap);
+
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
@@ -21,7 +25,10 @@ export default function Map() {
             className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}
           >
             <Topbar />
-            <MapComponent />
+            <Flex direction="row" height="100%">
+              <MapComponent />
+              {showDemographicMap && <MapComponent isDemographicMap/>}
+            </Flex>
             <Toolbar />
             <MapLockShade />
             <MapTooltip />

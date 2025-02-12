@@ -72,8 +72,10 @@ export const LAYER_LINE_WIDTHS = {
 export function getLayerFill(
   captiveIds?: Set<string>,
   shatterIds?: Set<string>,
-  child?: boolean
+  child?: boolean,
+  isDemographic?: boolean
 ): DataDrivenPropertyValueSpecification<number> {
+  const baseOpacity = isDemographic ? 1 : 0.6;
   const innerFillSpec = [
     'case',
     // is broken parent
@@ -81,7 +83,7 @@ export function getLayerFill(
     0,
     // geography is locked
     ['boolean', ['feature-state', 'locked'], false],
-    0.35,
+    baseOpacity - 0.25,
     // zone is selected and hover is true and hover is not null
     [
       'all',
@@ -94,7 +96,7 @@ export function getLayerFill(
         ['boolean', ['feature-state', 'hover'], true],
       ],
     ],
-    0.9,
+    baseOpacity + 0.3,
     // zone is selected and hover is false, and hover is not null
     [
       'all',
@@ -107,21 +109,21 @@ export function getLayerFill(
         ['boolean', ['feature-state', 'hover'], false],
       ],
     ],
-    0.7,
+    baseOpacity + 0.1,
     // zone is selected, fallback, regardless of hover state
     // @ts-ignore
     ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
-    0.7,
+    baseOpacity + 0.1,
     // hover is true, fallback, regardless of zone state
     ['boolean', ['feature-state', 'hover'], false],
-    0.6,
-    0.2,
+    baseOpacity,
+    isDemographic ? baseOpacity - 0.2 : baseOpacity - 0.4,
   ] as unknown as DataDrivenPropertyValueSpecification<number>;
   if (captiveIds?.size) {
     return [
       'case',
       ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
-      0.35,
+      baseOpacity - 0.25,
       innerFillSpec,
     ] as DataDrivenPropertyValueSpecification<number>;
   } else if (shatterIds?.size && !child) {
