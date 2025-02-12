@@ -1147,6 +1147,7 @@ interface DemographicMapStore {
   dataHash: string;
   data: Array<Record<AllDemographyVariables | 'path', number>>;
   scale: any;
+  unmount: () => void;
   updateData: (
     mapDocument: MapStore['mapDocument'],
     shatterIds: MapStore['shatterIds']['parents']
@@ -1156,9 +1157,26 @@ interface DemographicMapStore {
 export const useDemographicMapStore = create(
   subscribeWithSelector<DemographicMapStore>((set, get) => ({
     getMapRef: () => undefined,
-    setGetMapRef: getMapRef => set({getMapRef}),
+    setGetMapRef: getMapRef => {
+      set({getMapRef})
+      const {dataHash, setVariable, variable} = get();
+      const {mapDocument, shatterIds} = useMapStore.getState();
+      const currentDataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
+      if (currentDataHash === dataHash) {
+        setTimeout(() => {
+          setVariable(variable);
+        }, 500);
+      }
+    },
     variable: 'total_pop',
     scale: null,
+    unmount: () => {
+      set({
+        getMapRef: () => undefined,
+        variable: 'total_pop',
+        scale: null,
+      })
+    },
     setVariable: variable => {
       const {data, getMapRef} = get();
       const {shatterIds, mapDocument} = useMapStore.getState();
@@ -1211,7 +1229,6 @@ export const useDemographicMapStore = create(
         });
       set({data, dataHash});
       setVariable(variable)
-
     },
   }))
 );

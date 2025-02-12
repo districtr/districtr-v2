@@ -42,21 +42,24 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
     }
   }, []);
 
-  const handleSyncMaps = () => {
+  const handleSyncMaps = (demoMapRef?: any) => {
     const mainMapRef = getStateMapRef();
-    console.log("Syncing maps", synced.current)
-    if (isDemographicMap && mapRef.current && mainMapRef && synced.current === false) {
-      synced.current = syncMaps(mapRef.current.getMap(), mainMapRef);
+    if (isDemographicMap && demoMapRef && mainMapRef && synced.current === false) {
+      synced.current = syncMaps(demoMapRef, mainMapRef);
     }
   };
-
   useEffect(() => {
-    handleSyncMaps();
+    if (isDemographicMap) {
+      handleSyncMaps(mapRef.current?.getMap());
+    }
     return () => {
       if (synced.current) {
-        console.log("!!! OFF")
         synced.current();
         synced.current = false;
+      }
+      if (isDemographicMap){
+        useDemographicMapStore.getState().setGetMapRef(() => undefined);
+        mapRef.current = null;
       }
     }
   }, [getStateMapRef]);
@@ -112,15 +115,15 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
           maxPitch={0}
           minPitch={0}
           dragRotate={false}
-          onLoad={() => {
-            if (mapRef.current && !isDemographicMap) {
+          onLoad={(e) => {
+            if (isDemographicMap) {
+              handleSyncMaps(e.target);
+              useDemographicMapStore.getState().setGetMapRef(() => e.target);
+            } else {
               setMapRef(mapRef);
               handleWheelOrPinch({} as TouchEvent, mapRef.current);
-              fitMapToBounds();
-            } else {
-              handleSyncMaps();
-              useDemographicMapStore.getState().setGetMapRef(() => mapRef.current?.getMap());
             }
+            fitMapToBounds();
           }}
           onClick={mapEventHandlers.onClick}
           onZoom={mapEventHandlers.onZoom}
