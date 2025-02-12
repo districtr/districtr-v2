@@ -65,11 +65,12 @@ export const ToolSettings: React.FC = () => {
         value={[
           mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
           mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-
+          mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
           mapOptions.showZoneNumbers ? '2' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
           mapOptions.lockPaintedAreas === true ? '4' : '',
+
         ]}
       >
         <Heading as="h3" weight="bold" size="3">
@@ -84,6 +85,16 @@ export const ToolSettings: React.FC = () => {
           }
         >
           Show population tooltip
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item
+          value="showBlockPopulationNumbers"
+          onClick={() =>
+            setMapOptions({
+              showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
+            })
+          }
+        >
+          Show total population labels on blocks
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="1"

@@ -15,6 +15,7 @@ export type DistrictrMapOptions = {
   currentStateFp?: string;
   showPopulationTooltip?: boolean;
   prominentCountyNames?: boolean;
+  showBlockPopulationNumbers?: boolean;
 };
 
 export type DistrictrChartOptions = {

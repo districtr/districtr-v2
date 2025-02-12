@@ -18,12 +18,19 @@ export const MetaLayers = () => {
 const PopulationTextLayer = () => {
   const captiveIds = useMapStore(state => state.captiveIds);
   const [pointFeatureCollection, setPointFeatureCollection] = useState<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
-  
-  useEffect(() => {
-    GeometryWorker?.getPropertiesCentroids(Array.from(captiveIds)).then(setPointFeatureCollection);
-  }, [captiveIds])
+  const showBlockPopulationNumbers = useMapStore(state => state.mapOptions.showBlockPopulationNumbers);
 
-  if (!pointFeatureCollection.features.length || !captiveIds.size) {
+  useEffect(() => {
+    if (captiveIds.size === 0) {
+      setPointFeatureCollection(EMPTY_FT_COLLECTION);
+      return;
+    }
+    if (showBlockPopulationNumbers) {
+      GeometryWorker?.getPropertiesCentroids(Array.from(captiveIds)).then(setPointFeatureCollection);
+    }
+  }, [captiveIds, showBlockPopulationNumbers])
+
+  if (!showBlockPopulationNumbers || !pointFeatureCollection.features.length || !captiveIds.size) {
     return null
   }
 
