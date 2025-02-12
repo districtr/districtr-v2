@@ -2,7 +2,7 @@ import {expose} from 'comlink';
 import {area} from '@turf/area';
 import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
-import {GeometryWorkerClass} from './geometryWorker.types';
+import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import bboxClip from '@turf/bbox-clip';
 import pointOnFeature from '@turf/point-on-feature';
 import pointsWithinPolygon from '@turf/points-within-polygon';
@@ -103,6 +103,7 @@ const GeometryWorker: GeometryWorkerClass = {
     mapDocument,
     idProp
   }){
+    const returnData = []
     const tile = new VectorTile(new Protobuf(tileData));
     // Iterate through each layer in the tile
     const parentLayer = mapDocument.parent_layer;
@@ -129,10 +130,16 @@ const GeometryWorker: GeometryWorkerClass = {
               || (!isParent && this.shatterIds.children.includes(id))
             ) {
               this.activeGeometries[id] = geojsonFeature;
+              returnData.push({
+                id,
+                properties: feature.properties,
+                sourceLayer: layerName,
+              } as unknown as MinGeoJSONFeature)
             }
 
         }
     }
+    return returnData;
   },
   loadGeometry(featuresOrStringified, idProp) {
     const features: MapGeoJSONFeature[] =
