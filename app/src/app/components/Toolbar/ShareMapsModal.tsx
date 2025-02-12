@@ -143,7 +143,7 @@ export const ShareMapsModal: React.FC<{
         return;
       }
       // copy to clipboard
-      const shareableLink = `${window.location.origin}${window.location.pathname}?share=${token}`;
+      const shareableLink = `${window.location.origin}?share=${token}`;
       await navigator.clipboard.writeText(shareableLink);
 
       console.log('Copied link to clipboard: ', shareableLink);

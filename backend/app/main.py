@@ -364,9 +364,9 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
 async def get_document(
     document_id: str,
     user_id: UserID,
-    session: Session = Depends(get_session),
+    session: Session,
 ):
-
+    print("doc id in get doc: ", document_id)
     status = check_map_lock(document_id, user_id, session)
 
     stmt = (
@@ -421,10 +421,7 @@ async def unlock_document(
     document_id: str, data: UserID = Body(...), session: Session = Depends(get_session)
 ):
     try:
-        print("\n")
-        print("running unlock_document")
-        print("\n")
-        stmt = session.execute(
+        session.execute(
             text(
                 """DELETE FROM document.map_document_user_session
                 WHERE document_id = :document_id AND user_id = :user_id"""
@@ -435,8 +432,7 @@ async def unlock_document(
             )
             .params(document_id=document_id, user_id=data.user_id)
         )
-        print(stmt)
-        session.execute(stmt)
+
         session.commit()
         return {"status": "unlocked"}
     except Exception as e:
@@ -791,61 +787,52 @@ async def share_districtr_plan(
     return {"token": token}
 
 
-@app.post("/api/document/load_plan_from_share", status_code=status.HTTP_200_OK)
+@app.post("/api/share/load_plan_from_share", response_model=DocumentPublic)
 async def load_plan_from_share(
     data: TokenRequest,
     session: Session = Depends(get_session),
 ):
-    try:
+    # try:
 
-        token_id = data.token
+    token_id = data.token
+    print("token_id: ", token_id)
+    result = session.execute(
+        text(
+            """
+            SELECT document_id, password_hash, expiration_date
+            FROM document.map_document_token
+            WHERE token_id = :token
+            """
+        ),
+        {"token": token_id},
+    ).fetchone()
+    # assert result, "No document found for token!"
+    # assert result.document_id == "foo", "Invalid document_id retrieved!"
 
-        result = session.execute(
-            text(
-                """
-                SELECT document_id, password_hash, expiration_date
-                FROM document.map_document_token
-                WHERE token_id = :token
-                """
-            ),
-            {"token": token_id},
-        ).fetchone()
+    print("\n results:")
+    print(result.document_id)
+    print("\n")
 
-        if not result:
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Token not found",
+        )
+    if result.password_hash:
+        if data.password is None:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Token not found",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Password required",
             )
-        if result.password_hash:
-            if data.password is None:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Password required",
-                )
-            if not verify_password(data.password, result.password_hash):
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid password",
-                )
-        print("\n")
-        print(token_id)
-        print("\n")
-        # return the document to the user with the password
-        return await get_document("foo", token_id, data.user_id, session)
-        # else:
-        #     # return the document to the user
-        #     return get_document(result.document_id, {"user_id": data.user_id}, session)
+        if not verify_password(data.password, result.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid password",
+            )
 
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-        )
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
+    # return the document to the user with the password
+    # status = check_map_lock(result.document_id, data.user_id, session)
+    return await get_document(str(result.document_id), data.user_id, session)
 
 
 @app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)

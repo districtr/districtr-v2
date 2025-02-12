@@ -690,7 +690,7 @@ export const getSharePlanLink = async ({
 export const getLoadPlanFromShare = async (token: string) => {
   try {
     const res = await axios.post(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/document/load_plan_from_share`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/share/load_plan_from_share`,
       {
         token: token,
         user_id: useMapStore.getState().userID,
