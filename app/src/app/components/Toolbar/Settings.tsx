@@ -70,6 +70,7 @@ export const ToolSettings: React.FC = () => {
           mapOptions.showZoneNumbers ? '2' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
           (mapOptions.lockPaintedAreas.length === (mapDocument?.num_districts ?? 4)) ? 'lockAll' : '',
+          mapOptions.showDemographicMap ? 'showDemographicMap' : '',
         ]}
       >
         <Heading as="h3" weight="bold" size="3">
@@ -135,6 +136,14 @@ export const ToolSettings: React.FC = () => {
           onClick={() => toggleHighlightBrokenDistricts()}
         >
           Highlight broken precincts
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item
+          value="showDemographicMap"
+          onClick={() => setMapOptions({
+            showDemographicMap: !mapOptions.showDemographicMap,
+          })}
+        >
+          Show Demographic Map
         </CheckboxGroup.Item>
       </CheckboxGroup.Root>
       <Heading as="h3" weight="bold" size="3">
