@@ -22,7 +22,7 @@ export const MapComponent: React.FC = () => {
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapStore(state => state.mapOptions);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
-
+  
   useEffect(() => {
     const protocol = new Protocol();
     maplibregl.addProtocol('pmtiles', protocol.tile);
@@ -70,9 +70,12 @@ export const MapComponent: React.FC = () => {
       <GlMap
         ref={mapRef}
         mapStyle={MAP_OPTIONS.style || undefined}
-        // latitude={MAP_OPTIONS.center?.  || undefined}
-        // center={MAP_OPTIONS.center  || undefined}
-        // zoom={MAP_OPTIONS.zoom  || undefined}
+        initialViewState={{
+          // Maplibre and react-map-gl disagree on types
+          latitude: (MAP_OPTIONS.center as [number,number])?.[1] || 0,
+          longitude: (MAP_OPTIONS.center as [number,number])?.[0] || 0,
+          zoom: MAP_OPTIONS.zoom
+        }}
         maxZoom={MAP_OPTIONS.maxZoom || undefined}
         pitchWithRotate={false}
         maxPitch={0}
