@@ -13,7 +13,7 @@ import {
   IconButton,
   RadioCards,
 } from '@radix-ui/themes';
-import {set} from 'lodash';
+import {sharedDocument} from '@/app/utils/api/mutations';
 
 export const PasswordPromptModal = () => {
   const passwordRequired = useMapStore(store => store.passwordPrompt);
@@ -25,12 +25,13 @@ export const PasswordPromptModal = () => {
   }, [passwordRequired]);
 
   const handlePasswordSubmit = () => {
-    // submit password via mutation
-
-    alert('Password submitted');
+    sharedDocument.mutate({
+      token: useMapStore.getState().receivedShareToken ?? '',
+      password: password,
+    });
   };
 
-  const handlePasswordEntry = pw => {
+  const handlePasswordEntry = (pw: string) => {
     // handle password entry
     setPassword(pw);
   };
@@ -49,9 +50,10 @@ export const PasswordPromptModal = () => {
             value={password}
             onChange={e => handlePasswordEntry(e.target.value)}
           ></TextField.Root>
-          <Flex css={{gap: '$1'}}>
+          <Flex css={{gap: '2'}}>
             <Button onClick={handlePasswordSubmit}>Submit</Button>
           </Flex>
+          <Text>{useMapStore.getState().shareMapMessage ?? ''}</Text>
         </Box>
       </Dialog.Content>
     </Dialog.Root>

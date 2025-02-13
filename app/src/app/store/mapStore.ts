@@ -299,14 +299,17 @@ export interface MapStore {
     name?: any,
     tags?: any,
     description?: any,
-    eventId?: any,
-    token?: any
+    eventId?: any
   ) => void;
   // SHARE MAP
   passwordPrompt: boolean;
   setPasswordPrompt: (prompt: boolean) => void;
   password: string | null;
   setPassword: (password: string | null) => void;
+  receivedShareToken: string | null;
+  setReceivedShareToken: (token: string | null) => void;
+  shareMapMessage: string | null;
+  setShareMapMessage: (message: string | null) => void;
 }
 
 const initialLoadingState =
@@ -1146,6 +1149,10 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
   password: null,
   setPassword: password => set({password}),
+  receivedShareToken: null,
+  setReceivedShareToken: token => set({receivedShareToken: token}),
+  shareMapMessage: null,
+  setShareMapMessage: message => set({shareMapMessage: message}),
 }));
 
 export interface HoverFeatureStore {

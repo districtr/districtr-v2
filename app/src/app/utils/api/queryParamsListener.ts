@@ -2,6 +2,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {updateDocumentFromId, updateGetDocumentFromId} from './queries';
 import {jwtDecode} from 'jwt-decode';
 import {sharedDocument} from './mutations';
+import {use} from 'react';
 export let previousDocumentID = '';
 
 export const getSearchParamsObserver = () => {
@@ -34,20 +35,11 @@ export const getSearchParamsObserver = () => {
       updateGetDocumentFromId(documentId);
     }
     if (shareToken) {
-      // decode; if password require, prompt for it; if not, fetch the map
-      // if password is correct, fetch the map
-      // if password is incorrect, show error
       const decodedToken = jwtDecode(shareToken);
-      console.log('Decoded token: ', decodedToken);
-      if ((decodedToken as any).password_required === true) {
-        // prompt for password
-        useMapStore.getState().setPasswordPrompt(true);
+      useMapStore.getState().setReceivedShareToken((decodedToken as any).token as string);
 
-        // once password is submitted, fetch map
-        sharedDocument.mutate(shareToken, useMapStore.getState().password);
-      } else {
-        // fetch map
-        sharedDocument.mutate((decodedToken as any).token as string);
+      if ((decodedToken as any).password_required === true) {
+        useMapStore.getState().setPasswordPrompt(true);
       }
     }
   });
