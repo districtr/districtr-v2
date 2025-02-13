@@ -48,6 +48,15 @@ export default withSentryConfig(nextConfig, {
     // Sentry is **NOT** able to exclude paths or components from this annotation
     // Unfortunately we need to disable it.
     enabled: false,
+    ignoredComponents: [
+      'MetaLayers',
+      'Source',
+      'Layer',
+      'ZoneNumbersLayer',
+      'PopulationTextLayer',
+      'ZoneLayers',
+      'ZoneLayerGroup',
+    ]
   },
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
