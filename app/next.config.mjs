@@ -44,7 +44,10 @@ export default withSentryConfig(nextConfig, {
 
   // Automatically annotate React components to show their full name in breadcrumbs and session replay
   reactComponentAnnotation: {
-    enabled: true,
+    // Injecting additional properties is breaking components that return symbols or more complex objects rather than DOM elements
+    // Sentry is **NOT** able to exclude paths or components from this annotation
+    // Unfortunately we need to disable it.
+    enabled: false,
   },
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
