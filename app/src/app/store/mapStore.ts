@@ -21,7 +21,6 @@ import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
 import {
   ContextMenuState,
-  LayerVisibility,
   PaintEventHandler,
   checkIfSameZone,
   getFeaturesInBbox,
@@ -269,10 +268,6 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
-  visibleLayerIds: string[];
-  setVisibleLayerIds: (layerIds: string[]) => void;
-  addVisibleLayerIds: (layerIds: string[]) => void;
-  updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
 
@@ -1071,30 +1066,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           }),
         freshMap: false,
         setFreshMap: resetMap => set({freshMap: resetMap}),
-        visibleLayerIds: ['counties_boundary', 'counties_labels'],
-        setVisibleLayerIds: layerIds => set({visibleLayerIds: layerIds}),
-        addVisibleLayerIds: (layerIds: string[]) => {
-          set(state => {
-            const newVisibleLayerIds = new Set(state.visibleLayerIds);
-            layerIds.forEach(layerId => {
-              newVisibleLayerIds.add(layerId);
-            });
-            return {visibleLayerIds: Array.from(newVisibleLayerIds)};
-          });
-        },
-        updateVisibleLayerIds: (layerVisibilities: LayerVisibility[]) => {
-          set(state => {
-            const newVisibleLayerIds = new Set(state.visibleLayerIds);
-            layerVisibilities.forEach(layerVisibility => {
-              if (layerVisibility.visibility === 'visible') {
-                newVisibleLayerIds.add(layerVisibility.layerId);
-              } else {
-                newVisibleLayerIds.delete(layerVisibility.layerId);
-              }
-            });
-            return {visibleLayerIds: Array.from(newVisibleLayerIds)};
-          });
-        },
         contextMenu: null,
         setContextMenu: contextMenu => set({contextMenu}),
         userMaps: [],
