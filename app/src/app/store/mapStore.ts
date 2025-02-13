@@ -237,7 +237,6 @@ export interface MapStore {
   sidebarPanels: Array<'layers' | 'population' | 'evaluation'>;
   setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
-  toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   spatialUnit: SpatialUnit;
@@ -299,11 +298,9 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         exitBlockView: (lock: boolean = false) => {
           const {
             focusFeatures,
-            captiveIds,
             mapOptions,
             zoneAssignments,
             shatterMappings,
-            toggleHighlightBrokenDistricts,
             lockFeatures,
           } = get();
 
@@ -319,7 +316,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
 
           const parentId = focusFeatures?.[0].id?.toString();
           if (!parentId) return;
-          if (mapOptions.highlightBrokenDistricts) toggleHighlightBrokenDistricts([parentId], true);
           const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal;
           const children = shatterMappings[parentId];
           if (lock && !willHeal && children?.size) lockFeatures(children, true);
@@ -651,7 +647,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             zoneAssignments,
             shatterIds,
             mapLock,
-            toggleHighlightBrokenDistricts,
             lockedFeatures,
             getMapRef,
             allPainted
@@ -699,7 +694,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
                   allPainted.delete(child);
                 });
               });
-            toggleHighlightBrokenDistricts(r.geoids, false);
             const newZoneAssignments = new Map(zoneAssignments);
             const newShatterIds = {
               parents: new Set(shatterIds.parents),
@@ -732,16 +726,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               delete shatterMappings[parent.parentId];
               newShatterIds.parents.delete(parent.parentId);
               newZoneAssignments.set(parent.parentId, parent.zone!);
-              mapRef?.setFeatureState(
-                {
-                  source: BLOCK_SOURCE_ID,
-                  id: parent.parentId,
-                  sourceLayer: mapDocument?.parent_layer,
-                },
-                {
-                  broken: false,
-                }
-              );
             }); 
             set({
               shatterIds: newShatterIds,
@@ -894,33 +878,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
         sidebarPanels: ['population'],
         setSidebarPanels: sidebarPanels => set({sidebarPanels}),
-        toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
-          const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
-          const mapRef = getMapRef();
-          if (!mapRef || !mapDocument) return;
-          const highlighted =
-            _higlighted !== undefined ? _higlighted : !mapOptions?.highlightBrokenDistricts;
-          const ids = _ids ? _ids : shatterIds.parents;
-          // previous state - hide and set option to false
-          ids.forEach((parentId: string) => {
-            mapRef.setFeatureState(
-              {
-                id: parentId,
-                source: BLOCK_SOURCE_ID,
-                sourceLayer: mapDocument.parent_layer,
-              },
-              {
-                highlighted,
-              }
-            );
-          });
-          set({
-            mapOptions: {
-              ...mapOptions,
-              highlightBrokenDistricts: highlighted,
-            },
-          });
-        },
         toggleLockAllAreas: () => {
           const {mapOptions, mapDocument} = get();
           const num_districts = mapDocument?.num_districts ?? 4;

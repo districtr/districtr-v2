@@ -1,9 +1,4 @@
-import {
-  PARENT_LAYERS,
-  CHILD_LAYERS,
-  getLayerFill,
-  BLOCK_SOURCE_ID,
-} from '@constants/layers';
+import {PARENT_LAYERS, CHILD_LAYERS, getLayerFill, BLOCK_SOURCE_ID} from '@constants/layers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
@@ -13,28 +8,40 @@ import {
 } from '@utils/helpers';
 import {useMapStore as _useMapStore, HoverFeatureStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
-import GeometryWorker from '@utils/GeometryWorker';
 import {useHoverStore as _useHoverStore} from '@store/mapStore';
 import {calcPops} from '@utils/population';
 import {useChartStore} from '@store/chartStore';
-
-const BBOX_TOLERANCE_DEG = 0.02;
 
 export const getRenderSubscriptions = (
   useMapStore: typeof _useMapStore,
   useHoverStore: typeof _useHoverStore
 ) => {
-
   const _shatterMapSideEffectRender = useMapStore.subscribe<
-    [MapStore['shatterIds'], MapStore['getMapRef'], MapStore['mapRenderingState']]
+    [
+      MapStore['shatterIds'],
+      MapStore['getMapRef'],
+      MapStore['mapRenderingState'],
+      MapStore['mapOptions']['highlightBrokenDistricts'],
+    ]
   >(
-    state => [state.shatterIds, state.getMapRef, state.mapRenderingState],
-    ([shatterIds, getMapRef, mapRenderingState]) => {
+    state => [
+      state.shatterIds,
+      state.getMapRef,
+      state.mapRenderingState,
+      state.mapOptions.highlightBrokenDistricts,
+    ],
+    ([shatterIds, getMapRef, mapRenderingState, highlightBrokenDistricts], [prevShatterIds]) => {
       const {mapDocument, appLoadingState, setMapLock} = useMapStore.getState();
       const mapRef = getMapRef();
-      if (!mapRef || mapRenderingState !== 'loaded' || appLoadingState !== 'loaded') {
+      if (
+        !mapRef ||
+        mapRenderingState !== 'loaded' ||
+        appLoadingState !== 'loaded' ||
+        !mapDocument
+      ) {
         return;
       }
+      const allIds = new Set([...shatterIds.parents, ...prevShatterIds.parents]);
       // Hide broken parents on parent layer
       // Show broken children on child layer
       // remove zone from parents
@@ -48,8 +55,24 @@ export const getRenderSubscriptions = (
           {
             broken: true,
             zone: null,
+            highlighted: highlightBrokenDistricts,
           }
         );
+      });
+      prevShatterIds.parents.forEach((parentId: string) => {
+        if (!shatterIds.parents.has(parentId)) {
+          mapRef.setFeatureState(
+            {
+              id: parentId,
+              source: BLOCK_SOURCE_ID,
+              sourceLayer: mapDocument.parent_layer,
+            },
+            {
+              highlighted: false,
+              broken: false,
+            }
+          );
+        }
       });
 
       mapRef.once('render', () => {
@@ -262,7 +285,10 @@ export const getRenderSubscriptions = (
 
   const _hoverMapSideEffectRender = useHoverStore.subscribe(
     (state: HoverFeatureStore) => state.hoverFeatures,
-    (hoverFeatures: HoverFeatureStore['hoverFeatures'], previousHoverFeatures: HoverFeatureStore['hoverFeatures'] ) => {
+    (
+      hoverFeatures: HoverFeatureStore['hoverFeatures'],
+      previousHoverFeatures: HoverFeatureStore['hoverFeatures']
+    ) => {
       const mapRef = useMapStore.getState().getMapRef();
 
       if (!mapRef) {
@@ -284,6 +310,6 @@ export const getRenderSubscriptions = (
     _zoneAssignmentMapSideEffectRender,
     _hoverMapSideEffectRender,
     _updateMapCursor,
-    _applyFocusFeatureState
+    _applyFocusFeatureState,
   ];
 };
