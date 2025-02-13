@@ -1,4 +1,5 @@
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
+import {Data, RBushBbox} from '../featureCache';
 
 export type CentroidReturn = {
   dissolved: GeoJSON.FeatureCollection;
@@ -29,6 +30,15 @@ export type GeometryWorkerClass = {
    * @param idProp - The property to use as the ID.
    */
   loadGeometry: (features: MinGeoJSONFeature[] | string, idProp: string) => void;
+  loadRectFeatures: (
+    features: Record<
+      string,
+      {
+        properties: Data;
+        bboxes: RBushBbox[];
+      }
+    >
+  ) => void;
   /**
    * Removes geometries from the collection.
    * @param ids - The IDs of the geometries to remove.

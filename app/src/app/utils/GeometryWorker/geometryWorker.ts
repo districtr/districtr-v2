@@ -60,6 +60,43 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     });
   },
+  loadRectFeatures(featureDict) {
+    Object.entries(featureDict).forEach(([id, feature]) => {
+      const {properties, bboxes} = feature;
+      const geoms: GeoJSON.Feature<GeoJSON.Polygon>[] = bboxes.map(bbox => {
+        const {minX, minY, maxX, maxY} = bbox;
+        return {
+          type: 'Feature',
+          properties: {
+            ...properties,
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [minX, minY],
+                [minX, maxY],
+                [maxX, maxY],
+                [maxX, minY],
+                [minX, minY],
+              ],
+            ],
+          },
+        };
+      });
+
+      const dissolved =
+        geoms.length === 1
+          ? geoms[0]
+          : dissolve({type: 'FeatureCollection', features: geoms}).features[0];
+      this.geometries[id] = {
+        ...dissolved,
+        properties: {
+          ...properties,
+        },
+      };
+    });
+  },
   dissolveGeometry(features) {
     let dissolved: GeoJSON.FeatureCollection = dissolve(
       {

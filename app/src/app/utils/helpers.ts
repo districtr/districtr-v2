@@ -13,9 +13,10 @@ import {
 } from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
-import {idCache} from '../store/idCache';
+import {featureCache} from './featureCache';
 import {ChartStore, useChartStore} from '@/app/store/chartStore';
-import { calculateMinMaxRange } from './zone-helpers';
+import {calculateMinMaxRange} from './zone-helpers';
+import {useDevStore} from '../store/devStore';
 
 /**
  * PaintEventHandler
@@ -87,18 +88,53 @@ export const getFeaturesInBbox = (
   _layers: string[] = [BLOCK_HOVER_LAYER_ID],
   filterLocked: boolean = true
 ): MapGeoJSONFeature[] | undefined => {
-  const bbox = boxAroundPoint(e, brushSize);
-  const {captiveIds} = useMapStore.getState();
+  const thereAreChildren = useMapStore.getState().shatterIds.children.size > 0;
+  if (useDevStore.getState().useRtree) {
+    if (!map) return [];
+    const bbox = boxAroundPoint(e, brushSize);
+    // bbox to latlon
+    const [topLeft, bottomRight] = bbox;
+    const [topLeftLatLon, bottomRightLatLon] = [
+      map?.unproject(topLeft),
+      map?.unproject(bottomRight),
+    ];
+    const bboxLatLon = {
+      minX: topLeftLatLon.lng,
+      maxY: topLeftLatLon.lat,
+      maxX: bottomRightLatLon.lng,
+      minY: bottomRightLatLon.lat,
+    };
+    const t0 = performance.now();
+    const parentFeatures = featureCache.searchFeaturesinBbox(bboxLatLon);
+    const childFeatures = thereAreChildren
+      ? map?.queryRenderedFeatures(bbox, {layers: [BLOCK_HOVER_LAYER_ID_CHILD]}) || []
+      : []
+    const features = [...parentFeatures, ...childFeatures];
+    const t1 = performance.now();
+    useDevStore.getState().addQueryTime(
+      features.length,
+      t1 - t0
+    );
+    return filterFeatures(features as any, filterLocked);
+  } else {
+    const bbox = boxAroundPoint(e, brushSize);
+    const {captiveIds} = useMapStore.getState();
 
-  const layers = _layers?.length
-    ? _layers
-    : captiveIds.size
-      ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
-      : [BLOCK_HOVER_LAYER_ID];
+    const layers = _layers?.length
+      ? _layers
+      : captiveIds.size
+        ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
+        : [BLOCK_HOVER_LAYER_ID];
 
-  let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
-
-  return filterFeatures(features, filterLocked);
+    const t0 = performance.now();
+    let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
+    const t1 = performance.now();
+    useDevStore.getState().addQueryTime(
+      features.length,
+      t1 - t0
+    );
+    return filterFeatures(features, filterLocked);
+  }
 };
 
 /**
@@ -142,13 +178,13 @@ export const getFeaturesIntersectingCounties = (
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
   const {mapDocument, shatterIds} = useMapStore.getState();
   const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
-  const cachedParentFeatures = idCache
-    .getFiltered(`${filterPrefix}${fips}`)
+  const cachedParentFeatures = featureCache
+    .searchIds(`${filterPrefix}${fips}`)
     .map(([id, properties]) => ({
       source: BLOCK_SOURCE_ID,
       sourceLayer: mapDocument?.parent_layer,
       id,
-      ...properties,
+      properties,
     }));
 
   const childFeatures = shatterIds.children.size
@@ -554,7 +590,7 @@ export const updateChartData = (
 
     const allAreNonZero = chartData.every(entry => entry.total_pop > 0);
     const stats = allAreNonZero ? calculateMinMaxRange(chartData) : undefined;
-    
+
     useChartStore.getState().setChartInfo({
       stats,
       chartData,

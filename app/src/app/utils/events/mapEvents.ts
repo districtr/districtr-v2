@@ -12,6 +12,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_SOURCE_ID,
   debouncedAddZoneMetaLayers,
   INTERACTIVE_LAYERS,
 } from '@/app/constants/layers';
@@ -19,10 +20,10 @@ import {ResetMapSelectState} from '@utils/events/handlers';
 import GeometryWorker from '../GeometryWorker';
 import {MinGeoJSONFeature} from '../GeometryWorker/geometryWorker.types';
 import {ActiveTool} from '@/app/constants/types';
-import {idCache} from '@/app/store/idCache';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/mapStore';
+import path from 'path';
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -60,7 +61,23 @@ export const handleMapClick = throttle((
   const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures, setIsPainting} =
     mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
-  if (activeTool === 'brush' || activeTool === 'eraser') {
+  if (activeTool === 'shatter') {
+    const documentId = mapStore.mapDocument?.document_id;
+    if (documentId && e.features?.length) {
+      handleShatter(
+        documentId,
+        e.features.filter(f => f.layer.id === BLOCK_HOVER_LAYER_ID)
+      );
+    }
+    return;
+  } else if (activeTool === 'lock') {
+    const documentId = mapStore.mapDocument?.document_id;
+    if (documentId && e.features?.length) {
+      const feature = e.features[0];
+      const id = feature.id?.toString() || '';
+      lockFeature(id, !lockedFeatures.has(id));
+    }
+  } else if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
     if (sourceLayer && selectedFeatures && map && mapStore) {
@@ -69,21 +86,6 @@ export const handleMapClick = throttle((
       selectMapFeatures(selectedFeatures);
       // end paint event to commit changes to zone assignments
       setIsPainting(false);
-    }
-  } else if (activeTool === 'shatter') {
-    const documentId = mapStore.mapDocument?.document_id;
-    if (documentId && e.features?.length) {
-      handleShatter(
-        documentId,
-        e.features.filter(f => f.layer.id === BLOCK_HOVER_LAYER_ID)
-      );
-    }
-  } else if (activeTool === 'lock') {
-    const documentId = mapStore.mapDocument?.document_id;
-    if (documentId && e.features?.length) {
-      const feature = e.features[0];
-      const id = feature.id?.toString() || '';
-      lockFeature(id, !lockedFeatures.has(id));
     }
   } else {
     // tbd, for pan mode - is there an info mode on click?
@@ -170,9 +172,14 @@ export const handleMapMouseMove = throttle(
       mapStore.mapDocument?.child_layer,
       activeTool
     );
+
+    const isBrushingTool = sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
+    if (!isBrushingTool) {
+      useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
+      useTooltipStore.getState().setTooltip(null);
+      return;
+    }
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
-    const isBrushingTool =
-      sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
     // sourceCapabilities exists on the UIEvent constructor, which does not appear
     // properly tpyed in the default map events
     // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
@@ -275,7 +282,7 @@ export const handleMapContextMenu = (
   });
 };
 
-export const handleIdCache = (
+export const handleDataLoad = (
   _e: MapLayerMouseEvent | MapLayerTouchEvent,
   map: MapLibreMap | null
 ) => {
@@ -300,40 +307,34 @@ export const handleIdCache = (
   const featureArray: MinGeoJSONFeature[] = [];
   const index = `${tileData.x}-${tileData.y}-${tileData.z}`;
   if (isChild) {
+    const featureDict: Record<string, any> = {};
     const childId = e.features?.[0]?.properties?.path;
     const parentSet =
       childId &&
       Object.entries(shatterMappings).find(([parents, children]) => children.has(childId));
-    if (!parentSet || idCache.hasCached(parentSet[0])) return;
+    if (!parentSet) return;
     for (let i = 0; i < e.features.length; i++) {
       const feature = e.features[i];
       if (!feature || feature.sourceLayer !== child_layer) continue;
       const id = feature.id;
       featureArray.push({
         type: 'Feature',
-        properties: feature.properties,
+        properties: {
+          ...feature.properties,
+          id,
+          path: id
+        },
         geometry: feature.geometry,
         sourceLayer: feature.sourceLayer,
       });
     }
+    GeometryWorker?.loadGeometry(featureArray, 'path');
   } else {
-    if (idCache.hasCached(index)) return;
-    for (let i = 0; i < e.features.length; i++) {
-      const feature = e.features[i];
-      if (!feature || feature.sourceLayer !== parent_layer) continue;
-      const id = feature.id;
-      featureArray.push({
-        type: 'Feature',
-        properties: feature.properties,
-        geometry: feature.geometry,
-        sourceLayer: feature.sourceLayer,
-      });
-    }
-    const currentStateFp = featureArray?.[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
+    if (e.features?.length) {
+    const currentStateFp = e.features?.[0]?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
     useMapStore.getState().setMapOptions({currentStateFp});
+    }
   }
-  GeometryWorker?.loadGeometry(featureArray, 'path');
-  idCache.loadFeatures(featureArray, index);
 };
 
 export const mapEvents = [
@@ -355,7 +356,7 @@ export const mapEvents = [
   {action: 'moveend', handler: handleMapMoveEnd},
   {action: 'zoomend', handler: handleMapZoomEnd},
   {action: 'contextmenu', handler: handleMapContextMenu},
-  {action: 'data', handler: handleIdCache},
+  {action: 'data', handler: handleDataLoad},
 ];
 
 export const handleWheelOrPinch = (e: MouseEvent | TouchEvent, map: MapLibreMap | null) => {
