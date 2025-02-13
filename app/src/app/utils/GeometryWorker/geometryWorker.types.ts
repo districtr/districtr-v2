@@ -96,4 +96,5 @@ export type GeometryWorkerClass = {
    * @returns The collection of geometries.
    */
   getGeos: () => GeoJSON.FeatureCollection;
+  getPropsById: (ids: string[]) => Array<MinGeoJSONFeature>;
 };

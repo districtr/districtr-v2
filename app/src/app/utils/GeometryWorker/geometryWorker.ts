@@ -32,6 +32,19 @@ const GeometryWorker: GeometryWorkerClass = {
     parents: [],
     children: [],
   },
+  getPropsById(ids: string[]){
+    const features: MinGeoJSONFeature[] = [];
+    ids.forEach(id => {
+      const f = this.geometries[id];
+      if (f) {
+        features.push({
+          ...f,
+          geometry: undefined as any
+        })
+      }
+    })
+    return features;
+  },
   getGeos() {
     return {
       type: 'FeatureCollection',
