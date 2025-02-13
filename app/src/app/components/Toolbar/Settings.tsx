@@ -50,7 +50,7 @@ export const ToolSettings: React.FC = () => {
           mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
           mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
           mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
-          mapOptions.showZoneNumbers === true ? 'showCountyBoundaries' : '',
+          mapOptions.showZoneNumbers === true ? 'showZoneNumbers' : '',
           parentsAreBroken && mapOptions.highlightBrokenDistricts === true
             ? 'highlightBrokenDistricts'
             : '',
@@ -99,7 +99,7 @@ export const ToolSettings: React.FC = () => {
             })
           }
         >
-          Show numbering for painted districts <i>(experimental)</i>
+          Show numbering for painted districts
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="higlightUnassigned"
