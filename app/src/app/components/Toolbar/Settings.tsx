@@ -92,7 +92,7 @@ export const ToolSettings: React.FC = () => {
           Show painted districts
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
-          value="2"
+          value="showZoneNumbers"
           onClick={() =>
             setMapOptions({
               showZoneNumbers: !mapOptions.showZoneNumbers,
