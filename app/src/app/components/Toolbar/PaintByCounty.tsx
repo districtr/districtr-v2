@@ -1,7 +1,5 @@
 import {Box, Text, Checkbox, Flex} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
-import {COUNTY_LAYER_IDS} from '../../constants/layers';
-import {useState, useEffect} from 'react';
 import {getFeaturesInBbox, getFeaturesIntersectingCounties} from '../../utils/helpers';
 
 export default function PaintByCounty() {
