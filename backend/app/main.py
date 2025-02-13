@@ -738,7 +738,11 @@ async def share_districtr_plan(
         #     raise HTTPException(
         #         status_code=status.HTTP_400_BAD_REQUEST,
         #         detail="Password already set for document",
-        #     )
+        #     )s
+        print("\n")
+        print(True if existing_token.password_hash else False, "hashed password up top")
+        print("\n")
+
         payload = {
             "token": token_uuid,
             "access": params["access_type"] if "access_type" in params else "read",
@@ -776,6 +780,9 @@ async def share_districtr_plan(
         )
 
         session.commit()
+        print("\n")
+        print(hashed_password, "hashed password")
+        print("\n")
 
     payload = {
         "token": token_uuid,
@@ -806,12 +813,6 @@ async def load_plan_from_share(
         ),
         {"token": token_id},
     ).fetchone()
-    # assert result, "No document found for token!"
-    # assert result.document_id == "foo", "Invalid document_id retrieved!"
-
-    print("\n results:")
-    print(result.document_id)
-    print("\n")
 
     if not result:
         raise HTTPException(
@@ -819,6 +820,7 @@ async def load_plan_from_share(
             detail="Token not found",
         )
     if result.password_hash:
+        print("password required: ", result.password_hash)
         if data.password is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

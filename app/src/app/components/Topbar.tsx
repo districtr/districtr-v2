@@ -21,6 +21,7 @@ import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {districtrIdbCache} from '../utils/cache';
 import {ShareMapsModal} from './Toolbar/ShareMapsModal';
+import {PasswordPromptModal} from './Toolbar/PasswordPromptModal';
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
@@ -196,6 +197,7 @@ export const Topbar: React.FC = () => {
       </Flex>
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
       <ShareMapsModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} />
+      <PasswordPromptModal />
     </>
   );
 };

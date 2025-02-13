@@ -19,6 +19,7 @@ import {mapMetrics} from './queries';
 import {useChartStore} from '@/app/store/chartStore';
 import {districtrIdbCache} from '../cache';
 import {useMutation} from '@tanstack/react-query';
+import {use} from 'react';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -177,8 +178,10 @@ export const sharePlan = new MutationObserver(queryClient, {
 
 export const sharedDocument = new MutationObserver(queryClient, {
   mutationFn: getLoadPlanFromShare,
-  onMutate: (token: string) => {
-    console.log('Fetching shared document with token: ', token);
+  onMutate: (token: string, password?: string | null) => {
+    console.log('Fetching shared document with token: ', token, password);
+    const passwordRequired = useMapStore.getState().passwordPrompt;
+
     useMapStore.getState().setAppLoadingState('loading');
     return {token};
   },

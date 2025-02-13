@@ -38,10 +38,13 @@ export const getSearchParamsObserver = () => {
       // if password is correct, fetch the map
       // if password is incorrect, show error
       const decodedToken = jwtDecode(shareToken);
-      // console.log('Decoded token: ', decodedToken);
+      console.log('Decoded token: ', decodedToken);
       if ((decodedToken as any).password_required === true) {
         // prompt for password
-        console.log('need a password');
+        useMapStore.getState().setPasswordPrompt(true);
+
+        // once password is submitted, fetch map
+        sharedDocument.mutate(shareToken, useMapStore.getState().password);
       } else {
         // fetch map
         sharedDocument.mutate((decodedToken as any).token as string);

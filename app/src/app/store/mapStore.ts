@@ -302,6 +302,11 @@ export interface MapStore {
     eventId?: any,
     token?: any
   ) => void;
+  // SHARE MAP
+  passwordPrompt: boolean;
+  setPasswordPrompt: (prompt: boolean) => void;
+  password: string | null;
+  setPassword: (password: string | null) => void;
 }
 
 const initialLoadingState =
@@ -1137,6 +1142,10 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       }) as DocumentObject[];
       return {userMaps: updatedMaps};
     }),
+  passwordPrompt: false,
+  setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
+  password: null,
+  setPassword: password => set({password}),
 }));
 
 export interface HoverFeatureStore {
