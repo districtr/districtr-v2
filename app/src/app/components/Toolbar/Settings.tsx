@@ -65,7 +65,7 @@ export const ToolSettings: React.FC = () => {
         value={[
           mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
           mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-          mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
+          mapOptions.showBlockPopulationNumbers ? 'showBlockPopulationNumbers' : '',
           visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
           mapOptions.showZoneNumbers ? '2' : '',
           parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
