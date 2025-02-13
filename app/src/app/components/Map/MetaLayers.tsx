@@ -63,9 +63,7 @@ const ZoneNumbersLayer = () => {
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
   const [zoneNumberData, setZoneNumberData] = useState<any>(EMPTY_FT_COLLECTION);
-  const [dataDocumentId, setDataDocumentId] = useState<string | null>(null);
   const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
-  const showLayer = dataDocumentId === mapDocumentId;
 
   const addZoneMetaLayers = async () => {
     const showZoneNumbers = useMapStore.getState().mapOptions.showZoneNumbers;
@@ -74,12 +72,14 @@ const ZoneNumbersLayer = () => {
       const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
       await GeometryWorker?.updateProps(zoneEntries);
       const geoms = await getDissolved();
-      geoms && setZoneNumberData(geoms.centroids);
-      setDataDocumentId(id);
+      if (geoms && mapDocumentId === id){
+        setZoneNumberData(geoms.centroids);
+      }
     } else {
       setZoneNumberData(EMPTY_FT_COLLECTION);
     }
   };
+
   const handleUpdate = () => {
     if (!updateTimeout.current) {
       addZoneMetaLayers();
@@ -105,6 +105,10 @@ const ZoneNumbersLayer = () => {
     };
   }, [getMapRef]);
 
+  useEffect(() => {
+    setZoneNumberData(EMPTY_FT_COLLECTION);
+  }, [mapDocumentId])
+
   if (!showZoneNumbers) {
     return null
   }
@@ -115,7 +119,7 @@ const ZoneNumbersLayer = () => {
         type="circle"
         source="ZONE_LABEL"
         layout={{
-          visibility: showLayer ? 'visible' : 'none',
+          visibility: 'visible',
         }}
         paint={{
           'circle-color': '#fff',
@@ -131,7 +135,7 @@ const ZoneNumbersLayer = () => {
         type="symbol"
         source="ZONE_LABEL"
         layout={{
-          visibility: showLayer ? 'visible' : 'none',
+          visibility: 'visible',
           'text-field': ['get', 'zone'],
           'text-font': ['Barlow Bold'],
           'text-size': 18,
