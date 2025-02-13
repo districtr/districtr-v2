@@ -41,7 +41,6 @@ export const getRenderSubscriptions = (
       ) {
         return;
       }
-      const allIds = new Set([...shatterIds.parents, ...prevShatterIds.parents]);
       // Hide broken parents on parent layer
       // Show broken children on child layer
       // remove zone from parents
@@ -108,7 +107,6 @@ export const getRenderSubscriptions = (
         setLockedFeatures,
         lockedFeatures,
         mapRenderingState,
-        mapOptions,
       } = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded') return;
