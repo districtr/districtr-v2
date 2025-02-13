@@ -12,7 +12,7 @@ import {useMapStore} from '../../store/mapStore';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import { CountyLayers } from './CountyLayers';
-import { ZoneLayerGroup, ZoneLayers } from './ZoneLayers';
+import { ZoneLayers } from './ZoneLayers';
 import { MetaLayers } from './MetaLayers';
 
 export const MapComponent: React.FC = () => {

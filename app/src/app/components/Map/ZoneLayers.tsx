@@ -56,6 +56,7 @@ export const ZoneLayerGroup: React.FC<{
   const captiveIds = useMapStore(state => state.captiveIds);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   const highlightUnassigned = useMapStore(state => state.mapOptions.higlightUnassigned);
+  const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
 
   const layerFilter = useMemo(() => {
     const ids = child ? shatterIds.children : shatterIds.parents;
@@ -84,7 +85,7 @@ export const ZoneLayerGroup: React.FC<{
         beforeId={LABELS_BREAK_LAYER_ID}
         type="line"
         layout={{
-          visibility: 'visible',
+          visibility: showPaintedDistricts ? 'visible' : 'none',
         }}
         paint={{
           'line-opacity': 0.8,
@@ -121,7 +122,7 @@ export const ZoneLayerGroup: React.FC<{
         beforeId={LABELS_BREAK_LAYER_ID}
         type="fill"
         layout={{
-          visibility: 'visible',
+          visibility: showPaintedDistricts ? 'visible' : 'none',
         }}
         paint={{
           'fill-opacity': layerOpacity,
@@ -135,7 +136,7 @@ export const ZoneLayerGroup: React.FC<{
         filter={child ? layerFilter : ['literal', true]}
         type="line"
         layout={{
-          visibility: 'visible',
+          visibility: showPaintedDistricts ? 'visible' : 'none',
           'line-cap': 'round',
         }}
         paint={{

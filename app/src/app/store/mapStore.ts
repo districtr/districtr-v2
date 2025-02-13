@@ -324,7 +324,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
 
           const parentId = focusFeatures?.[0].id?.toString();
           if (!parentId) return;
-          if (mapOptions.showBrokenDistricts) toggleHighlightBrokenDistricts([parentId], true);
+          if (mapOptions.highlightBrokenDistricts) toggleHighlightBrokenDistricts([parentId], true);
           const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal;
           const children = shatterMappings[parentId];
           if (lock && !willHeal && children?.size) lockFeatures(children, true);
@@ -698,7 +698,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               }))
               .forEach(entry => {
                 const {children, parent} = entry;
-                idCache.heal(parent, Array.from(children));
                 GeometryWorker?.removeGeometries(Array.from(children));
                 children.forEach(child => {
                   // remove from allPainted
@@ -890,10 +889,12 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           pitch: 0,
           bearing: 0,
           container: '',
-          showBrokenDistricts: false,
+          highlightBrokenDistricts: false,
           mode: 'default',
           lockPaintedAreas: [],
-          prominentCountyNames: true
+          prominentCountyNames: true,
+          showCountyBoundaries: true,
+          showPaintedDistricts: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
         sidebarPanels: ['population'],
@@ -903,7 +904,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           const mapRef = getMapRef();
           if (!mapRef || !mapDocument) return;
           const highlighted =
-            _higlighted !== undefined ? _higlighted : !mapOptions?.showBrokenDistricts;
+            _higlighted !== undefined ? _higlighted : !mapOptions?.highlightBrokenDistricts;
           const ids = _ids ? _ids : shatterIds.parents;
           // previous state - hide and set option to false
           ids.forEach((parentId: string) => {
@@ -921,7 +922,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           set({
             mapOptions: {
               ...mapOptions,
-              showBrokenDistricts: highlighted,
+              highlightBrokenDistricts: highlighted,
             },
           });
         },

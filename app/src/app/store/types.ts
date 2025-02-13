@@ -6,7 +6,7 @@ import {TemporalState} from 'zundo';
 import {MapStore} from './mapStore';
 
 export type DistrictrMapOptions = {
-  showBrokenDistricts?: boolean;
+  highlightBrokenDistricts?: boolean;
   higlightUnassigned?: boolean;
   lockPaintedAreas: Array<NullableZone>;
   mode: 'default' | 'break';
@@ -15,7 +15,9 @@ export type DistrictrMapOptions = {
   currentStateFp?: string;
   showPopulationTooltip?: boolean;
   prominentCountyNames?: boolean;
+  showCountyBoundaries?: boolean;
   showBlockPopulationNumbers?: boolean;
+  showPaintedDistricts?: boolean;
 };
 
 export type DistrictrChartOptions = {
