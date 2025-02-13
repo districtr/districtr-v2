@@ -193,6 +193,7 @@ export const sharedDocument = new MutationObserver(queryClient, {
     setAssignmentsHash(Date.now().toString());
     setAppLoadingState('loaded');
     const documentUrl = new URL(window.location.toString());
+    documentUrl.searchParams.delete('share'); // remove share + token from url
     documentUrl.searchParams.set('document_id', data.document_id);
     history.pushState({}, '', documentUrl.toString());
   },

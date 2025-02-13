@@ -83,7 +83,7 @@ export const ShareMapsModal: React.FC<{
   const [copiedPlanName, setCopiedPlanName] = React.useState(null);
   const [sharetype, setSharetype] = React.useState('view');
   const [linkCopied, setLinkCopied] = React.useState(false);
-  const [password, setPassword] = React.useState<string | undefined>(null);
+  const [password, setPassword] = React.useState<string | null>(null);
 
   const handleChangeName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
