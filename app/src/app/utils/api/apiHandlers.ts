@@ -692,7 +692,7 @@ export const getLoadPlanFromShare = async ({
   password,
 }: {
   token: string;
-  password?: string | undefined;
+  password?: string | null | undefined;
 }) => {
   const res = await axios.post(
     `${process.env.NEXT_PUBLIC_API_URL}/api/share/load_plan_from_share`,

@@ -178,7 +178,7 @@ export const sharePlan = new MutationObserver(queryClient, {
 
 export const sharedDocument = new MutationObserver(queryClient, {
   mutationFn: getLoadPlanFromShare,
-  onMutate: ({token, password}: {token: string; password: string | undefined}) => {
+  onMutate: ({token, password}: {token: string; password: string | null | undefined}) => {
     const passwordRequired = useMapStore.getState().passwordPrompt;
     useMapStore.getState().setAppLoadingState('loading');
   },
