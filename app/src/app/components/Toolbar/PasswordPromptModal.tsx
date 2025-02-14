@@ -18,7 +18,7 @@ import {sharedDocument} from '@/app/utils/api/mutations';
 export const PasswordPromptModal = () => {
   const passwordRequired = useMapStore(store => store.passwordPrompt);
   const [dialogOpen, setDialogOpen] = React.useState(passwordRequired);
-  const [password, setPassword] = React.useState<string | undefined>(undefined);
+  const [password, setPassword] = React.useState<string | null | undefined>(undefined);
   const shareMapMessage = useMapStore(store => store.shareMapMessage);
   useEffect(() => {
     setDialogOpen(passwordRequired);

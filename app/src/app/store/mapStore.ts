@@ -304,8 +304,8 @@ export interface MapStore {
   // SHARE MAP
   passwordPrompt: boolean;
   setPasswordPrompt: (prompt: boolean) => void;
-  password: string | undefined;
-  setPassword: (password: string | undefined) => void;
+  password: string | null | undefined;
+  setPassword: (password: string | null | undefined) => void;
   receivedShareToken: string | null;
   setReceivedShareToken: (token: string | null) => void;
   shareMapMessage: string | null;
@@ -1150,7 +1150,7 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     }),
   passwordPrompt: false,
   setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
-  password: undefined,
+  password: null,
   setPassword: password => set({password}),
   receivedShareToken: null,
   setReceivedShareToken: token => set({receivedShareToken: token}),
