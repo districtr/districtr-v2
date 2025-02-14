@@ -21,7 +21,6 @@ import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
 import {
   ContextMenuState,
-  LayerVisibility,
   PaintEventHandler,
   checkIfSameZone,
   getFeaturesInBbox,
@@ -241,7 +240,6 @@ export interface MapStore {
   sidebarPanels: Array<'layers' | 'population' | 'evaluation'>;
   setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
-  toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   spatialUnit: SpatialUnit;
@@ -272,10 +270,6 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
-  visibleLayerIds: string[];
-  setVisibleLayerIds: (layerIds: string[]) => void;
-  addVisibleLayerIds: (layerIds: string[]) => void;
-  updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
 
@@ -307,11 +301,9 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         exitBlockView: (lock: boolean = false) => {
           const {
             focusFeatures,
-            captiveIds,
             mapOptions,
             zoneAssignments,
             shatterMappings,
-            toggleHighlightBrokenDistricts,
             lockFeatures,
           } = get();
 
@@ -327,7 +319,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
 
           const parentId = focusFeatures?.[0].id?.toString();
           if (!parentId) return;
-          if (mapOptions.showBrokenDistricts) toggleHighlightBrokenDistricts([parentId], true);
           const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal;
           const children = shatterMappings[parentId];
           if (lock && !willHeal && children?.size) lockFeatures(children, true);
@@ -659,7 +650,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             zoneAssignments,
             shatterIds,
             mapLock,
-            toggleHighlightBrokenDistricts,
             lockedFeatures,
             getMapRef,
             allPainted
@@ -701,14 +691,12 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               }))
               .forEach(entry => {
                 const {children, parent} = entry;
-                idCache.heal(parent, Array.from(children));
                 GeometryWorker?.removeGeometries(Array.from(children));
                 children.forEach(child => {
                   // remove from allPainted
                   allPainted.delete(child);
                 });
               });
-            toggleHighlightBrokenDistricts(r.geoids, false);
             const newZoneAssignments = new Map(zoneAssignments);
             const newShatterIds = {
               parents: new Set(shatterIds.parents),
@@ -741,16 +729,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               delete shatterMappings[parent.parentId];
               newShatterIds.parents.delete(parent.parentId);
               newZoneAssignments.set(parent.parentId, parent.zone!);
-              mapRef?.setFeatureState(
-                {
-                  source: BLOCK_SOURCE_ID,
-                  id: parent.parentId,
-                  sourceLayer: mapDocument?.parent_layer,
-                },
-                {
-                  broken: false,
-                }
-              );
             }); 
             set({
               shatterIds: newShatterIds,
@@ -893,41 +871,16 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           pitch: 0,
           bearing: 0,
           container: '',
-          showBrokenDistricts: false,
+          highlightBrokenDistricts: false,
           mode: 'default',
           lockPaintedAreas: [],
-          prominentCountyNames: true
+          prominentCountyNames: true,
+          showCountyBoundaries: true,
+          showPaintedDistricts: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
         sidebarPanels: ['population'],
         setSidebarPanels: sidebarPanels => set({sidebarPanels}),
-        toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
-          const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
-          const mapRef = getMapRef();
-          if (!mapRef || !mapDocument) return;
-          const highlighted =
-            _higlighted !== undefined ? _higlighted : !mapOptions?.showBrokenDistricts;
-          const ids = _ids ? _ids : shatterIds.parents;
-          // previous state - hide and set option to false
-          ids.forEach((parentId: string) => {
-            mapRef.setFeatureState(
-              {
-                id: parentId,
-                source: BLOCK_SOURCE_ID,
-                sourceLayer: mapDocument.parent_layer,
-              },
-              {
-                highlighted,
-              }
-            );
-          });
-          set({
-            mapOptions: {
-              ...mapOptions,
-              showBrokenDistricts: highlighted,
-            },
-          });
-        },
         toggleLockAllAreas: () => {
           const {mapOptions, mapDocument} = get();
           const num_districts = mapDocument?.num_districts ?? 4;
@@ -1073,30 +1026,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           }),
         freshMap: false,
         setFreshMap: resetMap => set({freshMap: resetMap}),
-        visibleLayerIds: ['counties_boundary', 'counties_labels'],
-        setVisibleLayerIds: layerIds => set({visibleLayerIds: layerIds}),
-        addVisibleLayerIds: (layerIds: string[]) => {
-          set(state => {
-            const newVisibleLayerIds = new Set(state.visibleLayerIds);
-            layerIds.forEach(layerId => {
-              newVisibleLayerIds.add(layerId);
-            });
-            return {visibleLayerIds: Array.from(newVisibleLayerIds)};
-          });
-        },
-        updateVisibleLayerIds: (layerVisibilities: LayerVisibility[]) => {
-          set(state => {
-            const newVisibleLayerIds = new Set(state.visibleLayerIds);
-            layerVisibilities.forEach(layerVisibility => {
-              if (layerVisibility.visibility === 'visible') {
-                newVisibleLayerIds.add(layerVisibility.layerId);
-              } else {
-                newVisibleLayerIds.delete(layerVisibility.layerId);
-              }
-            });
-            return {visibleLayerIds: Array.from(newVisibleLayerIds)};
-          });
-        },
         contextMenu: null,
         setContextMenu: contextMenu => set({contextMenu}),
         userMaps: [],

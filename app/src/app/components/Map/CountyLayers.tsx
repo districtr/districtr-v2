@@ -52,11 +52,14 @@ export const CountyLayers = () => {
               2.25,
             ],
           }}
+          layout={{
+            visibility: mapOptions.showCountyBoundaries ? 'visible' : 'none',
+          }}
           filter={countyFilter}
         />
         <Layer
           id="counties_labels"
-          beforeId={mapOptions.prominentCountyNames ? 'counties_boundary' : undefined}
+          beforeId={mapOptions.prominentCountyNames ? undefined : 'counties_boundary'}
           type="symbol"
           source-layer="tl_2023_us_county_label"
           minzoom={6}

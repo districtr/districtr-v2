@@ -45,7 +45,7 @@ export type GeometryWorkerClass = {
     tileID: {x: number, y: number, z: number};
     mapDocument: DocumentObject,
     idProp: string
-  }) => void;
+  }) => Array<MinGeoJSONFeature>;
   /**
    * Removes geometries from the collection.
    * @param ids - The IDs of the geometries to remove.
@@ -96,4 +96,5 @@ export type GeometryWorkerClass = {
    * @returns The collection of geometries.
    */
   getGeos: () => GeoJSON.FeatureCollection;
+  getPropsById: (ids: string[]) => Array<MinGeoJSONFeature>;
 };

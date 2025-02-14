@@ -147,8 +147,7 @@ const getDissolved = async () => {
     currentView.getWest(),
     currentView.getSouth(),
     currentView.getEast(),
-    currentView.getNorth(),
-    true
+    currentView.getNorth()
   );
   return {centroids, dissolved};
 };
