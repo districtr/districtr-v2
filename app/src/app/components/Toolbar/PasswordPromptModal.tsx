@@ -42,9 +42,7 @@ export const PasswordPromptModal = () => {
           <Text size="2" weight="bold">
             This plan is password protected.{' '}
           </Text>
-          <Text size="3" gap="2">
-            Please enter a valid password to access this plan
-          </Text>
+          <Text size="3">Please enter a valid password to access this plan</Text>
 
           <TextField.Root
             placeholder="Password"
