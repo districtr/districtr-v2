@@ -51,9 +51,7 @@ export const PasswordPromptModal = () => {
             onChange={e => handlePasswordEntry(e.target.value)}
           ></TextField.Root>
           <Flex gap="2" py="2">
-            <Button p="2" onClick={handlePasswordSubmit}>
-              Submit
-            </Button>
+            <Button onClick={handlePasswordSubmit}>Submit</Button>
           </Flex>
           <Text>{shareMapMessage ?? ''}</Text>
         </Box>
