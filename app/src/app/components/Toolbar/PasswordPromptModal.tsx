@@ -39,10 +39,10 @@ export const PasswordPromptModal = () => {
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <Dialog.Content>
         <Box p="3">
-          <Text fontSize="2" fontWeight="bold">
+          <Text size="2" weight="bold">
             This plan is password protected.{' '}
           </Text>
-          <Text size="3" color="$gray600" gap="2">
+          <Text size="3" gap="2">
             Please enter a valid password to access this plan
           </Text>
 
