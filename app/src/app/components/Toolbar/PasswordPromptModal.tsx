@@ -38,9 +38,11 @@ export const PasswordPromptModal = () => {
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <Dialog.Content>
-        <Box css={{padding: '$3'}}>
-          <Text css={{fontSize: '$2', fontWeight: 'bold'}}>This plan is password protected. </Text>
-          <Text css={{fontSize: '$1', color: '$gray600', gap: '$1'}}>
+        <Box p="3" gap="3">
+          <Text fontSize="2" fontWeight="bold">
+            This plan is password protected.{' '}
+          </Text>
+          <Text size="3" color="$gray600" gap="2">
             Please enter a valid password to access this plan
           </Text>
 
@@ -50,7 +52,7 @@ export const PasswordPromptModal = () => {
             value={password}
             onChange={e => handlePasswordEntry(e.target.value)}
           ></TextField.Root>
-          <Flex css={{gap: '2'}}>
+          <Flex gap="2">
             <Button onClick={handlePasswordSubmit}>Submit</Button>
           </Flex>
           <Text>{useMapStore.getState().shareMapMessage ?? ''}</Text>
