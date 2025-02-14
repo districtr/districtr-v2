@@ -19,7 +19,7 @@ export const PasswordPromptModal = () => {
   const passwordRequired = useMapStore(store => store.passwordPrompt);
   const [dialogOpen, setDialogOpen] = React.useState(passwordRequired);
   const [password, setPassword] = React.useState('');
-
+  const shareMapMessage = useMapStore(store => store.shareMapMessage);
   useEffect(() => {
     setDialogOpen(passwordRequired);
   }, [passwordRequired]);
@@ -38,7 +38,7 @@ export const PasswordPromptModal = () => {
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <Dialog.Content>
-        <Box p="3" gap="3">
+        <Box p="3">
           <Text fontSize="2" fontWeight="bold">
             This plan is password protected.{' '}
           </Text>
@@ -52,10 +52,12 @@ export const PasswordPromptModal = () => {
             value={password}
             onChange={e => handlePasswordEntry(e.target.value)}
           ></TextField.Root>
-          <Flex gap="2">
-            <Button onClick={handlePasswordSubmit}>Submit</Button>
+          <Flex gap="2" py="2">
+            <Button p="2" onClick={handlePasswordSubmit}>
+              Submit
+            </Button>
           </Flex>
-          <Text>{useMapStore.getState().shareMapMessage ?? ''}</Text>
+          <Text>{shareMapMessage ?? ''}</Text>
         </Box>
       </Dialog.Content>
     </Dialog.Root>
