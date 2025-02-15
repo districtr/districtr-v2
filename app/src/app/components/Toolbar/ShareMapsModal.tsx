@@ -83,7 +83,7 @@ export const ShareMapsModal: React.FC<{
   const [copiedPlanName, setCopiedPlanName] = React.useState(null);
   const [sharetype, setSharetype] = React.useState('view');
   const [linkCopied, setLinkCopied] = React.useState(false);
-  const [password, setPassword] = React.useState<string | null>(null);
+  const [password, setPassword] = React.useState<string>('');
 
   const handleChangeName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
@@ -191,7 +191,7 @@ export const ShareMapsModal: React.FC<{
 
   // if no gerrydb table selected return null
   if (!gerryDBTable) {
-    return <></>;
+    return <div></div>;
   }
 
   return (
@@ -263,7 +263,7 @@ export const ShareMapsModal: React.FC<{
             variant="soft"
             placeholder="(Optional) Set a password"
             size="2"
-            value={password}
+            value={password ?? undefined}
             onChange={e => setPassword(e.target.value)}
             className="items-center"
           ></TextField.Root>
