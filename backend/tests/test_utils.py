@@ -16,119 +16,6 @@ from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
 
 
-@pytest.fixture(name="simple_parent_geos")
-def simple_parent_geos_fixture(session: Session):
-    layer = "simple_parent_geos"
-    result = subprocess.run(
-        args=[
-            "ogr2ogr",
-            "-f",
-            "PostgreSQL",
-            OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
-            "-lco",
-            "OVERWRITE=yes",
-            "-nln",
-            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
-            "-nlt",
-            "MULTIPOLYGON",
-            "-lco",
-            "GEOMETRY_NAME=geometry",
-        ],
-    )
-
-    if result.returncode != 0:
-        print(f"ogr2ogr failed. Got {result}")
-        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
-
-
-@pytest.fixture(name="simple_child_geos")
-def simple_child_geos_fixture(session: Session):
-    layer = "simple_child_geos"
-    result = subprocess.run(
-        args=[
-            "ogr2ogr",
-            "-f",
-            "PostgreSQL",
-            OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
-            "-lco",
-            "OVERWRITE=yes",
-            "-nln",
-            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
-            "-nlt",
-            "MULTIPOLYGON",
-            "-lco",
-            "GEOMETRY_NAME=geometry",
-        ],
-    )
-
-    if result.returncode != 0:
-        print(f"ogr2ogr failed. Got {result}")
-        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
-
-
-@pytest.fixture(name="simple_parent_geos_gerrydb")
-def simple_parent_geos_gerrydb_fixture(session: Session, simple_parent_geos):
-    upsert_query = text("""
-        INSERT INTO gerrydbtable (uuid, name, updated_at)
-        VALUES (gen_random_uuid(), :name, now())
-        ON CONFLICT (name)
-        DO UPDATE SET
-            updated_at = now()
-    """)
-    session.begin()
-    session.execute(upsert_query, {"name": "simple_parent_geos"})
-    session.commit()
-    session.close()
-
-
-@pytest.fixture(name="simple_child_geos_gerrydb")
-def simple_child_geos_gerrydb_fixture(session: Session, simple_child_geos):
-    upsert_query = text("""
-        INSERT INTO gerrydbtable (uuid, name, updated_at)
-        VALUES (gen_random_uuid(), :name, now())
-        ON CONFLICT (name)
-        DO UPDATE SET
-            updated_at = now()
-    """)
-    session.begin()
-    session.execute(upsert_query, {"name": "simple_child_geos"})
-    session.commit()
-    session.close()
-
-
-@pytest.fixture(name="gerrydb_simple_geos_view")
-def gerrydb_simple_geos_view_fixture(
-    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
-):
-    create_shatterable_gerrydb_view(
-        session,
-        parent_layer_name="simple_parent_geos",
-        child_layer_name="simple_child_geos",
-        gerrydb_table_name="simple_geos",
-    )
-    session.commit()
-    return
-
-
-@pytest.fixture(name="districtr_map")
-def districtr_map_fixture(
-    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
-):
-    (inserted_districtr_map,) = create_districtr_map(
-        session,
-        name="Simple shatterable layer",
-        gerrydb_table_name="simple_geos",
-        num_districts=10,
-        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
-        parent_layer_name="simple_parent_geos",
-        child_layer_name="simple_child_geos",
-    )
-    session.commit()
-    return inserted_districtr_map
-
-
 GERRY_DB_P1_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 
 
@@ -266,17 +153,21 @@ def test_create_shatterable_gerrydb_view(
 
 
 def test_create_parent_child_edges(
-    session: Session, districtr_map: str, gerrydb_simple_geos_view
+    session: Session, simple_shatterable_districtr_map: str, gerrydb_simple_geos_view
 ):
-    create_parent_child_edges(session=session, districtr_map_uuid=districtr_map)
+    create_parent_child_edges(
+        session=session, districtr_map_uuid=simple_shatterable_districtr_map
+    )
     session.commit()
 
 
 @pytest.fixture(name="document_id")
 def document_id_fixture(
-    client, session: Session, districtr_map, gerrydb_simple_geos_view
+    client, session: Session, simple_shatterable_districtr_map, gerrydb_simple_geos_view
 ):
-    create_parent_child_edges(session=session, districtr_map_uuid=districtr_map)
+    create_parent_child_edges(
+        session=session, districtr_map_uuid=simple_shatterable_districtr_map
+    )
     response = client.post(
         "/api/create_document",
         json={
