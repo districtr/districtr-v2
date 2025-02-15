@@ -18,8 +18,9 @@ import {sharedDocument} from '@/app/utils/api/mutations';
 export const PasswordPromptModal = () => {
   const passwordRequired = useMapStore(store => store.passwordPrompt);
   const [dialogOpen, setDialogOpen] = React.useState(passwordRequired);
-  const [password, setPassword] = React.useState<string | null>('');
+  const [password, setPassword] = React.useState<string>('');
   const shareMapMessage = useMapStore(store => store.shareMapMessage);
+
   useEffect(() => {
     setDialogOpen(passwordRequired);
   }, [passwordRequired]);
@@ -64,7 +65,7 @@ export const PasswordPromptModal = () => {
             placeholder="Password"
             size="3"
             type="password"
-            value={password}
+            value={password ?? undefined}
             onChange={e => handlePasswordEntry(e.target.value)}
           ></TextField.Root>
           <Flex gap="2" py="2">
