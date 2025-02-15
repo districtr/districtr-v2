@@ -1,8 +1,6 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {updateDocumentFromId, updateGetDocumentFromId} from './queries';
 import {jwtDecode} from 'jwt-decode';
-import {sharedDocument} from './mutations';
-import {use} from 'react';
 export let previousDocumentID = '';
 
 export const getSearchParamsObserver = () => {

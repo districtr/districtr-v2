@@ -18,7 +18,7 @@ import {sharedDocument} from '@/app/utils/api/mutations';
 export const PasswordPromptModal = () => {
   const passwordRequired = useMapStore(store => store.passwordPrompt);
   const [dialogOpen, setDialogOpen] = React.useState(passwordRequired);
-  const [password, setPassword] = React.useState<string | null | undefined>(undefined);
+  const [password, setPassword] = React.useState<string | null>('');
   const shareMapMessage = useMapStore(store => store.shareMapMessage);
   useEffect(() => {
     setDialogOpen(passwordRequired);
@@ -32,9 +32,25 @@ export const PasswordPromptModal = () => {
   };
 
   const handlePasswordEntry = (pw: string) => {
-    // handle password entry
-    setPassword(pw);
+    if (pw !== undefined && pw !== null) {
+      if (pw.length > 0) {
+        setPassword(pw);
+        return;
+      } else {
+        setPassword('');
+      }
+    }
   };
+
+  const proceedToStart = () => {
+    useMapStore.getState().setPasswordPrompt(false);
+    useMapStore.getState().setAppLoadingState('loaded');
+
+    const documentUrl = new URL(window.location.toString());
+    documentUrl.searchParams.delete('share'); // remove share + token from url
+    history.pushState({}, '', documentUrl.toString());
+  };
+
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <Dialog.Content>
@@ -47,11 +63,13 @@ export const PasswordPromptModal = () => {
           <TextField.Root
             placeholder="Password"
             size="3"
+            type="password"
             value={password}
             onChange={e => handlePasswordEntry(e.target.value)}
           ></TextField.Root>
           <Flex gap="2" py="2">
             <Button onClick={handlePasswordSubmit}>Submit</Button>
+            <Button onClick={proceedToStart}>Cancel and Proceed to Map</Button>
           </Flex>
           <Text>{shareMapMessage ?? ''}</Text>
         </Box>

@@ -304,7 +304,7 @@ export interface MapStore {
   // SHARE MAP
   passwordPrompt: boolean;
   setPasswordPrompt: (prompt: boolean) => void;
-  password: string | null | undefined;
+  password: string | null;
   setPassword: (password: string | null | undefined) => void;
   receivedShareToken: string | null;
   setReceivedShareToken: (token: string | null) => void;
