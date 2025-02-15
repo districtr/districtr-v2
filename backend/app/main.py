@@ -335,6 +335,7 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 
     return {"message": "Assignments partition reset", "document_id": document_id}
 
+
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
@@ -355,7 +356,7 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
         .where(Assignments.document_id == document_id)
     )
 
-    return  session.execute(stmt).fetchall()
+    return session.execute(stmt).fetchall()
 
 
 async def get_document(
@@ -686,7 +687,7 @@ async def get_projects(
 @app.post("/api/document/{document_id}/share")
 async def share_districtr_plan(
     document_id: str,
-    params: dict = Body(...),  # pw and access mode- what else needs to be included?
+    params: dict = Body(...),  # add as pydantic type
     session: Session = Depends(get_session),
 ):
     try:
@@ -731,15 +732,6 @@ async def share_districtr_plan(
                 "access": params["access_type"] if "access_type" in params else "read",
             }
 
-        # else:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_400_BAD_REQUEST,
-        #         detail="Password already set for document",
-        #     )s
-        print("\n")
-        print(True if existing_token.password_hash else False, "hashed password up top")
-        print("\n")
-
         payload = {
             "token": token_uuid,
             "access": params["access_type"] if "access_type" in params else "read",
@@ -777,9 +769,6 @@ async def share_districtr_plan(
         )
 
         session.commit()
-        print("\n")
-        print(hashed_password, "hashed password")
-        print("\n")
 
     payload = {
         "token": token_uuid,
@@ -796,10 +785,7 @@ async def load_plan_from_share(
     data: TokenRequest,
     session: Session = Depends(get_session),
 ):
-    # try:
-
     token_id = data.token
-    print("token_id: ", token_id)
     result = session.execute(
         text(
             """
@@ -830,7 +816,6 @@ async def load_plan_from_share(
             )
 
     # return the document to the user with the password
-    # status = check_map_lock(result.document_id, data.user_id, session)
     return await get_document(str(result.document_id), data.user_id, session)
 
 

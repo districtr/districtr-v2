@@ -37,8 +37,6 @@ export const PasswordPromptModal = () => {
       if (pw.length > 0) {
         setPassword(pw);
         return;
-      } else {
-        setPassword('');
       }
     }
   };
