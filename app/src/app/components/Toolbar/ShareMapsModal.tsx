@@ -200,8 +200,15 @@ export const ShareMapsModal: React.FC<{
     }
   };
 
+  useEffect(() => {
+    if (!dialogOpen) {
+      onClose?.();
+    }
+  }, [dialogOpen]);
+
   // if no gerrydb table selected return null
   if (!gerryDBTable) {
+    console.error('No gerrydb table selected');
     return <div></div>;
   }
 

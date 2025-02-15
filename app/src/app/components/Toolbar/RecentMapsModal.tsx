@@ -62,6 +62,12 @@ export const RecentMapsModal: React.FC<{
     }
   }, [dialogOpen]);
 
+  useEffect(() => {
+    if (!dialogOpen) {
+      onClose?.();
+    }
+  }, [dialogOpen]);
+
   if (!userMaps?.length) {
     return null;
   }

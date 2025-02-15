@@ -161,20 +161,16 @@ export const sharePlan = new MutationObserver(queryClient, {
   },
   onSuccess: data => {
     const {userMaps, mapDocument, upsertUserMap} = useMapStore.getState();
-    const plan = userMaps.find(map => map.document_id === mapDocument?.document_id);
-    console.log('Successfully created share link: ', data.token);
-    console.log(plan);
-    // upsert the user map with the new share token
-    if (!plan && mapDocument?.document_id) {
-      // should add to usermaps if not found
-      upsertUserMap({
-        documentId: mapDocument?.document_id,
-        mapDocument: {
-          ...mapDocument,
-          token: data.token,
-        },
-      });
-    }
+
+    upsertUserMap({
+      documentId: mapDocument?.document_id,
+      // @ts-ignore works but investigate
+      mapDocument: {
+        ...mapDocument,
+        document_id: mapDocument?.document_id || '',
+        token: data.token,
+      },
+    });
     return data.token;
   },
 });
