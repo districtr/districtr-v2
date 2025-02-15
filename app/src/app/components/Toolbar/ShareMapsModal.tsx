@@ -69,10 +69,10 @@ export const ShareMapsModal: React.FC<{
 
   // get map name from metadata if it exists
   const mapName =
-    userMaps.find(map => map.document_id === mapDocument?.document_id)?.map_metadata.name ||
+    userMaps.find(map => map.document_id === mapDocument?.document_id)?.map_metadata?.name ||
     undefined;
   const mapTags =
-    userMaps.find(map => map.document_id === mapDocument?.document_id)?.map_metadata.tags ||
+    userMaps.find(map => map.document_id === mapDocument?.document_id)?.map_metadata?.tags ||
     undefined;
 
   const [name, setName] = React.useState(mapName);
@@ -137,7 +137,7 @@ export const ShareMapsModal: React.FC<{
       const token = useMapStore
         .getState()
         .userMaps.find(map => map.document_id === mapDocument?.document_id)?.token;
-
+      console.log(useMapStore.getState().userMaps);
       if (!token) {
         console.error('No token found for map: ', mapDocument?.document_id);
         return;
@@ -187,6 +187,17 @@ export const ShareMapsModal: React.FC<{
 
     setNameIsSaved(true);
     setTagsIsSaved(true);
+  };
+
+  const handlePasswordEntry = (pw: string) => {
+    if (pw !== undefined && pw !== null) {
+      if (pw.length > 0) {
+        setPassword(pw);
+        return;
+      } else {
+        setPassword(null);
+      }
+    }
   };
 
   // if no gerrydb table selected return null
@@ -264,7 +275,7 @@ export const ShareMapsModal: React.FC<{
             placeholder="(Optional) Set a password"
             size="2"
             value={password ?? undefined}
-            onChange={e => setPassword(e.target.value)}
+            onChange={e => handlePasswordEntry(e.target.value)}
             className="items-center"
           ></TextField.Root>
           <Flex gap="2" className="flex-col">

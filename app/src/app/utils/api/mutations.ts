@@ -162,16 +162,19 @@ export const sharePlan = new MutationObserver(queryClient, {
   onSuccess: data => {
     const {userMaps, mapDocument, upsertUserMap} = useMapStore.getState();
     const plan = userMaps.find(map => map.document_id === mapDocument?.document_id);
-
+    console.log('Successfully created share link: ', data.token);
+    console.log(plan);
     // upsert the user map with the new share token
-    if (!plan) return;
-    upsertUserMap({
-      documentId: mapDocument?.document_id,
-      mapDocument: {
-        ...plan,
-        token: data.token,
-      },
-    });
+    if (!plan && mapDocument?.document_id) {
+      // should add to usermaps if not found
+      upsertUserMap({
+        documentId: mapDocument?.document_id,
+        mapDocument: {
+          ...mapDocument,
+          token: data.token,
+        },
+      });
+    }
     return data.token;
   },
 });
@@ -181,6 +184,7 @@ export const sharedDocument = new MutationObserver(queryClient, {
   onMutate: ({token, password}: {token: string; password: string | null}) => {
     const passwordRequired = useMapStore.getState().passwordPrompt;
     useMapStore.getState().setAppLoadingState('loading');
+    console.log('loading from share');
   },
   onError: error => {
     console.error('Error fetching shared document: ', error);
