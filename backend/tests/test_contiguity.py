@@ -5,6 +5,8 @@ from app.contiguity.main import (
     check_subgraph_contiguity,
     get_gerrydb_block_graph,
     get_block_assignments,
+    graph_from_gpkg,
+    write_graph_to_gml,
 )
 from app.utils import create_parent_child_edges
 from tempfile import NamedTemporaryFile
@@ -117,3 +119,27 @@ def test_all_zones_contiguous(
 
     for zone in zone_block_nodes:
         assert check_subgraph_contiguity(simple_geos_graph, zone.nodes)
+
+
+def test_graph_from_gpkg():
+    G = graph_from_gpkg(FIXTURES_PATH / "ri_vtd_p4_view.gpkg")
+    assert len(G.edges) == 1154
+    assert len(G.nodes) == 422
+
+
+@fixture(name="ri_vtd_p4_view_graph")
+def ri_vtd_p4_view_graph_fixture() -> Graph:
+    return graph_from_gpkg(FIXTURES_PATH / "ri_vtd_p4_view.gpkg")
+
+
+def test_write_graph_to_gml(ri_vtd_p4_view_graph: Graph):
+    with NamedTemporaryFile() as f:
+        gml_path = write_graph_to_gml(
+            G=ri_vtd_p4_view_graph, gerrydb_name="ri_vtd_p4_view", out_path=f.name
+        )
+        print(gml_path)
+        G = read_gml(gml_path)
+        assert len(G.edges) == 1154
+        assert len(G.nodes) == 422
+        assert G.edges == ri_vtd_p4_view_graph.edges
+        assert G.nodes == ri_vtd_p4_view_graph.nodes

@@ -1,11 +1,13 @@
-from networkx import Graph, is_connected, read_gml
+from networkx import Graph, is_connected, read_gml, write_gml
 from typing import Iterable, Hashable
 from app.utils import download_file_from_s3
-from app.core.config import settings
+from app.core.config import settings, Environment
 from sqlmodel import Session
 from urllib.parse import urlparse
 from pydantic import BaseModel
 import sqlalchemy as sa
+from pathlib import Path
+import sqlite3
 
 import logging
 
@@ -33,6 +35,61 @@ def get_gerrydb_block_graph(file_path: str, replace_local_copy: bool = False) ->
     G = read_gml(path)
 
     return G
+
+
+def graph_from_gpkg(
+    gpkg_path: str | Path, layer_name: str = "gerrydb_graph_edge"
+) -> Graph:
+    """
+    Convert a layer from a GeoPackage to a GML file.
+
+    Args:
+        gpkg_path (str): Path to the GeoPackage
+        layer_name (str): Name of the edge layer
+
+    Returns:
+        Path to the GML file
+    """
+    conn = sqlite3.connect(gpkg_path)
+
+    cursor = conn.execute(f"SELECT path_1, path_2 FROM {layer_name}")
+
+    edgelist = cursor.fetchall()
+    logger.info("Num edges %s", len(edgelist))
+    G = Graph(edgelist)
+
+    return G
+
+
+def write_graph_to_gml(
+    G: Graph, gerrydb_name: str, out_path: str | Path | None = None
+) -> Path:
+    """
+    Write a graph to a GML file in the VOLUME_PATH directory.
+
+    Args:
+        G (Graph): Graph to write
+        gerrydb_name (str): Name of the GerryDB. Used to name the GML file
+        out_path (str | Path): Path to write the GML file to. If None, must specify gerrydb_name
+
+    Returns:
+        Path to the GML file
+    """
+    gml_path = Path(settings.VOLUME_PATH) / f"{gerrydb_name}.gml.gz"
+
+    if out_path:
+        assert settings.ENVIRONMENT in (
+            Environment.local,
+            Environment.test,
+        ), "out_path can only be specified in local or test environment"
+        gml_path = Path(out_path)
+
+    write_gml(G=G, path=gml_path)
+
+    return gml_path
+
+
+# db
 
 
 class ZoneBlockNodes(BaseModel):
