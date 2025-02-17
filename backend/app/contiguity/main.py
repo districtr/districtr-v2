@@ -14,10 +14,25 @@ import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+S3_GRAPH_PREFIX = "graphs"
+S3_BLOCK_PATH = f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}"
+
 
 def check_subgraph_contiguity(G: Graph, subgraph_nodes: Iterable[Hashable]):
     SG = G.subgraph(subgraph_nodes)
     return is_connected(SG)
+
+
+def get_gerrydb_graph_file(
+    gerrydb_name: str, prefix: str = settings.VOLUME_PATH
+) -> str:
+    possible_local_path = Path(f"{prefix}/{gerrydb_name}.gml.gz")
+    logger.info("Possible local path: %s", possible_local_path)
+    print("Possible local path: %s", possible_local_path)
+    if possible_local_path.exists():
+        return str(possible_local_path)
+
+    return f"{S3_BLOCK_PATH}/{gerrydb_name}.gml.gz"
 
 
 def get_gerrydb_block_graph(file_path: str, replace_local_copy: bool = False) -> Graph:
@@ -62,7 +77,10 @@ def graph_from_gpkg(
 
 
 def write_graph_to_gml(
-    G: Graph, gerrydb_name: str, out_path: str | Path | None = None
+    G: Graph,
+    gerrydb_name: str,
+    out_path: str | Path | None = None,
+    upload_to_s3: bool = False,
 ) -> Path:
     """
     Write a graph to a GML file in the VOLUME_PATH directory.
@@ -75,7 +93,8 @@ def write_graph_to_gml(
     Returns:
         Path to the GML file
     """
-    gml_path = Path(settings.VOLUME_PATH) / f"{gerrydb_name}.gml.gz"
+    gml_file = f"{gerrydb_name}.gml.gz"
+    gml_path = Path(settings.VOLUME_PATH) / gml_file
 
     if out_path:
         assert settings.ENVIRONMENT in (
@@ -85,6 +104,13 @@ def write_graph_to_gml(
         gml_path = Path(out_path)
 
     write_gml(G=G, path=gml_path)
+
+    if upload_to_s3:
+        s3 = settings.get_s3_client()
+        assert s3, "S3 client is not available"
+        s3.upload_file(
+            str(gml_path), settings.R2_BUCKET_NAME, f"{S3_GRAPH_PREFIX}/{gml_file}"
+        )
 
     return gml_path
 

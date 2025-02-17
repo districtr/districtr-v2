@@ -1,4 +1,5 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query, BackgroundTasks
+from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
 from sqlalchemy.exc import ProgrammingError, InternalError
@@ -12,6 +13,7 @@ from datetime import datetime, UTC
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
+import app.contiguity.main as contiguity
 from app.models import (
     Assignments,
     AssignmentsCreate,
@@ -137,13 +139,12 @@ async def create_document(
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
             isouter=True,
         )
-        .limit(1)
     )
     # Document id has a unique constraint so I'm not sure we need to hit the DB again here
     # more valuable would be to check that the assignments table
     doc = session.exec(
         stmt,
-    ).one()  # again if we've got more than one, we have problems.
+    ).one()
     if not doc.map_uuid:
         session.rollback()
         raise HTTPException(
@@ -365,6 +366,68 @@ async def get_unassigned_geoids(
     ).fetchall()
     # returns a list of multipolygons of bboxes
     return {"features": [row[0] for row in results]}
+
+
+@app.get("/api/document/{document_id}/contiguity")
+async def check_document_contiguity(
+    document_id: str,
+    # TODO: Allow passing zones to check contiguity for specific zones
+    # Should be slightly more efficient that checking all zones
+    # zone: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
+    # sql/get_block_assignments.sql also fetches the child layer. Would be nice not
+    # to have to do this twice. TODO: when supporting multiple zones, in new
+    # function also return the child layer name
+    stmt = (
+        select(DistrictrMap)
+        .join(
+            Document,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,  # pyright: ignore
+            isouter=True,
+        )
+        .where(Document.document_id == document_id)
+    )
+
+    try:
+        districtr_map = session.exec(
+            stmt,
+        ).one()
+    except NoResultFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID {document_id} not found",
+        )
+    except MultipleResultsFound:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Multiple DistrictrMaps found for Document with ID {document_id}",
+        )
+
+    if districtr_map.child_layer is not None:
+        gerrydb_name = districtr_map.child_layer
+        zone_assignments = contiguity.get_block_assignments(session, document_id)
+    else:
+        gerrydb_name = districtr_map.parent_layer
+        sql = text("""
+            select zone, array_agg(geo_id) as nodes
+            from assignments
+            where document_id = :document_id group by zone""")
+        result = session.execute(sql, {"document_id": document_id}).fetchall()
+        zone_assignments = [
+            contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
+        ]
+
+    path = contiguity.get_gerrydb_graph_file(gerrydb_name)
+    G = contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
+
+    results = {}
+    for zone_blocks in zone_assignments:
+        results[zone_blocks.zone] = contiguity.check_subgraph_contiguity(
+            G=G, subgraph_nodes=zone_blocks.nodes
+        )
+
+    return results
 
 
 @app.get("/api/document/{document_id}/evaluation/{summary_stat}")

@@ -36,6 +36,7 @@ def client_fixture(session: Session):
 
 my_env = os.environ.copy()
 my_env["POSTGRES_DB"] = POSTGRES_TEST_DB
+my_env["VOLUME_PATH"] = str(FIXTURES_PATH)
 
 
 @pytest.fixture(scope="session", name="engine")

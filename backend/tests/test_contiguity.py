@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 from pytest import fixture
 from networkx import Graph, write_gml, read_gml
+from app.main import contiguity
 from app.contiguity.main import (
     check_subgraph_contiguity,
     get_gerrydb_block_graph,
@@ -143,3 +144,22 @@ def test_write_graph_to_gml(ri_vtd_p4_view_graph: Graph):
         assert len(G.nodes) == 422
         assert G.edges == ri_vtd_p4_view_graph.edges
         assert G.nodes == ri_vtd_p4_view_graph.nodes
+
+
+@fixture
+def mock_gerrydb_graph_file(monkeypatch):
+    def mock_get_file(gerrydb_name: str) -> str:
+        return f"{FIXTURES_PATH}/{gerrydb_name}.gml.gz"
+
+    monkeypatch.setattr(contiguity, "get_gerrydb_graph_file", mock_get_file)
+
+
+def test_contiguity_endpoint(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity",
+    )
+    assert response.status_code == 200
+    assert response.json() == {"1": True, "2": True}

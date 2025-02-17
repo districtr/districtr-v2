@@ -79,7 +79,7 @@ pydantic-core==2.16.3
 pydantic-geojson==0.2.0
 pydantic-settings==2.2.1
 pyjwt==2.8.0
-pytest==8.2.0
+pytest==8.3.4
     # via pytest-cov
 pytest-cov==5.0.0
 python-dateutil==2.9.0.post0
