@@ -1,10 +1,8 @@
-import {
-  DataDrivenPropertyValueSpecification,
-  ExpressionSpecification,
-} from 'maplibre-gl';
+import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
 import {useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
 import GeometryWorker from '../utils/GeometryWorker';
+import {useChartStore} from '../store/chartStore';
 
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -26,7 +24,10 @@ export const CHILD_LAYERS = [
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
 ];
 
-export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {type: 'FeatureCollection', features: []};
+export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
+  type: 'FeatureCollection',
+  features: [],
+};
 
 export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
   'case',
@@ -137,20 +138,25 @@ export function getLayerFill(
 }
 
 const getDissolved = async () => {
+  const activeZones = useChartStore
+    .getState()
+    .chartInfo?.chartData?.filter(f => f.total_pop > 0)
+    ?.map(f => f.zone);
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
-  if (!mapRef || !GeometryWorker) return;
+  if (!mapRef || !GeometryWorker || !activeZones?.length) return;
   const currentView = mapRef.getBounds();
-  const {centroids, dissolved} = await GeometryWorker.getCentroidsFromView(
-    currentView.getWest(),
-    currentView.getSouth(),
-    currentView.getEast(),
-    currentView.getNorth()
-  );
+  const {centroids, dissolved} = await GeometryWorker.getCentroidsFromView({
+    bounds: [
+      currentView.getWest(),
+      currentView.getSouth(),
+      currentView.getEast(),
+      currentView.getNorth(),
+    ],
+    activeZones,
+    fast: true,
+  });
   return {centroids, dissolved};
 };
 
-
-export {
-  getDissolved,
-};
+export {getDissolved};

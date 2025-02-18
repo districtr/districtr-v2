@@ -8,10 +8,9 @@ import pointOnFeature from '@turf/point-on-feature';
 import pointsWithinPolygon from '@turf/points-within-polygon';
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import bbox from '@turf/bbox';
-import { VectorTile } from "@mapbox/vector-tile";
-import Protobuf from "pbf";
+import {VectorTile} from '@mapbox/vector-tile';
+import Protobuf from 'pbf';
 import booleanWithin from '@turf/boolean-within';
-
 
 const explodeMultiPolygonToPolygons = (
   feature: GeoJSON.MultiPolygon
@@ -32,17 +31,18 @@ const GeometryWorker: GeometryWorkerClass = {
     parents: [],
     children: [],
   },
-  getPropsById(ids: string[]){
+  previousCentroids: {},
+  getPropsById(ids: string[]) {
     const features: MinGeoJSONFeature[] = [];
     ids.forEach(id => {
       const f = this.geometries[id];
       if (f) {
         features.push({
           ...f,
-          geometry: undefined as any
-        })
+          geometry: undefined as any,
+        });
       }
-    })
+    });
     return features;
   },
   getGeos() {
@@ -51,12 +51,12 @@ const GeometryWorker: GeometryWorkerClass = {
       features: Object.values(this.activeGeometries),
     };
   },
-  updateProps(entries, iters=0) {
+  updateProps(entries, iters = 0) {
     let ok = 0;
     let missing = 0;
     if (iters > 5) {
       return;
-    };
+    }
     entries.forEach(([id, zone]) => {
       if (this.geometries[id]?.properties) {
         ok++;
@@ -66,31 +66,31 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     });
     const total = ok + missing;
-    if (missing/total > 0.5) {
+    if (missing / total > 0.5) {
       setTimeout(() => {
-        this.updateProps(entries, iters+1);
-      }, 500);
+        this.updateProps(entries, iters + 1);
+      }, 50);
     }
   },
   handleShatterHeal({parents, children}) {
     const toAdd = [
       ...this.shatterIds.parents.filter(id => !parents.includes(id)),
       ...children.filter(id => !this.shatterIds.children.includes(id)),
-    ]
+    ];
     const toRemove = [
       ...this.shatterIds.children.filter(id => !children.includes(id)),
       ...parents.filter(id => !this.shatterIds.parents.includes(id)),
-    ]
+    ];
     toAdd.forEach(id => {
       this.geometries[id] && (this.activeGeometries[id] = this.geometries[id]);
-    })
+    });
     toRemove.forEach(id => {
-      this.activeGeometries[id] && (delete this.activeGeometries[id]);
-    })
+      this.activeGeometries[id] && delete this.activeGeometries[id];
+    });
     this.shatterIds = {
       parents,
       children,
-    }
+    };
   },
   removeGeometries(ids) {
     ids.forEach(id => {
@@ -100,6 +100,7 @@ const GeometryWorker: GeometryWorkerClass = {
   clear() {
     this.geometries = {};
     this.activeGeometries = {};
+    this.previousCentroids = {};
     this.shatterIds = {
       parents: [],
       children: [],
@@ -110,13 +111,8 @@ const GeometryWorker: GeometryWorkerClass = {
       this.geometries[id].properties.zone = null;
     }
   },
-  loadTileData({
-    tileData,
-    tileID,
-    mapDocument,
-    idProp
-  }){
-    const returnData = []
+  loadTileData({tileData, tileID, mapDocument, idProp}) {
+    const returnData = [];
     const tile = new VectorTile(new Protobuf(tileData));
     // Iterate through each layer in the tile
     const parentLayer = mapDocument.parent_layer;
@@ -125,32 +121,31 @@ const GeometryWorker: GeometryWorkerClass = {
       const isParent = layerName === parentLayer;
       const layer = tile.layers[layerName];
 
-        // Extract features from the layer
-        for (let i = 0; i < layer.length; i++) {
-            const feature = layer.feature(i);
-            const id = feature?.properties?.[idProp] as string;
-            const prevZoom = this.geometries?.[id]?.zoom
+      // Extract features from the layer
+      for (let i = 0; i < layer.length; i++) {
+        const feature = layer.feature(i);
+        const id = feature?.properties?.[idProp] as string;
+        const prevZoom = this.geometries?.[id]?.zoom;
 
-            if (!id || (prevZoom && prevZoom > tileID.z)) continue;
-            let geojsonFeature: any = feature.toGeoJSON(tileID.x, tileID.y, tileID.z);
-            geojsonFeature.zoom = tileID.z;
-            geojsonFeature.id = id;
-            geojsonFeature.sourceLayer = layerName;
-            geojsonFeature.properties = feature.properties;
-            this.geometries[id as string] = geojsonFeature;
-            if (
-              (isParent && !this.shatterIds.parents.includes(id))
-              || (!isParent && this.shatterIds.children.includes(id))
-            ) {
-              this.activeGeometries[id] = geojsonFeature;
-              returnData.push({
-                id,
-                properties: feature.properties,
-                sourceLayer: layerName,
-              } as unknown as MinGeoJSONFeature)
-            }
-
+        if (!id || (prevZoom && prevZoom > tileID.z)) continue;
+        let geojsonFeature: any = feature.toGeoJSON(tileID.x, tileID.y, tileID.z);
+        geojsonFeature.zoom = tileID.z;
+        geojsonFeature.id = id;
+        geojsonFeature.sourceLayer = layerName;
+        geojsonFeature.properties = feature.properties;
+        this.geometries[id as string] = geojsonFeature;
+        if (
+          (isParent && !this.shatterIds.parents.includes(id)) ||
+          (!isParent && this.shatterIds.children.includes(id))
+        ) {
+          this.activeGeometries[id] = geojsonFeature;
+          returnData.push({
+            id,
+            properties: feature.properties,
+            sourceLayer: layerName,
+          } as unknown as MinGeoJSONFeature);
         }
+      }
     }
     return returnData;
   },
@@ -222,57 +217,68 @@ const GeometryWorker: GeometryWorkerClass = {
       dissolved,
     };
   },
-  getCentroidsFromView(minLon, minLat, maxLon, maxLat, fast) {
-    if (fast) {
-      const t0 = performance.now();
-      const visitedZones = new Set();
-      const centroids: GeoJSON.FeatureCollection = {
-        type: 'FeatureCollection',
-        features: [],
-      };
-      const dissolved: GeoJSON.FeatureCollection = {
-        type: 'FeatureCollection',
-        features: [],
-      };
-      const bboxGeom: GeoJSON.Polygon = {
-        type: 'Polygon',
-        coordinates: [
-          [
-            [minLon, minLat],
-            [minLon, maxLat],
-            [maxLon, maxLat],
-            [maxLon, minLat],
-            [minLon, minLat],
-          ],
+  getCentroidsFromView({bounds: [minLon, minLat, maxLon, maxLat], activeZones, fast}) {
+    const visitedZones = new Set();
+    const centroids: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [],
+    };
+    const dissolved: GeoJSON.FeatureCollection = {
+      type: 'FeatureCollection',
+      features: [],
+    };
+    const bboxGeom: GeoJSON.Polygon = {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [minLon, minLat],
+          [minLon, maxLat],
+          [maxLon, maxLat],
+          [maxLon, minLat],
+          [minLon, minLat],
         ],
-      }
-      const keys = Object.keys(this.activeGeometries);
-      // randomize the order of the keys
-      const shuffledKeys = keys.sort(() => Math.random() - 0.5);
-      shuffledKeys.forEach(key => {
-        const f = this.activeGeometries[key];
-        if (f.properties?.zone == null) return;
-        const zone = f.properties.zone;
-        if (visitedZones.has(zone) || f.geometry.type !== 'Polygon') return;
-        const within = booleanWithin(f, bboxGeom);
+      ],
+    };
+    if (!activeZones.length) {
+      return {
+        centroids,
+        dissolved,
+      };
+    }
+
+    if (fast) {
+      Object.entries(this.previousCentroids).forEach(([zone, centroid]) => {
+        if (!centroid.properties?.id || !centroid.properties.zone) return;
+        const props = centroid.properties;
+        const currZone = this.activeGeometries[props.id].properties.zone;
+        if (currZone === null || currZone !== props.zone && activeZones.includes(currZone)) return;
+        const within = booleanWithin(centroid, bboxGeom);
         if (!within) return;
         try {
-
+          centroids.features.push(centroid);
+          visitedZones.add(+zone);
+        } catch (e) {}
+      });
+      const keys = Object.keys(this.activeGeometries);
+      for (let i = 0; i < keys.length; i++) {
+        if (activeZones.every(zone => visitedZones.has(zone))) break;
+        const key = keys[i];
+        const f = this.activeGeometries[key];
+        if (f.properties?.zone == null) continue;
+        const zone = f.properties.zone;
+        if (visitedZones.has(zone) || !activeZones.includes(zone) || f.geometry.type !== 'Polygon') continue;
+        const within = booleanWithin(f, bboxGeom);
+        if (!within) continue;
+        try {
           let centroid = centerOfMass(f);
-          centroid.properties = {zone};
+          centroid.properties = {zone, id: key};
           // @ts-ignore
           centroids.features.push(centroid);
           visitedZones.add(zone);
-        } catch (e) {
-        }
-      })
-      return {
-        centroids,
-        dissolved
+          this.previousCentroids[zone] = centroid;
+        } catch (e) {}
       }
     } else {
-
-
       const clippedFeatures: GeoJSON.Feature[] = [];
       this.getGeos().features.forEach(f => {
         if (f.properties?.zone == null) return;
@@ -284,28 +290,33 @@ const GeometryWorker: GeometryWorkerClass = {
           });
         }
       });
-      const {dissolved, centroids} = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
-      return {dissolved, centroids};
+      const results = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
+      centroids.features = results.centroids.features;
+      dissolved.features = results.dissolved.features;
     }
+    return {
+      centroids,
+      dissolved,
+    };
   },
   getPropertiesCentroids(ids) {
-    const features: GeoJSON.Feature<GeoJSON.Point>[] = []
+    const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
 
     ids.forEach(id => {
       const f = this.geometries[id];
       if (f) {
         let center = centerOfMass(f);
         center.properties = f.properties;
-        features.push(center)
+        features.push(center);
       } else {
-        console.log("Could not find geography", id)
+        console.log('Could not find geography', id);
       }
-    })
+    });
 
     return {
       type: 'FeatureCollection',
       features,
-    }
+    };
   },
   async getUnassignedGeometries(useBackend = false, documentId?: string, exclude_ids?: string[]) {
     const geomsToDissolve: GeoJSON.Feature[] = [];

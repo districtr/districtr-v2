@@ -24,7 +24,8 @@ export type GeometryWorkerClass = {
   shatterIds: {
     parents: string[];
     children: string[];
-  }
+  },
+  previousCentroids: Record<number, GeoJSON.Feature<GeoJSON.Point>>;
   /**
    * Updates the zone assignments of the geometries.
    * @param entries - An array of [id, zone] pairs to update.
@@ -71,13 +72,11 @@ export type GeometryWorkerClass = {
    * @param maxLat - The maximum latitude of the view.
    * @returns The centroids and dissolved outlines of the parsed features within the view.
    */
-  getCentroidsFromView: (
-    minLon: number,
-    minLat: number,
-    maxLon: number,
-    maxLat: number,
+  getCentroidsFromView: (props: {
+    bounds: [number, number, number, number],
+    activeZones: number[],
     fast?: boolean
-  ) => CentroidReturn;
+  }) => CentroidReturn;
   getPropertiesCentroids: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
   /**
    * Retrieves a collection of geometries without a zone assignment.
