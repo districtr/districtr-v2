@@ -182,17 +182,14 @@ def document_id_fixture(
 def test_shattering(client, session: Session, document_id):
     response = client.patch(
         "/api/update_assignments",
-        json={
-            "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
-            "updated_at": "2023-10-01T00:00:00Z",
-        },
+        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
     )
     assert response.status_code == 200
 
     # Test
     response = client.patch(
         f"/api/update_assignments/{document_id}/shatter_parents",
-        json={"geoids": ["A"], "updated_at": "2023-10-01T00:00:00Z"},
+        json={"geoids": ["A"]},
     )
     assert response.status_code == 200
     data = response.json()
@@ -219,16 +216,13 @@ def test_get_available_summary_stats(
 def test_unshatter_process(client, document_id):
     response = client.patch(
         "/api/update_assignments",
-        json={
-            "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
-            "updated_at": "2023-10-01T00:00:00Z",
-        },
+        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
     )
 
     # Test
     response = client.patch(
         f"/api/update_assignments/{document_id}/shatter_parents",
-        json={"geoids": ["A"], "updated_at": "2023-10-01T00:00:00Z"},
+        json={"geoids": ["A"]},
     )
     assignments_response = client.get(f"/api/get_assignments/{document_id}")
     assignments_data = assignments_response.json()
@@ -236,16 +230,14 @@ def test_unshatter_process(client, document_id):
     # Unshatter
     response = client.patch(
         f"/api/update_assignments/{document_id}/unshatter_parents",
-        json={"geoids": ["A"], "zone": 1, "updated_at": "2023-10-01T00:00:00Z"},
+        json={"geoids": ["A"], "zone": 1},
     )
     assert response.status_code == 200
     data = response.json()
     # Verify the response contains the expected data
     assert "geoids" in data
-    print("!!!", data)
     assert len(data["geoids"]) == 1
     # Confirm assignments are now length 1
     assignments_response = client.get(f"/api/get_assignments/{document_id}")
     assignments_data = assignments_response.json()
-    print("!!!", assignments_data)
     assert len(assignments_data) == 1

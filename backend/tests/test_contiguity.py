@@ -71,6 +71,19 @@ def test_get_gerrydb_block_graph(file_path: str):
 
 @fixture
 def simple_geos_graph(file_path: str) -> Graph:
+    """
+    Parents     Children
+    A – B       a – e – f
+    |   |       |   |   |
+    C ––        c – b ––
+                |   |
+                d ––
+
+    where
+    - A = { a, e }
+    - B = { b, c, d}
+    - C = { f }
+    """
     return get_gerrydb_block_graph(file_path)
 
 
@@ -101,8 +114,8 @@ def simple_contigous_assignments(client: TestClient, document_id: str) -> str:
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "A", "zone": 1},
-                {"document_id": document_id, "geo_id": "B", "zone": 1},
-                {"document_id": document_id, "geo_id": "C", "zone": 2},
+                {"document_id": document_id, "geo_id": "B", "zone": 2},
+                {"document_id": document_id, "geo_id": "C", "zone": 1},
             ],
             "updated_at": "2023-10-01T00:00:00Z",
         },
@@ -154,7 +167,7 @@ def mock_gerrydb_graph_file(monkeypatch):
     monkeypatch.setattr(contiguity, "get_gerrydb_graph_file", mock_get_file)
 
 
-def test_contiguity_endpoint(
+def test_simple_geos_contiguity(
     client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
 ):
     document_id = simple_contiguous_assignments
@@ -163,3 +176,33 @@ def test_contiguity_endpoint(
     )
     assert response.status_code == 200
     assert response.json() == {"1": True, "2": True}
+
+
+def test_simple_geos_discontiguity(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity",
+    )
+    assert response.status_code == 200
+    assert response.json() == {"1": True, "2": True}
+
+    # Break one parent and create discontiguous assignments
+    # See `simple_geos_graph` fixture for graph diagram and
+    # `simple_contigous_assignments` fixture for existing assignments
+    response = client.patch(
+        f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}
+    )
+    assert response.status_code == 200
+    response = client.patch(
+        "/api/update_assignments",
+        json={"assignments": [{"document_id": document_id, "geo_id": "e", "zone": 2}]},
+    )
+    assert response.status_code == 200
+
+    response = client.get(
+        f"/api/document/{document_id}/contiguity",
+    )
+    assert response.status_code == 200
+    assert response.json() == {"1": False, "2": True}

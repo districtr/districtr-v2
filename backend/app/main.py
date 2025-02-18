@@ -23,6 +23,7 @@ from app.models import (
     DocumentCreate,
     DocumentPublic,
     GEOIDS,
+    GEOIDSResponse,
     AssignedGEOIDS,
     UUIDType,
     ZonePopulation,
@@ -36,6 +37,7 @@ from app.models import (
     PopulationStatsP4,
     UnassignedBboxGeoJSONs,
 )
+from sqlalchemy.sql import func
 from app.utils import remove_file
 from app.exports import (
     get_export_sql_method,
@@ -77,14 +79,15 @@ def get_session():
 def update_timestamp(
     session: Session,
     document_id: str,
-    updated_at: str,
-):
+) -> datetime:
     update_stmt = (
         update(Document)
         .where(Document.document_id == document_id)
-        .values(updated_at=updated_at)
+        .values(updated_at=func.now())
+        .returning(Document.updated_at)
     )
-    session.execute(update_stmt)
+    updated_at = session.scalar(update_stmt)
+    return updated_at
 
 
 @app.get("/")
@@ -179,10 +182,11 @@ async def update_assignments(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
     session.execute(stmt)
+    updated_at = None
     if len(data.assignments) > 0:
-        update_timestamp(session, assignments[0]["document_id"], data.updated_at)
+        updated_at = update_timestamp(session, assignments[0]["document_id"])
     session.commit()
-    return {"assignments_upserted": len(data.assignments)}
+    return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
 
 
 @app.patch(
@@ -211,15 +215,15 @@ async def shatter_parent(
         Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
         for document_id, geo_id, zone in results
     ]
-    result = ShatterResult(parents=data, children=assignments)
-    update_timestamp(session, document_id, data.updated_at)
+    updated_at = update_timestamp(session, document_id)
+    result = ShatterResult(parents=data, children=assignments, updated_at=updated_at)
     session.commit()
     return result
 
 
 @app.patch(
     "/api/update_assignments/{document_id}/unshatter_parents",
-    response_model=GEOIDS,
+    response_model=GEOIDSResponse,
 )
 async def unshatter_parent(
     document_id: str, data: AssignedGEOIDS, session: Session = Depends(get_session)
@@ -241,9 +245,9 @@ async def unshatter_parent(
         },
     ).first()
 
-    update_timestamp(session, document_id, data.updated_at)
+    updated_at = update_timestamp(session, document_id)
     session.commit()
-    return {"geoids": results[0], "updated_at": data.updated_at}
+    return {"geoids": results[0], "updated_at": updated_at}
 
 
 @app.patch(
