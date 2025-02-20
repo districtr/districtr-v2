@@ -33,7 +33,7 @@ from app.models import (
     SummaryStatsP4,
     PopulationStatsP4,
     UnassignedBboxGeoJSONs,
-    SummaryStatisticColumnLists
+    SummaryStatisticColumnLists,
 )
 from app.utils import remove_file
 from app.exports import (
@@ -370,10 +370,11 @@ async def get_unassigned_geoids(
 
 @app.get("/api/document/{document_id}/demography")
 async def get_map_demography(
-    document_id: str, 
+    document_id: str,
     ids: list[str] = Query(default=[]),
     stats: list[str] = Query(default=[]),
-    session: Session = Depends(get_session)):
+    session: Session = Depends(get_session),
+):
     document = session.exec(
         select(Document).filter(Document.document_id == document_id)
     ).one()
@@ -383,7 +384,7 @@ async def get_map_demography(
             DistrictrMap.gerrydb_table_name == document.gerrydb_table
         )
     ).one()
-    
+
     columns = []
     # by default use all available columns otherwise the requested columns
     available_summary_stats = dm.available_summary_stats if len(stats) == 0 else stats
@@ -396,13 +397,15 @@ async def get_map_demography(
             columns.extend(stat_cols.value)
 
     if len(ids) > 0:
-        # If the user sends a selection of IDs, just use those 
+        # If the user sends a selection of IDs, just use those
         # This bypasses the document.assignments and gerrydb.parent full query
         # Essentially we use the user provided IDs as start of the join
         # This could be a where clause at the end, but this should be faster
-        ids_subquery = text("""
+        ids_subquery = text(
+            """
             SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
-        """.format(",".join(f"(:id{i})" for i in range(len(ids)))))
+        """.format(",".join(f"(:id{i})" for i in range(len(ids))))
+        )
         # This is for efficiency but slightly slippery
         # Adding the format here provides some safety
         params = {f"id{i}": id for i, id in enumerate(ids)}
@@ -427,10 +430,7 @@ async def get_map_demography(
 
     results = session.execute(stmt, params).fetchall()
     return {
-        "columns": [
-            "path",
-            columns
-        ],
+        "columns": ["path", columns],
         "results": [[*row] for row in results],
     }
 

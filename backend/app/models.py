@@ -251,6 +251,7 @@ class PopulationStatsP4(BaseModel):
 class SummaryStatsP4(PopulationStatsP4):
     zone: int
 
+
 class SummaryStatisticColumnLists(Enum):
-  P1 = PopulationStatsP1.model_fields.keys()
-  P4 = PopulationStatsP4.model_fields.keys()
+    P1 = PopulationStatsP1.model_fields.keys()
+    P4 = PopulationStatsP4.model_fields.keys()
