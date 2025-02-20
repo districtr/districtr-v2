@@ -430,7 +430,7 @@ async def get_map_demography(
 
     results = session.execute(stmt, params).fetchall()
     return {
-        "columns": ["path", columns],
+        "columns": ["path", *columns],
         "results": [[*row] for row in results],
     }
 

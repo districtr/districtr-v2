@@ -1075,7 +1075,8 @@ interface DemographicMapStore {
   unmount: () => void;
   updateData: (
     mapDocument: MapStore['mapDocument'],
-    shatterIds: MapStore['shatterIds']['parents']
+    shatterIds: MapStore['shatterIds']['parents'],
+    previousShatterIds?: MapStore['shatterIds']['parents']
   ) => Promise<void>;
 }
 
@@ -1100,6 +1101,8 @@ export const useDemographicMapStore = create(
         getMapRef: () => undefined,
         variable: 'total_pop',
         scale: null,
+        data: [],
+        dataHash: '',
       })
     },
     setVariable: variable => {
@@ -1138,21 +1141,31 @@ export const useDemographicMapStore = create(
     },
     dataHash: '',
     data: [],
-    updateData: async (mapDocument, shatterIds) => {
-      const {getMapRef, dataHash: currDataHash, setVariable, variable} = get();
+    updateData: async (mapDocument, shatterIds, previousShatterIds) => {
+      const {getMapRef, dataHash: currDataHash, setVariable, variable, data} = get();
       const mapRef = getMapRef();
       if (!mapRef || !mapDocument) return;
       const dataHash = `${Array.from(shatterIds).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
-      const data = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/demography`
-      )
+      const fetchUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/demography`)
+      if (data.length && (shatterIds.size || previousShatterIds?.size)) {
+        const shatterMappings = useMapStore.getState().shatterMappings;
+        const oldParentsHealed = Array.from(previousShatterIds!).filter(f => !shatterIds.has(f));
+        const newParentsShattered = Array.from(shatterIds).filter(f => !previousShatterIds!.has(f));
+        const childrenOfShattered = newParentsShattered.map(parent => Array.from(shatterMappings[parent])).flat();
+        [...childrenOfShattered, ...oldParentsHealed].forEach(id => {
+          fetchUrl.searchParams.append('ids', id)
+        })
+      }
+      console.log("!!!FETCHURL", fetchUrl.toString())
+
+      const newData = await fetch(fetchUrl.toString())
         .then(res => res.json())
         .then(data => {
           const rowHandler = getRowHandler(data.columns);
           return data.results.map(rowHandler);
         });
-      set({data, dataHash});
+      set({data: newData, dataHash});
       setVariable(variable)
     },
   }))
@@ -1162,14 +1175,15 @@ useMapStore.subscribe<
   [
     MapStore['mapDocument'],
     MapStore['shatterIds']['parents'],
-    MapStore['mapOptions']['showDemographicMap'],
   ]
 >(
-  state => [state.mapDocument, state.shatterIds.parents, state.mapOptions.showDemographicMap],
-  ([mapDocument, parentShatterIds, showDemographicMap]) => {
-    if (showDemographicMap) {
-      useDemographicMapStore.getState().updateData(mapDocument, parentShatterIds);
-    }
+  state => [state.mapDocument, state.shatterIds.parents],
+  ([mapDocument, parentShatterIds], [prevMapDocument, prevParentShatterIds]) => {
+    useDemographicMapStore.getState().updateData(
+      mapDocument, 
+      parentShatterIds,
+      prevParentShatterIds
+    );
   },
   {equalityFn: shallowCompareArray}
 );

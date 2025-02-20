@@ -8,7 +8,8 @@ import { useDemographicMapStore } from '@/app/store/mapStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {Flex, Switch, Text} from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
-import {LegendQuantile, LegendItem, LegendLabel} from '@visx/legend';
+import {LegendQuantile, LegendItem, LegendLabel, LegendLinear} from '@visx/legend';
+import { useEffect } from 'react';
 
 export const DemographicLegend: React.FC = () => {
   const variable = useDemographicMapStore(state => state.variable);
@@ -26,6 +27,9 @@ export const DemographicLegend: React.FC = () => {
       usePercent && hasPctVariable ? `${newVariable}_percent` : newVariable;
     setVariable(newVariableName);
   };
+  useEffect(() => {
+    setVariable('total_pop');
+  }, [])
 
   return (
     <Flex
@@ -92,6 +96,20 @@ export const DemographicLegend: React.FC = () => {
           ))
         }
       </LegendQuantile>}
+      {/* {!!scale && <LegendLinear 
+        scale={scale} 
+        labelFormat={label => formatNumber(label as number, variable.includes('percent') ? 'percent' : 'compact')}>
+        {labels => labels.map((label, i) => (
+          <LegendItem key={`legend-${i}`} margin="0 4px">
+            <svg width={10} height={10}>
+              <rect fill={label.value} width={10} height={10} />
+            </svg>
+            <LegendLabel align="left" margin="0 4px">
+              {label.text}
+            </LegendLabel>
+          </LegendItem>
+        ))}
+        </LegendLinear>} */}
       <Text size="2" align="center">
         Gray = zero population
       </Text>

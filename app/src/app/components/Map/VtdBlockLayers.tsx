@@ -44,10 +44,10 @@ export const VtdBlockLayers: React.FC<{
         promoteId="path"
       >
         {isDemographicMap ? (
-        <>
-          <DemographicLayer />
-          <DemographicLayer child />
-        </>
+          <>
+            <DemographicLayer />
+            <DemographicLayer child />
+          </>
         ) : (
           <>
             <ZoneLayerGroup />
@@ -96,10 +96,10 @@ export const DemographicLayer: React.FC<{
         'fill-opacity': layerOpacity,
         'fill-color': [
           'case',
-          ['boolean', ["feature-state", "hasColor"], false],
-          ["feature-state", "color"],
-          '#808080'
-        ]
+          ['boolean', ['feature-state', 'hasColor'], false],
+          ['feature-state', 'color'],
+          '#808080',
+        ],
       }}
     />
   );
