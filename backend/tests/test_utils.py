@@ -351,10 +351,8 @@ def test_unshatter_process(client, document_id):
     data = response.json()
     # Verify the response contains the expected data
     assert "geoids" in data
-    print("!!!", data)
     assert len(data["geoids"]) == 1
     # Confirm assignments are now length 1
     assignments_response = client.get(f"/api/get_assignments/{document_id}")
     assignments_data = assignments_response.json()
-    print("!!!", assignments_data)
     assert len(assignments_data) == 1

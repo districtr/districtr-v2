@@ -1,21 +1,20 @@
 import React, {useMemo, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useQuery} from '@tanstack/react-query';
-import {
-  CleanedP1ZoneSummaryStats,
-  CleanedP4ZoneSummaryStats,
-  getSummaryStats,
-  P1ZoneSummaryStats,
-  P1ZoneSummaryStatsKeys,
-  P4ZoneSummaryStats,
-  P4ZoneSummaryStatsKeys,
-} from '@/app/utils/api/apiHandlers';
-import {Button, CheckboxGroup, Heading} from '@radix-ui/themes';
+import {getDocumentEvaluationStats} from '@/app/utils/api/apiHandlers';
+import {Box, Button, CheckboxGroup, Heading, Tabs} from '@radix-ui/themes';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
 import {interpolateGreys} from 'd3-scale-chromatic';
+import {
+  P1ZoneSummaryStats,
+  P4ZoneSummaryStats,
+  SummaryStatKeys,
+  SummaryTypes,
+  TotalColumnKeys,
+} from '@/app/utils/api/summaryStats';
 
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
@@ -62,6 +61,11 @@ const p4ColumnConfig: ColumnConfiguration<P4ZoneSummaryStats> = [
   {column: 'non_hispanic_two_or_more_races_vap', label: 'Non-hispanic 2+ Races'},
 ];
 
+const columnConfigs = {
+  P1: p1ColumnConfig,
+  P4: p4ColumnConfig,
+} as const;
+
 const modeButtonConfig: Array<{label: string; value: EvalModes}> = [
   {
     label: 'Population by Share',
@@ -79,14 +83,9 @@ const numberFormats: Record<EvalModes, NumberFormats> = {
   totpop: 'percent',
 };
 
-const getColConfig = (evalMode: EvalModes) => {
-  switch (evalMode) {
-    case 'share':
-      return (col: keyof P1ZoneSummaryStats | keyof P4ZoneSummaryStats) =>
-        `${col}_pct` as keyof CleanedP1ZoneSummaryStats | keyof CleanedP4ZoneSummaryStats;
-    default:
-      return (col: keyof P1ZoneSummaryStats | keyof P4ZoneSummaryStats) => col;
-  }
+const summaryStatLabels: Record<keyof SummaryTypes, string> = {
+  P1: 'Total Population',
+  P4: 'Voting Age Population',
 };
 
 const Evaluation: React.FC = () => {
@@ -95,41 +94,20 @@ const Evaluation: React.FC = () => {
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
 
   const numberFormat = numberFormats[evalMode];
-  const columnGetter = getColConfig(evalMode);
-  const totPop = useMapStore(state => state.summaryStats.totpop?.data);
   const mapDocument = useMapStore(state => state.mapDocument);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
-  const columnConfig = useMemo(() => {
-    const summaryType = mapDocument?.available_summary_stats?.[0];
-
-    switch (summaryType) {
-      case 'P1':
-        return p1ColumnConfig;
-      case 'P4':
-        return p4ColumnConfig;
-      default:
-        return [];
-    }
-  }, [mapDocument]);
-
-  const ZoneSummaryStatsKeys = useMemo(() => {
-    const summaryType = mapDocument?.available_summary_stats?.[0];
-
-    switch (summaryType) {
-      case 'P1':
-        return P1ZoneSummaryStatsKeys;
-      case 'P4':
-        return P4ZoneSummaryStatsKeys;
-      default:
-        return [];
-    }
-  }, [mapDocument]);
+  const [summaryType, setSummaryType] = useState<keyof SummaryTypes | undefined>(
+    (mapDocument?.available_summary_stats?.includes('P1')
+      ? 'P1'
+      : mapDocument?.available_summary_stats?.[0]) as keyof SummaryTypes
+  );
+  const totals = useMapStore(state => (summaryType ? state.summaryStats[summaryType] : undefined));
 
   const {data, error, isLoading} = useQuery(
     {
-      queryKey: ['SummaryStats', mapDocument, assignmentsHash],
+      queryKey: ['SummaryStats', mapDocument, assignmentsHash, summaryType],
       queryFn: () =>
-        mapDocument && getSummaryStats(mapDocument, mapDocument.available_summary_stats?.[0]),
+        mapDocument && summaryType && getDocumentEvaluationStats(mapDocument, summaryType),
       enabled: !!mapDocument,
       staleTime: 0,
       placeholderData: previousData => previousData,
@@ -137,31 +115,28 @@ const Evaluation: React.FC = () => {
     queryClient
   );
 
-  const {
-    unassigned,
-    maxValues,
-    // averages,
-    // stdDevs
-  } = useMemo(() => {
-    if (!data?.results || !totPop) {
+  const columnConfig = summaryType ? columnConfigs[summaryType] : [];
+  const summaryStatKeys = summaryType ? SummaryStatKeys[summaryType] : [];
+  const totalColumn = summaryType ? TotalColumnKeys[summaryType] : undefined;
+
+  const {unassigned, maxValues} = useMemo(() => {
+    if (!data?.results || !totals || !totalColumn) {
       return {};
     }
     let maxValues: Record<string, number> = {};
-
     let unassigned: Record<string, number> = {
-      ...totPop,
+      ...totals,
       zone: -999,
-      total: totPop.total,
+      total: totals[totalColumn as keyof typeof totals],
     };
 
-    ZoneSummaryStatsKeys.forEach(key => {
+    summaryStatKeys.forEach(key => {
       let total = unassigned[key];
       maxValues[key] = -Math.pow(10, 12);
       data.results.forEach(row => {
-        // @ts-ignore
-        total -= row[key];
-        // @ts-ignore
-        maxValues[key] = Math.max(row[key], maxValues[key]);
+        const value = row[key as keyof typeof row];
+        total -= value;
+        maxValues[key] = Math.max(value, maxValues[key]);
       });
       unassigned[`${key}_pct`] = total / unassigned['total'];
       unassigned[key] = total;
@@ -171,7 +146,7 @@ const Evaluation: React.FC = () => {
       unassigned,
       maxValues,
     };
-  }, [data?.results, totPop]);
+  }, [data?.results, totals, totalColumn, summaryStatKeys]);
 
   if (!data || !maxValues || (mapDocument && !mapDocument.available_summary_stats)) {
     return <Text>Summary statistics are not available for this map.</Text>;
@@ -187,10 +162,21 @@ const Evaluation: React.FC = () => {
   }
   const rows = unassigned && showUnassigned ? [...data.results, unassigned] : data.results;
   return (
-    <div className="w-full">
-      <Heading as="h3" size="3">
-        Voting age population
-      </Heading>
+    <Box width={'100%'}>
+      <Tabs.Root
+        value={summaryType}
+        onValueChange={value => setSummaryType(value as keyof SummaryTypes)}
+      >
+        <Tabs.List>
+          {Object.entries(summaryStatLabels).map(([key, value]) => (
+            <Tabs.Trigger key={key} value={key}>
+              <Heading as="h3" size="3">
+                {value}
+              </Heading>
+            </Tabs.Trigger>
+          ))}
+        </Tabs.List>
+      </Tabs.Root>
       <Flex align="center" gap="3" my="2">
         {modeButtonConfig.map((mode, i) => (
           <Button
@@ -203,7 +189,6 @@ const Evaluation: React.FC = () => {
         ))}
         {isLoading && <Spinner />}
       </Flex>
-
       <Flex align="center" gap="3" mt="1">
         <CheckboxGroup.Root
           defaultValue={[]}
@@ -226,7 +211,7 @@ const Evaluation: React.FC = () => {
           </CheckboxGroup.Item>
         </CheckboxGroup.Root>
       </Flex>
-      <div className="overflow-x-auto text-sm">
+      <Box overflowX="auto" className="text-sm">
         <table className="min-w-full border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b">
@@ -256,10 +241,11 @@ const Evaluation: React.FC = () => {
                       {zoneName}
                     </td>
                     {columnConfig.map((f, i) => {
-                      const column = columnGetter(f.column);
-                      const colorValue =
-                        // @ts-ignore
-                        evalMode === 'count' ? row[column] / maxValues[column] : row[column];
+                      const column = (
+                        evalMode === 'count' ? f.column : `${f.column}_pct`
+                      ) as keyof typeof row;
+                      const value = row[column];
+                      const colorValue = evalMode === 'count' ? value / maxValues[column] : value;
                       const backgroundColor =
                         colorBg && !isUnassigned
                           ? interpolateGreys(colorValue)
@@ -274,10 +260,7 @@ const Evaluation: React.FC = () => {
                           }}
                           key={i}
                         >
-                          {
-                            // @ts-ignore;
-                            formatNumber(row[column], numberFormat)
-                          }
+                          {formatNumber(value, numberFormat)}
                         </td>
                       );
                     })}
@@ -286,8 +269,8 @@ const Evaluation: React.FC = () => {
               })}
           </tbody>
         </table>
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 

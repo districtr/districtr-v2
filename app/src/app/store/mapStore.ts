@@ -11,8 +11,6 @@ import {
   DocumentObject,
   lastSentAssignments,
   LocalAssignmentsResponse,
-  P1TotPopSummaryStats,
-  P4TotPopSummaryStats,
   RemoteAssignmentsResponse,
   ShatterResult,
 } from '@utils/api/apiHandlers';
@@ -48,6 +46,7 @@ import { useUnassignFeaturesStore } from './unassignedFeatures';
 import { districtrIdbCache } from '../utils/cache';
 import { AllDemographyVariables, DEFAULT_COLOR_SCHEME, demographyVariables, getRowHandler } from './demographicMap';
 import * as scale from 'd3-scale'
+import { P1TotPopSummaryStats, P4VapPopSummaryStats } from '../utils/api/summaryStats';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -98,12 +97,9 @@ export interface MapStore {
   loadedMapId: string;
   setLoadedMapId: (mapId: string) => void;
   summaryStats: {
-    totpop?: {
-      data: (P1TotPopSummaryStats | P4TotPopSummaryStats) & {total: number};
-    };
-    idealpop?: {
-      data: number;
-    };
+    P1?: P1TotPopSummaryStats;
+    P4?: P4VapPopSummaryStats;
+    idealpop?: number
   };
   setSummaryStat: <T extends keyof MapStore['summaryStats']>(
     stat: T,

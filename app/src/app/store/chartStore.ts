@@ -79,7 +79,7 @@ useChartStore.subscribe(
   metrics => {
     const mapMetrics = metrics as ChartStore['mapMetrics'];
     const numDistricts = useMapStore?.getState().mapDocument?.num_districts;
-    const totPop = useMapStore?.getState().summaryStats.totpop?.data?.total;
+    const totPop = useMapStore?.getState().summaryStats.P1?.total_pop
     if (mapMetrics?.data && numDistricts && totPop) {
       updateChartData(
         mapMetrics,
