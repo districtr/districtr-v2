@@ -228,6 +228,7 @@ class PopulationStatsP1(BaseModel):
     black_pop: int
     white_pop: int
     two_or_more_races_pop: int
+    total_pop: int
 
 
 class SummaryStatsP1(PopulationStatsP1):
@@ -244,7 +245,12 @@ class PopulationStatsP4(BaseModel):
     non_hispanic_white_vap: int
     non_hispanic_other_vap: int
     non_hispanic_two_or_more_races_vap: int
+    total_vap: int
 
 
 class SummaryStatsP4(PopulationStatsP4):
     zone: int
+
+class SummaryStatisticColumnLists(Enum):
+  P1 = PopulationStatsP1.model_fields.keys()
+  P4 = PopulationStatsP4.model_fields.keys()

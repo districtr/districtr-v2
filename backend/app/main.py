@@ -33,6 +33,7 @@ from app.models import (
     SummaryStatsP4,
     PopulationStatsP4,
     UnassignedBboxGeoJSONs,
+    SummaryStatisticColumnLists
 )
 from app.utils import remove_file
 from app.exports import (
@@ -368,8 +369,11 @@ async def get_unassigned_geoids(
 
 
 @app.get("/api/document/{document_id}/demography")
-async def get_map_demography(document_id: str, session: Session = Depends(get_session)):
-    # get districtrmap
+async def get_map_demography(
+    document_id: str, 
+    ids: list[str] = Query(default=[]),
+    stats: list[str] = Query(default=[]),
+    session: Session = Depends(get_session)):
     document = session.exec(
         select(Document).filter(Document.document_id == document_id)
     ).one()
@@ -379,59 +383,53 @@ async def get_map_demography(document_id: str, session: Session = Depends(get_se
             DistrictrMap.gerrydb_table_name == document.gerrydb_table
         )
     ).one()
+    
+    columns = []
+    # by default use all available columns otherwise the requested columns
+    available_summary_stats = dm.available_summary_stats if len(stats) == 0 else stats
+    # By default, provide all summary stats
+    for summary_stat in available_summary_stats:
+        if summary_stat not in SummaryStatisticColumnLists.__members__:
+            continue
+        else:
+            stat_cols = SummaryStatisticColumnLists[summary_stat]
+            columns.extend(stat_cols.value)
 
-    stmt = text(
-        f"""
-                SELECT path, 
-                    total_pop,
-                    white_pop,
-                    black_pop,
-                    asian_pop,
-                    nhpi_pop,
-                    other_pop,
-                    amin_pop,
-                    two_or_more_races_pop,
-                    non_hispanic_white_vap,
-                    non_hispanic_black_vap,
-                    non_hispanic_asian_vap,
-                    non_hispanic_nhpi_vap,
-                    non_hispanic_other_vap,
-                    non_hispanic_amin_vap,
-                    hispanic_vap,
-                    total_vap
-                FROM (
-                    SELECT distinct geo_id
-                    FROM document.assignments 
-                    WHERE document_id = '{document_id}'
-                    UNION
-                    SELECT path as geo_id
-                    FROM gerrydb.{dm.parent_layer}
-                ) as ids
-                LEFT JOIN gerrydb.{dm.gerrydb_table_name} gdb
-                on gdb.path = ids.geo_id
-                WHERE gdb.total_pop > 0
-                """
-    )
-    results = session.execute(stmt).fetchall()
+    if len(ids) > 0:
+        # If the user sends a selection of IDs, just use those 
+        # This bypasses the document.assignments and gerrydb.parent full query
+        # Essentially we use the user provided IDs as start of the join
+        # This could be a where clause at the end, but this should be faster
+        ids_subquery = text("""
+            SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
+        """.format(",".join(f"(:id{i})" for i in range(len(ids)))))
+        # This is for efficiency but slightly slippery
+        # Adding the format here provides some safety
+        params = {f"id{i}": id for i, id in enumerate(ids)}
+    else:
+        # direct string interpolation of dm.parent_layer is safe
+        # since it always comes from the database
+        ids_subquery = text(f"""SELECT distinct geo_id
+            FROM document.assignments 
+            WHERE document_id = :document_id
+            UNION
+            SELECT path as geo_id
+            FROM gerrydb.{dm.parent_layer}""")
+        params = {"document_id": document_id}
+
+    stmt = text(f"""
+        SELECT path, {",".join(columns)}
+        FROM ({ids_subquery}) as ids
+        LEFT JOIN gerrydb.{dm.gerrydb_table_name} gdb
+        on gdb.path = ids.geo_id
+        WHERE gdb.total_pop > 0
+    """)
+
+    results = session.execute(stmt, params).fetchall()
     return {
         "columns": [
             "path",
-            "total_pop",
-            "white_pop",
-            "black_pop",
-            "asian_pop",
-            "nhpi_pop",
-            "other_pop",
-            "amin_pop",
-            "two_or_more_races_pop",
-            "non_hispanic_white_vap",
-            "non_hispanic_black_vap",
-            "non_hispanic_asian_vap",
-            "non_hispanic_nhpi_vap",
-            "non_hispanic_other_vap",
-            "non_hispanic_amin_vap",
-            "hispanic_vap",
-            "total_vap",
+            columns
         ],
         "results": [[*row] for row in results],
     }
