@@ -4,9 +4,7 @@ import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
-import {districtrIdbCache} from '../utils/cache';
 import GeometryWorker from '../utils/GeometryWorker';
-import { idCache } from './idCache';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
@@ -75,7 +73,6 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
         parents: Array.from(curr.parents),
         children: Array.from(curr.children),
       })
-      idCache.handleShatterHeal(Array.from(curr.parents), Array.from(curr.children));
     }
   )
 
