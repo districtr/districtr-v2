@@ -269,6 +269,7 @@ class DocumentPublic(BaseModel):
     available_summary_stats: list[str] | None = None
     map_metadata: DistrictrMapMetadata | None
     status: str = "unlocked"
+    genesis: str | None = None
 
 
 class AssignmentsBase(SQLModel):

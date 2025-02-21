@@ -97,6 +97,7 @@ export interface DocumentObject {
   available_summary_stats: string[];
   map_metadata: DocumentMetadata;
   status: string;
+  genesis: string;
   token?: string | null;
 }
 
@@ -211,9 +212,13 @@ type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | LocalAssignmen
 export const getAssignments: (
   mapDocument: DocumentObject | null
 ) => GetAssignmentsResponse = async mapDocument => {
-  if (mapDocument && mapDocument.document_id === useMapStore.getState().loadedMapId) {
+  if (
+    mapDocument &&
+    mapDocument.document_id === useMapStore.getState().loadedMapId &&
+    useMapStore.getState().assignmentsHash
+  ) {
     console.log(
-      'Map already loaded, skipping assignment load',
+      'Map already loaded, skipping assignment load in handlers',
       mapDocument.document_id,
       useMapStore.getState().loadedMapId
     );
@@ -703,5 +708,6 @@ export const getLoadPlanFromShare = async ({
     },
     {headers: {'Content-Type': 'application/json'}}
   );
+  const {document_id, assignments} = res.data;
   return res.data; // failure is handled in mutations.ts
 };

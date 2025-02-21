@@ -5,7 +5,7 @@ import {ZonePicker} from './Toolbar/ZonePicker';
 export const BrushControls = () => {
   const activeTool = useMapStore(state => state.activeTool);
   const mapDocumentStatus = useMapStore(state => state.mapDocument?.status);
-  console.log(mapDocumentStatus);
+
   return (
     <div className="gap-0 flex flex-col justify-around min-w-60">
       <div className="flex-grow">

@@ -180,6 +180,7 @@ async def create_document(
                 DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
                 DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
                 DistrictrMap.extent.label("extent"),  # pyright: ignore
+                coalesce("created").label("genesis"),
                 DistrictrMap.available_summary_stats.label(
                     "available_summary_stats"
                 ),  # pyright: ignore
@@ -363,6 +364,7 @@ async def get_document(
     document_id: str,
     user_id: UserID,
     session: Session,
+    shared: bool = False,
 ):
     status = check_map_lock(document_id, user_id, session)
 
@@ -382,6 +384,9 @@ async def get_document(
             ),  # pyright: ignore
             # get metadata as a json object
             MapDocumentMetadata.map_metadata.label("map_metadata"),  # pyright: ignore
+            coalesce(
+                "shared" if shared else "created",
+            ).label("genesis"),
             coalesce(
                 status,
             ).label("status"),
@@ -815,7 +820,9 @@ async def load_plan_from_share(
             )
 
     # return the document to the user with the password
-    return await get_document(str(result.document_id), data.user_id, session)
+    return await get_document(
+        str(result.document_id), data.user_id, session, shared=True
+    )
 
 
 @app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)

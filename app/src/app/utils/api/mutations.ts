@@ -13,13 +13,13 @@ import {
   populationAbortController,
   getSharePlanLink,
   getLoadPlanFromShare,
+  getAssignments,
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
 import {useChartStore} from '@/app/store/chartStore';
 import {districtrIdbCache} from '../cache';
-import {useMutation} from '@tanstack/react-query';
-import {use} from 'react';
+import {fetchTotPop} from './queries';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -191,12 +191,15 @@ export const sharedDocument = new MutationObserver(queryClient, {
   },
   onSuccess: data => {
     const {
+      mapDocument,
       setMapDocument,
       setLoadedMapId,
       setAssignmentsHash,
       setAppLoadingState,
       setPasswordPrompt,
     } = useMapStore.getState();
+    useMapStore.getState().setLoadedMapId('');
+    getAssignments(data);
     setMapDocument(data);
     setLoadedMapId(data.document_id);
     setAssignmentsHash(Date.now().toString());

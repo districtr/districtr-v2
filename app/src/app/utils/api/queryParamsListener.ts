@@ -49,7 +49,6 @@ export const getSearchParamsObserver = () => {
       }
     }
   });
-  console.log('starting observer');
   const config = {subtree: true, childList: true};
   // start listening to changes
   observer.observe(document, config);

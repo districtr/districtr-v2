@@ -19,7 +19,7 @@ import {
 import {getEntryTotal} from '@/app/utils/summaryStats';
 import {useMapStore} from '@/app/store/mapStore';
 import {useChartStore} from '@/app/store/chartStore';
-import { updateChartData } from '../helpers';
+import {updateChartData} from '../helpers';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -83,14 +83,10 @@ export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
       setSummaryStat('idealpop', {
         data: data.total / (mapDocument?.num_districts ?? 1),
       });
-      
+
       const mapMetrics = useChartStore.getState().mapMetrics;
       if (mapMetrics && mapDocument?.num_districts && data.total) {
-        updateChartData(
-          mapMetrics,
-          mapDocument.num_districts,
-          data.total
-        )
+        updateChartData(mapMetrics, mapDocument.num_districts, data.total);
       }
     } else {
       useMapStore.getState().setSummaryStat('totpop', undefined);
@@ -150,7 +146,9 @@ updateDocumentFromId.subscribe(mapDocument => {
   }
 });
 
-export const fetchAssignments = new QueryObserver<null | LocalAssignmentsResponse | RemoteAssignmentsResponse>(queryClient, {
+export const fetchAssignments = new QueryObserver<
+  null | LocalAssignmentsResponse | RemoteAssignmentsResponse
+>(queryClient, {
   queryKey: ['assignments'],
   queryFn: () => getAssignments(useMapStore.getState().mapDocument),
 });
@@ -164,13 +162,10 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-  const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
-    if (assignments.data.documentId === loadedMapId) {
-      console.log(
-        'Map already loaded, skipping assignment load',
-        assignments.data.documentId,
-        loadedMapId
-      );
+    const {loadZoneAssignments, loadedMapId, setAppLoadingState, mapDocument} =
+      useMapStore.getState();
+    if (assignments.data.documentId === loadedMapId && mapDocument?.genesis !== 'shared') {
+      console.log('Map already loaded ', assignments.data.documentId);
     } else {
       loadZoneAssignments(assignments.data);
       fetchTotPop.refetch();
