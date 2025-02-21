@@ -419,6 +419,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           }
           allPainted.clear();
           lastSentAssignments.clear();
+          demographyCache.clear();
           setFreshMap(true);
           resetZoneAssignments();
           useDemographyStore.getState().clear();
@@ -1075,7 +1076,6 @@ interface DemographyStore {
   clear: () => void;
   updateData: (
     mapDocument: MapStore['mapDocument'],
-    shatterIds: MapStore['shatterIds']['parents'],
     previousShatterIds?: MapStore['shatterIds']['parents']
   ) => Promise<void>;
 }
@@ -1148,29 +1148,28 @@ export const useDemographyStore = create(
     },
     dataHash: '',
     data: {},
-    updateData: async (mapDocument, _shatterIds, previousShatterIds) => {
+    updateData: async (mapDocument, prevParentShatterIds) => {
       const {getMapRef, dataHash: currDataHash, setVariable, variable} = get();
       const {shatterMappings, shatterIds} = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapDocument) return;
       let data = {...demographyCache.entries};
-      const dataHash = `${Array.from(_shatterIds).join(',')}|${mapDocument.document_id}`;
+      const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
       const shatterChildren: string[] = []
       const newShatterChildren: string[] = []
-      const oldParentsHealed = Array.from(previousShatterIds!).filter(f => !_shatterIds.has(f));
-      const newParentsShattered = Array.from(_shatterIds).filter(f => !previousShatterIds!.has(f));
+      const oldParentsHealed = Array.from(prevParentShatterIds!).filter(f => !shatterIds.parents.has(f));
 
-      _shatterIds.forEach(id => {
-        if (!previousShatterIds?.has(id)) {
+      shatterIds.parents.forEach(id => {
+        if (!prevParentShatterIds?.has(id)) {
           newShatterChildren.push(...Array.from(shatterMappings[id]));
         }
         shatterChildren.push(...Array.from(shatterMappings[id]));
       })
 
       const fetchUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/demography`)
-      if (Object.keys(data).length && (_shatterIds.size || previousShatterIds?.size)) {
-        [...newParentsShattered, ...oldParentsHealed].forEach(id => {
+      if (Object.keys(data).length && (shatterIds.parents.size || prevParentShatterIds?.size)) {
+        [...newShatterChildren, ...oldParentsHealed].forEach(id => {
           fetchUrl.searchParams.append('ids', id)
         })
       }
@@ -1179,16 +1178,15 @@ export const useDemographyStore = create(
       await fetch(fetchUrl.toString())
         .then(res => res.json())
         .then(result => {
-          const rowHandler = getRowHandler(result.columns, shatterIds.children);
+          const rowHandler = getRowHandler(result.columns, shatterIds.children ?? new Set());
           result.results.forEach((row: any) => {
             const entry = rowHandler(row);
             entry.sourceLayer = shatterChildSet.has(entry.path as any) ? mapDocument.child_layer! : mapDocument.parent_layer!;
             entry.source = BLOCK_SOURCE_ID;
             data[entry.path] = entry
-
           });
       });
-      _shatterIds.forEach(id => {
+      shatterIds.parents.forEach(id => {
         delete data[id];
       })
       set({dataHash});
@@ -1210,7 +1208,6 @@ useMapStore.subscribe<
   ([mapDocument, parentShatterIds], [prevMapDocument, prevParentShatterIds]) => {
     useDemographyStore.getState().updateData(
       mapDocument, 
-      parentShatterIds,
       prevParentShatterIds
     );
   },
@@ -1224,7 +1221,7 @@ useDemographyStore.subscribe(
     if (!mapRef) return;
     const {mapDocument, shatterIds, mapOptions} = useMapStore.getState();
     if (mapOptions.showDemographicMap) {
-      useDemographyStore.getState().updateData(mapDocument, shatterIds.parents);
+      useDemographyStore.getState().updateData(mapDocument);
     }
   }
 );

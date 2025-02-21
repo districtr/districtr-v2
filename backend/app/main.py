@@ -425,6 +425,7 @@ async def get_map_demography(
         FROM ({ids_subquery}) as ids
         LEFT JOIN gerrydb.{dm.gerrydb_table_name} gdb
         on gdb.path = ids.geo_id
+        WHERE path is not null
     """)
 
     results = session.execute(stmt, params).fetchall()
