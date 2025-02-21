@@ -4,7 +4,7 @@ import {
   DemographyVariable,
   demographyVariables
 } from '@/app/store/demographicMap';
-import { useDemographyStore } from '@/app/store/mapStore';
+import { useDemographyStore } from '@/app/store/demographicMap';
 import {formatNumber} from '@/app/utils/numbers';
 import {Flex, Switch, Text} from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
@@ -68,7 +68,7 @@ export const DemographicLegend: React.FC = () => {
         </Text>
       </Flex>
       {!!scale && <LegendQuantile
-        scale={scale}
+        scale={scale as any}
         labelFormat={label =>
           formatNumber(label as number, variable.includes('percent') ? 'percent' : 'compact')
         }

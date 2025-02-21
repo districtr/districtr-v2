@@ -50,7 +50,7 @@ export const ToolSettings: React.FC = () => {
           mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
           mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
           (mapOptions.lockPaintedAreas.length === (mapDocument?.num_districts ?? 4)) ? 'lockAll' : '',
-          mapOptions.showDemographicMap ? 'showDemographicMap' : '',
+          mapOptions.showDemographicMap === 'side-by-side' ? 'showDemographicMap' : '',
           mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
           mapOptions.showZoneNumbers === true ? 'showZoneNumbers' : '',
           parentsAreBroken && mapOptions.highlightBrokenDistricts === true
@@ -127,7 +127,7 @@ export const ToolSettings: React.FC = () => {
         <CheckboxGroup.Item
           value="showDemographicMap"
           onClick={() => setMapOptions({
-            showDemographicMap: !mapOptions.showDemographicMap,
+            showDemographicMap: !mapOptions.showDemographicMap ? 'side-by-side' : undefined,
           })}
         >
           Show Demographic Map

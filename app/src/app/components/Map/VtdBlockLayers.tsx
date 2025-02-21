@@ -10,19 +10,81 @@ import {
   LABELS_BREAK_LAYER_ID,
   ZONE_ASSIGNMENT_STYLE,
 } from '@/app/constants/layers';
-import {useMapStore} from '@/app/store/mapStore';
+import {demographyCache} from '@/app/store/demographCache';
+import {
+  AllDemographyVariables,
+  DEFAULT_COLOR_SCHEME,
+  demographyVariables,
+  useDemographyStore,
+} from '@/app/store/demographicMap';
+import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {FilterSpecification} from 'maplibre-gl';
-import {useState} from 'react';
+import {useLayoutEffect, useState} from 'react';
 import {useEffect} from 'react';
 import {useMemo} from 'react';
-import {Source, Layer} from 'react-map-gl/maplibre';
+import {Source, Layer, useMap} from 'react-map-gl/maplibre';
+import * as scale from 'd3-scale';
+
+const updateDemographicMapColors = ({
+  variable,
+  mapRef,
+  shatterIds,
+  mapDocument,
+}: {
+  variable: AllDemographyVariables;
+  mapRef: maplibregl.Map;
+  shatterIds: MapStore['shatterIds'];
+  mapDocument: MapStore['mapDocument'];
+}) => {
+  const dataValues = Object.values(demographyCache.entries);
+  const dataSoureExists = mapRef.getSource(BLOCK_SOURCE_ID);
+  if (!dataValues.length || !mapRef || !mapDocument || !dataSoureExists) return;
+  const config = demographyVariables.find(f => f.value === variable.replace('_percent', ''));
+  const colorscheme =
+    config && 'colorScheme' in config ? config?.colorScheme : DEFAULT_COLOR_SCHEME;
+  const values = dataValues.map(f => +f[variable]);
+  const colorScale = scale
+    .scaleQuantile()
+    .domain(values)
+    // @ts-ignore
+    .range(colorscheme);
+
+  dataValues.forEach((row, i) => {
+    const id = row.path;
+    const value = row[variable];
+    if (!id || !value) return;
+    const color = colorScale(+value);
+    const isChildLayer = shatterIds.children.has(`${id}`);
+    mapRef.setFeatureState(
+      {
+        source: BLOCK_SOURCE_ID,
+        sourceLayer:
+          isChildLayer && mapDocument.child_layer
+            ? mapDocument.child_layer
+            : mapDocument.parent_layer,
+        id,
+      },
+      {
+        color,
+        hasColor: true,
+      }
+    );
+  });
+  return colorScale;
+};
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
 }> = ({isDemographicMap}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
+  const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap);
+  const demographicVariable = useDemographyStore(state => state.variable);
+  const setScale = useDemographyStore(state => state.setScale);
+  const demographyDataHash = useDemographyStore(state => state.dataHash);
+  const shatterIds = useMapStore(state => state.shatterIds);
   const [clearOldSource, setClearOldSource] = useState(false);
+  const mapRef = useMap();
 
   useEffect(() => {
     // clears old source before re-adding
@@ -32,6 +94,47 @@ export const VtdBlockLayers: React.FC<{
       setMapRenderingState('loaded');
     }, 10);
   }, [mapDocument?.tiles_s3_path]);
+
+  const handleDemographyRender = () => {
+    const _map = mapRef.current?.getMap();
+    if (_map) {
+      const updateFn = () => {
+        const mapScale = updateDemographicMapColors({
+          variable: demographicVariable,
+          mapRef: _map,
+          shatterIds,
+          mapDocument,
+        });
+        setScale(mapScale);
+        return mapScale;
+      };
+      const sourceIsLoaded = _map?.getSource(BLOCK_SOURCE_ID);
+      if (sourceIsLoaded) {
+        return updateFn();
+      } else {
+        _map.on('load', () => {
+          const r = updateFn();
+          if (r) {
+            _map.off('load', updateFn);
+          }
+        });
+      }
+    }
+    return false;
+  };
+
+  useLayoutEffect(() => {
+    if (isDemographicMap || showDemographicMap === 'overlay') {
+      handleDemographyRender();
+    }
+  }, [
+    isDemographicMap,
+    showDemographicMap,
+    demographicVariable,
+    demographyDataHash,
+    shatterIds,
+    mapDocument,
+  ]);
 
   if (!mapDocument || clearOldSource) return null;
 

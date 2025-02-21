@@ -21,7 +21,7 @@ import GeometryWorker from '../GeometryWorker';
 import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
-import {useHoverStore} from '@/app/store/mapStore';
+import {useHoverStore} from '@/app/store/hoverFeatures';
 import { getFeatureUnderCursor } from '../helpers';
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];

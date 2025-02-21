@@ -6,12 +6,12 @@ import {
   getFeaturesIntersectingCounties,
   shallowCompareArray,
 } from '@utils/helpers';
-import {useMapStore as _useMapStore, HoverFeatureStore, MapStore, useDemographyStore as _useDemographyStore} from '@store/mapStore';
+import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
-import {useHoverStore as _useHoverStore} from '@store/mapStore';
 import {calcPops} from '@utils/population';
 import {useChartStore} from '@store/chartStore';
-import {  } from './demographicMap';
+import {useDemographyStore as _useDemographyStore} from './demographicMap';
+import {useHoverStore as _useHoverStore, HoverFeatureStore} from './hoverFeatures';
 
 export const getRenderSubscriptions = (
   useMapStore: typeof _useMapStore,
@@ -306,7 +306,7 @@ export const getRenderSubscriptions = (
         previousHoverFeatures.forEach(feature => {
           demoMapRef.setFeatureState(feature, {hover: false});
         });
-  
+
         hoverFeatures.forEach(feature => {
           demoMapRef.setFeatureState(feature, {hover: true});
         });

@@ -5,14 +5,15 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
 import type {MutableRefObject} from 'react';
 import React, {useEffect, useRef} from 'react';
-import {MAP_OPTIONS} from '../../constants/configuration';
+import {MAP_OPTIONS} from '@constants/configuration';
 import {
   handleWheelOrPinch,
   mapContainerEvents,
   mapEventHandlers,
-} from '../../utils/events/mapEvents';
-import {INTERACTIVE_LAYERS} from '../../constants/layers';
-import {useDemographyStore, useMapStore} from '../../store/mapStore';
+} from '@utils/events/mapEvents';
+import {INTERACTIVE_LAYERS} from '@constants/layers';
+import {useMapStore} from '@store/mapStore';
+import { useDemographyStore } from '@/app/store/demographicMap';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';

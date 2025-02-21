@@ -1,5 +1,12 @@
+'use client';
 import * as chromatic from 'd3-scale-chromatic';
-import {useMapStore} from './mapStore';
+import {MapStore, useMapStore} from './mapStore';
+import {create} from 'zustand';
+import {subscribeWithSelector} from 'zustand/middleware';
+import maplibregl from 'maplibre-gl';
+import {BLOCK_SOURCE_ID} from '../constants/layers';
+import * as scale from 'd3-scale'
+import { demographyCache } from './demographCache';
 
 export const DEFAULT_COLOR_SCHEME = ['#edf8fb', '#b2e2e2', '#66c2a4', '#2ca25f', '#006d2c'];
 
@@ -115,3 +122,106 @@ export const getRowHandler = (columns: string[], childShatterIds: Set<string>) =
     return rowRecord;
   };
 };
+
+
+interface DemographyStore {
+  getMapRef: () => maplibregl.Map | undefined;
+  setGetMapRef: (getMapRef: () => maplibregl.Map | undefined) => void;
+  variable: AllDemographyVariables;
+  setVariable: (variable: AllDemographyVariables) => void;
+  dataHash: string;
+  scale?: ReturnType<typeof scale.scaleQuantile>;
+  setScale: (scale: DemographyStore['scale']) => void;
+  unmount: () => void;
+  clear: () => void;
+  updateData: (
+    mapDocument: MapStore['mapDocument'],
+    previousShatterIds?: MapStore['shatterIds']['parents']
+  ) => Promise<void>;
+}
+
+export var useDemographyStore = create(
+  subscribeWithSelector<DemographyStore>((set, get) => ({
+    getMapRef: () => undefined,
+    setGetMapRef: getMapRef => {
+      set({getMapRef})
+      const {dataHash, setVariable, variable} = get();
+      const {mapDocument, shatterIds} = useMapStore.getState();
+      const currentDataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
+      if (currentDataHash === dataHash) {
+        setTimeout(() => {
+          setVariable(variable);
+        }, 500);
+      }
+    },
+    variable: 'total_pop',
+    scale: undefined,
+    setScale: scale => set({scale}),
+    clear: () => {
+      set({
+        variable: 'total_pop',
+        scale: undefined,
+        dataHash: '',
+      })
+    },
+    unmount: () => {
+      set({
+        getMapRef: () => undefined,
+        variable: 'total_pop',
+        scale: undefined,
+        dataHash: '',
+      })
+    },
+    setVariable: variable => set({variable}),
+    dataHash: '',
+    data: {},
+    updateData: async (mapDocument, prevParentShatterIds) => {
+      const {getMapRef, dataHash: currDataHash, setVariable, variable} = get();
+      const {shatterMappings, shatterIds} = useMapStore.getState();
+      const mapRef = getMapRef();
+      const prevShattered = prevParentShatterIds ?? new Set();
+      if (!mapDocument) return;
+      let data = {...demographyCache.entries};
+      const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
+      if (currDataHash === dataHash) return;
+      const shatterChildren: string[] = []
+      const newShatterChildren: string[] = []
+      const oldParentsHealed = Array.from(prevShattered).filter(f => !shatterIds.parents.has(f));
+
+      shatterIds.parents.forEach(id => {
+        if (!prevShattered?.has(id)) {
+          newShatterChildren.push(...Array.from(shatterMappings[id]));
+        }
+        shatterChildren.push(...Array.from(shatterMappings[id]));
+      })
+
+      const fetchUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/demography`)
+      if (Object.keys(data).length && (shatterIds.parents.size || prevShattered?.size)) {
+        [...newShatterChildren, ...oldParentsHealed].forEach(id => {
+          fetchUrl.searchParams.append('ids', id)
+        })
+      }
+
+      const shatterChildSet = new Set(shatterChildren)
+      await fetch(fetchUrl.toString())
+        .then(res => res.json())
+        .then(result => {
+          const rowHandler = getRowHandler(result.columns, shatterIds.children ?? new Set());
+          result.results.forEach((row: any) => {
+            const entry = rowHandler(row);
+            entry.sourceLayer = shatterChildSet.has(entry.path as any) ? mapDocument.child_layer! : mapDocument.parent_layer!;
+            entry.source = BLOCK_SOURCE_ID;
+            data[entry.path] = entry
+          });
+      });
+      shatterIds.parents.forEach(id => {
+        delete data[id];
+      })
+      set({dataHash});
+      demographyCache.entries = data;
+      if (mapRef){
+        setVariable(variable)
+      }
+    },
+  }))
+);

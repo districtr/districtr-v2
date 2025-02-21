@@ -1,12 +1,9 @@
 'use client';
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
-import {create} from 'zustand';
-import {subscribeWithSelector} from 'zustand/middleware';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '@constants/types';
 import {Zone, GDBPath} from '@constants/types';
 import {
-  Assignment,
   DistrictrMap,
   DocumentObject,
   lastSentAssignments,
@@ -24,29 +21,22 @@ import {
   getFeaturesInBbox,
   resetZoneColors,
   setZones,
-  shallowCompareArray,
 } from '../utils/helpers';
-import {getRenderSubscriptions} from './mapRenderSubs';
-import {getSearchParamsObserver} from '../utils/api/queryParamsListener';
-import {getMapEditSubs} from './mapEditSubs';
-import {getQueriesResultsSubs} from '../utils/api/queries';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
-import {devToolsConfig, devwrapper} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
-import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
 import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
 import { districtrIdbCache } from '../utils/cache';
-import { AllDemographyVariables, DEFAULT_COLOR_SCHEME, demographyVariables, getRowHandler } from './demographicMap';
-import * as scale from 'd3-scale'
 import { P1TotPopSummaryStats, P4VapPopSummaryStats } from '../utils/api/summaryStats';
 import { demographyCache } from './demographCache';
+import {useDemographyStore} from './demographicMap';
+import { initSubs } from './subscriptions';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -285,7 +275,7 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export const useMapStore = createWithMiddlewares<MapStore>(
+export var useMapStore = createWithMiddlewares<MapStore>(
   (set, get) => ({
         appLoadingState: initialLoadingState,
         setAppLoadingState: appLoadingState => set({appLoadingState}),
@@ -1030,206 +1020,4 @@ export const useMapStore = createWithMiddlewares<MapStore>(
       })
 )
 
-export interface HoverFeatureStore {
-  // HOVERING
-  /**
-   * Features that area highlighted and hovered.
-   * Map render effects in `mapRenderSubs` -> `_hoverMapSideEffectRender`
-   */
-  hoverFeatures: Array<MapFeatureInfo>;
-  setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
-}
-
-export const useHoverStore = create(
-  devwrapper(
-    subscribeWithSelector<HoverFeatureStore>((set, get) => ({
-      hoverFeatures: [],
-      setHoverFeatures: _features => {
-        const hoverFeatures = _features
-          ? _features.map(f => ({
-            source: f.source,
-              sourceLayer: f.sourceLayer,
-              id: f.id,
-            }))
-          : [];
-
-        set({hoverFeatures});
-      },
-    })),
-
-    {
-      ...devToolsConfig,
-      name: "Districtr Hover Feature Store"
-    }
-  ) as any
-  // TODO: Zustand is releasing a major version bump and we have breaking issues
-);
-
-interface DemographyStore {
-  getMapRef: () => maplibregl.Map | undefined;
-  setGetMapRef: (getMapRef: () => maplibregl.Map | undefined) => void;
-  variable: AllDemographyVariables;
-  setVariable: (variable: AllDemographyVariables) => void;
-  dataHash: string;
-  scale: any;
-  unmount: () => void;
-  clear: () => void;
-  updateData: (
-    mapDocument: MapStore['mapDocument'],
-    previousShatterIds?: MapStore['shatterIds']['parents']
-  ) => Promise<void>;
-}
-
-export const useDemographyStore = create(
-  subscribeWithSelector<DemographyStore>((set, get) => ({
-    getMapRef: () => undefined,
-    setGetMapRef: getMapRef => {
-      set({getMapRef})
-      const {dataHash, setVariable, variable} = get();
-      const {mapDocument, shatterIds} = useMapStore.getState();
-      const currentDataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
-      if (currentDataHash === dataHash) {
-        setTimeout(() => {
-          setVariable(variable);
-        }, 500);
-      }
-    },
-    variable: 'total_pop',
-    scale: null,
-    clear: () => {
-      set({
-        variable: 'total_pop',
-        scale: null,
-        dataHash: '',
-      })
-    },
-    unmount: () => {
-      set({
-        getMapRef: () => undefined,
-        variable: 'total_pop',
-        scale: null,
-        dataHash: '',
-      })
-    },
-    setVariable: variable => {
-      const {getMapRef} = get();
-      const {shatterIds, mapDocument} = useMapStore.getState();
-      const mapRef = getMapRef();
-      const dataValues = Object.values(demographyCache.entries);
-      if (!dataValues.length || !mapRef || !mapDocument) return;
-      const config = demographyVariables.find(f => f.value === variable.replace("_percent", ""));
-      const colorscheme = config && 'colorScheme' in config ? config?.colorScheme : DEFAULT_COLOR_SCHEME;
-      const values = dataValues.map(f => +f[variable]);
-      const colorScale = scale.scaleQuantile()
-        .domain(values)
-        // @ts-ignore
-        .range(colorscheme);
-        
-      dataValues.forEach((row, i) => {
-        const id = row.path;
-        const value = row[variable];
-        if (!id || !value) return;
-        const color = colorScale(+value);
-        const isChildLayer = shatterIds.children.has(`${id}`);
-        mapRef.setFeatureState({
-          source: BLOCK_SOURCE_ID,
-          sourceLayer: isChildLayer && mapDocument.child_layer ? mapDocument.child_layer : mapDocument.parent_layer,
-          id,
-        }, {
-          color,
-          hasColor: true,
-        })
-      })
-
-      set({
-        variable,
-        scale: colorScale,
-      })
-    },
-    dataHash: '',
-    data: {},
-    updateData: async (mapDocument, prevParentShatterIds) => {
-      const {getMapRef, dataHash: currDataHash, setVariable, variable} = get();
-      const {shatterMappings, shatterIds} = useMapStore.getState();
-      const mapRef = getMapRef();
-      if (!mapDocument) return;
-      let data = {...demographyCache.entries};
-      const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
-      if (currDataHash === dataHash) return;
-      const shatterChildren: string[] = []
-      const newShatterChildren: string[] = []
-      const oldParentsHealed = Array.from(prevParentShatterIds!).filter(f => !shatterIds.parents.has(f));
-
-      shatterIds.parents.forEach(id => {
-        if (!prevParentShatterIds?.has(id)) {
-          newShatterChildren.push(...Array.from(shatterMappings[id]));
-        }
-        shatterChildren.push(...Array.from(shatterMappings[id]));
-      })
-
-      const fetchUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/demography`)
-      if (Object.keys(data).length && (shatterIds.parents.size || prevParentShatterIds?.size)) {
-        [...newShatterChildren, ...oldParentsHealed].forEach(id => {
-          fetchUrl.searchParams.append('ids', id)
-        })
-      }
-
-      const shatterChildSet = new Set(shatterChildren)
-      await fetch(fetchUrl.toString())
-        .then(res => res.json())
-        .then(result => {
-          const rowHandler = getRowHandler(result.columns, shatterIds.children ?? new Set());
-          result.results.forEach((row: any) => {
-            const entry = rowHandler(row);
-            entry.sourceLayer = shatterChildSet.has(entry.path as any) ? mapDocument.child_layer! : mapDocument.parent_layer!;
-            entry.source = BLOCK_SOURCE_ID;
-            data[entry.path] = entry
-          });
-      });
-      shatterIds.parents.forEach(id => {
-        delete data[id];
-      })
-      set({dataHash});
-      demographyCache.entries = data;
-      if (mapRef){
-        setVariable(variable)
-      }
-    },
-  }))
-);
-
-useMapStore.subscribe<
-  [
-    MapStore['mapDocument'],
-    MapStore['shatterIds']['parents'],
-  ]
->(
-  state => [state.mapDocument, state.shatterIds.parents],
-  ([mapDocument, parentShatterIds], [prevMapDocument, prevParentShatterIds]) => {
-    useDemographyStore.getState().updateData(
-      mapDocument, 
-      prevParentShatterIds
-    );
-  },
-  {equalityFn: shallowCompareArray}
-);
-
-useDemographyStore.subscribe(
-  state => state.getMapRef,
-  getMapRef => {
-    const mapRef = getMapRef();
-    if (!mapRef) return;
-    const {mapDocument, shatterIds, mapOptions} = useMapStore.getState();
-    if (mapOptions.showDemographicMap) {
-      useDemographyStore.getState().updateData(mapDocument);
-    }
-  }
-);
-
-
-// these need to initialize after the map store
-getRenderSubscriptions(useMapStore, useHoverStore, useDemographyStore);
-getQueriesResultsSubs(useMapStore);
-getMapEditSubs(useMapStore);
-getMapMetricsSubs(useMapStore)
-getSearchParamsObserver();
+initSubs();
