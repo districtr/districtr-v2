@@ -68,9 +68,9 @@ export const MapContextMenu: React.FC = () => {
             Break to Blocks
           </ContextMenu.Item>
         )}
-        <ContextMenu.Item onSelect={handleLock}>
+        {/* <ContextMenu.Item onSelect={handleLock}>
           {featureIsLocked ? 'Unlock' : 'Lock'}
-        </ContextMenu.Item>
+        </ContextMenu.Item> */}
 
         {!!parent && (
           <>

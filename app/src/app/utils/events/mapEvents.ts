@@ -22,6 +22,7 @@ import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/mapStore';
+import { getFeatureUnderCursor } from '../helpers';
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -223,7 +224,7 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
     ? INTERACTIVE_LAYERS
     : [BLOCK_HOVER_LAYER_ID];
 
-  const selectedFeatures = mapStore.paintFunction(mapRef, e, 0, paintLayers, false);
+  const selectedFeatures = getFeatureUnderCursor(mapRef, e, 0, paintLayers);
 
   if (!selectedFeatures?.length || !mapRef || !sourceLayer) return;
 
