@@ -261,36 +261,37 @@ export const ShareMapsModal: React.FC<{
           <Text as="label" size="3">
             <Flex gap="2">Sharing</Flex>
           </Text>
-          <Text size="2">
-            You can share your plan with others! Share as <b>View Only</b> to let others see and
-            copy your plan. <b>Share and make editable</b> to allow others to directly edit your
-            plan. You can optionally <b>set a password</b> to restrict who can interact with it.
-          </Text>
-          <TextField.Root
-            disabled={mapDocument.genesis === 'shared'}
-            variant="soft"
-            placeholder={
-              mapDocument.genesis === 'shared'
-                ? 'Cannot edit password on shared plan'
-                : '(Optional) Set a password'
-            }
-            size="2"
-            value={password ?? undefined}
-            onChange={e => handlePasswordEntry(e.target.value)}
-            className="items-center"
-          ></TextField.Root>
-          <Flex gap="2" className="flex-col">
-            <RadioCards.Root
-              onValueChange={handleShareTypeChange}
-              value={mapDocument.genesis === 'shared' ? undefined : sharetype}
-            >
-              <RadioCards.Item value="view" disabled={mapDocument.genesis === 'shared' ?? false}>
-                Share View Only
-              </RadioCards.Item>
-              <RadioCards.Item value="edit" disabled={mapDocument.genesis === 'shared' ?? false}>
-                Share and make editable
-              </RadioCards.Item>
-            </RadioCards.Root>
+          {mapDocument.genesis !== 'shared' ? (
+            <>
+              <Text size="2">
+                You can share your plan with others! Share as <b>View Only</b> to let others see and
+                copy your plan. <b>Share and make editable</b> to allow others to directly edit your
+                plan. You can optionally <b>set a password</b> to restrict who can interact with it.
+              </Text>
+              <TextField.Root
+                variant="soft"
+                placeholder={'(Optional) Set a password'}
+                size="2"
+                value={password ?? undefined}
+                onChange={e => handlePasswordEntry(e.target.value)}
+                className="items-center"
+              ></TextField.Root>
+              <Flex gap="2" className="flex-col">
+                <RadioCards.Root onValueChange={handleShareTypeChange} value={sharetype}>
+                  <RadioCards.Item value="view">Share View Only</RadioCards.Item>
+                  <RadioCards.Item value="edit">Share and make editable</RadioCards.Item>
+                </RadioCards.Root>
+                <Button
+                  variant="soft"
+                  className="flex items-center"
+                  onClick={handleCreateShareLink}
+                  disabled={linkCopied ?? false}
+                >
+                  {linkCopied ? 'Copied!' : 'Click to copy link'}
+                </Button>
+              </Flex>
+            </>
+          ) : (
             <Button
               variant="soft"
               className="flex items-center"
@@ -299,7 +300,8 @@ export const ShareMapsModal: React.FC<{
             >
               {linkCopied ? 'Copied!' : 'Click to copy link'}
             </Button>
-          </Flex>
+          )}
+
           {/* end share logic */}
           <Box className="border-t border-gray-200"></Box>
           <Button
