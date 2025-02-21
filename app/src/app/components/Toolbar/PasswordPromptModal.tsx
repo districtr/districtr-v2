@@ -29,6 +29,7 @@ export const PasswordPromptModal = () => {
     sharedDocument.mutate({
       token: useMapStore.getState().receivedShareToken ?? '',
       password: password,
+      status: 'view',
     });
   };
 

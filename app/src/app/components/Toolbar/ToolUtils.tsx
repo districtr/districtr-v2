@@ -36,7 +36,8 @@ export const useActiveTools = () => {
   const thereAreAssignments = useMapStore(state => state.zoneAssignments.size > 0);
   const metaKey =
     typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
-
+  console.log(mapDocument);
+  const lockedStatuses = ['locked', 'readonly', 'view'];
   const config: ActiveToolConfig[] = [
     {
       hotKeyLabel: 'M',
@@ -51,7 +52,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'P',
       mode: 'brush',
-      disabled: !mapDocument?.document_id || mapDocument?.status === 'locked',
+      disabled: !mapDocument?.document_id || lockedStatuses.includes(mapDocument?.status),
       label: 'Paint',
       icon: Pencil2Icon,
       hotKeyAccessor: e => {

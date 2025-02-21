@@ -178,10 +178,19 @@ export const sharePlan = new MutationObserver(queryClient, {
 
 export const sharedDocument = new MutationObserver(queryClient, {
   mutationFn: getLoadPlanFromShare,
-  onMutate: ({token, password}: {token: string; password: string | null}) => {
+  onMutate: ({
+    token,
+    password,
+    status,
+  }: {
+    token: string;
+    password: string | null;
+    status: string | null;
+  }) => {
     const passwordRequired = useMapStore.getState().passwordPrompt;
     useMapStore.getState().setAppLoadingState('loading');
     console.log('loading from share');
+    console.log(token, password, status);
   },
   onError: error => {
     console.error('Error fetching shared document: ', error);
@@ -199,6 +208,7 @@ export const sharedDocument = new MutationObserver(queryClient, {
       setPasswordPrompt,
     } = useMapStore.getState();
     useMapStore.getState().setLoadedMapId('');
+    console.log(data);
     getAssignments(data);
     setMapDocument(data);
     setLoadedMapId(data.document_id);

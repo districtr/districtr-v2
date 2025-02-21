@@ -38,13 +38,14 @@ export const getSearchParamsObserver = () => {
       const decodedToken = jwtDecode(shareToken);
 
       useMapStore.getState().setReceivedShareToken((decodedToken as any).token as string);
-
+      console.log(decodedToken);
       if ((decodedToken as any).password_required === true) {
         useMapStore.getState().setPasswordPrompt(true);
       } else {
         sharedDocument.mutate({
           token: (decodedToken as any).token as string,
           password: null,
+          status: (decodedToken as any).access as string,
         });
       }
     }
