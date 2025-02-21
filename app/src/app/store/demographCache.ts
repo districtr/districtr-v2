@@ -1,4 +1,4 @@
-class IdCache {
+class DemographyCache {
   entries: Record<string, Record<string, number|string>> = {};
   clear() {
     this.entries = {};
@@ -9,4 +9,4 @@ class IdCache {
   }
 }
 
-export const idCache = new IdCache();
+export const demographyCache = new DemographyCache();

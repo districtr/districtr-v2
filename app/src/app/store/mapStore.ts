@@ -46,7 +46,7 @@ import { districtrIdbCache } from '../utils/cache';
 import { AllDemographyVariables, DEFAULT_COLOR_SCHEME, demographyVariables, getRowHandler } from './demographicMap';
 import * as scale from 'd3-scale'
 import { P1TotPopSummaryStats, P4VapPopSummaryStats } from '../utils/api/summaryStats';
-import { idCache } from './idCache';
+import { demographyCache } from './demographCache';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -1070,7 +1070,6 @@ interface DemographyStore {
   variable: AllDemographyVariables;
   setVariable: (variable: AllDemographyVariables) => void;
   dataHash: string;
-  data: Record<string, Record<AllDemographyVariables | 'path', number|string>>;
   scale: any;
   unmount: () => void;
   clear: () => void;
@@ -1079,7 +1078,6 @@ interface DemographyStore {
     shatterIds: MapStore['shatterIds']['parents'],
     previousShatterIds?: MapStore['shatterIds']['parents']
   ) => Promise<void>;
-  getFilteredIds: (prefix: string) => Array<[string, Record<AllDemographyVariables | 'path', number|string>]>;
 }
 
 export const useDemographyStore = create(
@@ -1102,7 +1100,6 @@ export const useDemographyStore = create(
       set({
         variable: 'total_pop',
         scale: null,
-        data: {},
         dataHash: '',
       })
     },
@@ -1111,15 +1108,14 @@ export const useDemographyStore = create(
         getMapRef: () => undefined,
         variable: 'total_pop',
         scale: null,
-        data: {},
         dataHash: '',
       })
     },
     setVariable: variable => {
-      const {data, getMapRef} = get();
+      const {getMapRef} = get();
       const {shatterIds, mapDocument} = useMapStore.getState();
       const mapRef = getMapRef();
-      const dataValues = Object.values(data);
+      const dataValues = Object.values(demographyCache.entries);
       if (!dataValues.length || !mapRef || !mapDocument) return;
       const config = demographyVariables.find(f => f.value === variable.replace("_percent", ""));
       const colorscheme = config && 'colorScheme' in config ? config?.colorScheme : DEFAULT_COLOR_SCHEME;
@@ -1153,11 +1149,11 @@ export const useDemographyStore = create(
     dataHash: '',
     data: {},
     updateData: async (mapDocument, _shatterIds, previousShatterIds) => {
-      const {getMapRef, dataHash: currDataHash, setVariable, variable, data: _data} = get();
+      const {getMapRef, dataHash: currDataHash, setVariable, variable} = get();
       const {shatterMappings, shatterIds} = useMapStore.getState();
       const mapRef = getMapRef();
       if (!mapDocument) return;
-      let data = {..._data}
+      let data = {...demographyCache.entries};
       const dataHash = `${Array.from(_shatterIds).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
       const shatterChildren: string[] = []
@@ -1195,17 +1191,12 @@ export const useDemographyStore = create(
       _shatterIds.forEach(id => {
         delete data[id];
       })
-      set({data, dataHash});
-      idCache.entries = data;
+      set({dataHash});
+      demographyCache.entries = data;
       if (mapRef){
         setVariable(variable)
       }
     },
-    getFilteredIds: prefix => {
-      const regex = new RegExp(`^${prefix}`);
-      console.log("!!!", get())
-      return Object.entries(get().data).filter(([key]) => regex.test(key));
-    }
   }))
 );
 

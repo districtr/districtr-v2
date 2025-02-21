@@ -13,7 +13,7 @@ import {
 } from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
-import {idCache} from '../store/idCache';
+import {demographyCache} from '../store/demographCache';
 import {ChartStore, useChartStore} from '@/app/store/chartStore';
 import {calculateMinMaxRange} from './zone-helpers';
 
@@ -140,7 +140,7 @@ export const getFeaturesIntersectingCounties = (
 
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
-  const features = idCache.getFiltered(fips).map(([id, properties]) => ({
+  const features = demographyCache.getFiltered(fips).map(([id, properties]) => ({
     id,
     ...properties,
     properties,

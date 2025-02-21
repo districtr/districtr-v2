@@ -2,7 +2,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import {create} from 'zustand';
-import { idCache } from './idCache';
+import { demographyCache } from './demographCache';
 
 type UnassignedFeatureStore = {
   unassignedFeatureBboxes: GeoJSON.Feature[];
@@ -41,7 +41,7 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set,get)
     const {shatterIds, zoneAssignments, mapDocument, getMapRef} = useMapStore.getState();
     const mapRef = getMapRef();
     if (!GeometryWorker || !mapRef) return;
-    const expectedFeatures = Object.keys(idCache.entries).length;
+    const expectedFeatures = Object.keys(demographyCache.entries).length;
     const nSeen = Object.keys(await GeometryWorker.activeGeometries).length
     const useBackend = expectedFeatures !== nSeen;
     if (!useBackend) {
