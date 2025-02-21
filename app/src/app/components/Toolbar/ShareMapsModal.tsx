@@ -282,7 +282,7 @@ export const ShareMapsModal: React.FC<{
           <Flex gap="2" className="flex-col">
             <RadioCards.Root
               onValueChange={handleShareTypeChange}
-              value={mapDocument.genesis === 'shared' ? null : sharetype}
+              value={mapDocument.genesis === 'shared' ? undefined : sharetype}
             >
               <RadioCards.Item value="view" disabled={mapDocument.genesis === 'shared' ?? false}>
                 Share View Only
