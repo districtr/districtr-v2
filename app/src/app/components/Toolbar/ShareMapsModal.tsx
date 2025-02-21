@@ -267,17 +267,29 @@ export const ShareMapsModal: React.FC<{
             plan. You can optionally <b>set a password</b> to restrict who can interact with it.
           </Text>
           <TextField.Root
+            disabled={mapDocument.genesis === 'shared'}
             variant="soft"
-            placeholder="(Optional) Set a password"
+            placeholder={
+              mapDocument.genesis === 'shared'
+                ? 'Cannot edit password on shared plan'
+                : '(Optional) Set a password'
+            }
             size="2"
             value={password ?? undefined}
             onChange={e => handlePasswordEntry(e.target.value)}
             className="items-center"
           ></TextField.Root>
           <Flex gap="2" className="flex-col">
-            <RadioCards.Root onValueChange={handleShareTypeChange} value={sharetype}>
-              <RadioCards.Item value="view">Share View Only</RadioCards.Item>
-              <RadioCards.Item value="edit">Share and make editable</RadioCards.Item>
+            <RadioCards.Root
+              onValueChange={handleShareTypeChange}
+              value={mapDocument.genesis === 'shared' ? null : sharetype}
+            >
+              <RadioCards.Item value="view" disabled={mapDocument.genesis === 'shared' ?? false}>
+                Share View Only
+              </RadioCards.Item>
+              <RadioCards.Item value="edit" disabled={mapDocument.genesis === 'shared' ?? false}>
+                Share and make editable
+              </RadioCards.Item>
             </RadioCards.Root>
             <Button
               variant="soft"
