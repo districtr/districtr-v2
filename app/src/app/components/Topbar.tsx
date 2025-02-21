@@ -22,9 +22,11 @@ import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {districtrIdbCache} from '../utils/cache';
 import {ShareMapsModal} from './Toolbar/ShareMapsModal';
 import {PasswordPromptModal} from './Toolbar/PasswordPromptModal';
+import {SaveMapsModal} from './Toolbar/SaveMapsModal';
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
+  const [shareMapsModal, setShareMapsModal] = React.useState(false);
   const [saveMapsModal, setSaveMapsModal] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [cachedViews, setCachedViews] = React.useState<DistrictrMap[]>();
@@ -175,9 +177,17 @@ export const Topbar: React.FC = () => {
               variant="outline"
               className="mr-2"
               disabled={!mapDocument?.document_id}
-              onClick={() => setSaveMapsModal(true)}
+              onClick={() => setShareMapsModal(true)}
             >
               Share
+            </Button>
+            <Button
+              variant="outline"
+              className="mr-2"
+              disabled={!mapDocument?.document_id}
+              onClick={() => setSaveMapsModal(true)}
+            >
+              Save
             </Button>
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
@@ -195,7 +205,8 @@ export const Topbar: React.FC = () => {
         <MobileDataTabs />
       </Flex>
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
-      <ShareMapsModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} />
+      <ShareMapsModal open={shareMapsModal} onClose={() => setShareMapsModal(false)} />
+      <SaveMapsModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} />
       <PasswordPromptModal />
     </>
   );
