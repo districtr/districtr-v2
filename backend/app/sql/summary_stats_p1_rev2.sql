@@ -9,7 +9,8 @@ RETURNS TABLE (
     nhpi_pop BIGINT,
     black_pop BIGINT,
     white_pop BIGINT,
-    two_or_more_races_pop BIGINT
+    two_or_more_races_pop BIGINT,
+    total_pop BIGINT
 ) AS $$
 DECLARE
     doc_districtrmap RECORD;
@@ -34,7 +35,8 @@ BEGIN
             SUM(COALESCE(blocks.nhpi_pop, 0))::BIGINT AS nhpi_pop,
             SUM(COALESCE(blocks.black_pop, 0))::BIGINT AS black_pop,
             SUM(COALESCE(blocks.white_pop, 0))::BIGINT AS white_pop,
-            SUM(COALESCE(blocks.two_or_more_races_pop, 0))::BIGINT AS two_or_more_races_pop
+            SUM(COALESCE(blocks.two_or_more_races_pop, 0))::BIGINT AS two_or_more_races_pop,
+            SUM(COALESCE(blocks.total_pop, 0))::BIGINT AS total_pop
         FROM document.assignments
         LEFT JOIN gerrydb.%I blocks
         ON blocks.path = assignments.geo_id
