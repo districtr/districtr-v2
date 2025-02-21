@@ -162,7 +162,7 @@ async def create_document(
 
         document_id = results.one()[0]  # should be only one row, one column of results
 
-        status = check_map_lock(document_id, data.user_id, session)
+        lock_status = check_map_lock(document_id, data.user_id, session)
 
         # check if there is a metadata item in the request
         if data.metadata:
@@ -189,7 +189,7 @@ async def create_document(
                 ).label("map_metadata"),
                 coalesce(
                     None,
-                    status,
+                    lock_status,
                 ).label("status"),
             )
             .where(Document.document_id == document_id)
@@ -364,7 +364,6 @@ async def get_document(
     user_id: UserID,
     session: Session,
 ):
-    print("doc id in get doc: ", document_id)
     status = check_map_lock(document_id, user_id, session)
 
     stmt = (

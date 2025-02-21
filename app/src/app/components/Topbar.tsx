@@ -151,12 +151,6 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item
-                onClick={() => setSaveMapsModal(true)}
-                disabled={!mapDocument?.document_id}
-              >
-                Save and Collaborate
-              </DropdownMenu.Item>
               <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
                 View Recent Maps
               </DropdownMenu.Item>
@@ -177,7 +171,12 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
-            <Button variant="outline" className="mr-2" disabled>
+            <Button
+              variant="outline"
+              className="mr-2"
+              disabled={!mapDocument?.document_id}
+              onClick={() => setSaveMapsModal(true)}
+            >
               Share
             </Button>
             <IconButton

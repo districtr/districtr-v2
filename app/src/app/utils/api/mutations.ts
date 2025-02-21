@@ -169,6 +169,7 @@ export const sharePlan = new MutationObserver(queryClient, {
         ...mapDocument,
         document_id: mapDocument?.document_id || '',
         token: data.token,
+        status: data.access === 'edit' ? 'edit' : 'locked',
       },
     });
     return data.token;

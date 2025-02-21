@@ -1133,7 +1133,6 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       const userMaps = get().userMaps;
       const updatedMaps = userMaps.map(map => {
         if (map.document_id === documentId) {
-          console.log('map is in usermaps');
           const updatedMetadata = {
             ...map.map_metadata,
             [key]: value,
