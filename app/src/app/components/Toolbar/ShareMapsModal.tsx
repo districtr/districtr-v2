@@ -132,25 +132,15 @@ export const ShareMapsModal: React.FC<{
 
     try {
       // get the share link
-      sharePlan.mutate(payload);
+      sharePlan.mutate(payload).then(token => {
+        // copy to clipboard
+        const shareableLink = `${window.location.origin}?share=${token.token}`;
+        navigator.clipboard.writeText(shareableLink);
 
-      const token = useMapStore
-        .getState()
-        .userMaps.find(map => map.document_id === mapDocument?.document_id)?.token;
-      console.log(useMapStore.getState().userMaps);
-      if (!token) {
-        console.error('No token found for map: ', mapDocument?.document_id);
-        return;
-      }
-      // copy to clipboard
-      const shareableLink = `${window.location.origin}?share=${token}`;
-      await navigator.clipboard.writeText(shareableLink);
-
-      console.log('Copied link to clipboard: ', shareableLink);
-
-      // Set link copied state
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
+        // Set link copied state
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+      });
     } catch (error) {
       console.error('Error creating share link: ', error);
     }
@@ -208,7 +198,6 @@ export const ShareMapsModal: React.FC<{
 
   // if no gerrydb table selected return null
   if (!gerryDBTable) {
-    console.error('No gerrydb table selected');
     return <div></div>;
   }
 
