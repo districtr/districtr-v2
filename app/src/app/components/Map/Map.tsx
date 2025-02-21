@@ -12,7 +12,7 @@ import {
   mapEventHandlers,
 } from '../../utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '../../constants/layers';
-import {useDemographicMapStore, useMapStore} from '../../store/mapStore';
+import {useDemographyStore, useMapStore} from '../../store/mapStore';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';
@@ -58,7 +58,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         synced.current = false;
       }
       if (isDemographicMap){
-        useDemographicMapStore.getState().unmount()
+        useDemographyStore.getState().unmount()
         mapRef.current = null;
       }
     }
@@ -118,7 +118,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
           onLoad={(e) => {
             if (isDemographicMap) {
               handleSyncMaps(e.target);
-              useDemographicMapStore.getState().setGetMapRef(() => e.target);
+              useDemographyStore.getState().setGetMapRef(() => e.target);
             } else {
               setMapRef(mapRef);
               handleWheelOrPinch({} as TouchEvent, mapRef.current);

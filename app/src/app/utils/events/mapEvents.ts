@@ -22,7 +22,6 @@ import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/mapStore';
-import { idCache } from '@/app/store/idCache';
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -246,8 +245,8 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
 };
 
 export const handleDataLoad = (e: MapSourceDataEvent) => {
-  const {mapDocument, shatterMappings} = useMapStore.getState();
-  const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {};
+  const {mapDocument} = useMapStore.getState();
+  const {tiles_s3_path, parent_layer} = mapDocument || {};
   if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
   const tileData = e?.tile?.latestFeatureIndex;
   if (!tileData) return;
@@ -263,9 +262,7 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
       tileID: e.tile.tileID.canonical,
       mapDocument,
       idProp: 'path',
-    }).then(data => {
-      idCache.loadFeatures(data, JSON.stringify(e.tile.tileID.canonical));
-    });
+    })
   }
 };
 

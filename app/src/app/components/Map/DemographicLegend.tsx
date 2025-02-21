@@ -4,7 +4,7 @@ import {
   DemographyVariable,
   demographyVariables
 } from '@/app/store/demographicMap';
-import { useDemographicMapStore } from '@/app/store/mapStore';
+import { useDemographyStore } from '@/app/store/mapStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {Flex, Switch, Text} from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
@@ -12,11 +12,11 @@ import {LegendQuantile, LegendItem, LegendLabel, LegendLinear} from '@visx/legen
 import { useEffect } from 'react';
 
 export const DemographicLegend: React.FC = () => {
-  const variable = useDemographicMapStore(state => state.variable);
+  const variable = useDemographyStore(state => state.variable);
   const displayVariable = variable.replace('_percent', '');
   const config = demographyVariables.find(f => f.value === displayVariable);
-  const setVariable = useDemographicMapStore(state => state.setVariable);
-  const scale = useDemographicMapStore(state => state.scale);
+  const setVariable = useDemographyStore(state => state.setVariable);
+  const scale = useDemographyStore(state => state.scale);
 
   const handleChange = (_newVariable?: DemographyVariable, _usePercent?: boolean) => {
     const usePercent = _usePercent ?? variable.includes('percent');

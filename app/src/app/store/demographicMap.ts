@@ -1,12 +1,7 @@
-import * as chromatic from 'd3-scale-chromatic'
+import * as chromatic from 'd3-scale-chromatic';
+import {useMapStore} from './mapStore';
 
-export const DEFAULT_COLOR_SCHEME = [
-  '#edf8fb',
-  '#b2e2e2',
-  '#66c2a4',
-  '#2ca25f',
-  '#006d2c',
-]
+export const DEFAULT_COLOR_SCHEME = ['#edf8fb', '#b2e2e2', '#66c2a4', '#2ca25f', '#006d2c'];
 
 export const demographyVariables = [
   {
@@ -91,8 +86,9 @@ const pop_columns = demographyVariables
   .filter(f => !f.value.endsWith('_vap') && f.value !== 'total_pop')
   .map(f => f.value);
 
-export const getRowHandler = (columns: string[]) => {
+export const getRowHandler = (columns: string[], childShatterIds: Set<string>) => {
   const indexMapping: Record<number, string> = {};
+  const mapDocument = useMapStore.getState().mapDocument;
   columns.forEach((column, index) => {
     const colName = demographyVariables.find(f => f.value === column)?.value;
     if (colName) {
@@ -100,9 +96,13 @@ export const getRowHandler = (columns: string[]) => {
     }
   });
   return (row: number[]) => {
-    const rowRecord: Record<AllDemographyVariables | 'path', number> = {
-      'path': row[0],
-    } as any;
+    const rowRecord: Record<AllDemographyVariables, number> & {path: string; sourceLayer: string, source: string} =
+      {
+        path: row[0],
+        sourceLayer: childShatterIds.has(row[0].toString())
+          ? mapDocument?.child_layer
+          : mapDocument?.parent_layer,
+      } as any;
     Object.entries(indexMapping).forEach(([index, column]) => {
       rowRecord[column as AllDemographyVariables] = row[+index] as number;
     });

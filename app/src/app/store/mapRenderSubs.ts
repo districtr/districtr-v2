@@ -6,7 +6,7 @@ import {
   getFeaturesIntersectingCounties,
   shallowCompareArray,
 } from '@utils/helpers';
-import {useMapStore as _useMapStore, HoverFeatureStore, MapStore, useDemographicMapStore as _useDemographicMapStore} from '@store/mapStore';
+import {useMapStore as _useMapStore, HoverFeatureStore, MapStore, useDemographyStore as _useDemographyStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
 import {useHoverStore as _useHoverStore} from '@store/mapStore';
 import {calcPops} from '@utils/population';
@@ -16,7 +16,7 @@ import {  } from './demographicMap';
 export const getRenderSubscriptions = (
   useMapStore: typeof _useMapStore,
   useHoverStore: typeof _useHoverStore,
-  useDemographicMapStore: typeof _useDemographicMapStore
+  useDemographyStore: typeof _useDemographyStore
 ) => {
   const _shatterMapSideEffectRender = useMapStore.subscribe<
     [
@@ -290,7 +290,7 @@ export const getRenderSubscriptions = (
       previousHoverFeatures: HoverFeatureStore['hoverFeatures']
     ) => {
       const mapRef = useMapStore.getState().getMapRef();
-      const demoMapRef = useDemographicMapStore.getState().getMapRef();
+      const demoMapRef = useDemographyStore.getState().getMapRef();
       if (!mapRef) {
         return;
       }

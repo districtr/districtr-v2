@@ -15,7 +15,7 @@ import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {idCache} from '../store/idCache';
 import {ChartStore, useChartStore} from '@/app/store/chartStore';
-import { calculateMinMaxRange } from './zone-helpers';
+import {calculateMinMaxRange} from './zone-helpers';
 
 /**
  * PaintEventHandler
@@ -140,31 +140,13 @@ export const getFeaturesIntersectingCounties = (
 
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
-  const {mapDocument, shatterIds} = useMapStore.getState();
-  const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
-  const cachedParentFeatures = idCache
-    .getFiltered(`${filterPrefix}${fips}`)
-    .map(([id, properties]) => ({
-      source: BLOCK_SOURCE_ID,
-      sourceLayer: mapDocument?.parent_layer,
-      id,
-      ...properties,
-    }));
+  const features = idCache.getFiltered(fips).map(([id, properties]) => ({
+    id,
+    ...properties,
+    properties,
+  })) as MapGeoJSONFeature[];
 
-  const childFeatures = shatterIds.children.size
-    ? (Array.from(shatterIds.children).map(id => ({
-        id,
-        source: BLOCK_SOURCE_ID,
-        sourceLayer: mapDocument?.child_layer,
-        properties: {
-          path: id,
-        },
-      })) as any)
-    : [];
-
-  return filterFeatures([...cachedParentFeatures, ...childFeatures], true, [
-    feature => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips),
-  ]);
+  return filterFeatures(features, true);
 };
 
 /**
@@ -265,7 +247,8 @@ export const colorZoneAssignments = (
     return;
   }
   const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
-  const featureStateChangesCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+  const featureStateChangesCache =
+    mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
   if (!featureStateCache) return;
   const isInitialRender = previousState?.[4] !== 'loaded' || previousState?.[5] !== 'loaded';
 
@@ -521,7 +504,7 @@ export const updateChartData = (
 
     const allAreNonZero = chartData.every(entry => entry.total_pop > 0);
     const stats = allAreNonZero ? calculateMinMaxRange(chartData) : undefined;
-    
+
     useChartStore.getState().setChartInfo({
       stats,
       chartData,
