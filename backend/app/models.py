@@ -16,8 +16,7 @@ from sqlmodel import (
 )
 from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
-from pydantic_geojson.multi_polygon import MultiPolygonModel
-from pydantic_geojson.polygon import PolygonModel
+import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
 from enum import Enum
 from typing import Any
@@ -201,7 +200,11 @@ class AssignedGEOIDS(GEOIDS):
 
 
 class UnassignedBboxGeoJSONs(BaseModel):
-    features: list[MultiPolygonModel | PolygonModel]
+    features: list[
+        pydantic_geojson.feature.FeatureModel
+        | pydantic_geojson.multi_polygon.MultiPolygonModel
+        | pydantic_geojson.polygon.PolygonModel
+    ]
 
 
 class ShatterResult(BaseModel):
