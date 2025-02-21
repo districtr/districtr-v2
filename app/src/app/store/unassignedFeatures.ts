@@ -1,9 +1,8 @@
-import {useChartStore} from '@/app/store/chartStore';
-import {idCache} from '@/app/store/idCache';
 import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import {create} from 'zustand';
+import { idCache } from './idCache';
 
 type UnassignedFeatureStore = {
   unassignedFeatureBboxes: GeoJSON.Feature[];
@@ -42,8 +41,9 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set,get)
     const {shatterIds, zoneAssignments, mapDocument, getMapRef} = useMapStore.getState();
     const mapRef = getMapRef();
     if (!GeometryWorker || !mapRef) return;
-    const useBackend =
-      idCache.getTotalPopSeen(shatterIds.parents) !== useChartStore.getState().chartInfo.totPop;
+    const expectedFeatures = Object.keys(idCache.entries).length;
+    const nSeen = Object.keys(await GeometryWorker.activeGeometries).length
+    const useBackend = expectedFeatures !== nSeen;
     if (!useBackend) {
       await GeometryWorker.updateProps(Array.from(zoneAssignments.entries()));
     }
