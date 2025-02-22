@@ -1,4 +1,5 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query, BackgroundTasks
+import botocore.exceptions
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
@@ -416,6 +417,9 @@ async def check_document_contiguity(
         zone_assignments = contiguity.get_block_assignments(session, document_id)
     else:
         gerrydb_name = districtr_map.parent_layer
+        logger.info(
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+        )
         sql = text("""
             select zone, array_agg(geo_id) as nodes
             from assignments
@@ -426,11 +430,19 @@ async def check_document_contiguity(
             contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
         ]
 
-    path = contiguity.get_gerrydb_graph_file(gerrydb_name)
+    try:
+        path = contiguity.get_gerrydb_graph_file(gerrydb_name)
+    except botocore.exceptions.ClientError as e:
+        # TODO: Maybe in the future this should actually create the graph
+        logger.error(f"Graph not found: {str(e)}")
+        return HTTPException(
+            status_code=404, detail="Graph not found. Unable to compute contiguity"
+        )
+    except Exception as e:
+        return HTTPException(status_code=500, detail=f"Something went wrong: {str(e)}")
+
     logger.info(f"Loading graph from {path}")
     G = contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
-
-    logger.info(f"Checking contiguity for {len(zone_assignments)} zones")
 
     results = {}
     for zone_blocks in zone_assignments:

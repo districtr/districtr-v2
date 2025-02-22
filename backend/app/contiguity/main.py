@@ -26,13 +26,32 @@ def check_subgraph_contiguity(G: Graph, subgraph_nodes: Iterable[Hashable]):
 def get_gerrydb_graph_file(
     gerrydb_name: str, prefix: str = settings.VOLUME_PATH
 ) -> str:
+    """
+    Get the path to the GerryDB graph file.
+
+    First checks if the file exists locally, then checks if it exists in S3.
+    If it exists in S3, it downloads it to the local volume.
+
+    Args:
+        gerrydb_name (str): The name of the GerryDB.
+        prefix (str, optional): The prefix to use for the path. Defaults to settings.VOLUME_PATH.
+
+    Returns:
+        str: The path to the GerryDB graph file.
+    """
     possible_local_path = Path(f"{prefix}/{gerrydb_name}.gml.gz")
     logger.info("Possible local path: %s", possible_local_path)
-    print("Possible local path: %s", possible_local_path)
+
     if possible_local_path.exists():
         return str(possible_local_path)
 
-    return f"{S3_BLOCK_PATH}/{gerrydb_name}.gml.gz"
+    s3_path = f"{S3_BLOCK_PATH}/{gerrydb_name}.gml.gz"
+
+    s3 = settings.get_s3_client()
+    assert s3, "S3 client is not available"
+    s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=s3_path)
+
+    return s3_path
 
 
 def get_gerrydb_block_graph(file_path: str, replace_local_copy: bool = False) -> Graph:
