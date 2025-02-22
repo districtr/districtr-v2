@@ -339,6 +339,7 @@ def download_file_from_s3(s3, url: ParseResult, replace=False) -> str:
     logger.info("Downloading GerryDB view. Got response:\n%s", object_information)
 
     path = os.path.join(settings.VOLUME_PATH, file_name)
+    logger.info("Path: %s", path)
 
     if os.path.exists(path) and not replace:
         logger.info("File already exists. Skipping download.")

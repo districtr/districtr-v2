@@ -65,6 +65,16 @@ def graph_from_gpkg(
     Returns:
         Path to the GML file
     """
+    url = urlparse(str(gpkg_path))
+    logger.info("URL: %s", url)
+
+    if url.scheme == "s3":
+        logger.info("Downloading file from S3")
+        s3 = settings.get_s3_client()
+        assert s3, "S3 client is not available"
+        gpkg_path = download_file_from_s3(s3=s3, url=url, replace=False)
+        logger.info("Path: %s", gpkg_path)
+
     conn = sqlite3.connect(gpkg_path)
 
     cursor = conn.execute(f"SELECT path_1, path_2 FROM {layer_name}")
@@ -110,6 +120,9 @@ def write_graph_to_gml(
         assert s3, "S3 client is not available"
         s3.upload_file(
             str(gml_path), settings.R2_BUCKET_NAME, f"{S3_GRAPH_PREFIX}/{gml_file}"
+        )
+        logger.info(
+            f"GML file uploaded to S3 at s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{gml_path}"
         )
 
     return gml_path
