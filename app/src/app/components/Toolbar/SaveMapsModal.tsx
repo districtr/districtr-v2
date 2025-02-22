@@ -17,8 +17,6 @@ import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {metadata, document} from '@/app/utils/api/mutations';
 
-type NamedDocumentObject = DocumentObject & {name?: string};
-
 const DialogContentContainer = styled(Dialog.Content);
 
 const BoxContainer = styled(Box, {
@@ -43,31 +41,37 @@ export const SaveMapsModal: React.FC<{
     setDialogOpen(open || false);
   }, [open]);
 
-  // get map name from metadata if it exists
-  const mapName =
-    userMaps.find((map: DocumentObject) => map.document_id === mapDocument?.document_id)
-      ?.map_metadata?.name || undefined;
-  const mapTags =
-    userMaps.find((map: DocumentObject) => map.document_id === mapDocument?.document_id)
-      ?.map_metadata?.tags || undefined;
+  const initialMetadataRef = React.useRef<DocumentMetadata | null>(null);
 
-  const [name, setName] = React.useState(mapName);
-  const [tagsTeam, setTagsTeam] = React.useState(mapTags);
+  const currentMapMetadata = React.useMemo(
+    () => userMaps.find(map => map.document_id === mapDocument?.document_id)?.map_metadata,
+    [mapDocument?.document_id, userMaps]
+  );
+  const [mapName, setMapName] = React.useState<string | undefined | null>(currentMapMetadata?.name);
+  const [mapTags, setTags] = React.useState<string | undefined | null>(currentMapMetadata?.tags);
   const [nameIsSaved, setNameIsSaved] = React.useState(false);
   const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
 
   React.useEffect(() => {
-    setName(mapName);
-    setTagsTeam(mapTags);
+    setMapName(mapName);
+    setTags(mapTags);
   }, [mapName, mapTags, dialogOpen]);
 
   const handleChangeName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
     if (name !== mapName && name !== null) {
       setNameIsSaved(false);
-      setName(name);
+      setMapName(name);
     }
   };
+
+  useEffect(() => {
+    if (dialogOpen && initialMetadataRef.current === null) {
+      initialMetadataRef.current = currentMapMetadata ?? null;
+      setMapName(currentMapMetadata?.name);
+      setTags(currentMapMetadata?.tags);
+    }
+  }, [currentMapMetadata, dialogOpen]);
 
   const handleChangeTag = (tag: string | null) => {
     if (tag && mapTags && !mapTags.includes(tag)) {
@@ -113,11 +117,12 @@ export const SaveMapsModal: React.FC<{
             copy_from_doc: mapDocument?.document_id,
           })
           .then(data => {
-            // set name and tags on the new map
+            // update in db
             metadata.mutate({
               document_id: data.document_id,
               metadata: savedMapMetadata,
             });
+            // update in usermaps
             upsertUserMap({
               documentId: data.document_id,
               mapDocument: {
@@ -125,6 +130,7 @@ export const SaveMapsModal: React.FC<{
                 map_metadata: savedMapMetadata,
               },
             });
+            // swap out current map with newly copied one
             data.map_metadata = savedMapMetadata;
             setMapDocument(data);
           });
@@ -189,7 +195,7 @@ export const SaveMapsModal: React.FC<{
             <TextField.Root
               placeholder={'Tag or Event Code'}
               size="3"
-              value={tagsTeam ?? ''}
+              value={mapTags ?? ''}
               disabled
               onChange={e => handleMetadataChange('tags', e.target.value)}
             ></TextField.Root>
