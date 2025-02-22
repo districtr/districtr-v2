@@ -110,7 +110,6 @@ export const patchReset = new MutationObserver(queryClient, {
 export const document = new MutationObserver(queryClient, {
   mutationFn: createMapDocument,
   onMutate: () => {
-    console.log('Creating document');
     useMapStore.getState().setAppLoadingState('loading');
     useMapStore.getState().resetZoneAssignments();
   },
@@ -209,6 +208,7 @@ export const sharedDocument = new MutationObserver(queryClient, {
     } = useMapStore.getState();
     useMapStore.getState().setLoadedMapId('');
     console.log(data);
+    data.status = 'locked';
     getAssignments(data);
     setMapDocument(data);
     setLoadedMapId(data.document_id);

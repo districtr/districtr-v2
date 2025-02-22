@@ -164,7 +164,10 @@ fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
     const {loadZoneAssignments, loadedMapId, setAppLoadingState, mapDocument} =
       useMapStore.getState();
-    if (assignments.data.documentId === loadedMapId && mapDocument?.genesis !== 'shared') {
+    if (
+      assignments.data.documentId === loadedMapId &&
+      !['shared', 'copied'].includes(mapDocument?.genesis ?? '')
+    ) {
       console.log('Map already loaded ', assignments.data.documentId);
     } else {
       loadZoneAssignments(assignments.data);

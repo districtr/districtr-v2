@@ -165,6 +165,7 @@ class DocumentCreate(BaseModel):
     gerrydb_table: str | None
     user_id: str | None
     metadata: Optional[DistrictrMapMetadata] | None = None
+    copy_from_doc: Optional[str] | None = None  # document_id to copy from
 
 
 class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):

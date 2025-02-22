@@ -125,7 +125,9 @@ export const ShareMapsModal: React.FC<{
               <Flex gap="2" className="flex-col">
                 <RadioCards.Root onValueChange={handleShareTypeChange} value={sharetype}>
                   <RadioCards.Item value="view">Share View Only</RadioCards.Item>
-                  <RadioCards.Item value="edit">Share and make editable</RadioCards.Item>
+                  <RadioCards.Item value="edit" disabled>
+                    Share and make editable
+                  </RadioCards.Item>
                 </RadioCards.Root>
                 <Button
                   variant="soft"

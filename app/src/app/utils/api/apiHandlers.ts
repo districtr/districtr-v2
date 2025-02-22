@@ -118,6 +118,7 @@ export interface DocumentCreate {
   gerrydb_table: string;
   user_id: string | null;
   metadata?: DocumentMetadata;
+  copy_from_doc?: string;
 }
 
 export const createMapDocument: (document: DocumentCreate) => Promise<DocumentObject> = async (

@@ -38,7 +38,6 @@ export const getSearchParamsObserver = () => {
       const decodedToken = jwtDecode(shareToken);
 
       useMapStore.getState().setReceivedShareToken((decodedToken as any).token as string);
-      console.log(decodedToken);
       if ((decodedToken as any).password_required === true) {
         useMapStore.getState().setPasswordPrompt(true);
       } else {

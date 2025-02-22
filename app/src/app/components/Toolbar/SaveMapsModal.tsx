@@ -123,6 +123,7 @@ export const SaveMapsModal: React.FC<{
           gerrydb_table: mapDocument?.gerrydb_table,
           metadata: savedMapMetadata,
           user_id: useMapStore.getState().userID,
+          copy_from_doc: mapDocument?.document_id,
         });
       } else {
         // otherwise just update

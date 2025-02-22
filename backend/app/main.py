@@ -15,7 +15,7 @@ from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam
+from sqlalchemy import bindparam, literal
 from sqlmodel import ARRAY, INT
 from datetime import datetime, UTC, timedelta
 import sentry_sdk
@@ -154,15 +154,36 @@ async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
     try:
-        print(data)
         results = session.execute(
             text("SELECT create_document(:gerrydb_table_name);"),
             {"gerrydb_table_name": data.gerrydb_table},
         )
-
+        plan_genesis = "created"
         document_id = results.one()[0]  # should be only one row, one column of results
 
         lock_status = check_map_lock(document_id, data.user_id, session)
+
+        copy_from_doc = getattr(data, "copy_from_doc", None)
+
+        # if copy from doc, need to get assignments from that document, copy them for the new doc
+        if copy_from_doc:
+            prev_assignments = Assignments.__table__.select().where(
+                Assignments.document_id == copy_from_doc
+            )
+            # create a new copy with the fresh document id
+            # set document id to new document id
+            prev_assignments = select(
+                Assignments.geo_id,
+                Assignments.zone,
+                literal(document_id).label("document_id"),
+            ).where(Assignments.document_id == copy_from_doc)
+
+            create_copy_stmt = insert(Assignments).from_select(
+                ["geo_id", "zone", "document_id"], prev_assignments
+            )
+
+            session.execute(create_copy_stmt)
+            plan_genesis = "copied"
 
         # check if there is a metadata item in the request
         if data.metadata:
@@ -180,7 +201,7 @@ async def create_document(
                 DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
                 DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
                 DistrictrMap.extent.label("extent"),  # pyright: ignore
-                coalesce("created").label("genesis"),
+                coalesce(plan_genesis).label("genesis"),
                 DistrictrMap.available_summary_stats.label(
                     "available_summary_stats"
                 ),  # pyright: ignore
