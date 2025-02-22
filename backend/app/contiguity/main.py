@@ -129,6 +129,7 @@ def get_block_assignments(session: Session, document_id: str) -> list[ZoneBlockN
         array_agg(geo_id) AS nodes
     FROM
         get_block_assignments(:document_id)
+    WHERE zone IS NOT NULL
     GROUP BY
         zone""")
 
@@ -136,6 +137,7 @@ def get_block_assignments(session: Session, document_id: str) -> list[ZoneBlockN
     zone_block_nodes = []
 
     for row in result:
+        logger.info(f"Loading block assignments for {row}")
         zone_block_nodes.append(ZoneBlockNodes(zone=row.zone, nodes=row.nodes))
 
     return zone_block_nodes

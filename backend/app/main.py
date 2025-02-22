@@ -409,6 +409,9 @@ async def check_document_contiguity(
         )
 
     if districtr_map.child_layer is not None:
+        logger.info(
+            f"Using child layer {districtr_map.child_layer} for document {document_id}"
+        )
         gerrydb_name = districtr_map.child_layer
         zone_assignments = contiguity.get_block_assignments(session, document_id)
     else:
@@ -416,14 +419,18 @@ async def check_document_contiguity(
         sql = text("""
             select zone, array_agg(geo_id) as nodes
             from assignments
-            where document_id = :document_id group by zone""")
+            where document_id = :document_id group by zone
+            and zone is not null""")
         result = session.execute(sql, {"document_id": document_id}).fetchall()
         zone_assignments = [
             contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
         ]
 
     path = contiguity.get_gerrydb_graph_file(gerrydb_name)
+    logger.info(f"Loading graph from {path}")
     G = contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
+
+    logger.info(f"Checking contiguity for {len(zone_assignments)} zones")
 
     results = {}
     for zone_blocks in zone_assignments:

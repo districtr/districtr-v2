@@ -206,3 +206,101 @@ def test_simple_geos_discontiguity(
     )
     assert response.status_code == 200
     assert response.json() == {"1": False, "2": True}
+
+
+@fixture
+def ks_ellis_document_id(
+    client,
+    session: Session,
+    ks_ellis_shatterable_districtr_map,
+    gerrydb_ks_ellis_geos_view,
+):
+    create_parent_child_edges(
+        session=session, districtr_map_uuid=ks_ellis_shatterable_districtr_map
+    )
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": "ks_ellis_geos",
+        },
+    )
+    assert response.status_code == 201
+    doc = response.json()
+
+    return doc["document_id"]
+
+
+@fixture
+def ks_ellis_assignments(client: TestClient, ks_ellis_document_id: str) -> str:
+    document_id = ks_ellis_document_id
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "vtd:20051120060", "zone": 1},
+                {"document_id": document_id, "geo_id": "vtd:20051000280", "zone": 1},
+                {"document_id": document_id, "geo_id": "vtd:20051000050", "zone": 1},
+                {"document_id": document_id, "geo_id": "vtd:20051000040", "zone": 1},
+                {"document_id": document_id, "geo_id": "vtd:20051900090", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051900010", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051120070", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051120050", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051120040", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000310", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000300", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000290", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:2005100010A", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000090", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000080", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000030", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051900100", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051900070", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051900060", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051900050", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051000240", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051000230", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051000220", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:2005100021A", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051000200", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:2005100003A", "zone": 3},
+            ],
+            "updated_at": "2023-10-01T00:00:00Z",
+        },
+    )
+    assert response.status_code == 200
+
+    return document_id
+
+
+def test_ks_ellis_geos_contiguity(
+    client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = ks_ellis_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity",
+    )
+    assert response.status_code == 200
+    assert response.json() == {"1": True, "2": True, "3": False}
+
+
+def test_fix_ks_ellis_geos_contiguity(
+    client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = ks_ellis_assignments
+
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "vtd:20051900100", "zone": 2},
+            ],
+            "updated_at": "2023-10-01T00:00:00Z",
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.get(
+        f"/api/document/{document_id}/contiguity",
+    )
+    assert response.status_code == 200
+    assert response.json() == {"1": True, "2": True, "3": True}
