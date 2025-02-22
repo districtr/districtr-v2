@@ -13,7 +13,6 @@ import {
   IconButton,
   RadioCards,
 } from '@radix-ui/themes';
-import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {metadata, document} from '@/app/utils/api/mutations';
@@ -33,9 +32,6 @@ export const SaveMapsModal: React.FC<{
   onClose?: () => void;
   showTrigger?: boolean;
 }> = ({open, onClose, showTrigger}) => {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const mapDocument = useMapStore(store => store.mapDocument);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const gerryDBTable = mapDocument?.gerrydb_table;
@@ -46,15 +42,6 @@ export const SaveMapsModal: React.FC<{
   useEffect(() => {
     setDialogOpen(open || false);
   }, [open]);
-
-  const handleMapDocument = (data: NamedDocumentObject) => {
-    setMapDocument(data);
-    const urlParams = new URLSearchParams(searchParams.toString());
-    urlParams.set('document_id', data.document_id);
-    router.push(pathname + '?' + urlParams.toString());
-    // close dialog
-    setDialogOpen(false);
-  };
 
   // get map name from metadata if it exists
   const mapName =
@@ -68,13 +55,17 @@ export const SaveMapsModal: React.FC<{
   const [tagsTeam, setTagsTeam] = React.useState(mapTags);
   const [nameIsSaved, setNameIsSaved] = React.useState(false);
   const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
-  const [copied, setCopied] = React.useState(false);
-  const [copiedPlanName, setCopiedPlanName] = React.useState(null);
+
+  React.useEffect(() => {
+    setName(mapName);
+    setTagsTeam(mapTags);
+  }, [mapName, mapTags, dialogOpen]);
 
   const handleChangeName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
-    if (name !== mapName) {
+    if (name !== mapName && name !== null) {
       setNameIsSaved(false);
+      setName(name);
     }
   };
 
@@ -104,11 +95,6 @@ export const SaveMapsModal: React.FC<{
     }
   };
 
-  const handleCopyMetadataChange = (key: keyof DocumentMetadata, value: any) => {
-    // todo: handle copy metadata change
-    setCopiedPlanName(value);
-  };
-
   const handleMapSave = () => {
     if (mapDocument?.document_id) {
       const savedMapMetadata = userMaps.find(
@@ -119,17 +105,41 @@ export const SaveMapsModal: React.FC<{
       }
       if (mapDocument?.status === 'locked') {
         // if you have a locked map, save a copy
-        document.mutate({
-          gerrydb_table: mapDocument?.gerrydb_table,
-          metadata: savedMapMetadata,
-          user_id: useMapStore.getState().userID,
-          copy_from_doc: mapDocument?.document_id,
-        });
+        document
+          .mutate({
+            gerrydb_table: mapDocument?.gerrydb_table,
+            metadata: savedMapMetadata,
+            user_id: useMapStore.getState().userID,
+            copy_from_doc: mapDocument?.document_id,
+          })
+          .then(data => {
+            // set name and tags on the new map
+            metadata.mutate({
+              document_id: data.document_id,
+              metadata: savedMapMetadata,
+            });
+            upsertUserMap({
+              documentId: data.document_id,
+              mapDocument: {
+                ...data,
+                map_metadata: savedMapMetadata,
+              },
+            });
+            data.map_metadata = savedMapMetadata;
+            setMapDocument(data);
+          });
       } else {
         // otherwise just update
         metadata.mutate({
           document_id: mapDocument?.document_id,
           metadata: savedMapMetadata,
+        });
+        upsertUserMap({
+          documentId: mapDocument?.document_id,
+          mapDocument: {
+            ...mapDocument,
+            map_metadata: savedMapMetadata,
+          },
         });
       }
     }
