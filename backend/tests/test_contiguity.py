@@ -73,9 +73,9 @@ def test_get_gerrydb_block_graph(file_path: str):
 def simple_geos_graph(file_path: str) -> Graph:
     """
     Parents     Children
-    A – B       a – e – f
+    A – C       a – e – f
     |   |       |   |   |
-    C ––        c – b ––
+    B ––        c – b ––
                 |   |
                 d ––
 
