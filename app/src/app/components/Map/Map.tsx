@@ -21,7 +21,6 @@ import {VtdBlockLayers} from './VtdBlockLayers';
 import {MetaLayers} from './MetaLayers';
 // @ts-ignore
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
-import {DemographicLegend} from './DemographicLegend';
 
 export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   const mapRef: MutableRefObject<MapRef | null> = useRef(null);
@@ -154,7 +153,6 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
           <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
         </GlMap>
       </div>
-      {isDemographicMap && <DemographicLegend />}
     </div>
   );
 };

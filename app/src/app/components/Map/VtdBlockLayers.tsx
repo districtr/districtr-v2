@@ -14,6 +14,7 @@ import {demographyCache} from '@/app/store/demographCache';
 import {
   AllDemographyVariables,
   DEFAULT_COLOR_SCHEME,
+  DEFAULT_COLOR_SCHEME_GRAY,
   demographyVariables,
   useDemographyStore,
 } from '@/app/store/demographicMap';
@@ -40,8 +41,11 @@ const updateDemographicMapColors = ({
   const dataSoureExists = mapRef.getSource(BLOCK_SOURCE_ID);
   if (!dataValues.length || !mapRef || !mapDocument || !dataSoureExists) return;
   const config = demographyVariables.find(f => f.value === variable.replace('_percent', ''));
-  const colorscheme =
-    config && 'colorScheme' in config ? config?.colorScheme : DEFAULT_COLOR_SCHEME;
+  const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
+  const defaultColor =
+    mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
+  const colorscheme = defaultColor;
+  // config && 'colorScheme' in config ? config?.colorScheme : DEFAULT_COLOR_SCHEME;
   const values = dataValues.map(f => +f[variable]);
   const colorScale = scale
     .scaleQuantile()
@@ -84,6 +88,7 @@ export const VtdBlockLayers: React.FC<{
   const demographyDataHash = useDemographyStore(state => state.dataHash);
   const shatterIds = useMapStore(state => state.shatterIds);
   const [clearOldSource, setClearOldSource] = useState(false);
+  const showDemography = isDemographicMap || showDemographicMap === 'overlay';
   const mapRef = useMap();
 
   useEffect(() => {
@@ -124,17 +129,10 @@ export const VtdBlockLayers: React.FC<{
   };
 
   useLayoutEffect(() => {
-    if (isDemographicMap || showDemographicMap === 'overlay') {
+    if (showDemography) {
       handleDemographyRender();
     }
-  }, [
-    isDemographicMap,
-    showDemographicMap,
-    demographicVariable,
-    demographyDataHash,
-    shatterIds,
-    mapDocument,
-  ]);
+  }, [showDemography, demographicVariable, demographyDataHash, shatterIds, mapDocument]);
 
   if (!mapDocument || clearOldSource) return null;
 
@@ -146,15 +144,16 @@ export const VtdBlockLayers: React.FC<{
         url={`pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${mapDocument.tiles_s3_path}`}
         promoteId="path"
       >
-        {isDemographicMap ? (
-          <>
-            <DemographicLayer />
-            <DemographicLayer child />
-          </>
-        ) : (
+        {!isDemographicMap && (
           <>
             <ZoneLayerGroup />
             <ZoneLayerGroup child />
+          </>
+        )}
+        {!!showDemography && (
+          <>
+            <DemographicLayer />
+            <DemographicLayer child />
           </>
         )}
       </Source>
@@ -169,6 +168,7 @@ export const DemographicLayer: React.FC<{
   const shatterIds = useMapStore(state => state.shatterIds);
   const captiveIds = useMapStore(state => state.captiveIds);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
+  const isOverlay = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
 
   const layerFilter = useMemo(() => {
     const ids = child ? shatterIds.children : shatterIds.parents;
@@ -178,33 +178,69 @@ export const DemographicLayer: React.FC<{
   }, [shatterIds, child]);
 
   const layerOpacity = useMemo(
-    () => getLayerFill(captiveIds, child ? shatterIds.children : shatterIds.parents, child, true),
-    [captiveIds, shatterIds, child]
+    () =>
+      isOverlay
+        ? 0.5
+        : getLayerFill(captiveIds, child ? shatterIds.children : shatterIds.parents, child, true),
+    [captiveIds, shatterIds, child, isOverlay]
   );
 
   if (!id || !mapDocument) return null;
 
   return (
-    <Layer
-      id={child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID}
-      source={BLOCK_SOURCE_ID}
-      source-layer={id}
-      filter={child ? layerFilter : ['literal', true]}
-      beforeId={LABELS_BREAK_LAYER_ID}
-      type="fill"
-      layout={{
-        visibility: 'visible',
-      }}
-      paint={{
-        'fill-opacity': layerOpacity,
-        'fill-color': [
-          'case',
-          ['boolean', ['feature-state', 'hasColor'], false],
-          ['feature-state', 'color'],
-          '#808080',
-        ],
-      }}
-    />
+    <>
+      <Layer
+        id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography'}
+        source={BLOCK_SOURCE_ID}
+        source-layer={id}
+        filter={child ? layerFilter : ['literal', true]}
+        beforeId={LABELS_BREAK_LAYER_ID}
+        type="fill"
+        layout={{
+          visibility: 'visible',
+        }}
+        paint={{
+          'fill-opacity': isOverlay ? 0.6 : 1,
+          'fill-color': [
+            'case',
+            ['boolean', ['feature-state', 'hasColor'], false],
+            ['feature-state', 'color'],
+            '#808080',
+          ],
+        }}
+      />
+      {!isOverlay && <Layer
+        id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography_hover'}
+        source={BLOCK_SOURCE_ID}
+        source-layer={id}
+        filter={child ? layerFilter : ['literal', true]}
+        beforeId={LABELS_BREAK_LAYER_ID}
+        type="fill"
+        layout={{
+          visibility: 'visible',
+        }}
+        paint={{
+          'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.25, 0],
+          'fill-color': '#000000',
+        }}
+      />}
+      <Layer
+        id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography_line'}
+        source={BLOCK_SOURCE_ID}
+        source-layer={id}
+        filter={child ? layerFilter : ['literal', true]}
+        beforeId={LABELS_BREAK_LAYER_ID}
+        type="line"
+        layout={{
+          visibility: 'visible',
+        }}
+        paint={{
+          'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.2],
+          'line-color': '#000000',
+          'line-width': 1
+        }}
+      />
+    </>
   );
 };
 
@@ -284,8 +320,23 @@ export const ZoneLayerGroup: React.FC<{
           visibility: showPaintedDistricts ? 'visible' : 'none',
         }}
         paint={{
-          'fill-opacity': layerOpacity,
+          'fill-opacity': 1,
           'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
+        }}
+      />
+      <Layer
+        id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_hover'}
+        source={BLOCK_SOURCE_ID}
+        source-layer={id}
+        filter={child ? layerFilter : ['literal', true]}
+        beforeId={LABELS_BREAK_LAYER_ID}
+        type="fill"
+        layout={{
+          visibility: 'visible',
+        }}
+        paint={{
+          'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.25, 0],
+          'fill-color': '#000000',
         }}
       />
       <Layer

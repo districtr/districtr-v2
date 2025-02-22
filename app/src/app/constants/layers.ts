@@ -75,7 +75,7 @@ export function getLayerFill(
   child?: boolean,
   isDemographic?: boolean
 ): DataDrivenPropertyValueSpecification<number> {
-  const baseOpacity = isDemographic ? 1 : 0.6;
+  const baseOpacity = isDemographic ? 1 : 1;
   const innerFillSpec = [
     'case',
     // is broken parent

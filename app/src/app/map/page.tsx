@@ -14,7 +14,7 @@ import { Flex } from '@radix-ui/themes';
 import { useMapStore } from '../store/mapStore';
 
 export default function Map() {
-  const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap);
+  const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap === 'side-by-side');
 
   if (queryClient) {
     return (
