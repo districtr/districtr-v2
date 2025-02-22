@@ -248,8 +248,8 @@ export const getRenderSubscriptions = (
           useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
           break;
         case 'lock':
-          cursor = 'url(lock.png) 12 12, pointer';
-          useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
+          cursor = '';
+          useMapStore.getState().setPaintFunction(defaultPaintFunction);
           break;
         default:
           cursor = '';

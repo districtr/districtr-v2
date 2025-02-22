@@ -72,18 +72,12 @@ export const handleMapClick = throttle((
     }
   } else if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
+    const selectedFeatures = mapStore.paintFunction(map, e, 0, [BLOCK_HOVER_LAYER_ID]);
     if (documentId && e.features?.length) {
       handleShatter(
         documentId,
-        e.features.filter(f => f.layer.id === BLOCK_HOVER_LAYER_ID)
+        selectedFeatures || []
       );
-    }
-  } else if (activeTool === 'lock') {
-    const documentId = mapStore.mapDocument?.document_id;
-    if (documentId && e.features?.length) {
-      const feature = e.features[0];
-      const id = feature.id?.toString() || '';
-      lockFeature(id, !lockedFeatures.has(id));
     }
   } else {
     // tbd, for pan mode - is there an info mode on click?
@@ -172,7 +166,7 @@ export const handleMapMouseMove = throttle(
     );
     const selectedFeatures = mapStore.paintFunction(map, e, mapStore.brushSize, paintLayers);
     const isBrushingTool =
-      sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
+      sourceLayer && ['brush', 'eraser', 'shatter'].includes(activeTool);
     // sourceCapabilities exists on the UIEvent constructor, which does not appear
     // properly tpyed in the default map events
     // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
