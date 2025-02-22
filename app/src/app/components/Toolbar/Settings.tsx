@@ -151,7 +151,7 @@ export const ToolSettings: React.FC = () => {
             })
           }
         >
-          Show county names
+          Emphasize county names
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>
           Show tribes and communities
