@@ -1,17 +1,13 @@
 'use client';
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
-import {create} from 'zustand';
-import {subscribeWithSelector} from 'zustand/middleware';
+import type {MapRef} from 'react-map-gl/maplibre';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '@constants/types';
 import {Zone, GDBPath} from '@constants/types';
 import {
-  Assignment,
   DistrictrMap,
   DocumentObject,
   lastSentAssignments,
   LocalAssignmentsResponse,
-  P1TotPopSummaryStats,
-  P4TotPopSummaryStats,
   RemoteAssignmentsResponse,
   ShatterResult,
 } from '@utils/api/apiHandlers';
@@ -20,31 +16,27 @@ import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
 import {
   ContextMenuState,
-  LayerVisibility,
   PaintEventHandler,
   checkIfSameZone,
   getFeaturesInBbox,
   resetZoneColors,
   setZones,
 } from '../utils/helpers';
-import {getRenderSubscriptions} from './mapRenderSubs';
-import {getSearchParamsObserver} from '../utils/api/queryParamsListener';
-import {getMapEditSubs} from './mapEditSubs';
-import {getQueriesResultsSubs} from '../utils/api/queries';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
-import {devToolsConfig, devwrapper} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
-import {idCache} from './idCache';
-import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
 import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
 import { districtrIdbCache } from '../utils/cache';
+import { P1TotPopSummaryStats, P4VapPopSummaryStats } from '../utils/api/summaryStats';
+import { demographyCache } from './demographCache';
+import {useDemographyStore} from './demographicMap';
+import { initSubs } from './subscriptions';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -65,8 +57,8 @@ export interface MapStore {
   isTemporalAction: boolean;
   setIsTemporalAction: (isTemporal: boolean) => void;
   // MAP CANVAS REF AND CONTROLS
-  getMapRef: () => maplibregl.Map | null;
-  setMapRef: (map: MutableRefObject<maplibregl.Map | null>) => void;
+  getMapRef: () => maplibregl.Map | undefined;
+  setMapRef: (map: MutableRefObject<MapRef | null>) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
   errorNotification: {
@@ -95,12 +87,9 @@ export interface MapStore {
   loadedMapId: string;
   setLoadedMapId: (mapId: string) => void;
   summaryStats: {
-    totpop?: {
-      data: (P1TotPopSummaryStats | P4TotPopSummaryStats) & {total: number};
-    };
-    idealpop?: {
-      data: number;
-    };
+    P1?: P1TotPopSummaryStats;
+    P4?: P4VapPopSummaryStats;
+    idealpop?: number
   };
   setSummaryStat: <T extends keyof MapStore['summaryStats']>(
     stat: T,
@@ -234,10 +223,9 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
-  sidebarPanels: Array<'layers' | 'population' | 'evaluation'>;
+  sidebarPanels: Array<'layers' | 'population' | 'evaluation' | 'demography'>;
   setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
-  toggleHighlightBrokenDistricts: (ids?: Set<string> | string[], _higlighted?: boolean) => void;
   activeTool: ActiveTool;
   setActiveTool: (tool: ActiveTool) => void;
   spatialUnit: SpatialUnit;
@@ -268,10 +256,6 @@ export interface MapStore {
   clearMapEdits: () => void;
   freshMap: boolean;
   setFreshMap: (resetMap: boolean) => void;
-  visibleLayerIds: string[];
-  setVisibleLayerIds: (layerIds: string[]) => void;
-  addVisibleLayerIds: (layerIds: string[]) => void;
-  updateVisibleLayerIds: (layerIds: LayerVisibility[]) => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
 
@@ -291,7 +275,7 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export const useMapStore = createWithMiddlewares<MapStore>(
+export var useMapStore = createWithMiddlewares<MapStore>(
   (set, get) => ({
         appLoadingState: initialLoadingState,
         setAppLoadingState: appLoadingState => set({appLoadingState}),
@@ -303,11 +287,9 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         exitBlockView: (lock: boolean = false) => {
           const {
             focusFeatures,
-            captiveIds,
             mapOptions,
             zoneAssignments,
             shatterMappings,
-            toggleHighlightBrokenDistricts,
             lockFeatures,
           } = get();
 
@@ -323,15 +305,14 @@ export const useMapStore = createWithMiddlewares<MapStore>(
 
           const parentId = focusFeatures?.[0].id?.toString();
           if (!parentId) return;
-          if (mapOptions.showBrokenDistricts) toggleHighlightBrokenDistricts([parentId], true);
           const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal;
           const children = shatterMappings[parentId];
           if (lock && !willHeal && children?.size) lockFeatures(children, true);
         },
-        getMapRef: () => null,
+        getMapRef: () => undefined,
         setMapRef: mapRef => {
           set({
-            getMapRef: () => mapRef.current,
+            getMapRef: () => mapRef.current?.getMap(),
             appLoadingState:
               initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
           });
@@ -359,8 +340,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
           // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
           // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
-          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
-          const featureStateChangesCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.stateChanges;
+          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+          const featureStateChangesCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
 
           if (!featureStateCache) return;
           // PAINT
@@ -421,12 +402,17 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             return;
           }
           const initialMapOptions = useMapStore.getInitialState().mapOptions;
-          GeometryWorker?.clearGeometries()
-          idCache.clear();
+          if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
+            GeometryWorker?.clear()
+          } else {
+            GeometryWorker?.resetZones();
+          }
           allPainted.clear();
           lastSentAssignments.clear();
+          demographyCache.clear();
           setFreshMap(true);
           resetZoneAssignments();
+          useDemographyStore.getState().clear();
           useUnassignFeaturesStore.getState().reset();
 
           const upsertMapOnDrawSub = useMapStore.subscribe(
@@ -651,7 +637,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             zoneAssignments,
             shatterIds,
             mapLock,
-            toggleHighlightBrokenDistricts,
             lockedFeatures,
             getMapRef,
             allPainted
@@ -693,14 +678,12 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               }))
               .forEach(entry => {
                 const {children, parent} = entry;
-                idCache.heal(parent, Array.from(children));
                 GeometryWorker?.removeGeometries(Array.from(children));
                 children.forEach(child => {
                   // remove from allPainted
                   allPainted.delete(child);
                 });
               });
-            toggleHighlightBrokenDistricts(r.geoids, false);
             const newZoneAssignments = new Map(zoneAssignments);
             const newShatterIds = {
               parents: new Set(shatterIds.parents),
@@ -733,16 +716,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               delete shatterMappings[parent.parentId];
               newShatterIds.parents.delete(parent.parentId);
               newZoneAssignments.set(parent.parentId, parent.zone!);
-              mapRef?.setFeatureState(
-                {
-                  source: BLOCK_SOURCE_ID,
-                  id: parent.parentId,
-                  sourceLayer: mapDocument?.parent_layer,
-                },
-                {
-                  broken: false,
-                }
-              );
             }); 
             set({
               shatterIds: newShatterIds,
@@ -826,6 +799,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           if (resetResponse.document_id === document_id) {
             const initialState = useMapStore.getInitialState();
             useMapStore.temporal.getState().clear()
+            GeometryWorker?.resetZones();
             lastSentAssignments.clear();
             resetZoneColors({
               zoneAssignments,
@@ -884,41 +858,16 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           pitch: 0,
           bearing: 0,
           container: '',
-          showBrokenDistricts: false,
+          highlightBrokenDistricts: false,
           mode: 'default',
           lockPaintedAreas: [],
-          prominentCountyNames: true
+          prominentCountyNames: true,
+          showCountyBoundaries: true,
+          showPaintedDistricts: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
         sidebarPanels: ['population'],
         setSidebarPanels: sidebarPanels => set({sidebarPanels}),
-        toggleHighlightBrokenDistricts: (_ids, _higlighted) => {
-          const {shatterIds, mapOptions, getMapRef, mapDocument} = get();
-          const mapRef = getMapRef();
-          if (!mapRef || !mapDocument) return;
-          const highlighted =
-            _higlighted !== undefined ? _higlighted : !mapOptions?.showBrokenDistricts;
-          const ids = _ids ? _ids : shatterIds.parents;
-          // previous state - hide and set option to false
-          ids.forEach((parentId: string) => {
-            mapRef.setFeatureState(
-              {
-                id: parentId,
-                source: BLOCK_SOURCE_ID,
-                sourceLayer: mapDocument.parent_layer,
-              },
-              {
-                highlighted,
-              }
-            );
-          });
-          set({
-            mapOptions: {
-              ...mapOptions,
-              showBrokenDistricts: highlighted,
-            },
-          });
-        },
         toggleLockAllAreas: () => {
           const {mapOptions, mapDocument} = get();
           const num_districts = mapDocument?.num_districts ?? 4;
@@ -1064,30 +1013,6 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           }),
         freshMap: false,
         setFreshMap: resetMap => set({freshMap: resetMap}),
-        visibleLayerIds: ['counties_boundary', 'counties_labels'],
-        setVisibleLayerIds: layerIds => set({visibleLayerIds: layerIds}),
-        addVisibleLayerIds: (layerIds: string[]) => {
-          set(state => {
-            const newVisibleLayerIds = new Set(state.visibleLayerIds);
-            layerIds.forEach(layerId => {
-              newVisibleLayerIds.add(layerId);
-            });
-            return {visibleLayerIds: Array.from(newVisibleLayerIds)};
-          });
-        },
-        updateVisibleLayerIds: (layerVisibilities: LayerVisibility[]) => {
-          set(state => {
-            const newVisibleLayerIds = new Set(state.visibleLayerIds);
-            layerVisibilities.forEach(layerVisibility => {
-              if (layerVisibility.visibility === 'visible') {
-                newVisibleLayerIds.add(layerVisibility.layerId);
-              } else {
-                newVisibleLayerIds.delete(layerVisibility.layerId);
-              }
-            });
-            return {visibleLayerIds: Array.from(newVisibleLayerIds)};
-          });
-        },
         contextMenu: null,
         setContextMenu: contextMenu => set({contextMenu}),
         userMaps: [],
@@ -1095,45 +1020,4 @@ export const useMapStore = createWithMiddlewares<MapStore>(
       })
 )
 
-export interface HoverFeatureStore {
-  // HOVERING
-  /**
-   * Features that area highlighted and hovered.
-   * Map render effects in `mapRenderSubs` -> `_hoverMapSideEffectRender`
-   */
-  hoverFeatures: Array<MapFeatureInfo>;
-  setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
-}
-
-export const useHoverStore = create(
-  devwrapper(
-    subscribeWithSelector<HoverFeatureStore>((set, get) => ({
-
-      hoverFeatures: [],
-      setHoverFeatures: _features => {
-        const hoverFeatures = _features
-          ? _features.map(f => ({
-              source: f.source,
-              sourceLayer: f.sourceLayer,
-              id: f.id,
-            }))
-          : [];
-
-        set({hoverFeatures});
-      },
-    })),
-
-    {
-      ...devToolsConfig,
-      name: "Districtr Hover Feature Store"
-    }
-  )
-);
-
-
-// these need to initialize after the map store
-getRenderSubscriptions(useMapStore, useHoverStore);
-getQueriesResultsSubs(useMapStore);
-getMapEditSubs(useMapStore);
-getMapMetricsSubs(useMapStore)
-getSearchParamsObserver();
+initSubs();

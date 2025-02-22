@@ -1,12 +1,9 @@
 import {Box, Text, Checkbox, Flex} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
-import {COUNTY_LAYER_IDS} from '../../constants/layers';
-import {useState, useEffect} from 'react';
 import {getFeaturesInBbox, getFeaturesIntersectingCounties} from '../../utils/helpers';
 
 export default function PaintByCounty() {
   const mapRef = useMapStore(state => state.getMapRef());
-  const addVisibleLayerIds = useMapStore(state => state.addVisibleLayerIds);
   const setPaintFunction = useMapStore(state => state.setPaintFunction);
   const paintByCounty = useMapStore(state => state.mapOptions.paintByCounty);
   const setMapOptions = useMapStore(state => state.setMapOptions);
@@ -17,10 +14,6 @@ export default function PaintByCounty() {
       paintByCounty: !paintByCounty,
     });
     if (!paintByCounty) {
-      COUNTY_LAYER_IDS.forEach(layerId => {
-        mapRef.setLayoutProperty(layerId, 'visibility', 'visible');
-      });
-      addVisibleLayerIds(COUNTY_LAYER_IDS);
       setPaintFunction(getFeaturesIntersectingCounties);
     } else {
       setPaintFunction(getFeaturesInBbox);

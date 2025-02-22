@@ -33,6 +33,7 @@ from app.models import (
     SummaryStatsP4,
     PopulationStatsP4,
     UnassignedBboxGeoJSONs,
+    SummaryStatisticColumnLists,
 )
 from app.utils import remove_file
 from app.exports import (
@@ -267,6 +268,7 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 
     return {"message": "Assignments partition reset", "document_id": document_id}
 
+
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
@@ -287,7 +289,7 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
         .where(Assignments.document_id == document_id)
     )
 
-    return  session.execute(stmt).fetchall()
+    return session.execute(stmt).fetchall()
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
@@ -364,6 +366,73 @@ async def get_unassigned_geoids(
     ).fetchall()
     # returns a list of multipolygons of bboxes
     return {"features": [row[0] for row in results]}
+
+
+@app.get("/api/document/{document_id}/demography")
+async def get_map_demography(
+    document_id: str,
+    ids: list[str] = Query(default=[]),
+    stats: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
+    document = session.exec(
+        select(Document).filter(Document.document_id == document_id)
+    ).one()
+
+    dm = session.exec(
+        select(DistrictrMap).filter(
+            DistrictrMap.gerrydb_table_name == document.gerrydb_table
+        )
+    ).one()
+
+    columns = []
+    # by default use all available columns otherwise the requested columns
+    available_summary_stats = dm.available_summary_stats if len(stats) == 0 else stats
+    # By default, provide all summary stats
+    for summary_stat in available_summary_stats:
+        if summary_stat not in SummaryStatisticColumnLists.__members__:
+            continue
+        else:
+            stat_cols = SummaryStatisticColumnLists[summary_stat]
+            columns.extend(stat_cols.value)
+
+    if len(ids) > 0:
+        # If the user sends a selection of IDs, just use those
+        # This bypasses the document.assignments and gerrydb.parent full query
+        # Essentially we use the user provided IDs as start of the join
+        # This could be a where clause at the end, but this should be faster
+        ids_subquery = text(
+            """
+            SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
+        """.format(",".join(f"(:id{i})" for i in range(len(ids))))
+        )
+        # This is for efficiency but slightly slippery
+        # Adding the format here provides some safety
+        params = {f"id{i}": id for i, id in enumerate(ids)}
+    else:
+        # direct string interpolation of dm.parent_layer is safe
+        # since it always comes from the database
+        ids_subquery = text(f"""SELECT distinct geo_id
+            FROM document.assignments 
+            WHERE document_id = :document_id
+            UNION
+            SELECT path as geo_id
+            FROM gerrydb.{dm.parent_layer}""")
+        params = {"document_id": document_id}
+
+    stmt = text(f"""
+        SELECT path, {",".join(columns)}
+        FROM ({ids_subquery}) as ids
+        LEFT JOIN gerrydb.{dm.gerrydb_table_name} gdb
+        on gdb.path = ids.geo_id
+        WHERE path is not null
+    """)
+
+    results = session.execute(stmt, params).fetchall()
+    return {
+        "columns": ["path", *columns],
+        "results": [[*row] for row in results],
+    }
 
 
 @app.get("/api/document/{document_id}/evaluation/{summary_stat}")

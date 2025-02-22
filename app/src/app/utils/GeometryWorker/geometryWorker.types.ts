@@ -1,4 +1,5 @@
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
+import { DocumentObject } from '../api/apiHandlers';
 
 export type CentroidReturn = {
   dissolved: GeoJSON.FeatureCollection;
@@ -7,7 +8,9 @@ export type CentroidReturn = {
 export type MinGeoJSONFeature = Pick<
   MapGeoJSONFeature,
   'type' | 'geometry' | 'properties' | 'sourceLayer'
->;
+> & {
+  zoom?: number;
+}
 /**
  * Represents a class that handles geometry operations.
  */
@@ -17,18 +20,32 @@ export type GeometryWorkerClass = {
    * Stored as JSON records to make updating zones faster.
    */
   geometries: {[id: string]: MinGeoJSONFeature};
+  activeGeometries: {[id: string]: MinGeoJSONFeature};
+  shatterIds: {
+    parents: string[];
+    children: string[];
+  }
   /**
    * Updates the zone assignments of the geometries.
    * @param entries - An array of [id, zone] pairs to update.
    */
-  updateProps: (entries: Array<[string, unknown]>) => void;
-
+  updateProps: (entries: Array<[string, unknown]>, iters?: number) => void;
+  handleShatterHeal: (data: {
+    parents: string[];
+    children: string[];
+  }) => void;
   /**
    * Loads geometries from an array of features or a string.
    * @param features - The features to load. These should be formatted as a minimal version of the Maplibre MapGeoJSON Feature type or stringified version thereof.
    * @param idProp - The property to use as the ID.
    */
   loadGeometry: (features: MinGeoJSONFeature[] | string, idProp: string) => void;
+  loadTileData: (data: {
+    tileData: Uint8Array;
+    tileID: {x: number, y: number, z: number};
+    mapDocument: DocumentObject,
+    idProp: string
+  }) => Array<MinGeoJSONFeature>;
   /**
    * Removes geometries from the collection.
    * @param ids - The IDs of the geometries to remove.
@@ -37,7 +54,8 @@ export type GeometryWorkerClass = {
   /**
    * Clears the collection of geometries.
    */
-  clearGeometries: () => void;
+  clear: () => void;
+  resetZones: () => void;
   /**
    * Parses geometries and returns their centroids.
    * @param features - The features to parse.
@@ -57,9 +75,10 @@ export type GeometryWorkerClass = {
     minLon: number,
     minLat: number,
     maxLon: number,
-    maxLat: number
+    maxLat: number,
+    fast?: boolean
   ) => CentroidReturn;
-
+  getPropertiesCentroids: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
   /**
    * Retrieves a collection of geometries without a zone assignment.
    * @returns The collection of unassigned geometries.
@@ -77,4 +96,5 @@ export type GeometryWorkerClass = {
    * @returns The collection of geometries.
    */
   getGeos: () => GeoJSON.FeatureCollection;
+  getPropsById: (ids: string[]) => Array<MinGeoJSONFeature>;
 };

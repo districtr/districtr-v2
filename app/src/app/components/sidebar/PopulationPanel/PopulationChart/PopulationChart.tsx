@@ -1,4 +1,3 @@
-import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {colorScheme} from '@/app/constants/colors';
 import React, {useCallback, useState} from 'react';
 import {formatNumber} from '@/app/utils/numbers';

@@ -13,9 +13,9 @@ import {
 } from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
-import {idCache} from '../store/idCache';
+import {demographyCache} from '../store/demographCache';
 import {ChartStore, useChartStore} from '@/app/store/chartStore';
-import { calculateMinMaxRange } from './zone-helpers';
+import {calculateMinMaxRange} from './zone-helpers';
 
 /**
  * PaintEventHandler
@@ -140,31 +140,13 @@ export const getFeaturesIntersectingCounties = (
 
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
-  const {mapDocument, shatterIds} = useMapStore.getState();
-  const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
-  const cachedParentFeatures = idCache
-    .getFiltered(`${filterPrefix}${fips}`)
-    .map(([id, properties]) => ({
-      source: BLOCK_SOURCE_ID,
-      sourceLayer: mapDocument?.parent_layer,
-      id,
-      ...properties,
-    }));
+  const features = demographyCache.getFiltered(fips).map(([id, properties]) => ({
+    id,
+    ...properties,
+    properties,
+  })) as MapGeoJSONFeature[];
 
-  const childFeatures = shatterIds.children.size
-    ? (Array.from(shatterIds.children).map(id => ({
-        id,
-        source: BLOCK_SOURCE_ID,
-        sourceLayer: mapDocument?.child_layer,
-        properties: {
-          path: id,
-        },
-      })) as any)
-    : [];
-
-  return filterFeatures([...cachedParentFeatures, ...childFeatures], true, [
-    feature => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips),
-  ]);
+  return filterFeatures(features, true);
 };
 
 /**
@@ -183,41 +165,6 @@ export const mousePos = (map: MaplibreMap | null, e: MapLayerMouseEvent | MapLay
     e.point.y - rect.top - canvas.clientTop
   );
 };
-
-export interface LayerVisibility {
-  layerId: string;
-  visibility: 'none' | 'visible';
-}
-
-/**
- * toggleLayerVisibility
- * This function is responsible for toggling the visibility of layers on the map.
- * It takes a map reference and an array of layer IDs to toggle.
- * Layers must already be added to the map and have the layout property "visibility"
- * set to "none" or "visible". If the layout property is not set, this functions assumes
- * the layer is not visible and will toggle visibility on.
- *
- * @param {MutableRefObject<maplibregl.Map>} mapRef - The map reference.
- * @param {string[]} layerIds - An array of layer IDs to toggle.
- * @returns {LayerVisibility[]} - An array of objects containing the layer ID and the new visibility state.
- */
-export function toggleLayerVisibility(
-  mapRef: maplibregl.Map,
-  layerIds: string[]
-): LayerVisibility[] {
-  const activeLayerIds = getVisibleLayers(mapRef)?.map(layer => layer.id);
-  if (!activeLayerIds) return [];
-
-  return layerIds.map(layerId => {
-    if (activeLayerIds && activeLayerIds.includes(layerId)) {
-      mapRef.setLayoutProperty(layerId, 'visibility', 'none');
-      return {layerId: layerId, visibility: 'none'};
-    } else {
-      mapRef.setLayoutProperty(layerId, 'visibility', 'visible');
-      return {layerId: layerId, visibility: 'visible'};
-    }
-  }, {});
-}
 
 /**
  * getVisibleLayers
@@ -299,7 +246,9 @@ export const colorZoneAssignments = (
   ) {
     return;
   }
-  const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]._state.state;
+  const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+  const featureStateChangesCache =
+    mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
   if (!featureStateCache) return;
   const isInitialRender = previousState?.[4] !== 'loaded' || previousState?.[5] !== 'loaded';
 
@@ -309,7 +258,8 @@ export const colorZoneAssignments = (
     const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
     if (!sourceLayer) return;
     const featureState = featureStateCache?.[sourceLayer]?.[id];
-    if (!isInitialRender && featureState?.zone === zone) return;
+    const futureState = featureStateChangesCache?.[sourceLayer]?.[id];
+    if (!isInitialRender && (featureState?.zone === zone || futureState?.zone === zone)) return;
 
     mapRef?.setFeatureState(
       {
@@ -554,7 +504,7 @@ export const updateChartData = (
 
     const allAreNonZero = chartData.every(entry => entry.total_pop > 0);
     const stats = allAreNonZero ? calculateMinMaxRange(chartData) : undefined;
-    
+
     useChartStore.getState().setChartInfo({
       stats,
       chartData,

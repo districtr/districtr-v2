@@ -14,12 +14,12 @@ const maxNumberOrderedBars = 40; // max number of zones to consider while keepin
 export const PopulationPanel = () => {
   const mapMetrics = useChartStore(state => state.mapMetrics);
   const summaryStats = useMapStore(state => state.summaryStats);
-  const idealPopulation = summaryStats?.idealpop?.data;
+  const idealPopulation = summaryStats?.idealpop;
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const showDistrictNumbers = chartOptions.popShowDistrictNumbers;
   const setChartOptions = useChartStore(state => state.setChartOptions);
-  const totalPopData = useMapStore(state => state.summaryStats.totpop?.data);
+  const totalPopData = useMapStore(state => state.summaryStats.P1);
   const unassigned = useChartStore(state => state.chartInfo.unassigned);
   const chartData = useChartStore(state => state.chartInfo.chartData);
   const stats = useChartStore(state => state.chartInfo.stats);
