@@ -112,6 +112,7 @@ class Settings(BaseSettings):
 
     R2_BUCKET_NAME: str | None = None
     ACCOUNT_ID: str | None = None
+    AWS_S3_BUCKET: str | None = None
     AWS_S3_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None
