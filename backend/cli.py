@@ -73,6 +73,14 @@ def cli():
 def import_gerrydb_view(
     session: Session, layer: str, gpkg: str, replace: bool, rm: bool
 ):
+    _import_gerrydb_view(
+        session=session, layer=layer, gpkg=gpkg, replace=replace, rm=rm
+    )
+
+
+def _import_gerrydb_view(
+    session: Session, layer: str, gpkg: str, replace: bool = False, rm: bool = False
+):
     logger.info("Importing GerryDB view...")
 
     url = urlparse(gpkg)
@@ -100,7 +108,7 @@ def import_gerrydb_view(
             "-nlt",
             "MULTIPOLYGON",
             "-nln",
-            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+            f"{GERRY_DB_SCHEMA}.{layer}",
         ],
     )
 
