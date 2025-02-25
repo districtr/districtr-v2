@@ -1,21 +1,31 @@
+import GeometryWorker from '../utils/GeometryWorker';
 import {MinGeoJSONFeature} from '../utils/GeometryWorker/geometryWorker.types';
 
 class IdCache {
   cachedTileIndices: Set<string> = new Set();
   cachedChildParents: Set<string> = new Set();
   entries: Record<string, Partial<MinGeoJSONFeature>> = {};
+  children: string[] = [];
+  parents: string[] = [];  
 
   hasCached(index: string) {
     return this.cachedTileIndices.has(index) || this.cachedChildParents.has(index);
   }
-
-  loadFeatures(features: MinGeoJSONFeature[], index: string, isChild: boolean = false) {
-    if (this.hasCached(index)) {
+  updateFeatures(idsToRemove: string[], idsToFetch: string[]) {
+    idsToRemove.forEach(id => {
+      delete this.entries[id];
+    });
+    GeometryWorker?.getPropsById(idsToFetch).then((features) => {
+      this.loadFeatures(features);
+    })
+  }
+  loadFeatures(features: MinGeoJSONFeature[], index: string | undefined = undefined, isChild: boolean = false) {
+    if (index && this.hasCached(index)) {
       return;
     } else {
-      if (isChild) {
+      if (index && isChild) {
         this.cachedChildParents.add(index);
-      } else {
+      } else if (index) {
         this.cachedTileIndices.add(index);
       }
       features.forEach(feature => {
@@ -32,11 +42,18 @@ class IdCache {
     }
   }
 
-  heal(parentId: string, childIds: string[]) {
-    this.cachedChildParents.delete(parentId);
-    childIds.forEach(childId => {
-      delete this.entries[childId];
-    });
+  handleShatterHeal(
+    parentIds: string[],
+    childIds: string[],
+  ) {
+    const idsToRemove:string[] = this.children.filter(id => !childIds.includes(id));
+    const idsToFetch:string[] = this.parents.filter(id => !parentIds.includes(id));
+    childIds.forEach(id => !this.children.includes(id) && idsToFetch.push(id));
+    parentIds.forEach(id => !this.parents.includes(id) && idsToRemove.push(id));
+    this.updateFeatures(idsToRemove, idsToFetch)
+    this.children = childIds;
+    this.parents = parentIds;
+    
   }
 
   clear() {

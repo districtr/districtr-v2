@@ -54,6 +54,7 @@ export const RecentMapsModal: React.FC<{
 
     // close dialog
     setDialogOpen(false);
+    onClose?.();
   };
 
   useEffect(() => {
