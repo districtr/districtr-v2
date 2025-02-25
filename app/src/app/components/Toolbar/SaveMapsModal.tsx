@@ -186,7 +186,7 @@ export const SaveMapsModal: React.FC<{
             <TextField.Root
               placeholder={mapName ?? 'Plan Name'}
               size="3"
-              value={mapName}
+              value={mapName ?? undefined}
               onChange={e => handleMetadataChange('name', e.target.value)}
             ></TextField.Root>
           </Box>
