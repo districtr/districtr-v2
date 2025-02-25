@@ -20,13 +20,18 @@ import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {districtrIdbCache} from '../utils/cache';
-
+import {ShareMapsModal} from './Toolbar/ShareMapsModal';
+import {PasswordPromptModal} from './Toolbar/PasswordPromptModal';
+import {SaveMapsModal} from './Toolbar/SaveMapsModal';
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
+  const [shareMapsModal, setShareMapsModal] = React.useState(false);
+  const [saveMapsModal, setSaveMapsModal] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [cachedViews, setCachedViews] = React.useState<DistrictrMap[]>();
   const mapDocument = useMapStore(state => state.mapDocument);
+  const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
 
   const clear = useTemporalStore(store => store.clear);
@@ -38,17 +43,20 @@ export const Topbar: React.FC = () => {
       return;
     }
     clear();
-    document.mutate({gerrydb_table: selectedMap.gerrydb_table_name});
+    document.mutate({
+      gerrydb_table: selectedMap.gerrydb_table_name,
+      user_id: userID,
+    });
   };
 
   useEffect(() => {
     const fetchCachedViews = async () => {
-      districtrIdbCache.getCachedViews().then((cachedViews) => {
+      districtrIdbCache.getCachedViews().then(cachedViews => {
         cachedViews && setCachedViews(cachedViews);
-      })
+      });
     };
     fetchCachedViews();
-  }, [])
+  }, []);
 
   useEffect(() => {
     if (mapViews?.data?.length) {
@@ -165,8 +173,21 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
-            <Button variant="outline" className="mr-2" disabled>
+            <Button
+              variant="outline"
+              className="mr-2"
+              disabled={!mapDocument?.document_id}
+              onClick={() => setShareMapsModal(true)}
+            >
               Share
+            </Button>
+            <Button
+              variant="outline"
+              className="mr-2"
+              disabled={!mapDocument?.document_id}
+              onClick={() => setSaveMapsModal(true)}
+            >
+              {mapDocument?.genesis === 'shared' ? 'Make a Copy' : 'Save'}
             </Button>
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
@@ -184,6 +205,9 @@ export const Topbar: React.FC = () => {
         <MobileDataTabs />
       </Flex>
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
+      <ShareMapsModal open={shareMapsModal} onClose={() => setShareMapsModal(false)} />
+      <SaveMapsModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} />
+      <PasswordPromptModal />
     </>
   );
 };

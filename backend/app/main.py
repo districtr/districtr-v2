@@ -1,17 +1,32 @@
-from fastapi import FastAPI, status, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import (
+    FastAPI,
+    status,
+    Depends,
+    HTTPException,
+    Query,
+    BackgroundTasks,
+    Body,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
 from sqlalchemy.exc import ProgrammingError, InternalError
 from sqlmodel import Session, String, select, true
+from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam
+from sqlalchemy import bindparam, literal
 from sqlmodel import ARRAY, INT
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 import sentry_sdk
+from fastapi_utils.tasks import repeat_every
 from app.core.db import engine
 from app.core.config import settings
+from app.utils import hash_password, verify_password
+import jwt
+from uuid import uuid4
+
+from sqlalchemy.orm import sessionmaker
 from app.models import (
     Assignments,
     AssignmentsCreate,
@@ -19,8 +34,10 @@ from app.models import (
     DistrictrMap,
     Document,
     DocumentCreate,
+    MapDocumentMetadata,
     DocumentPublic,
     GEOIDS,
+    UserID,
     AssignedGEOIDS,
     UUIDType,
     ZonePopulation,
@@ -33,6 +50,7 @@ from app.models import (
     SummaryStatsP4,
     PopulationStatsP4,
     UnassignedBboxGeoJSONs,
+    TokenRequest,
 )
 from app.utils import remove_file
 from app.exports import (
@@ -102,6 +120,30 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
+def check_map_lock(document_id, user_id, session):
+    result = session.execute(
+        text(
+            # something is wrong with the conflict check
+            """WITH ins AS (
+                INSERT INTO document.map_document_user_session (document_id, user_id)
+                VALUES (:document_id, :user_id)
+                ON CONFLICT DO NOTHING
+                RETURNING user_id
+            )
+            SELECT user_id FROM ins
+            UNION ALL
+            SELECT user_id FROM document.map_document_user_session
+            WHERE document_id = :document_id
+            LIMIT 1"""
+        ),
+        {"document_id": document_id, "user_id": user_id},
+    ).fetchone()
+
+    status = "unlocked" if result and result.user_id == user_id else "locked"
+
+    return status
+
+
 # matches createMapObject in apiHandlers.ts
 @app.post(
     "/api/create_document",
@@ -111,61 +153,109 @@ async def db_is_alive(session: Session = Depends(get_session)):
 async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
-    results = session.execute(
-        text("SELECT create_document(:gerrydb_table_name);"),
-        {"gerrydb_table_name": data.gerrydb_table},
-    )
-    document_id = results.one()[0]  # should be only one row, one column of results
+    try:
+        results = session.execute(
+            text("SELECT create_document(:gerrydb_table_name);"),
+            {"gerrydb_table_name": data.gerrydb_table},
+        )
+        plan_genesis = "created"
+        document_id = results.one()[0]  # should be only one row, one column of results
 
-    stmt = (
-        select(
-            Document.document_id,
-            Document.created_at,
-            Document.gerrydb_table,
-            Document.updated_at,
-            DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
-            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
-            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
-            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
-            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
-            DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+        lock_status = check_map_lock(document_id, data.user_id, session)
+
+        copy_from_doc = getattr(data, "copy_from_doc", None)
+
+        # if copy from doc, need to get assignments from that document, copy them for the new doc
+        if copy_from_doc:
+            prev_assignments = Assignments.__table__.select().where(
+                Assignments.document_id == copy_from_doc
+            )
+            # create a new copy with the fresh document id
+            # set document id to new document id
+            prev_assignments = select(
+                Assignments.geo_id,
+                Assignments.zone,
+                literal(document_id).label("document_id"),
+            ).where(Assignments.document_id == copy_from_doc)
+
+            create_copy_stmt = insert(Assignments).from_select(
+                ["geo_id", "zone", "document_id"], prev_assignments
+            )
+
+            session.execute(create_copy_stmt)
+            plan_genesis = "copied"
+
+        # check if there is a metadata item in the request
+        if data.metadata:
+            update_districtrmap_metadata(document_id, data.metadata.dict(), session)
+
+        stmt = (
+            select(
+                Document.document_id,
+                Document.created_at,
+                Document.gerrydb_table,
+                Document.updated_at,
+                DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
+                DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
+                DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
+                DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+                DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+                DistrictrMap.extent.label("extent"),  # pyright: ignore
+                coalesce(plan_genesis).label("genesis"),
+                DistrictrMap.available_summary_stats.label(
+                    "available_summary_stats"
+                ),  # pyright: ignore
+                # send metadata as a null object on init of document
+                coalesce(
+                    None,
+                ).label("map_metadata"),
+                coalesce(
+                    None,
+                    lock_status,
+                ).label("status"),
+            )
+            .where(Document.document_id == document_id)
+            .join(
+                DistrictrMap,
+                Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+                isouter=True,
+            )
+            .limit(1)
         )
-        .where(Document.document_id == document_id)
-        .join(
-            DistrictrMap,
-            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
-            isouter=True,
-        )
-        .limit(1)
-    )
-    # Document id has a unique constraint so I'm not sure we need to hit the DB again here
-    # more valuable would be to check that the assignments table
-    doc = session.exec(
-        stmt,
-    ).one()  # again if we've got more than one, we have problems.
-    if not doc.map_uuid:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"DistrictrMap matching {data.gerrydb_table} does not exist.",
-        )
-    if not doc.document_id:
+        # Document id has a unique constraint so I'm not sure we need to hit the DB again here
+        # more valuable would be to check that the assignments table
+        doc = session.exec(
+            stmt,
+        ).one()  # again if we've got more than one, we have problems.
+        if not doc.map_uuid:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"DistrictrMap matching {data.gerrydb_table} does not exist.",
+            )
+        if not doc.document_id:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Document creation failed",
+            )
+        if not doc.parent_layer:
+            session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Document creation failed",
+            )
+
+        session.commit()
+
+        return doc
+    except Exception as e:
+        logger.error(e)
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Document creation failed",
         )
-    if not doc.parent_layer:
-        session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Document creation failed",
-        )
-
-    session.commit()
-
-    return doc
 
 
 @app.patch("/api/update_assignments")
@@ -267,6 +357,7 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 
     return {"message": "Assignments partition reset", "document_id": document_id}
 
+
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
@@ -287,11 +378,17 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
         .where(Assignments.document_id == document_id)
     )
 
-    return  session.execute(stmt).fetchall()
+    return session.execute(stmt).fetchall()
 
 
-@app.get("/api/document/{document_id}", response_model=DocumentPublic)
-async def get_document(document_id: str, session: Session = Depends(get_session)):
+async def get_document(
+    document_id: str,
+    user_id: UserID,
+    session: Session,
+    shared: bool = False,
+):
+    status = check_map_lock(document_id, user_id, session)
+
     stmt = (
         select(
             Document.document_id,
@@ -303,7 +400,17 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
+            # get metadata as a json object
+            MapDocumentMetadata.map_metadata.label("map_metadata"),  # pyright: ignore
+            coalesce(
+                "shared" if shared else "created",
+            ).label("genesis"),
+            coalesce(
+                status,
+            ).label("status"),
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
@@ -311,11 +418,103 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
             isouter=True,
         )
-        .limit(1)
+        .join(
+            MapDocumentMetadata,
+            Document.document_id == MapDocumentMetadata.document_id,
+            isouter=True,
+        )
     )
     result = session.exec(stmt)
 
     return result.one()
+
+
+@app.post("/api/document/{document_id}", response_model=DocumentPublic)
+async def get_document_object(
+    document_id: str,
+    data: UserID = Body(...),
+    session: Session = Depends(get_session),
+    status_code=status.HTTP_200_OK,
+):
+    return await get_document(document_id, data.user_id, session)
+
+
+@app.post("/api/document/{document_id}/unlock")
+async def unlock_document(
+    document_id: str, data: UserID = Body(...), session: Session = Depends(get_session)
+):
+    try:
+        session.execute(
+            text(
+                """DELETE FROM document.map_document_user_session
+                WHERE document_id = :document_id AND user_id = :user_id"""
+            )
+            .bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+                bindparam(key="user_id", type_=String),
+            )
+            .params(document_id=document_id, user_id=data.user_id)
+        )
+
+        session.commit()
+        return {"status": "unlocked"}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/document/{document_id}/status")
+async def get_document_status(
+    document_id: str, data: UserID = Body(...), session: Session = Depends(get_session)
+):
+    stmt = (
+        text(
+            "SELECT * from document.map_document_user_session WHERE document_id = :document_id"
+        )
+        .bindparams(bindparam(key="document_id", type_=UUIDType))
+        .params(document_id=document_id)
+    )
+    result = session.execute(stmt).fetchone()
+    if result:
+        # if user id matches, return the document checked out, otherwise return locked
+        if result.user_id == data.user_id:
+            return {"status": "checked_out"}
+
+        # the map is already checked out; should return as locked
+        return {"status": "locked"}
+    else:
+        # the map is able to be checked out;
+        # should return as unlocked, but should now
+        # create a record in the map_document_user_session table
+        session.execute(
+            text(
+                f"""INSERT INTO document.map_document_user_session (document_id, user_id)
+                VALUES ('{document_id}', '{data.user_id}')"""
+            )
+        )
+        session.commit()
+
+        return {"status": "checked_out"}
+
+
+@app.on_event("startup")
+@repeat_every(seconds=60)  # Run every minute
+def cleanup_expired_locks():
+    session = sessionmaker(bind=engine)()
+    try:
+        N_HOURS = 1  # arbitrary for now
+        expiry = datetime.now() - timedelta(hours=N_HOURS)
+
+        stmt = text(
+            "DELETE FROM document.map_document_user_session WHERE updated_at < :expiry"
+        )
+
+        result = session.execute(stmt, {"expiry": expiry})
+        session.commit()
+        print(f"Deleted {result.rowcount} expired locks.")
+    except Exception as e:
+        session.rollback()
+        print(f"Error deleting expired locks: {e}")
 
 
 @app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
@@ -460,6 +659,39 @@ async def get_gerrydb_summary_stat(
             )
 
 
+@app.post("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
+async def update_districtrmap_metadata(
+    document_id: str,
+    metadata: dict = Body(...),
+    session: Session = Depends(get_session),
+):
+    try:
+        metadata_obj = MapDocumentMetadata.from_dict(
+            {"document_id": document_id, "map_metadata": metadata}
+        )
+
+        # create or update metadata record
+        stmt = insert(MapDocumentMetadata).values(
+            document_id=document_id, map_metadata=metadata_obj.map_metadata.dict()
+        )
+
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["document_id"],
+            set_={"map_metadata": stmt.excluded.map_metadata},
+        )
+
+        session.execute(stmt)
+        session.commit()
+
+    except Exception as e:
+        logger.error(e)
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Metadata update failed",
+        )
+
+
 @app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
 async def get_projects(
     *,
@@ -475,6 +707,143 @@ async def get_projects(
         .limit(limit)
     ).all()
     return gerrydb_views
+
+
+@app.post("/api/document/{document_id}/share")
+async def share_districtr_plan(
+    document_id: str,
+    params: dict = Body(...),  # add as pydantic type
+    session: Session = Depends(get_session),
+):
+    try:
+        print(params)
+    except Exception as e:
+        logger.error(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Share failed",
+        )
+    # check if there's already a record for a document
+    existing_token = session.execute(
+        text(
+            """
+        SELECT token_id, password_hash FROM document.map_document_token
+        WHERE document_id = :doc_id
+        """
+        ),
+        {"doc_id": document_id},
+    ).fetchone()
+
+    if existing_token:
+        token_uuid = existing_token.token_id
+        print("theres already a token!!")
+        if params["password"] is not None and not existing_token.password_hash:
+            hashed_password = hash_password(params["password"])
+            session.execute(
+                text(
+                    """
+                    UPDATE document.map_document_token
+                    SET password_hash = :password_hash
+                    WHERE token_id = :token_id
+                    """
+                ),
+                {"password_hash": hashed_password, "token_id": token_uuid},
+            )
+            session.commit()
+
+        elif params["password"] is None:
+            payload = {
+                "token": token_uuid,
+                "access": params["access_type"] if "access_type" in params else "read",
+            }
+
+        payload = {
+            "token": token_uuid,
+            "access": params["access_type"] if "access_type" in params else "read",
+            "password_required": True if existing_token.password_hash else False,
+        }
+        token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+        return {"token": token}
+
+    else:
+        token_uuid = str(uuid4())
+        hashed_password = (
+            hash_password(params["password"])
+            if "password" in params and params["password"] is not None
+            else None
+        )
+        expiry = (
+            datetime.now(UTC) + timedelta(days=params["expiry_days"])
+            if "expiry_days" in params
+            else None
+        )
+
+        session.execute(
+            text(
+                """
+                    INSERT INTO document.map_document_token (token_id, document_id, password_hash, expiration_date)
+                    VALUES (:token_id, :document_id, :password_hash, :expiration_date)
+                """
+            ),
+            {
+                "token_id": token_uuid,
+                "document_id": document_id,
+                "password_hash": hashed_password,
+                "expiration_date": expiry,
+            },
+        )
+
+        session.commit()
+
+    payload = {
+        "token": token_uuid,
+        "access": params["access_type"] if "access_type" in params else "read",
+        "password_required": True if hashed_password else False,
+    }
+
+    token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+    return {"token": token}
+
+
+@app.post("/api/share/load_plan_from_share", response_model=DocumentPublic)
+async def load_plan_from_share(
+    data: TokenRequest,
+    session: Session = Depends(get_session),
+):
+    token_id = data.token
+    result = session.execute(
+        text(
+            """
+            SELECT document_id, password_hash, expiration_date
+            FROM document.map_document_token
+            WHERE token_id = :token
+            """
+        ),
+        {"token": token_id},
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Token not found",
+        )
+    if result.password_hash:
+        print("password required: ", result.password_hash)
+        if data.password is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Password required",
+            )
+        if not verify_password(data.password, result.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid password",
+            )
+
+    # return the document to the user with the password
+    return await get_document(
+        str(result.document_id), data.user_id, session, shared=True
+    )
 
 
 @app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
