@@ -446,6 +446,7 @@ async def check_document_contiguity(
 
     results = {}
     for zone_blocks in zone_assignments:
+        logger.info(f"Checking contiguity for zone {zone_blocks.zone}")
         results[zone_blocks.zone] = contiguity.check_subgraph_contiguity(
             G=G, subgraph_nodes=zone_blocks.nodes
         )

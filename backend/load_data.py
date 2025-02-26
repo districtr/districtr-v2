@@ -17,7 +17,7 @@ import logging
 from sqlmodel import Session
 from app.models import DistrictrMapPublic, DistrictrMap
 from pydantic import BaseModel
-from app.contiguity import graph_from_gpkg, write_graph_to_gml
+from app.contiguity import graph_from_gpkg, write_graph
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -114,7 +114,7 @@ def load_sample_data(config: Config) -> None:
         if "block" in view.layer:
             logger.info(f"Creating graph for {view.layer}")
             G = graph_from_gpkg(gpkg_path=gpkg)
-            out_path = write_graph_to_gml(G=G, gerrydb_name=view.layer)
+            out_path = write_graph(G=G, gerrydb_name=view.layer)
             logger.info(f"Graph saved to {out_path}")
 
     for view in config.shatterable_views:

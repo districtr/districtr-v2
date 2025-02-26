@@ -4,8 +4,9 @@ from app.contiguity.main import (
     get_gerrydb_graph_file,
     graph_from_gpkg,
     get_block_assignments,
-    write_graph_to_gml,
+    write_graph,
     S3_BLOCK_PATH,
+    GraphFileFormat,
 )
 
 __all__ = [
@@ -14,6 +15,7 @@ __all__ = [
     "get_gerrydb_graph_file",
     "graph_from_gpkg",
     "get_block_assignments",
-    "write_graph_to_gml",
+    "write_graph",
     "S3_BLOCK_PATH",
+    "GraphFileFormat",
 ]

@@ -8,6 +8,8 @@ from pydantic import BaseModel
 import sqlalchemy as sa
 from pathlib import Path
 import sqlite3
+from enum import Enum
+import pickle
 
 import logging
 
@@ -23,8 +25,43 @@ def check_subgraph_contiguity(G: Graph, subgraph_nodes: Iterable[Hashable]):
     return is_connected(SG)
 
 
+class GraphFileFormat(str, Enum):
+    gml = "Graph Modeling Language"
+    pkl = "Pickle"
+
+    def format_filepath(self, filepath: str | Path) -> Path:
+        if self == GraphFileFormat.gml:
+            return Path(f"{filepath}.gml.gz")
+        elif self == GraphFileFormat.pkl:
+            return Path(f"{filepath}.pkl")
+
+        raise NotImplementedError(f"{self.__name__} {self} filepath format unsupported")
+
+    def read_graph(self, filepath: str | Path) -> Graph:
+        if self == GraphFileFormat.gml:
+            return read_gml(filepath)
+        elif self == GraphFileFormat.pkl:
+            with open(filepath, "rb") as f:
+                return pickle.load(f)
+
+        raise NotImplementedError(f"{self.__name__} {self} filepath format unsupported")
+
+    def write_graph(self, G: Graph, filepath: str | Path) -> Path:
+        out_path = self.format_filepath(filepath=filepath)
+
+        if self == GraphFileFormat.gml:
+            write_gml(G=G, path=out_path)
+        elif self == GraphFileFormat.pkl:
+            with open(out_path, "wb") as f:
+                pickle.dump(obj=G, file=f)
+
+        return out_path
+
+
 def get_gerrydb_graph_file(
-    gerrydb_name: str, prefix: str = settings.VOLUME_PATH
+    gerrydb_name: str,
+    prefix: str = settings.VOLUME_PATH,
+    graph_file_format: GraphFileFormat = GraphFileFormat.pkl,
 ) -> str:
     """
     Get the path to the GerryDB graph file.
@@ -39,7 +76,7 @@ def get_gerrydb_graph_file(
     Returns:
         str: The path to the GerryDB graph file.
     """
-    possible_local_path = Path(f"{prefix}/{gerrydb_name}.gml.gz")
+    possible_local_path = graph_file_format.format_filepath(f"{prefix}/{gerrydb_name}")
     logger.info("Possible local path: %s", possible_local_path)
 
     if possible_local_path.exists():
@@ -54,7 +91,11 @@ def get_gerrydb_graph_file(
     return s3_path
 
 
-def get_gerrydb_block_graph(file_path: str, replace_local_copy: bool = False) -> Graph:
+def get_gerrydb_block_graph(
+    file_path: str,
+    replace_local_copy: bool = False,
+    graph_file_format: GraphFileFormat = GraphFileFormat.pkl,
+) -> Graph:
     url = urlparse(file_path)
     logger.info("URL: %s", url)
 
@@ -66,7 +107,7 @@ def get_gerrydb_block_graph(file_path: str, replace_local_copy: bool = False) ->
         path = file_path
 
     logger.info("Path: %s", path)
-    G = read_gml(path)
+    G = graph_file_format.read_graph(path)
 
     return G
 
@@ -105,46 +146,44 @@ def graph_from_gpkg(
     return G
 
 
-def write_graph_to_gml(
+def write_graph(
     G: Graph,
     gerrydb_name: str,
     out_path: str | Path | None = None,
     upload_to_s3: bool = False,
+    graph_file_format: GraphFileFormat = GraphFileFormat.pkl,
 ) -> Path:
     """
     Write a graph to a GML file in the VOLUME_PATH directory.
 
     Args:
         G (Graph): Graph to write
-        gerrydb_name (str): Name of the GerryDB. Used to name the GML file
-        out_path (str | Path): Path to write the GML file to. If None, must specify gerrydb_name
+        gerrydb_name (str): Name of the GerryDB. Used to name the graph file
+        out_file_name (str | Path): Path to write the graph file to. If None, must specify gerrydb_name.
 
     Returns:
         Path to the GML file
     """
-    gml_file = f"{gerrydb_name}.gml.gz"
-    gml_path = Path(settings.VOLUME_PATH) / gml_file
+    graph_prefix = Path(settings.VOLUME_PATH) / gerrydb_name
 
     if out_path:
         assert settings.ENVIRONMENT in (
             Environment.local,
             Environment.test,
         ), "out_path can only be specified in local or test environment"
-        gml_path = Path(out_path)
+        graph_prefix = Path(out_path)
 
-    write_gml(G=G, path=gml_path)
+    path = graph_file_format.write_graph(G=G, filepath=graph_prefix)
 
     if upload_to_s3:
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
-        s3.upload_file(
-            str(gml_path), settings.R2_BUCKET_NAME, f"{S3_GRAPH_PREFIX}/{gml_file}"
-        )
+        s3.upload_file(str(path), settings.R2_BUCKET_NAME, f"{S3_GRAPH_PREFIX}/{path}")
         logger.info(
-            f"GML file uploaded to S3 at s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{gml_path}"
+            f"Graph file uploaded to S3 at s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{out_path}"
         )
 
-    return gml_path
+    return path
 
 
 # db

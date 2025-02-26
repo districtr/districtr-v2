@@ -7,7 +7,8 @@ from app.contiguity.main import (
     get_gerrydb_block_graph,
     get_block_assignments,
     graph_from_gpkg,
-    write_graph_to_gml,
+    write_graph,
+    GraphFileFormat,
 )
 from app.utils import create_parent_child_edges
 from tempfile import NamedTemporaryFile
@@ -54,7 +55,7 @@ def gerrydb_simple_child_geos_graph_path() -> str:
 
 
 def test_get_gerrydb_block_graph(file_path: str):
-    G = get_gerrydb_block_graph(file_path)
+    G = get_gerrydb_block_graph(file_path, graph_file_format=GraphFileFormat.gml)
 
     assert set(G.nodes()) == {"a", "b", "c", "d", "e", "f"}
     assert list(G.edges()) == [
@@ -84,7 +85,7 @@ def simple_geos_graph(file_path: str) -> Graph:
     - B = { b, c, d}
     - C = { f }
     """
-    return get_gerrydb_block_graph(file_path)
+    return get_gerrydb_block_graph(file_path, graph_file_format=GraphFileFormat.gml)
 
 
 # Idem in test_utils.py
@@ -148,8 +149,11 @@ def ri_vtd_p4_view_graph_fixture() -> Graph:
 
 def test_write_graph_to_gml(ri_vtd_p4_view_graph: Graph):
     with NamedTemporaryFile() as f:
-        gml_path = write_graph_to_gml(
-            G=ri_vtd_p4_view_graph, gerrydb_name="ri_vtd_p4_view", out_path=f.name
+        gml_path = write_graph(
+            G=ri_vtd_p4_view_graph,
+            gerrydb_name="ri_vtd_p4_view",
+            out_path=f.name,
+            graph_file_format=GraphFileFormat.gml,
         )
         print(gml_path)
         G = read_gml(gml_path)
@@ -162,7 +166,7 @@ def test_write_graph_to_gml(ri_vtd_p4_view_graph: Graph):
 @fixture
 def mock_gerrydb_graph_file(monkeypatch):
     def mock_get_file(gerrydb_name: str) -> str:
-        return f"{FIXTURES_PATH}/{gerrydb_name}.gml.gz"
+        return f"{FIXTURES_PATH}/{gerrydb_name}.pkl"
 
     monkeypatch.setattr(contiguity, "get_gerrydb_graph_file", mock_get_file)
 
