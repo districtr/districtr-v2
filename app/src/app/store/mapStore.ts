@@ -1067,7 +1067,6 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
             ...map.map_metadata,
             [key]: value,
           };
-          console.log(updatedMetadata);
           return {
             ...map,
             map_metadata: updatedMetadata,

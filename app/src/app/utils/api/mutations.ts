@@ -4,7 +4,6 @@ import {
   AssignmentsCreate,
   AssignmentsReset,
   createMapDocument,
-  currentHash,
   patchShatterParents,
   patchUnShatterParents,
   patchUpdateAssignments,
@@ -19,7 +18,6 @@ import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
 import {useChartStore} from '@/app/store/chartStore';
 import {districtrIdbCache} from '../cache';
-import {fetchTotPop} from './queries';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -62,7 +60,6 @@ export const patchUnShatter = new MutationObserver(queryClient, {
 export const patchUpdates = new MutationObserver(queryClient, {
   mutationFn: patchUpdateAssignments,
   onMutate: () => {
-    console.log('Updating assignments');
     populationAbortController?.abort();
 
     const {zoneAssignments, shatterIds, shatterMappings, mapDocument, lastUpdatedHash} =
@@ -198,21 +195,13 @@ export const sharedDocument = new MutationObserver(queryClient, {
       .setShareMapMessage('Error fetching shared document. Please enter a valid password');
   },
   onSuccess: data => {
-    const {
-      mapDocument,
-      setMapDocument,
-      setLoadedMapId,
-      setAssignmentsHash,
-      setAppLoadingState,
-      setPasswordPrompt,
-    } = useMapStore.getState();
+    const {setMapDocument, setLoadedMapId, setAppLoadingState, setPasswordPrompt} =
+      useMapStore.getState();
     useMapStore.getState().setLoadedMapId('');
-    console.log(data);
     data.status = 'locked';
     getAssignments(data);
     setMapDocument(data);
     setLoadedMapId(data.document_id);
-    setAssignmentsHash(Date.now().toString());
     setAppLoadingState('loaded');
     setPasswordPrompt(false);
     const documentUrl = new URL(window.location.toString());

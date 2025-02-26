@@ -5,7 +5,6 @@ import {getEntryTotal} from '@utils/summaryStats';
 import {useChartStore} from '@store/chartStore';
 import {NullableZone} from '@constants/types';
 import {districtrIdbCache} from '@utils/cache';
-import {metadata} from './mutations';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
 export const FormatAssignments = () => {
@@ -298,6 +297,7 @@ export const getZonePopulations: (
         signal: populationAbortController.signal,
       })
       .then(res => {
+        mapDocument.genesis = 'created'; // complete the cycle of map creation + population fetch
         return {
           data: res.data as ZonePopulation[],
           hash: assignmentHash,

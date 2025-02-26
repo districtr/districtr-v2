@@ -168,7 +168,7 @@ fetchAssignments.subscribe(assignments => {
       assignments.data.documentId === loadedMapId &&
       !['shared', 'copied'].includes(mapDocument?.genesis ?? '')
     ) {
-      console.log('Map already loaded ', assignments.data.documentId);
+      console.log(`Map ${assignments.data.documentId} already loaded`);
     } else {
       loadZoneAssignments(assignments.data);
       fetchTotPop.refetch();
