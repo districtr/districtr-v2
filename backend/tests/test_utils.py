@@ -70,13 +70,15 @@ def simple_child_geos_fixture(session: Session):
 
 @pytest.fixture(name="simple_parent_geos_gerrydb")
 def simple_parent_geos_gerrydb_fixture(session: Session, simple_parent_geos):
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
     session.begin()
     session.execute(upsert_query, {"name": "simple_parent_geos"})
     session.commit()
@@ -85,13 +87,15 @@ def simple_parent_geos_gerrydb_fixture(session: Session, simple_parent_geos):
 
 @pytest.fixture(name="simple_child_geos_gerrydb")
 def simple_child_geos_gerrydb_fixture(session: Session, simple_child_geos):
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
     session.begin()
     session.execute(upsert_query, {"name": "simple_child_geos"})
     session.commit()
@@ -149,13 +153,15 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         ],
     )
 
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.begin()
     session.execute(upsert_query, {"name": GERRY_DB_P1_FIXTURE_NAME})
@@ -281,6 +287,7 @@ def document_id_fixture(
         "/api/create_document",
         json={
             "gerrydb_table": "simple_geos",
+            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
         },
     )
     assert response.status_code == 201

@@ -1,7 +1,6 @@
 import os
 import pytest
 from sqlmodel import Session
-
 from app.main import get_session
 from app.constants import GERRY_DB_SCHEMA
 from sqlalchemy import text
@@ -11,6 +10,7 @@ from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     FIXTURES_PATH,
     GERRY_DB_FIXTURE_NAME,
+    USER_ID,
 )
 from app.utils import create_districtr_map, add_available_summary_stats_to_districtrmap
 
@@ -32,7 +32,6 @@ GERRY_DB_TOTAL_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_total_vap"
 GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 GERRY_DB_P1_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 GERRY_DB_P4_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_p4"
-
 
 ## Test DB
 
@@ -149,6 +148,7 @@ def document_total_vap_fixture(
         "/api/create_document",
         json={
             "gerrydb_table": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -163,6 +163,7 @@ def document_no_gerrydb_pop_fixture(
         "/api/create_document",
         json={
             "gerrydb_table": GERRY_DB_NO_POP_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -233,6 +234,7 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
         "/api/create_document",
         json={
             "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 201
@@ -243,15 +245,13 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
     assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
 
 
-@pytest.fixture
-def user_id():
-    return "b097794f-8eba-4892-84b5-ad0dd5931795"
-
-
-def test_get_document(client, document_id, user_id):
-    payload = {"user_id": user_id}
-
+def test_get_document(client, document_id):
     doc_uuid = uuid.UUID(document_id)
+    payload = {
+        "user_id": USER_ID,
+        "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+    }
+
     response = client.post(f"/api/document/{doc_uuid}", json=payload)
     assert response.status_code == 200
 
@@ -513,6 +513,7 @@ def document_summary_stats_fixture(client, ks_demo_view_census_blocks_summary_st
         "/api/create_document",
         json={
             "gerrydb_table": GERRY_DB_P1_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -604,6 +605,7 @@ def document_p4_summary_stats_fixture(
         "/api/create_document",
         json={
             "gerrydb_table": GERRY_DB_P4_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
