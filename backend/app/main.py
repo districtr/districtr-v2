@@ -267,6 +267,7 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 
     return {"message": "Assignments partition reset", "document_id": document_id}
 
+
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(document_id: str, session: Session = Depends(get_session)):
@@ -287,7 +288,7 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
         .where(Assignments.document_id == document_id)
     )
 
-    return  session.execute(stmt).fetchall()
+    return session.execute(stmt).fetchall()
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
