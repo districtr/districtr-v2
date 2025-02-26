@@ -48,6 +48,9 @@ from app.exports import (
 )
 from aiocache import Cache
 
+# TODO: Remove before merging. For temp benching.
+from time import time
+
 
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
@@ -419,7 +422,15 @@ async def check_document_contiguity(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"
         )
         gerrydb_name = districtr_map.child_layer
-        zone_assignments = contiguity.get_block_assignments(session, document_id)
+        # TODO: Remove before merging. For temp benching.
+        start_time = time()
+        zone_assignments = contiguity.get_block_assignments(
+            session, document_id, districtr_map.uuid
+        )
+        end_time = time()
+        logger.info(
+            f"Time taken to get block assignments: {end_time - start_time} seconds"
+        )
     else:
         gerrydb_name = districtr_map.parent_layer
         logger.info(
@@ -446,6 +457,8 @@ async def check_document_contiguity(
     except Exception as e:
         return HTTPException(status_code=500, detail=f"Something went wrong: {str(e)}")
 
+    # TODO: Remove before merging. For temp benching.
+    start_time = time()
     G = await cache.get(gerrydb_name)
 
     try:
@@ -457,6 +470,9 @@ async def check_document_contiguity(
             logger.info("Graph found in cache")
     except Exception as e:
         logger.warning(f"Unable to load and cache graph: {str(e)}")
+
+    end_time = time()
+    logger.info(f"Graph loaded in {end_time - start_time} seconds")
 
     if not isinstance(G, Graph):
         raise HTTPException(status_code=500, detail="Error loading graph")

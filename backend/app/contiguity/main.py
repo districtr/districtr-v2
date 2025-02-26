@@ -196,12 +196,23 @@ class ZoneBlockNodes(BaseModel):
     nodes: list[str]
 
 
-def get_block_assignments(session: Session, document_id: str) -> list[ZoneBlockNodes]:
-    sql = sa.text("""SELECT
+def get_block_assignments(
+    session: Session, document_id: str, districtr_map_id: str
+) -> list[ZoneBlockNodes]:
+    sql = sa.text(f"""SELECT
         zone,
         array_agg(geo_id) AS nodes
-    FROM
-        get_block_assignments(:document_id)
+    FROM (
+        SELECT
+            edges.child_path::TEXT AS geo_id,
+            COALESCE(a1.zone::TEXT, a2.zone::TEXT) AS zone
+        FROM "parentchildedges_{districtr_map_id}" edges
+        LEFT JOIN document.assignments a1
+            ON a1.geo_id = edges.parent_path AND a1.document_id = :document_id
+        LEFT JOIN document.assignments a2
+            ON a2.geo_id = edges.child_path AND a2.document_id = :document_id
+        WHERE a1.zone is not null or a2.zone is not null
+    ) block_assignments
     WHERE zone IS NOT NULL
     GROUP BY
         zone""")
