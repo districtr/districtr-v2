@@ -715,14 +715,6 @@ async def share_districtr_plan(
     params: dict = Body(...),  # add as pydantic type
     session: Session = Depends(get_session),
 ):
-    try:
-        print(params)
-    except Exception as e:
-        logger.error(e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Share failed",
-        )
     # check if there's already a record for a document
     existing_token = session.execute(
         text(
@@ -736,7 +728,7 @@ async def share_districtr_plan(
 
     if existing_token:
         token_uuid = existing_token.token_id
-        print("theres already a token!!")
+
         if params["password"] is not None and not existing_token.password_hash:
             hashed_password = hash_password(params["password"])
             session.execute(
@@ -828,7 +820,7 @@ async def load_plan_from_share(
             detail="Token not found",
         )
     if result.password_hash:
-        print("password required: ", result.password_hash)
+        # password is required
         if data.password is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
