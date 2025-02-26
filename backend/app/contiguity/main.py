@@ -123,7 +123,7 @@ def graph_from_gpkg(
         layer_name (str): Name of the edge layer
 
     Returns:
-        Path to the GML file
+        Graph
     """
     url = urlparse(str(gpkg_path))
     logger.info("URL: %s", url)
@@ -154,15 +154,17 @@ def write_graph(
     graph_file_format: GraphFileFormat = GraphFileFormat.pkl,
 ) -> Path:
     """
-    Write a graph to a GML file in the VOLUME_PATH directory.
+    Write a graph file to the VOLUME_PATH directory. Defaults to a pickle.
 
     Args:
         G (Graph): Graph to write
         gerrydb_name (str): Name of the GerryDB. Used to name the graph file
-        out_file_name (str | Path): Path to write the graph file to. If None, must specify gerrydb_name.
+        out_path (str | Path): Path to write the graph file to. If None, must specify gerrydb_name.
+        upload_to_s3 (bool): Whether to upload to graph file to S3
+        graph_file_format (GraphFileFormat): Format to export the graph with, either gml or pkl
 
     Returns:
-        Path to the GML file
+        Path to the exported graph file
     """
     graph_prefix = Path(settings.VOLUME_PATH) / gerrydb_name
 
