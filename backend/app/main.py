@@ -15,6 +15,7 @@ import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
 import app.contiguity.main as contiguity
+from networkx import Graph
 from app.models import (
     Assignments,
     AssignmentsCreate,
@@ -45,6 +46,8 @@ from app.exports import (
     DocumentExportType,
     DocumentExportFormat,
 )
+from aiocache import Cache
+
 
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
@@ -58,6 +61,8 @@ app = FastAPI()
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+cache = Cache(cache_class=Cache.MEMORY)
 
 
 # Set all CORS enabled origins
@@ -441,8 +446,20 @@ async def check_document_contiguity(
     except Exception as e:
         return HTTPException(status_code=500, detail=f"Something went wrong: {str(e)}")
 
-    logger.info(f"Loading graph from {path}")
-    G = contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
+    G = await cache.get(gerrydb_name)
+
+    try:
+        if G is None:
+            logger.info(f"Graph not found in cache, loading from {path}")
+            G = contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
+            assert await cache.set(gerrydb_name, G), "Unable to cache graph"
+        else:
+            logger.info("Graph found in cache")
+    except Exception as e:
+        logger.warning(f"Unable to load and cache graph: {str(e)}")
+
+    if not isinstance(G, Graph):
+        raise HTTPException(status_code=500, detail="Error loading graph")
 
     results = {}
     for zone_blocks in zone_assignments:
