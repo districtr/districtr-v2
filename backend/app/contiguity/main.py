@@ -180,9 +180,13 @@ def write_graph(
     if upload_to_s3:
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
-        s3.upload_file(str(path), settings.R2_BUCKET_NAME, f"{S3_GRAPH_PREFIX}/{path}")
+        s3_filename = graph_file_format.write_graph(G=G, filepath=gerrydb_name)
+        logger.info(f"S3 filename: {s3_filename}")
+        s3.upload_file(
+            str(path), settings.R2_BUCKET_NAME, f"{S3_GRAPH_PREFIX}/{s3_filename}"
+        )
         logger.info(
-            f"Graph file uploaded to S3 at s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{out_path}"
+            f"Graph file uploaded to S3 at s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}/{s3_filename}"
         )
 
     return path
