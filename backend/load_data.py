@@ -133,8 +133,8 @@ def load_sample_data(config: Config) -> None:
             tiles_s3_path=view.tiles_s3_path,
             num_districts=view.num_districts,
         )
-
         if u is not None:
+            u = u[0]
             logger.info(f"Created districtr map with UUID {u}")
         else:
             session.rollback()
@@ -151,7 +151,7 @@ def load_sample_data(config: Config) -> None:
                 )
 
         if view.child_layer is not None:
-            _create_parent_child_edges(session=session, districtr_map_uuid=str(u[0]))
+            _create_parent_child_edges(session=session, districtr_map_uuid=str(u))
 
         session.commit()
 
