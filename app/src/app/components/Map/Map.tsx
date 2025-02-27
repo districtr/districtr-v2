@@ -114,12 +114,15 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         maxPitch={0}
         minPitch={0}
         dragRotate={false}
-        onLoad={() => {
-          if (mapRef.current) {
+        onLoad={(e) => {
+          if (isDemographicMap) {
+            handleSyncMaps(e.target);
+            useDemographyStore.getState().setGetMapRef(() => e.target);
+          } else {
             setMapRef(mapRef);
             handleWheelOrPinch({} as TouchEvent, mapRef.current);
-            fitMapToBounds();
           }
+          fitMapToBounds();
         }}
         onClick={mapEventHandlers.onClick}
         onZoom={mapEventHandlers.onZoom}
@@ -140,8 +143,12 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         reuseMaps
       >
         <CountyLayers />
-        <VtdBlockLayers />
-        <MetaLayers />
+        <VtdBlockLayers isDemographicMap={isDemographicMap} />
+          {!isDemographicMap && (
+            <>
+              <MetaLayers />
+            </>
+          )}
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
 
       </GlMap>
