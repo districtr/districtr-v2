@@ -69,9 +69,6 @@ export const patchUpdates = new MutationObserver(queryClient, {
     console.log(`Successfully upserted ${data.assignments_upserted} assignments`);
     const {isPainting} = useMapStore.getState();
     const {mapMetrics: _mapMetrics} = useChartStore.getState();
-    if (!isPainting || !_mapMetrics?.data) {
-      mapMetrics.refetch();
-    }
     // remove trailing shattered features
     // This needs to happen AFTER the updates are done
     const {processHealParentsQueue, mapOptions, parentsToHeal} = useMapStore.getState();
@@ -91,7 +88,6 @@ export const patchReset = new MutationObserver(queryClient, {
   },
   onSuccess: (data: AssignmentsReset) => {
     console.log(`Successfully reset ${data.document_id}`);
-    mapMetrics.refetch();
   },
 });
 

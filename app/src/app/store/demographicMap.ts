@@ -182,7 +182,6 @@ export var useDemographyStore = create(
       const mapRef = getMapRef();
       const prevShattered = prevParentShatterIds ?? new Set();
       if (!mapDocument) return;
-      let data = {...demographyCache.entries};
       const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
       const shatterChildren: string[] = []
@@ -195,31 +194,28 @@ export var useDemographyStore = create(
         }
         shatterChildren.push(...Array.from(shatterMappings[id]));
       })
+      let currRows = demographyCache.table?.size
 
       const fetchUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/demography`)
-      if (Object.keys(data).length && (shatterIds.parents.size || prevShattered?.size)) {
+      if (currRows && (shatterIds.parents.size || prevShattered?.size)) {
         [...newShatterChildren, ...oldParentsHealed].forEach(id => {
           fetchUrl.searchParams.append('ids', id)
         })
       }
 
-      const shatterChildSet = new Set(shatterChildren)
       await fetch(fetchUrl.toString())
         .then(res => res.json())
         .then(result => {
-          const rowHandler = getRowHandler(result.columns, shatterIds.children ?? new Set());
-          result.results.forEach((row: any) => {
-            const entry = rowHandler(row);
-            entry.sourceLayer = shatterChildSet.has(entry.path as any) ? mapDocument.child_layer! : mapDocument.parent_layer!;
-            entry.source = BLOCK_SOURCE_ID;
-            data[entry.path] = entry
-          });
+          demographyCache.update(
+            result.columns,
+            result.results,
+            shatterIds.parents,
+            shatterIds.children,
+            mapDocument,
+            dataHash
+          )
       });
-      shatterIds.parents.forEach(id => {
-        delete data[id];
-      })
       set({dataHash});
-      demographyCache.entries = data;
       if (mapRef){
         setVariable(variable)
       }

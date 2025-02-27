@@ -1,18 +1,33 @@
+import {table, op} from 'arquero';
 import {demographyCache} from '../store/demographCache';
 import {MapStore} from '../store/mapStore';
+import {useChartStore} from '../store/chartStore';
 
 export const calcPops = (zoneAssignments: MapStore['zoneAssignments']) => {
-  const zonePops: Record<number, number> = {};
-  zoneAssignments.forEach((zone, id) => {
-    if (zone !== null) {
-      const pop = +demographyCache.entries[id]?.total_pop;
-      if (!pop) return;
-      zonePops[+zone] = (zonePops[+zone] || 0) + pop;
-    }
+  if (!demographyCache.table) return [];
+  const t0 = performance.now();
+  const rows = zoneAssignments.size;
+  const zoneColumns = {
+    path: new Array(rows),
+    zone: new Array(rows),
+  };
+  (zoneAssignments.entries() as any).forEach(([k, v]: any) => {
+    if (!k || !v) return;
+    zoneColumns.path.push(k);
+    zoneColumns.zone.push(v);
   });
-  const formattedPops = Object.entries(zonePops).map(([zone, pop]) => ({
-    zone: +zone,
-    total_pop: pop,
-  }));
+  const zoneTable = table(zoneColumns);
+  console.log('Created zone table in', performance.now() - t0);
+  const formattedPops = zoneTable
+    .join_left(demographyCache.table, ['path', 'path'])
+    .groupby('zone')
+    .rollup({total_pop: op.sum('total_pop')})
+    .objects();
+  console.log('Calculated populations in', performance.now() - t0);
   return formattedPops;
 };
+
+export const updatePops = (zoneAssignments: MapStore['zoneAssignments']) =>
+  useChartStore.getState().setMapMetrics({
+    data: calcPops(zoneAssignments),
+  } as any);

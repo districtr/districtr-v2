@@ -37,7 +37,8 @@ const updateDemographicMapColors = ({
   shatterIds: MapStore['shatterIds'];
   mapDocument: MapStore['mapDocument'];
 }) => {
-  const dataValues = Object.values(demographyCache.entries);
+  if (!demographyCache.table) return;
+  const dataValues = demographyCache.table.select('path', variable).objects();
   const dataSoureExists = mapRef.getSource(BLOCK_SOURCE_ID);
   if (!dataValues.length || !mapRef || !mapDocument || !dataSoureExists) return;
   const config = demographyVariables.find(f => f.value === variable.replace('_percent', ''));
@@ -46,14 +47,14 @@ const updateDemographicMapColors = ({
     mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
   const colorscheme = defaultColor;
   // config && 'colorScheme' in config ? config?.colorScheme : DEFAULT_COLOR_SCHEME;
-  const values = dataValues.map(f => +f[variable]);
+  const values = dataValues.map((f: any) => +f[variable]);
   const colorScale = scale
     .scaleQuantile()
     .domain(values)
     // @ts-ignore
     .range(colorscheme);
 
-  dataValues.forEach((row, i) => {
+  dataValues.forEach((row: any, i) => {
     const id = row.path;
     const value = row[variable];
     if (!id || !value) return;

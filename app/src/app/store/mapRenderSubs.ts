@@ -8,8 +8,7 @@ import {
 } from '@utils/helpers';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
-import {calcPops} from '@utils/population';
-import {useChartStore} from '@store/chartStore';
+import {updatePops} from '@utils/population';
 import {useDemographyStore as _useDemographyStore} from './demographicMap';
 import {useHoverStore as _useHoverStore, HoverFeatureStore} from './hoverFeatures';
 
@@ -98,9 +97,7 @@ export const getRenderSubscriptions = (
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
       if (useMapStore.getState().isTemporalAction) {
-        useChartStore.getState().setMapMetrics({
-          data: calcPops(curr[0]),
-        } as any);
+        updatePops(curr[0]);
       }
       const {
         captiveIds,

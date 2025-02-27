@@ -140,13 +140,7 @@ export const getFeaturesIntersectingCounties = (
 
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
-  const features = demographyCache.getFiltered(fips).map(([id, properties]) => ({
-    id,
-    ...properties,
-    properties,
-  })) as MapGeoJSONFeature[];
-
-  return filterFeatures(features, true);
+  return filterFeatures(demographyCache.getFiltered(fips), true);
 };
 
 /**
