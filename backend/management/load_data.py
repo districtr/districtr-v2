@@ -28,12 +28,15 @@ def import_gerrydb_view(
     session: Session,
     layer: str,
     gpkg: str,
-    replace: bool = False,
     rm: bool = False,
+    table_name: str | None = None,
 ):
     logger.info("Importing GerryDB view...")
 
     path = get_local_or_s3_path(gpkg)
+
+    if table_name is None:
+        table_name = layer
 
     result = subprocess.run(
         args=[
@@ -50,7 +53,7 @@ def import_gerrydb_view(
             "-nlt",
             "MULTIPOLYGON",
             "-nln",
-            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+            f"{GERRY_DB_SCHEMA}.{table_name}",
         ],
     )
 
@@ -79,7 +82,7 @@ def import_gerrydb_view(
     session.execute(
         upsert_query,
         {
-            "name": layer,
+            "name": table_name,
         },
     )
     logger.info("GerryDB view upserted successfully.")
@@ -120,6 +123,7 @@ def _create_parent_child_edges(session: Session, **kwargs):
 class GerryDBViewImport(BaseModel):
     gpkg: str
     layer: str
+    table_name: str | None = None
 
 
 class ShatterableViewImport(BaseModel):
@@ -195,7 +199,9 @@ def load_sample_data(
             print(f"File {gpkg} does not exist.")
             gpkg = f"s3://{settings.R2_BUCKET_NAME}/gerrydb/{view.gpkg}"
 
-        import_gerrydb_view(session=session, layer=view.layer, gpkg=gpkg)
+        import_gerrydb_view(
+            session=session, layer=view.layer, gpkg=gpkg, table_name=view.table_name
+        )
 
         session.commit()
 

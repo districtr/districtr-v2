@@ -75,7 +75,7 @@ def create_districtr_map(
             "visibility": visibility,
         },
     )
-    return inserted_map_uuid  # pyright: ignore
+    return inserted_map_uuid[0]  # pyright: ignore
 
 
 def update_districtrmap(
