@@ -16,7 +16,7 @@ services:
       db:
         condition: service_healthy
     command: bash -c "
-      python cli.py --config-file=management/configs/config.json --skip-gerrydb-loads &&
+      python cli.py --config-file=management/configs/basic_shatterable_maps.json --skip-gerrydb-loads &&
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/**/*.py'
       "
     ports:

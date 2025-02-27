@@ -17,7 +17,6 @@ from functools import wraps
 from contextlib import contextmanager
 from sqlmodel import Session
 from typing import Callable, TypeVar, Any
-import json
 from management.load_data import (
     load_sample_data,
     Config,
@@ -332,10 +331,7 @@ def batch_load_data(config_file: str, data_dir: str, skip_gerrydb_loads: bool):
     logger.info(f"Loading data from {config_file}")
 
     config_path = get_local_or_s3_path(file_path=config_file)
-
-    with open(config_path, "r") as f:
-        data = json.load(f)
-        config = Config(**data)
+    config = Config.from_file(file_path=config_path)
 
     logger.info("Loading sample data...")
     load_sample_data(

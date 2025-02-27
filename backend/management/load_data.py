@@ -17,6 +17,8 @@ from app.models import DistrictrMapPublic, DistrictrMap
 from pydantic import BaseModel
 from app.constants import GERRY_DB_SCHEMA
 import subprocess
+import json
+import yaml
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -126,10 +128,39 @@ class ShatterableViewImport(BaseModel):
     child_layer: str
 
 
+def get_filetype(file_path: str) -> str:
+    _, ext = os.path.splitext(file_path)
+    return ext.lower()
+
+
 class Config(BaseModel):
     gerrydb_views: list[GerryDBViewImport]
     shatterable_views: list[ShatterableViewImport]
     districtr_maps: list[DistrictrMapPublic]
+
+    @staticmethod
+    def from_file(file_path: str) -> "Config":
+        """
+        Load configuration from a file. Supports JSON and YAML formats.
+
+        Args:
+            file_path: Path to the configuration file.
+        Returns:
+            Config object.
+        Raises:
+            ValueError: If the file type is not supported.
+        """
+        file_type = get_filetype(file_path)
+        if file_type == ".json":
+            with open(file_path, "r") as f:
+                data = json.load(f)
+        elif file_type in (".yaml", ".yml"):
+            with open(file_path, "r") as f:
+                data = yaml.safe_load(f)
+        else:
+            raise ValueError(f"Unsupported file type: {file_type}")
+
+        return Config(**data)
 
 
 def load_sample_data(
