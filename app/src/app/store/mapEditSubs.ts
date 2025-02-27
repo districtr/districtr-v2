@@ -4,7 +4,6 @@ import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
-import {districtrIdbCache} from '../utils/cache';
 import GeometryWorker from '../utils/GeometryWorker';
 import { idCache } from './idCache';
 
