@@ -119,8 +119,21 @@ def load_sample_data(config: Config) -> None:
 
     for view in config.shatterable_views:
         session = next(get_session())
-        _create_shatterable_gerrydb_view(session=session, **view.model_dump())
-        session.commit()
+        # check if materialized view gerrydb.{view.gerrydb_table_name} exists
+        if not session.exec(
+            sa.select(sa.text("to_regclass(:table_name)")).params(
+                table_name=f"gerrydb.{view.gerrydb_table_name}"
+            )
+        ).scalar_one_or_none():
+            logger.info(
+                f"Materialized view {view.gerrydb_table_name} does not exist. Creating..."
+            )
+            _create_shatterable_gerrydb_view(session=session, **view.model_dump())
+            session.commit()
+        else:
+            logger.info(
+                f"Materialized view {view.gerrydb_table_name} already exists. Skipping..."
+            )
 
     for view in config.districtr_maps:
         session = next(get_session())
