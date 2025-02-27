@@ -7,7 +7,6 @@ import {
   DistrictrMap,
   DocumentObject,
   lastSentAssignments,
-  LocalAssignmentsResponse,
   RemoteAssignmentsResponse,
   ShatterResult,
 } from '@utils/api/apiHandlers';
@@ -32,7 +31,6 @@ import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
-import { districtrIdbCache } from '../utils/cache';
 import { P1TotPopSummaryStats, P4VapPopSummaryStats } from '../utils/api/summaryStats';
 import { demographyCache } from './demographCache';
 import {useDemographyStore} from './demographicMap';
@@ -238,7 +236,7 @@ export interface MapStore {
   lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
   loadZoneAssignments: (
-    assignmentsData: RemoteAssignmentsResponse | LocalAssignmentsResponse
+    assignmentsData: RemoteAssignmentsResponse
   ) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
@@ -922,56 +920,35 @@ export var useMapStore = createWithMiddlewares<MapStore>(
         },
         loadZoneAssignments: assignmentsData => {
           lastSentAssignments.clear();
-          if (assignmentsData.type === 'local') {
-            assignmentsData.data.zoneAssignments.forEach((v, k) => {
-              lastSentAssignments.set(k, v);
-            });
-            set({
-              zoneAssignments: assignmentsData.data.zoneAssignments,
-              appLoadingState: 'loaded',
-              loadedMapId: assignmentsData.documentId,
-              shatterIds: assignmentsData.data.shatterIds,
-              shatterMappings: assignmentsData.data.shatterMappings,
-            })
-          } else {
-            const assignments = assignmentsData.assignments;
-            const zoneAssignments = new Map<string, number>();
-            const shatterIds = {
-              parents: new Set<string>(),
-              children: new Set<string>(),
-            };
-            const shatterMappings: MapStore['shatterMappings'] = {};
-      
-            assignments.forEach(assignment => {
-              zoneAssignments.set(assignment.geo_id, assignment.zone);
-              // preload last sent assignments with last fetched assignments
-              lastSentAssignments.set(assignment.geo_id, assignment.zone);
-              if (assignment.parent_path) {
-                if (!shatterMappings[assignment.parent_path]) {
-                  shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
-                } else {
-                  shatterMappings[assignment.parent_path].add(assignment.geo_id);
-                }
-                shatterIds.parents.add(assignment.parent_path);
-                shatterIds.children.add(assignment.geo_id);
+          const assignments = assignmentsData.assignments;
+          const zoneAssignments = new Map<string, number>();
+          const shatterIds = {
+            parents: new Set<string>(),
+            children: new Set<string>(),
+          };
+          const shatterMappings: MapStore['shatterMappings'] = {};
+    
+          assignments.forEach(assignment => {
+            zoneAssignments.set(assignment.geo_id, assignment.zone);
+            // preload last sent assignments with last fetched assignments
+            lastSentAssignments.set(assignment.geo_id, assignment.zone);
+            if (assignment.parent_path) {
+              if (!shatterMappings[assignment.parent_path]) {
+                shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
+              } else {
+                shatterMappings[assignment.parent_path].add(assignment.geo_id);
               }
-            });
-            set({
-              zoneAssignments,
-              shatterIds,
-              shatterMappings,
-              appLoadingState: 'loaded',
-              loadedMapId: assignmentsData.documentId,
-            });
-            const mapDocument = get().mapDocument;
-            if (mapDocument?.document_id && mapDocument?.updated_at) {
-              districtrIdbCache.cacheAssignments(mapDocument.document_id, mapDocument.updated_at, {
-                zoneAssignments,
-                shatterIds,
-                shatterMappings,
-              });
+              shatterIds.parents.add(assignment.parent_path);
+              shatterIds.children.add(assignment.geo_id);
             }
-          }
+          });
+          set({
+            zoneAssignments,
+            shatterIds,
+            shatterMappings,
+            appLoadingState: 'loaded',
+            loadedMapId: assignmentsData.documentId,
+          });
         },
         zonePopulations: new Map(),
         setZonePopulations: (zone, population) =>

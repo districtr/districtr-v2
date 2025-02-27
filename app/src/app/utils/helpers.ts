@@ -247,8 +247,7 @@ export const colorZoneAssignments = (
     return;
   }
   const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
-  const featureStateChangesCache =
-    mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+  const featureStateChangesCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
   if (!featureStateCache) return;
   const isInitialRender = previousState?.[4] !== 'loaded' || previousState?.[5] !== 'loaded';
 

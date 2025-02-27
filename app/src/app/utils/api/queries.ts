@@ -9,7 +9,6 @@ import {
   getDocument,
   getZonePopulations,
   ZonePopulation,
-  LocalAssignmentsResponse,
   RemoteAssignmentsResponse,
   getDistrictrMapPopSummaryStats,
 } from './apiHandlers';
@@ -140,9 +139,7 @@ const updateGetDocumentFromId = (documentId: string) => {
   });
 };
 
-const fetchAssignments = new QueryObserver<
-  null | LocalAssignmentsResponse | RemoteAssignmentsResponse
->(queryClient, {
+export const fetchAssignments = new QueryObserver<null | RemoteAssignmentsResponse>(queryClient, {
   queryKey: ['assignments'],
   queryFn: () => getAssignments(useMapStore.getState().mapDocument),
 });

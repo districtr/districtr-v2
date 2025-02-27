@@ -56,7 +56,6 @@ export const ToolSettings: React.FC = () => {
           parentsAreBroken && mapOptions.highlightBrokenDistricts === true
             ? 'highlightBrokenDistricts'
             : '',
-          mapOptions.lockPaintedAreas.length === (mapDocument?.num_districts ?? 4) ? 'lockAll' : '',
         ]}
       >
         <Heading as="h3" weight="bold" size="3">
@@ -161,7 +160,7 @@ export const ToolSettings: React.FC = () => {
             })
           }
         >
-          Show county names
+          Emphasize county names
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>
           Show tribes and communities

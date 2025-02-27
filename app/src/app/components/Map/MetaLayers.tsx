@@ -85,7 +85,7 @@ const ZoneNumbersLayer = () => {
       addZoneMetaLayers();
       updateTimeout.current = setTimeout(() => {
         updateTimeout.current = null;
-      }, 1000);
+      }, 100);
     }
   };
 
@@ -128,7 +128,6 @@ const ZoneNumbersLayer = () => {
           'circle-stroke-color': ZONE_LABEL_STYLE || '#000',
           'circle-stroke-width': 2,
         }}
-        filter={['==', ['get', 'zone'], ['get', 'zone']]}
       ></Layer>
       <Layer
         id="ZONE_LABEL"

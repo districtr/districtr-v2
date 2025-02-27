@@ -94,65 +94,57 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
 
   return (
     <div
-      className={`relative w-full flex-1 flex-grow h-full
+      className={`relative w-full flex-1 flex-grow
         ${mapLock ? 'pointer-events-none' : ''}
         ${document_id ? '' : 'opacity-25 pointer-events-none'}
-        ${isDemographicMap ? 'border-l-2 border-black' : ''}
         `}
+      ref={mapContainer}
     >
-      <div className="relative w-full h-full" ref={mapContainer}>
-        <GlMap
-          ref={mapRef}
-          mapStyle={MAP_OPTIONS.style || undefined}
-          initialViewState={{
-            // Maplibre and react-map-gl disagree on types
-            latitude: (MAP_OPTIONS.center as [number, number])?.[1] || 0,
-            longitude: (MAP_OPTIONS.center as [number, number])?.[0] || 0,
-            zoom: MAP_OPTIONS.zoom,
-          }}
-          maxZoom={MAP_OPTIONS.maxZoom || undefined}
-          pitchWithRotate={false}
-          maxPitch={0}
-          minPitch={0}
-          dragRotate={false}
-          onLoad={(e) => {
-            if (isDemographicMap) {
-              handleSyncMaps(e.target);
-              useDemographyStore.getState().setGetMapRef(() => e.target);
-            } else {
-              setMapRef(mapRef);
-              handleWheelOrPinch({} as TouchEvent, mapRef.current);
-            }
+      <GlMap
+        ref={mapRef}
+        mapStyle={MAP_OPTIONS.style || undefined}
+        initialViewState={{
+          // Maplibre and react-map-gl disagree on types
+          latitude: (MAP_OPTIONS.center as [number,number])?.[1] || 0,
+          longitude: (MAP_OPTIONS.center as [number,number])?.[0] || 0,
+          zoom: MAP_OPTIONS.zoom
+        }}
+        maxZoom={MAP_OPTIONS.maxZoom || undefined}
+        pitchWithRotate={false}
+        maxPitch={0}
+        minPitch={0}
+        dragRotate={false}
+        onLoad={() => {
+          if (mapRef.current) {
+            setMapRef(mapRef);
+            handleWheelOrPinch({} as TouchEvent, mapRef.current);
             fitMapToBounds();
-          }}
-          onClick={mapEventHandlers.onClick}
-          onZoom={mapEventHandlers.onZoom}
-          onZoomEnd={mapEventHandlers.onZoomEnd}
-          onContextMenu={mapEventHandlers.onContextMenu}
-          onMouseMove={mapEventHandlers.onMouseMove}
-          onMouseDown={mapEventHandlers.onMouseDown}
-          onMouseEnter={mapEventHandlers.onMouseEnter}
-          onMouseOver={mapEventHandlers.onMouseOver}
-          onMouseLeave={mapEventHandlers.onMouseLeave}
-          onMouseOut={mapEventHandlers.onMouseOut}
-          onMouseUp={mapEventHandlers.onMouseUp}
-          onZoomStart={mapEventHandlers.onZoom}
-          onIdle={mapEventHandlers.onIdle}
-          onMoveEnd={mapEventHandlers.onMoveEnd}
-          onData={mapEventHandlers.onData as any}
-          interactiveLayerIds={INTERACTIVE_LAYERS}
-          reuseMaps
-        >
-          <CountyLayers />
-          <VtdBlockLayers isDemographicMap={isDemographicMap} />
-          {!isDemographicMap && (
-            <>
-              <MetaLayers />
-            </>
-          )}
-          <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
-        </GlMap>
-      </div>
+          }
+        }}
+        onClick={mapEventHandlers.onClick}
+        onZoom={mapEventHandlers.onZoom}
+        onZoomEnd={mapEventHandlers.onZoomEnd}
+        onContextMenu={mapEventHandlers.onContextMenu}
+        onMouseMove={mapEventHandlers.onMouseMove}
+        onMouseDown={mapEventHandlers.onMouseDown}
+        onMouseEnter={mapEventHandlers.onMouseEnter}
+        onMouseOver={mapEventHandlers.onMouseOver}
+        onMouseLeave={mapEventHandlers.onMouseLeave}
+        onMouseOut={mapEventHandlers.onMouseOut}
+        onMouseUp={mapEventHandlers.onMouseUp}
+        onZoomStart={mapEventHandlers.onZoom}
+        onIdle={mapEventHandlers.onIdle}
+        onMoveEnd={mapEventHandlers.onMoveEnd}
+        onData={mapEventHandlers.onData as any}
+        interactiveLayerIds={INTERACTIVE_LAYERS}
+        reuseMaps
+      >
+        <CountyLayers />
+        <VtdBlockLayers />
+        <MetaLayers />
+        <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
+
+      </GlMap>
     </div>
   );
 };

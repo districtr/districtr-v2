@@ -4,7 +4,6 @@ import {
   AssignmentsCreate,
   AssignmentsReset,
   createMapDocument,
-  currentHash,
   patchShatterParents,
   patchUnShatterParents,
   patchUpdateAssignments,
@@ -14,7 +13,6 @@ import {
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
 import {useChartStore} from '@/app/store/chartStore';
-import {districtrIdbCache} from '../cache';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -63,11 +61,6 @@ export const patchUpdates = new MutationObserver(queryClient, {
     const {zoneAssignments, shatterIds, shatterMappings, mapDocument, lastUpdatedHash} =
       useMapStore.getState();
     if (!mapDocument) return;
-    districtrIdbCache.cacheAssignments(mapDocument.document_id, lastUpdatedHash, {
-      zoneAssignments,
-      shatterIds,
-      shatterMappings,
-    });
   },
   onError: error => {
     console.log('Error updating assignments: ', error);

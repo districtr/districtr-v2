@@ -224,7 +224,7 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
     ? INTERACTIVE_LAYERS
     : [BLOCK_HOVER_LAYER_ID];
 
-  const selectedFeatures = getFeatureUnderCursor(mapRef, e, 0, paintLayers);
+  const selectedFeatures = mapStore.paintFunction(mapRef, e, 0, paintLayers, false);
 
   if (!selectedFeatures?.length || !mapRef || !sourceLayer) return;
 
@@ -246,8 +246,8 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
 };
 
 export const handleDataLoad = (e: MapSourceDataEvent) => {
-  const {mapDocument} = useMapStore.getState();
-  const {tiles_s3_path, parent_layer} = mapDocument || {};
+  const {mapDocument, shatterMappings} = useMapStore.getState();
+  const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {};
   if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
   const tileData = e?.tile?.latestFeatureIndex;
   if (!tileData) return;
