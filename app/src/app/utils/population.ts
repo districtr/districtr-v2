@@ -4,6 +4,7 @@ import {MapStore} from '../store/mapStore';
 import {useChartStore} from '../store/chartStore';
 
 export const calcPops = (zoneAssignments: MapStore['zoneAssignments']) => {
+  console.log("Calculating pops");
   if (!demographyCache.table) return [];
   const t0 = performance.now();
   const rows = zoneAssignments.size;

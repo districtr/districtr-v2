@@ -5,6 +5,7 @@ import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
 import GeometryWorker from '../utils/GeometryWorker';
+import { updatePops } from '../utils/population';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
@@ -46,6 +47,7 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
         return;
       const {getMapRef} = useMapStore.getState();
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
+      updatePops(zoneAssignments)
     },
     {equalityFn: shallowCompareArray}
   );
