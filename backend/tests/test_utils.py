@@ -116,7 +116,7 @@ def gerrydb_simple_geos_view_fixture(
 def districtr_map_fixture(
     session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
 ):
-    (inserted_districtr_map,) = create_districtr_map(
+    inserted_districtr_map = create_districtr_map(
         session,
         name="Simple shatterable layer",
         gerrydb_table_name="simple_geos",
@@ -171,7 +171,7 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
 def test_create_districtr_map(
     session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
 ):
-    (inserted_districtr_map,) = create_districtr_map(
+    _ = create_districtr_map(
         session,
         name="Simple shatterable layer",
         gerrydb_table_name="simple_geos_test",
@@ -186,7 +186,7 @@ def test_create_districtr_map(
 def test_create_districtr_map_some_nulls(session: Session, simple_parent_geos_gerrydb):
     # This is also an example of a districtr map before other set-up operations
     # are performed, such as creating a tileset and a shatterable view
-    (inserted_districtr_map,) = create_districtr_map(
+    _ = create_districtr_map(
         session,
         name="Simple non-shatterable layer",
         gerrydb_table_name="simple_parent_geos_some_nulls",
@@ -200,7 +200,7 @@ def simple_parent_geos_districtrmap_fixture(
     session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
 ):
     gerrydb_name = "simple_geos_test"
-    (inserted_districtr_map,) = create_districtr_map(
+    _ = create_districtr_map(
         session,
         name="Simple shatterable layer",
         gerrydb_table_name=gerrydb_name,
@@ -226,7 +226,7 @@ def test_update_districtr_map(session: Session, simple_parent_geos_districtrmap)
 
 
 def test_add_extent_to_districtrmap(session: Session, simple_parent_geos_gerrydb):
-    (inserted_districtr_map,) = create_districtr_map(
+    inserted_districtr_map = create_districtr_map(
         session,
         name="Simple non-shatterable layer 2",
         gerrydb_table_name="simple_parent_geos_some_nulls2",
@@ -240,7 +240,7 @@ def test_add_extent_to_districtrmap(session: Session, simple_parent_geos_gerrydb
 def test_add_extent_to_districtrmap_manual_bounds(
     session: Session, simple_parent_geos_gerrydb
 ):
-    (inserted_districtr_map,) = create_districtr_map(
+    inserted_districtr_map = create_districtr_map(
         session,
         name="Simple non-shatterable layer 2",
         gerrydb_table_name="simple_parent_geos_some_nulls2",

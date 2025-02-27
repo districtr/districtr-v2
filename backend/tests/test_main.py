@@ -478,7 +478,7 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    (districtr_map_uuid,) = create_districtr_map(
+    districtr_map_uuid = create_districtr_map(
         session=session,
         name="DistrictMap with P1 view",
         parent_layer=layer,
@@ -567,7 +567,7 @@ def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    (districtr_map_uuid,) = create_districtr_map(
+    districtr_map_uuid = create_districtr_map(
         session=session,
         name="DistrictMap with P4 view",
         parent_layer=layer,

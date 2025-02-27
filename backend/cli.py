@@ -69,7 +69,6 @@ def cli():
 @cli.command("import-gerrydb-view")
 @click.option("--layer", "-n", help="layer of the view", required=True)
 @click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
-@click.option("--replace", "-f", help="Replace the file if it exists", is_flag=True)
 @click.option("--rm", "-r", help="Delete file after loading to postgres", is_flag=True)
 @with_session
 def import_gerrydb_view(
@@ -79,7 +78,6 @@ def import_gerrydb_view(
         session=session,
         layer=layer,
         gpkg=gpkg,
-        replace=replace,
         rm=rm,
     )
 
@@ -146,8 +144,8 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
 def create_districtr_map(
     session: Session,
     name: str,
-    parent_layer_name: str,
-    child_layer_name: str | None,
+    parent_layer: str,
+    child_layer: str | None,
     gerrydb_table_name: str,
     num_districts: int | None,
     tiles_s3_path: str | None,
@@ -155,11 +153,11 @@ def create_districtr_map(
     bounds: list[float] | None = None,
 ):
     logger.info("Creating districtr map...")
-    (districtr_map_uuid,) = _create_districtr_map(
+    districtr_map_uuid = _create_districtr_map(
         session=session,
         name=name,
-        parent_layer_name=parent_layer_name,
-        child_layer_name=child_layer_name,
+        parent_layer=parent_layer,
+        child_layer=child_layer,
         gerrydb_table_name=gerrydb_table_name,
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
