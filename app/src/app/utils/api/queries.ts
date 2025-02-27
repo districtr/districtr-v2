@@ -1,58 +1,17 @@
-import {QueryObserver, skipToken} from '@tanstack/react-query';
+import {QueryObserver} from '@tanstack/react-query';
 import {queryClient} from './queryClient';
 import {
   DistrictrMap,
   getAvailableDistrictrMaps,
-  Assignment,
   DocumentObject,
   getAssignments,
   getDocument,
-  getZonePopulations,
-  ZonePopulation,
   RemoteAssignmentsResponse,
-  getDistrictrMapPopSummaryStats,
 } from './apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
-import {useChartStore} from '@/app/store/chartStore';
-import {updateChartData} from '../helpers';
-import {
-  P1TotPopSummaryStats,
-  P4VapPopSummaryStats,
-  SummaryStatsResult,
-} from './summaryStats';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
-
-const mapMetrics = new QueryObserver<{data: ZonePopulation[]; hash: string}>(queryClient, {
-  queryKey: ['_zonePopulations'],
-  queryFn: skipToken,
-});
-
-const updateMapMetrics = (mapDocument: DocumentObject) => {
-  mapMetrics.setOptions({
-    queryKey: ['zonePopulations', mapDocument.document_id],
-    queryFn: mapDocument ? () => getZonePopulations(mapDocument) : skipToken,
-  });
-};
-
-mapMetrics.subscribe(result => {
-  // don't load the result if:
-  // no data
-  // if the query is currently fetching
-  // hash is stale, but not the initial hash
-  if (
-    result?.data?.data &&
-    !result.isFetching &&
-    (useMapStore.getState().lastUpdatedHash === result.data?.hash || result?.data.hash == '')
-  ) {
-    useChartStore.getState().setMapMetrics({
-      ...result,
-      // @ts-ignore data is not undefined
-      data: result.data.data,
-    });
-  }
-});
 
 const mapViewsQuery = new QueryObserver<DistrictrMap[]>(queryClient, {
   queryKey: ['views', INITIAL_VIEW_LIMIT, INITIAL_VIEW_OFFSET],
@@ -70,27 +29,6 @@ const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
   mapViewsQuery.subscribe(result => {
     if (result) {
       _useMapStore.getState().setMapViews(result);
-    }
-  });
-  fetchTotPop.subscribe(response => {
-    if (response?.data?.length) {
-      const {setSummaryStat, mapDocument} = _useMapStore.getState();
-      mapDocument?.available_summary_stats.forEach((stat, i) => {
-        const data = response.data?.[i].results;
-        if (data) {
-          setSummaryStat(stat, data);
-          if (stat === 'P1') {
-            const p1Data = data as P1TotPopSummaryStats;
-            setSummaryStat('idealpop', p1Data.total_pop / (mapDocument?.num_districts ?? 4));
-            const mapMetrics = useChartStore.getState().mapMetrics;
-            if (mapMetrics && mapDocument?.num_districts && p1Data.total_pop) {
-              updateChartData(mapMetrics, mapDocument.num_districts, p1Data.total_pop);
-            }
-          }
-        } else {
-          setSummaryStat(stat, undefined);
-        }
-      });
     }
   });
 };
@@ -162,64 +100,15 @@ fetchAssignments.subscribe(assignments => {
       );
     } else {
       loadZoneAssignments(assignments.data);
-      fetchTotPop.refetch();
       useMapStore.temporal.getState().clear();
     }
     setAppLoadingState('loaded');
   }
 });
 
-const fetchTotPop = new QueryObserver<Array<
-  SummaryStatsResult<P1TotPopSummaryStats | P4VapPopSummaryStats>
-> | null>(queryClient, {
-  queryKey: ['gerrydb_tot_pop'],
-  queryFn: () => {
-    const mapDocument = useMapStore.getState().mapDocument;
-    if (!mapDocument) {
-      return null;
-    }
-    return Promise.all(
-      mapDocument?.available_summary_stats?.map(stat =>
-        getDistrictrMapPopSummaryStats(mapDocument, stat)
-      )
-    );
-  },
-});
-
-const updateTotPop = (mapDocument: DocumentObject | null) => {
-  const hasStats = mapDocument?.available_summary_stats?.length;
-  if (!hasStats) {
-    useMapStore.getState().setErrorNotification({
-      severity: 2,
-      id: 'missing-tot-pop',
-      message: `The requested map does not have a population table available. Population stats may not display`,
-    });
-  }
-
-  const innerFn = () => {
-    const mapDocument = useMapStore.getState().mapDocument;
-    if (!mapDocument) {
-      return null;
-    }
-    return Promise.all(
-      mapDocument?.available_summary_stats?.map(stat =>
-        getDistrictrMapPopSummaryStats(mapDocument, stat)
-      )
-    );
-  };
-  fetchTotPop.setOptions({
-    queryFn: innerFn,
-    queryKey: ['gerrydb_tot_pop', mapDocument?.gerrydb_table],
-  });
-};
-
 export {
-  updateMapMetrics,
   updateMapViews,
   getQueriesResultsSubs,
-  updateTotPop,
-  fetchTotPop,
-  mapMetrics,
   mapViewsQuery,
   updateGetDocumentFromId,
   updateAssignments,

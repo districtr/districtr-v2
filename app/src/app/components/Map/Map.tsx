@@ -97,6 +97,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
       className={`relative w-full flex-1 flex-grow
         ${mapLock ? 'pointer-events-none' : ''}
         ${document_id ? '' : 'opacity-25 pointer-events-none'}
+        ${isDemographicMap ? 'border-l-2 border-black' : ''}
         `}
       ref={mapContainer}
     >

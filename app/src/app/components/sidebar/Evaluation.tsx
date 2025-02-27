@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useQuery} from '@tanstack/react-query';
 import {getDocumentEvaluationStats} from '@/app/utils/api/apiHandlers';
@@ -15,6 +15,7 @@ import {
   SummaryTypes,
   TotalColumnKeys,
 } from '@/app/utils/api/summaryStats';
+import { useDemography, useSummaryStats } from '@/app/store/demographCache';
 
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
@@ -83,84 +84,55 @@ const numberFormats: Record<EvalModes, NumberFormats> = {
   totpop: 'percent',
 };
 
-const summaryStatLabels: Record<keyof SummaryTypes, string> = {
-  P1: 'Total Population',
-  P4: 'Voting Age Population',
-};
+const summaryStatLabels: Array<{
+  value: keyof SummaryTypes;
+  label: string;
+}> = [
+  {
+    value: 'P1',
+    label: 'Total Population',
+  },
+  {
+    value: 'P4',
+    label: 'Voting Age Population',
+  }
+]
 
 const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
-
+  const {populationData} = useDemography();
+  const summaryStats = useSummaryStats();
+  const maxValues = summaryStats?.maxValues;
   const numberFormat = numberFormats[evalMode];
   const mapDocument = useMapStore(state => state.mapDocument);
+  const availableSummaries = summaryStatLabels.filter(f => mapDocument?.available_summary_stats?.includes(f.value));
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
   const [summaryType, setSummaryType] = useState<keyof SummaryTypes | undefined>(
     (mapDocument?.available_summary_stats?.includes('P1')
       ? 'P1'
       : mapDocument?.available_summary_stats?.[0]) as keyof SummaryTypes
   );
-  const totals = useMapStore(state => (summaryType ? state.summaryStats[summaryType] : undefined));
+  const totals = summaryStats?.[summaryType as keyof typeof summaryStats];
+  const unassigned = false;
+  useEffect(() => {
+    const hasCurrent = summaryType && mapDocument?.available_summary_stats?.includes(summaryType);
+    if (!hasCurrent) {
+      setSummaryType(mapDocument?.available_summary_stats?.[0] as keyof SummaryTypes);
+    }
+  }, [mapDocument?.available_summary_stats])
 
-  const {data, error, isLoading} = useQuery(
-    {
-      queryKey: ['SummaryStats', mapDocument, assignmentsHash, summaryType],
-      queryFn: () =>
-        mapDocument && summaryType && getDocumentEvaluationStats(mapDocument, summaryType),
-      enabled: !!mapDocument,
-      staleTime: 0,
-      placeholderData: previousData => previousData,
-    },
-    queryClient
-  );
 
   const columnConfig = summaryType ? columnConfigs[summaryType] : [];
   const summaryStatKeys = summaryType ? SummaryStatKeys[summaryType] : [];
   const totalColumn = summaryType ? TotalColumnKeys[summaryType] : undefined;
 
-  const {unassigned, maxValues} = useMemo(() => {
-    if (!data?.results || !totals || !totalColumn) {
-      return {};
-    }
-    let maxValues: Record<string, number> = {};
-    let unassigned: Record<string, number> = {
-      ...totals,
-      zone: -999,
-      total: totals[totalColumn as keyof typeof totals],
-    };
-
-    summaryStatKeys.forEach(key => {
-      let total = unassigned[key];
-      maxValues[key] = -Math.pow(10, 12);
-      data.results.forEach(row => {
-        const value = row[key as keyof typeof row];
-        total -= value;
-        maxValues[key] = Math.max(value, maxValues[key]);
-      });
-      unassigned[`${key}_pct`] = total / unassigned['total'];
-      unassigned[key] = total;
-    });
-
-    return {
-      unassigned,
-      maxValues,
-    };
-  }, [data?.results, totals, totalColumn, summaryStatKeys]);
-
-  if (!data || !maxValues || (mapDocument && !mapDocument.available_summary_stats)) {
+  if (!populationData || !maxValues || (mapDocument && !mapDocument.available_summary_stats)) {
     return <Text>Summary statistics are not available for this map.</Text>;
   }
 
-  if (error) {
-    return (
-      <div>
-        <h1>Summary Statistics</h1>
-        <p>There was an error loading the summary statistics.</p>
-      </div>
-    );
-  }
-  const rows = unassigned && showUnassigned ? [...data.results, unassigned] : data.results;
+  const rows = unassigned && showUnassigned ? [...populationData, unassigned] : populationData
   return (
     <Box width={'100%'}>
       <Tabs.Root
@@ -168,10 +140,10 @@ const Evaluation: React.FC = () => {
         onValueChange={value => setSummaryType(value as keyof SummaryTypes)}
       >
         <Tabs.List>
-          {Object.entries(summaryStatLabels).map(([key, value]) => (
-            <Tabs.Trigger key={key} value={key}>
+          {availableSummaries.map(({value, label}) => (
+            <Tabs.Trigger key={value} value={value}>
               <Heading as="h3" size="3">
-                {value}
+                {label}
               </Heading>
             </Tabs.Trigger>
           ))}
@@ -187,7 +159,6 @@ const Evaluation: React.FC = () => {
             {mode.label}
           </Button>
         ))}
-        {isLoading && <Spinner />}
       </Flex>
       <Flex align="center" gap="3" mt="1">
         <CheckboxGroup.Root
@@ -225,8 +196,8 @@ const Evaluation: React.FC = () => {
           </thead>
           <tbody>
             {rows
-              .sort((a, b) => a.zone - b.zone)
-              .map(row => {
+              .sort((a: any, b: any) => a.zone - b.zone)
+              .map((row: any) => {
                 const isUnassigned = row.zone === -999;
                 const zoneName = isUnassigned ? 'None' : row.zone;
                 const backgroundColor = isUnassigned ? '#DDDDDD' : colorScheme[row.zone - 1];
@@ -245,6 +216,7 @@ const Evaluation: React.FC = () => {
                         evalMode === 'count' ? f.column : `${f.column}_pct`
                       ) as keyof typeof row;
                       const value = row[column];
+                      // @ts-ignore
                       const colorValue = evalMode === 'count' ? value / maxValues[column] : value;
                       const backgroundColor =
                         colorBg && !isUnassigned

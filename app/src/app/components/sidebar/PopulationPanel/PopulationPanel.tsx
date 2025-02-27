@@ -8,24 +8,25 @@ import {useMapStore} from '@store/mapStore';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
+import { useDemography, useSummaryStats } from '@/app/store/demographCache';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
 export const PopulationPanel = () => {
-  const mapMetrics = useChartStore(state => state.mapMetrics);
-  const summaryStats = useMapStore(state => state.summaryStats);
+  const {populationData} = useDemography();
+  const summaryStats = useSummaryStats();
   const idealPopulation = summaryStats?.idealpop;
+  const totalPopData = summaryStats?.P1;
+  
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const showDistrictNumbers = chartOptions.popShowDistrictNumbers;
   const setChartOptions = useChartStore(state => state.setChartOptions);
-  const totalPopData = useMapStore(state => state.summaryStats.P1);
   const unassigned = useChartStore(state => state.chartInfo.unassigned);
-  const chartData = useChartStore(state => state.chartInfo.chartData);
   const stats = useChartStore(state => state.chartInfo.stats);
   const setLockedZones = useMapStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
-  const allAreLocked = chartData.every(d => lockPaintedAreas?.includes(d.zone));
+  const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
 
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
@@ -34,22 +35,7 @@ export const PopulationPanel = () => {
       setLockedZones([...(lockPaintedAreas || []), zone]);
     }
   };
-
-  if (mapMetrics?.isPending || !totalPopData) {
-    return <div>Loading...</div>;
-  }
-
-  if (mapMetrics?.isError) {
-    return (
-      <div>
-        Error:{' '}
-        {'response' in mapMetrics.error
-          ? mapMetrics.error.response.data.detail
-          : mapMetrics.error.message}
-      </div>
-    );
-  }
-  if (!mapMetrics || mapMetrics.data.length === 0) {
+  if (populationData.length === 0) {
     return (
       <Text color="gray" size="2">
         No data to display
@@ -81,7 +67,8 @@ export const PopulationPanel = () => {
               {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
             </IconButton>
           </Flex>
-          {chartData.map((d, i) => (
+          {/* @ts-ignore */}
+          {populationData.map((d, i) => (
             <Flex key={d.zone} direction={'row'} gap={'1'} align={'center'} className="p-0 m-0" justify={"between"}>
               {!!showDistrictNumbers && <Text weight={'bold'}>{d.zone}</Text>}
               <IconButton onClick={() => handleLockChange(d.zone)} variant="ghost">
@@ -96,7 +83,7 @@ export const PopulationPanel = () => {
         </Flex>
         <ParentSize
           style={{
-            minHeight: chartData.length ? `${chartData.length * 40 + 40}px` : '200px',
+            minHeight: populationData.length ? `${populationData.length * 40 + 40}px` : '200px',
             width: '100%',
           }}
         >
@@ -104,7 +91,7 @@ export const PopulationPanel = () => {
             <PopulationChart
               width={width}
               height={height}
-              data={chartData}
+              data={populationData}
               idealPopulation={idealPopulation}
             />
           )}

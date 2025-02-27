@@ -379,7 +379,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             );
           });
 
-          useChartStore.getState().updateMetrics(popChanges);
+          useChartStore.getState().setPaintedChanges(popChanges);
           set({
             isTemporalAction: false,
             assignmentsHash: new Date().toISOString(),

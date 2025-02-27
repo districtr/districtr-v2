@@ -8,11 +8,8 @@ import {
   patchUnShatterParents,
   patchUpdateAssignments,
   patchUpdateReset,
-  populationAbortController,
 } from '@/app/utils/api/apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
-import {mapMetrics} from './queries';
-import {useChartStore} from '@/app/store/chartStore';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -56,8 +53,6 @@ export const patchUpdates = new MutationObserver(queryClient, {
   mutationFn: patchUpdateAssignments,
   onMutate: () => {
     console.log('Updating assignments');
-    populationAbortController?.abort();
-
     const {zoneAssignments, shatterIds, shatterMappings, mapDocument, lastUpdatedHash} =
       useMapStore.getState();
     if (!mapDocument) return;
@@ -68,7 +63,6 @@ export const patchUpdates = new MutationObserver(queryClient, {
   onSuccess: (data: AssignmentsCreate) => {
     console.log(`Successfully upserted ${data.assignments_upserted} assignments`);
     const {isPainting} = useMapStore.getState();
-    const {mapMetrics: _mapMetrics} = useChartStore.getState();
     // remove trailing shattered features
     // This needs to happen AFTER the updates are done
     const {processHealParentsQueue, mapOptions, parentsToHeal} = useMapStore.getState();

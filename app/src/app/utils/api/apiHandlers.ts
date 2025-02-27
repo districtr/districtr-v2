@@ -182,45 +182,6 @@ export interface ZonePopulation {
   total_pop: number;
 }
 
-// TODO: Tanstack has a built in abort controller, we should use that
-// https://tanstack.com/query/v5/docs/framework/react/guides/query-cancellation
-export let populationAbortController: AbortController | null = null;
-export let currentHash: string = '';
-
-/**
- * Get zone populations from the server.
- * @param mapDocument - DocumentObject, the document object
- * @returns Promise<ZonePopulation[]>
- */
-export const getZonePopulations: (
-  mapDocument: DocumentObject
-) => Promise<{data: ZonePopulation[]; hash: string}> = async mapDocument => {
-  populationAbortController?.abort();
-  populationAbortController = new AbortController();
-  const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
-  if (currentHash !== assignmentHash) {
-    // return stale data if map already changed
-    return {
-      data: useChartStore.getState().mapMetrics?.data || [],
-      hash: assignmentHash,
-    };
-  }
-  if (mapDocument) {
-    return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`, {
-        signal: populationAbortController.signal,
-      })
-      .then(res => {
-        return {
-          data: res.data as ZonePopulation[],
-          hash: assignmentHash,
-        };
-      });
-  } else {
-    throw new Error('No document provided');
-  }
-};
-
 /**
  * Get zone stats from the server.
  * @param mapDocument - DocumentObject, the document object
@@ -335,7 +296,6 @@ export const patchUpdateAssignments: (upadteData: {
   assignments: Assignment[];
   updateHash: string;
 }) => Promise<AssignmentsCreate> = async ({assignments, updateHash}) => {
-  currentHash = `${useMapStore.getState().assignmentsHash}`;
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,

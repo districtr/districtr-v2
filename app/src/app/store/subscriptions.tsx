@@ -6,14 +6,12 @@ import {useHoverStore} from './hoverFeatures';
 import {getMapEditSubs} from './mapEditSubs';
 import {getRenderSubscriptions} from './mapRenderSubs';
 import {MapStore, useMapStore} from './mapStore';
-import {getMapMetricsSubs} from './metricsSubs';
 
 export const initSubs = () => {
   // these need to initialize after the map store
   getRenderSubscriptions(useMapStore, useHoverStore, useDemographyStore);
   getQueriesResultsSubs(useMapStore);
   getMapEditSubs(useMapStore);
-  getMapMetricsSubs(useMapStore);
   getSearchParamsObserver();
 
   useMapStore.subscribe<[MapStore['mapDocument'], MapStore['shatterIds']['parents']]>(
