@@ -258,8 +258,8 @@ def test_create_shatterable_gerrydb_view(
 ):
     create_shatterable_gerrydb_view(
         session,
-        parent_layer_name="simple_parent_geos",
-        child_layer_name="simple_child_geos",
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
         gerrydb_table_name="simple_geos_test",
     )
     session.commit()
