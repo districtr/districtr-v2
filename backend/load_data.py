@@ -151,7 +151,7 @@ def load_sample_data(config: Config) -> None:
                 )
 
         if view.child_layer is not None:
-            _create_parent_child_edges(session=session, districtr_map_uuid=str(u))
+            _create_parent_child_edges(session=session, districtr_map_uuid=str(u[0]))
 
         session.commit()
 
