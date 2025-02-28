@@ -249,6 +249,31 @@ export const getZonePopulations: (
   }
 };
 
+/**
+ * Get zone populations from the server.
+ * @param mapDocument - DocumentObject, the document object
+ * @returns Promise<ZonePopulation[]>
+ */
+export const getContiguity: (
+  mapDocument: DocumentObject
+) => Promise<any> = async mapDocument => {
+  // const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
+  // if (currentHash !== assignmentHash) {
+  //   // return stale data if map already changed
+  //   return {};
+  // }
+  if (mapDocument) {
+    return await axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity`, {
+      })
+      .then(res => {
+        return res.data
+      });
+  } else {
+    throw new Error('No document provided');
+  }
+};
+
 export interface SummaryStatsResult<T extends object> {
   summary_stat: string;
   results: T;
