@@ -13,9 +13,9 @@ import {
 } from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
-import {idCache} from '../store/idCache';
+import {demographyCache} from './demography/demographyCache';
 import {ChartStore, useChartStore} from '@/app/store/chartStore';
-import { calculateMinMaxRange } from './zone-helpers';
+import {calculateMinMaxRange} from './zone-helpers';
 
 /**
  * PaintEventHandler
@@ -140,31 +140,7 @@ export const getFeaturesIntersectingCounties = (
 
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
-  const {mapDocument, shatterIds} = useMapStore.getState();
-  const filterPrefix = mapDocument?.parent_layer.includes('vtd') ? 'vtd:' : '';
-  const cachedParentFeatures = idCache
-    .getFiltered(`${filterPrefix}${fips}`)
-    .map(([id, properties]) => ({
-      source: BLOCK_SOURCE_ID,
-      sourceLayer: mapDocument?.parent_layer,
-      id,
-      ...properties,
-    }));
-
-  const childFeatures = shatterIds.children.size
-    ? (Array.from(shatterIds.children).map(id => ({
-        id,
-        source: BLOCK_SOURCE_ID,
-        sourceLayer: mapDocument?.child_layer,
-        properties: {
-          path: id,
-        },
-      })) as any)
-    : [];
-
-  return filterFeatures([...cachedParentFeatures, ...childFeatures], true, [
-    feature => Boolean(feature?.id && feature.id.toString().match(/\d{5}/)?.[0] === fips),
-  ]);
+  return filterFeatures(demographyCache.getFiltered(fips), true);
 };
 
 /**
@@ -499,41 +475,4 @@ const filterFeatures = (
   });
   parentIdsToHeal.length && checkParentsToHeal(parentIdsToHeal);
   return filteredFeatures;
-};
-
-export const updateChartData = (
-  mapMetrics: ChartStore['mapMetrics'],
-  numDistricts: number | undefined,
-  totPop: number | undefined
-) => {
-  let unassigned = structuredClone(totPop)!;
-  if (totPop && numDistricts && mapMetrics && mapMetrics.data && numDistricts && totPop) {
-    const populations: Record<string, number> = {};
-
-    new Array(numDistricts).fill(null).forEach((_, i) => {
-      const zone = i + 1;
-      populations[zone] = mapMetrics.data.find(f => f.zone === zone)?.total_pop ?? 0;
-    });
-    const chartData = Object.entries(populations).map(([zone, total_pop]) => {
-      unassigned -= total_pop;
-      return {zone: +zone, total_pop};
-    });
-
-    const allAreNonZero = chartData.every(entry => entry.total_pop > 0);
-    const stats = allAreNonZero ? calculateMinMaxRange(chartData) : undefined;
-    
-    useChartStore.getState().setChartInfo({
-      stats,
-      chartData,
-      unassigned,
-      totPop,
-    });
-  } else {
-    useChartStore.getState().setChartInfo({
-      stats: undefined,
-      chartData: [],
-      unassigned: null,
-      totPop: 0,
-    });
-  }
 };
