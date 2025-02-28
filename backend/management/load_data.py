@@ -7,6 +7,8 @@ from app.utils import (
     create_districtr_map,
     create_shatterable_gerrydb_view,
     get_local_or_s3_path,
+    add_extent_to_districtrmap,
+    add_available_summary_stats_to_districtrmap,
 )
 from app.main import get_session
 from app.core.config import settings
@@ -237,6 +239,14 @@ def load_sample_data(
                 raise ValueError(
                     f"Districtr map with gerrydb_table_name {view.gerrydb_table_name} not found"
                 )
+
+        logger.info(f"Adding extent to districtr map with UUID {u}")
+        add_extent_to_districtrmap(session=session, districtr_map_uuid=u)
+
+        logger.info(f"Adding available summary stats to districtr map with UUID {u}")
+        _ = add_available_summary_stats_to_districtrmap(
+            session=session, districtr_map_uuid=u
+        )
 
         if view.child_layer is not None:
             _create_parent_child_edges(session=session, districtr_map_uuid=str(u))
