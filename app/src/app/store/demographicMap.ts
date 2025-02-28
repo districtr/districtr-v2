@@ -6,7 +6,7 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import maplibregl from 'maplibre-gl';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import * as scale from 'd3-scale'
-import { demographyCache } from './demographCache';
+import { demographyCache } from '../utils/demography/demographyCache';
 
 export const DEFAULT_COLOR_SCHEME = ['#edf8fb', '#b2e2e2', '#66c2a4', '#2ca25f', '#006d2c'];
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys[5];
@@ -201,6 +201,9 @@ export var useDemographyStore = create(
         [...newShatterChildren, ...oldParentsHealed].forEach(id => {
           fetchUrl.searchParams.append('ids', id)
         })
+      } else {
+        // This is a full pull of the data
+        demographyCache.clear();
       }
 
       await fetch(fetchUrl.toString())

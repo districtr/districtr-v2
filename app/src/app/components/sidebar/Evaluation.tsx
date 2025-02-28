@@ -1,10 +1,7 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
-import {useQuery} from '@tanstack/react-query';
-import {getDocumentEvaluationStats} from '@/app/utils/api/apiHandlers';
 import {Box, Button, CheckboxGroup, Heading, Tabs} from '@radix-ui/themes';
-import {Flex, Spinner, Text} from '@radix-ui/themes';
-import {queryClient} from '@utils/api/queryClient';
+import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
 import {interpolateGreys} from 'd3-scale-chromatic';
@@ -15,7 +12,7 @@ import {
   SummaryTypes,
   TotalColumnKeys,
 } from '@/app/utils/api/summaryStats';
-import { useDemography, useSummaryStats } from '@/app/store/demographCache';
+import { useDemography, useSummaryStats } from '@/app/utils/demography/demographyCache';
 
 type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;

@@ -10,7 +10,7 @@ import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
 import {useDemographyStore as _useDemographyStore} from './demographicMap';
 import {useHoverStore as _useHoverStore, HoverFeatureStore} from './hoverFeatures';
-import { demographyCache } from './demographCache';
+import { demographyCache } from '../utils/demography/demographyCache';
 
 export const getRenderSubscriptions = (
   useMapStore: typeof _useMapStore,

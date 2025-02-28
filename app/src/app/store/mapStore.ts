@@ -32,7 +32,7 @@ import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
 import { P1TotPopSummaryStats, P4VapPopSummaryStats } from '../utils/api/summaryStats';
-import { demographyCache } from './demographCache';
+import { demographyCache } from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demographicMap';
 import { initSubs } from './subscriptions';
 
@@ -389,6 +389,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
         setMapViews: mapViews => set({mapViews}),
         mapDocument: null,
         setMapDocument: mapDocument => {
+          demographyCache.clear();
           const {
             mapDocument: currentMapDocument,
             setFreshMap,

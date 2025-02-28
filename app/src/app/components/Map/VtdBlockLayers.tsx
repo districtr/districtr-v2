@@ -10,7 +10,7 @@ import {
   LABELS_BREAK_LAYER_ID,
   ZONE_ASSIGNMENT_STYLE,
 } from '@/app/constants/layers';
-import {demographyCache} from '@/app/store/demographCache';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {
   AllDemographyVariables,
   DEFAULT_COLOR_SCHEME,

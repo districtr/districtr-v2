@@ -8,7 +8,7 @@ import {useMapStore} from '@store/mapStore';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
-import { useDemography, useSummaryStats } from '@/app/store/demographCache';
+import { useDemography, useSummaryStats } from '@/app/utils/demography/demographyCache';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 

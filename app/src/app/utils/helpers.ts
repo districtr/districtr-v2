@@ -13,7 +13,7 @@ import {
 } from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
-import {demographyCache} from '../store/demographCache';
+import {demographyCache} from './demography/demographyCache';
 import {ChartStore, useChartStore} from '@/app/store/chartStore';
 import {calculateMinMaxRange} from './zone-helpers';
 

@@ -1,89 +1,83 @@
-// @ts-nocheck
-"use client"
-import {all, desc, op, table} from 'arquero';
+'use client';
+import {op, table} from 'arquero';
 import type {ColumnTable} from 'arquero';
-import {DocumentObject} from '../utils/api/apiHandlers';
-import {BLOCK_SOURCE_ID} from '../constants/layers';
+import {DocumentObject} from '../api/apiHandlers';
+import {BLOCK_SOURCE_ID} from '../../constants/layers';
 import {MapGeoJSONFeature} from 'maplibre-gl';
-import {MapStore, useMapStore} from './mapStore';
-import {useChartStore} from './chartStore';
+import {MapStore, useMapStore} from '../../store/mapStore';
+import {useChartStore} from '../../store/chartStore';
 import {
   P1TotPopSummaryStats,
+  P1ZoneSummaryStats,
   P4VapPopSummaryStats,
+  P4ZoneSummaryStats,
   SummaryStatKeys,
   SummaryTypes,
-} from '../utils/api/summaryStats';
+} from '../api/summaryStats';
 import {useMemo} from 'react';
+import {getMaxRollups, getPctDerives, getRollups} from './arquero';
+import {MaxValues, SummaryRecord, SummaryTable} from './types';
 
-const ID_COL = 'path';
 
-const getRollups = (stats: Record<keyof SummaryTypes, boolean>) => {
-  const rollups = {};
-  Object.keys(stats).forEach(stat => {
-    if (stat in SummaryStatKeys) {
-      // @ts-ignore
-      SummaryStatKeys[stat].forEach(key => {
-        rollups[key] = op.sum(key);
-      });
-    }
-  });
-  return rollups;
-};
 
-const getPctDerives = (stats: Record<keyof SummaryTypes, boolean>) => ({
-  other_pop_pct: !stats.P1 ? NaN : row => row['other_pop'] / row['total_pop'],
-  asian_pop_pct: !stats.P1 ? NaN : row => row['asian_pop'] / row['total_pop'],
-  amin_pop_pct: !stats.P1 ? NaN : row => row['amin_pop'] / row['total_pop'],
-  nhpi_pop_pct: !stats.P1 ? NaN : row => row['nhpi_pop'] / row['total_pop'],
-  black_pop_pct: !stats.P1 ? NaN : row => row['black_pop'] / row['total_pop'],
-  white_pop_pct: !stats.P1 ? NaN : row => row['white_pop'] / row['total_pop'],
-  two_or_more_races_pop_pct: !stats.P1 ? NaN : row => row['two_or_more_races_pop'] / row['total_pop'],
-  hispanic_vap_pct: !stats.P4 ? NaN : row => row['hispanic_vap'] / row['total_vap'],
-  non_hispanic_asian_vap_pct: !stats.P4 ? NaN : row => row['non_hispanic_asian_vap'] / row['total_vap'],
-  non_hispanic_amin_vap_pct: !stats.P4 ? NaN : row => row['non_hispanic_amin_vap'] / row['total_vap'],
-  non_hispanic_nhpi_vap_pct: !stats.P4 ? NaN : row => row['non_hispanic_nhpi_vap'] / row['total_vap'],
-  non_hispanic_black_vap_pct: !stats.P4 ? NaN : row => row['non_hispanic_black_vap'] / row['total_vap'],
-  non_hispanic_white_vap_pct: !stats.P4 ? NaN : row => row['non_hispanic_white_vap'] / row['total_vap'],
-  non_hispanic_other_vap_pct: !stats.P4 ? NaN : row => row['non_hispanic_other_vap'] / row['total_vap'],
-  non_hispanic_two_or_more_races_vap_pct: !stats.P4 ? NaN : row => row['non_hispanic_two_or_more_races_vap'] / row['total_vap'],
-})
-
-const getMaxRollups = (stats: Record<keyof SummaryTypes, boolean>) => {
-  const rollups = {};
-  Object.keys(stats).forEach(stat => {
-    if (stat in SummaryStatKeys) {
-      SummaryStatKeys[stat].forEach(key => {
-        rollups[key] = op.max(key);
-        if (!key.includes('total')) {
-          rollups[key + '_pct'] = op.max(key + '_pct');
-        }
-      });
-    }
-  });
-  return rollups;
-};
-
+/**
+ * Class to organize queries on current demographic data
+ */
 class DemographyCache {
+  /**
+   * Arquero main data table.
+   * Reflects the stats pulled from the api/document/{doc id}/demography endpoint
+   */
   table?: ColumnTable;
+
+  /**
+   * The zone data table.
+   * Updates to match the zone assignments in the state.
+   */
   zoneTable?: ColumnTable;
 
-  populations: Array<Record<keyof SummaryTypes, number>> = [];
+  /**
+   * The summary of populations.
+   */
+  populations: SummaryTable = [];
+
+  /**
+   * The hash representing the current state of the cache.
+   */
   hash: string = '';
 
+  /**
+   * The column used for identifying rows.
+   */
+  id_col: string = 'path';
+
+  /**
+   * Available summary statistics / derived values.
+   */
   summaryStats: {
     P1?: P1TotPopSummaryStats;
     P4?: P4VapPopSummaryStats;
+    maxValues?: MaxValues;
     idealpop?: number;
     totalPopulation?: number;
-    maxValues?: Record<keyof SummaryTypes, number>;
   } = {};
 
+  /**
+   * Rotates the given columns and data rows from an 2D array into an arquero object.
+   * Arquero expects an object with columnar arrays to make a table
+   *
+   * @param columns - The columns to rotate.
+   * @param dataRows - The data rows to rotate.
+   * @param childIds - The set of child IDs.
+   * @param mapDocument - The map document object.
+   * @returns The rotated data as an object.
+   */
   rotate(
     columns: Array<string>,
     dataRows: Array<Array<string | number>>,
     childIds: Set<string>,
     mapDocument: DocumentObject
-  ) {
+  ): Record<string, any> {
     const output: Record<string, any> = {};
     for (let i = 0; i < columns.length; i++) {
       const column = columns[i];
@@ -95,6 +89,16 @@ class DemographyCache {
     return output;
   }
 
+  /**
+   * Updates this class with new data from the backend. 
+   *
+   * @param columns - The columns to update.
+   * @param dataRows - The data rows to update.
+   * @param excludeIds - The set of IDs to exclude.
+   * @param childIds - The set of child IDs.
+   * @param mapDocument - The map document object.
+   * @param hash - The hash representing the new state.
+   */
   update(
     columns: Array<string>,
     dataRows: Array<Array<string | number>>,
@@ -102,7 +106,7 @@ class DemographyCache {
     childIds: Set<string>,
     mapDocument: DocumentObject,
     hash: string
-  ) {
+  ): void {
     if (hash === this.hash) return;
     const newTable = table(this.rotate(columns, dataRows, childIds, mapDocument));
     if (!this.table) {
@@ -117,7 +121,12 @@ class DemographyCache {
     this.hash = hash;
   }
 
-  updateZoneTable(zoneAssignments: MapStore['zoneAssignments']) {
+  /**
+   * Updates the zone table with new zone assignments.
+   *
+   * @param zoneAssignments - The zone assignments to update.
+   */
+  updateZoneTable(zoneAssignments: MapStore['zoneAssignments']): void {
     const rows = zoneAssignments.size;
     const zoneColumns = {
       path: new Array(rows),
@@ -131,16 +140,29 @@ class DemographyCache {
     this.zoneTable = table(zoneColumns);
   }
 
-  clear() {
+  /**
+   * Clears the cache.
+   */
+  clear(): void {
     this.table = undefined;
+    this.zoneTable = undefined;
+    this.populations = [];
+    this.summaryStats = {};
+    this.hash = '';
   }
-  getFiltered(id: string) {
+
+  /**
+   * Gets the filtered data for a given ID.
+   *
+   * @param id - The ID to filter by.
+   * @returns The filtered data.
+   */
+  getFiltered(id: string): MapGeoJSONFeature[] {
     if (!this.table) {
       return [];
     }
-    const t0 = performance.now();
     const ids = this.table
-      .select(ID_COL, 'sourceLayer', 'total_pop')
+      .select(this.id_col, 'sourceLayer', 'total_pop')
       .params({
         id: id,
         vtdId: `vtd:${id}`,
@@ -158,7 +180,13 @@ class DemographyCache {
       })) as MapGeoJSONFeature[];
     return ids;
   }
-  getAvailableSummariesObject() {
+
+  /**
+   * Gets the available summaries object.
+   *
+   * @returns The available summaries object.
+   */
+  getAvailableSummariesObject(): Record<keyof SummaryTypes, boolean> {
     const mapDocument = useMapStore.getState().mapDocument;
     if (!mapDocument?.available_summary_stats) {
       return {} as Record<keyof SummaryTypes, boolean>;
@@ -172,7 +200,14 @@ class DemographyCache {
       {} as Record<keyof SummaryTypes, boolean>
     );
   }
-  calculatePopulations(zoneAssignments?: MapStore['zoneAssignments']) {
+
+  /**
+   * Calculates the populations based on zone assignments.
+   *
+   * @param zoneAssignments - The zone assignments to use for calculation.
+   * @returns The calculated populations.
+   */
+  calculatePopulations(zoneAssignments?: MapStore['zoneAssignments']): SummaryTable {
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
     }
@@ -187,33 +222,46 @@ class DemographyCache {
       .rollup(getRollups(availableStats))
       .derive(getPctDerives(availableStats));
 
-    this.summaryStats.maxValues = populationsTable.rollup(getMaxRollups(availableStats)).objects()[0];
-    this.populations = populationsTable.objects();
+    const maxRollups = populationsTable
+      .rollup(getMaxRollups(availableStats))
+      .objects()[0] as MaxValues;
+    if (maxRollups) {
+      this.summaryStats.maxValues = maxRollups;
+    }
+    this.populations = populationsTable.objects() as SummaryTable;
 
     return this.populations;
   }
 
-  calculateSummaryStats() {
+  /**
+   * Calculates the summary statistics.
+   */
+  calculateSummaryStats(): void {
     if (!this.table) return;
     const availableStats = this.getAvailableSummariesObject();
-    const summaries = this.table.rollup(getRollups(availableStats)).objects()[0];
+    const summaries = this.table.rollup(getRollups(availableStats)).objects()[0] as SummaryRecord;
     const mapDocument = useMapStore.getState().mapDocument;
 
-    Object.keys(summaries).forEach(key => {
+    Object.keys(availableStats).forEach((key) => {
+      const summaryStats: Partial<P1ZoneSummaryStats & P4ZoneSummaryStats> = {};
       const statKeys = SummaryStatKeys[key as keyof SummaryTypes];
       if (!statKeys) return;
-      statKeys.forEach(stat => {
-        this.summaryStats[key as keyof SummaryTypes][stat] = summaries[stat]
-      });
-    })
+      statKeys.forEach(stat => summaryStats[stat] = summaries[stat]);
+      this.summaryStats[key as keyof SummaryTypes] = summaryStats as P1TotPopSummaryStats & P4VapPopSummaryStats;
+    });
 
-    this.summaryStats.totalPopulation = summaries.total_pop
-    this.summaryStats.idealpop = summaries.total_pop / (mapDocument?.num_districts ?? 4)
+    this.summaryStats.totalPopulation = summaries.total_pop;
+    this.summaryStats.idealpop = summaries.total_pop / (mapDocument?.num_districts ?? 4);
 
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
   }
 
-  updatePopulations(zoneAssignments?: MapStore['zoneAssignments']) {
+  /**
+   * Updates the populations based on zone assignments.
+   *
+   * @param zoneAssignments - The zone assignments to use for updating populations.
+   */
+  updatePopulations(zoneAssignments?: MapStore['zoneAssignments']): void {
     this.calculatePopulations(zoneAssignments);
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
   }
@@ -226,15 +274,11 @@ export const useDemography = () => {
   const paintedChanges = useChartStore(state => state.paintedChanges);
   const populationData = useMemo(() => {
     let cleanedData = structuredClone(demographyCache.populations)
-      // @ts-ignore
       .filter(row => Boolean(row.zone))
-      // @ts-ignore
       .sort((a, b) => a.zone - b.zone);
     Object.entries(paintedChanges).forEach(([zone, pop]) => {
-      // @ts-ignore
       const index = cleanedData.findIndex(row => row.zone === parseInt(zone));
       if (index !== -1) {
-        // @ts-ignore
         cleanedData[index].total_pop += pop;
       }
     });

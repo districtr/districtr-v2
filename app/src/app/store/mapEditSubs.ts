@@ -5,7 +5,7 @@ import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
 import GeometryWorker from '../utils/GeometryWorker';
-import { demographyCache } from './demographCache';
+import { demographyCache } from '../utils/demography/demographyCache';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
