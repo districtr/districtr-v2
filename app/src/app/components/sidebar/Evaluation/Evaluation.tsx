@@ -2,106 +2,24 @@ import React, {useEffect, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {Box, Button, CheckboxGroup, Heading, Tabs} from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
-import {formatNumber, NumberFormats} from '@/app/utils/numbers';
+import {formatNumber} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
 import {interpolateGreys} from 'd3-scale-chromatic';
 import {
-  P1ZoneSummaryStats,
-  P4ZoneSummaryStats,
   SummaryStatKeys,
   SummaryTypes,
   TotalColumnKeys,
 } from '@/app/utils/api/summaryStats';
 import { useDemography, useSummaryStats } from '@/app/utils/demography/demographyCache';
-
-type EvalModes = 'share' | 'count' | 'totpop';
-type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
-
-const p1ColumnConfig: ColumnConfiguration<P1ZoneSummaryStats> = [
-  {
-    label: 'White',
-    column: 'white_pop',
-  },
-  {
-    label: 'Black',
-    column: 'black_pop',
-  },
-  {
-    label: 'Asian',
-    column: 'asian_pop',
-  },
-  {
-    label: 'Am. Indian',
-    column: 'amin_pop',
-  },
-  {
-    label: 'Pacific Isl.',
-    column: 'nhpi_pop',
-  },
-  {
-    label: 'Two or More Races',
-    column: 'two_or_more_races_pop',
-  },
-  {
-    label: 'Other',
-    column: 'other_pop',
-  },
-];
-
-const p4ColumnConfig: ColumnConfiguration<P4ZoneSummaryStats> = [
-  {column: 'hispanic_vap', label: 'Hispanic'},
-  {column: 'non_hispanic_asian_vap', label: 'Non-hispanic Asian'},
-  {column: 'non_hispanic_amin_vap', label: 'Non-hispanic Amin.'},
-  {column: 'non_hispanic_nhpi_vap', label: 'Non-hispanic NHPI'},
-  {column: 'non_hispanic_black_vap', label: 'Non-hispanic Black'},
-  {column: 'non_hispanic_white_vap', label: 'Non-hispanic White'},
-  {column: 'non_hispanic_other_vap', label: 'Non-hispanic Other'},
-  {column: 'non_hispanic_two_or_more_races_vap', label: 'Non-hispanic 2+ Races'},
-];
-
-const columnConfigs = {
-  P1: p1ColumnConfig,
-  P4: p4ColumnConfig,
-} as const;
-
-const modeButtonConfig: Array<{label: string; value: EvalModes}> = [
-  {
-    label: 'Population by Share',
-    value: 'share',
-  },
-  {
-    label: 'Population by Count',
-    value: 'count',
-  },
-];
-
-const numberFormats: Record<EvalModes, NumberFormats> = {
-  share: 'percent',
-  count: 'string',
-  totpop: 'percent',
-};
-
-const summaryStatLabels: Array<{
-  value: keyof SummaryTypes;
-  label: string;
-}> = [
-  {
-    value: 'P1',
-    label: 'Total Population',
-  },
-  {
-    value: 'P4',
-    label: 'Voting Age Population',
-  }
-]
+import { numberFormats, summaryStatLabels, EvalModes, columnConfigs, modeButtonConfig } from './config';
 
 const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
   const {populationData} = useDemography();
-  const summaryStats = useSummaryStats();
-  const maxValues = summaryStats?.maxValues;
+  const {summaryStats, zoneStats} = useSummaryStats();
+  const maxValues = zoneStats?.maxValues;
   const numberFormat = numberFormats[evalMode];
   const mapDocument = useMapStore(state => state.mapDocument);
   const availableSummaries = summaryStatLabels.filter(f => mapDocument?.available_summary_stats?.includes(f.value));

@@ -1,4 +1,4 @@
-import Evaluation from '@components/sidebar/Evaluation';
+import Evaluation from '@/app/components/sidebar/Evaluation/Evaluation';
 import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {MapStore} from '@/app/store/mapStore';
 import { DemographicMapPanel } from './DemographicMapPanel';

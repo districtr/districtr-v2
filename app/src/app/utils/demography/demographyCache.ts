@@ -57,10 +57,16 @@ class DemographyCache {
   summaryStats: {
     P1?: P1TotPopSummaryStats;
     P4?: P4VapPopSummaryStats;
-    maxValues?: MaxValues;
     idealpop?: number;
     totalPopulation?: number;
   } = {};
+
+  zoneStats: {
+    maxValues?: MaxValues;
+    maxPopulation?: number;
+    minPopulation?: number;
+    range?: number;
+  } = {}
 
   /**
    * Rotates the given columns and data rows from an 2D array into an arquero object.
@@ -208,6 +214,7 @@ class DemographyCache {
    * @returns The calculated populations.
    */
   calculatePopulations(zoneAssignments?: MapStore['zoneAssignments']): SummaryTable {
+    const numZones = useMapStore.getState().mapDocument?.num_districts ?? 4;
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
     }
@@ -225,11 +232,24 @@ class DemographyCache {
     const maxRollups = populationsTable
       .rollup(getMaxRollups(availableStats))
       .objects()[0] as MaxValues;
-    if (maxRollups) {
-      this.summaryStats.maxValues = maxRollups;
-    }
-    this.populations = populationsTable.objects() as SummaryTable;
 
+    if (maxRollups) {
+      this.zoneStats.maxValues = maxRollups;
+    }
+    const zonePopulationsTable = populationsTable.objects().filter((f: any) => Boolean(f.zone)) as SummaryTable;
+    if (zonePopulationsTable.length !== numZones) {
+      for (let i=1;i<numZones+1;i++) {
+        if (!zonePopulationsTable.find(row => row.zone === i)) {
+          // @ts-ignore
+          zonePopulationsTable.push({zone: i, total_pop: 0});
+        }
+      }
+    }
+    this.populations = zonePopulationsTable.sort((a, b) => a.zone - b.zone);
+    const popNumbers = this.populations.map(row => row.total_pop);
+    this.zoneStats.maxPopulation = Math.max(...popNumbers);
+    this.zoneStats.minPopulation = Math.min(...popNumbers);  
+    this.zoneStats.range = this.zoneStats.maxPopulation - this.zoneStats.minPopulation;
     return this.populations;
   }
 
@@ -263,6 +283,7 @@ class DemographyCache {
    */
   updatePopulations(zoneAssignments?: MapStore['zoneAssignments']): void {
     this.calculatePopulations(zoneAssignments);
+    // .max .range
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
   }
 }
@@ -291,7 +312,9 @@ export const useDemography = () => {
 
 export const useSummaryStats = () => {
   const _hash = useChartStore(state => state.dataUpdateHash);
+  console.log("!!!", demographyCache.summaryStats, demographyCache.zoneStats)
   return {
-    ...demographyCache.summaryStats,
+    summaryStats: demographyCache.summaryStats,
+    zoneStats: demographyCache.zoneStats,
   };
 };

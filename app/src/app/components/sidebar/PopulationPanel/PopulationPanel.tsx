@@ -14,16 +14,15 @@ const maxNumberOrderedBars = 40; // max number of zones to consider while keepin
 
 export const PopulationPanel = () => {
   const {populationData} = useDemography();
-  const summaryStats = useSummaryStats();
+  const {summaryStats, zoneStats} = useSummaryStats();
   const idealPopulation = summaryStats?.idealpop;
-  const totalPopData = summaryStats?.P1;
   
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const showDistrictNumbers = chartOptions.popShowDistrictNumbers;
   const setChartOptions = useChartStore(state => state.setChartOptions);
   const unassigned = useChartStore(state => state.chartInfo.unassigned);
-  const stats = useChartStore(state => state.chartInfo.stats);
+  
   const setLockedZones = useMapStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
   const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
@@ -115,10 +114,10 @@ export const PopulationPanel = () => {
           <Text>
             Top-to-bottom population deviation <InfoTip tips="topToBottomDeviation" />
             <br />
-            {stats?.range !== undefined ? (
+            {(zoneStats?.range !== undefined && zoneStats.maxPopulation !== undefined) ? (
               <>
-                <b>{formatNumber(stats.range / stats.max, 'percent')}</b> (
-                {formatNumber(stats.range || 0, 'string')})
+                <b>{formatNumber(zoneStats.range / zoneStats.maxPopulation, 'percent')}</b> (
+                {formatNumber(zoneStats.range || 0, 'string')})
               </>
             ) : (
               ' will appear when all districts are started'

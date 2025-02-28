@@ -9,6 +9,7 @@ import {
 import {DemographyRow, MaxRollups} from './types';
 
 const NaNfN = (_row: DemographyRow) => NaN;
+
 export const getRollups = (stats: Record<keyof SummaryTypes, boolean>) => {
   const rollups: Partial<P1TotPopSummaryStats & P4VapPopSummaryStats> = {};
   Object.keys(stats).forEach(stat => {
