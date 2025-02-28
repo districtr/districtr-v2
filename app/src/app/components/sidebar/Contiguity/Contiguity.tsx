@@ -48,7 +48,7 @@ export const Contiguity = () => {
     return <div>Loading...</div>;
   }
   if (error || data.detail) {
-    return <div>Error: {error?.message || data.data}</div>;
+    return <div>Error: {error?.message || data.detail}</div>;
   }
 
   return (
