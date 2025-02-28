@@ -267,7 +267,9 @@ def test_patch_assignments(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 3}
+    assert response.json().get("assignments_upserted") == 3
+    updated_at = response.json().get("updated_at")
+    assert updated_at is not None
 
 
 def test_patch_assignments_nulls(client, document_id):
@@ -283,7 +285,9 @@ def test_patch_assignments_nulls(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 3}
+    data = response.json()
+    assert data.get("assignments_upserted") == 3
+    assert data.get("updated_at") is not None
 
 
 def test_patch_assignments_twice(client, document_id):
@@ -298,7 +302,9 @@ def test_patch_assignments_twice(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 2}
+    data = response.json()
+    assert data.get("assignments_upserted") == 2
+    assert data.get("updated_at") is not None
 
     response = client.patch(
         "/api/update_assignments",
@@ -311,7 +317,8 @@ def test_patch_assignments_twice(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 2}
+    assert data.get("assignments_upserted") == 2
+    assert data.get("updated_at") is not None
     # Check that the assignments were updated and not inserted
     doc_uuid = str(uuid.UUID(document_id))
     response = client.get(f"/api/get_assignments/{doc_uuid}")
@@ -349,7 +356,9 @@ def test_get_document_population_totals_null_assignments(
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 3}
+    data = response.json()
+    assert data.get("assignments_upserted") == 3
+    assert data.get("updated_at") is not None
     doc_uuid = str(uuid.UUID(document_id))
     result = client.get(f"/api/document/{doc_uuid}/total_pop")
     assert result.status_code == 200
