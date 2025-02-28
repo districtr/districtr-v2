@@ -1,8 +1,9 @@
 # Pipelines
 
-Data pipelines, ETL. Thinking of using [Dagster](https://dagster.io/) as the main ELT orchestrator.
+Where data processing/ELT that can happen outside the API should go. Currently all pipelines are run locally.
+This project does not presently necessitate an orchestrator or cloud infra beyond object storage.
+Most Input datasets come from the gerrydb project.
 
 Structure:
 
-- `simple_elt`: Miscellaneous ETL scripts for simple experiments. Production ELT should be done in Dagster.
-- `tbd`: Folder with Dagster set-up.
+- `tilesets`: CLI for creating tilesets consumed by Districtr v2.

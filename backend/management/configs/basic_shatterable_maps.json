@@ -28,43 +28,43 @@
   "shatterable_views": [
     {
       "gerrydb_table_name": "co_p1_view",
-      "parent_layer_name": "co_vtd_p1_view",
-      "child_layer_name": "co_block_p1_view"
+      "parent_layer": "co_vtd_p14_view",
+      "child_layer": "co_block_p14_view"
     },
     {
       "gerrydb_table_name": "pa_p14_view",
-      "parent_layer_name": "pa_vtd_p14_view",
-      "child_layer_name": "pa_block_p14_view"
+      "parent_layer": "pa_vtd_p14_view",
+      "child_layer": "pa_block_p14_view"
     },
     {
       "gerrydb_table_name": "ks_p14_view",
-      "parent_layer_name": "ks_vtd_p14_view",
-      "child_layer_name": "ks_block_p14_view"
+      "parent_layer": "ks_vtd_p14_view",
+      "child_layer": "ks_block_p14_view"
     }
   ],
-  "districtr_map": [
+  "districtr_maps": [
     {
       "name": "Colorado Congressional (8)",
       "num_districts": "8",
       "gerrydb_table_name": "co_p14_view",
-      "parent_layer_name": "co_vtd_p14_view",
-      "child_layer_name": "co_block_p14_view",
+      "parent_layer": "co_vtd_p14_view",
+      "child_layer": "co_block_p14_view",
       "tiles_s3_path": "tilesets/co_p14_view.pmtiles"
     },
     {
       "name": "Kansas Congressional (4)",
       "num_districts": "4",
       "gerrydb_table_name": "ks_p14_view",
-      "parent_layer_name": "ks_vtd_p14_view",
-      "child_layer_name": "ks_block_p14_view",
+      "parent_layer": "ks_vtd_p14_view",
+      "child_layer": "ks_block_p14_view",
       "tiles_s3_path": "tilesets/ks_p14_view.pmtiles"
     },
     {
       "name": "Pennsylvania Congressional (18)",
       "num_districts": "18",
       "gerrydb_table_name": "pa_p14_view",
-      "parent_layer_name": "pa_vtd_p14_view",
-      "child_layer_name": "pa_block_p14_view",
+      "parent_layer": "pa_vtd_p14_view",
+      "child_layer": "pa_block_p14_view",
       "tiles_s3_path": "tilesets/pa_p14_view.pmtiles"
     }
   ]
