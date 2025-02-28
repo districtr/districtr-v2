@@ -144,8 +144,8 @@ class Config(BaseModel):
     shatterable_views: list[ShatterableViewImport]
     districtr_maps: list[DistrictrMapPublic]
 
-    @staticmethod
-    def from_file(file_path: str) -> "Config":
+    @classmethod
+    def from_file(cls, file_path: str) -> "Config":
         """
         Load configuration from a file. Supports JSON and YAML formats.
 
@@ -166,7 +166,7 @@ class Config(BaseModel):
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
 
-        return Config(**data)
+        return cls(**data)
 
 
 def load_sample_data(
