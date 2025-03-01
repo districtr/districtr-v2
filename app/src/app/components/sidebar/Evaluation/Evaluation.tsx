@@ -1,17 +1,19 @@
 import React, {useEffect, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
-import {Box, Button, CheckboxGroup, Heading, Tabs} from '@radix-ui/themes';
+import {Box, Button, CheckboxGroup, Heading, Table, Tabs} from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
 import {interpolateGreys} from 'd3-scale-chromatic';
+import {SummaryStatKeys, SummaryTypes, TotalColumnKeys} from '@/app/utils/api/summaryStats';
+import {useDemography, useSummaryStats} from '@/app/utils/demography/demographyCache';
 import {
-  SummaryStatKeys,
-  SummaryTypes,
-  TotalColumnKeys,
-} from '@/app/utils/api/summaryStats';
-import { useDemography, useSummaryStats } from '@/app/utils/demography/demographyCache';
-import { numberFormats, summaryStatLabels, EvalModes, columnConfigs, modeButtonConfig } from './config';
+  numberFormats,
+  summaryStatLabels,
+  EvalModes,
+  columnConfigs,
+  modeButtonConfig,
+} from './config';
 
 const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
@@ -22,7 +24,9 @@ const Evaluation: React.FC = () => {
   const maxValues = zoneStats?.maxValues;
   const numberFormat = numberFormats[evalMode];
   const mapDocument = useMapStore(state => state.mapDocument);
-  const availableSummaries = summaryStatLabels.filter(f => mapDocument?.available_summary_stats?.includes(f.value));
+  const availableSummaries = summaryStatLabels.filter(f =>
+    mapDocument?.available_summary_stats?.includes(f.value)
+  );
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
   const [summaryType, setSummaryType] = useState<keyof SummaryTypes | undefined>(
     (mapDocument?.available_summary_stats?.includes('P1')
@@ -36,8 +40,7 @@ const Evaluation: React.FC = () => {
     if (!hasCurrent) {
       setSummaryType(mapDocument?.available_summary_stats?.[0] as keyof SummaryTypes);
     }
-  }, [mapDocument?.available_summary_stats])
-
+  }, [mapDocument?.available_summary_stats]);
 
   const columnConfig = summaryType ? columnConfigs[summaryType] : [];
   const summaryStatKeys = summaryType ? SummaryStatKeys[summaryType] : [];
@@ -47,7 +50,7 @@ const Evaluation: React.FC = () => {
     return <Text>Summary statistics are not available for this map.</Text>;
   }
 
-  const rows = unassigned && showUnassigned ? [...populationData, unassigned] : populationData
+  const rows = unassigned && showUnassigned ? [...populationData, unassigned] : populationData;
   return (
     <Box width={'100%'}>
       <Tabs.Root
@@ -98,18 +101,20 @@ const Evaluation: React.FC = () => {
         </CheckboxGroup.Root>
       </Flex>
       <Box overflowX="auto" className="text-sm">
-        <table className="min-w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b">
-              <th className="py-2 px-4 text-left font-semibold">Zone</th>
+        <Table.Root className="min-w-full border-collapse">
+          <Table.Header>
+            <Table.Row className="bg-gray-50 border-b">
+              <Table.ColumnHeaderCell className="py-2 px-4 text-left font-semibold">
+                Zone
+              </Table.ColumnHeaderCell>
               {columnConfig.map((f, i) => (
-                <th className="py-2 px-4 text-right font-semibold" key={i}>
+                <Table.ColumnHeaderCell className="py-2 px-4 text-right font-semibold" key={i}>
                   {f.label}
-                </th>
+                </Table.ColumnHeaderCell>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
             {rows
               .sort((a: any, b: any) => a.zone - b.zone)
               .map((row: any) => {
@@ -118,44 +123,51 @@ const Evaluation: React.FC = () => {
                 const backgroundColor = isUnassigned ? '#DDDDDD' : colorScheme[row.zone - 1];
 
                 return (
-                  <tr key={row.zone} className="border-b hover:bg-gray-50">
-                    <td className="py-2 px-4 font-medium flex flex-row items-center gap-1">
+                  <Table.Row key={row.zone} className="border-b hover:bg-gray-50">
+                    <Table.Cell className="py-2 px-4 font-medium flex flex-row items-center gap-1">
                       <span
                         className={'size-4 inline-block rounded-md'}
                         style={{backgroundColor}}
                       ></span>
                       {zoneName}
-                    </td>
+                    </Table.Cell>
                     {columnConfig.map((f, i) => {
                       const column = (
                         evalMode === 'count' ? f.column : `${f.column}_pct`
                       ) as keyof typeof row;
                       const value = row[column];
-                      // @ts-ignore
-                      const colorValue = evalMode === 'count' ? value / maxValues[column] : value;
+                      const colorValue =
+                      value === undefined
+                      ? undefined
+                      : evalMode === 'count'
+                          // @ts-ignore
+                            ? value / maxValues[column]
+                            : value;
                       const backgroundColor =
-                        colorBg && !isUnassigned
-                          ? interpolateGreys(colorValue)
-                              .replace('rgb', 'rgba')
-                              .replace(')', ',0.5)')
-                          : 'initial';
+                        value === undefined
+                          ? undefined
+                          : colorBg && !isUnassigned
+                            ? interpolateGreys(colorValue)
+                                .replace('rgb', 'rgba')
+                                .replace(')', ',0.5)')
+                            : 'initial';
                       return (
-                        <td
+                        <Table.Cell
                           className="py-2 px-4 text-right"
                           style={{
                             backgroundColor,
                           }}
                           key={i}
                         >
-                          {formatNumber(value, numberFormat)}
-                        </td>
+                          {value === undefined ? '--' : formatNumber(value, numberFormat)}
+                        </Table.Cell>
                       );
                     })}
-                  </tr>
+                  </Table.Row>
                 );
               })}
-          </tbody>
-        </table>
+          </Table.Body>
+        </Table.Root>
       </Box>
     </Box>
   );

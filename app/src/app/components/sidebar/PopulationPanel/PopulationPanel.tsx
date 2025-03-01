@@ -16,6 +16,8 @@ export const PopulationPanel = () => {
   const {populationData} = useDemography();
   const {summaryStats, zoneStats} = useSummaryStats();
   const idealPopulation = summaryStats?.idealpop;
+  const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? 4);
+  const allPainted = numDistricts === zoneStats?.paintedZones
   
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
@@ -114,7 +116,7 @@ export const PopulationPanel = () => {
           <Text>
             Top-to-bottom population deviation <InfoTip tips="topToBottomDeviation" />
             <br />
-            {(zoneStats?.range !== undefined && zoneStats.maxPopulation !== undefined) ? (
+            {(allPainted && zoneStats?.range !== undefined && zoneStats.maxPopulation !== undefined) ? (
               <>
                 <b>{formatNumber(zoneStats.range / zoneStats.maxPopulation, 'percent')}</b> (
                 {formatNumber(zoneStats.range || 0, 'string')})

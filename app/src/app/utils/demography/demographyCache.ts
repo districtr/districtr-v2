@@ -66,6 +66,7 @@ class DemographyCache {
     maxPopulation?: number;
     minPopulation?: number;
     range?: number;
+    paintedZones?: number;
   } = {}
 
   /**
@@ -223,8 +224,8 @@ class DemographyCache {
       return [];
     }
 
-    const populationsTable = this.zoneTable
-      .join_left(this.table, ['path', 'path'])
+    const populationsTable = this.table
+      .join_left(this.zoneTable, ['path', 'path'])
       .groupby('zone')
       .rollup(getRollups(availableStats))
       .derive(getPctDerives(availableStats));
@@ -236,8 +237,8 @@ class DemographyCache {
     if (maxRollups) {
       this.zoneStats.maxValues = maxRollups;
     }
-    const zonePopulationsTable = populationsTable.objects().filter((f: any) => Boolean(f.zone)) as SummaryTable;
-    if (zonePopulationsTable.length !== numZones) {
+    const zonePopulationsTable = populationsTable.objects() as SummaryTable;
+    if (zonePopulationsTable.length+1 !== numZones) {
       for (let i=1;i<numZones+1;i++) {
         if (!zonePopulationsTable.find(row => row.zone === i)) {
           // @ts-ignore
@@ -250,6 +251,7 @@ class DemographyCache {
     this.zoneStats.maxPopulation = Math.max(...popNumbers);
     this.zoneStats.minPopulation = Math.min(...popNumbers);  
     this.zoneStats.range = this.zoneStats.maxPopulation - this.zoneStats.minPopulation;
+    this.zoneStats.paintedZones = popNumbers.filter(pop => pop > 0).length;
     return this.populations;
   }
 
@@ -259,6 +261,7 @@ class DemographyCache {
   calculateSummaryStats(): void {
     if (!this.table) return;
     const availableStats = this.getAvailableSummariesObject();
+    this.table = this.table.derive(getPctDerives(availableStats));
     const summaries = this.table.rollup(getRollups(availableStats)).objects()[0] as SummaryRecord;
     const mapDocument = useMapStore.getState().mapDocument;
 
@@ -289,7 +292,6 @@ class DemographyCache {
 }
 
 export const demographyCache = new DemographyCache();
-
 export const useDemography = () => {
   const hash = useChartStore(state => state.dataUpdateHash);
   const paintedChanges = useChartStore(state => state.paintedChanges);
@@ -312,7 +314,6 @@ export const useDemography = () => {
 
 export const useSummaryStats = () => {
   const _hash = useChartStore(state => state.dataUpdateHash);
-  console.log("!!!", demographyCache.summaryStats, demographyCache.zoneStats)
   return {
     summaryStats: demographyCache.summaryStats,
     zoneStats: demographyCache.zoneStats,

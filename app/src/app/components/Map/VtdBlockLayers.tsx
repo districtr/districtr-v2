@@ -15,7 +15,6 @@ import {
   AllDemographyVariables,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_COLOR_SCHEME_GRAY,
-  demographyVariables,
   useDemographyStore,
 } from '@/app/store/demographicMap';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
@@ -31,42 +30,50 @@ const updateDemographicMapColors = ({
   mapRef,
   shatterIds,
   mapDocument,
+  customBins,
+  numberOfBins,
 }: {
   variable: AllDemographyVariables;
   mapRef: maplibregl.Map;
   shatterIds: MapStore['shatterIds'];
   mapDocument: MapStore['mapDocument'];
+  numberOfBins: number;
+  customBins?: number[];
 }) => {
   if (!demographyCache.table) return;
-  const dataValues = demographyCache.table.select('path', variable).objects();
+  const dataValues = demographyCache.table.select('path', 'sourceLayer', variable).objects();
+  const arrayValues = dataValues.map((row: any) => row[variable]);
   const dataSoureExists = mapRef.getSource(BLOCK_SOURCE_ID);
-  if (!dataValues.length || !mapRef || !mapDocument || !dataSoureExists) return;
-  const config = demographyVariables.find(f => f.value === variable.replace('_percent', ''));
+  if (!arrayValues.length || !mapRef || !mapDocument || !dataSoureExists) return;
+  // const quantileValues = Object.values(quantiles[0])
+  // const config = demographyVariables.find(f => f.value === variable.replace('_pct', ''));
   const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
   const defaultColor =
     mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
-  const colorscheme = defaultColor;
-  // config && 'colorScheme' in config ? config?.colorScheme : DEFAULT_COLOR_SCHEME;
-  const values = dataValues.map((f: any) => +f[variable]);
-  const colorScale = scale
-    .scaleQuantile()
-    .domain(values)
-    // @ts-ignore
-    .range(colorscheme);
+  const _numBins = customBins?.length ? customBins.length + 1 : numberOfBins;
+  const colorscheme = defaultColor[_numBins];
+
+  const colorScale = customBins?.length
+    ? scale
+        .scaleThreshold()
+        .domain(customBins)
+        // @ts-ignore
+        .range(colorscheme)
+    : scale
+        .scaleQuantile()
+        .domain(arrayValues)
+        // @ts-ignore
+        .range(colorscheme);
 
   dataValues.forEach((row: any, i) => {
     const id = row.path;
     const value = row[variable];
     if (!id || !value) return;
     const color = colorScale(+value);
-    const isChildLayer = shatterIds.children.has(`${id}`);
     mapRef.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,
-        sourceLayer:
-          isChildLayer && mapDocument.child_layer
-            ? mapDocument.child_layer
-            : mapDocument.parent_layer,
+        sourceLayer: row.sourceLayer,
         id,
       },
       {
@@ -91,6 +98,8 @@ export const VtdBlockLayers: React.FC<{
   const [clearOldSource, setClearOldSource] = useState(false);
   const showDemography = isDemographicMap || showDemographicMap === 'overlay';
   const mapRef = useMap();
+  const numberOfBins = useDemographyStore(state => state.numberOfBins);
+  const customBins = useDemographyStore(state => state.customBins);
 
   useEffect(() => {
     // clears old source before re-adding
@@ -101,7 +110,13 @@ export const VtdBlockLayers: React.FC<{
     }, 10);
   }, [mapDocument?.tiles_s3_path]);
 
-  const handleDemographyRender = () => {
+  const handleDemographyRender = ({
+    customBins,
+    numberOfBins,
+  }: {
+    customBins?: number[];
+    numberOfBins?: number;
+  }) => {
     const _map = mapRef.current?.getMap();
     if (_map) {
       const updateFn = () => {
@@ -110,7 +125,10 @@ export const VtdBlockLayers: React.FC<{
           mapRef: _map,
           shatterIds,
           mapDocument,
+          numberOfBins: numberOfBins || 5,
+          customBins,
         });
+        // @ts-ignore
         setScale(mapScale);
         return mapScale;
       };
@@ -131,9 +149,17 @@ export const VtdBlockLayers: React.FC<{
 
   useLayoutEffect(() => {
     if (showDemography) {
-      handleDemographyRender();
+      handleDemographyRender({numberOfBins, customBins});
     }
-  }, [showDemography, demographicVariable, demographyDataHash, shatterIds, mapDocument]);
+  }, [
+    customBins,
+    numberOfBins,
+    showDemography,
+    demographicVariable,
+    demographyDataHash,
+    shatterIds,
+    mapDocument,
+  ]);
 
   if (!mapDocument || clearOldSource) return null;
 
@@ -210,21 +236,23 @@ export const DemographicLayer: React.FC<{
           ],
         }}
       />
-      {!isOverlay && <Layer
-        id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography_hover'}
-        source={BLOCK_SOURCE_ID}
-        source-layer={id}
-        filter={child ? layerFilter : ['literal', true]}
-        beforeId={LABELS_BREAK_LAYER_ID}
-        type="fill"
-        layout={{
-          visibility: 'visible',
-        }}
-        paint={{
-          'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.25, 0],
-          'fill-color': '#000000',
-        }}
-      />}
+      {!isOverlay && (
+        <Layer
+          id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography_hover'}
+          source={BLOCK_SOURCE_ID}
+          source-layer={id}
+          filter={child ? layerFilter : ['literal', true]}
+          beforeId={LABELS_BREAK_LAYER_ID}
+          type="fill"
+          layout={{
+            visibility: 'visible',
+          }}
+          paint={{
+            'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.25, 0],
+            'fill-color': '#000000',
+          }}
+        />
+      )}
       <Layer
         id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography_line'}
         source={BLOCK_SOURCE_ID}
@@ -238,7 +266,7 @@ export const DemographicLayer: React.FC<{
         paint={{
           'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.2],
           'line-color': '#000000',
-          'line-width': 1
+          'line-width': 1,
         }}
       />
     </>

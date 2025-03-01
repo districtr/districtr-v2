@@ -8,14 +8,14 @@ import {BLOCK_SOURCE_ID} from '../constants/layers';
 import * as scale from 'd3-scale'
 import { demographyCache } from '../utils/demography/demographyCache';
 
-export const DEFAULT_COLOR_SCHEME = ['#edf8fb', '#b2e2e2', '#66c2a4', '#2ca25f', '#006d2c'];
-export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys[5];
+export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues
+export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
 
 export const demographyVariables = [
   {
     label: 'Population: Total',
     value: 'total_pop',
-    colorScheme: chromatic.schemeBuGn[5],
+    colorScheme: chromatic.schemeBuGn,
   },
   {
     label: 'Population: White',
@@ -84,7 +84,7 @@ export const demographyVariables = [
 ] as const;
 
 export type DemographyVariable = (typeof demographyVariables)[number]['value'];
-type DemographyPercentVariable = `${DemographyVariable}_percent`;
+type DemographyPercentVariable = `${DemographyVariable}_pct`;
 export type AllDemographyVariables = DemographyVariable | DemographyPercentVariable;
 
 const vap_columns = demographyVariables
@@ -115,10 +115,10 @@ export const getRowHandler = (columns: string[], childShatterIds: Set<string>) =
       rowRecord[column as AllDemographyVariables] = row[+index] as number;
     });
     pop_columns.forEach(pop => {
-      rowRecord[`${pop}_percent`] = rowRecord[pop] / rowRecord['total_pop'];
+      rowRecord[`${pop}_pct`] = rowRecord[pop] / rowRecord['total_pop'];
     });
     vap_columns.forEach(vap => {
-      rowRecord[`${vap}_percent`] = rowRecord[vap] / rowRecord['total_vap'];
+      rowRecord[`${vap}_pct`] = rowRecord[vap] / rowRecord['total_vap'];
     });
     return rowRecord;
   };
@@ -127,6 +127,10 @@ export const getRowHandler = (columns: string[], childShatterIds: Set<string>) =
 
 interface DemographyStore {
   getMapRef: () => maplibregl.Map | undefined;
+  numberOfBins: number;
+  setNumberOfBins: (numberOfBins: number) => void;
+  customBins: number[];
+  setCustomBins: (customBins: number[]) => void;
   setGetMapRef: (getMapRef: () => maplibregl.Map | undefined) => void;
   variable: AllDemographyVariables;
   setVariable: (variable: AllDemographyVariables) => void;
@@ -156,6 +160,7 @@ export var useDemographyStore = create(
       }
     },
     variable: 'total_pop',
+    setVariable: variable => set({variable, customBins: []}),
     scale: undefined,
     setScale: scale => set({scale}),
     clear: () => {
@@ -173,7 +178,10 @@ export var useDemographyStore = create(
         dataHash: '',
       })
     },
-    setVariable: variable => set({variable}),
+    numberOfBins: 5,
+    setNumberOfBins: numberOfBins => set({numberOfBins, customBins: []}),
+    customBins: [],
+    setCustomBins: customBins => set({customBins}),
     dataHash: '',
     data: {},
     updateData: async (mapDocument, prevParentShatterIds) => {

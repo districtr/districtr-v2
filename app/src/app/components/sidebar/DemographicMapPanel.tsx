@@ -7,46 +7,99 @@ import {
 import {useDemographyStore} from '@/app/store/demographicMap';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {formatNumber} from '@/app/utils/numbers';
-import {Box, Button, Flex, Switch, Tabs, Text} from '@radix-ui/themes';
+import {
+  GearIcon,
+  MinusIcon,
+  PlusIcon,
+  ShadowInnerIcon,
+  ViewVerticalIcon,
+} from '@radix-ui/react-icons';
+import {
+  Box,
+  Button,
+  Flex,
+  IconButton,
+  Popover,
+  Switch,
+  Tabs,
+  Text,
+  TextField,
+} from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
 import {LegendQuantile, LegendItem, LegendLabel, LegendLinear} from '@visx/legend';
-import {useEffect} from 'react';
+import React, {useEffect} from 'react';
 
-const mapOptions: Array<{label: string; value: MapStore['mapOptions']['showDemographicMap']}> = [
+const mapOptions: Array<{
+  label: string;
+  value: MapStore['mapOptions']['showDemographicMap'];
+  icon?: React.ReactNode;
+}> = [
   {
-    label: 'No Demographic Map',
+    label: 'None',
     value: undefined,
   },
   {
-    label: 'Side by Side Map',
+    label: 'Comparison',
     value: 'side-by-side',
+    icon: <ViewVerticalIcon />,
   },
   {
-    label: 'Overlay Map',
+    label: 'Overlay',
     value: 'overlay',
+    icon: <ShadowInnerIcon />,
   },
 ];
 export const DemographicMapPanel: React.FC = () => {
   const variable = useDemographyStore(state => state.variable);
-  const displayVariable = variable.replace('_percent', '');
+  const displayVariable = variable.replace('_pct', '');
   const config = demographyVariables.find(f => f.value === displayVariable);
   const setVariable = useDemographyStore(state => state.setVariable);
   const demographicMapMode = useMapStore(state => state.mapOptions.showDemographicMap);
   const setMapOptions = useMapStore(state => state.setMapOptions);
   const scale = useDemographyStore(state => state.scale);
+  const numberOfbins = useDemographyStore(state => state.numberOfBins);
+  const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
+  const customBins = useDemographyStore(state => state.customBins);
+  const setCustomBins = useDemographyStore(state => state.setCustomBins);
+  const [tempBins, setTempBins] = React.useState<number[]>([]);
+  const colors = scale?.range();
+  const quantiles = customBins.length ? null : scale?.quantiles?.();
 
+  const handleCustomBins = (value: number|string, i: number) => {
+    if (!tempBins) return;
+    let newCustomBins = [...(tempBins)];
+    // @ts-ignore
+    newCustomBins[i] = value;
+    setTempBins(newCustomBins);
+  };
+
+
+  const setCustomBinsFromTemp = () => {
+    if (!tempBins) return;
+    // @ts-ignore
+    const cleanBins = tempBins.map(f => parseFloat(f)).sort((a, b) => a - b);
+    setCustomBins(cleanBins);
+  }
+  
   const handleChange = (_newVariable?: DemographyVariable, _usePercent?: boolean) => {
-    const usePercent = _usePercent ?? variable.includes('percent');
+    const usePercent = _usePercent ?? variable.includes('pct');
     const newVariable = _newVariable ?? config?.value;
     if (!newVariable) return;
     const hasPctVariable = !newVariable?.includes('total');
+    // @ts-ignore
     const newVariableName: AllDemographyVariables =
-      usePercent && hasPctVariable ? `${newVariable}_percent` : newVariable;
+      usePercent && hasPctVariable ? `${newVariable}_pct` : newVariable;
     setVariable(newVariableName);
   };
+
   useEffect(() => {
     setVariable('total_pop');
   }, []);
+
+  useEffect(() => {
+    // @ts-ignore
+    setTempBins(customBins?.length ? customBins : quantiles);
+  }, [JSON.stringify({customBins, quantiles})]);
 
   return (
     <Flex direction="column">
@@ -59,7 +112,10 @@ export const DemographicMapPanel: React.FC = () => {
         <Tabs.List>
           {mapOptions.map((option, i) => (
             <Tabs.Trigger key={i} value={option.value as string}>
-              {option.label}
+              <Flex direction="row" gapX="2" align="center">
+                {!!option.icon && option.icon}
+                {option.label}
+              </Flex>
             </Tabs.Trigger>
           ))}
         </Tabs.List>
@@ -84,7 +140,7 @@ export const DemographicMapPanel: React.FC = () => {
         <Text as="label" size="2">
           <Flex gap="2">
             <Switch
-              checked={variable.includes('percent')}
+              checked={variable.includes('pct')}
               onCheckedChange={value => {
                 handleChange(undefined, value);
               }}
@@ -94,56 +150,123 @@ export const DemographicMapPanel: React.FC = () => {
         </Text>
       </Flex>
       {!!scale && (
-        <LegendQuantile
-          scale={scale as any}
-          labelFormat={label =>
-            formatNumber(label as number, variable.includes('percent') ? 'percent' : 'compact')
-          }
-          className="w-full"
-        >
-          {labels => (
-            <Flex direction={'row'} width="100%">
-              {labels.map((label, i) => (
-                <Flex direction="column" key={`legend-${i}`} justify="between" width={`${100 / labels.length}%`}>
-                  {/* <LegendItem
-                  key={`legend-${i}`}
-                  onClick={() => {
-                    // if (events) alert(`clicked: ${JSON.stringify(label)}`);
-                  }}
-                  className="flex flex-col"
-                > */}
-                  <Box
-                    width={'100%'}
-                    style={{
-                      display: 'inline-block',
-                      height: '1rem',
-                      backgroundColor: label.value,
-                    }}
-                  ></Box>
-                  <LegendLabel align="center" style={{transform: 'translateX(calc(100% - 10px))'}}>
-                    {i < labels.length -1 ? label.text.split('-')[1] : ''}
-                  </LegendLabel>
-                  {/* </LegendItem> */}
+        <Flex direction={'row'} justify="center" gapX="2">
+          <LegendQuantile
+            scale={scale as any}
+            labelFormat={label =>
+              formatNumber(label as number, variable.includes('pct') ? 'percent' : 'compact')
+            }
+            className="w-full"
+          >
+            {labels => {
+              console.log('!!!', labels);
+              return (
+                <Flex direction={'column'} width="100%">
+                  <Flex direction="row" width="100%">
+                    {labels.map((label, i) => (
+                      <Box
+                        width={'100%'}
+                        style={{
+                          display: 'inline-block',
+                          height: '1rem',
+                          backgroundColor: label.value,
+                        }}
+                        key={`legend-bar-${i}`}
+                      ></Box>
+                    ))}
+                  </Flex>
+
+                  <Flex
+                    direction="row"
+                    width={`${100 - 100 / numberOfbins / 2}%`}
+                    style={{paddingLeft: `${100 / numberOfbins / 2}%`}}
+                  >
+                    {labels.slice(1).map((label, i) => (
+                      <LegendLabel align="center" key={`legend-label-text-${i}`}>
+                        {formatNumber(
+                          // @ts-ignore
+                          label.datum,
+                          variable.includes('pct') ? 'percent' : 'compact'
+                        )}
+                      </LegendLabel>
+                    ))}
+                  </Flex>
                 </Flex>
-              ))}
-            </Flex>
-          )}
-        </LegendQuantile>
+              );
+            }}
+          </LegendQuantile>
+          <Popover.Root>
+            <Popover.Trigger>
+              <GearIcon />
+            </Popover.Trigger>
+            <Popover.Content>
+              <Flex direction={'column'} gapY="2">
+                <Text size="2">Choropleth Map Settings</Text>
+                <Flex direction="row" gapX="3">
+                  <Text>Number of bins: {numberOfbins}</Text>
+                  <IconButton
+                    variant="ghost"
+                    onClick={() => setNumberOfBins(numberOfbins - 1)}
+                    disabled={numberOfbins < 4}
+                  >
+                    <MinusIcon />
+                  </IconButton>
+                  <IconButton
+                    variant="ghost"
+                    onClick={() => setNumberOfBins(numberOfbins + 1)}
+                    disabled={numberOfbins > 8}
+                  >
+                    <PlusIcon />
+                  </IconButton>
+                </Flex>
+                {!!tempBins && (
+                  <Flex direction={'column'} gapY="2">
+                    <Text>Custom bins</Text>
+                    <Flex direction={'row'} gapX="2">
+                      <Flex direction="column" gapX="2" height={`${numberOfbins * 24}px`}>
+                        {[...tempBins, 999].map((q, i) => (
+                          <Box
+                            className={'size-4'}
+                            key={`custom-bin-${i}-block`}
+                            flexGrow={'1'}
+                            style={{
+                              display: 'inline-block',
+                              height: '1rem',
+                              width: '1rem',
+                              // @ts-ignore
+                              backgroundColor: colors[i],
+                            }}
+                          ></Box>
+                        ))}
+                      </Flex>
+                      <Flex
+                        direction="column"
+                        gapX="2"
+                        height={`${numberOfbins * 24 - 12}px`}
+                        pt="12px"
+                      >
+                        {tempBins.map((q, i) => (
+                          <TextField.Root
+                            key={`custom-bin-${i}`}
+                            className="flex-grow"
+                            type="number"
+                            step=".01"
+                            value={Math.round(q * 100) / 100}
+                            onChange={e => {
+                              handleCustomBins(e.target.value, i);
+                            }}
+                          />
+                        ))}
+                      </Flex>
+                    </Flex>
+                  </Flex>
+                )}
+              <Button onClick={setCustomBinsFromTemp}>Apply</Button>
+              </Flex>
+            </Popover.Content>
+          </Popover.Root>
+        </Flex>
       )}
-      {/* {!!scale && <LegendLinear 
-        scale={scale} 
-        labelFormat={label => formatNumber(label as number, variable.includes('percent') ? 'percent' : 'compact')}>
-        {labels => labels.map((label, i) => (
-          <LegendItem key={`legend-${i}`} margin="0 4px">
-            <svg width={10} height={10}>
-              <rect fill={label.value} width={10} height={10} />
-            </svg>
-            <LegendLabel align="left" margin="0 4px">
-              {label.text}
-            </LegendLabel>
-          </LegendItem>
-        ))}
-        </LegendLinear>} */}
       <Text size="2" align="center">
         Gray = zero population
       </Text>
