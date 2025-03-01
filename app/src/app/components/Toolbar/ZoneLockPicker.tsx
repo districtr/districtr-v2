@@ -27,12 +27,7 @@ export function ZoneLockPicker() {
 
   return (
     <div>
-      <ColorPicker
-        onValueChange={handleChange}
-        defaultValue={[]}
-        value={pickerValue}
-        multiple
-      />
+      <ColorPicker onValueChange={handleChange} defaultValue={[]} value={pickerValue} multiple />
       <Button onClick={lockAll} mr="2" mt="2" variant="outline">
         <LockClosedIcon />
         Lock all
