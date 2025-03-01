@@ -312,7 +312,7 @@ def add_available_summary_stats_to_districtr_map(session: Session, districtr_map
     logger.info("Updated available summary stats successfully.")
 
 
-@cli.command("batch-load-data")
+@cli.command("batch-create-districtr-maps")
 @click.option("--config-file", "-c", help="Path to config file", required=True)
 @click.option(
     "--data-dir",
@@ -325,7 +325,9 @@ def add_available_summary_stats_to_districtr_map(session: Session, districtr_map
     is_flag=True,
     help="Skip loading data into GerryDB",
 )
-def batch_load_data(config_file: str, data_dir: str, skip_gerrydb_loads: bool):
+def batch_create_districtr_maps(
+    config_file: str, data_dir: str, skip_gerrydb_loads: bool
+):
     logger.info(f"Loading data from {config_file}")
 
     config_path = get_local_or_s3_path(file_path=config_file)

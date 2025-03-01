@@ -1,4 +1,5 @@
-"""tileset constants"""
+from os import environ
+from settings import settings
 
 S3_PREFIX = "basemaps"
 
@@ -15,3 +16,5 @@ DEFAULT_GERRYDB_COLUMNS = [
     "geography",
     "total_pop",
 ]
+
+GPKG_DATA_DIR = environ.get("GPKG_DATA_DIR", settings.OUT_SCRATCH)

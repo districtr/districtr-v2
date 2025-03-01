@@ -84,13 +84,22 @@ def merge_gerrydb_tilesets(
 
 @cli.command("batch-create-tilesets")
 @click.option("--config-path", help="Path to the config file", required=True)
+@click.option(
+    "--data-dir",
+    "-d",
+    help="Path to data directory where the geopackages are located or will be downloaded to",
+    required=False,
+    default=None,
+)
 @click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
-def batch_create_tilesets(config_path: str, replace: bool) -> None:
+def batch_create_tilesets(
+    config_path: str, data_dir: str | None, replace: bool
+) -> None:
     """
     Batch create tilesets from a config file. Does not upload the tileset to S3. Use the s3 cli for that.
     """
     tileset_batch = TilesetBatch.from_file(file_path=config_path)
-    tileset_batch.create_all(replace=replace)
+    tileset_batch.create_all(replace=replace, data_dir=data_dir)
 
 
 @cli.command()

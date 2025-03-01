@@ -54,7 +54,11 @@ class Config(BaseModel):
 class GerryDBTileset(BaseModel):
     gpkg: str
     layer_name: str
-    columns: Iterable[str]
+    columns: Iterable[str] = [
+        "path",
+        "geography",
+        "total_pop",
+    ]
 
     def generate_tiles(self, replace: bool = False) -> str:
         """Generate GerryDB tileset.
@@ -133,18 +137,23 @@ class GerryDBTileset(BaseModel):
 
 
 class TilesetBatch(Config):
-    tilesets: dict[str, GerryDBTileset | tuple[GerryDBTileset, GerryDBTileset]]
+    tilesets: dict[str, tuple[GerryDBTileset, GerryDBTileset | None]]
 
-    def create_all(self, replace: bool = False):
-        for k, tileset in self.tilesets.items():
-            if isinstance(tileset, GerryDBTileset):
-                logger.info(f"Generating tiles for {k}")
-                tileset.generate_tiles(replace=replace)
+    def create_all(self, replace: bool = False, data_dir: str | None = None):
+        for k, tilesets in self.tilesets.items():
+            (parent_tileset, child_tileset) = tilesets
+
+            if data_dir is not None:
+                parent_tileset.gpkg = os.path.join(data_dir, parent_tileset.gpkg)
+            out_parent_tiles = parent_tileset.generate_tiles(replace=replace)
+
+            if not child_tileset:
                 continue
 
             logger.info(f"Generating tiles for parent-child layer {k}")
-            parent_tileset, child_tileset = tileset
-            out_parent_tiles = parent_tileset.generate_tiles(replace=replace)
+
+            if data_dir is not None:
+                child_tileset.gpkg = os.path.join(data_dir, child_tileset.gpkg)
             out_child_tiles = child_tileset.generate_tiles(replace=replace)
 
             merge_tilesets(

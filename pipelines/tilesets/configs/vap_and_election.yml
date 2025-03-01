@@ -1,0 +1,8 @@
+name: vap and election batch tileset load
+version: 0.1.0
+tilesets:
+  ak_all_vap_elec:
+    - gpkg: ak_vtd_all_vap_elec.gpkg
+      layer_name: ak_vtd_all_vap_elec_graph
+    - gpkg: ak_block_all_vap_elec.gpkg
+      layer_name: ak_block_all_vap_elec_graph

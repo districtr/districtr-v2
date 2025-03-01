@@ -186,7 +186,7 @@ Repeating the steps above for numerous layers can be quite onerous. Enter: the b
 Example usage:
 
 ```bash
-python cli.py batch-load-data \
+python cli.py batch-create-districtr-maps \
     --config-file management/configs/geopackages_vap_and_election.yaml \
     --data-dir /Users/raphaellaude/Downloads/geopackages_vap_and_election
 ```
@@ -194,8 +194,8 @@ python cli.py batch-load-data \
 Full options
 
 ```bash
-$ python cli.py batch-load-data --help
-Usage: cli.py batch-load-data [OPTIONS]
+$ python cli.py batch-create-districtr-maps --help
+Usage: cli.py batch-create-districtr-maps [OPTIONS]
 
 Options:
   -c, --config-file TEXT  Path to config file  [required]
