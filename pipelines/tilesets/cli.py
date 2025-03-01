@@ -12,7 +12,7 @@ from models import GerryDBTileset, TilesetBatch
 from utils import merge_tilesets
 from constants import (
     DEFAULT_GERRYDB_COLUMNS,
-    S3_PREFIX,
+    S3_BASEMAPS_PREFIX,
     TIGER_COUNTY_URL,
     S3_TIGER_PREFIX,
 )
@@ -92,14 +92,18 @@ def merge_gerrydb_tilesets(
     default=None,
 )
 @click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
+@click.option("--upload", "-u", help="Upload tileset results to S3", is_flag=True)
 def batch_create_tilesets(
-    config_path: str, data_dir: str | None, replace: bool
+    config_path: str, data_dir: str | None, replace: bool, upload: bool
 ) -> None:
     """
     Batch create tilesets from a config file. Does not upload the tileset to S3. Use the s3 cli for that.
     """
     tileset_batch = TilesetBatch.from_file(file_path=config_path)
     tileset_batch.create_all(replace=replace, data_dir=data_dir)
+
+    if upload:
+        tileset_batch.upload_results()
 
 
 @cli.command()
@@ -134,7 +138,7 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
             check=True,
         )
 
-    key = f"{S3_PREFIX}/{S3_TIGER_PREFIX}/{file_name}.fgb"
+    key = f"{S3_BASEMAPS_PREFIX}/{S3_TIGER_PREFIX}/{file_name}.fgb"
 
     logger.info("Creating county tiles")
     tiles = settings.OUT_SCRATCH / f"{file_name}.pmtiles"
@@ -209,7 +213,7 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
 
     s3_client = settings.get_s3_client()
 
-    key = f"{S3_PREFIX}/{S3_TIGER_PREFIX}/{file_name}_full.pmtiles"
+    key = f"{S3_BASEMAPS_PREFIX}/{S3_TIGER_PREFIX}/{file_name}_full.pmtiles"
     if upload or not exists_in_s3(s3_client, settings.S3_BUCKET, key):
         logger.info("Uploading combined tiles to S3")
         assert s3_client is not None, "S3 client is not initialized"

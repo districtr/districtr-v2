@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 import json
 import yaml
 import os
@@ -10,6 +10,7 @@ from typing import Iterable, TypeVar, Type
 from settings import settings
 from files import download_file_from_s3
 from utils import merge_tilesets
+from constants import S3_TILESETS_PREFIX
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -54,11 +55,17 @@ class Config(BaseModel):
 class GerryDBTileset(BaseModel):
     gpkg: str
     layer_name: str
+    new_layer_name: str | None
     columns: Iterable[str] = [
         "path",
         "geography",
         "total_pop",
     ]
+
+    @computed_field
+    @property
+    def target_layer_name(self) -> str:
+        return self.new_layer_name or self.layer_name
 
     def generate_tiles(self, replace: bool = False) -> str:
         """Generate GerryDB tileset.
@@ -94,6 +101,8 @@ class GerryDBTileset(BaseModel):
                     ",".join(self.columns),
                     "-t_srs",
                     "EPSG:4326",
+                    "-nln",
+                    self.target_layer_name,
                     fbg_path,
                     path,
                     self.layer_name,
@@ -106,6 +115,9 @@ class GerryDBTileset(BaseModel):
 
         logger.info("Creating tileset...")
         tileset_path = f"{settings.OUT_SCRATCH}/{self.layer_name}.pmtiles"
+
+        if os.path.exists(tileset_path) and not replace:
+            return tileset_path
 
         args = [
             "tippecanoe",
@@ -121,7 +133,7 @@ class GerryDBTileset(BaseModel):
             "-o",
             tileset_path,
             "-l",
-            self.layer_name,
+            self.target_layer_name,
             fbg_path,
         ]
         if replace:
@@ -138,6 +150,10 @@ class GerryDBTileset(BaseModel):
 
 class TilesetBatch(Config):
     tilesets: dict[str, tuple[GerryDBTileset, GerryDBTileset | None]]
+    _results: dict[str, str] = {}
+
+    def add_result(self, layer_name: str, tile_path: str):
+        self._results[layer_name] = tile_path
 
     def create_all(self, replace: bool = False, data_dir: str | None = None):
         for k, tilesets in self.tilesets.items():
@@ -148,6 +164,7 @@ class TilesetBatch(Config):
             out_parent_tiles = parent_tileset.generate_tiles(replace=replace)
 
             if not child_tileset:
+                self.add_result(k, out_parent_tiles)
                 continue
 
             logger.info(f"Generating tiles for parent-child layer {k}")
@@ -156,8 +173,22 @@ class TilesetBatch(Config):
                 child_tileset.gpkg = os.path.join(data_dir, child_tileset.gpkg)
             out_child_tiles = child_tileset.generate_tiles(replace=replace)
 
-            merge_tilesets(
+            result = merge_tilesets(
                 parent_layer=out_parent_tiles,
                 child_layer=out_child_tiles,
                 out_name=k,
             )
+            self.add_result(k, result)
+
+    def upload_results(self):
+        logger.info("Uploading results to S3")
+        for k, tile_path in self._results.items():
+            s3_client = settings.get_s3_client()
+            if not s3_client:
+                raise ValueError("Failed to get S3 client")
+
+            s3_key = f"{S3_TILESETS_PREFIX}/{k}.pmtiles"
+            logger.info(f"Uploading {tile_path} to {s3_key}")
+            s3_client.upload_file(tile_path, settings.S3_BUCKET, s3_key)
+
+            logger.info(f"Uploaded {tile_path} to {s3_key}")

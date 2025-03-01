@@ -1,3 +1,4 @@
+import os
 import logging
 from subprocess import run
 from urllib.parse import urlparse
@@ -12,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 def merge_tilesets(
     parent_layer: str, child_layer: str, out_name: str, replace: bool = False
-):
+) -> str:
     """
     Merge two tilesets.
 
@@ -49,11 +50,16 @@ def merge_tilesets(
         assert s3, "S3 client is not available"
         child_path = download_file_from_s3(s3, child_url, replace)
 
+    out_path = f"{settings.OUT_SCRATCH}/{out_name}.pmtiles"
+
+    if os.path.exists(out_path) and not replace:
+        return out_path
+
     run(
         [
             "tile-join",
             "-o",
-            f"{settings.OUT_SCRATCH}/{out_name}.pmtiles",
+            out_path,
             parent_path,
             child_path,
             "--no-tile-size-limit",
@@ -62,3 +68,4 @@ def merge_tilesets(
     )
 
     LOGGER.info("Merging complete")
+    return out_path
