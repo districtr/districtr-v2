@@ -4,20 +4,21 @@ import {styled} from '@stitches/react';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import {blackA} from '@radix-ui/colors';
 import {useMapStore} from '@/app/store/mapStore';
+import { extendColorArray } from '@/app/utils/colors';
 
 type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
       defaultValue: number[];
       value?: number[];
       onValueChange: (indices: number[], color: string[]) => void;
-      colorArray: string[];
+      colorPalette: string[];
       multiple: true;
     }
   : {
       defaultValue: number;
       value?: number;
       onValueChange: (i: number, color: string) => void;
-      colorArray: string[];
+      colorPalette: string[];
       multiple?: false;
     };
 
@@ -25,13 +26,14 @@ export const ColorPicker = <T extends boolean>({
   defaultValue,
   value,
   onValueChange,
-  colorArray,
+  colorPalette,
   multiple,
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const numDistricts = mapDocument?.num_districts ?? 4;
+  const colorArray = numDistricts > colorPalette.length ? extendColorArray(colorPalette, numDistricts) : colorPalette;
 
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
