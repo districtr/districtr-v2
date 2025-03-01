@@ -44,7 +44,7 @@ export default function Uploader() {
               uploadRows.push([row[0], row[1]]);
             }
           });
-          uploadAssignments({assignments: uploadRows, gerrydb_table_name: gTable}).then(stepResult => {
+          uploadAssignments({assignments: uploadRows, gerrydb_table_name: gTable ?? ''}).then(stepResult => {
             uploadRows = [];
             rowCursor += ROWS_PER_BATCH;
             if (rowCursor > results.data.length) {

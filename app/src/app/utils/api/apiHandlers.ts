@@ -571,6 +571,7 @@ export const patchUnShatterParents: (params: {
  */
 export const uploadAssignments: (updateData: {
   assignments: [string, string][];
+  gerrydb_table_name: string;
 }) => Promise<{document_id: string}> = async ({assignments, gerrydb_table_name}) => {
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload_assignments`, {
