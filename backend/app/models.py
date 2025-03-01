@@ -185,7 +185,7 @@ class AssignmentsCreate(BaseModel):
 
 class AssignmentsBulkUpload(BaseModel):
     assignments: list[list[str]]
-    document_id: str
+    gerrydb_table_name: str
 
 
 class AssignmentsResponse(SQLModel):

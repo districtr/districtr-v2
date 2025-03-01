@@ -275,9 +275,16 @@ async def upload_assignments(
 ):
     d = data.model_dump()
     csv_rows = d["assignments"]
-    document_id = d["document_id"]
 
-    # process CSV via temp tables
+    # create map document
+    gerrydb_table = d["gerrydb_table_name"]
+    results = session.execute(
+        text("SELECT create_document(:gerrydb_table);"),
+        {"gerrydb_table": gerrydb_table},
+    )
+    document_id = results.one()[0]
+
+    # process assignments CSV via temp table
     session.execute(text("DROP TABLE IF EXISTS temploader"))
     session.execute(
         text("""CREATE TEMP TABLE temploader (
@@ -293,66 +300,83 @@ async def upload_assignments(
             else:
                 copy.write_row([record[0], int(record[1])])
 
-    # get edges table
+    # this section consolidates uniform VTDs from their blocks
+    # if we want a blocks upload to stay as blocks, we could skip these
+
+    # get edges table if it exists
     tableCheck = session.execute(
         text("""
-        SELECT districtrmap.uuid
-        FROM document.document
-        INNER JOIN districtrmap
-        ON document.gerrydb_table = districtrmap.gerrydb_table_name
-        WHERE document.document_id = :document_id
+        SELECT uuid
+        FROM districtrmap
+        WHERE gerrydb_table_name = :gerrydb_table
+        AND child_layer IS NOT NULL
     """),
-        {"document_id": document_id},
+        {"gerrydb_table": gerrydb_table},
     )
-    table_name = str(tableCheck.first()[0]).replace('"', "")
+    table_name = tableCheck.first()
 
-    # find parents which are fully one zone
-    # coalesce includes nulls (so we can account for fully and partially blank parents)
-    results = session.execute(
-        text(f"""
-        SELECT parent_path, MIN(zone) FROM "parentchildedges_{table_name}"
-        JOIN temploader ON geo_id = "parentchildedges_{table_name}".child_path
-        GROUP BY parent_path
-        HAVING COUNT(DISTINCT COALESCE(zone, -1)) = 1
-    """)
-    )
+    if table_name is not None:  # shattered
+        table_name = str(table_name[0]).replace('"', "")
 
-    # re-import VTDs that are fully uniform zone
-    vtds = []
-    with cursor.copy("COPY temploader (geo_id, zone) FROM STDIN") as copy:
-        for row in results:
-            vtd, zone = row
-            vtds.append(vtd)
-            copy.write_row([vtd, zone])
-    logger.info("uniform parents")
-    logger.info(vtds)
-
-    # clean up blocks from uniform VTDs
-    session.execute(
-        text(f"""
-        DELETE FROM temploader
-        WHERE geo_id = ANY(
-            SELECT child_path FROM "parentchildedges_{table_name}"
-            WHERE parent_path = ANY(:vtds)
+        # verify assignments match gerrydb table
+        first_geo_id = csv_rows[0][0]
+        results = session.execute(
+            text(f"""
+                SELECT parent_path, child_path FROM "parentchildedges_{table_name}"
+                WHERE parent_path = :geo_id OR child_path = :geo_id
+                LIMIT 1
+            """),
+            {"geo_id": first_geo_id},
         )
-    """),
-        {"vtds": vtds},
-    )
+        if results.first() is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Assignment Geo ID '{first_geo_id}' does not match shatterable map parent or child Geo ID",
+            )
 
-    # find vtds which are non-uniform
-    results = session.execute(
-        text(f"""
-        SELECT parent_path FROM "parentchildedges_{table_name}"
-        JOIN temploader ON geo_id = "parentchildedges_{table_name}".child_path
-        GROUP BY parent_path
-        HAVING COUNT(DISTINCT COALESCE(zone, -1)) > 1
-    """)
-    )
-    shatter = []
-    for row in results:
-        shatter.append(row[0])
-    logger.info("to shatter")
-    logger.info(shatter)
+        # find parents which are fully one zone
+        # coalesce includes nulls (so we can account for fully blank parents
+        results = session.execute(
+            text(f"""
+            SELECT parent_path, MIN(zone) FROM "parentchildedges_{table_name}"
+            JOIN temploader ON geo_id = "parentchildedges_{table_name}".child_path
+            GROUP BY parent_path
+            HAVING COUNT(DISTINCT COALESCE(zone, -1)) = 1
+        """)
+        )
+
+        # re-import VTDs that are fully uniform zone
+        vtds = []
+        with cursor.copy("COPY temploader (geo_id, zone) FROM STDIN") as copy:
+            for row in results:
+                vtd, zone = row
+                vtds.append(vtd)
+                copy.write_row([vtd, zone])
+
+        # clean up blocks which are now in uniform VTDs
+        session.execute(
+            text(f"""
+            DELETE FROM temploader
+            WHERE geo_id = ANY(
+                SELECT child_path FROM "parentchildedges_{table_name}"
+                WHERE parent_path = ANY(:vtds)
+            )
+        """),
+            {"vtds": vtds},
+        )
+
+        # identify vtds which are non-uniform
+        # results = session.execute(
+        #     text(f"""
+        #     SELECT parent_path FROM "parentchildedges_{table_name}"
+        #     JOIN temploader ON geo_id = "parentchildedges_{table_name}".child_path
+        #     GROUP BY parent_path
+        #     HAVING COUNT(DISTINCT COALESCE(zone, -1)) > 1
+        # """)
+        # )
+    # else:
+    # verify assignments match gerrydb table
+    # I don't know how to do this for non-shatterable map
 
     # insert into actual assignments table
     session.execute(
@@ -366,7 +390,7 @@ async def upload_assignments(
 
     session.commit()
 
-    return {"assignments_upserted": 1}
+    return {"document_id": document_id}
 
 
 # called by getAssignments in apiHandlers.ts
