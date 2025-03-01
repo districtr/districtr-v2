@@ -29,7 +29,7 @@ export function ZoneLockPicker() {
     <div>
       <ColorPicker
         onValueChange={handleChange}
-        colorArray={colorScheme}
+        colorPalette={colorScheme}
         defaultValue={[]}
         value={pickerValue}
         multiple
