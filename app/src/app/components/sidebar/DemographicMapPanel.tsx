@@ -65,22 +65,21 @@ export const DemographicMapPanel: React.FC = () => {
   const colors = scale?.range();
   const quantiles = customBins.length ? null : scale?.quantiles?.();
 
-  const handleCustomBins = (value: number|string, i: number) => {
+  const handleCustomBins = (value: number | string, i: number) => {
     if (!tempBins) return;
-    let newCustomBins = [...(tempBins)];
+    let newCustomBins = [...tempBins];
     // @ts-ignore
     newCustomBins[i] = value;
     setTempBins(newCustomBins);
   };
-
 
   const setCustomBinsFromTemp = () => {
     if (!tempBins) return;
     // @ts-ignore
     const cleanBins = tempBins.map(f => parseFloat(f)).sort((a, b) => a - b);
     setCustomBins(cleanBins);
-  }
-  
+  };
+
   const handleChange = (_newVariable?: DemographyVariable, _usePercent?: boolean) => {
     const usePercent = _usePercent ?? variable.includes('pct');
     const newVariable = _newVariable ?? config?.value;
@@ -159,7 +158,6 @@ export const DemographicMapPanel: React.FC = () => {
             className="w-full"
           >
             {labels => {
-              console.log('!!!', labels);
               return (
                 <Flex direction={'column'} width="100%">
                   <Flex direction="row" width="100%">
@@ -261,7 +259,7 @@ export const DemographicMapPanel: React.FC = () => {
                     </Flex>
                   </Flex>
                 )}
-              <Button onClick={setCustomBinsFromTemp}>Apply</Button>
+                <Button onClick={setCustomBinsFromTemp}>Apply</Button>
               </Flex>
             </Popover.Content>
           </Popover.Root>
