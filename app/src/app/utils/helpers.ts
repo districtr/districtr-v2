@@ -507,7 +507,7 @@ export const updateChartData = (
   totPop: number | undefined
 ) => {
   let unassigned = structuredClone(totPop)!;
-  if (totPop && numDistricts && mapMetrics && mapMetrics.data && numDistricts && totPop) {
+  if (numDistricts && mapMetrics && mapMetrics.data) {
     const populations: Record<string, number> = {};
 
     new Array(numDistricts).fill(null).forEach((_, i) => {
@@ -526,7 +526,7 @@ export const updateChartData = (
       stats,
       chartData,
       unassigned,
-      totPop,
+      totPop: totPop ?? 0,
     });
   } else {
     useChartStore.getState().setChartInfo({

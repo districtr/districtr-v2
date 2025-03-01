@@ -80,11 +80,11 @@ useChartStore.subscribe(
     const mapMetrics = metrics as ChartStore['mapMetrics'];
     const numDistricts = useMapStore?.getState().mapDocument?.num_districts;
     const totPop = useMapStore?.getState().summaryStats.totpop?.data?.total;
-    if (mapMetrics?.data && numDistricts && totPop) {
+    if (mapMetrics?.data && numDistricts) {
       updateChartData(
         mapMetrics,
         numDistricts,
-        totPop,
+        totPop ?? 0,
       )
     }
   }

@@ -19,7 +19,7 @@ export const PopulationPanel = () => {
   const chartOptions = useChartStore(state => state.chartOptions);
   const showDistrictNumbers = chartOptions.popShowDistrictNumbers;
   const setChartOptions = useChartStore(state => state.setChartOptions);
-  const totalPopData = useMapStore(state => state.summaryStats.totpop?.data);
+  // const totalPopData = useMapStore(state => state.summaryStats.totpop?.data);
   const unassigned = useChartStore(state => state.chartInfo.unassigned);
   const chartData = useChartStore(state => state.chartInfo.chartData);
   const stats = useChartStore(state => state.chartInfo.stats);
@@ -35,7 +35,7 @@ export const PopulationPanel = () => {
     }
   };
 
-  if (mapMetrics?.isPending || !totalPopData) {
+  if (mapMetrics?.isPending) {
     return <div>Loading...</div>;
   }
 
