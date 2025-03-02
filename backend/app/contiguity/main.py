@@ -1,4 +1,10 @@
-from networkx import Graph, is_connected, read_gml, write_gml
+from networkx import (
+    Graph,
+    is_connected,
+    number_connected_components,
+    read_gml,
+    write_gml,
+)
 from typing import Iterable, Hashable
 from app.utils import download_file_from_s3
 from app.core.config import settings, Environment
@@ -20,9 +26,16 @@ S3_GRAPH_PREFIX = "graphs"
 S3_BLOCK_PATH = f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}"
 
 
-def check_subgraph_contiguity(G: Graph, subgraph_nodes: Iterable[Hashable]):
+def check_subgraph_contiguity(G: Graph, subgraph_nodes: Iterable[Hashable]) -> bool:
     SG = G.subgraph(subgraph_nodes)
     return is_connected(SG)
+
+
+def subgraph_number_connected_components(
+    G: Graph, subgraph_nodes: Iterable[Hashable]
+) -> int:
+    SG = G.subgraph(subgraph_nodes)
+    return number_connected_components(SG)
 
 
 class GraphFileFormat(str, Enum):

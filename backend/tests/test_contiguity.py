@@ -4,6 +4,7 @@ from networkx import Graph, write_gml, read_gml
 from app.main import contiguity
 from app.contiguity.main import (
     check_subgraph_contiguity,
+    subgraph_number_connected_components,
     get_gerrydb_block_graph,
     get_block_assignments,
     graph_from_gpkg,
@@ -37,6 +38,15 @@ def test_check_subgraph_contiguity(connected_graph):
     assert check_subgraph_contiguity(connected_graph, ["a", "b"])
     assert check_subgraph_contiguity(connected_graph, ["a"])
     assert not check_subgraph_contiguity(connected_graph, ["a", "c"])
+
+
+def test_check_subgraph_number_connected_components(connected_graph):
+    assert subgraph_number_connected_components(connected_graph, ["a", "b", "c", "d"])
+    assert subgraph_number_connected_components(connected_graph, ["a", "b", "c"])
+    assert subgraph_number_connected_components(connected_graph, ["a", "b", "d"])
+    assert subgraph_number_connected_components(connected_graph, ["a", "b"])
+    assert subgraph_number_connected_components(connected_graph, ["a"])
+    assert subgraph_number_connected_components(connected_graph, ["a", "c"]) == 2
 
 
 def test_load_gml(connected_graph):
@@ -191,7 +201,7 @@ def test_simple_geos_contiguity(
         f"/api/document/{document_id}/contiguity",
     )
     assert response.status_code == 200
-    assert response.json() == {"1": True, "2": True}
+    assert response.json() == {"1": 1, "2": 1}
 
 
 def test_simple_geos_discontiguity(
@@ -202,7 +212,7 @@ def test_simple_geos_discontiguity(
         f"/api/document/{document_id}/contiguity",
     )
     assert response.status_code == 200
-    assert response.json() == {"1": True, "2": True}
+    assert response.json() == {"1": 1, "2": 1}
 
     # Break one parent and create discontiguous assignments
     # See `simple_geos_graph` fixture for graph diagram and
@@ -221,7 +231,7 @@ def test_simple_geos_discontiguity(
         f"/api/document/{document_id}/contiguity",
     )
     assert response.status_code == 200
-    assert response.json() == {"1": False, "2": True}
+    assert response.json() == {"1": 2, "2": 1}
 
 
 @fixture
@@ -296,7 +306,7 @@ def test_ks_ellis_geos_contiguity(
         f"/api/document/{document_id}/contiguity",
     )
     assert response.status_code == 200
-    assert response.json() == {"1": True, "2": True, "3": False}
+    assert response.json() == {"1": 1, "2": 1, "3": 2}
 
 
 def test_fix_ks_ellis_geos_contiguity(
@@ -319,4 +329,4 @@ def test_fix_ks_ellis_geos_contiguity(
         f"/api/document/{document_id}/contiguity",
     )
     assert response.status_code == 200
-    assert response.json() == {"1": True, "2": True, "3": True}
+    assert response.json() == {"1": 1, "2": 1, "3": 1}
