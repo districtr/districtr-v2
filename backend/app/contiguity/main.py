@@ -67,6 +67,7 @@ class GraphFileFormat(str, Enum):
         elif self == GraphFileFormat.pkl:
             with open(out_path, "wb") as f:
                 pickle.dump(obj=G, file=f)
+                f.close()
 
         return out_path
 
@@ -238,7 +239,7 @@ def get_block_assignments(
     zone_block_nodes = []
 
     for row in result:
-        logger.info(f"Loading block assignments for {row}")
+        logger.info(f"Loading block assignments for {row.zone}")
         zone_block_nodes.append(ZoneBlockNodes(zone=row.zone, nodes=row.nodes))
 
     return zone_block_nodes
