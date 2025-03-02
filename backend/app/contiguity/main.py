@@ -82,7 +82,7 @@ def get_gerrydb_graph_file(
     if possible_local_path.exists():
         return str(possible_local_path)
 
-    s3_path = f"{S3_BLOCK_PATH}/{gerrydb_name}.gml.gz"
+    s3_path = f"{S3_BLOCK_PATH}/{graph_file_format.format(gerrydb_name)}"
 
     s3 = settings.get_s3_client()
     assert s3, "S3 client is not available"
