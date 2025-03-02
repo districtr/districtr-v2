@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 S3_GRAPH_PREFIX = "graphs"
-S3_BLOCK_PATH = f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}"
 
 
 def check_subgraph_contiguity(G: Graph, subgraph_nodes: Iterable[Hashable]) -> bool:
@@ -101,13 +100,15 @@ def get_gerrydb_graph_file(
 
     logger.info("Checking S3")
     s3_prefix = graph_file_format.format_filepath(gerrydb_name)
-    s3_path = f"{S3_BLOCK_PATH}/{s3_prefix}"
+    s3_key = f"{S3_GRAPH_PREFIX}/{s3_prefix}"
 
-    logger.info("S3 path: %s", s3_path)
+    logger.info("S3 key: %s", s3_key)
 
     s3 = settings.get_s3_client()
     assert s3, "S3 client is not available"
-    s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=s3_path)
+    s3.head_object(Bucket=settings.R2_BUCKET_NAME, Key=s3_key)
+
+    s3_path = f"s3://{settings.R2_BUCKET_NAME}/{s3_key}"
 
     return s3_path
 
