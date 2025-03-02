@@ -16,11 +16,12 @@ from functools import wraps
 import logging
 from sqlmodel import Session
 from app.models import DistrictrMapPublic, DistrictrMap
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from app.constants import GERRY_DB_SCHEMA
 import subprocess
 import json
 import yaml
+from app.contiguity import graph_from_gpkg, write_graph
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -49,7 +50,7 @@ def import_gerrydb_view(
             path,
             layer,  # must match layer name in gpkg
             "-lco",
-            "OVERWRITE=yes",
+            "OVERWRITE=no",  # overwriting drops materialized views
             "-lco",
             "GEOMETRY_NAME=geometry",
             "-nlt",
@@ -127,6 +128,11 @@ class GerryDBViewImport(BaseModel):
     layer: str
     table_name: str | None = None
 
+    @computed_field
+    @property
+    def _table_name(self) -> str:
+        return self.table_name or self.layer
+
 
 class ShatterableViewImport(BaseModel):
     gerrydb_table_name: str
@@ -201,11 +207,25 @@ def load_sample_data(
             print(f"File {gpkg} does not exist.")
             gpkg = f"s3://{settings.R2_BUCKET_NAME}/gerrydb/{view.gpkg}"
 
-        import_gerrydb_view(
-            session=session, layer=view.layer, gpkg=gpkg, table_name=view.table_name
-        )
+        table_exists = session.execute(
+            sa.text(f"select 1 from gerrydb.{view._table_name} limit 1")
+        ).scalar()
+        if table_exists:
+            logger.info(f"GerryDB view {view.table_name} already exists.")
+        else:
+            import_gerrydb_view(
+                session=session,
+                layer=view.layer,
+                gpkg=gpkg,
+                table_name=view._table_name,
+            )
 
         session.commit()
+
+        logger.info(f"Creating graph for {view._table_name}")
+        G = graph_from_gpkg(gpkg_path=gpkg)
+        out_path = write_graph(G=G, gerrydb_name=view._table_name)
+        logger.info(f"Graph saved to {out_path}")
 
     for view in config.shatterable_views:
         session = next(get_session())
