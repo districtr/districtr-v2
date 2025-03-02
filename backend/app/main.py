@@ -461,7 +461,7 @@ async def check_document_contiguity(
         logger.warning(f"Unable to load and cache graph: {str(e)}")
 
     if not isinstance(G, Graph):
-        raise HTTPException(status_code=500, detail="Error loading graph")
+        return HTTPException(status_code=500, detail="Error loading graph")
 
     results = {}
     for zone_blocks in zone_assignments:

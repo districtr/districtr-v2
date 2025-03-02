@@ -90,7 +90,9 @@ def get_gerrydb_graph_file(
     Returns:
         str: The path to the GerryDB graph file.
     """
-    possible_local_path = graph_file_format.format_filepath(f"{prefix}/{gerrydb_name}")
+    possible_local_path = graph_file_format.format_filepath(
+        f"{Path(prefix) / S3_GRAPH_PREFIX}/{gerrydb_name}"
+    )
     logger.info("Possible local path: %s", possible_local_path)
 
     if possible_local_path.exists():
