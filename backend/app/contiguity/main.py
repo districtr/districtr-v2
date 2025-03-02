@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 S3_GRAPH_PREFIX = "graphs"
+S3_BLOCK_PATH = f"s3://{settings.R2_BUCKET_NAME}/{S3_GRAPH_PREFIX}"
 
 
 def check_subgraph_contiguity(G: Graph, subgraph_nodes: Iterable[Hashable]) -> bool:
