@@ -4,6 +4,8 @@ import {Box, Button, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {useMemo} from 'react';
+import {CheckCircledIcon, CrossCircledIcon, DashIcon} from '@radix-ui/react-icons';
+import {colorScheme} from '@/app/constants/colors';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
@@ -25,7 +27,7 @@ export const Contiguity = () => {
   }, [data]);
 
   const tableData = useMemo(() => {
-    console.log("Updating contiguity", data)
+    console.log('Updating contiguity', data);
     if (!data) return [];
     const cleanData: any = [];
     const numDistricts = mapDocument?.num_districts ?? 4;
@@ -53,10 +55,12 @@ export const Contiguity = () => {
 
   return (
     <Box>
-      <Table.Root size="3">
+      <Table.Root size="1">
         <Table.Header>
           <Table.Row>
-            <Table.ColumnHeaderCell pl=".5rem">Zone</Table.ColumnHeaderCell>
+            <Table.ColumnHeaderCell>
+              <Text>Zone</Text>
+            </Table.ColumnHeaderCell>
             <Table.ColumnHeaderCell>Contiguity</Table.ColumnHeaderCell>
           </Table.Row>
         </Table.Header>
@@ -64,19 +68,33 @@ export const Contiguity = () => {
         <Table.Body>
           {tableData.map((row: any, i: number) => (
             <Table.Row key={i}>
-              <Table.Cell pl=".5rem">{row.zone}</Table.Cell>
-              <Table.Cell pl=".5rem">
-                {row.contiguity === null
-                  ? 'Zone not started'
-                  : row.contiguity == true
-                    ? 'Contiguous'
-                    : 'Not Contiguous'}
+              <Table.Cell>
+                <Flex align="center" gap="2">
+                  <div
+                    style={{
+                      width: '15px',
+                      height: '15px',
+                      backgroundColor: colorScheme[(row.zone % colorScheme.length) - 1],
+                      borderRadius: '4px',
+                    }}
+                  />
+                  <Text weight="bold">{row.zone}</Text>
+                </Flex>
+              </Table.Cell>
+              <Table.Cell>
+                {row.contiguity === null ? (
+                  <DashIcon color="gray" />
+                ) : row.contiguity == true ? (
+                  <CheckCircledIcon color="green" />
+                ) : (
+                  <CrossCircledIcon color="red" />
+                )}
               </Table.Cell>
             </Table.Row>
           ))}
         </Table.Body>
       </Table.Root>
-      <Flex direction="row" gapX="2" pt="4" align="center" >
+      <Flex direction="row" gapX="4" pt="4" align="center">
         <Button onClick={() => refetch()}>Refresh</Button>
         <Text>{lastUpdated}</Text>
       </Flex>
