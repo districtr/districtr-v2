@@ -657,7 +657,7 @@ export const saveMapDocumentMetadata = async ({
   metadata: DocumentMetadata;
 }) => {
   return await axios
-    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/metadata`, metadata)
+    .put(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/metadata`, metadata)
     .then(res => {
       return res.data;
     })

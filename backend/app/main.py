@@ -9,7 +9,13 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
-from sqlalchemy.exc import ProgrammingError, InternalError
+from sqlalchemy.exc import (
+    ProgrammingError,
+    InternalError,
+    IntegrityError,
+    SQLAlchemyError,
+)
+from pydantic import ValidationError
 from sqlmodel import Session, String, select, true
 from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
@@ -34,7 +40,7 @@ from app.models import (
     DistrictrMap,
     Document,
     DocumentCreate,
-    MapDocumentMetadata,
+    DocumentMetadata,
     DocumentPublic,
     GEOIDS,
     UserID,
@@ -404,7 +410,7 @@ async def get_document(
                 "available_summary_stats"
             ),  # pyright: ignore
             # get metadata as a json object
-            MapDocumentMetadata.map_metadata.label("map_metadata"),  # pyright: ignore
+            DocumentMetadata.map_metadata.label("map_metadata"),  # pyright: ignore
             coalesce(
                 "shared" if shared else "created",
             ).label("genesis"),
@@ -419,8 +425,8 @@ async def get_document(
             isouter=True,
         )
         .join(
-            MapDocumentMetadata,
-            Document.document_id == MapDocumentMetadata.document_id,
+            DocumentMetadata,
+            Document.document_id == DocumentMetadata.document_id,
             isouter=True,
         )
     )
@@ -659,19 +665,29 @@ async def get_gerrydb_summary_stat(
             )
 
 
-@app.post("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
+@app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
     document_id: str,
     metadata: dict = Body(...),
     session: Session = Depends(get_session),
 ):
     try:
-        metadata_obj = MapDocumentMetadata.from_dict(
-            {"document_id": document_id, "map_metadata": metadata}
-        )
+        if not document_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Missing document_id"
+            )
+        try:
+            metadata_obj = DocumentMetadata.from_dict(
+                {"document_id": document_id, "map_metadata": metadata}
+            )
+        except ValidationError as ve:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid metadata format: {ve.errors()}",
+            )
 
-        # create or update metadata record
-        stmt = insert(MapDocumentMetadata).values(
+        # Create or update metadata record
+        stmt = insert(DocumentMetadata).values(
             document_id=document_id, map_metadata=metadata_obj.map_metadata.dict()
         )
 
@@ -683,12 +699,27 @@ async def update_districtrmap_metadata(
         session.execute(stmt)
         session.commit()
 
-    except Exception as e:
-        logger.error(e)
+    except IntegrityError as ie:
         session.rollback()
+        logger.error(f"Database integrity error: {ie}")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conflict: Metadata entry already exists or violates constraints",
+        )
+
+    except SQLAlchemyError as se:
+        session.rollback()
+        logger.error(f"Database error: {se}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Metadata update failed",
+            detail="A database error occurred while updating metadata",
+        )
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred",
         )
 
 

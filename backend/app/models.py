@@ -220,7 +220,7 @@ class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
     )  # expiration date
 
 
-class MapDocumentMetadata(TimeStampMixin, SQLModel, table=True):
+class DocumentMetadata(TimeStampMixin, SQLModel, table=True):
     __tablename__ = "map_document_metadata"
     __table_args__ = (
         UniqueConstraint("document_id", name="document_id_unique"),
