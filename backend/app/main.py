@@ -631,7 +631,7 @@ async def get_survey_results(
         with open(_out_file, "wb") as f:
             while data := copy.read():
                 f.write(data)
-                f.close()
+            f.close()
 
         media_type = {
             DocumentExportFormat.csv: "text/csv; charset=utf-8",
