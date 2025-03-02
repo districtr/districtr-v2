@@ -100,7 +100,8 @@ def get_gerrydb_graph_file(
     logger.info("Local path does not exist")
 
     logger.info("Checking S3")
-    s3_path = f"{S3_BLOCK_PATH}/{graph_file_format.format(gerrydb_name)}"
+    s3_prefix = graph_file_format.format_filepath(gerrydb_name)
+    s3_path = f"{S3_BLOCK_PATH}/{s3_prefix}"
 
     logger.info("S3 path: %s", s3_path)
 
