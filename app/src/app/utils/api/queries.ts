@@ -13,7 +13,6 @@ import {
   getTotPopSummaryStats,
   P1TotPopSummaryStats,
   P4TotPopSummaryStats,
-  LocalAssignmentsResponse,
   RemoteAssignmentsResponse,
 } from './apiHandlers';
 import {getEntryTotal} from '@/app/utils/summaryStats';
@@ -142,7 +141,7 @@ updateDocumentFromId.subscribe(mapDocument => {
   }
 });
 
-export const fetchAssignments = new QueryObserver<null | LocalAssignmentsResponse | RemoteAssignmentsResponse>(queryClient, {
+export const fetchAssignments = new QueryObserver<null | RemoteAssignmentsResponse>(queryClient, {
   queryKey: ['assignments'],
   queryFn: () => getAssignments(useMapStore.getState().mapDocument),
 });

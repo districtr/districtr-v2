@@ -167,7 +167,7 @@ def ks_demo_view_census_blocks_districtrmap_fixture(
         session=session,
         name=f"Districtr map {GERRY_DB_FIXTURE_NAME}",
         gerrydb_table_name=GERRY_DB_FIXTURE_NAME,
-        parent_layer_name=GERRY_DB_FIXTURE_NAME,
+        parent_layer=GERRY_DB_FIXTURE_NAME,
     )
     session.commit()
 
@@ -272,8 +272,8 @@ def gerrydb_simple_geos_view_fixture(
 ):
     create_shatterable_gerrydb_view(
         session,
-        parent_layer_name="simple_parent_geos",
-        child_layer_name="simple_child_geos",
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
         gerrydb_table_name="simple_geos",
     )
     session.commit()
@@ -284,14 +284,14 @@ def gerrydb_simple_geos_view_fixture(
 def simple_parent_child_geos_districtr_map_fixture(
     session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
 ):
-    (inserted_districtr_map,) = create_districtr_map(
+    inserted_districtr_map = create_districtr_map(
         session,
         name="Simple shatterable layer",
         gerrydb_table_name="simple_geos",
         num_districts=10,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
-        parent_layer_name="simple_parent_geos",
-        child_layer_name="simple_child_geos",
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
     )
     session.commit()
     return inserted_districtr_map
@@ -387,8 +387,8 @@ def gerrydb_ks_ellis_geos_view(
 ):
     create_shatterable_gerrydb_view(
         session,
-        parent_layer_name="ks_ellis_county_vtd",
-        child_layer_name="ks_ellis_county_block",
+        parent_layer="ks_ellis_county_vtd",
+        child_layer="ks_ellis_county_block",
         gerrydb_table_name="ks_ellis_geos",
     )
     session.commit()
@@ -399,14 +399,14 @@ def gerrydb_ks_ellis_geos_view(
 def ks_ellis_shatterable_districtr_map(
     session: Session, ks_ellis_county_vtd_gerrydb, ks_ellis_county_block_gerrydb
 ):
-    (inserted_districtr_map,) = create_districtr_map(
+    inserted_districtr_map = create_districtr_map(
         session,
         name="ks_ellis shatterable layer",
         gerrydb_table_name="ks_ellis_geos",
         num_districts=10,
         tiles_s3_path="tilesets/ks_ellis_shatterable_layer.pmtiles",
-        parent_layer_name="ks_ellis_county_vtd",
-        child_layer_name="ks_ellis_county_block",
+        parent_layer="ks_ellis_county_vtd",
+        child_layer="ks_ellis_county_block",
     )
     session.commit()
     return inserted_districtr_map

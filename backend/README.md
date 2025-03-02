@@ -179,6 +179,54 @@ python cli.py create-districtr-map \
 
 You're done! (Assuming you also created your tilesets. See pipelines CLI for that.)
 
+### Batch loading shatterable districtr maps
+
+Repeating the steps above for numerous layers can be quite onerous. Enter: the batch load CLI command!
+
+Example usage:
+
+```bash
+python cli.py batch-create-districtr-maps \
+    --config-file management/configs/geopackages_vap_and_election.yaml \
+    --data-dir /Users/raphaellaude/Downloads/geopackages_vap_and_election
+```
+
+Full options
+
+```bash
+$ python cli.py batch-create-districtr-maps --help
+Usage: cli.py batch-create-districtr-maps [OPTIONS]
+
+Options:
+  -c, --config-file TEXT  Path to config file  [required]
+  -d, --data-dir TEXT     Path to data directory where the geopackages are
+                          located or will be downloaded to
+  --skip-gerrydb-loads    Skip loading data into GerryDB
+  --help                  Show this message and exit.
+```
+
+#### Batch load config
+
+See examples in `backend/management/configs`. Here's a minimal example for one shatterable map:
+
+```yaml
+gerrydb_views:
+  - gpkg: ak_block_all_vap_elec.gpkg
+    table_name: ak_block_all_vap_elec
+    layer: ak_block_all_vap_elec_graph
+shatterable_views:
+  - gerrydb_table_name: ak_all_vap_elec
+    parent_layer: ak_vtd_all_vap_elec
+    child_layer: ak_block_all_vap_elec
+districtr_maps:
+  - name: Alaska State Senate (20)
+    num_districts: 20
+    gerrydb_table_name: ak_all_vap_elec
+    parent_layer: ak_vtd_all_vap_elec
+    child_layer: ak_block_all_vap_elec
+    tiles_s3_path: tilesets/ak_all_vap_elec.pmtiles
+```
+
 ## Tileset CLI
 
 In some of the Backend CLI commands, a tileset path must be provided.

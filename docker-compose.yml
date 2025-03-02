@@ -12,13 +12,14 @@ services:
     env_file:
       - ./backend/.env.docker # Ensure the env file is also from the backend folder
     environment:
-      LOAD_GERRY_DB_DATA: false
       GPKG_DATA_DIR: sample_data
+      LOAD_DATA: False
     depends_on:
       db:
         condition: service_healthy
     command: bash -c "
-      python3 load_data.py &&
+      alembic upgrade head && \
+      if [ $LOAD_DATA = 'True' ]; then python cli.py batch-create-districtr-maps --config-file=management/configs/basic_shatterable_maps.json --skip-gerrydb-loads; fi && \
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/**/*.py'
       "
     ports:
@@ -63,4 +64,4 @@ services:
     command: sh -c "pip install pre-commit && pre-commit run --all-files"
 
 volumes:
-  postgres_data:  
+  postgres_data:

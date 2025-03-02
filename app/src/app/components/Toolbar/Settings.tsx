@@ -1,14 +1,6 @@
 import React from 'react';
 import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import {
-  COUNTY_LAYER_IDS,
-  BLOCK_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID_CHILD,
-  BLOCK_LAYER_ID_CHILD,
-} from '@constants/layers';
-import {toggleLayerVisibility} from '@utils/helpers';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 
 const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
@@ -38,11 +30,7 @@ const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
  * - Support tribes and communities
  */
 export const ToolSettings: React.FC = () => {
-  const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
-  const visibleLayerIds = useMapStore(state => state.visibleLayerIds);
-  const updateVisibleLayerIds = useMapStore(state => state.updateVisibleLayerIds);
-  const toggleHighlightBrokenDistricts = useMapStore(state => state.toggleHighlightBrokenDistricts);
   const parentsAreBroken = useMapStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapStore(state => state.mapOptions);
   const setMapOptions = useMapStore(state => state.setMapOptions);
@@ -51,25 +39,22 @@ export const ToolSettings: React.FC = () => {
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
   const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
 
-  const toggleLayers = (layerIds: string[]) => {
-    if (!mapRef) return;
-    const layerUpdates = toggleLayerVisibility(mapRef, layerIds);
-    updateVisibleLayerIds(layerUpdates);
-  };
-
   return (
     <Flex gap="3" direction="column">
       <CheckboxGroup.Root
         defaultValue={[]}
         name="districts"
         value={[
+          mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
           mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
           mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-
-          visibleLayerIds.includes(BLOCK_LAYER_ID) ? '1' : '',
-          mapOptions.showZoneNumbers ? '2' : '',
-          parentsAreBroken && mapOptions.showBrokenDistricts ? '3' : '',
-          (mapOptions.lockPaintedAreas.length === (mapDocument?.num_districts ?? 4)) ? 'lockAll' : '',
+          mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
+          mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
+          mapOptions.showZoneNumbers === true ? 'showZoneNumbers' : '',
+          parentsAreBroken && mapOptions.highlightBrokenDistricts === true
+            ? 'highlightBrokenDistricts'
+            : '',
+          mapOptions.lockPaintedAreas.length === (mapDocument?.num_districts ?? 4) ? 'lockAll' : '',
         ]}
       >
         <Heading as="h3" weight="bold" size="3">
@@ -86,28 +71,35 @@ export const ToolSettings: React.FC = () => {
           Show population tooltip
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
-          value="1"
+          value="showBlockPopulationNumbers"
           onClick={() =>
-            toggleLayers([
-              BLOCK_LAYER_ID,
-              BLOCK_HOVER_LAYER_ID,
-              BLOCK_HOVER_LAYER_ID_CHILD,
-              BLOCK_LAYER_ID_CHILD,
-            ])
+            setMapOptions({
+              showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
+            })
+          }
+        >
+          Show total population labels on blocks
+        </CheckboxGroup.Item>
+        <CheckboxGroup.Item
+          value="showPaintedDistricts"
+          onClick={() =>
+            setMapOptions({
+              showPaintedDistricts: !mapOptions.showPaintedDistricts,
+            })
           }
           disabled={mapDocument === null}
         >
           Show painted districts
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
-          value="2"
+          value="showZoneNumbers"
           onClick={() =>
             setMapOptions({
               showZoneNumbers: !mapOptions.showZoneNumbers,
             })
           }
         >
-          Show numbering for painted districts <i>(experimental)</i>
+          Show numbering for painted districts
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
           value="higlightUnassigned"
@@ -120,9 +112,13 @@ export const ToolSettings: React.FC = () => {
           Highlight unassigned areas
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
-          value="3"
+          value="highlightBrokenDistricts"
           disabled={!parentsAreBroken}
-          onClick={() => toggleHighlightBrokenDistricts()}
+          onClick={() =>
+            setMapOptions({
+              highlightBrokenDistricts: !mapOptions.highlightBrokenDistricts,
+            })
+          }
         >
           Highlight broken precincts
         </CheckboxGroup.Item>
@@ -133,11 +129,18 @@ export const ToolSettings: React.FC = () => {
       <CheckboxGroup.Root
         name="contextualLayers"
         value={[
-          COUNTY_LAYER_IDS.every(layerId => visibleLayerIds.includes(layerId)) ? '1' : '',
-          mapOptions.prominentCountyNames ? 'prominentCountyNames' : '',
+          mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
+          mapOptions.prominentCountyNames === true ? 'prominentCountyNames' : '',
         ]}
       >
-        <CheckboxGroup.Item value="1" onClick={() => toggleLayers(COUNTY_LAYER_IDS)}>
+        <CheckboxGroup.Item
+          value="showCountyBoundaries"
+          onClick={() =>
+            setMapOptions({
+              showCountyBoundaries: !mapOptions.showCountyBoundaries,
+            })
+          }
+        >
           Show county boundaries
         </CheckboxGroup.Item>
         <CheckboxGroup.Item
@@ -148,7 +151,7 @@ export const ToolSettings: React.FC = () => {
             })
           }
         >
-          Show county names
+          Emphasize county names
         </CheckboxGroup.Item>
         <CheckboxGroup.Item value="2" disabled>
           Show tribes and communities

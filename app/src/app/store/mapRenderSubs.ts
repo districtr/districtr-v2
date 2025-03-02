@@ -1,19 +1,4 @@
-import {
-  addBlockLayers,
-  BLOCK_LAYER_ID,
-  BLOCK_HOVER_LAYER_ID,
-  PARENT_LAYERS,
-  CHILD_LAYERS,
-  getLayerFilter,
-  getLayerFill,
-  BLOCK_SOURCE_ID,
-  BLOCK_LAYER_ID_HIGHLIGHT,
-  getHighlightLayerSpecification,
-  BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
-  removeZoneMetaLayers,
-  debouncedAddZoneMetaLayers,
-  COUNTY_LAYERS,
-} from '@constants/layers';
+import {PARENT_LAYERS, CHILD_LAYERS, getLayerFill, BLOCK_SOURCE_ID} from '@constants/layers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
@@ -21,52 +6,43 @@ import {
   getFeaturesIntersectingCounties,
   shallowCompareArray,
 } from '@utils/helpers';
-import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
+import {useMapStore as _useMapStore, HoverFeatureStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
-import GeometryWorker from '@utils/GeometryWorker';
 import {useHoverStore as _useHoverStore} from '@store/mapStore';
 import {calcPops} from '@utils/population';
 import {useChartStore} from '@store/chartStore';
-
-const BBOX_TOLERANCE_DEG = 0.02;
 
 export const getRenderSubscriptions = (
   useMapStore: typeof _useMapStore,
   useHoverStore: typeof _useHoverStore
 ) => {
-  const addLayerSubMapDocument = useMapStore.subscribe<
-    [MapStore['mapDocument'], MapStore['getMapRef']]
-  >(
-    state => [state.mapDocument, state.getMapRef],
-    ([mapDocument, getMapRef]) => {
-      const mapStore = useMapStore.getState();
-      const mapRef = getMapRef();
-      if (mapRef && mapDocument) {
-        addBlockLayers(mapRef, mapDocument);
-        mapStore.addVisibleLayerIds([BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID]);
-      }
-    },
-    {equalityFn: shallowCompareArray}
-  );
-
   const _shatterMapSideEffectRender = useMapStore.subscribe<
-    [MapStore['shatterIds'], MapStore['getMapRef'], MapStore['mapRenderingState']]
+    [
+      MapStore['shatterIds'],
+      MapStore['getMapRef'],
+      MapStore['mapRenderingState'],
+      MapStore['mapOptions']['highlightBrokenDistricts'],
+    ]
   >(
-    state => [state.shatterIds, state.getMapRef, state.mapRenderingState],
-    ([shatterIds, getMapRef, mapRenderingState]) => {
+    state => [
+      state.shatterIds,
+      state.getMapRef,
+      state.mapRenderingState,
+      state.mapOptions.highlightBrokenDistricts,
+    ],
+    ([shatterIds, getMapRef, mapRenderingState, highlightBrokenDistricts], [prevShatterIds]) => {
       const {mapDocument, appLoadingState, setMapLock} = useMapStore.getState();
       const mapRef = getMapRef();
-      if (!mapRef || mapRenderingState !== 'loaded' || appLoadingState !== 'loaded') {
+      if (
+        !mapRef ||
+        mapRenderingState !== 'loaded' ||
+        appLoadingState !== 'loaded' ||
+        !mapDocument
+      ) {
         return;
       }
-
-      const layersToFilter = mapDocument?.child_layer ? CHILD_LAYERS : [];
       // Hide broken parents on parent layer
       // Show broken children on child layer
-      layersToFilter.forEach(
-        layerId =>
-          mapRef.getLayer(layerId) && mapRef.setFilter(layerId, getLayerFilter(layerId, shatterIds))
-      );
       // remove zone from parents
       shatterIds.parents.forEach(id => {
         mapRef?.setFeatureState(
@@ -78,8 +54,24 @@ export const getRenderSubscriptions = (
           {
             broken: true,
             zone: null,
+            highlighted: highlightBrokenDistricts,
           }
         );
+      });
+      prevShatterIds.parents.forEach((parentId: string) => {
+        if (!shatterIds.parents.has(parentId)) {
+          mapRef.setFeatureState(
+            {
+              id: parentId,
+              source: BLOCK_SOURCE_ID,
+              sourceLayer: mapDocument.parent_layer,
+            },
+            {
+              highlighted: false,
+              broken: false,
+            }
+          );
+        }
       });
 
       mapRef.once('render', () => {
@@ -115,15 +107,7 @@ export const getRenderSubscriptions = (
         setLockedFeatures,
         lockedFeatures,
         mapRenderingState,
-        mapOptions,
       } = useMapStore.getState();
-      if (mapOptions.showZoneNumbers) {
-        GeometryWorker?.updateProps(Array.from(curr[0].entries())).then(() => {
-          debouncedAddZoneMetaLayers({});
-        });
-      } else {
-        removeZoneMetaLayers();
-      }
       const mapRef = getMapRef();
       if (!mapRef || mapRenderingState !== 'loaded') return;
       [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
@@ -297,73 +281,12 @@ export const getRenderSubscriptions = (
     }
   );
 
-  const highlightUnassignedSub = useMapStore.subscribe(
-    state => state.mapOptions.higlightUnassigned,
-    higlightUnassigned => {
-      const {getMapRef, mapDocument} = useMapStore.getState();
-      const mapRef = getMapRef();
-      if (!mapRef || !mapDocument?.parent_layer) return;
-      // set the layer BLOCK_LAYER_ID_HIGHLIGHT style to be the return from getHighlightLayerSpecification
-      const paintStyle = getHighlightLayerSpecification(
-        mapDocument.parent_layer,
-        BLOCK_LAYER_ID_HIGHLIGHT,
-        higlightUnassigned
-      )['paint'];
-      if (!paintStyle) return;
-      if (mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT)) {
-        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-width', paintStyle['line-width']);
-        mapRef.setPaintProperty(BLOCK_LAYER_ID_HIGHLIGHT, 'line-color', paintStyle['line-color']);
-      }
-      if (mapRef.getLayer(BLOCK_LAYER_ID_HIGHLIGHT_CHILD)) {
-        mapRef.setPaintProperty(
-          BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
-          'line-width',
-          paintStyle['line-width']
-        );
-        mapRef.setPaintProperty(
-          BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
-          'line-color',
-          paintStyle['line-color']
-        );
-      }
-    }
-  );
-
-  const filterCountiesSub = useMapStore.subscribe<[string | undefined, MapStore['getMapRef']]>(
-    state => [state.mapOptions.currentStateFp, state.getMapRef],
-    ([stateFp, getMapRef]) => {
-      const mapRef = getMapRef();
-      if (!mapRef) return;
-      const filterExpression = [
-        '==',
-        ['slice', ['get', 'GEOID'], 0, 2],
-        stateFp ? stateFp : '--',
-      ] as any;
-      COUNTY_LAYERS.forEach(layer => {
-        mapRef.getLayer(layer) && mapRef.setFilter(layer, ['any', filterExpression]);
-      });
-    }
-  );
-  const countyEmphasisSub = useMapStore.subscribe(
-    state => state.mapOptions.prominentCountyNames,
-    prominentCountyNames => {
-      const mapRef = useMapStore.getState().getMapRef();
-      if (!mapRef) return;
-      const layers = mapRef.getStyle().layers;
-      const layerLength = layers.length;
-      if (prominentCountyNames) {
-        mapRef.moveLayer('counties_labels', layers[layerLength - 1].id); // move to top
-        mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Bold']);
-      } else {
-        mapRef.moveLayer('counties_labels', 'counties_boundary'); // move to other county labes
-        mapRef.setLayoutProperty('counties_labels', 'text-font', ['Barlow Regular']);
-      }
-    }
-  );
-
   const _hoverMapSideEffectRender = useHoverStore.subscribe(
-    state => state.hoverFeatures,
-    (hoverFeatures, previousHoverFeatures) => {
+    (state: HoverFeatureStore) => state.hoverFeatures,
+    (
+      hoverFeatures: HoverFeatureStore['hoverFeatures'],
+      previousHoverFeatures: HoverFeatureStore['hoverFeatures']
+    ) => {
       const mapRef = useMapStore.getState().getMapRef();
 
       if (!mapRef) {
@@ -381,14 +304,10 @@ export const getRenderSubscriptions = (
   );
 
   return [
-    countyEmphasisSub,
-    addLayerSubMapDocument,
     _shatterMapSideEffectRender,
     _zoneAssignmentMapSideEffectRender,
     _hoverMapSideEffectRender,
     _updateMapCursor,
     _applyFocusFeatureState,
-    highlightUnassignedSub,
-    filterCountiesSub,
   ];
 };

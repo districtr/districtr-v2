@@ -75,4 +75,5 @@ sample_data/*
 
 temp/*
 pipelines/build_client_rects/output/*
-/data/*
+data/**/*
+backend/.env.docker
