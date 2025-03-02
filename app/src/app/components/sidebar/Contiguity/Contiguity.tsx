@@ -84,10 +84,13 @@ export const Contiguity = () => {
               <Table.Cell>
                 {row.contiguity === null ? (
                   <DashIcon color="gray" />
-                ) : row.contiguity == true ? (
+                ) : row.contiguity == 1 ? (
                   <CheckCircledIcon color="green" />
                 ) : (
-                  <CrossCircledIcon color="red" />
+                  <Flex direction="row" gap="1">
+                    <CrossCircledIcon color="red" />
+                    <Text color="gray">{row.contiguity} connected components</Text>
+                  </Flex>
                 )}
               </Table.Cell>
             </Table.Row>
