@@ -15,7 +15,7 @@ from app.core.config import settings
 from functools import wraps
 import logging
 from sqlmodel import Session
-from app.models import DistrictrMapPublic, DistrictrMap
+from app.models import DistrictrMapPublic, DistrictrMap, GerryDBTable
 from pydantic import BaseModel, computed_field
 from app.constants import GERRY_DB_SCHEMA
 import subprocess
@@ -50,7 +50,7 @@ def import_gerrydb_view(
             path,
             layer,  # must match layer name in gpkg
             "-lco",
-            "OVERWRITE=yes",
+            "OVERWRITE=no",  # overwriting drops materialized views
             "-lco",
             "GEOMETRY_NAME=geometry",
             "-nlt",
@@ -207,9 +207,13 @@ def load_sample_data(
             print(f"File {gpkg} does not exist.")
             gpkg = f"s3://{settings.R2_BUCKET_NAME}/gerrydb/{view.gpkg}"
 
-        import_gerrydb_view(
-            session=session, layer=view.layer, gpkg=gpkg, table_name=view._table_name
-        )
+        table_exists = session.execute(sa.text(f"select 1 from gerrydb.{view._table_name} limit 1")).scalar()
+        if table_exists:
+            logger.info(f"GerryDB view {view.table_name} already exists.")
+        else:
+            import_gerrydb_view(
+                session=session, layer=view.layer, gpkg=gpkg, table_name=view._table_name
+            )
 
         session.commit()
 
