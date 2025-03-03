@@ -81,6 +81,7 @@ export interface DistrictrMap {
  * @property {number | null} num_districts - The number of districts to enforce.
  * @property {string} created_at - The created at.
  * @property {string} updated_at - The updated at.
+ * @property {string[]} color_scheme - The colors for districts.
  */
 export interface DocumentObject {
   document_id: string;
@@ -93,6 +94,7 @@ export interface DocumentObject {
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   available_summary_stats: string[];
+  color_scheme: string[] | null;
 }
 
 /**
@@ -555,6 +557,38 @@ export const patchUnShatterParents: (params: {
         zone,
         updated_at: updateHash,
       }
+    )
+    .then(res => {
+      return res.data;
+    });
+};
+
+/**
+ * Set colors response
+ *   @interface
+ *   @property {boolean} success - Confirming if the operation succeeded
+ *   @property {string} document_id - Document ID
+ */
+export interface ColorsSet {
+  success: boolean;
+  document_id: string;
+}
+
+
+/**
+ * Save changed colors
+ *
+ * @param document_id - string, the document id
+ * @param color_scheme - string[], the hex colors for districts
+ */
+export const saveColorScheme: (params: {
+  document_id: string;
+  colors: string[];
+}) => Promise<ColorsSet> = async ({document_id, colors}) => {
+  return await axios
+    .patch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/${document_id}/update_colors`,
+      colors,
     )
     .then(res => {
       return res.data;

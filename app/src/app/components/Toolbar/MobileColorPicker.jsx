@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Button, IconButton, Popover } from "@radix-ui/themes"; // Import Popover from Radix
 import { ZonePicker } from "./ZonePicker";
-import { colorScheme } from "@/app/constants/colors";
 import { useMapStore } from "@/app/store/mapStore";
 import { ColorWheelIcon } from "@radix-ui/react-icons";
 
 export const MobileColorPicker = () => {
   const [open, setOpen] = useState(false);
-  const selectedZone = useMapStore((state) => state.selectedZone);
+  const selectedZone = useMapStore(state => state.selectedZone);
+  const colorScheme = useMapStore(state => state.colorScheme);
 
   const zoneIndex = selectedZone ? selectedZone - 1 : 0;
   const color = colorScheme[zoneIndex];

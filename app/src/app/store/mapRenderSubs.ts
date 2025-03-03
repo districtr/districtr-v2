@@ -1,4 +1,5 @@
 import {PARENT_LAYERS, CHILD_LAYERS, getLayerFill, BLOCK_SOURCE_ID} from '@constants/layers';
+import {saveColorScheme} from '@utils/api/apiHandlers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
@@ -16,6 +17,17 @@ export const getRenderSubscriptions = (
   useMapStore: typeof _useMapStore,
   useHoverStore: typeof _useHoverStore
 ) => {
+  const _addColorSchemeSub = useMapStore.subscribe<MapStore['colorScheme']>(
+    state => state.colorScheme,
+    colorScheme => {
+      const {mapDocument} = useMapStore.getState();
+      if (mapDocument) {
+        saveColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
+      }
+    },
+    {equalityFn: shallowCompareArray}
+  );
+
   const _shatterMapSideEffectRender = useMapStore.subscribe<
     [
       MapStore['shatterIds'],
@@ -309,5 +321,6 @@ export const getRenderSubscriptions = (
     _hoverMapSideEffectRender,
     _updateMapCursor,
     _applyFocusFeatureState,
+    _addColorSchemeSub,
   ];
 };

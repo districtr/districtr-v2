@@ -1,5 +1,4 @@
 import {MapStore, useMapStore} from '@/app/store/mapStore';
-import {colorScheme} from '@/app/constants/colors';
 import React, {useCallback, useState} from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
@@ -24,6 +23,7 @@ export const PopulationChart: React.FC<{
   margins = {left: 5, right: 20, top: 20, bottom: 80},
 }) => {
   const chartOptions = useChartStore(state => state.chartOptions);
+  const colorScheme = useMapStore(state => state.colorScheme);
 
   const {
     popBarScaleToCurrent: scaleToCurrent,
@@ -193,6 +193,7 @@ export const PopulationChart: React.FC<{
             pop={data[hoveredIndex].total_pop}
             idealPopulation={idealPopulation}
             maxPop={maxPop}
+            colorScheme={colorScheme}
           />
         )}
       </Group>
