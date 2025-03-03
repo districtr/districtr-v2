@@ -1,5 +1,5 @@
-# Use official Python image with version >= 3.11
-FROM python:3.12-slim
+# Use official Python image inclusive of gcc pre-requisites
+FROM python:3.12
 
 # Set working directory inside the container
 WORKDIR /districtr-backend
