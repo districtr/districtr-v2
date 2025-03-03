@@ -60,6 +60,7 @@ const PopulationTextLayer = () => {
 const ZoneNumbersLayer = () => {
   const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
   const zoneAssignments = useMapStore(state => state.zoneAssignments);
+  const colorScheme = useMapStore(state => state.colorScheme);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
   const [zoneNumberData, setZoneNumberData] = useState<any>(EMPTY_FT_COLLECTION);
@@ -125,7 +126,7 @@ const ZoneNumbersLayer = () => {
           'circle-color': '#fff',
           'circle-radius': 15,
           'circle-opacity': 0.8,
-          'circle-stroke-color': ZONE_LABEL_STYLE || '#000',
+          'circle-stroke-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
           'circle-stroke-width': 2,
         }}
       ></Layer>

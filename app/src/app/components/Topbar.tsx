@@ -12,6 +12,7 @@ import {
 } from '@radix-ui/themes';
 import React, {useRef} from 'react';
 import {useMapStore} from '../store/mapStore';
+import {ColorChangeModal} from './Toolbar/ColorChangeModal';
 import {RecentMapsModal} from './Toolbar/RecentMapsModal';
 import {ToolSettings} from './Toolbar/Settings';
 import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
@@ -29,6 +30,11 @@ export const Topbar: React.FC = () => {
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
+
+  const [colorModalOpen, setColorModalOpen] = React.useState(false);
+  const handleChangeColors = () => {
+    setColorModalOpen(true);
+  };
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
     if (selectedMap.gerrydb_table_name === mapDocument?.gerrydb_table) {
@@ -145,6 +151,9 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
+              <DropdownMenu.Item disabled={!mapDocument?.document_id} onClick={handleChangeColors}>
+                Change District Colors
+              </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
@@ -166,6 +175,7 @@ export const Topbar: React.FC = () => {
         </Flex>
         <MobileDataTabs />
       </Flex>
+      <ColorChangeModal open={colorModalOpen} onClose={() => setColorModalOpen(false)} />
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
     </>
   );

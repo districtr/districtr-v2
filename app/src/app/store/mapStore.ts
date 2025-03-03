@@ -3,6 +3,7 @@ import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
+import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '@constants/types';
 import {Zone, GDBPath} from '@constants/types';
 import {
@@ -89,6 +90,8 @@ export interface MapStore {
    */
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  colorScheme: string[];
+  setColorScheme: (colors: string[]) => void;
   loadedMapId: string;
   setLoadedMapId: (mapId: string) => void;
   summaryStats: {
@@ -445,6 +448,8 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
+        colorScheme: DefaultColorScheme,
+        setColorScheme: colorScheme => set({colorScheme}),
         loadedMapId: '',
         setLoadedMapId: loadedMapId => set({loadedMapId}),
         summaryStats: {},
@@ -723,7 +728,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               delete shatterMappings[parent.parentId];
               newShatterIds.parents.delete(parent.parentId);
               newZoneAssignments.set(parent.parentId, parent.zone!);
-            }); 
+            });
             set({
               shatterIds: newShatterIds,
               mapLock: false,
@@ -825,6 +830,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
               appLoadingState: 'loaded',
               mapLock: false,
               activeTool: 'pan',
+              colorScheme: DefaultColorScheme,
               assignmentsHash: updateHash,
               lastUpdatedHash: updateHash,
             });

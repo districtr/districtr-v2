@@ -14,7 +14,6 @@ import {Button, CheckboxGroup, Heading} from '@radix-ui/themes';
 import {Flex, Spinner, Text} from '@radix-ui/themes';
 import {queryClient} from '@utils/api/queryClient';
 import {formatNumber, NumberFormats} from '@/app/utils/numbers';
-import {colorScheme} from '@/app/constants/colors';
 import {interpolateGreys} from 'd3-scale-chromatic';
 
 type EvalModes = 'share' | 'count' | 'totpop';
@@ -99,6 +98,7 @@ const Evaluation: React.FC = () => {
   const totPop = useMapStore(state => state.summaryStats.totpop?.data);
   const mapDocument = useMapStore(state => state.mapDocument);
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
+  const colorScheme = useMapStore(state => state.colorScheme);
   const columnConfig = useMemo(() => {
     const summaryType = mapDocument?.available_summary_stats?.[0];
 
