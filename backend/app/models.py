@@ -257,6 +257,13 @@ class DocumentMetadata(TimeStampMixin, SQLModel, table=True):
         return data
 
 
+class DocumentEditStatus(str, Enum):
+    locked = "locked"
+    unlocked = "unlocked"
+    checked_out = "checked_out"
+    # others?
+
+
 class DocumentPublic(BaseModel):
     document_id: UUID4
     gerrydb_table: str | None
@@ -269,7 +276,9 @@ class DocumentPublic(BaseModel):
     extent: list[float] | None = None
     available_summary_stats: list[str] | None = None
     map_metadata: DistrictrMapMetadata | None
-    status: str = "unlocked"
+    status: DocumentEditStatus = (
+        DocumentEditStatus.unlocked
+    )  # locked, unlocked, checked_out
     genesis: str | None = None
 
 

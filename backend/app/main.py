@@ -42,6 +42,7 @@ from app.models import (
     DocumentCreate,
     DocumentMetadata,
     DocumentPublic,
+    DocumentEditStatus,
     GEOIDS,
     UserID,
     AssignedGEOIDS,
@@ -145,7 +146,11 @@ def check_map_lock(document_id, user_id, session):
         {"document_id": document_id, "user_id": user_id},
     ).fetchone()
 
-    status = "unlocked" if result and result.user_id == user_id else "locked"
+    status = (
+        DocumentEditStatus.unlocked
+        if result and result.user_id == user_id
+        else DocumentEditStatus.locked
+    )
 
     return status
 
@@ -463,7 +468,7 @@ async def unlock_document(
         )
 
         session.commit()
-        return {"status": "unlocked"}
+        return {"status": DocumentEditStatus.unlocked}
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -484,10 +489,10 @@ async def get_document_status(
     if result:
         # if user id matches, return the document checked out, otherwise return locked
         if result.user_id == data.user_id:
-            return {"status": "checked_out"}
+            return {"status": DocumentEditStatus.checked_out}
 
         # the map is already checked out; should return as locked
-        return {"status": "locked"}
+        return {"status": DocumentEditStatus.locked}
     else:
         # the map is able to be checked out;
         # should return as unlocked, but should now
@@ -500,22 +505,21 @@ async def get_document_status(
         )
         session.commit()
 
-        return {"status": "checked_out"}
+        return {"status": DocumentEditStatus.checked_out}
 
 
 @app.on_event("startup")
 @repeat_every(seconds=60)  # Run every minute
 def cleanup_expired_locks():
-    session = sessionmaker(bind=engine)()
+    session = next(get_session())
     try:
         N_HOURS = 1  # arbitrary for now
-        expiry = datetime.now() - timedelta(hours=N_HOURS)
-
         stmt = text(
-            "DELETE FROM document.map_document_user_session WHERE updated_at < :expiry"
+            """DELETE FROM document.map_document_user_session 
+            WHERE updated_at < NOW() = INTERVAL :n_hours"""
         )
 
-        result = session.execute(stmt, {"expiry": expiry})
+        result = session.execute(stmt, {"n_hours": N_HOURS})
         session.commit()
         print(f"Deleted {result.rowcount} expired locks.")
     except Exception as e:
