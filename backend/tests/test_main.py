@@ -643,3 +643,18 @@ def test_get_p4_summary_stats(client, document_id_p4_summary_stats):
     assert record_2.get("zone") == 2
     assert record_1.get("hispanic_vap") == 13
     assert record_2.get("hispanic_vap") == 24
+
+
+def test_update_districtrmap_metadata(client, document_id):
+    metadata_payload = {
+        "name": "Test Map",
+        "tags": ["test", "map"],
+        "description": "This is a test metadata entry",
+        "event_id": "1234",
+    }
+
+    response = client.put(
+        f"/api/document/{document_id}/metadata", json=metadata_payload
+    )
+
+    assert response.status_code == 200
