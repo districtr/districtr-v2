@@ -516,8 +516,8 @@ def cleanup_expired_locks():
         N_HOURS = 1  # arbitrary for now
         stmt = text(
             """DELETE FROM document.map_document_user_session 
-            WHERE updated_at < NOW() = INTERVAL :n_hours"""
-        ).bindparams(bindparam(key="n_hours", type_=INT))
+            WHERE updated_at < NOW() - make_interval(hours => :n_hours)"""
+        )
 
         result = session.execute(stmt, {"n_hours": N_HOURS})
         session.commit()
