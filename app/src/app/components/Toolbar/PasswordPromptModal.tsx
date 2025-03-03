@@ -55,6 +55,16 @@ export const PasswordPromptModal = () => {
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <Dialog.Content>
+        <Flex align="center" className="mb-4">
+          <Dialog.Title className="m-0 text-xl font-bold flex-1">Password Required</Dialog.Title>
+          <Dialog.Close
+            className="rounded-full size-[24px] hover:bg-red-100 p-1"
+            aria-label="Close"
+            onClick={proceedToStart}
+          >
+            <Cross2Icon />
+          </Dialog.Close>
+        </Flex>
         <Box p="3">
           <Text size="2" weight="bold">
             This plan is password protected.{' '}

@@ -18,6 +18,11 @@ import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
 import {useChartStore} from '@/app/store/chartStore';
 import {districtrIdbCache} from '../cache';
+import type {AxiosError} from 'axios';
+
+export interface AxiosErrorData {
+  detail: 'Invalid password' | 'Password required';
+}
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -189,10 +194,16 @@ export const sharedDocument = new MutationObserver(queryClient, {
     console.log(token, password, status);
   },
   onError: error => {
-    console.error('Error fetching shared document: ', error);
-    useMapStore
-      .getState()
-      .setShareMapMessage('Error fetching shared document. Please enter a valid password');
+    const errorData = (error as AxiosError)?.response?.data as AxiosErrorData;
+    if (errorData.detail === 'Invalid password') {
+      useMapStore.getState().setShareMapMessage('Error: Incorrect password. Please try again');
+    } else if (errorData.detail === 'Password required') {
+      useMapStore
+        .getState()
+        .setShareMapMessage(
+          'This document requires a password to view. Please enter a valid password'
+        );
+    }
   },
   onSuccess: data => {
     const {setMapDocument, setLoadedMapId, setAppLoadingState, setPasswordPrompt} =

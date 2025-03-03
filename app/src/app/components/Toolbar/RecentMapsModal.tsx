@@ -82,7 +82,9 @@ export const RecentMapsModal: React.FC<{
     >
       {!!showTrigger && (
         <Dialog.Trigger>
-          <Button variant="ghost">Recent Maps</Button>
+          <Button variant="ghost" disabled={!userMaps.length}>
+            Recent Maps
+          </Button>
         </Dialog.Trigger>
       )}
       <DialogContentContainer className="max-w-[50vw]">

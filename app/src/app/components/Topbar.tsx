@@ -187,7 +187,7 @@ export const Topbar: React.FC = () => {
               disabled={!mapDocument?.document_id}
               onClick={() => setSaveMapsModal(true)}
             >
-              {mapDocument?.genesis === 'shared' ? 'Make a Copy' : 'Save'}
+              {mapDocument?.genesis === 'shared' ? 'Make a Copy' : 'Save Metadata'}
             </Button>
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
