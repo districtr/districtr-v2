@@ -264,6 +264,11 @@ class DocumentEditStatus(str, Enum):
     # others?
 
 
+class DocumentGenesis(str, Enum):
+    created = "created"
+    shared = "shared"
+
+
 class DocumentPublic(BaseModel):
     document_id: UUID4
     gerrydb_table: str | None

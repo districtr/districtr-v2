@@ -162,18 +162,11 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    const {loadZoneAssignments, loadedMapId, setAppLoadingState, mapDocument} =
-      useMapStore.getState();
-    if (
-      assignments.data.documentId === loadedMapId &&
-      !['shared', 'copied'].includes(mapDocument?.genesis ?? '')
-    ) {
-      console.log(`Map ${assignments.data.documentId} already loaded`);
-    } else {
-      loadZoneAssignments(assignments.data);
-      fetchTotPop.refetch();
-      useMapStore.temporal.getState().clear();
-    }
+    const {loadZoneAssignments, setAppLoadingState} = useMapStore.getState();
+    loadZoneAssignments(assignments.data);
+    fetchTotPop.refetch();
+    useMapStore.temporal.getState().clear(); // we will soon factor our temporal state anyway
+
     setAppLoadingState('loaded');
   }
 });
