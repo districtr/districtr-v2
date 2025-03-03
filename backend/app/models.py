@@ -143,6 +143,9 @@ class Document(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
     gerrydb_table: str | None = Field(nullable=True)
+    color_scheme: list[str] | None = Field(
+        sa_column=Column(ARRAY(String), nullable=True)
+    )
 
 
 class DocumentCreate(BaseModel):
@@ -160,6 +163,7 @@ class DocumentPublic(BaseModel):
     updated_at: datetime
     extent: list[float] | None = None
     available_summary_stats: list[str] | None = None
+    color_scheme: list[str] | None = None
 
 
 class AssignmentsBase(SQLModel):
@@ -207,6 +211,10 @@ class UnassignedBboxGeoJSONs(BaseModel):
 class ShatterResult(BaseModel):
     parents: GEOIDS
     children: list[Assignments]
+
+
+class ColorsSetResult(BaseModel):
+    colors: list[str]
 
 
 class ZonePopulation(BaseModel):
