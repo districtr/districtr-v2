@@ -10,7 +10,7 @@ import {
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
-import React, {useEffect, useRef} from 'react';
+import React, {useRef} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {RecentMapsModal} from './Toolbar/RecentMapsModal';
 import {ToolSettings} from './Toolbar/Settings';
@@ -19,7 +19,6 @@ import {useTemporalStore} from '../store/temporalStore';
 import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
-import {districtrIdbCache} from '../utils/cache';
 import {ShareMapsModal} from './Toolbar/ShareMapsModal';
 import {PasswordPromptModal} from './Toolbar/PasswordPromptModal';
 import {SaveMapsModal} from './Toolbar/SaveMapsModal';
@@ -29,13 +28,12 @@ export const Topbar: React.FC = () => {
   const [shareMapsModal, setShareMapsModal] = React.useState(false);
   const [saveMapsModal, setSaveMapsModal] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [cachedViews, setCachedViews] = React.useState<DistrictrMap[]>();
   const mapDocument = useMapStore(state => state.mapDocument);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
 
   const clear = useTemporalStore(store => store.clear);
-  const data = mapViews?.data || cachedViews || [];
+  const data = mapViews?.data || [];
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
     if (selectedMap.gerrydb_table_name === mapDocument?.gerrydb_table) {
@@ -48,21 +46,6 @@ export const Topbar: React.FC = () => {
       user_id: userID,
     });
   };
-
-  useEffect(() => {
-    const fetchCachedViews = async () => {
-      districtrIdbCache.getCachedViews().then(cachedViews => {
-        cachedViews && setCachedViews(cachedViews);
-      });
-    };
-    fetchCachedViews();
-  }, []);
-
-  useEffect(() => {
-    if (mapViews?.data?.length) {
-      districtrIdbCache.cacheViews(mapViews.data);
-    }
-  }, [mapViews]);
 
   return (
     <>

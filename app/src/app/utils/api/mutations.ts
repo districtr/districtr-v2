@@ -17,7 +17,6 @@ import {
 import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
 import {useChartStore} from '@/app/store/chartStore';
-import {districtrIdbCache} from '../cache';
 import type {AxiosError} from 'axios';
 
 export interface AxiosErrorData {
@@ -70,11 +69,6 @@ export const patchUpdates = new MutationObserver(queryClient, {
     const {zoneAssignments, shatterIds, shatterMappings, mapDocument, lastUpdatedHash} =
       useMapStore.getState();
     if (!mapDocument) return;
-    districtrIdbCache.cacheAssignments(mapDocument.document_id, lastUpdatedHash, {
-      zoneAssignments,
-      shatterIds,
-      shatterMappings,
-    });
   },
   onError: error => {
     console.log('Error updating assignments: ', error);

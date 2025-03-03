@@ -76,7 +76,7 @@ def ks_demo_view_census_blocks_total_vap_districtrmap_fixture(
         session=session,
         name=f"Districtr map {GERRY_DB_TOTAL_VAP_FIXTURE_NAME}",
         gerrydb_table_name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
-        parent_layer_name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        parent_layer=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
     )
     session.commit()
 
@@ -121,7 +121,7 @@ def ks_demo_view_census_blocks_no_pop_districtrmap_fixture(
         session=session,
         name=f"Districtr map {GERRY_DB_NO_POP_FIXTURE_NAME}",
         gerrydb_table_name=GERRY_DB_NO_POP_FIXTURE_NAME,
-        parent_layer_name=GERRY_DB_NO_POP_FIXTURE_NAME,
+        parent_layer=GERRY_DB_NO_POP_FIXTURE_NAME,
     )
     session.commit()
 
@@ -135,7 +135,7 @@ def districtr_map_fixtures(
             session=session,
             name=f"Districtr map {i}",
             gerrydb_table_name=f"districtr_map_{i}",
-            parent_layer_name=GERRY_DB_FIXTURE_NAME,
+            parent_layer=GERRY_DB_FIXTURE_NAME,
         )
     session.commit()
 
@@ -433,7 +433,7 @@ def districtr_map_soft_deleted_fixture(
             session=session,
             name=f"Districtr map {i}",
             gerrydb_table_name=f"districtr_map_{i}",
-            parent_layer_name=GERRY_DB_FIXTURE_NAME,
+            parent_layer=GERRY_DB_FIXTURE_NAME,
             visibility=bool(
                 i
             ),  # Should have one hidden (index 0) and one visible (index 1)
@@ -489,10 +489,10 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    (districtr_map_uuid,) = create_districtr_map(
+    districtr_map_uuid = create_districtr_map(
         session=session,
         name="DistrictMap with P1 view",
-        parent_layer_name=layer,
+        parent_layer=layer,
         gerrydb_table_name=layer,
     )
     summary_stats = add_available_summary_stats_to_districtrmap(
@@ -579,10 +579,10 @@ def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    (districtr_map_uuid,) = create_districtr_map(
+    districtr_map_uuid = create_districtr_map(
         session=session,
         name="DistrictMap with P4 view",
-        parent_layer_name=layer,
+        parent_layer=layer,
         gerrydb_table_name=layer,
     )
     summary_stats = add_available_summary_stats_to_districtrmap(

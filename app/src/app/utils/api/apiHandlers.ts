@@ -4,7 +4,6 @@ import {MapStore, useMapStore} from '@store/mapStore';
 import {getEntryTotal} from '@utils/summaryStats';
 import {useChartStore} from '@store/chartStore';
 import {NullableZone} from '@constants/types';
-import {districtrIdbCache} from '@utils/cache';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
 export const FormatAssignments = () => {
@@ -197,17 +196,7 @@ export type RemoteAssignmentsResponse = {
   assignments: Assignment[];
 };
 
-export type LocalAssignmentsResponse = {
-  type: 'local';
-  documentId: string;
-  data: {
-    zoneAssignments: MapStore['zoneAssignments'];
-    shatterIds: MapStore['shatterIds'];
-    shatterMappings: MapStore['shatterMappings'];
-  };
-};
-
-type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | LocalAssignmentsResponse | null>;
+type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | null>;
 
 export const getAssignments: (
   mapDocument: DocumentObject | null
@@ -225,23 +214,6 @@ export const getAssignments: (
     return null;
   }
   if (mapDocument) {
-    if (mapDocument.updated_at) {
-      const localCached = await districtrIdbCache.getCachedAssignments(
-        mapDocument.document_id,
-        mapDocument.updated_at
-      );
-      if (localCached) {
-        try {
-          return {
-            type: 'local',
-            documentId: mapDocument.document_id,
-            data: localCached,
-          };
-        } catch (e) {
-          console.error(e);
-        }
-      }
-    }
     return await axios
       .get(`${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument.document_id}`)
       .then(res => {

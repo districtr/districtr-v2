@@ -1,13 +1,9 @@
-import os
 import click
 import logging
 
 from app.core.db import engine
 from app.core.config import settings
-import subprocess
-from urllib.parse import urlparse
 from sqlalchemy import text
-from app.constants import GERRY_DB_SCHEMA
 from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
@@ -15,16 +11,23 @@ from app.utils import (
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
     add_available_summary_stats_to_districtrmap as _add_available_summary_stats_to_districtrmap,
     update_districtrmap as _update_districtrmap,
-    download_file_from_s3,
+    get_local_or_s3_path,
 )
 from functools import wraps
 from contextlib import contextmanager
 from sqlmodel import Session
 from typing import Callable, TypeVar, Any
+from management.load_data import (
+    load_sample_data,
+    Config,
+    import_gerrydb_view as _import_gerrydb_view,
+)
+from os import environ
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+GPKG_DATA_DIR = environ.get("GPKG_DATA_DIR", settings.VOLUME_PATH)
 
 T = TypeVar("T")
 
@@ -66,72 +69,17 @@ def cli():
 @cli.command("import-gerrydb-view")
 @click.option("--layer", "-n", help="layer of the view", required=True)
 @click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
-@click.option("--replace", "-f", help="Replace the file if it exists", is_flag=True)
 @click.option("--rm", "-r", help="Delete file after loading to postgres", is_flag=True)
 @with_session
 def import_gerrydb_view(
     session: Session, layer: str, gpkg: str, replace: bool, rm: bool
 ):
-    logger.info("Importing GerryDB view...")
-
-    url = urlparse(gpkg)
-    logger.info("URL: %s", url)
-
-    if url.scheme == "s3":
-        s3 = settings.get_s3_client()
-        assert s3, "S3 client is not available"
-        path = download_file_from_s3(s3, url, replace)
-    else:
-        path = gpkg
-
-    result = subprocess.run(
-        args=[
-            "ogr2ogr",
-            "-f",
-            "PostgreSQL",
-            f"PG:host={settings.POSTGRES_SERVER} port={settings.POSTGRES_PORT} dbname={settings.POSTGRES_DB} user={settings.POSTGRES_USER} password={settings.POSTGRES_PASSWORD}",
-            path,
-            layer,  # must match layer name in gpkg
-            "-lco",
-            "OVERWRITE=yes",
-            "-lco",
-            "GEOMETRY_NAME=geometry",
-            "-nlt",
-            "MULTIPOLYGON",
-            "-nln",
-            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
-        ],
+    _import_gerrydb_view(
+        session=session,
+        layer=layer,
+        gpkg=gpkg,
+        rm=rm,
     )
-
-    if result.returncode != 0:
-        logger.error("ogr2ogr failed. Got %s", result)
-        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
-
-    logger.info("GerryDB view imported successfully")
-
-    if rm:
-        os.remove(path)
-        logger.info("Deleted file %s", path)
-
-    logger.info("GerryDB view imported successfully")
-
-    upsert_query = text(
-        """
-        INSERT INTO gerrydbtable (uuid, name, updated_at)
-        VALUES (gen_random_uuid(), :name, now())
-        ON CONFLICT (name)
-        DO UPDATE SET
-            updated_at = now()
-    """
-    )
-
-    session.execute(
-        upsert_query,
-        {
-            "name": layer,
-        },
-    )
-    logger.info("GerryDB view upserted successfully.")
 
 
 @cli.command("create-parent-child-edges")
@@ -196,8 +144,8 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
 def create_districtr_map(
     session: Session,
     name: str,
-    parent_layer_name: str,
-    child_layer_name: str | None,
+    parent_layer: str,
+    child_layer: str | None,
     gerrydb_table_name: str,
     num_districts: int | None,
     tiles_s3_path: str | None,
@@ -205,11 +153,11 @@ def create_districtr_map(
     bounds: list[float] | None = None,
 ):
     logger.info("Creating districtr map...")
-    (districtr_map_uuid,) = _create_districtr_map(
+    districtr_map_uuid = _create_districtr_map(
         session=session,
         name=name,
-        parent_layer_name=parent_layer_name,
-        child_layer_name=child_layer_name,
+        parent_layer=parent_layer,
+        child_layer=child_layer,
         gerrydb_table_name=gerrydb_table_name,
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
@@ -305,8 +253,8 @@ def create_shatterable_gerrydb_view(
     logger.info("Creating materialized shatterable gerrydb view...")
     inserted_uuid = _create_shatterable_gerrydb_view(
         session=session,
-        parent_layer_name=parent_layer_name,
-        child_layer_name=child_layer_name,
+        parent_layer=parent_layer_name,
+        child_layer=child_layer_name,
         gerrydb_table_name=gerrydb_table_name,
     )
     logger.info(
@@ -362,6 +310,35 @@ def add_available_summary_stats_to_districtr_map(session: Session, districtr_map
     )
 
     logger.info("Updated available summary stats successfully.")
+
+
+@cli.command("batch-create-districtr-maps")
+@click.option("--config-file", "-c", help="Path to config file", required=True)
+@click.option(
+    "--data-dir",
+    "-d",
+    help="Path to data directory where the geopackages are located or will be downloaded to",
+    default=GPKG_DATA_DIR,
+)
+@click.option(
+    "--skip-gerrydb-loads",
+    is_flag=True,
+    help="Skip loading data into GerryDB",
+)
+def batch_create_districtr_maps(
+    config_file: str, data_dir: str, skip_gerrydb_loads: bool
+):
+    logger.info(f"Loading data from {config_file}")
+
+    config_path = get_local_or_s3_path(file_path=config_file)
+    config = Config.from_file(file_path=config_path)
+
+    logger.info("Loading sample data...")
+    load_sample_data(
+        config=config, data_dir=data_dir, skip_gerrydb_loads=skip_gerrydb_loads
+    )
+
+    logger.info("Successfully loaded new data")
 
 
 if __name__ == "__main__":

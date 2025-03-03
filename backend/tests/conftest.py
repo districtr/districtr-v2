@@ -157,7 +157,7 @@ def ks_demo_view_census_blocks_districtrmap_fixture(
         session=session,
         name=f"Districtr map {GERRY_DB_FIXTURE_NAME}",
         gerrydb_table_name=GERRY_DB_FIXTURE_NAME,
-        parent_layer_name=GERRY_DB_FIXTURE_NAME,
+        parent_layer=GERRY_DB_FIXTURE_NAME,
     )
     session.commit()
 
