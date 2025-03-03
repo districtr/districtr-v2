@@ -46,7 +46,7 @@ import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {districtrIdbCache} from '../utils/cache';
-import {v4 as uuidv4} from 'uuid';
+import {nanoid} from 'nanoid';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -1045,7 +1045,7 @@ export const useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     set(state => {
       const userID = state.userID;
       if (userID === null) {
-        return {userID: uuidv4()};
+        return {userID: nanoid()};
       } else {
         return {userID};
       }

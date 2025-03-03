@@ -20,6 +20,8 @@ export const PasswordPromptModal = () => {
   const [dialogOpen, setDialogOpen] = React.useState(passwordRequired);
   const [password, setPassword] = React.useState<string | null>(null);
   const shareMapMessage = useMapStore(store => store.shareMapMessage);
+  const setPasswordPrompt = useMapStore(store => store.setPasswordPrompt);
+  const setAppLoadingState = useMapStore(store => store.setAppLoadingState);
 
   useEffect(() => {
     setDialogOpen(passwordRequired);
@@ -34,19 +36,16 @@ export const PasswordPromptModal = () => {
   };
 
   const handlePasswordEntry = (pw: string) => {
-    if (pw !== undefined && pw !== null) {
-      if (pw.length > 0) {
-        setPassword(pw);
-        return;
-      } else {
-        setPassword(null);
-      }
+    if (pw) {
+      setPassword(pw);
+    } else {
+      setPassword(null);
     }
   };
 
   const proceedToStart = () => {
-    useMapStore.getState().setPasswordPrompt(false);
-    useMapStore.getState().setAppLoadingState('loaded');
+    setPasswordPrompt(false);
+    setAppLoadingState('loaded');
 
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.delete('share'); // remove share + token from url
