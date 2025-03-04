@@ -133,15 +133,18 @@ def check_map_lock(document_id, user_id, session):
             # something is wrong with the conflict check
             """WITH ins AS (
                 INSERT INTO document.map_document_user_session (document_id, user_id)
-                VALUES (:document_id, :user_id)
-                ON CONFLICT DO NOTHING
+                SELECT :document_id, :user_id
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM document.map_document_user_session WHERE document_id = :document_id
+                )
                 RETURNING user_id
             )
             SELECT user_id FROM ins
             UNION ALL
             SELECT user_id FROM document.map_document_user_session
             WHERE document_id = :document_id
-            LIMIT 1"""
+            LIMIT 1;
+            """
         ),
         {"document_id": document_id, "user_id": user_id},
     ).fetchone()
@@ -398,7 +401,7 @@ async def get_document(
     session: Session,
     shared: bool = False,
 ):
-    status = check_map_lock(document_id, user_id, session)
+    lock_status = check_map_lock(document_id, user_id, session)
 
     stmt = (
         select(
@@ -420,7 +423,7 @@ async def get_document(
                 "shared" if shared else "created",
             ).label("genesis"),
             coalesce(
-                status,
+                lock_status,
             ).label("status"),
         )  # pyright: ignore
         .where(Document.document_id == document_id)
@@ -848,6 +851,9 @@ async def load_plan_from_share(
         ),
         {"token": token_id},
     ).fetchone()
+
+    # need to check status here as well
+    lock_status = check_map_lock(result.document_id, data.user_id, session)
 
     if not result:
         raise HTTPException(
