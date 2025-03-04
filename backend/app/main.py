@@ -58,6 +58,7 @@ from app.models import (
     PopulationStatsP4,
     UnassignedBboxGeoJSONs,
     TokenRequest,
+    DocumentShareStatus,
 )
 from app.utils import remove_file
 from app.exports import (
@@ -750,16 +751,16 @@ async def get_projects(
 @app.post("/api/document/{document_id}/share")
 async def share_districtr_plan(
     document_id: str,
-    params: dict = Body(...),  # add as pydantic type
+    params: dict = Body(...),
     session: Session = Depends(get_session),
 ):
     # check if there's already a record for a document
     existing_token = session.execute(
         text(
             """
-        SELECT token_id, password_hash FROM document.map_document_token
-        WHERE document_id = :doc_id
-        """
+            SELECT token_id, password_hash FROM document.map_document_token
+            WHERE document_id = :doc_id
+            """
         ),
         {"doc_id": document_id},
     ).fetchone()
@@ -784,13 +785,21 @@ async def share_districtr_plan(
         elif params["password"] is None:
             payload = {
                 "token": token_uuid,
-                "access": params["access_type"] if "access_type" in params else "read",
+                "access": (
+                    params["access_type"]
+                    if params["access_type"]
+                    else DocumentShareStatus.read
+                ),
             }
 
         payload = {
             "token": token_uuid,
-            "access": params["access_type"] if "access_type" in params else "read",
-            "password_required": True if existing_token.password_hash else False,
+            "access": (
+                params["access_type"]
+                if "access_type" in params
+                else DocumentShareStatus.read
+            ),
+            "password_required": bool(existing_token.password_hash),
         }
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
         return {"token": token}
@@ -798,9 +807,7 @@ async def share_districtr_plan(
     else:
         token_uuid = str(uuid4())
         hashed_password = (
-            hash_password(params["password"])
-            if "password" in params and params["password"] is not None
-            else None
+            hash_password(params["password"]) if params["password"] else None
         )
         expiry = (
             datetime.now(UTC) + timedelta(days=params["expiry_days"])
@@ -811,8 +818,8 @@ async def share_districtr_plan(
         session.execute(
             text(
                 """
-                    INSERT INTO document.map_document_token (token_id, document_id, password_hash, expiration_date)
-                    VALUES (:token_id, :document_id, :password_hash, :expiration_date)
+                INSERT INTO document.map_document_token (token_id, document_id, password_hash, expiration_date)
+                VALUES (:token_id, :document_id, :password_hash, :expiration_date)
                 """
             ),
             {
@@ -827,8 +834,10 @@ async def share_districtr_plan(
 
     payload = {
         "token": token_uuid,
-        "access": params["access_type"] if "access_type" in params else "read",
-        "password_required": True if hashed_password else False,
+        "access": (
+            params["access_type"] if params["access_type"] else DocumentShareStatus.read
+        ),
+        "password_required": bool(hashed_password),
     }
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -851,9 +860,6 @@ async def load_plan_from_share(
         ),
         {"token": token_id},
     ).fetchone()
-
-    # need to check status here as well
-    lock_status = check_map_lock(result.document_id, data.user_id, session)
 
     if not result:
         raise HTTPException(

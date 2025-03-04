@@ -1,6 +1,6 @@
 import os
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, SQLModel
 from app.main import get_session
 from app.constants import GERRY_DB_SCHEMA
 from sqlalchemy import text
@@ -12,7 +12,23 @@ from tests.constants import (
     GERRY_DB_FIXTURE_NAME,
     USER_ID,
 )
-from app.utils import create_districtr_map, add_available_summary_stats_to_districtrmap
+from app.utils import (
+    create_districtr_map,
+    add_available_summary_stats_to_districtrmap,
+    hash_password,
+)
+from app.models import MapDocumentToken, TokenRequest, Document
+import jwt
+from uuid import uuid4
+from datetime import datetime, UTC, timedelta
+from app.core.config import settings
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_database(engine):
+    """Ensure tables are created before running tests."""
+    with engine.begin() as connection:
+        SQLModel.metadata.create_all(bind=connection)
 
 
 def test_read_main(client):
@@ -657,4 +673,62 @@ def test_update_districtrmap_metadata(client, document_id):
         f"/api/document/{document_id}/metadata", json=metadata_payload
     )
 
+    assert response.status_code == 200
+
+
+def test_share_districtr_plan(client, document_id):
+    """Test sharing a document when a pw exists"""
+    share_payload = {"password": "password", "access_type": "view"}
+
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={
+            "password": share_payload["password"],
+            "access_type": share_payload["access_type"],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "token" in data
+
+    decoded_token = jwt.decode(data["token"], settings.SECRET_KEY, algorithms=["HS256"])
+    assert decoded_token["access"] == "view"
+    assert decoded_token["password_required"] is True
+
+
+@pytest.fixture(name="seeded_token")
+def seeded_token(session: Session):
+    """Create a valid test token in the database before testing."""
+    token_id = str(uuid4())
+    document_id = str(uuid4())
+    hashed_pw = hash_password("test_password")  # Hash a known password
+    expiration_date = datetime.now(UTC) + timedelta(days=1)  # Valid expiration
+
+    # Create a dummy document
+    document = Document(
+        document_id=document_id,
+        gerrydb_table=GERRY_DB_FIXTURE_NAME,
+    )
+    session.add(document)
+    session.commit()  # Ensure the document is committed first
+
+    # Now add the token
+    token_entry = MapDocumentToken(
+        token_id=token_id,
+        document_id=document_id,
+        password_hash=hashed_pw,
+        expiration_date=expiration_date,
+    )
+    session.add(token_entry)
+    session.commit()  # Commit the token
+
+    return token_entry
+
+
+def test_load_plan_from_share(seeded_token, client):
+    """Test retrieving a document using a shared token."""
+    data = TokenRequest(token=seeded_token.token_id, password=None, user_id="test_user")
+
+    response = client.post("/api/share/load_plan_from_share", json=data.dict())
     assert response.status_code == 200

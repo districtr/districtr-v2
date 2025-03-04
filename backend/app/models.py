@@ -264,6 +264,11 @@ class DocumentEditStatus(str, Enum):
     # others?
 
 
+class DocumentShareStatus(str, Enum):
+    read = "read"
+    edit = "edit"
+
+
 class DocumentGenesis(str, Enum):
     created = "created"
     shared = "shared"
