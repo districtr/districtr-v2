@@ -18,6 +18,7 @@ import {useEffect} from 'react';
 import {useMemo} from 'react';
 import {Source, Layer, useMap} from 'react-map-gl/maplibre';
 import {getDemographyColorScale} from '@/app/utils/demography/colorScales';
+import { useVtdZoneRenders } from '@/app/utils/hooks/useMapStateRenders';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
@@ -33,6 +34,10 @@ export const VtdBlockLayers: React.FC<{
   const showDemography = isDemographicMap || showDemographicMap === 'overlay';
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
+
+  useVtdZoneRenders({
+    demographicMap: isDemographicMap,
+  })
 
   useEffect(() => {
     // clears old source before re-adding
