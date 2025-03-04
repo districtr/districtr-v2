@@ -10,22 +10,14 @@ import {
   LABELS_BREAK_LAYER_ID,
   ZONE_ASSIGNMENT_STYLE,
 } from '@/app/constants/layers';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
-import {
-  AllDemographyVariables,
-  DEFAULT_COLOR_SCHEME,
-  DEFAULT_COLOR_SCHEME_GRAY,
-  useDemographyStore,
-} from '@/app/store/demographicMap';
-import {MapStore, useMapStore} from '@/app/store/mapStore';
+import {useDemographyStore} from '@/app/store/demographicMap';
+import {useMapStore} from '@/app/store/mapStore';
 import {FilterSpecification} from 'maplibre-gl';
 import {useLayoutEffect, useState} from 'react';
 import {useEffect} from 'react';
 import {useMemo} from 'react';
 import {Source, Layer, useMap} from 'react-map-gl/maplibre';
-import * as scale from 'd3-scale';
-import { getDemographyColorScale } from '@/app/utils/demography/colorScales';
-
+import {getDemographyColorScale} from '@/app/utils/demography/colorScales';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
@@ -51,11 +43,7 @@ export const VtdBlockLayers: React.FC<{
     }, 10);
   }, [mapDocument?.tiles_s3_path]);
 
-  const handleDemographyRender = ({
-    numberOfBins,
-  }: {
-    numberOfBins?: number;
-  }) => {
+  const handleDemographyRender = ({numberOfBins}: {numberOfBins?: number}) => {
     const _map = mapRef.current?.getMap();
     if (_map) {
       const updateFn = () => {
@@ -143,7 +131,7 @@ export const DemographicLayer: React.FC<{
   const layerOpacity = useMemo(
     () =>
       isOverlay
-        ? 0.5
+        ? 0.4
         : getLayerFill(captiveIds, child ? shatterIds.children : shatterIds.parents, child, true),
     [captiveIds, shatterIds, child, isOverlay]
   );
@@ -163,7 +151,7 @@ export const DemographicLayer: React.FC<{
           visibility: 'visible',
         }}
         paint={{
-          'fill-opacity': isOverlay ? 0.6 : 1,
+          'fill-opacity': layerOpacity,
           'fill-color': [
             'case',
             ['boolean', ['feature-state', 'hasColor'], false],
@@ -218,7 +206,7 @@ export const ZoneLayerGroup: React.FC<{
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   const highlightUnassigned = useMapStore(state => state.mapOptions.higlightUnassigned);
   const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
-
+  const isOverlayed = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
   const layerFilter = useMemo(() => {
     const ids = child ? shatterIds.children : shatterIds.parents;
     const cleanIds = Boolean(ids) ? Array.from(ids) : [];
@@ -229,12 +217,17 @@ export const ZoneLayerGroup: React.FC<{
   const lineWidth = child ? 1 : 2;
 
   const layerOpacity = useMemo(
-    () => getLayerFill(captiveIds, child ? shatterIds.children : shatterIds.parents, child),
-    [captiveIds, shatterIds, child]
+    () =>
+      getLayerFill(
+        captiveIds,
+        child ? shatterIds.children : shatterIds.parents,
+        child,
+        isOverlayed
+      ),
+    [captiveIds, shatterIds, child, isOverlayed]
   );
 
   if (!id || !mapDocument) return null;
-
   return (
     <>
       <Layer
@@ -245,7 +238,7 @@ export const ZoneLayerGroup: React.FC<{
         beforeId={LABELS_BREAK_LAYER_ID}
         type="line"
         layout={{
-          visibility: showPaintedDistricts ? 'visible' : 'none',
+          visibility: 'visible',
         }}
         paint={{
           'line-opacity': 0.8,
@@ -285,7 +278,7 @@ export const ZoneLayerGroup: React.FC<{
           visibility: showPaintedDistricts ? 'visible' : 'none',
         }}
         paint={{
-          'fill-opacity': 1,
+          'fill-opacity': layerOpacity,
           'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
         }}
       />
