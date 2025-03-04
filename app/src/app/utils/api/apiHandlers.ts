@@ -183,60 +183,6 @@ export interface ZonePopulation {
 }
 
 /**
- * Get zone stats from the server.
- * @param mapDocument - DocumentObject, the document object
- * @param summaryType - string, the summary type
- * @returns Promise<CleanedP1ZoneSummaryStats[] | CleanedP4ZoneSummaryStats[]>
- */
-export const getDocumentEvaluationStats = async <T extends keyof SummaryTypes>(
-  mapDocument: DocumentObject | null,
-  summaryType: T | null
-): Promise<SummaryStatsResult<SummaryTypes[T]['cleaned'][]>> => {
-  if (mapDocument && summaryType) {
-    return await axios
-      .get<
-        SummaryStatsResult<SummaryTypes[T]['raw'][]>
-      >(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/evaluation/${summaryType}`)
-      .then(res => {
-        const zoneSummaryStatsKeys = SummaryStatKeys[summaryType];
-        const totalKey = TotalColumnKeys[summaryType];
-        const results = res.data.results.map((row: any) => {
-          zoneSummaryStatsKeys.forEach(key => {
-            row[`${key}_pct`] = row[key] / row[totalKey];
-          });
-          return row as SummaryTypes[T]['cleaned'];
-        });
-        return {
-          ...res.data,
-          results,
-        };
-      });
-  } else {
-    throw new Error('No document provided');
-  }
-};
-
-/**
- * Get P1 zone stats from the server.
- * @param mapDocument - DocumentObject, the document object
- * @returns Promise<CleanedP1ZoneSummaryStats[]>
- */
-export const getDistrictrMapPopSummaryStats = async <T extends keyof SummaryTypes>(
-  mapDocument: DocumentObject | null,
-  summaryType: T | null
-): Promise<SummaryStatsResult<SummaryTypes[T]['raw']>> => {
-  if (mapDocument && summaryType) {
-    return await axios
-      .get<
-        SummaryStatsResult<SummaryTypes[T]['raw']>
-      >(`${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/${mapDocument.parent_layer}/evaluation/${summaryType}`)
-      .then(res => res.data);
-  } else {
-    throw new Error('No document provided');
-  }
-};
-
-/**
  * Get available DistrictrMap views from the server.
  * @param limit - number, the number of views to return (default 10, max 100)
  * @param offset - number, the number of views to skip (default 0)
