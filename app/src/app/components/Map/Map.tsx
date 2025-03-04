@@ -5,31 +5,64 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
 import type {MutableRefObject} from 'react';
 import React, {useEffect, useRef} from 'react';
-import {MAP_OPTIONS} from '../../constants/configuration';
-import {handleWheelOrPinch, mapContainerEvents, mapEventHandlers} from '../../utils/events/mapEvents';
-import {INTERACTIVE_LAYERS} from '../../constants/layers';
-import {useMapStore} from '../../store/mapStore';
+import {MAP_OPTIONS} from '@constants/configuration';
+import {
+  handleWheelOrPinch,
+  mapContainerEvents,
+  mapEventHandlers,
+} from '@utils/events/mapEvents';
+import {INTERACTIVE_LAYERS} from '@constants/layers';
+import {useMapStore} from '@store/mapStore';
+import { useDemographyStore } from '@/app/store/demographicMap';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
-import { CountyLayers } from './CountyLayers';
-import { ZoneLayers } from './ZoneLayers';
-import { MetaLayers } from './MetaLayers';
+import {CountyLayers} from './CountyLayers';
+import {VtdBlockLayers} from './VtdBlockLayers';
+import {MetaLayers} from './MetaLayers';
+// @ts-ignore
+import syncMaps from '@mapbox/mapbox-gl-sync-move';
 
-export const MapComponent: React.FC = () => {
+export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   const mapRef: MutableRefObject<MapRef | null> = useRef(null);
+  const getStateMapRef = useMapStore(state => state.getMapRef);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore(state => state.mapLock);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapStore(state => state.mapOptions);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
-  
+  const synced = useRef<false | (() => void)>(false);
+
   useEffect(() => {
-    const protocol = new Protocol();
-    maplibregl.addProtocol('pmtiles', protocol.tile);
-    return () => {
-      maplibregl.removeProtocol('pmtiles');
-    };
+    if (!isDemographicMap) {
+      const protocol = new Protocol();
+      maplibregl.addProtocol('pmtiles', protocol.tile);
+      return () => {
+        maplibregl.removeProtocol('pmtiles');
+      };
+    }
   }, []);
+
+  const handleSyncMaps = (demoMapRef?: any) => {
+    const mainMapRef = getStateMapRef();
+    if (isDemographicMap && demoMapRef && mainMapRef && synced.current === false) {
+      synced.current = syncMaps(demoMapRef, mainMapRef);
+    }
+  };
+  useEffect(() => {
+    if (isDemographicMap) {
+      handleSyncMaps(mapRef.current?.getMap());
+    }
+    return () => {
+      if (synced.current) {
+        synced.current();
+        synced.current = false;
+      }
+      if (isDemographicMap){
+        useDemographyStore.getState().unmount()
+        mapRef.current = null;
+      }
+    }
+  }, [getStateMapRef]);
 
   const fitMapToBounds = () => {
     if (mapRef.current && mapOptions.bounds) {
@@ -64,6 +97,7 @@ export const MapComponent: React.FC = () => {
       className={`relative w-full flex-1 flex-grow
         ${mapLock ? 'pointer-events-none' : ''}
         ${document_id ? '' : 'opacity-25 pointer-events-none'}
+        ${isDemographicMap ? 'border-l-2 border-black' : ''}
         `}
       ref={mapContainer}
     >
@@ -81,12 +115,15 @@ export const MapComponent: React.FC = () => {
         maxPitch={0}
         minPitch={0}
         dragRotate={false}
-        onLoad={() => {
-          if (mapRef.current) {
+        onLoad={(e) => {
+          if (isDemographicMap) {
+            handleSyncMaps(e.target);
+            useDemographyStore.getState().setGetMapRef(() => e.target);
+          } else {
             setMapRef(mapRef);
             handleWheelOrPinch({} as TouchEvent, mapRef.current);
-            fitMapToBounds();
           }
+          fitMapToBounds();
         }}
         onClick={mapEventHandlers.onClick}
         onZoom={mapEventHandlers.onZoom}
@@ -107,8 +144,12 @@ export const MapComponent: React.FC = () => {
         reuseMaps
       >
         <CountyLayers />
-        <ZoneLayers />
-        <MetaLayers />
+        <VtdBlockLayers isDemographicMap={isDemographicMap} />
+          {!isDemographicMap && (
+            <>
+              <MetaLayers />
+            </>
+          )}
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
 
       </GlMap>

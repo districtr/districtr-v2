@@ -9,7 +9,7 @@ import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
   const [width, setWidth] = React.useState(
-    typeof window !== 'undefined' ? window.innerWidth * 0.25 : 300
+    typeof window !== 'undefined' ? window.innerWidth * 0.35 : 350
   );
   const [hovered, setHovered] = React.useState(false);
   return (

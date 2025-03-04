@@ -17,6 +17,7 @@ export type DistrictrMapOptions = {
   prominentCountyNames?: boolean;
   showCountyBoundaries?: boolean;
   showBlockPopulationNumbers?: boolean;
+  showDemographicMap?: undefined | 'side-by-side' | 'overlay';
   showPaintedDistricts?: boolean;
 };
 

@@ -6,15 +6,16 @@ import {
   getFeaturesIntersectingCounties,
   shallowCompareArray,
 } from '@utils/helpers';
-import {useMapStore as _useMapStore, HoverFeatureStore, MapStore} from '@store/mapStore';
+import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
-import {useHoverStore as _useHoverStore} from '@store/mapStore';
-import {calcPops} from '@utils/population';
-import {useChartStore} from '@store/chartStore';
+import {useDemographyStore as _useDemographyStore} from './demographicMap';
+import {useHoverStore as _useHoverStore, HoverFeatureStore} from './hoverFeatures';
+import { demographyCache } from '../utils/demography/demographyCache';
 
 export const getRenderSubscriptions = (
   useMapStore: typeof _useMapStore,
-  useHoverStore: typeof _useHoverStore
+  useHoverStore: typeof _useHoverStore,
+  useDemographyStore: typeof _useDemographyStore
 ) => {
   const _shatterMapSideEffectRender = useMapStore.subscribe<
     [
@@ -96,9 +97,7 @@ export const getRenderSubscriptions = (
     (curr, prev) => {
       colorZoneAssignments(curr, prev);
       if (useMapStore.getState().isTemporalAction) {
-        useChartStore.getState().setMapMetrics({
-          data: calcPops(curr[0]),
-        } as any);
+        demographyCache.updatePopulations(curr[0]);
       }
       const {
         captiveIds,
@@ -288,7 +287,7 @@ export const getRenderSubscriptions = (
       previousHoverFeatures: HoverFeatureStore['hoverFeatures']
     ) => {
       const mapRef = useMapStore.getState().getMapRef();
-
+      const demoMapRef = useDemographyStore.getState().getMapRef();
       if (!mapRef) {
         return;
       }
@@ -300,6 +299,15 @@ export const getRenderSubscriptions = (
       hoverFeatures.forEach(feature => {
         mapRef.setFeatureState(feature, {hover: true});
       });
+      if (demoMapRef) {
+        previousHoverFeatures.forEach(feature => {
+          demoMapRef.setFeatureState(feature, {hover: false});
+        });
+
+        hoverFeatures.forEach(feature => {
+          demoMapRef.setFeatureState(feature, {hover: true});
+        });
+      }
     }
   );
 
