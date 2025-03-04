@@ -1,6 +1,8 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {updateDocumentFromId, updateGetDocumentFromId} from './queries';
+import {jwtDecode} from 'jwt-decode';
 export let previousDocumentID = '';
+import {sharedDocument} from './mutations';
 
 export const getSearchParamsObserver = () => {
   // next ssr safety
@@ -26,9 +28,25 @@ export const getSearchParamsObserver = () => {
   let previousDocumentID = '';
   const observer = new MutationObserver(() => {
     const documentId = new URLSearchParams(window.location.search).get('document_id');
+    const shareToken = new URLSearchParams(window.location.search).get('share');
+
     if (documentId && documentId !== previousDocumentID) {
       previousDocumentID = documentId;
       updateGetDocumentFromId(documentId);
+    }
+    if (shareToken) {
+      const decodedToken = jwtDecode(shareToken);
+
+      useMapStore.getState().setReceivedShareToken((decodedToken as any).token as string);
+      if ((decodedToken as any).password_required === true) {
+        useMapStore.getState().setPasswordPrompt(true);
+      } else {
+        sharedDocument.mutate({
+          token: (decodedToken as any).token as string,
+          password: null,
+          status: (decodedToken as any).access as string,
+        });
+      }
     }
   });
   const config = {subtree: true, childList: true};

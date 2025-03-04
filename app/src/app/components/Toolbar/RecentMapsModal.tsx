@@ -14,6 +14,7 @@ import {
 } from '@radix-ui/themes';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
+import {metadata} from '@/app/utils/api/mutations';
 import {styled} from '@stitches/react';
 import {useTemporalStore} from '@/app/store/temporalStore';
 type NamedDocumentObject = DocumentObject & {name?: string};
@@ -44,12 +45,13 @@ export const RecentMapsModal: React.FC<{
 
   const clear = useTemporalStore(store => store.clear);
 
-  const handleMapDocument = (data: NamedDocumentObject) => {
+  const handleMapDocument = (data: DocumentObject) => {
     setMapDocument(data);
     clear();
     const urlParams = new URLSearchParams(searchParams.toString());
     urlParams.set('document_id', data.document_id);
     router.push(pathname + '?' + urlParams.toString());
+
     // close dialog
     setDialogOpen(false);
     onClose?.();
@@ -58,6 +60,12 @@ export const RecentMapsModal: React.FC<{
   useEffect(() => {
     if (!dialogOpen) {
       setActiveTool('pan');
+    }
+  }, [dialogOpen]);
+
+  useEffect(() => {
+    if (!dialogOpen) {
+      onClose?.();
     }
   }, [dialogOpen]);
 
@@ -74,7 +82,9 @@ export const RecentMapsModal: React.FC<{
     >
       {!!showTrigger && (
         <Dialog.Trigger>
-          <Button variant="ghost">Recent Maps</Button>
+          <Button variant="ghost" disabled={!userMaps.length}>
+            Recent Maps
+          </Button>
         </Dialog.Trigger>
       )}
       <DialogContentContainer className="max-w-[50vw]">
@@ -123,30 +133,59 @@ export const RecentMapsModal: React.FC<{
 };
 
 const RecentMapsRow: React.FC<{
-  data: NamedDocumentObject;
-  onSelect: (data: NamedDocumentObject) => void;
+  data: DocumentObject;
+  onSelect: (data: DocumentObject) => void;
   active: boolean;
-  onChange?: (data?: NamedDocumentObject) => void;
+  onChange?: (data?: DocumentObject) => void;
 }> = ({data, onSelect, active, onChange}) => {
   const updatedDate = new Date(data.updated_at as string);
   const formattedData = updatedDate.toLocaleDateString();
-  const name = data?.name || data.gerrydb_table;
+  const name = data?.map_metadata?.name || data.gerrydb_table;
+  const [newName, setNewName] = React.useState(name);
+  const [nameIsChanged, setNameIsChanged] = React.useState(false);
+  const savedMapMetadata = useMapStore
+    .getState()
+    .userMaps.find(map => map.document_id === data.document_id)?.map_metadata;
 
-  const handleChangeName = (name?: string) => {
-    name?.length && onChange?.({...data, name});
+  const handleChangeName = () => {
+    onChange?.({...data, map_metadata: {...data.map_metadata, name: newName}});
+    if (!savedMapMetadata) {
+      return;
+    }
+    metadata.mutate({
+      document_id: data.document_id,
+      metadata: savedMapMetadata,
+    });
+    setNameIsChanged(false);
   };
 
   return (
     <Table.Row align="center" className={`${active ? 'bg-yellow-100' : ''}`}>
       <Table.Cell pl=".5rem">
         {!!(active && onChange) ? (
-          <Box maxWidth="200px">
-            <TextField.Root
-              placeholder={name}
-              size="3"
-              value={name}
-              onChange={e => handleChangeName(e.target.value)}
-            ></TextField.Root>
+          <Box maxWidth="250px">
+            <Flex align="center" gap="1">
+              <TextField.Root
+                placeholder={newName}
+                size="3"
+                value={newName}
+                onChange={e => {
+                  setNewName(e.target.value);
+                  setNameIsChanged(true);
+                }}
+              ></TextField.Root>
+              {nameIsChanged ? (
+                <Button
+                  onClick={() => {
+                    handleChangeName();
+                  }}
+                  variant="outline"
+                  className="box-content size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
+                >
+                  Save
+                </Button>
+              ) : null}
+            </Flex>
           </Box>
         ) : (
           <Text>{name}</Text>
