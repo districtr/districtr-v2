@@ -15,9 +15,11 @@ import {
   ViewVerticalIcon,
 } from '@radix-ui/react-icons';
 import {
+  Blockquote,
   Box,
   Button,
   Flex,
+  Heading,
   IconButton,
   Popover,
   Switch,
@@ -50,42 +52,29 @@ const mapOptions: Array<{
   },
 ];
 export const DemographicMapPanel: React.FC = () => {
-  const variable = useDemographyStore(state => state.variable);
-  const displayVariable = variable.replace('_pct', '');
-  const config = demographyVariables.find(f => f.value === displayVariable);
-  const setVariable = useDemographyStore(state => state.setVariable);
   const demographicMapMode = useMapStore(state => state.mapOptions.showDemographicMap);
+  const mapDocument = useMapStore(state => state.mapDocument);
   const setMapOptions = useMapStore(state => state.setMapOptions);
+
+  const variable = useDemographyStore(state => state.variable);
+  const setVariable = useDemographyStore(state => state.setVariable);
+
   const scale = useDemographyStore(state => state.scale);
   const numberOfbins = useDemographyStore(state => state.numberOfBins);
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
-  const customBins = useDemographyStore(state => state.customBins);
-  const setCustomBins = useDemographyStore(state => state.setCustomBins);
-  const [tempBins, setTempBins] = React.useState<number[]>([]);
-  const colors = scale?.range();
-  const quantiles = customBins.length ? null : scale?.quantiles?.();
-
-  const handleCustomBins = (value: number | string, i: number) => {
-    if (!tempBins) return;
-    let newCustomBins = [...tempBins];
-    // @ts-ignore
-    newCustomBins[i] = value;
-    setTempBins(newCustomBins);
-  };
-
-  const setCustomBinsFromTemp = () => {
-    if (!tempBins) return;
-    // @ts-ignore
-    const cleanBins = tempBins.map(f => parseFloat(f)).sort((a, b) => a - b);
-    setCustomBins(cleanBins);
-  };
+  const availableVariables = !mapDocument?.available_summary_stats?.length
+    ? []
+    : demographyVariables.filter(f =>
+        f.models.some(m => mapDocument.available_summary_stats.includes(m))
+      );
+  const displayVariable = variable.replace('_pct', '');
+  const config = availableVariables.find(f => f.value === displayVariable);
 
   const handleChange = (_newVariable?: DemographyVariable, _usePercent?: boolean) => {
     const usePercent = _usePercent ?? variable.includes('pct');
     const newVariable = _newVariable ?? config?.value;
     if (!newVariable) return;
     const hasPctVariable = !newVariable?.includes('total');
-    // @ts-ignore
     const newVariableName: AllDemographyVariables =
       usePercent && hasPctVariable ? `${newVariable}_pct` : newVariable;
     setVariable(newVariableName);
@@ -94,12 +83,13 @@ export const DemographicMapPanel: React.FC = () => {
   useEffect(() => {
     setVariable('total_pop');
   }, []);
-
-  useEffect(() => {
-    // @ts-ignore
-    setTempBins(customBins?.length ? customBins : quantiles);
-  }, [JSON.stringify({customBins, quantiles})]);
-
+  if (!availableVariables.length) {
+    return (
+      <Blockquote color="crimson">
+        <Text>Demographic data are not available for this map. </Text>
+      </Blockquote>
+    );
+  }
   return (
     <Flex direction="column">
       <Tabs.Root
@@ -182,8 +172,7 @@ export const DemographicMapPanel: React.FC = () => {
                     {labels.slice(1).map((label, i) => (
                       <LegendLabel align="center" key={`legend-label-text-${i}`}>
                         {formatNumber(
-                          // @ts-ignore
-                          label.datum,
+                          label.datum as number,
                           variable.includes('pct') ? 'percent' : 'compact'
                         )}
                       </LegendLabel>
@@ -217,49 +206,6 @@ export const DemographicMapPanel: React.FC = () => {
                     <PlusIcon />
                   </IconButton>
                 </Flex>
-                {!!tempBins && (
-                  <Flex direction={'column'} gapY="2">
-                    <Text>Custom bins</Text>
-                    <Flex direction={'row'} gapX="2">
-                      <Flex direction="column" gapX="2" height={`${numberOfbins * 24}px`}>
-                        {[...tempBins, 999].map((q, i) => (
-                          <Box
-                            className={'size-4'}
-                            key={`custom-bin-${i}-block`}
-                            flexGrow={'1'}
-                            style={{
-                              display: 'inline-block',
-                              height: '1rem',
-                              width: '1rem',
-                              // @ts-ignore
-                              backgroundColor: colors[i],
-                            }}
-                          ></Box>
-                        ))}
-                      </Flex>
-                      <Flex
-                        direction="column"
-                        gapX="2"
-                        height={`${numberOfbins * 24 - 12}px`}
-                        pt="12px"
-                      >
-                        {tempBins.map((q, i) => (
-                          <TextField.Root
-                            key={`custom-bin-${i}`}
-                            className="flex-grow"
-                            type="number"
-                            step=".01"
-                            value={Math.round(q * 100) / 100}
-                            onChange={e => {
-                              handleCustomBins(e.target.value, i);
-                            }}
-                          />
-                        ))}
-                      </Flex>
-                    </Flex>
-                  </Flex>
-                )}
-                <Button onClick={setCustomBinsFromTemp}>Apply</Button>
               </Flex>
             </Popover.Content>
           </Popover.Root>

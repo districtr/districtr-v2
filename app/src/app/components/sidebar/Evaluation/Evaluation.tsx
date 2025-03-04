@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
-import {Box, Button, CheckboxGroup, Heading, Table, Tabs} from '@radix-ui/themes';
+import {Blockquote, Box, Button, CheckboxGroup, Heading, Table, Tabs} from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
@@ -47,7 +47,11 @@ const Evaluation: React.FC = () => {
   const totalColumn = summaryType ? TotalColumnKeys[summaryType] : undefined;
 
   if (!populationData || !maxValues || (mapDocument && !mapDocument.available_summary_stats)) {
-    return <Text>Summary statistics are not available for this map.</Text>;
+    return (
+      <Blockquote color="crimson">
+        <Text>Summary statistics are not available for this map.</Text>
+      </Blockquote>
+    );
   }
 
   const rows = unassigned && showUnassigned ? [...populationData, unassigned] : populationData;
@@ -137,11 +141,11 @@ const Evaluation: React.FC = () => {
                       ) as keyof typeof row;
                       const value = row[column];
                       const colorValue =
-                      value === undefined
-                      ? undefined
-                      : evalMode === 'count'
-                          // @ts-ignore
-                            ? value / maxValues[column]
+                        value === undefined
+                          ? undefined
+                          : evalMode === 'count'
+                            ? // @ts-ignore
+                              value / maxValues[column]
                             : value;
                       const backgroundColor =
                         value === undefined

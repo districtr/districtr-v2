@@ -4,7 +4,6 @@ import {MapStore, useMapStore} from './mapStore';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import maplibregl from 'maplibre-gl';
-import {BLOCK_SOURCE_ID} from '../constants/layers';
 import * as scale from 'd3-scale'
 import { demographyCache } from '../utils/demography/demographyCache';
 
@@ -15,127 +14,103 @@ export const demographyVariables = [
   {
     label: 'Population: Total',
     value: 'total_pop',
+    models: ['P1'],
     colorScheme: chromatic.schemeBuGn,
   },
   {
     label: 'Population: White',
     value: 'white_pop',
+    models: ['P1'],
   },
   {
     label: 'Population: Black',
     value: 'black_pop',
+    models: ['P1'],
   },
   {
     label: 'Population: Asian',
     value: 'asian_pop',
+    models: ['P1'],
   },
   {
     label: 'Population: Native Hawaiian/Pacific Islander',
     value: 'nhpi_pop',
+    models: ['P1'],
   },
   {
     label: 'Population: American Indian/Alaska Native',
     value: 'amin_pop',
+    models: ['P1'],
   },
   {
     label: 'Population: Two or More Races',
     value: 'two_or_more',
+    models: ['P1'],
   },
   {
     label: 'Population: Other',
     value: 'other_pop',
+    models: ['P1'],
   },
   {
     label: 'Voting Population: Total',
     value: 'total_vap',
+    models: ['P4'],
   },
   {
     label: 'Voting Population: White',
     value: 'non_hispanic_white_vap',
+    models: ['P4'],
   },
   {
     label: 'Voting Population: Black',
     value: 'non_hispanic_black_vap',
+    models: ['P4'],
   },
   {
     label: 'Voting Population: Hispanic',
     value: 'hispanic_vap',
+    models: ['P4'],
   },
   {
     label: 'Voting Population: Asian',
     value: 'non_hispanic_asian_vap',
+    models: ['P4'],
   },
   {
     label: 'Voting Population: Native Hawaiian/Pacific Islander',
     value: 'non_hispanic_nhpi_vap',
+    models: ['P4'],
   },
   {
     label: 'Voting Population: American Indian/Alaska Native',
     value: 'non_hispanic_amin_vap',
+    models: ['P4'],
   },
   {
     label: 'Voting Population: Two or More Races',
     value: 'non_hispanic_two_or_more_vap',
+    models: ['P4'],
   },
   {
     label: 'Voting Population: Other',
     value: 'non_hispanic_other_vap',
+    models: ['P4'],
   },
 ] as const;
 
 export type DemographyVariable = (typeof demographyVariables)[number]['value'];
-type DemographyPercentVariable = `${DemographyVariable}_pct`;
+export type DemographyPercentVariable = `${DemographyVariable}_pct`;
 export type AllDemographyVariables = DemographyVariable | DemographyPercentVariable;
-
-const vap_columns = demographyVariables
-  .filter(f => f.value.endsWith('_vap') && f.value !== 'total_vap')
-  .map(f => f.value);
-const pop_columns = demographyVariables
-  .filter(f => !f.value.endsWith('_vap') && f.value !== 'total_pop')
-  .map(f => f.value);
-
-export const getRowHandler = (columns: string[], childShatterIds: Set<string>) => {
-  const indexMapping: Record<number, string> = {};
-  const mapDocument = useMapStore.getState().mapDocument;
-  columns.forEach((column, index) => {
-    const colName = demographyVariables.find(f => f.value === column)?.value;
-    if (colName) {
-      indexMapping[index] = colName;
-    }
-  });
-  return (row: number[]) => {
-    const rowRecord: Record<AllDemographyVariables, number> & {path: string; sourceLayer: string, source: string} =
-      {
-        path: row[0],
-        sourceLayer: childShatterIds.has(row[0].toString())
-          ? mapDocument?.child_layer
-          : mapDocument?.parent_layer,
-      } as any;
-    Object.entries(indexMapping).forEach(([index, column]) => {
-      rowRecord[column as AllDemographyVariables] = row[+index] as number;
-    });
-    pop_columns.forEach(pop => {
-      rowRecord[`${pop}_pct`] = rowRecord[pop] / rowRecord['total_pop'];
-    });
-    vap_columns.forEach(vap => {
-      rowRecord[`${vap}_pct`] = rowRecord[vap] / rowRecord['total_vap'];
-    });
-    return rowRecord;
-  };
-};
-
-
 interface DemographyStore {
   getMapRef: () => maplibregl.Map | undefined;
   numberOfBins: number;
   setNumberOfBins: (numberOfBins: number) => void;
-  customBins: number[];
-  setCustomBins: (customBins: number[]) => void;
   setGetMapRef: (getMapRef: () => maplibregl.Map | undefined) => void;
   variable: AllDemographyVariables;
   setVariable: (variable: AllDemographyVariables) => void;
   dataHash: string;
-  scale?: ReturnType<typeof scale.scaleQuantile>;
+  scale?: ReturnType<typeof scale.scaleThreshold>;
   setScale: (scale: DemographyStore['scale']) => void;
   unmount: () => void;
   clear: () => void;
@@ -160,7 +135,7 @@ export var useDemographyStore = create(
       }
     },
     variable: 'total_pop',
-    setVariable: variable => set({variable, customBins: []}),
+    setVariable: variable => set({variable}),
     scale: undefined,
     setScale: scale => set({scale}),
     clear: () => {
@@ -179,9 +154,7 @@ export var useDemographyStore = create(
       })
     },
     numberOfBins: 5,
-    setNumberOfBins: numberOfBins => set({numberOfBins, customBins: []}),
-    customBins: [],
-    setCustomBins: customBins => set({customBins}),
+    setNumberOfBins: numberOfBins => set({numberOfBins}),
     dataHash: '',
     data: {},
     updateData: async (mapDocument, prevParentShatterIds) => {
