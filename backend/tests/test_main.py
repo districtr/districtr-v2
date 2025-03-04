@@ -711,7 +711,7 @@ def seeded_token(session: Session):
         gerrydb_table=GERRY_DB_FIXTURE_NAME,
     )
     session.add(document)
-    session.commit()  # Ensure the document is committed first
+    session.commit()
 
     # Now add the token
     token_entry = MapDocumentToken(
@@ -732,3 +732,5 @@ def test_load_plan_from_share(seeded_token, client):
 
     response = client.post("/api/share/load_plan_from_share", json=data.dict())
     assert response.status_code == 200
+
+    # todo: remove the document + token from the database after the test
