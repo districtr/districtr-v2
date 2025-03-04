@@ -143,14 +143,12 @@ const RecentMapsRow: React.FC<{
   const name = data?.map_metadata?.name || data.gerrydb_table;
   const [newName, setNewName] = React.useState(name);
   const [nameIsChanged, setNameIsChanged] = React.useState(false);
+  const savedMapMetadata = useMapStore
+    .getState()
+    .userMaps.find(map => map.document_id === data.document_id)?.map_metadata;
 
   const handleChangeName = () => {
     onChange?.({...data, map_metadata: {...data.map_metadata, name: newName}});
-
-    // update db
-    const savedMapMetadata = useMapStore
-      .getState()
-      .userMaps.find(map => map.document_id === data.document_id)?.map_metadata;
     if (!savedMapMetadata) {
       return;
     }

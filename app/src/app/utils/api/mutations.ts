@@ -92,7 +92,7 @@ export const patchUpdates = new MutationObserver(queryClient, {
 export const patchReset = new MutationObserver(queryClient, {
   mutationFn: patchUpdateReset,
   onMutate: () => {
-    console.log('Reseting map');
+    console.log('Resetting map');
   },
   onError: error => {
     console.log('Error resetting map: ', error);
@@ -184,8 +184,6 @@ export const sharedDocument = new MutationObserver(queryClient, {
   }) => {
     const passwordRequired = useMapStore.getState().passwordPrompt;
     useMapStore.getState().setAppLoadingState('loading');
-    console.log('loading from share');
-    console.log(token, password, status);
   },
   onError: error => {
     const errorData = (error as AxiosError)?.response?.data as AxiosErrorData;
