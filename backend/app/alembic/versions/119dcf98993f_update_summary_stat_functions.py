@@ -22,14 +22,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     for udf in [
-        "summary_stats_p1_rev2.sql",
-        "summary_stats_p1_totals_rev2.sql",
-        "summary_stats_p4_rev2.sql",
-        "summary_stats_p4_totals_rev2.sql",
+        "get_summary_p1_totals",
+        "get_summary_stats_p1",
+        "get_summary_p4_totals",
+        "get_summary_stats_p4",
     ]:
-        with Path(SQL_DIR, udf).open() as f:
-            sql = f.read()
-            op.execute(sql)
+        op.execute(f"DROP FUNCTION IF EXISTS {udf} CASCADE")
 
 
 def downgrade() -> None:
