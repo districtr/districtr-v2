@@ -140,29 +140,6 @@ export const DemographicLayer: React.FC<{
         : getLayerFill(captiveIds, child ? shatterIds.children : shatterIds.parents, child, true),
     [captiveIds, shatterIds, child, isOverlay]
   );
-  const layoutProperties = useMemo(() => ({
-    visibility: 'visible',
-  }),[])
-  const paintProperties = useMemo(() => ({
-    'fill-opacity': layerOpacity,
-    'fill-color': [
-      'case',
-      ['boolean', ['feature-state', 'hasColor'], false],
-      ['feature-state', 'color'],
-      '#808080',
-    ],
-  }), [layerOpacity])
-
-  const hoverPaintProperties = useMemo(() => ({
-    'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.25, 0],
-    'fill-color': '#000000',
-  }), [])
-
-  const linePaintProperties = useMemo(() => ({
-    'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.2],
-    'line-color': '#000000',
-    'line-width': 1,
-  }), [])
 
   if (!id || !mapDocument) return null;
 
@@ -172,37 +149,54 @@ export const DemographicLayer: React.FC<{
         id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography'}
         source={BLOCK_SOURCE_ID}
         source-layer={id}
-        filter={layerFilter}
+        filter={child ? layerFilter : ['literal', true]}
         beforeId={LABELS_BREAK_LAYER_ID}
         type="fill"
-        layout={layoutProperties as any}
-        paint={paintProperties as any}
+        layout={{
+          visibility: 'visible',
+        }}
+        paint={{
+          'fill-opacity': layerOpacity,
+          'fill-color': [
+            'case',
+            ['boolean', ['feature-state', 'hasColor'], false],
+            ['feature-state', 'color'],
+            '#808080',
+          ],
+        }}
       />
       {!isOverlay && (
         <Layer
           id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography_hover'}
           source={BLOCK_SOURCE_ID}
           source-layer={id}
-          filter={layerFilter}
+          filter={child ? layerFilter : ['literal', true]}
           beforeId={LABELS_BREAK_LAYER_ID}
           type="fill"
-          // @ts-ignore
-          layout={layoutProperties}
-          // @ts-ignore
-          paint={hoverPaintProperties}
+          layout={{
+            visibility: 'visible',
+          }}
+          paint={{
+            'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.25, 0],
+            'fill-color': '#000000',
+          }}
         />
       )}
       <Layer
         id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography_line'}
         source={BLOCK_SOURCE_ID}
         source-layer={id}
-        filter={layerFilter}
+        filter={child ? layerFilter : ['literal', true]}
         beforeId={LABELS_BREAK_LAYER_ID}
         type="line"
-        // @ts-ignore
-        layout={layoutProperties}
-        // @ts-ignore
-        paint={linePaintProperties}
+        layout={{
+          visibility: 'visible',
+        }}
+        paint={{
+          'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.2],
+          'line-color': '#000000',
+          'line-width': 1,
+        }}
       />
     </>
   );
@@ -238,89 +232,6 @@ export const ZoneLayerGroup: React.FC<{
     [captiveIds, shatterIds, child, isOverlayed]
   );
 
-  const layout = useMemo(() => ({
-          visibility: 'visible',
-        }),[])
-
-  const fillLayout = useMemo(() => ({
-    visibility: showPaintedDistricts ? 'visible' : 'none',
-  }), [showPaintedDistricts])
-  const blockPaintProperties = useMemo(() => ({
-    'line-opacity': 0.8,
-    // 'line-color': '#aaaaaa', // Default color
-    'line-color': [
-      'interpolate',
-      ['exponential', 1.6],
-      ['zoom'],
-      6,
-      '#aaa',
-      9,
-      '#777',
-      14,
-      '#333',
-    ],
-    'line-width': [
-      'interpolate',
-      ['exponential', 1.6],
-      ['zoom'],
-      6,
-      lineWidth * 0.125,
-      9,
-      lineWidth * 0.35,
-      14,
-      lineWidth,
-    ],
-  }), [])
-
-  const hoverFillPaintProperties = useMemo(() => ({
-    'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.25, 0],
-    'fill-color': '#000000',
-  }), [])
-
-  const fillPaintProperties = useMemo(() => ({
-    'fill-opacity': layerOpacity,
-    'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
-  }), [layerOpacity])
-
-  const highlightLayout = useMemo(() => ({
-    visibility: showPaintedDistricts ? 'visible' : 'none',
-    'line-cap': 'round',
-  }), [showPaintedDistricts])
-  
-  const highlightPaintProperties = useMemo(() => ({
-    'line-opacity': 1,
-    'line-color': [
-      'case',
-      ['boolean', ['feature-state', 'focused'], false],
-      '#000000', // Black color when focused
-      ['boolean', ['feature-state', 'highlighted'], false],
-      '#e5ff00', // yellow color when highlighted
-      ['boolean', ['feature-state', 'highlighted'], false],
-      '#e5ff00', // yellow color when highlighted
-      // @ts-ignore right behavior, wrong types
-      ['==', ['feature-state', 'zone'], null],
-      '#FF0000', // optionally red color when zone is not assigned
-      '#000000', // Default color
-    ],
-    'line-width': [
-      'case',
-      [
-        'any',
-        ['boolean', ['feature-state', 'focused'], false],
-        ['boolean', ['feature-state', 'highlighted'], false],
-        [
-          'all',
-          // @ts-ignore correct logic, wrong types
-          ['==', ['feature-state', 'zone'], null],
-          ['boolean', !!highlightUnassigned],
-          ['!', ['boolean', ['feature-state', 'broken'], false]],
-        ],
-      ],
-      3.5,
-      0, // Default width if none of the conditions are met
-    ],
-  }), [highlightUnassigned])
-
   if (!id || !mapDocument) return null;
   return (
     <>
@@ -331,44 +242,109 @@ export const ZoneLayerGroup: React.FC<{
         filter={layerFilter}
         beforeId={LABELS_BREAK_LAYER_ID}
         type="line"
-        // @ts-ignore
-        layout={layout}
-        // @ts-ignore
-        paint={blockPaintProperties}
-        />
+        layout={{
+          visibility: 'visible',
+        }}
+        paint={{
+          'line-opacity': 0.8,
+          // 'line-color': '#aaaaaa', // Default color
+          'line-color': [
+            'interpolate',
+            ['exponential', 1.6],
+            ['zoom'],
+            6,
+            '#aaa',
+            9,
+            '#777',
+            14,
+            '#333',
+          ],
+          'line-width': [
+            'interpolate',
+            ['exponential', 1.6],
+            ['zoom'],
+            6,
+            lineWidth * 0.125,
+            9,
+            lineWidth * 0.35,
+            14,
+            lineWidth,
+          ],
+        }}
+      />
       <Layer
         id={child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID}
         source={BLOCK_SOURCE_ID}
         source-layer={id}
-        filter={layerFilter}
+        filter={child ? layerFilter : ['literal', true]}
         beforeId={LABELS_BREAK_LAYER_ID}
         type="fill"
-        // @ts-ignore
-        layout={fillLayout}
-        paint={fillPaintProperties}
+        layout={{
+          visibility: showPaintedDistricts ? 'visible' : 'none',
+        }}
+        paint={{
+          'fill-opacity': layerOpacity,
+          'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
+        }}
       />
       <Layer
         id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_hover'}
         source={BLOCK_SOURCE_ID}
         source-layer={id}
-        filter={layerFilter}
+        filter={child ? layerFilter : ['literal', true]}
         beforeId={LABELS_BREAK_LAYER_ID}
         type="fill"
-        // @ts-ignore
-        layout={layout}
-        // @ts-ignore
-        paint={hoverFillPaintProperties}
+        layout={{
+          visibility: 'visible',
+        }}
+        paint={{
+          'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.25, 0],
+          'fill-color': '#000000',
+        }}
       />
       <Layer
         id={child ? BLOCK_LAYER_ID_HIGHLIGHT_CHILD : BLOCK_LAYER_ID_HIGHLIGHT}
         source={BLOCK_SOURCE_ID}
         source-layer={id}
-        filter={layerFilter}
+        filter={child ? layerFilter : ['literal', true]}
         type="line"
-        // @ts-ignore
-        layout={highlightLayout}
-        // @ts-ignore
-        paint={highlightPaintProperties}
+        layout={{
+          visibility: showPaintedDistricts ? 'visible' : 'none',
+          'line-cap': 'round',
+        }}
+        paint={{
+          'line-opacity': 1,
+          'line-color': [
+            'case',
+            ['boolean', ['feature-state', 'focused'], false],
+            '#000000', // Black color when focused
+            ['boolean', ['feature-state', 'highlighted'], false],
+            '#e5ff00', // yellow color when highlighted
+            ['boolean', ['feature-state', 'highlighted'], false],
+            '#e5ff00', // yellow color when highlighted
+            // @ts-ignore right behavior, wrong types
+            ['==', ['feature-state', 'zone'], null],
+            '#FF0000', // optionally red color when zone is not assigned
+            '#000000', // Default color
+          ],
+          'line-width': [
+            'case',
+            [
+              'any',
+              ['boolean', ['feature-state', 'focused'], false],
+              ['boolean', ['feature-state', 'highlighted'], false],
+              [
+                'all',
+                // @ts-ignore correct logic, wrong types
+                ['==', ['feature-state', 'zone'], null],
+                ['boolean', !!highlightUnassigned],
+                ['!', ['boolean', ['feature-state', 'broken'], false]],
+              ],
+            ],
+            3.5,
+            0, // Default width if none of the conditions are met
+          ],
+        }}
       />
     </>
   );
