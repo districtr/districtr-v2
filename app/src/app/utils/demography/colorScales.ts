@@ -11,6 +11,9 @@ import {MapStore, useMapStore} from '@/app/store/mapStore';
 import * as scale from 'd3-scale';
 import { op } from 'arquero';
 
+/**
+ * Helper to manage the arqueo quantile function.
+ */
 export const getBinsFromQuantiles = ({
   variable,
   numberOfBins,
@@ -35,16 +38,25 @@ export const getBinsFromQuantiles = ({
   }
 }
 
+/**
+ * Generates a color scale for demographic data and applies it to the map.
+ *
+ * @param {Object} params - The parameters for generating the color scale.
+ * @param {AllDemographyVariables} params.variable - The demographic variable to visualize.
+ * @param {maplibregl.Map} params.mapRef - The reference to the map instance.
+ * @param {MapStore['mapDocument']} params.mapDocument - The map document from the store.
+ * @param {number} params.numberOfBins - The number of bins for the color scale.
+ *
+ * @returns {d3.ScaleThreshold<number, string> | undefined} The generated color scale or undefined if prerequisites are not met.
+ */
 export const getDemographyColorScale = ({
   variable,
   mapRef,
-  shatterIds,
   mapDocument,
   numberOfBins,
 }: {
   variable: AllDemographyVariables;
   mapRef: maplibregl.Map;
-  shatterIds: MapStore['shatterIds'];
   mapDocument: MapStore['mapDocument'];
   numberOfBins: number;
 }) => {

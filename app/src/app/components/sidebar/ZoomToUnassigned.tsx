@@ -1,6 +1,6 @@
+import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapStore} from '@/app/store/mapStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
-import { useSummaryStats } from '@/app/utils/demography/demographyCache';
 import {formatNumber} from '@/app/utils/numbers';
 import {ChevronLeftIcon, ChevronRightIcon, ReloadIcon} from '@radix-ui/react-icons';
 import {Button, Flex, Heading, IconButton, Select, Text, Tooltip} from '@radix-ui/themes';
@@ -26,7 +26,7 @@ export const ZoomToUnassigned = () => {
   const unassigned = summaryStats?.unassigned;
   // on repeat visit, prevent zooming to bounds on first render
   const [hasMounted, setHasMounted] = React.useState(false);
-  
+
   useEffect(() => {
     if (selectedIndex !== null && hasMounted) {
       const feature = unassignedFeatureBboxes[selectedIndex];
@@ -64,11 +64,13 @@ export const ZoomToUnassigned = () => {
       <Heading as="h3" size="3">
         Unassigned areas
       </Heading>
-      {unassigned !== undefined && <InfoText
-        unassigned={unassigned}
-        hasFoundUnassigned={hasFoundUnassigned}
-        numFeatures={unassignedFeatureBboxes.length}
-      />}
+      {unassigned !== undefined && (
+        <InfoText
+          unassigned={unassigned}
+          hasFoundUnassigned={hasFoundUnassigned}
+          numFeatures={unassignedFeatureBboxes.length}
+        />
+      )}
       {unassignedFeatureBboxes.length > 1 && (
         <Flex
           direction="row"

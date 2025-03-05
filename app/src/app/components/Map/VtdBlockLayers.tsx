@@ -43,7 +43,6 @@ export const VtdBlockLayers: React.FC<{
         const mapScale = getDemographyColorScale({
           variable: demographicVariable,
           mapRef: _map,
-          shatterIds,
           mapDocument,
           numberOfBins: numberOfBins || 5,
         }) as any;

@@ -1,4 +1,4 @@
-"""update summary stat functions
+"""remove summary stat functions
 
 Revision ID: 119dcf98993f
 Revises: f36266d50cf7

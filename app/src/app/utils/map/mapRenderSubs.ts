@@ -13,13 +13,18 @@ import {useHoverStore as _useHoverStore, HoverFeatureStore} from '../../store/ho
 import {demographyCache} from '../demography/demographyCache';
 import {FocusState, ShatterState} from './types';
 
+/**
+ * A class that manages the rendering of the map based on the state of the map store.
+ * This handles the subscriptions to the various stores and keeps a local reference of the store
+ * so that this could be re-used with different map stores
+ */
 export class MapRenderSubscriber {
   mapRef: maplibregl.Map;
   mapType: 'demographic' | 'main' = 'main';
   useMapStore: typeof _useMapStore;
   useHoverStore: typeof _useHoverStore;
   useDemographyStore: typeof _useDemographyStore;
-  subscriptions: any[] = [];
+  subscriptions: ReturnType<typeof _useMapStore.subscribe>[] = [];
 
   constructor(
     mapRef: maplibregl.Map,

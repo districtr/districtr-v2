@@ -10,19 +10,19 @@ import {DemographyRow, MaxRollups} from './types';
 
 const NaNfN = (_row: DemographyRow) => NaN;
 
-export const getRollups = (stats: Record<keyof SummaryTypes, boolean>) => {
-  const rollups: Partial<P1TotPopSummaryStats & P4VapPopSummaryStats> = {};
-  Object.keys(stats).forEach(stat => {
-    if (stat in SummaryStatKeys) {
-      const keys = SummaryStatKeys[stat as keyof SummaryTypes];
-      keys.forEach(key => {
-        rollups[key] = op.sum(key);
-      });
-    }
-  });
-  return rollups;
-};
-
+/**
+ * Generates a record of functions that calculate the percentage of various demographic populations.
+ * Each function takes a `DemographyRow` object and returns a number representing the percentage
+ * of a specific population group relative to the total population or total voting age population.
+ * This is required for the way Arquero handles deriving columns and is somewhat fussy.
+ * 
+ * @param stats - An object containing boolean flags indicating the availability of certain demographic data.
+ * 
+ * @returns A record where keys are demographic percentage identifiers and values are functions
+ *          that calculate the respective percentages.
+ * 
+ * If the corresponding data is not available (as indicated by the `stats` parameter), the function will return `NaN`.
+ */
 export const getPctDerives = (
   stats: Record<keyof SummaryTypes, boolean>
 ): Record<string, (row: DemographyRow) => number> => ({
@@ -59,6 +59,33 @@ export const getPctDerives = (
     : row => row['non_hispanic_two_or_more_races_vap'] / row['total_vap'],
 });
 
+/**
+ * Generates an object containing the summary rollup values for the given statistics.
+ * Rollup functions, unlike Derives in Arquero, can be programmatically generated.
+ *
+ * @param stats - An object where the keys are summary statistic types and the values are booleans indicating whether to include the statistic.
+ * @returns An object containing the maximum rollup values for each statistic key and their corresponding percentage keys (if applicable).
+ */
+export const getRollups = (stats: Record<keyof SummaryTypes, boolean>) => {
+  const rollups: Partial<P1TotPopSummaryStats & P4VapPopSummaryStats> = {};
+  Object.keys(stats).forEach(stat => {
+    if (stat in SummaryStatKeys) {
+      const keys = SummaryStatKeys[stat as keyof SummaryTypes];
+      keys.forEach(key => {
+        rollups[key] = op.sum(key);
+      });
+    }
+  });
+  return rollups;
+};
+
+/**
+ * Generates an object containing the maximum rollup values for the given statistics.
+ * Rollup functions, unlike Derives in Arquero, can be programmatically generated.
+ *
+ * @param stats - An object where the keys are summary statistic types and the values are booleans indicating whether to include the statistic.
+ * @returns An object containing the maximum rollup values for each statistic key and their corresponding percentage keys (if applicable).
+ */
 export const getMaxRollups = (stats: Record<keyof SummaryTypes, boolean>) => {
   const rollups: Partial<MaxRollups> = {};
   Object.keys(stats).forEach(stat => {
@@ -75,5 +102,3 @@ export const getMaxRollups = (stats: Record<keyof SummaryTypes, boolean>) => {
   });
   return rollups;
 };
-
-const z = op.max('zone');
