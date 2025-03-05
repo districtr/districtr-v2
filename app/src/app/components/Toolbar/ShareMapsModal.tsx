@@ -81,9 +81,8 @@ export const ShareMapsModal: React.FC<{
             },
           });
           setIsVisible(false);
-          setPasswordDisabled(true);
         }
-
+        setPasswordDisabled(true);
         // Set link copied state
         setLinkCopied(true);
         setTimeout(() => setLinkCopied(false), 2000);
@@ -159,16 +158,18 @@ export const ShareMapsModal: React.FC<{
                 plan. You can optionally <b>set a password</b> to restrict who can interact with it.
               </Text>
               <Flex gap="2" className="flex-row items-center">
-                <TextField.Root
-                  disabled={passwordDisabled}
-                  type={isVisible ? 'text' : 'password'}
-                  variant="soft"
-                  placeholder={'(Optional) Set a password'}
-                  size="2"
-                  value={password ?? undefined}
-                  onChange={e => handlePasswordEntry(e.target.value)}
-                  className="items-center"
-                ></TextField.Root>
+                {!password && passwordDisabled ? null : (
+                  <TextField.Root
+                    disabled={passwordDisabled}
+                    type={isVisible ? 'text' : 'password'}
+                    variant="soft"
+                    placeholder={'(Optional) Set a password'}
+                    size="2"
+                    value={password ?? undefined}
+                    onChange={e => handlePasswordEntry(e.target.value)}
+                    className="items-center"
+                  ></TextField.Root>
+                )}
                 {password && !passwordDisabled ? (
                   <IconButton
                     variant="soft"
