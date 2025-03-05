@@ -1,5 +1,5 @@
 'use client';
-import {op, table} from 'arquero';
+import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
 import {DocumentObject} from '../api/apiHandlers';
 import {BLOCK_SOURCE_ID} from '../../constants/layers';
@@ -118,14 +118,14 @@ class DemographyCache {
     if (hash === this.hash) return;
     const newTable = table(this.rotate(columns, dataRows, childIds, mapDocument));
     if (!this.table) {
-      this.table = newTable;
+      this.table = table(newTable.filter(escape((row: any) => row.path && !excludeIds.has(row.path))));
     } else {
-      const prevEntries = this.table.filter(row => !excludeIds.has(row['path']))
-      this.table = prevEntries.concat(newTable).dedupe('path');
+      this.table = table(this.table.concat(newTable).dedupe('path')
+        .filter(escape((row: any) => row.path && !excludeIds.has(row.path))));
     }
-    this.calculateSummaryStats();
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     this.updatePopulations(zoneAssignments);
+    this.calculateSummaryStats();
     this.hash = hash;
   }
 
@@ -140,10 +140,10 @@ class DemographyCache {
       path: new Array(rows),
       zone: new Array(rows),
     };
-    (zoneAssignments.entries() as any).forEach(([k, v]: any) => {
+    (zoneAssignments.entries() as any).forEach(([k, v]: any, i:number) => {
       if (!k || !v) return;
-      zoneColumns.path.push(k);
-      zoneColumns.zone.push(v);
+      zoneColumns.path[i] = k;
+      zoneColumns.zone[i] = v;
     });
     this.zoneTable = table(zoneColumns);
   }
@@ -225,8 +225,17 @@ class DemographyCache {
       return [];
     }
 
-    const populationsTable = this.table
-      .join_left(this.zoneTable, ['path', 'path'])
+    const joinedTable = this.table
+      .join_full(this.zoneTable, ['path', 'path'])
+      .dedupe('path');
+
+    const missingPopulations = joinedTable.filter((row => row['total_pop'] === undefined && row['zone'] !== undefined)); 
+    if (missingPopulations.size){
+      console.log("Populations not yet loaded");
+      return []
+    }
+    // if any tot
+    const populationsTable = joinedTable
       .groupby('zone')
       .rollup(getRollups(availableStats))
       .derive(getPctDerives(availableStats));
