@@ -163,7 +163,7 @@ export var useDemographyStore = create(
       const {shatterMappings, shatterIds, zoneAssignments} = useMapStore.getState();
       const mapRef = getMapRef();
       const prevShattered = prevParentShatterIds ?? new Set();
-      const zoneAssignmentsLoaded = fetchAssignments.getCurrentResult()?.data?.assignments?.length;
+      const zoneAssignmentsLoaded = Array.isArray(fetchAssignments.getCurrentResult()?.data?.assignments);
       if (!mapDocument || !zoneAssignmentsLoaded) return;
       const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
