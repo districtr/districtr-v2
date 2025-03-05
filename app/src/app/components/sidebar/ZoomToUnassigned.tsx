@@ -64,7 +64,7 @@ export const ZoomToUnassigned = () => {
       <Heading as="h3" size="3">
         Unassigned areas
       </Heading>
-      {unassigned !== null && <InfoText
+      {unassigned !== undefined && <InfoText
         unassigned={unassigned}
         hasFoundUnassigned={hasFoundUnassigned}
         numFeatures={unassignedFeatureBboxes.length}
