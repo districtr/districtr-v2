@@ -1,4 +1,4 @@
-import {useChartStore} from '@/app/store/chartStore';
+import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapStore} from '@/app/store/mapStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
@@ -20,12 +20,13 @@ export const ZoomToUnassigned = () => {
   } = useUnassignFeaturesStore(state => state);
   const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
+  const {summaryStats} = useSummaryStats();
   // prevent duplicate requests to get unassigned features
   const initialMapDocument = useRef(mapDocument);
-  const unassigned = useChartStore(state => state.chartInfo.unassigned);
+  const unassigned = summaryStats?.unassigned;
   // on repeat visit, prevent zooming to bounds on first render
   const [hasMounted, setHasMounted] = React.useState(false);
-  
+
   useEffect(() => {
     if (selectedIndex !== null && hasMounted) {
       const feature = unassignedFeatureBboxes[selectedIndex];
@@ -63,11 +64,13 @@ export const ZoomToUnassigned = () => {
       <Heading as="h3" size="3">
         Unassigned areas
       </Heading>
-      {unassigned !== null && <InfoText
-        unassigned={unassigned}
-        hasFoundUnassigned={hasFoundUnassigned}
-        numFeatures={unassignedFeatureBboxes.length}
-      />}
+      {unassigned !== undefined && (
+        <InfoText
+          unassigned={unassigned}
+          hasFoundUnassigned={hasFoundUnassigned}
+          numFeatures={unassignedFeatureBboxes.length}
+        />
+      )}
       {unassignedFeatureBboxes.length > 1 && (
         <Flex
           direction="row"

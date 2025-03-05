@@ -12,41 +12,9 @@ import {
 } from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import {FilterSpecification} from 'maplibre-gl';
-import {useState} from 'react';
-import {useEffect} from 'react';
 import {useMemo} from 'react';
-import {Source, Layer} from 'react-map-gl/maplibre';
+import {Layer} from 'react-map-gl/maplibre';
 
-export const ZoneLayers: React.FC<{}> = () => {
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
-  const [clearOldSource, setClearOldSource] = useState(false);
-
-  useEffect(() => {
-    // clears old source before re-adding
-    setClearOldSource(true);
-    setTimeout(() => {
-      setClearOldSource(false);
-      setMapRenderingState('loaded');
-    }, 10);
-  }, [mapDocument?.tiles_s3_path]);
-  
-  if (!mapDocument || clearOldSource) return null;
-
-  return (
-    <>
-      <Source
-        id={BLOCK_SOURCE_ID}
-        type="vector"
-        url={`pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${mapDocument.tiles_s3_path}`}
-        promoteId="path"
-      >
-        <ZoneLayerGroup />
-        <ZoneLayerGroup child />
-      </Source>
-    </>
-  );
-};
 
 export const ZoneLayerGroup: React.FC<{
   child?: boolean;
@@ -57,7 +25,7 @@ export const ZoneLayerGroup: React.FC<{
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   const highlightUnassigned = useMapStore(state => state.mapOptions.higlightUnassigned);
   const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
-
+  const isOverlayed = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
   const layerFilter = useMemo(() => {
     const ids = child ? shatterIds.children : shatterIds.parents;
     const cleanIds = Boolean(ids) ? Array.from(ids) : [];
@@ -67,14 +35,18 @@ export const ZoneLayerGroup: React.FC<{
 
   const lineWidth = child ? 1 : 2;
 
-  const layerOpacity = useMemo(() => getLayerFill(
-    captiveIds,
-    child ? shatterIds.children : shatterIds.parents,
-    child
-  ), [captiveIds, shatterIds, child])
+  const layerOpacity = useMemo(
+    () =>
+      getLayerFill(
+        captiveIds,
+        child ? shatterIds.children : shatterIds.parents,
+        child,
+        isOverlayed
+      ),
+    [captiveIds, shatterIds, child, isOverlayed]
+  );
 
   if (!id || !mapDocument) return null;
-
   return (
     <>
       <Layer
@@ -85,7 +57,7 @@ export const ZoneLayerGroup: React.FC<{
         beforeId={LABELS_BREAK_LAYER_ID}
         type="line"
         layout={{
-          visibility: showPaintedDistricts ? 'visible' : 'none',
+          visibility: 'visible',
         }}
         paint={{
           'line-opacity': 0.8,
