@@ -1,14 +1,15 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {getContiguity} from '@/app/utils/api/apiHandlers';
-import {Box, Button, Flex, Table, Text} from '@radix-ui/themes';
+import {Blockquote, Box, Button, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {useMemo} from 'react';
+import {useMemo, useState} from 'react';
 import {CheckCircledIcon, CrossCircledIcon, DashIcon} from '@radix-ui/react-icons';
 import {colorScheme} from '@/app/constants/colors';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
+  const [lastUpdated, setLastUpdated] = useState<string|null>(null);
   const {data, error, isLoading, refetch} = useQuery(
     {
       queryKey: ['Contiguity', mapDocument?.document_id],
@@ -19,12 +20,11 @@ export const Contiguity = () => {
     },
     queryClient
   );
-  const lastUpdated = useMemo(() => {
-    if (data) {
-      return new Date().toLocaleString();
-    }
-    return 'N/A';
-  }, [data]);
+
+  const update = () => {
+    refetch();
+    setLastUpdated(new Date().toLocaleString());
+  }
 
   const tableData = useMemo(() => {
     console.log('Updating contiguity', data);
@@ -50,7 +50,7 @@ export const Contiguity = () => {
     return <div>Loading...</div>;
   }
   if (error || data?.detail) {
-    return <div>Error: {error?.message || data?.detail}</div>;
+    return <Blockquote color="red">Error: {error?.message || data?.detail}</Blockquote>;
   }
 
   return (
@@ -98,8 +98,8 @@ export const Contiguity = () => {
         </Table.Body>
       </Table.Root>
       <Flex direction="row" gapX="4" pt="4" align="center">
-        <Button onClick={() => refetch()}>Refresh</Button>
-        <Text>{lastUpdated}</Text>
+        <Button onClick={update}>Refresh</Button>
+        {!!lastUpdated && <Text>{lastUpdated}</Text>}
       </Flex>
     </Box>
   );
