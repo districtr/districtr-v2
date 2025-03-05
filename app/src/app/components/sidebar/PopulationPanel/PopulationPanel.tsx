@@ -103,7 +103,7 @@ export const PopulationPanel = () => {
             <Text weight={'bold'} className="mb-2">
               {formatNumber(idealPopulation, 'string')}
             </Text>
-            {unassigned !== null && (
+            {unassigned !== undefined && (
               <>
                 <Text>Unassigned</Text>
                 <Text weight={'bold'}>{formatNumber(unassigned, 'string')}</Text>

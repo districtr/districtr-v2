@@ -120,8 +120,8 @@ class DemographyCache {
     if (!this.table) {
       this.table = newTable;
     } else {
-      const prevEntries = this.table.filter(row => !excludeIds.has(row['path']));
-      this.table = prevEntries.concat(newTable);
+      const prevEntries = this.table.filter(row => !excludeIds.has(row['path']))
+      this.table = prevEntries.concat(newTable).dedupe('path');
     }
     this.calculateSummaryStats();
     const zoneAssignments = useMapStore.getState().zoneAssignments;
@@ -251,8 +251,8 @@ class DemographyCache {
     const popNumbers = this.populations.map(row => row.total_pop);
     this.zoneStats.maxPopulation = Math.max(...popNumbers);
     this.zoneStats.minPopulation = Math.min(...popNumbers);  
-    this.summaryStats.unassigned = this.populations.find(row => row.zone === undefined)?.total_pop ?? 0;
     this.zoneStats.range = this.zoneStats.maxPopulation - this.zoneStats.minPopulation;
+    this.summaryStats.unassigned = this.populations.find(f => !f.zone)?.total_pop ?? 0;
     this.zoneStats.paintedZones = popNumbers.filter(pop => pop > 0).length;
     return this.populations;
   }
