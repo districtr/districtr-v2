@@ -12,10 +12,14 @@ export const initSubs = () => {
   getMapEditSubs(useMapStore);
   getSearchParamsObserver();
 
-  useMapStore.subscribe<[MapStore['mapDocument'], MapStore['shatterIds']['parents']]>(
-    state => [state.mapDocument, state.shatterIds.parents],
-    ([mapDocument], [_prevMapDoc, prevParentShatterIds]) => {
-      useDemographyStore.getState().updateData(mapDocument, prevParentShatterIds);
+  useMapStore.subscribe<
+    [MapStore['mapDocument'], MapStore['shatterIds']['parents'], MapStore['appLoadingState']]
+  >(
+    state => [state.mapDocument, state.shatterIds.parents, state.appLoadingState],
+    ([mapDocument, _, appLoadingState], [_prevMapDoc, prevParentShatterIds]) => {
+      if (appLoadingState === 'loaded') {
+        useDemographyStore.getState().updateData(mapDocument, prevParentShatterIds);
+      }
     },
     {equalityFn: shallowCompareArray}
   );

@@ -319,18 +319,31 @@ export const demographyCache = new DemographyCache();
 export const useDemography = (includeUnassigned?: boolean) => {
   const hash = useChartStore(state => state.dataUpdateHash);
   const paintedChanges = useChartStore(state => state.paintedChanges);
+  const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? 4);
+  const mapDocument = useMapStore(state => state.mapDocument);
+
   const populationData = useMemo(() => {
-    let cleanedData = structuredClone(demographyCache.populations)
-      .filter(row => includeUnassigned ? true : Boolean(row.zone))
-      .sort((a, b) => a.zone - b.zone);
+    let cleanedData = structuredClone(demographyCache.populations).filter(row =>
+      includeUnassigned ? true : Boolean(row.zone)
+    );
+    const zonesPresent = cleanedData.map(row => row.zone).filter(Boolean);
+    if (zonesPresent.length < numDistricts) {
+      for (let i = 1; i <= numDistricts; i++) {
+        if (!zonesPresent.includes(i)) {
+          cleanedData.push({zone: i, total_pop: 0} as any);
+        }
+      }
+    }
     Object.entries(paintedChanges).forEach(([zone, pop]) => {
       const index = cleanedData.findIndex(row => row.zone === parseInt(zone));
       if (index !== -1) {
         cleanedData[index].total_pop += pop;
       }
     });
-    return cleanedData;
-  }, [hash, paintedChanges, includeUnassigned]);
+
+    return cleanedData.sort((a, b) => a.zone - b.zone);
+  }, [hash, paintedChanges, includeUnassigned, mapDocument]);
+
   return {
     populationData,
   } as any;
