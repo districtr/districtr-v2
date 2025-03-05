@@ -43,11 +43,11 @@ export const demographyVariables = [
     value: 'amin_pop',
     models: ['P1'],
   },
-  {
-    label: 'Population: Two or More Races',
-    value: 'two_or_more',
-    models: ['P1'],
-  },
+  // {
+  //   label: 'Population: Two or More Races',
+  //   value: 'two_or_more',
+  //   models: ['P1'],
+  // },
   {
     label: 'Population: Other',
     value: 'other_pop',
@@ -88,11 +88,11 @@ export const demographyVariables = [
     value: 'non_hispanic_amin_vap',
     models: ['P4'],
   },
-  {
-    label: 'Voting Population: Two or More Races',
-    value: 'non_hispanic_two_or_more_vap',
-    models: ['P4'],
-  },
+  // {
+  //   label: 'Voting Population: Two or More Races',
+  //   value: 'non_hispanic_two_or_more_vap',
+  //   models: ['P4'],
+  // },
   {
     label: 'Voting Population: Other',
     value: 'non_hispanic_other_vap',

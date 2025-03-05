@@ -54,16 +54,18 @@ export const getDemographyColorScale = ({
   const arrayValues = dataValues.map((row: any) => row[variable]);
   const dataSoureExists = mapRef.getSource(BLOCK_SOURCE_ID);
   if (!arrayValues.length || !mapRef || !mapDocument || !dataSoureExists || !quantiles) return;
-  // const quantileValues = Object.values(quantiles[0])
-  // const config = demographyVariables.find(f => f.value === variable.replace('_pct', ''));
   const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
   const defaultColor =
     mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
-  const colorscheme = defaultColor[numberOfBins] as Iterable<number>;
-
+  const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
+  const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length+1)
+  let colorscheme = defaultColor[Math.max(3, actualBinsLength)] as Iterable<number>;
+  if (actualBinsLength < 3) {
+    colorscheme = (colorscheme as any).slice(0, actualBinsLength);
+  }
   const colorScale = scale
     .scaleThreshold()
-    .domain(quantiles.quantilesList)
+    .domain(uniqueQuantiles)
     .range(colorscheme);
 
   dataValues.forEach((row: any, i) => {

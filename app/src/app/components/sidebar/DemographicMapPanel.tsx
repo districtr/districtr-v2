@@ -160,8 +160,8 @@ export const DemographicMapPanel: React.FC = () => {
 
                   <Flex
                     direction="row"
-                    width={`${100 - 100 / numberOfbins / 2}%`}
-                    style={{paddingLeft: `${100 / numberOfbins / 2}%`}}
+                    width={`${100 - 100 / colors.length / 2}%`}
+                    style={{paddingLeft: `${100 / colors.length / 2}%`}}
                   >
                     {labels.slice(1).map((label, i) => (
                       <LegendLabel align="center" key={`legend-label-text-${i}`}>
@@ -184,7 +184,7 @@ export const DemographicMapPanel: React.FC = () => {
               <Flex direction={'column'} gapY="2">
                 <Text size="2">Choropleth Map Settings</Text>
                 <Flex direction="row" gapX="3">
-                  <Text>Number of bins: {numberOfbins}</Text>
+                  <Text>Max number of bins: {numberOfbins}</Text>
                   <IconButton
                     variant="ghost"
                     onClick={() => setNumberOfBins(numberOfbins - 1)}
