@@ -442,11 +442,13 @@ async def check_document_contiguity(
     except botocore.exceptions.ClientError as e:
         # TODO: Maybe in the future this should actually create the graph
         logger.error(f"Graph not found: {str(e)}")
-        return HTTPException(
-            status_code=404, detail="Graph not found. Unable to compute contiguity"
+        raise HTTPException(
+            status_code=404,
+            detail="Graph unavailable. This map does not support contiguity checks.",
         )
     except Exception as e:
-        return HTTPException(status_code=500, detail=f"Something went wrong: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Something went wrong: {str(e)}")
 
     G = await cache.get(gerrydb_name)
 
@@ -461,7 +463,8 @@ async def check_document_contiguity(
         logger.warning(f"Unable to load and cache graph: {str(e)}")
 
     if not isinstance(G, Graph):
-        return HTTPException(status_code=500, detail="Error loading graph")
+        logger.error(f"Expected Graph, got {type(G)}")
+        raise HTTPException(status_code=500, detail="Error loading graph")
 
     results = {}
     for zone_blocks in zone_assignments:
