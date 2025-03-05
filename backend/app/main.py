@@ -407,6 +407,9 @@ async def get_map_demography(
     else:
         # direct string interpolation of dm.parent_layer is safe
         # since it always comes from the database
+        # This gives us all VTDs
+        # and any shattered children
+        # The FE will filter for shattered parents
         ids_subquery = text(f"""SELECT distinct geo_id
             FROM document.assignments 
             WHERE document_id = :document_id
