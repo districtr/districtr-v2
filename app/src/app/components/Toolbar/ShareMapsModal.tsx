@@ -34,21 +34,20 @@ export const ShareMapsModal: React.FC<{
   const gerryDBTable = mapDocument?.gerrydb_table;
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const {upsertUserMap} = useMapStore(store => store);
-  useEffect(() => {
-    setDialogOpen(open || false);
-  }, [open]);
   const userMaps = useMapStore(store => store.userMaps);
   const currentMap = React.useMemo(
     () => userMaps.find(map => map.document_id === mapDocument?.document_id),
     [mapDocument?.document_id, userMaps]
   );
-
-  const [copied, setCopied] = React.useState(false);
   const [sharetype, setSharetype] = React.useState('view');
   const [linkCopied, setLinkCopied] = React.useState(false);
   const [password, setPassword] = React.useState<string | null>(currentMap?.password ?? null);
   const [passwordDisabled, setPasswordDisabled] = React.useState(false);
   const [isVisible, setIsVisible] = React.useState(true);
+
+  useEffect(() => {
+    setDialogOpen(open || false);
+  }, [open]);
 
   useEffect(() => {
     if (currentMap && currentMap.password) {
@@ -72,6 +71,18 @@ export const ShareMapsModal: React.FC<{
       if (token !== undefined) {
         const shareableLink = `${window.location.origin}?share=${token.token}`;
         navigator.clipboard.writeText(shareableLink);
+
+        if (password !== null && mapDocument?.document_id) {
+          upsertUserMap({
+            documentId: mapDocument?.document_id,
+            mapDocument: {
+              ...mapDocument,
+              password: password,
+            },
+          });
+          setIsVisible(false);
+          setPasswordDisabled(true);
+        }
 
         // Set link copied state
         setLinkCopied(true);
@@ -169,7 +180,6 @@ export const ShareMapsModal: React.FC<{
                 ) : (password && passwordDisabled) || !isVisible ? (
                   <IconButton
                     variant="soft"
-                    size={2}
                     className="items-center"
                     onClick={() => setIsVisible(!isVisible)}
                   >
