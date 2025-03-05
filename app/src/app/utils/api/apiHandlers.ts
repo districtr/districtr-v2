@@ -97,6 +97,7 @@ export interface DocumentObject {
   status: string;
   genesis: string;
   token?: string | null;
+  password?: string | null;
 }
 
 export interface DocumentMetadata {

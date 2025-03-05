@@ -33,15 +33,30 @@ export const ShareMapsModal: React.FC<{
   const mapDocument = useMapStore(store => store.mapDocument);
   const gerryDBTable = mapDocument?.gerrydb_table;
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
-
+  const {upsertUserMap} = useMapStore(store => store);
   useEffect(() => {
     setDialogOpen(open || false);
   }, [open]);
+  const userMaps = useMapStore(store => store.userMaps);
+  const currentMap = React.useMemo(
+    () => userMaps.find(map => map.document_id === mapDocument?.document_id),
+    [mapDocument?.document_id, userMaps]
+  );
 
   const [copied, setCopied] = React.useState(false);
   const [sharetype, setSharetype] = React.useState('view');
   const [linkCopied, setLinkCopied] = React.useState(false);
-  const [password, setPassword] = React.useState<string | null>(null);
+  const [password, setPassword] = React.useState<string | null>(currentMap?.password ?? null);
+  const [passwordDisabled, setPasswordDisabled] = React.useState(false);
+  const [isVisible, setIsVisible] = React.useState(true);
+
+  useEffect(() => {
+    if (currentMap && currentMap.password) {
+      setPassword(currentMap.password);
+      setPasswordDisabled(true);
+      setIsVisible(false);
+    }
+  }, [currentMap]);
 
   const handleCreateShareLink = async () => {
     const payload = {
@@ -75,14 +90,28 @@ export const ShareMapsModal: React.FC<{
     setSharetype(value);
   };
 
+  const handleSetPassword = () => {
+    // lock password field
+    setPasswordDisabled(true);
+    setIsVisible(false);
+
+    if (password !== null && mapDocument?.document_id) {
+      upsertUserMap({
+        documentId: mapDocument?.document_id,
+        mapDocument: {
+          ...mapDocument,
+          password: password,
+        },
+      });
+    }
+  };
+
   const handlePasswordEntry = (pw: string) => {
-    if (pw !== undefined && pw !== null) {
-      if (pw.length > 0) {
-        setPassword(pw);
-        return;
-      } else {
-        setPassword(null);
-      }
+    if (pw) {
+      setPassword(pw);
+      return;
+    } else {
+      setPassword(null);
     }
   };
 
@@ -118,14 +147,36 @@ export const ShareMapsModal: React.FC<{
                 copy your plan. <b>Share and make editable</b> to allow others to directly edit your
                 plan. You can optionally <b>set a password</b> to restrict who can interact with it.
               </Text>
-              <TextField.Root
-                variant="soft"
-                placeholder={'(Optional) Set a password'}
-                size="2"
-                value={password ?? undefined}
-                onChange={e => handlePasswordEntry(e.target.value)}
-                className="items-center"
-              ></TextField.Root>
+              <Flex gap="2" className="flex-row items-center">
+                <TextField.Root
+                  disabled={passwordDisabled}
+                  type={isVisible ? 'text' : 'password'}
+                  variant="soft"
+                  placeholder={'(Optional) Set a password'}
+                  size="2"
+                  value={password ?? undefined}
+                  onChange={e => handlePasswordEntry(e.target.value)}
+                  className="items-center"
+                ></TextField.Root>
+                {password && !passwordDisabled ? (
+                  <IconButton
+                    variant="soft"
+                    className="flex items-center padding-2"
+                    onClick={handleSetPassword}
+                  >
+                    Save
+                  </IconButton>
+                ) : (password && passwordDisabled) || !isVisible ? (
+                  <IconButton
+                    variant="soft"
+                    size={2}
+                    className="items-center"
+                    onClick={() => setIsVisible(!isVisible)}
+                  >
+                    {!isVisible ? 'Show' : 'Hide'}
+                  </IconButton>
+                ) : null}
+              </Flex>
               <Flex gap="2" className="flex-col">
                 <RadioCards.Root onValueChange={handleShareTypeChange} value={sharetype}>
                   <RadioCards.Item value="view">Share View Only</RadioCards.Item>
