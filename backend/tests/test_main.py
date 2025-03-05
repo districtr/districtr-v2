@@ -24,13 +24,6 @@ from datetime import datetime, UTC, timedelta
 from app.core.config import settings
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_database(engine):
-    """Ensure tables are created before running tests."""
-    with engine.begin() as connection:
-        SQLModel.metadata.create_all(bind=connection)
-
-
 def test_read_main(client):
     response = client.get("/")
     assert response.status_code == 200
@@ -694,10 +687,10 @@ def test_share_districtr_plan(client, document_id):
 
     decoded_token = jwt.decode(data["token"], settings.SECRET_KEY, algorithms=["HS256"])
     assert decoded_token["access"] == "view"
-    assert decoded_token["password_required"] is True
+    assert decoded_token["password_required"]
 
 
-@pytest.fixture(name="seeded_token")
+@pytest.fixture()
 def seeded_token(session: Session):
     """Create a valid test token in the database before testing."""
     token_id = str(uuid4())
