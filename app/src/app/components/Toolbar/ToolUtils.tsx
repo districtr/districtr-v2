@@ -139,5 +139,6 @@ export const useActiveTools = () => {
       },
     },
   ];
+  if (mapDocument?.status === 'locked' || mapDocument?.genesis === 'shared') return [];
   return config;
 };

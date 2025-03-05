@@ -52,17 +52,21 @@ export const ShareMapsModal: React.FC<{
 
     try {
       // get the share link
-      sharePlan.mutate(payload).then(token => {
-        // copy to clipboard
+      const token = await sharePlan.mutate(payload);
+      // copy to clipboard
+      if (token !== undefined) {
         const shareableLink = `${window.location.origin}?share=${token.token}`;
         navigator.clipboard.writeText(shareableLink);
 
         // Set link copied state
         setLinkCopied(true);
         setTimeout(() => setLinkCopied(false), 2000);
-      });
+      }
     } catch (error) {
       console.error('Error creating share link: ', error);
+      useMapStore
+        .getState()
+        .setErrorNotification({message: 'Error creating share link', severity: 2});
     }
   };
 

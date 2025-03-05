@@ -7,7 +7,7 @@ import {ZoneLockPicker} from '@/app/components/Toolbar/ZoneLockPicker';
 import {ActiveTool} from '@constants/types';
 import {ExitBlockViewButtons} from '@/app/components/Toolbar/ExitBlockViewButtons';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import { ZoomToUnassigned } from '../sidebar/ZoomToUnassigned';
+import {ZoomToUnassigned} from '../sidebar/ZoomToUnassigned';
 
 const ToolControlsConfig: Record<
   Partial<ActiveTool>,
@@ -37,8 +37,8 @@ const ToolControlsConfig: Record<
     },
   },
   zoomToUnassigned: {
-    Component: ZoomToUnassigned
-  }
+    Component: ZoomToUnassigned,
+  },
 };
 
 export const ToolControls: React.FC<{
@@ -49,6 +49,7 @@ export const ToolControls: React.FC<{
   const isHorizontal = !customizeToolbar || rotation === 'horizontal';
   const ContainerRef = useRef<HTMLDivElement | null>(null);
   const [shouldFlip, setShouldFlip] = useState(false);
+  const mapDocument = useMapStore(state => state.mapDocument);
 
   useLayoutEffect(() => {
     const bbox = ContainerRef?.current?.getBoundingClientRect?.();
