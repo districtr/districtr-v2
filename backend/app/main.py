@@ -27,11 +27,6 @@ from app.models import (
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
-    SummaryStatisticType,
-    SummaryStatsP1,
-    PopulationStatsP1,
-    SummaryStatsP4,
-    PopulationStatsP4,
     UnassignedBboxGeoJSONs,
     SummaryStatisticColumnLists,
 )
@@ -433,6 +428,7 @@ async def get_map_demography(
         "columns": ["path", *columns],
         "results": [[*row] for row in results],
     }
+
 
 @app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
 async def get_projects(

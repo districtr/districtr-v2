@@ -495,6 +495,7 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         print(f"ogr2ogr failed. Got {result}")
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
+
 @pytest.fixture(name=GERRY_DB_P4_FIXTURE_NAME)
 def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
     layer = GERRY_DB_P4_FIXTURE_NAME
