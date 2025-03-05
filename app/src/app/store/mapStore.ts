@@ -33,7 +33,7 @@ import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
 import { P1TotPopSummaryStats, P4VapPopSummaryStats } from '../utils/api/summaryStats';
 import { demographyCache } from '../utils/demography/demographyCache';
-import {useDemographyStore} from './demographicMap';
+import {useDemographyStore} from './demographyStore';
 import { initSubs } from './subscriptions';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {

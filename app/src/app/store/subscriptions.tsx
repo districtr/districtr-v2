@@ -1,7 +1,7 @@
 import {getQueriesResultsSubs} from '../utils/api/queries';
 import {getSearchParamsObserver} from '../utils/api/queryParamsListener';
 import {shallowCompareArray} from '../utils/helpers';
-import {useDemographyStore} from './demographicMap';
+import {useDemographyStore} from './demographyStore';
 import {useHoverStore} from './hoverFeatures';
 import {getMapEditSubs} from './mapEditSubs';
 import {MapStore, useMapStore} from './mapStore';

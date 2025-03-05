@@ -13,7 +13,7 @@ import {
 } from '@utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '@constants/layers';
 import {useMapStore} from '@store/mapStore';
-import { useDemographyStore } from '@/app/store/demographicMap';
+import { useDemographyStore } from '@/app/store/demographyStore';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';

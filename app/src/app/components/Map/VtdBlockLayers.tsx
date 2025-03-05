@@ -1,7 +1,7 @@
 import {
   BLOCK_SOURCE_ID,
 } from '@/app/constants/layers';
-import {useDemographyStore} from '@/app/store/demographicMap';
+import {useDemographyStore} from '@/app/store/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useLayoutEffect, useState} from 'react';
 import {useEffect} from 'react';

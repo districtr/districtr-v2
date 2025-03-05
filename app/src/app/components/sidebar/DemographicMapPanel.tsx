@@ -3,8 +3,8 @@ import {
   AllDemographyVariables,
   DemographyVariable,
   demographyVariables,
-} from '@/app/store/demographicMap';
-import {useDemographyStore} from '@/app/store/demographicMap';
+} from '@/app/store/demographyStore';
+import {useDemographyStore} from '@/app/store/demographyStore';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {

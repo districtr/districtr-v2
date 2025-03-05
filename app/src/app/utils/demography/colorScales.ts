@@ -6,7 +6,7 @@ import {
   AllDemographyVariables,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_COLOR_SCHEME_GRAY,
-} from '@/app/store/demographicMap';
+} from '@/app/store/demographyStore';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
 import * as scale from 'd3-scale';
 import { op } from 'arquero';
