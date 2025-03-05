@@ -17,7 +17,7 @@ from tests.constants import (
     GERRY_DB_FIXTURE_NAME,
 )
 from app.constants import GERRY_DB_SCHEMA
-from app.utils import create_districtr_map
+from app.utils import create_districtr_map, create_shatterable_gerrydb_view
 
 client = TestClient(app)
 
@@ -88,15 +88,15 @@ def engine_fixture(request):
     return create_engine(str(TEST_SQLALCHEMY_DATABASE_URI), echo=True)
 
 
-@pytest.fixture(name="persistent_session")
-def session_with_persist_fixture(engine):
+@pytest.fixture
+def persistent_session(engine):
     with Session(engine, expire_on_commit=True) as session:
         yield session
 
 
 # https://github.com/fastapi/sqlmodel/discussions/940
-@pytest.fixture(name="session")
-def session_fixture(engine):
+@pytest.fixture
+def rollback_session(engine):
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)
@@ -114,6 +114,17 @@ def session_fixture(engine):
     session.close()
     transaction.rollback()
     connection.close()
+
+
+# from functools import partial
+
+
+@pytest.fixture
+def session(request):
+    if TEARDOWN_TEST_DB:
+        return request.getfixturevalue("rollback_session")
+    else:
+        return request.getfixturevalue("persistent_session")
 
 
 @pytest.fixture(name=GERRY_DB_FIXTURE_NAME)
@@ -171,3 +182,231 @@ def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
     )
     document_id = response.json()["document_id"]
     return document_id
+
+
+@pytest.fixture(name="simple_parent_geos")
+def simple_parent_geos_fixture(session: Session):
+    layer = "simple_parent_geos"
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+            "-nlt",
+            "MULTIPOLYGON",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
+        ],
+    )
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="simple_child_geos")
+def simple_child_geos_fixture(session: Session):
+    layer = "simple_child_geos"
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+            "-nlt",
+            "MULTIPOLYGON",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
+        ],
+    )
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="simple_parent_geos_gerrydb")
+def simple_parent_geos_gerrydb_fixture(session: Session, simple_parent_geos):
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+    session.begin()
+    session.execute(upsert_query, {"name": "simple_parent_geos"})
+    session.commit()
+    session.close()
+
+
+@pytest.fixture(name="simple_child_geos_gerrydb")
+def simple_child_geos_gerrydb_fixture(session: Session, simple_child_geos):
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+    session.begin()
+    session.execute(upsert_query, {"name": "simple_child_geos"})
+    session.commit()
+    session.close()
+
+
+@pytest.fixture(name="gerrydb_simple_geos_view")
+def gerrydb_simple_geos_view_fixture(
+    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
+):
+    create_shatterable_gerrydb_view(
+        session,
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
+        gerrydb_table_name="simple_geos",
+    )
+    session.commit()
+    return
+
+
+@pytest.fixture(name="simple_shatterable_districtr_map")
+def simple_parent_child_geos_districtr_map_fixture(
+    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
+):
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="Simple shatterable layer",
+        gerrydb_table_name="simple_geos",
+        num_districts=10,
+        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
+    )
+    session.commit()
+    return inserted_districtr_map
+
+
+@pytest.fixture(name="ks_ellis_county_vtd")
+def ks_ellis_county_vtd_fixture(session: Session):
+    layer = "ks_ellis_county_vtd"
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.gpkg"),
+            "ks_ellis_county_vap_data_vtd",
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+            "-nlt",
+            "MULTIPOLYGON",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
+        ],
+    )
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="ks_ellis_county_block")
+def ks_ellis_county_block_fixture(session: Session):
+    layer = "ks_ellis_county_block"
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.gpkg"),
+            "ks_ellis_county_vap_data_block",
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+            "-nlt",
+            "MULTIPOLYGON",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
+        ],
+    )
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+@pytest.fixture(name="ks_ellis_county_vtd_gerrydb")
+def ks_ellis_county_vtd_gerrydb_fixture(session: Session, ks_ellis_county_vtd):
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+    session.begin()
+    session.execute(upsert_query, {"name": "ks_ellis_county_vtd"})
+    session.commit()
+    session.close()
+
+
+@pytest.fixture
+def ks_ellis_county_block_gerrydb(session: Session, ks_ellis_county_block):
+    upsert_query = text("""
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """)
+    session.begin()
+    session.execute(upsert_query, {"name": "ks_ellis_county_block"})
+    session.commit()
+    session.close()
+
+
+@pytest.fixture
+def gerrydb_ks_ellis_geos_view(
+    session: Session, ks_ellis_county_vtd_gerrydb, ks_ellis_county_block_gerrydb
+):
+    create_shatterable_gerrydb_view(
+        session,
+        parent_layer="ks_ellis_county_vtd",
+        child_layer="ks_ellis_county_block",
+        gerrydb_table_name="ks_ellis_geos",
+    )
+    session.commit()
+    return
+
+
+@pytest.fixture
+def ks_ellis_shatterable_districtr_map(
+    session: Session, ks_ellis_county_vtd_gerrydb, ks_ellis_county_block_gerrydb
+):
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="ks_ellis shatterable layer",
+        gerrydb_table_name="ks_ellis_geos",
+        num_districts=10,
+        tiles_s3_path="tilesets/ks_ellis_shatterable_layer.pmtiles",
+        parent_layer="ks_ellis_county_vtd",
+        child_layer="ks_ellis_county_block",
+    )
+    session.commit()
+    return inserted_districtr_map
