@@ -352,7 +352,8 @@ def download_file_from_s3(
         logger.info("Downloading file...")
 
         path_dir = Path(path).parent
-        os.makedirs(os.path.dirname(path_dir), exist_ok=True)
+        logger.info("Creating directory: %s", path_dir)
+        path_dir.mkdir(parents=True, exist_ok=True)
         s3.download_file(url.netloc, s3_prefix, path)
 
     return path
