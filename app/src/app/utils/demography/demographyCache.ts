@@ -232,7 +232,7 @@ class DemographyCache {
       .join_full(this.zoneTable, ['path', 'path'])
       .dedupe('path');
 
-    const missingPopulations = joinedTable.filter((row => row['total_pop'] === undefined && row['zone'] !== undefined)); 
+    const missingPopulations = joinedTable.filter(escape(((row: any) => row['total_pop'] === undefined && row['zone'] !== undefined))); 
     if (missingPopulations.size){
       console.log("Populations not yet loaded");
       return {
