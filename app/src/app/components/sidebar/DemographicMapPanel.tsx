@@ -14,21 +14,9 @@ import {
   ShadowInnerIcon,
   ViewVerticalIcon,
 } from '@radix-ui/react-icons';
-import {
-  Blockquote,
-  Box,
-  Button,
-  Flex,
-  Heading,
-  IconButton,
-  Popover,
-  Switch,
-  Tabs,
-  Text,
-  TextField,
-} from '@radix-ui/themes';
+import {Blockquote, Box, Flex, IconButton, Popover, Switch, Tabs, Text} from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
-import {LegendQuantile, LegendItem, LegendLabel, LegendLinear} from '@visx/legend';
+import {LegendQuantile, LegendLabel} from '@visx/legend';
 import React, {useEffect} from 'react';
 
 const mapOptions: Array<{
@@ -69,6 +57,7 @@ export const DemographicMapPanel: React.FC = () => {
       );
   const displayVariable = variable.replace('_pct', '');
   const config = availableVariables.find(f => f.value === displayVariable);
+  const colors = scale?.range() || [];
 
   const handleChange = (_newVariable?: DemographyVariable, _usePercent?: boolean) => {
     const usePercent = _usePercent ?? variable.includes('pct');
@@ -83,6 +72,7 @@ export const DemographicMapPanel: React.FC = () => {
   useEffect(() => {
     setVariable('total_pop');
   }, []);
+
   if (!availableVariables.length) {
     return (
       <Blockquote color="crimson">
@@ -109,34 +99,38 @@ export const DemographicMapPanel: React.FC = () => {
           ))}
         </Tabs.List>
       </Tabs.Root>
-      <Flex direction="row" gapX="3" align="center" py="2">
+      <Flex direction="column" pt="2">
         <Text>Map Variable</Text>
-        <Select.Root
-          value={displayVariable}
-          onValueChange={value => {
-            handleChange(value as DemographyVariable);
-          }}
-        >
-          <Select.Trigger />
-          <Select.Content>
-            {demographyVariables.map(f => (
-              <Select.Item key={f.value} value={f.value}>
-                {f.label}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
-        <Text as="label" size="2">
-          <Flex gap="2">
-            <Switch
-              checked={variable.includes('pct')}
-              onCheckedChange={value => {
-                handleChange(undefined, value);
-              }}
-            />
-            Show Percent
-          </Flex>
-        </Text>
+        <Flex direction="row" gapX="3" align="center" py="2">
+          <Select.Root
+            value={displayVariable}
+            onValueChange={value => {
+              handleChange(value as DemographyVariable);
+            }}
+          >
+            <Select.Trigger />
+            <Select.Content>
+              {availableVariables.map(f => (
+                <Select.Item key={f.value} value={f.value}>
+                  {f.label}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+          {displayVariable.toLowerCase().indexOf('Total') === -1 && (
+            <Text as="label" size="2">
+              <Flex gap="2">
+                <Switch
+                  checked={variable.includes('pct')}
+                  onCheckedChange={value => {
+                    handleChange(undefined, value);
+                  }}
+                />
+                Show %
+              </Flex>
+            </Text>
+          )}
+        </Flex>
       </Flex>
       {!!scale && (
         <Flex direction={'row'} justify="center" gapX="2">
@@ -157,7 +151,7 @@ export const DemographicMapPanel: React.FC = () => {
                         style={{
                           display: 'inline-block',
                           height: '1rem',
-                          backgroundColor: label.value,
+                          backgroundColor: colors[i] as string,
                         }}
                         key={`legend-bar-${i}`}
                       ></Box>

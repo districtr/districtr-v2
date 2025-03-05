@@ -165,11 +165,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
       >
         <CountyLayers />
         <VtdBlockLayers isDemographicMap={isDemographicMap} />
-          {!isDemographicMap && (
-            <>
-              <MetaLayers />
-            </>
-          )}
+        <MetaLayers />
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
 
       </GlMap>

@@ -47,7 +47,7 @@ export const HighlightOverlayerLayerGroup: React.FC<{
         }}
       />
       <Layer
-        id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography_line'}
+        id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_line'}
         source={BLOCK_SOURCE_ID}
         source-layer={id}
         filter={child ? layerFilter : ['literal', true]}

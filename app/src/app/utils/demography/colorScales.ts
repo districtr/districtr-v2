@@ -69,8 +69,9 @@ export const getDemographyColorScale = ({
   dataValues.forEach((row: any, i) => {
     const id = row.path;
     const value = row[variable];
-    if (!id || !value) return;
+    if (!id || isNaN(value)) return;
     const color = colorScale(+value);
+
     mapRef.setFeatureState(
       {
         source: BLOCK_SOURCE_ID,

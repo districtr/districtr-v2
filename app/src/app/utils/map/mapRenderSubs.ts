@@ -104,6 +104,8 @@ export class MapRenderSubscriber {
       }
     });
 
+    const isDemographic = this.mapType === 'demographic';
+  
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
       const isParent = PARENT_LAYERS.includes(layerId);
@@ -113,7 +115,9 @@ export class MapRenderSubscriber {
           'fill-opacity',
           getLayerFill(
             captiveIds.size ? captiveIds : undefined,
-            isParent ? shatterIds.parents : undefined
+            isParent ? shatterIds.parents : undefined,
+            !isParent,
+            isDemographic
           )
         );
       }
@@ -326,10 +330,10 @@ export class MapRenderSubscriber {
       mapState.mapRenderingState,
       mapState.mapOptions.highlightBrokenDistricts,
     ]);
-    this.renderFocus(mapState.focusFeatures);
     this.renderCursor(mapState.activeTool);
     this.renderHover(hoverState.hoverFeatures);
     this.renderLock(mapState.lockedFeatures);
+    this.renderFocus(mapState.focusFeatures);
     if (this.mapType === 'main') {
       this.renderColorZones([
         mapState.zoneAssignments,
@@ -344,10 +348,10 @@ export class MapRenderSubscriber {
   }
   subscribe() {
     this.subscribeShatter();
-    this.subscribeFocus();
     this.subscribeCursor();
     this.subscribeHover();
     this.subscribeLock();
+    this.subscribeFocus();
     if (this.mapType === 'main') {
       this.subscribeColorZones();
     }

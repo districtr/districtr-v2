@@ -24,7 +24,7 @@ export const useMapRenderer = (
   }
 
   useEffect(() => {
-    update();
+    // update();
     return () => {
       renderer.current?.unsubscribe();
     }
