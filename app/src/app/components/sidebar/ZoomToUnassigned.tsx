@@ -1,6 +1,6 @@
-import {useChartStore} from '@/app/store/chartStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
+import { useSummaryStats } from '@/app/utils/demography/demographyCache';
 import {formatNumber} from '@/app/utils/numbers';
 import {ChevronLeftIcon, ChevronRightIcon, ReloadIcon} from '@radix-ui/react-icons';
 import {Button, Flex, Heading, IconButton, Select, Text, Tooltip} from '@radix-ui/themes';
@@ -20,9 +20,10 @@ export const ZoomToUnassigned = () => {
   } = useUnassignFeaturesStore(state => state);
   const mapRef = useMapStore(state => state.getMapRef());
   const mapDocument = useMapStore(state => state.mapDocument);
+  const {summaryStats} = useSummaryStats();
   // prevent duplicate requests to get unassigned features
   const initialMapDocument = useRef(mapDocument);
-  const unassigned = useChartStore(state => state.chartInfo.unassigned);
+  const unassigned = summaryStats?.unassigned;
   // on repeat visit, prevent zooming to bounds on first render
   const [hasMounted, setHasMounted] = React.useState(false);
   

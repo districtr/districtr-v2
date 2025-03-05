@@ -43,7 +43,8 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set,get)
     if (!GeometryWorker || !mapRef) return;
     const expectedFeatures = demographyCache.table?.size;
     const nSeen = Object.keys(await GeometryWorker.activeGeometries).length
-    const useBackend = expectedFeatures !== nSeen;
+    // disabling local implementation for now
+    const useBackend = true; //expectedFeatures !== nSeen;
     if (!useBackend) {
       await GeometryWorker.updateProps(Array.from(zoneAssignments.entries()));
     }
