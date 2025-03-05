@@ -4,12 +4,10 @@ import {shallowCompareArray} from '../utils/helpers';
 import {useDemographyStore} from './demographicMap';
 import {useHoverStore} from './hoverFeatures';
 import {getMapEditSubs} from './mapEditSubs';
-import {getRenderSubscriptions} from './mapRenderSubs';
 import {MapStore, useMapStore} from './mapStore';
 
 export const initSubs = () => {
   // these need to initialize after the map store
-  getRenderSubscriptions(useMapStore, useHoverStore, useDemographyStore);
   getQueriesResultsSubs(useMapStore);
   getMapEditSubs(useMapStore);
   getSearchParamsObserver();

@@ -43,7 +43,6 @@ export const PopulationPanel = () => {
       </Text>
     );
   }
-
   return (
     <Flex gap="0" direction="column">
       <Flex direction="row" gap={'2'} align="center">

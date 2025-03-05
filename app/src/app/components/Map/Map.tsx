@@ -4,7 +4,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
 import type {MutableRefObject} from 'react';
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useMemo, useRef} from 'react';
 import {MAP_OPTIONS} from '@constants/configuration';
 import {
   handleWheelOrPinch,
@@ -21,6 +21,7 @@ import {VtdBlockLayers} from './VtdBlockLayers';
 import {MetaLayers} from './MetaLayers';
 // @ts-ignore
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
+import { useMapRenderer } from '@/app/hooks/useMapRenderer';
 
 export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   const mapRef: MutableRefObject<MapRef | null> = useRef(null);
@@ -31,6 +32,28 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
   const mapOptions = useMapStore(state => state.mapOptions);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const synced = useRef<false | (() => void)>(false);
+  const {update} = useMapRenderer(mapRef, isDemographicMap ? 'demographic' : 'main');
+
+  const initialViewState = useMemo(() => {
+    if (!isDemographicMap) {
+      // Maplibre and react-map-gl disagree on types
+      const center = MAP_OPTIONS.center as [number, number];
+      return {
+        latitude: center[1],
+        longitude: center[0],
+        zoom: MAP_OPTIONS.zoom,
+      }
+    }
+    const mainMapRef = getStateMapRef();
+    if (!mainMapRef) return;
+    const center = mainMapRef.getCenter();
+    const zoom = mainMapRef.getZoom();
+    return {
+      latitude: center.lat,
+      longitude: center.lng,
+      zoom,
+    }
+  }, [getStateMapRef]);
 
   useEffect(() => {
     if (!isDemographicMap) {
@@ -48,6 +71,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
       synced.current = syncMaps(demoMapRef, mainMapRef);
     }
   };
+
   useEffect(() => {
     if (isDemographicMap) {
       handleSyncMaps(mapRef.current?.getMap());
@@ -65,7 +89,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
   }, [getStateMapRef]);
 
   const fitMapToBounds = () => {
-    if (mapRef.current && mapOptions.bounds) {
+    if (mapRef.current && mapOptions.bounds && !isDemographicMap) {
       if (mapOptions.bounds) {
         mapRef.current.fitBounds(mapOptions.bounds, {
           padding: 20,
@@ -104,18 +128,14 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
       <GlMap
         ref={mapRef}
         mapStyle={MAP_OPTIONS.style || undefined}
-        initialViewState={{
-          // Maplibre and react-map-gl disagree on types
-          latitude: (MAP_OPTIONS.center as [number,number])?.[1] || 0,
-          longitude: (MAP_OPTIONS.center as [number,number])?.[0] || 0,
-          zoom: MAP_OPTIONS.zoom
-        }}
+        initialViewState={initialViewState}
         maxZoom={MAP_OPTIONS.maxZoom || undefined}
         pitchWithRotate={false}
         maxPitch={0}
         minPitch={0}
         dragRotate={false}
         onLoad={(e) => {
+          update();
           if (isDemographicMap) {
             handleSyncMaps(e.target);
             useDemographyStore.getState().setGetMapRef(() => e.target);

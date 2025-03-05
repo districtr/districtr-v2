@@ -175,7 +175,6 @@ export function getVisibleLayers(map: MaplibreMap | null) {
 export type ColorZoneAssignmentsState = [
   MapStore['zoneAssignments'],
   MapStore['mapDocument'],
-  MapStore['getMapRef'],
   MapStore['shatterIds'],
   MapStore['appLoadingState'],
   MapStore['mapRenderingState'],
@@ -214,24 +213,23 @@ export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
  * 5. Sets the feature state for each assigned feature on the map.
  */
 export const colorZoneAssignments = (
+  mapRef: MaplibreMap,
   state: ColorZoneAssignmentsState,
   previousState?: ColorZoneAssignmentsState
 ) => {
   const [
     zoneAssignments,
     mapDocument,
-    getMapRef,
     currentShatterIds,
     appLoadingState,
     mapRenderingState,
   ] = state;
   const [previousZoneAssignments, prevShatterIds] = [
     previousState?.[0] || new Map(),
-    previousState?.[3] || null,
+    previousState?.[2] || null,
   ];
-  const mapRef = getMapRef();
+  const isInitialRender = previousState?.[3] !== 'loaded' || previousState?.[4] !== 'loaded';
   const isTemporal = useMapStore.getState().isTemporalAction;
-
   if (
     !mapRef || // map does not exist
     !mapDocument || // map document is not loaded
@@ -243,7 +241,6 @@ export const colorZoneAssignments = (
   const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
   const featureStateChangesCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
   if (!featureStateCache) return;
-  const isInitialRender = previousState?.[4] !== 'loaded' || previousState?.[5] !== 'loaded';
 
   zoneAssignments.forEach((zone, id) => {
     if (!id) return;
