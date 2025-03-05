@@ -41,11 +41,11 @@ def test_check_subgraph_contiguity(connected_graph):
 
 
 def test_check_subgraph_number_connected_components(connected_graph):
-    assert subgraph_number_connected_components(connected_graph, ["a", "b", "c", "d"])
-    assert subgraph_number_connected_components(connected_graph, ["a", "b", "c"])
-    assert subgraph_number_connected_components(connected_graph, ["a", "b", "d"])
-    assert subgraph_number_connected_components(connected_graph, ["a", "b"])
-    assert subgraph_number_connected_components(connected_graph, ["a"])
+    assert subgraph_number_connected_components(connected_graph, ["a", "b", "c", "d"]) == 1
+    assert subgraph_number_connected_components(connected_graph, ["a", "b", "c"]) == 1
+    assert subgraph_number_connected_components(connected_graph, ["a", "b", "d"]) == 1
+    assert subgraph_number_connected_components(connected_graph, ["a", "b"]) == 1 
+    assert subgraph_number_connected_components(connected_graph, ["a"]) == 1
     assert subgraph_number_connected_components(connected_graph, ["a", "c"]) == 2
 
 
