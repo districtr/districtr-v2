@@ -6,7 +6,6 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import maplibregl from 'maplibre-gl';
 import * as scale from 'd3-scale'
 import { demographyCache } from '../utils/demography/demographyCache';
-import { fetchAssignments } from '../utils/api/queries';
 
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
@@ -43,11 +42,6 @@ export const demographyVariables = [
     value: 'amin_pop',
     models: ['P1'],
   },
-  // {
-  //   label: 'Population: Two or More Races',
-  //   value: 'two_or_more',
-  //   models: ['P1'],
-  // },
   {
     label: 'Population: Other',
     value: 'other_pop',
@@ -88,11 +82,6 @@ export const demographyVariables = [
     value: 'non_hispanic_amin_vap',
     models: ['P4'],
   },
-  // {
-  //   label: 'Voting Population: Two or More Races',
-  //   value: 'non_hispanic_two_or_more_vap',
-  //   models: ['P4'],
-  // },
   {
     label: 'Voting Population: Other',
     value: 'non_hispanic_other_vap',
@@ -103,18 +92,81 @@ export const demographyVariables = [
 export type DemographyVariable = (typeof demographyVariables)[number]['value'];
 export type DemographyPercentVariable = `${DemographyVariable}_pct`;
 export type AllDemographyVariables = DemographyVariable | DemographyPercentVariable;
+/**
+ * Zustand schema for managing demographic map data and operations.
+ */
 interface DemographyStore {
+  /**
+   * Gets the reference to the MapLibre GL map instance.
+   * @returns The MapLibre GL map instance or undefined if not set.
+   */
   getMapRef: () => maplibregl.Map | undefined;
+
+  /**
+   * The number of bins used requested for the demographic map.
+   */
   numberOfBins: number;
+
+  /**
+   * Sets the number of bins used for demographic data visualization.
+   * @param numberOfBins - The number of bins to set.
+   */
   setNumberOfBins: (numberOfBins: number) => void;
+
+  /**
+   * Sets the function to get the reference to the MapLibre GL map instance.
+   * @param getMapRef - The function to get the map reference.
+   */
   setGetMapRef: (getMapRef: () => maplibregl.Map | undefined) => void;
+
+  /**
+   * The variable for the demographic map.
+   */
   variable: AllDemographyVariables;
+
+  /**
+   * Sets the variable representing for the demographic map.
+   * @param variable - The demographic variable to set - one of AllDemographicVariables.
+   */
   setVariable: (variable: AllDemographyVariables) => void;
+
+  /**
+   * The hash representing the most recent update of demographic data.
+   * This is important because it triggers updates on otherwise non-tracked/non-reactive data.
+   * This keeps the state small, but triggers updates when necessary.
+   */
   dataHash: string;
+
+  /**
+   * The d3 scale used for demographic data visualization.
+   */
   scale?: ReturnType<typeof scale.scaleThreshold>;
+
+  /**
+   * Sets the d3 scale used for demographic data visualization.
+   * @param scale - The scale to set.
+   */
   setScale: (scale: DemographyStore['scale']) => void;
+
+  /**
+   * Unmounts the demographic map and performs necessary cleanup.
+   * This map can mount and unmount frequently,
+   * so this is necessary to prevent memory leaks / etc.
+   */
   unmount: () => void;
+
+  /**
+   * Like unmount, but retains the map ref.
+   */
   clear: () => void;
+
+  /**
+   * Updates the demographic data based on the provided map document and optional previous shatter IDs.
+   * When provided with shatterIds, it will only fetch data based on recently healed or newly shattered children.
+   * @param mapDocument - The map document from the main map.
+   * @param previousShatterIds - Optional previous shatter IDs for reference.
+   * @returns A promise that resolves when the data update is complete.
+   */
   updateData: (
     mapDocument: MapStore['mapDocument'],
     previousShatterIds?: MapStore['shatterIds']['parents']
@@ -130,9 +182,10 @@ export var useDemographyStore = create(
       const {mapDocument, shatterIds} = useMapStore.getState();
       const currentDataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
       if (currentDataHash === dataHash) {
-        setTimeout(() => {
+        // set variable triggers map render/update
+        getMapRef()?.on('load', () => {
           setVariable(variable);
-        }, 500);
+        })
       }
     },
     variable: 'total_pop',
@@ -157,19 +210,19 @@ export var useDemographyStore = create(
     numberOfBins: 5,
     setNumberOfBins: numberOfBins => set({numberOfBins}),
     dataHash: '',
-    data: {},
     updateData: async (mapDocument, prevParentShatterIds) => {
       const {getMapRef, dataHash: currDataHash, setVariable, variable} = get();
-      const {shatterMappings, shatterIds, zoneAssignments} = useMapStore.getState();
+      const {shatterMappings, shatterIds} = useMapStore.getState();
       const mapRef = getMapRef();
       const prevShattered = prevParentShatterIds ?? new Set();
       if (!mapDocument) return;
+      // based on current map state
       const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
       const shatterChildren: string[] = []
       const newShatterChildren: string[] = []
-      const oldParentsHealed = Array.from(prevShattered).filter(f => !shatterIds.parents.has(f));
-
+      // the table data ingestion dedupes and removes shattered parents
+      // so this doesn't need to be *too* optimized
       shatterIds.parents.forEach(id => {
         if (!prevShattered?.has(id)) {
           newShatterChildren.push(...Array.from(shatterMappings[id]));
@@ -180,11 +233,11 @@ export var useDemographyStore = create(
 
       const fetchUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/demography`)
       if (currRows && (shatterIds.parents.size || prevShattered?.size)) {
-        [...newShatterChildren, ...oldParentsHealed].forEach(id => {
+        newShatterChildren.forEach(id => {
           fetchUrl.searchParams.append('ids', id)
         })
       } else {
-        // This is a full pull of the data
+        // this is a full pull of the data
         demographyCache.clear();
       }
       await fetch(fetchUrl.toString())
@@ -199,18 +252,9 @@ export var useDemographyStore = create(
             dataHash
           )
       })
-      // .catch(err => {
-      //   console.error(err)
-      //   const {setErrorNotification, mapDocument} = useMapStore.getState();
-      //   setErrorNotification({
-      //     message: 'Unable to get demographic data for this map.',
-      //     severity: 2,
-      //     id: `missing-demog-data-${mapDocument?.document_id}-${mapDocument?.gerrydb_table}`
-      //   })
-      //   return null;
-      // });
       set({dataHash});
       if (mapRef){
+        // trigger map render
         setVariable(variable)
       }
     },

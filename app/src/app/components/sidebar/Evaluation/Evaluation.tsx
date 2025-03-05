@@ -6,7 +6,6 @@ import {formatNumber} from '@/app/utils/numbers';
 import {colorScheme} from '@/app/constants/colors';
 import {interpolateGreys} from 'd3-scale-chromatic';
 import {SummaryStatKeys, SummaryTypes, TotalColumnKeys} from '@/app/utils/api/summaryStats';
-import {useDemography, useSummaryStats} from '@/app/utils/demography/demographyCache';
 import {
   numberFormats,
   summaryStatLabels,
@@ -14,6 +13,8 @@ import {
   columnConfigs,
   modeButtonConfig,
 } from './config';
+import { useDemography } from '@/app/hooks/useDemography';
+import { useSummaryStats } from '@/app/hooks/useSummaryStats';
 
 const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');

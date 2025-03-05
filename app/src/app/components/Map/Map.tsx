@@ -19,7 +19,7 @@ import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';
 import {VtdBlockLayers} from './VtdBlockLayers';
 import {MetaLayers} from './MetaLayers';
-// @ts-ignore
+// @ts-ignore plugin has no types 
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import { useMapRenderer } from '@/app/hooks/useMapRenderer';
 
@@ -32,7 +32,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
   const mapOptions = useMapStore(state => state.mapOptions);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const synced = useRef<false | (() => void)>(false);
-  const {update} = useMapRenderer(mapRef, isDemographicMap ? 'demographic' : 'main');
+  const {updateMapRef} = useMapRenderer(mapRef, isDemographicMap ? 'demographic' : 'main');
 
   const initialViewState = useMemo(() => {
     if (!isDemographicMap) {
@@ -135,7 +135,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         minPitch={0}
         dragRotate={false}
         onLoad={(e) => {
-          update();
+          updateMapRef();
           if (isDemographicMap) {
             handleSyncMaps(e.target);
             useDemographyStore.getState().setGetMapRef(() => e.target);

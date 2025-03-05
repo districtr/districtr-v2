@@ -28,6 +28,7 @@ export const VtdBlockLayers: React.FC<{
 
   useEffect(() => {
     // clears old source before re-adding
+    // only happens on map document change
     setClearOldSource(true);
     setTimeout(() => {
       setClearOldSource(false);
@@ -49,8 +50,8 @@ export const VtdBlockLayers: React.FC<{
         setScale(mapScale);
         return mapScale;
       };
-      const sourceIsLoaded = _map?.getSource(BLOCK_SOURCE_ID);
-      if (sourceIsLoaded) {
+      // handle asynchronous map / source loads
+      if (_map?.getSource(BLOCK_SOURCE_ID)) {
         return updateFn();
       } else {
         _map.on('load', () => {

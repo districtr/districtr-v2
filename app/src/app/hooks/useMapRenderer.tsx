@@ -10,7 +10,7 @@ export const useMapRenderer = (
   mapType: 'demographic' | 'main' = 'main'
 ) => {
   const renderer = useRef<MapRenderSubscriber | null>(null);
-  const update = () => {
+  const updateMapRef = () => {
     if (!mapRef.current) return;
     const renderSubscriber = new MapRenderSubscriber(
       mapRef.current.getMap(),
@@ -24,14 +24,13 @@ export const useMapRenderer = (
   }
 
   useEffect(() => {
-    // update();
     return () => {
       renderer.current?.unsubscribe();
     }
   },[])
 
   return {
-    update,
+    updateMapRef,
     renderer
   }
 }
