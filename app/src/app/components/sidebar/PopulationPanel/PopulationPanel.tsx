@@ -16,6 +16,7 @@ export const PopulationPanel = () => {
   const {populationData} = useDemography();
   const {summaryStats, zoneStats} = useSummaryStats();
   const idealPopulation = summaryStats?.idealpop;
+  const unassigned = summaryStats.unassigned;
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? 4);
   const allPainted = numDistricts === zoneStats?.paintedZones
   
@@ -23,8 +24,6 @@ export const PopulationPanel = () => {
   const chartOptions = useChartStore(state => state.chartOptions);
   const showDistrictNumbers = chartOptions.popShowDistrictNumbers;
   const setChartOptions = useChartStore(state => state.setChartOptions);
-  const unassigned = useChartStore(state => state.chartInfo.unassigned);
-  
   const setLockedZones = useMapStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
   const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));

@@ -77,11 +77,11 @@ export const summaryStatLabels: Array<{
   label: string;
 }> = [
   {
-    value: 'P1',
-    label: 'Total Population',
+    value: 'P4',
+    label: 'Voting age population',
   },
   {
-    value: 'P4',
-    label: 'Voting Age Population',
+    value: 'P1',
+    label: 'Total population',
   }
 ]

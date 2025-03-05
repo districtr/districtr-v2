@@ -59,6 +59,7 @@ class DemographyCache {
     P4?: P4VapPopSummaryStats;
     idealpop?: number;
     totalPopulation?: number;
+    unassigned?: number;
   } = {};
 
   zoneStats: {
@@ -250,6 +251,7 @@ class DemographyCache {
     const popNumbers = this.populations.map(row => row.total_pop);
     this.zoneStats.maxPopulation = Math.max(...popNumbers);
     this.zoneStats.minPopulation = Math.min(...popNumbers);  
+    this.summaryStats.unassigned = this.populations.find(row => row.zone === undefined)?.total_pop ?? 0;
     this.zoneStats.range = this.zoneStats.maxPopulation - this.zoneStats.minPopulation;
     this.zoneStats.paintedZones = popNumbers.filter(pop => pop > 0).length;
     return this.populations;
@@ -292,12 +294,12 @@ class DemographyCache {
 }
 
 export const demographyCache = new DemographyCache();
-export const useDemography = () => {
+export const useDemography = (includeUnassigned?: boolean) => {
   const hash = useChartStore(state => state.dataUpdateHash);
   const paintedChanges = useChartStore(state => state.paintedChanges);
   const populationData = useMemo(() => {
     let cleanedData = structuredClone(demographyCache.populations)
-      .filter(row => Boolean(row.zone))
+      .filter(row => includeUnassigned ? true : Boolean(row.zone))
       .sort((a, b) => a.zone - b.zone);
     Object.entries(paintedChanges).forEach(([zone, pop]) => {
       const index = cleanedData.findIndex(row => row.zone === parseInt(zone));
@@ -306,7 +308,7 @@ export const useDemography = () => {
       }
     });
     return cleanedData;
-  }, [hash, paintedChanges]);
+  }, [hash, paintedChanges, includeUnassigned]);
   return {
     populationData,
   } as any;

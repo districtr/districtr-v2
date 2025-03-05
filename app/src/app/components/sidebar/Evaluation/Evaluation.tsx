@@ -19,7 +19,8 @@ const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
-  const {populationData} = useDemography();
+  const {populationData} = useDemography(showUnassigned);
+  console.log("!!!!EVAL", populationData)
   const {summaryStats, zoneStats} = useSummaryStats();
   const maxValues = zoneStats?.maxValues;
   const numberFormat = numberFormats[evalMode];
@@ -29,12 +30,12 @@ const Evaluation: React.FC = () => {
   );
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
   const [summaryType, setSummaryType] = useState<keyof SummaryTypes | undefined>(
-    (mapDocument?.available_summary_stats?.includes('P1')
-      ? 'P1'
+    (mapDocument?.available_summary_stats?.includes('P4')
+      ? 'P4'
       : mapDocument?.available_summary_stats?.[0]) as keyof SummaryTypes
   );
   const totals = summaryStats?.[summaryType as keyof typeof summaryStats];
-  const unassigned = false;
+
   useEffect(() => {
     const hasCurrent = summaryType && mapDocument?.available_summary_stats?.includes(summaryType);
     if (!hasCurrent) {
@@ -54,7 +55,6 @@ const Evaluation: React.FC = () => {
     );
   }
 
-  const rows = unassigned && showUnassigned ? [...populationData, unassigned] : populationData;
   return (
     <Box width={'100%'}>
       <Tabs.Root
@@ -64,9 +64,7 @@ const Evaluation: React.FC = () => {
         <Tabs.List>
           {availableSummaries.map(({value, label}) => (
             <Tabs.Trigger key={value} value={value}>
-              <Heading as="h3" size="3">
                 {label}
-              </Heading>
             </Tabs.Trigger>
           ))}
         </Tabs.List>
@@ -119,15 +117,15 @@ const Evaluation: React.FC = () => {
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {rows
+            {populationData
               .sort((a: any, b: any) => a.zone - b.zone)
-              .map((row: any) => {
-                const isUnassigned = row.zone === -999;
+              .map((row: any, i: number) => {
+                const isUnassigned = row.zone === undefined;
                 const zoneName = isUnassigned ? 'None' : row.zone;
                 const backgroundColor = isUnassigned ? '#DDDDDD' : colorScheme[row.zone - 1];
 
                 return (
-                  <Table.Row key={row.zone} className="border-b hover:bg-gray-50">
+                  <Table.Row key={`eval-row${i}`} className="border-b hover:bg-gray-50">
                     <Table.Cell className="py-2 px-4 font-medium flex flex-row items-center gap-1">
                       <span
                         className={'size-4 inline-block rounded-md'}
