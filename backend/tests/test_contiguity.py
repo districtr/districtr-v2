@@ -41,10 +41,12 @@ def test_check_subgraph_contiguity(connected_graph):
 
 
 def test_check_subgraph_number_connected_components(connected_graph):
-    assert subgraph_number_connected_components(connected_graph, ["a", "b", "c", "d"]) == 1
+    assert (
+        subgraph_number_connected_components(connected_graph, ["a", "b", "c", "d"]) == 1
+    )
     assert subgraph_number_connected_components(connected_graph, ["a", "b", "c"]) == 1
     assert subgraph_number_connected_components(connected_graph, ["a", "b", "d"]) == 1
-    assert subgraph_number_connected_components(connected_graph, ["a", "b"]) == 1 
+    assert subgraph_number_connected_components(connected_graph, ["a", "b"]) == 1
     assert subgraph_number_connected_components(connected_graph, ["a"]) == 1
     assert subgraph_number_connected_components(connected_graph, ["a", "c"]) == 2
 
@@ -159,30 +161,30 @@ def test_all_zones_contiguous(
 
 
 def test_graph_from_gpkg():
-    G = graph_from_gpkg(FIXTURES_PATH / "ri_vtd_p4_view.gpkg")
-    assert len(G.edges) == 1154
-    assert len(G.nodes) == 422
+    G = graph_from_gpkg(FIXTURES_PATH / "ks_ellis_county_block.gpkg")
+    assert len(G.edges) == 5439
+    assert len(G.nodes) == 2296
 
 
-@fixture(name="ri_vtd_p4_view_graph")
+@fixture(name="gpkg_block_graph")
 def ri_vtd_p4_view_graph_fixture() -> Graph:
-    return graph_from_gpkg(FIXTURES_PATH / "ri_vtd_p4_view.gpkg")
+    return graph_from_gpkg(FIXTURES_PATH / "ks_ellis_county_block.gpkg")
 
 
-def test_write_graph_to_gml(ri_vtd_p4_view_graph: Graph):
+def test_write_graph_to_gml(gpkg_block_graph: Graph):
     with NamedTemporaryFile() as f:
         gml_path = write_graph(
-            G=ri_vtd_p4_view_graph,
-            gerrydb_name="ri_vtd_p4_view",
+            G=gpkg_block_graph,
+            gerrydb_name="gpkg_block_graph",
             out_path=f.name,
             graph_file_format=GraphFileFormat.gml,
         )
         print(gml_path)
         G = read_gml(gml_path)
-        assert len(G.edges) == 1154
-        assert len(G.nodes) == 422
-        assert G.edges == ri_vtd_p4_view_graph.edges
-        assert G.nodes == ri_vtd_p4_view_graph.nodes
+        assert len(G.edges) == 5439
+        assert len(G.nodes) == 2296
+        assert G.edges == gpkg_block_graph.edges
+        assert G.nodes == gpkg_block_graph.nodes
 
 
 @fixture
