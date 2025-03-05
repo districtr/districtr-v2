@@ -188,9 +188,19 @@ export var useDemographyStore = create(
       }
 
       await fetch(fetchUrl.toString())
-        .then(res => res.json())
+        .catch(err => {
+          console.error(err)
+          const {setErrorNotification, mapDocument} = useMapStore.getState();
+          setErrorNotification({
+            message: 'Unable to get demographic data for this map.',
+            severity: 2,
+            id: `missing-demog-data-${mapDocument?.document_id}-${mapDocument?.gerrydb_table}`
+          })
+          return null;
+        })
+        .then(res => res?.json())
         .then(result => {
-          demographyCache.update(
+          result && demographyCache.update(
             result.columns,
             result.results,
             shatterIds.parents,
