@@ -400,7 +400,7 @@ export const checkIfSameZone = (
   let zone: NullableZone | undefined = undefined;
   let shouldHeal = true;
 
-  idsToCheck.forEach(id => {
+  idsToCheck?.forEach(id => {
     const assigment = zoneAssignments.get(id);
     if (zone === undefined) {
       zone = assigment;

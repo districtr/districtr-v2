@@ -124,7 +124,8 @@ class DemographyCache {
         .filter(escape((row: any) => row.path && !excludeIds.has(row.path))));
     }
     const zoneAssignments = useMapStore.getState().zoneAssignments;
-    this.updatePopulations(zoneAssignments);
+    const popsOk = this.updatePopulations(zoneAssignments);
+    if (!popsOk) return;
     this.calculateSummaryStats();
     this.hash = hash;
   }
@@ -215,14 +216,16 @@ class DemographyCache {
    * @param zoneAssignments - The zone assignments to use for calculation.
    * @returns The calculated populations.
    */
-  calculatePopulations(zoneAssignments?: MapStore['zoneAssignments']): SummaryTable {
+  calculatePopulations(zoneAssignments?: MapStore['zoneAssignments']): {ok: true, table: SummaryTable} | {ok: false} {
     const numZones = useMapStore.getState().mapDocument?.num_districts ?? 4;
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
     }
     const availableStats = this.getAvailableSummariesObject();
     if (!this.table || !this.zoneTable || !Object.keys(availableStats).length) {
-      return [];
+      return {
+        ok: false
+      }
     }
 
     const joinedTable = this.table
@@ -232,7 +235,9 @@ class DemographyCache {
     const missingPopulations = joinedTable.filter((row => row['total_pop'] === undefined && row['zone'] !== undefined)); 
     if (missingPopulations.size){
       console.log("Populations not yet loaded");
-      return []
+      return {
+        ok: false
+      }
     }
     // if any tot
     const populationsTable = joinedTable
@@ -263,7 +268,10 @@ class DemographyCache {
     this.zoneStats.range = this.zoneStats.maxPopulation - this.zoneStats.minPopulation;
     this.summaryStats.unassigned = this.populations.find(f => !f.zone)?.total_pop ?? 0;
     this.zoneStats.paintedZones = popNumbers.filter(pop => pop > 0).length;
-    return this.populations;
+    return {
+      ok: true,
+      table: this.populations
+    }
   }
 
   /**
@@ -295,10 +303,15 @@ class DemographyCache {
    *
    * @param zoneAssignments - The zone assignments to use for updating populations.
    */
-  updatePopulations(zoneAssignments?: MapStore['zoneAssignments']): void {
-    this.calculatePopulations(zoneAssignments);
+  updatePopulations(zoneAssignments?: MapStore['zoneAssignments']) {
+    const populations = this.calculatePopulations(zoneAssignments);
+    if (populations.ok){
+      useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
+      return true
+    } else {
+      return false
+    }
     // .max .range
-    useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
   }
 }
 
