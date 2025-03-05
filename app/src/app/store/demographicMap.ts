@@ -6,6 +6,7 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import maplibregl from 'maplibre-gl';
 import * as scale from 'd3-scale'
 import { demographyCache } from '../utils/demography/demographyCache';
+import { fetchAssignments } from '../utils/api/queries';
 
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
@@ -159,10 +160,11 @@ export var useDemographyStore = create(
     data: {},
     updateData: async (mapDocument, prevParentShatterIds) => {
       const {getMapRef, dataHash: currDataHash, setVariable, variable} = get();
-      const {shatterMappings, shatterIds} = useMapStore.getState();
+      const {shatterMappings, shatterIds, zoneAssignments} = useMapStore.getState();
       const mapRef = getMapRef();
       const prevShattered = prevParentShatterIds ?? new Set();
-      if (!mapDocument) return;
+      const zoneAssignmentsLoaded = fetchAssignments.getCurrentResult()?.data?.assignments?.length;
+      if (!mapDocument || !zoneAssignmentsLoaded) return;
       const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
       const shatterChildren: string[] = []
@@ -186,7 +188,6 @@ export var useDemographyStore = create(
         // This is a full pull of the data
         demographyCache.clear();
       }
-
       await fetch(fetchUrl.toString())
         .catch(err => {
           console.error(err)
