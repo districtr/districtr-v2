@@ -74,6 +74,8 @@ class DemographyCache {
     paintedZones?: number;
   } = {};
 
+  idsToExclude: Set<string> = new Set();
+
   colorScale?: ReturnType<typeof scale.scaleThreshold<number, string>>;
 
   /**
@@ -126,21 +128,23 @@ class DemographyCache {
     const newTable = table(newColumnarData);
     if (!this.table) {
       this.table = table(
-        newTable.filter(escape((row: TableRow) => row.path && !excludeIds.has(row.path)))
+        newTable.filter(escape((row: TableRow) => row.path && !excludeIds.has(row.path) && !this.idsToExclude.has(row.path)))
       );
     } else {
       this.table = table(
         this.table
           .concat(newTable)
           .dedupe('path')
-          .filter(escape((row: TableRow) => row.path && !excludeIds.has(row.path)))
+          .filter(escape((row: TableRow) => row.path && !excludeIds.has(row.path) && !this.idsToExclude.has(row.path)))
       );
     }
+    console.log("ROWS", this.table.size)
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
     this.calculateSummaryStats();
     this.hash = hash;
+    this.idsToExclude.clear();
   }
 
   /**
@@ -171,8 +175,18 @@ class DemographyCache {
     this.populations = [];
     this.summaryStats = {};
     this.hash = '';
+    this.idsToExclude.clear();
+    this.colorScale = undefined;
+    this.zoneStats = {};
   }
-
+/**
+ * Add IDS to exlude on next update
+ * @param idsToExclude 
+ */
+  exclude(idsToExclude: string[]): void {
+    this.idsToExclude = new Set([...this.idsToExclude, ...idsToExclude]);
+    console.log("Excluding...", this.idsToExclude)
+  }
   /**
    * Gets the filtered data for a given ID.
    *

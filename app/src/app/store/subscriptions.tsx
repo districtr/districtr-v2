@@ -1,8 +1,8 @@
 import {getQueriesResultsSubs} from '../utils/api/queries';
 import {getSearchParamsObserver} from '../utils/api/queryParamsListener';
+import { demographyCache } from '../utils/demography/demographyCache';
 import {shallowCompareArray} from '../utils/helpers';
 import {useDemographyStore} from './demographyStore';
-import {useHoverStore} from './hoverFeatures';
 import {getMapEditSubs} from './mapEditSubs';
 import {MapStore, useMapStore} from './mapStore';
 
@@ -13,12 +13,14 @@ export const initSubs = () => {
   getSearchParamsObserver();
 
   useMapStore.subscribe<
-    [MapStore['mapDocument'], MapStore['shatterIds']['parents'], MapStore['appLoadingState']]
+    [MapStore['mapDocument'], MapStore['shatterIds'], MapStore['appLoadingState']]
   >(
-    state => [state.mapDocument, state.shatterIds.parents, state.appLoadingState],
-    ([mapDocument, _, appLoadingState], [_prevMapDoc, prevParentShatterIds]) => {
+    state => [state.mapDocument, state.shatterIds, state.appLoadingState],
+    ([mapDocument, shatterIds, appLoadingState], [_prevMapDoc, prevShatterIds]) => {
       if (appLoadingState === 'loaded') {
-        useDemographyStore.getState().updateData(mapDocument, prevParentShatterIds);
+        const healedChildren = Array.from(prevShatterIds.children).filter(id => !shatterIds.children.has(id));
+        demographyCache.exclude(healedChildren)
+        useDemographyStore.getState().updateData(mapDocument, prevShatterIds.parents);
       }
     },
     {equalityFn: shallowCompareArray}
@@ -29,7 +31,7 @@ export const initSubs = () => {
     getMapRef => {
       const mapRef = getMapRef();
       if (!mapRef) return;
-      const {mapDocument, shatterIds, mapOptions} = useMapStore.getState();
+      const {mapDocument, mapOptions} = useMapStore.getState();
       if (mapOptions.showDemographicMap) {
         useDemographyStore.getState().updateData(mapDocument);
       }
