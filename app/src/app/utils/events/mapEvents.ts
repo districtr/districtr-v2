@@ -105,7 +105,7 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
 
-  if (activeTool === 'pan' || activeTool === 'zoomToUnassigned') {
+  if (activeTool === 'pan') {
     // enable drag pan
     mapRef.dragPan.enable();
   } else if (activeTool === 'brush' || activeTool === 'eraser') {

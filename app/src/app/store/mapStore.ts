@@ -221,7 +221,7 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
-  sidebarPanels: Array<'layers' | 'population' | 'evaluation' | 'demography'>;
+  sidebarPanels: Array<'layers' | 'population' | 'evaluation' | 'demography' | 'mapValidation'>;
   setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
   activeTool: ActiveTool;

@@ -183,6 +183,31 @@ export interface ZonePopulation {
 }
 
 /**
+ * Get zone populations from the server.
+ * @param mapDocument - DocumentObject, the document object
+ * @returns Promise<ZonePopulation[]>
+ */
+export const getContiguity: (
+  mapDocument: DocumentObject
+) => Promise<any> = async mapDocument => {
+  // const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
+  // if (currentHash !== assignmentHash) {
+  //   // return stale data if map already changed
+  //   return {};
+  // }
+  if (mapDocument) {
+    return await axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity`, {
+      })
+      .then(res => {
+        return res.data
+      });
+  } else {
+    throw new Error('No document provided');
+  }
+};
+
+/**
  * Get available DistrictrMap views from the server.
  * @param limit - number, the number of views to return (default 10, max 100)
  * @param offset - number, the number of views to skip (default 0)
