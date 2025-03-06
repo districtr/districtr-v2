@@ -541,3 +541,23 @@ def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
     if result.returncode != 0:
         print(f"ogr2ogr failed. Got {result}")
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+@pytest.fixture(name='demography_table_output')
+def test_get_document_demography_totals(client):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_P1_FIXTURE_NAME,
+        },
+    )
+    document_id = response.json()["document_id"]
+
+    doc_uuid = str(uuid.UUID(document_id))
+    result = client.get(f"/api/document/{doc_uuid}/demography")
+    print(result.json())
+    assert result.status_code == 200
+    data = result.json()
+    assert 'columns' in data
+    assert 'results' in data
+    assert len(data['columns']) == 9
+    assert len(data['results']) == 10
