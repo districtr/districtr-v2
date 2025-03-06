@@ -472,7 +472,6 @@ async def check_document_contiguity(
     return results
 
 
-
 @app.get("/api/document/{document_id}/demography")
 async def get_map_demography(
     document_id: str,
