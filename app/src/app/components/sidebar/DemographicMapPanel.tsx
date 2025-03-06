@@ -16,7 +16,7 @@ import {
 } from '@radix-ui/react-icons';
 import {Blockquote, Box, Flex, IconButton, Popover, Switch, Tabs, Text} from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
-import {LegendQuantile, LegendLabel} from '@visx/legend';
+import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React, {useEffect} from 'react';
 
 const mapOptions: Array<{
@@ -134,8 +134,8 @@ export const DemographicMapPanel: React.FC = () => {
       </Flex>
       {!!scale && (
         <Flex direction={'row'} justify="center" gapX="2">
-          <LegendQuantile
-            scale={scale as any}
+          <LegendThreshold
+            scale={scale}
             labelFormat={label =>
               formatNumber(label as number, variable.includes('pct') ? 'percent' : 'compact')
             }
@@ -151,7 +151,7 @@ export const DemographicMapPanel: React.FC = () => {
                         style={{
                           display: 'inline-block',
                           height: '1rem',
-                          backgroundColor: colors[i] as string,
+                          backgroundColor: colors[i],
                         }}
                         key={`legend-bar-${i}`}
                       ></Box>
@@ -175,7 +175,7 @@ export const DemographicMapPanel: React.FC = () => {
                 </Flex>
               );
             }}
-          </LegendQuantile>
+          </LegendThreshold>
           <Popover.Root>
             <Popover.Trigger>
               <GearIcon />

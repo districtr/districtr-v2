@@ -120,8 +120,8 @@ const Evaluation: React.FC = () => {
           </Table.Header>
           <Table.Body>
             {populationData
-              .sort((a: any, b: any) => (a.zone||0) - (b.zone||0))
-              .map((row: any, i: number) => {
+              .sort((a, b) => (a.zone||0) - (b.zone||0))
+              .map((row, i) => {
                 const isUnassigned = row.zone === undefined;
                 const zoneName = isUnassigned ? 'None' : row.zone;
                 const backgroundColor = isUnassigned ? '#DDDDDD' : colorScheme[row.zone - 1];
@@ -148,7 +148,7 @@ const Evaluation: React.FC = () => {
                               value / maxValues[column]
                             : value;
                       const backgroundColor =
-                        value === undefined
+                        value === undefined || colorValue === undefined
                           ? undefined
                           : colorBg && !isUnassigned
                             ? interpolateGreys(colorValue)

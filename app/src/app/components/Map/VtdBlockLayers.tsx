@@ -46,8 +46,8 @@ export const VtdBlockLayers: React.FC<{
           mapDocument,
           numberOfBins: numberOfBins || 5,
           paintMap: true,
-        }) as any;
-        setScale(mapScale);
+        });
+        mapScale && setScale(mapScale);
         return mapScale;
       };
       // handle asynchronous map / source loads

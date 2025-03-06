@@ -62,7 +62,7 @@ const ZoneNumbersLayer = () => {
   const zoneAssignments = useMapStore(state => state.zoneAssignments);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
-  const [zoneNumberData, setZoneNumberData] = useState<any>(EMPTY_FT_COLLECTION);
+  const [zoneNumberData, setZoneNumberData] = useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
 
   const addZoneMetaLayers = async () => {

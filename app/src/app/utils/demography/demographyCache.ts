@@ -15,13 +15,14 @@ import {
   SummaryTypes,
 } from '../api/summaryStats';
 import {getMaxRollups, getPctDerives, getRollups} from './arquero';
-import {MaxValues, SummaryRecord, SummaryTable} from './types';
+import {TableRow, MaxValues, SummaryRecord, SummaryTable} from './types';
 import * as scale from 'd3-scale';
 import {
   AllDemographyVariables,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_COLOR_SCHEME_GRAY,
 } from '@/app/store/demographyStore';
+import { NullableZone } from '@/app/constants/types';
 
 /**
  * Class to organize queries on current demographic data
@@ -73,7 +74,7 @@ class DemographyCache {
     paintedZones?: number;
   } = {};
 
-  colorScale?: ReturnType<typeof scale.scaleThreshold<number, number>>;
+  colorScale?: ReturnType<typeof scale.scaleThreshold<number, string>>;
 
   /**
    * Rotates the given columns and data rows from an 2D array into an arquero object.
@@ -125,14 +126,14 @@ class DemographyCache {
     const newTable = table(newColumnarData);
     if (!this.table) {
       this.table = table(
-        newTable.filter(escape((row: any) => row.path && !excludeIds.has(row.path)))
+        newTable.filter(escape((row: TableRow) => row.path && !excludeIds.has(row.path)))
       );
     } else {
       this.table = table(
         this.table
           .concat(newTable)
           .dedupe('path')
-          .filter(escape((row: any) => row.path && !excludeIds.has(row.path)))
+          .filter(escape((row: TableRow) => row.path && !excludeIds.has(row.path)))
       );
     }
     const zoneAssignments = useMapStore.getState().zoneAssignments;
@@ -153,7 +154,7 @@ class DemographyCache {
       path: new Array(rows),
       zone: new Array(rows),
     };
-    (zoneAssignments.entries() as any).forEach(([k, v]: any, i: number) => {
+    Array.from(zoneAssignments.entries()).forEach(([k, v], i) => {
       if (!k || !v) return;
       zoneColumns.path[i] = k;
       zoneColumns.zone[i] = v;
@@ -189,11 +190,11 @@ class DemographyCache {
         vtdId: `vtd:${id}`,
       })
       .filter(
-        (row: any, $: {id: string; vtdId: string}) =>
+        (row: TableRow, $: {id: string; vtdId: string}) =>
           op.startswith(row['path'], $.id) || op.startswith(row['path'], $.vtdId)
       )
       .objects()
-      .map((properties: any) => ({
+      .map((properties: TableRow) => ({
         id: properties.path,
         sourceLayer: properties.sourceLayer,
         source: BLOCK_SOURCE_ID,
@@ -245,7 +246,7 @@ class DemographyCache {
     const joinedTable = this.table.join_full(this.zoneTable, ['path', 'path']).dedupe('path');
 
     const missingPopulations = joinedTable.filter(
-      escape((row: any) => row['total_pop'] === undefined && row['zone'] !== undefined)
+      escape((row: TableRow & {zone: NullableZone}) => row['total_pop'] === undefined && row['zone'] !== undefined)
     );
     if (missingPopulations.size) {
       console.log('Populations not yet loaded');
@@ -319,7 +320,7 @@ class DemographyCache {
   calculateQuantiles(
     variable: string,
     numberOfBins: number
-  ): {quantilesObject: any; quantilesList: number[]} | null {
+  ): {quantilesObject: { [q: string]: number}; quantilesList: number[]} | null {
     if (!this.table) return null;
     const rollups = new Array(numberOfBins + 1)
       .fill(0)
@@ -331,7 +332,7 @@ class DemographyCache {
         },
         {} as {[key: string]: ReturnType<typeof op.quantile>}
       );
-    const quantilesObject = this.table.rollup(rollups).objects()[0];
+    const quantilesObject = this.table.rollup(rollups).objects()[0] as { [q: string]: number };
     const quantilesList = Object.values(quantilesObject)
       .sort((a, b) => a - b)
       .slice(1, -1);
@@ -354,12 +355,12 @@ class DemographyCache {
     const colorScale = this.colorScale!;
     let rows = this.table.select('path', 'sourceLayer', variable);
     if (ids) {
-      rows = rows.filter(escape((row: any) => ids.includes(row.path)));
+      rows = rows.filter(escape((row: TableRow) => ids.includes(row.path)));
     }
-    rows.objects().forEach((row: any) => {
+    (rows.objects() as TableRow[]).forEach((row) => {
       const id = row.path;
-      const value = row[variable];
-      if (!id || isNaN(value)) return;
+      const value = row[variable as keyof typeof row];
+      if (!id || isNaN(+value)) return;
       const color = colorScale(+value);
 
       mapRef.setFeatureState(
@@ -410,11 +411,11 @@ class DemographyCache {
       mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
     const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
     const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
-    let colorscheme = defaultColor[Math.max(3, actualBinsLength)] as Iterable<number>;
+    let colorscheme = defaultColor[Math.max(3, actualBinsLength)]
     if (actualBinsLength < 3) {
-      colorscheme = (colorscheme as any).slice(0, actualBinsLength);
+      colorscheme = colorscheme.slice(0, actualBinsLength);
     }
-    this.colorScale = scale.scaleThreshold().domain(uniqueQuantiles).range(colorscheme);
+    this.colorScale = scale.scaleThreshold<number, string>().domain(uniqueQuantiles).range(colorscheme);
     if (paintMap) {
       this.paintDemography({
         variable,

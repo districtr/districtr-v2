@@ -65,7 +65,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
     }
   }, []);
 
-  const handleSyncMaps = (demoMapRef?: any) => {
+  const handleSyncMaps = (demoMapRef?: maplibregl.Map) => {
     const mainMapRef = getStateMapRef();
     if (isDemographicMap && demoMapRef && mainMapRef && synced.current === false) {
       synced.current = syncMaps(demoMapRef, mainMapRef);

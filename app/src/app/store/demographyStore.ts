@@ -141,7 +141,7 @@ export interface DemographyStore {
   /**
    * The d3 scale used for demographic data visualization.
    */
-  scale?: ReturnType<typeof scale.scaleThreshold>;
+  scale?: ReturnType<typeof scale.scaleThreshold<number,string>>;
 
   /**
    * Sets the d3 scale used for demographic data visualization.

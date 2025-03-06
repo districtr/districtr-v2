@@ -3,6 +3,7 @@ import {useMapStore} from '@store/mapStore';
 import {useChartStore} from '@store/chartStore';
 import {useMemo} from 'react';
 import { demographyCache } from '@utils/demography/demographyCache';
+import { SummaryRecord } from '../utils/demography/types';
 
 /**
  * Custom hook to retrieve and process demography data.
@@ -34,7 +35,7 @@ export const useDemography = (includeUnassigned?: boolean) => {
     if (zonesPresent.length < numDistricts) {
       for (let i = 1; i <= numDistricts; i++) {
         if (!zonesPresent.includes(i)) {
-          cleanedData.push({zone: i, total_pop: 0} as any);
+          cleanedData.push({zone: i, total_pop: 0} as SummaryRecord);
         }
       }
     }
@@ -50,5 +51,5 @@ export const useDemography = (includeUnassigned?: boolean) => {
 
   return {
     populationData,
-  } as any;
+  }
 };
