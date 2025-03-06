@@ -1,5 +1,4 @@
 import React from 'react';
-import {colorScheme} from '../../constants/colors';
 import {useMapStore} from '../../store/mapStore';
 import {ColorPicker} from './ColorPicker';
 
@@ -17,7 +16,6 @@ export function ZonePicker() {
     <div>
       <ColorPicker
         onValueChange={handleRadioChange}
-        colorArray={colorScheme}
         defaultValue={0}
         value={selectedZone - 1}
       />
