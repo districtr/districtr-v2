@@ -111,6 +111,7 @@ export class MapRenderSubscriber {
 
     const isDemographic = this.mapType === 'demographic';
   
+    if (isDemographic) return;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
       const isParent = PARENT_LAYERS.includes(layerId);

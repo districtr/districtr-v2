@@ -331,3 +331,32 @@ export const patchUnShatterParents: (params: {
       return res.data;
     });
 };
+
+
+/**
+ * Fetches demography table for a given document.
+ *
+ * @param document_id - string, the document_id
+ * @param ids - Optional array of IDs to filter the demography data.
+ * @returns A promise that resolves to an object containing a lsit of columns and results (2d array).
+ * @throws Will throw an error if the request fails.
+ */
+export const getDemography: (params: {
+  document_id?: string;
+  ids?: string[];
+  dataHash?: string;
+}) => Promise<{columns: string[]; results: (string | number)[][]; dataHash?:string}> = async ({document_id, ids, dataHash}) => {
+  if (!document_id) {
+    throw new Error('No document id provided');
+  }
+  const fetchUrl = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/demography`
+  );
+  ids?.forEach(id => fetchUrl.searchParams.append('ids', id));
+  const result = await axios.get(fetchUrl.toString()).then(res => res.data);
+  return {
+    columns: result.columns,
+    results: result.results,
+    dataHash: dataHash,
+  }
+};

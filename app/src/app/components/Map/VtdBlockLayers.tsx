@@ -6,10 +6,10 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useLayoutEffect, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, useMap} from 'react-map-gl/maplibre';
-import {getDemographyColorScale} from '@/app/utils/demography/colorScales';
 import { ZoneLayerGroup } from './ZoneLayerGroup';
 import { DemographicLayer } from './DemographicLayer';
 import { HighlightOverlayerLayerGroup } from './HighlightOverlayLayerGroup';
+import { demographyCache } from '@/app/utils/demography/demographyCache';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
@@ -40,11 +40,12 @@ export const VtdBlockLayers: React.FC<{
     const _map = mapRef.current?.getMap();
     if (_map) {
       const updateFn = () => {
-        const mapScale = getDemographyColorScale({
+        const mapScale = demographyCache.calculateDemographyColorScale({
           variable: demographicVariable,
           mapRef: _map,
           mapDocument,
           numberOfBins: numberOfBins || 5,
+          paintMap: true,
         }) as any;
         setScale(mapScale);
         return mapScale;

@@ -6,6 +6,7 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import maplibregl from 'maplibre-gl';
 import * as scale from 'd3-scale'
 import { demographyCache } from '../utils/demography/demographyCache';
+import { updateDemography } from '../utils/api/queries';
 
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
@@ -95,7 +96,7 @@ export type AllDemographyVariables = DemographyVariable | DemographyPercentVaria
 /**
  * Zustand schema for managing demographic map data and operations.
  */
-interface DemographyStore {
+export interface DemographyStore {
   /**
    * Gets the reference to the MapLibre GL map instance.
    * @returns The MapLibre GL map instance or undefined if not set.
@@ -136,7 +137,7 @@ interface DemographyStore {
    * This keeps the state small, but triggers updates when necessary.
    */
   dataHash: string;
-
+  setDataHash: (dataHash: string) => void;
   /**
    * The d3 scale used for demographic data visualization.
    */
@@ -210,53 +211,35 @@ export var useDemographyStore = create(
     numberOfBins: 5,
     setNumberOfBins: numberOfBins => set({numberOfBins}),
     dataHash: '',
+    setDataHash: dataHash => set({dataHash}),
     updateData: async (mapDocument, prevParentShatterIds) => {
-      const {getMapRef, dataHash: currDataHash, setVariable, variable} = get();
+      const {dataHash: currDataHash} = get();
       const {shatterMappings, shatterIds} = useMapStore.getState();
-      const mapRef = getMapRef();
       const prevShattered = prevParentShatterIds ?? new Set();
       if (!mapDocument) return;
       // based on current map state
       const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
-      const shatterChildren: string[] = []
       const newShatterChildren: string[] = []
+      const currentShattered = Array.from(shatterIds.parents)
+      const healedParents = Array.from(prevShattered).filter(id => !currentShattered.includes(id))
       // the table data ingestion dedupes and removes shattered parents
       // so this doesn't need to be *too* optimized
       shatterIds.parents.forEach(id => {
         if (!prevShattered?.has(id)) {
           newShatterChildren.push(...Array.from(shatterMappings[id]));
         }
-        shatterChildren.push(...Array.from(shatterMappings[id]));
       })
       let currRows = demographyCache.table?.size
-
-      const fetchUrl = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/demography`)
-      if (currRows && (shatterIds.parents.size || prevShattered?.size)) {
-        newShatterChildren.forEach(id => {
-          fetchUrl.searchParams.append('ids', id)
-        })
-      } else {
+      if (!currRows && !newShatterChildren.length && !healedParents.length) {
         // this is a full pull of the data
         demographyCache.clear();
       }
-      await fetch(fetchUrl.toString())
-        .then(res => res?.json())
-        .then(result => {
-          result && demographyCache.update(
-            result.columns,
-            result.results,
-            shatterIds.parents,
-            shatterIds.children,
-            mapDocument,
-            dataHash
-          )
+      updateDemography({
+        document_id: mapDocument.document_id,
+        ids: [...newShatterChildren, ...healedParents],
+        dataHash
       })
-      set({dataHash});
-      if (mapRef){
-        // trigger map render
-        setVariable(variable)
-      }
     },
   }))
 );

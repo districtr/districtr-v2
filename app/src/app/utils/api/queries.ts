@@ -7,8 +7,11 @@ import {
   getAssignments,
   getDocument,
   RemoteAssignmentsResponse,
+  getDemography,
 } from './apiHandlers';
 import {useMapStore} from '@/app/store/mapStore';
+import {demographyCache} from '../demography/demographyCache';
+import {useDemographyStore} from '@/app/store/demographyStore';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -106,11 +109,91 @@ fetchAssignments.subscribe(assignments => {
   }
 });
 
+const fetchDemography = new QueryObserver<null | {
+  columns: string[];
+  results: (string | number)[][];
+  dataHash: string;
+}>(queryClient, {
+  queryKey: ['demography'],
+  queryFn: async () => {
+    const result = await getDemography({
+      document_id: useMapStore.getState().mapDocument?.document_id,
+    });
+    return {
+      ...result,
+      dataHash: result.dataHash || '',
+    };
+  },
+});
+
+export const updateDemography = ({
+  document_id,
+  ids,
+  dataHash,
+}: {
+  document_id: string;
+  ids: string[];
+  dataHash: string;
+}) => {
+  fetchDemography.setOptions({
+    queryFn: async () => {
+      const result = await getDemography({document_id, ids, dataHash});
+      return {
+        ...result,
+        dataHash: result.dataHash || '',
+      };
+    },
+    queryKey: ['demography', performance.now()],
+  });
+};
+
+fetchDemography.subscribe(demography => {
+  if (demography.data) {
+    const {
+      setDataHash,
+      variable,
+      setVariable,
+      getMapRef: getDemogMapRef,
+    } = useDemographyStore.getState();
+    const {shatterIds, mapDocument, getMapRef: getMainMapRef, mapOptions} = useMapStore.getState();
+    const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
+    const result = demography.data;
+
+    if (!mapDocument || !result) return;
+
+    if (dataHash !== result.dataHash) {
+      console.log('Data hash mismatch, skipping update', dataHash, result.dataHash);
+      return;
+    }
+
+    demographyCache.update(
+      result.columns,
+      result.results,
+      shatterIds.parents,
+      shatterIds.children,
+      mapDocument,
+      dataHash
+    );
+    setDataHash(dataHash);
+    setVariable(variable);
+    const newIds = demography.data.results.map(row => row[0]) as string[];
+    let mapRef = mapOptions.showDemographicMap === 'overlay' ? getMainMapRef() : getDemogMapRef();
+    if (mapRef && newIds.length) {
+      demographyCache.paintDemography({
+        variable,
+        mapRef,
+        ids: newIds,
+      });
+    }
+  }
+});
+
 export {
   updateMapViews,
   getQueriesResultsSubs,
   mapViewsQuery,
   updateGetDocumentFromId,
   updateAssignments,
-  updateDocumentFromId
+  updateDocumentFromId,
+  fetchDemography,
 };

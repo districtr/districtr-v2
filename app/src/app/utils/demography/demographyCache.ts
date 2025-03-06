@@ -16,6 +16,12 @@ import {
 } from '../api/summaryStats';
 import {getMaxRollups, getPctDerives, getRollups} from './arquero';
 import {MaxValues, SummaryRecord, SummaryTable} from './types';
+import * as scale from 'd3-scale';
+import {
+  AllDemographyVariables,
+  DEFAULT_COLOR_SCHEME,
+  DEFAULT_COLOR_SCHEME_GRAY,
+} from '@/app/store/demographyStore';
 
 /**
  * Class to organize queries on current demographic data
@@ -65,7 +71,9 @@ class DemographyCache {
     minPopulation?: number;
     range?: number;
     paintedZones?: number;
-  } = {}
+  } = {};
+
+  colorScale?: ReturnType<typeof scale.scaleThreshold<number, number>>;
 
   /**
    * Rotates the given columns and data rows from an 2D array into an arquero object.
@@ -95,7 +103,7 @@ class DemographyCache {
   }
 
   /**
-   * Updates this class with new data from the backend. 
+   * Updates this class with new data from the backend.
    *
    * @param columns - The columns to update.
    * @param dataRows - The data rows to update.
@@ -113,12 +121,19 @@ class DemographyCache {
     hash: string
   ): void {
     if (hash === this.hash) return;
-    const newTable = table(this.rotate(columns, dataRows, childIds, mapDocument));
+    const newColumnarData = this.rotate(columns, dataRows, childIds, mapDocument);
+    const newTable = table(newColumnarData);
     if (!this.table) {
-      this.table = table(newTable.filter(escape((row: any) => row.path && !excludeIds.has(row.path))));
+      this.table = table(
+        newTable.filter(escape((row: any) => row.path && !excludeIds.has(row.path)))
+      );
     } else {
-      this.table = table(this.table.concat(newTable).dedupe('path')
-        .filter(escape((row: any) => row.path && !excludeIds.has(row.path))));
+      this.table = table(
+        this.table
+          .concat(newTable)
+          .dedupe('path')
+          .filter(escape((row: any) => row.path && !excludeIds.has(row.path)))
+      );
     }
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
@@ -138,7 +153,7 @@ class DemographyCache {
       path: new Array(rows),
       zone: new Array(rows),
     };
-    (zoneAssignments.entries() as any).forEach(([k, v]: any, i:number) => {
+    (zoneAssignments.entries() as any).forEach(([k, v]: any, i: number) => {
       if (!k || !v) return;
       zoneColumns.path[i] = k;
       zoneColumns.zone[i] = v;
@@ -213,7 +228,9 @@ class DemographyCache {
    * @param zoneAssignments - The zone assignments to use for calculation.
    * @returns The calculated populations.
    */
-  calculatePopulations(zoneAssignments?: MapStore['zoneAssignments']): {ok: true, table: SummaryTable} | {ok: false} {
+  calculatePopulations(
+    zoneAssignments?: MapStore['zoneAssignments']
+  ): {ok: true; table: SummaryTable} | {ok: false} {
     const numZones = useMapStore.getState().mapDocument?.num_districts ?? 4;
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
@@ -221,20 +238,20 @@ class DemographyCache {
     const availableStats = this.getAvailableSummariesObject();
     if (!this.table || !this.zoneTable || !Object.keys(availableStats).length) {
       return {
-        ok: false
-      }
+        ok: false,
+      };
     }
 
-    const joinedTable = this.table
-      .join_full(this.zoneTable, ['path', 'path'])
-      .dedupe('path');
+    const joinedTable = this.table.join_full(this.zoneTable, ['path', 'path']).dedupe('path');
 
-    const missingPopulations = joinedTable.filter(escape(((row: any) => row['total_pop'] === undefined && row['zone'] !== undefined))); 
-    if (missingPopulations.size){
-      console.log("Populations not yet loaded");
+    const missingPopulations = joinedTable.filter(
+      escape((row: any) => row['total_pop'] === undefined && row['zone'] !== undefined)
+    );
+    if (missingPopulations.size) {
+      console.log('Populations not yet loaded');
       return {
-        ok: false
-      }
+        ok: false,
+      };
     }
     // if any tot
     const populationsTable = joinedTable
@@ -250,8 +267,8 @@ class DemographyCache {
       this.zoneStats.maxValues = maxRollups;
     }
     const zonePopulationsTable = populationsTable.objects() as SummaryTable;
-    if (zonePopulationsTable.length+1 !== numZones) {
-      for (let i=1;i<numZones+1;i++) {
+    if (zonePopulationsTable.length + 1 !== numZones) {
+      for (let i = 1; i < numZones + 1; i++) {
         if (!zonePopulationsTable.find(row => row.zone === i)) {
           // @ts-ignore
           zonePopulationsTable.push({zone: i, total_pop: 0});
@@ -261,14 +278,14 @@ class DemographyCache {
     this.populations = zonePopulationsTable.sort((a, b) => a.zone - b.zone);
     const popNumbers = this.populations.map(row => row.total_pop);
     this.zoneStats.maxPopulation = Math.max(...popNumbers);
-    this.zoneStats.minPopulation = Math.min(...popNumbers);  
+    this.zoneStats.minPopulation = Math.min(...popNumbers);
     this.zoneStats.range = this.zoneStats.maxPopulation - this.zoneStats.minPopulation;
     this.summaryStats.unassigned = this.populations.find(f => !f.zone)?.total_pop ?? 0;
     this.zoneStats.paintedZones = popNumbers.filter(pop => pop > 0).length;
     return {
       ok: true,
-      table: this.populations
-    }
+      table: this.populations,
+    };
   }
 
   /**
@@ -281,12 +298,13 @@ class DemographyCache {
     const summaries = this.table.rollup(getRollups(availableStats)).objects()[0] as SummaryRecord;
     const mapDocument = useMapStore.getState().mapDocument;
 
-    Object.keys(availableStats).forEach((key) => {
+    Object.keys(availableStats).forEach(key => {
       const summaryStats: Partial<P1ZoneSummaryStats & P4ZoneSummaryStats> = {};
       const statKeys = SummaryStatKeys[key as keyof SummaryTypes];
       if (!statKeys) return;
-      statKeys.forEach(stat => summaryStats[stat] = summaries[stat]);
-      this.summaryStats[key as keyof SummaryTypes] = summaryStats as P1TotPopSummaryStats & P4VapPopSummaryStats;
+      statKeys.forEach(stat => (summaryStats[stat] = summaries[stat]));
+      this.summaryStats[key as keyof SummaryTypes] = summaryStats as P1TotPopSummaryStats &
+        P4VapPopSummaryStats;
     });
 
     this.summaryStats.totalPopulation = summaries.total_pop;
@@ -296,17 +314,128 @@ class DemographyCache {
   }
 
   /**
+   * Helper to manage the arqueo quantile function.
+   */
+  calculateQuantiles(
+    variable: string,
+    numberOfBins: number
+  ): {quantilesObject: any; quantilesList: number[]} | null {
+    if (!this.table) return null;
+    const rollups = new Array(numberOfBins + 1)
+      .fill(0)
+      .map((f, i) => (i === 0 ? i : Math.round((1 / numberOfBins) * i * 100) / 100))
+      .reduce(
+        (acc, curr, i) => {
+          acc[`q${curr * 100}`] = op.quantile(variable, curr);
+          return acc;
+        },
+        {} as {[key: string]: ReturnType<typeof op.quantile>}
+      );
+    const quantilesObject = this.table.rollup(rollups).objects()[0];
+    const quantilesList = Object.values(quantilesObject)
+      .sort((a, b) => a - b)
+      .slice(1, -1);
+    return {
+      quantilesObject,
+      quantilesList,
+    };
+  }
+
+  paintDemography({
+    variable,
+    mapRef,
+    ids,
+  }: {
+    variable: AllDemographyVariables;
+    mapRef: maplibregl.Map;
+    ids?: string[];
+  }) {
+    if (!this.table || !this.colorScale) return;
+    const colorScale = this.colorScale!;
+    let rows = this.table.select('path', 'sourceLayer', variable);
+    if (ids) {
+      rows = rows.filter(escape((row: any) => ids.includes(row.path)));
+    }
+    rows.objects().forEach((row: any) => {
+      const id = row.path;
+      const value = row[variable];
+      if (!id || isNaN(value)) return;
+      const color = colorScale(+value);
+
+      mapRef.setFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          sourceLayer: row.sourceLayer,
+          id,
+        },
+        {
+          color,
+          hasColor: true,
+        }
+      );
+    });
+  }
+
+  /**
+   * Generates a color scale for demographic data and applies it to the map.
+   *
+   * @param {Object} params - The parameters for generating the color scale.
+   * @param {AllDemographyVariables} params.variable - The demographic variable to visualize.
+   * @param {maplibregl.Map} params.mapRef - The reference to the map instance.
+   * @param {MapStore['mapDocument']} params.mapDocument - The map document from the store.
+   * @param {number} params.numberOfBins - The number of bins for the color scale.
+   * @param {boolean} params.paintMap - Whether to paint the map with the generated color scale.
+   *
+   * @returns {d3.ScaleThreshold<number, string> | undefined} The generated color scale or undefined if prerequisites are not met.
+   */
+  calculateDemographyColorScale({
+    variable,
+    mapRef,
+    mapDocument,
+    numberOfBins,
+    paintMap,
+  }: {
+    variable: AllDemographyVariables;
+    mapRef: maplibregl.Map;
+    mapDocument: MapStore['mapDocument'];
+    numberOfBins: number;
+    paintMap?: boolean;
+  }) {
+    if (!this.table) return;
+    const quantiles = this.calculateQuantiles(variable, numberOfBins);
+    const dataSoureExists = mapRef.getSource(BLOCK_SOURCE_ID);
+    if (!mapRef || !mapDocument || !dataSoureExists || !quantiles) return;
+    const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
+    const defaultColor =
+      mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
+    const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
+    const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
+    let colorscheme = defaultColor[Math.max(3, actualBinsLength)] as Iterable<number>;
+    if (actualBinsLength < 3) {
+      colorscheme = (colorscheme as any).slice(0, actualBinsLength);
+    }
+    this.colorScale = scale.scaleThreshold().domain(uniqueQuantiles).range(colorscheme);
+    if (paintMap) {
+      this.paintDemography({
+        variable,
+        mapRef,
+      });
+    }
+    return this.colorScale;
+  }
+
+  /**
    * Updates the populations based on zone assignments.
    *
    * @param zoneAssignments - The zone assignments to use for updating populations.
    */
   updatePopulations(zoneAssignments?: MapStore['zoneAssignments']) {
     const populations = this.calculatePopulations(zoneAssignments);
-    if (populations.ok){
+    if (populations.ok) {
       useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
-      return true
+      return true;
     } else {
-      return false
+      return false;
     }
     // .max .range
   }
