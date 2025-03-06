@@ -132,7 +132,7 @@ export const updateDemography = ({
   dataHash,
 }: {
   document_id: string;
-  ids: string[];
+  ids?: string[];
   dataHash: string;
 }) => {
   fetchDemography.setOptions({

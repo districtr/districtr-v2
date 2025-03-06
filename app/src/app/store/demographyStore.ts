@@ -220,6 +220,7 @@ export var useDemographyStore = create(
       // based on current map state
       const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
+      const currentTableExists = demographyCache.table?.size;
       const newShatterChildren: string[] = []
       const currentShattered = Array.from(shatterIds.parents)
       const healedParents = Array.from(prevShattered).filter(id => !currentShattered.includes(id))
@@ -237,7 +238,7 @@ export var useDemographyStore = create(
       }
       updateDemography({
         document_id: mapDocument.document_id,
-        ids: [...newShatterChildren, ...healedParents],
+        ids: currentTableExists ? [...newShatterChildren, ...healedParents] : undefined,
         dataHash
       })
     },
