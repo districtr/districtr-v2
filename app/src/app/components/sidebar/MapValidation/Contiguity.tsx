@@ -9,13 +9,14 @@ import {colorScheme} from '@/app/constants/colors';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
-  const [lastUpdated, setLastUpdated] = useState<string|null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const {data, error, isLoading, refetch} = useQuery(
     {
       queryKey: ['Contiguity', mapDocument?.document_id],
       queryFn: () => mapDocument && getContiguity(mapDocument),
       enabled: !!mapDocument,
       staleTime: 0,
+      retry: 0,
       placeholderData: previousData => previousData,
     },
     queryClient
@@ -24,7 +25,7 @@ export const Contiguity = () => {
   const update = () => {
     refetch();
     setLastUpdated(new Date().toLocaleString());
-  }
+  };
 
   const tableData = useMemo(() => {
     console.log('Updating contiguity', data);
@@ -46,11 +47,13 @@ export const Contiguity = () => {
     }
     return cleanData;
   }, [data]);
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
+
   if (error || data?.detail) {
-    return <Blockquote color="red">Error: {error?.message || data?.detail}</Blockquote>;
+    return <Blockquote color="red">{error?.response?.data?.detail || error?.message}</Blockquote>;
   }
 
   return (
