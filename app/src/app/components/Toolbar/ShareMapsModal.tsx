@@ -157,7 +157,7 @@ export const ShareMapsModal: React.FC<{
                 copy your plan. <b>Share and make editable</b> to allow others to directly edit your
                 plan. You can optionally <b>set a password</b> to restrict who can interact with it.
               </Text>
-              <Flex gap="2" className="flex-row items-center">
+              <Flex gap="2" className="flex-row items-center ">
                 {!password && passwordDisabled ? null : (
                   <TextField.Root
                     disabled={passwordDisabled}
@@ -165,15 +165,16 @@ export const ShareMapsModal: React.FC<{
                     variant="soft"
                     placeholder={'(Optional) Set a password'}
                     size="2"
+                    // style={{width: '50%'}}
                     value={password ?? undefined}
                     onChange={e => handlePasswordEntry(e.target.value)}
-                    className="items-center"
+                    className="items-center w-1/2"
                   ></TextField.Root>
                 )}
                 {password && !passwordDisabled ? (
                   <IconButton
                     variant="soft"
-                    className="flex items-center padding-2"
+                    className="flex items-center w-1/5"
                     onClick={handleSetPassword}
                   >
                     Save
@@ -181,7 +182,8 @@ export const ShareMapsModal: React.FC<{
                 ) : (password && passwordDisabled) || !isVisible ? (
                   <IconButton
                     variant="soft"
-                    className="items-center"
+                    style={{width: '20%'}}
+                    className="items-center "
                     onClick={() => setIsVisible(!isVisible)}
                   >
                     {!isVisible ? 'Show' : 'Hide'}
