@@ -6,6 +6,7 @@ import {queryClient} from '@utils/api/queryClient';
 import {useMemo, useState} from 'react';
 import {CheckCircledIcon, CrossCircledIcon, DashIcon} from '@radix-ui/react-icons';
 import {colorScheme} from '@/app/constants/colors';
+import {isAxiosError} from 'axios';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
@@ -51,8 +52,12 @@ export const Contiguity = () => {
     return <div>Loading...</div>;
   }
 
-  if (error || data?.detail) {
-    return <Blockquote color="red">{error?.response?.data?.detail || error?.message}</Blockquote>;
+  if (error) {
+    if (isAxiosError(error)) {
+      return <Blockquote color="red">{error.response?.data?.detail || error.message}</Blockquote>;
+    } else {
+      return <Blockquote color="red">{error.message}</Blockquote>;
+    }
   }
 
   return (
