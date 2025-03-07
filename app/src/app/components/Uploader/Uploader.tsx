@@ -3,26 +3,46 @@ import React, {useEffect, useRef, useState} from 'react';
 import {ErrorNotification} from '@components/ErrorNotification';
 import {GerryDBViewSelector} from '@components/sidebar/GerryDBViewSelector';
 import {MapLink, processFile} from '@/app/utils/api/upload';
-import {Link, Flex, Heading, Table, Text, Tooltip, Blockquote, Box, Select, Button} from '@radix-ui/themes';
+import {
+  Link,
+  Flex,
+  Heading,
+  Table,
+  Text,
+  Tooltip,
+  Blockquote,
+  Box,
+  Select,
+  Button,
+} from '@radix-ui/themes';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers';
 
 export const Uploader: React.FC<{
   newTab?: boolean;
-}> = ({newTab}) => {
+  redirect?: boolean;
+  onFinish?: () => void;
+}> = ({newTab, redirect, onFinish}) => {
   const [mapLinks, setMapLinks] = useState<MapLink[]>([]);
   const [error, setError] = useState<any>(undefined);
-  const [config, setConfig] = useState<{GEOID?:number, ZONE?:number}>({});
+  const [config, setConfig] = useState<{GEOID?: number; ZONE?: number}>({});
   const [file, setFile] = useState<File | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [districtrMap, setDistrictrMap] = useState<DistrictrMap | undefined>(undefined);
 
   useEffect(() => {
+    if (redirect) {
+      const newestMap = mapLinks[mapLinks.length - 1];
+      if (newestMap) {
+        window.location.href = `/map?document_id=${newestMap.document_id}`;
+        onFinish?.();
+      }
+    }
     setError(undefined);
     setConfig({});
     setFile(undefined);
     inputRef.current?.value && (inputRef.current.value = '');
-  }, [mapLinks])
+  }, [mapLinks]);
 
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
@@ -65,7 +85,7 @@ export const Uploader: React.FC<{
         config: config.ZONE !== undefined && config.GEOID !== undefined ? config : undefined,
       });
     }
-  }
+  };
 
   return (
     <Flex direction="column">
@@ -151,77 +171,85 @@ export const UploadError: React.FC<{
       headerRow: string[];
     };
   };
-  config: {GEOID?:number, ZONE?:number};
-  setConfig: React.Dispatch<React.SetStateAction<{GEOID?:number, ZONE?:number}>>;
+  config: {GEOID?: number; ZONE?: number};
+  setConfig: React.Dispatch<React.SetStateAction<{GEOID?: number; ZONE?: number}>>;
   handleRetry: () => void;
 }> = ({error, config, setConfig, handleRetry}) => {
   if (!error || error.ok) return null;
-  console.error(error)
+  console.error(error);
 
   const handleConfig = (col: 'GEOID' | 'ZONE', index: number) => {
     setConfig(prev => ({
       ...prev,
-      [col]: index
-    }))
-  }
+      [col]: index,
+    }));
+  };
 
   switch (error.detail.message) {
     case 'Block GEOID does not match state prefix':
       return (
         <Flex direction="column">
-        <Blockquote className="max-w-96 mt-2" color="red">
-          <Text>
-            Block GEOID <code>{JSON.stringify(error.detail.row[0])}</code> does not match state
-            prefix. We expected data for <code>{error.detail.expectedState}</code> (State code:{' '}
-            {error.detail.expectedPrefix}) but received data for {error.detail.receivedState} (State
-            code: {error.detail.receivedPrefix})
-            <br />
-            <br />
-            Please choose a plan for {error.detail.receivedState} or make sure your block
-            assignments only include IDs for {error.detail.expectedState}.
-          </Text>
-        </Blockquote>
-        <Button onClick={() => handleRetry()}>Retry</Button>
+          <Blockquote className="max-w-96 mt-2" color="red">
+            <Text>
+              Block GEOID <code>{JSON.stringify(error.detail.row[0])}</code> does not match state
+              prefix. We expected data for <code>{error.detail.expectedState}</code> (State code:{' '}
+              {error.detail.expectedPrefix}) but received data for {error.detail.receivedState}{' '}
+              (State code: {error.detail.receivedPrefix})
+              <br />
+              <br />
+              Please choose a plan for {error.detail.receivedState} or make sure your block
+              assignments only include IDs for {error.detail.expectedState}.
+            </Text>
+          </Blockquote>
+          <Button onClick={() => handleRetry()}>Retry</Button>
         </Flex>
       );
     case 'Columns are ambiguous':
     case 'Missing columns':
-      return <Flex direction="column" gapY="2">
-        <Blockquote className="max-w-96 mt-2" color="red">
-          <Text>{error.detail.message}.</Text> Please specify columns for the geographic identifier (GEOID) and district number (zone) below:
-        </Blockquote>
-        <Select.Root
-          value={`${config.GEOID}`}
-          onValueChange={value => handleConfig('GEOID', +value)}
-        >
-          <Select.Trigger>
-            <Text>Geographic Identifier {!!config.GEOID && `(${error.detail.headerRow[config.GEOID]})`}</Text>
-          </Select.Trigger>
-          <Select.Content>
-            {error.detail.headerRow.map((col, i) => (
-              <Select.Item key={i} value={`${i}`}>
-                {col}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
-        <Select.Root
-          value={`${config.ZONE}`}
-          onValueChange={value => handleConfig('ZONE', +value)}
-        >
-          <Select.Trigger>
-            <Text>District number {!!config.ZONE && `(${error.detail.headerRow[config.ZONE]})`}</Text>
-          </Select.Trigger>
-          <Select.Content>
-            {error.detail.headerRow.map((col, i) => (
-              <Select.Item key={i} value={`${i}`}>
-                {col}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>
-        <Button onClick={() => handleRetry()}>Retry</Button>
-      </Flex>
+      return (
+        <Flex direction="column" gapY="2">
+          <Blockquote className="max-w-96 mt-2" color="red">
+            <Text>{error.detail.message}.</Text> Please specify columns for the geographic
+            identifier (GEOID) and district number (zone) below:
+          </Blockquote>
+          <Select.Root
+            value={`${config.GEOID}`}
+            onValueChange={value => handleConfig('GEOID', +value)}
+          >
+            <Select.Trigger>
+              <Text>
+                Geographic Identifier{' '}
+                {!!config.GEOID && `(${error.detail.headerRow[config.GEOID]})`}
+              </Text>
+            </Select.Trigger>
+            <Select.Content>
+              {error.detail.headerRow.map((col, i) => (
+                <Select.Item key={i} value={`${i}`}>
+                  {col}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+          <Select.Root
+            value={`${config.ZONE}`}
+            onValueChange={value => handleConfig('ZONE', +value)}
+          >
+            <Select.Trigger>
+              <Text>
+                District number {!!config.ZONE && `(${error.detail.headerRow[config.ZONE]})`}
+              </Text>
+            </Select.Trigger>
+            <Select.Content>
+              {error.detail.headerRow.map((col, i) => (
+                <Select.Item key={i} value={`${i}`}>
+                  {col}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+          <Button onClick={() => handleRetry()}>Retry</Button>
+        </Flex>
+      );
 
     default:
       return null;

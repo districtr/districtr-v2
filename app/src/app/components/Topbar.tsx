@@ -9,20 +9,22 @@ import {
   Box,
   Tooltip,
   Tabs,
+  Dialog,
 } from '@radix-ui/themes';
 import React, {useRef} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {RecentMapsModal} from './Toolbar/RecentMapsModal';
 import {ToolSettings} from './Toolbar/Settings';
-import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
+import {ArrowLeftIcon, Cross2Icon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
 import {useTemporalStore} from '../store/temporalStore';
 import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
+import {Uploader} from './Uploader/Uploader';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
-  const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
+  const [modalOpen, setModalOpen] = React.useState<string | false>(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapViews = useMapStore(state => state.mapViews);
@@ -128,7 +130,10 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
+              <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
+                Upload Block Assignments
+              </DropdownMenu.Item>
+              <DropdownMenu.Item onClick={() => setModalOpen('recents')}>
                 View Recent Maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
@@ -166,7 +171,28 @@ export const Topbar: React.FC = () => {
         </Flex>
         <MobileDataTabs />
       </Flex>
-      <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
+      <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(false)} />
+
+      <Dialog.Root
+        open={modalOpen === 'upload'}
+        onOpenChange={isOpen => (isOpen ? setModalOpen(false) : setModalOpen('upload'))}
+      >
+        <Dialog.Content className="max-w-[50vw]">
+          <Flex align="center" className="mb-4">
+            <Dialog.Title className="m-0 text-xl font-bold flex-1">
+              Upload Block Assignments
+            </Dialog.Title>
+
+            <Dialog.Close
+              className="rounded-full size-[24px] hover:bg-red-100 p-1"
+              aria-label="Close"
+            >
+              <Cross2Icon />
+            </Dialog.Close>
+          </Flex>
+          <Uploader redirect={true} onFinish={() => setModalOpen(false)} />
+        </Dialog.Content>
+      </Dialog.Root>
     </>
   );
 };
