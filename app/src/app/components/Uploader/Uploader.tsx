@@ -1,6 +1,5 @@
 'use client';
 import React, {useEffect, useRef, useState} from 'react';
-import {ErrorNotification} from '@components/ErrorNotification';
 import {GerryDBViewSelector} from '@components/sidebar/GerryDBViewSelector';
 import {MapLink, processFile} from '@/app/utils/api/upload';
 import {
@@ -11,9 +10,9 @@ import {
   Text,
   Tooltip,
   Blockquote,
-  Box,
   Select,
   Button,
+  Spinner,
 } from '@radix-ui/themes';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers';
 
@@ -26,6 +25,7 @@ export const Uploader: React.FC<{
   const [error, setError] = useState<any>(undefined);
   const [config, setConfig] = useState<{GEOID?: number; ZONE?: number}>({});
   const [file, setFile] = useState<File | undefined>(undefined);
+  const [isProcessing, setIsProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [districtrMap, setDistrictrMap] = useState<DistrictrMap | undefined>(undefined);
@@ -41,8 +41,13 @@ export const Uploader: React.FC<{
     setError(undefined);
     setConfig({});
     setFile(undefined);
+    setIsProcessing(false);
     inputRef.current?.value && (inputRef.current.value = '');
   }, [mapLinks]);
+
+  useEffect(() => {
+    setIsProcessing(false);
+  }, [error]);
 
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
@@ -52,19 +57,22 @@ export const Uploader: React.FC<{
     event.preventDefault();
     const file = event.dataTransfer.files?.[0];
     setFile(file);
-    districtrMap &&
+    if (districtrMap) {
+      setIsProcessing(true);
       processFile({
         file,
         setMapLinks,
         districtrMap,
         setError,
       });
+    }
   };
 
   const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     setFile(file);
     if (file && districtrMap) {
+      setIsProcessing(true);
       processFile({
         file,
         setMapLinks,
@@ -76,6 +84,7 @@ export const Uploader: React.FC<{
 
   const handleRetry = () => {
     if (file && districtrMap) {
+      setIsProcessing(true);
       processFile({
         file,
         setMapLinks,
@@ -88,7 +97,7 @@ export const Uploader: React.FC<{
   };
 
   return (
-    <Flex direction="column">
+    <Flex direction="column" position="relative">
       <Flex
         direction={'column'}
         p="4"
@@ -151,6 +160,18 @@ export const Uploader: React.FC<{
               ))}
             </Table.Body>
           </Table.Root>
+        </Flex>
+      )}
+      {isProcessing && (
+        <Flex
+          direction="column"
+          gapY="2"
+          className="absolute inset-0 bg-white bg-opacity-90 size-full"
+          justify="center"
+          align="center"
+        >
+          <Spinner />
+          <Heading size="2">Processing file...</Heading>
         </Flex>
       )}
     </Flex>
