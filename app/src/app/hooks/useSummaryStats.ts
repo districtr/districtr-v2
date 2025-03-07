@@ -1,6 +1,7 @@
 'use client';
 import {useChartStore} from '@store/chartStore';
 import { demographyCache } from '@utils/demography/demographyCache';
+import { useDemographyStore } from '../store/demographyStore';
 
 /**
  * Custom hook to retrieve summary statistics and zone statistics from the demography cache.
@@ -11,7 +12,8 @@ import { demographyCache } from '@utils/demography/demographyCache';
  */
 export const useSummaryStats = () => {
   // this triggers rendders on updates
-  const _hash = useChartStore(state => state.dataUpdateHash);
+  const __chartHash = useChartStore(state => state.dataUpdateHash);
+  const __demogHash = useDemographyStore(state => state.dataHash);
   return {
     summaryStats: demographyCache.summaryStats,
     zoneStats: demographyCache.zoneStats,

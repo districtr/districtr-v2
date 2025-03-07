@@ -4,6 +4,7 @@ import {useChartStore} from '@store/chartStore';
 import {useMemo} from 'react';
 import { demographyCache } from '@utils/demography/demographyCache';
 import { SummaryRecord } from '../utils/demography/types';
+import { useDemographyStore } from '../store/demographyStore';
 
 /**
  * Custom hook to retrieve and process demography data.
@@ -21,7 +22,8 @@ import { SummaryRecord } from '../utils/demography/types';
  * - Sorts the population data by zone.
  */
 export const useDemography = (includeUnassigned?: boolean) => {
-  const hash = useChartStore(state => state.dataUpdateHash);
+  const demogHash = useDemographyStore(state => state.dataHash);
+  const chartHash = useChartStore(state => state.dataUpdateHash);
   const paintedChanges = useChartStore(state => state.paintedChanges);
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? 4);
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -47,7 +49,7 @@ export const useDemography = (includeUnassigned?: boolean) => {
     });
 
     return cleanedData.sort((a, b) => a.zone - b.zone);
-  }, [hash, paintedChanges, includeUnassigned, mapDocument]);
+  }, [chartHash, demogHash, paintedChanges, includeUnassigned, mapDocument]);
 
   return {
     populationData,
