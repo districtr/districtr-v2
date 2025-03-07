@@ -22,8 +22,8 @@ export const Contiguity = () => {
     queryClient
   );
 
-  const update = () => {
-    refetch();
+  const update = async () => {
+    await refetch();
     setLastUpdated(new Date().toLocaleString());
   };
 
