@@ -75,7 +75,8 @@ export type GeometryWorkerClass = {
   getCentroidsFromView: (props: {
     bounds: [number, number, number, number],
     activeZones: number[],
-    fast?: boolean
+    fast?: boolean,
+    minBuffer?: number
   }) => CentroidReturn;
   getPropertiesCentroids: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
   /**
