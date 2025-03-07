@@ -1,6 +1,6 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query, BackgroundTasks
 import botocore.exceptions
-from sqlalchemy.exc import MultipleResultsFound, NoResultFound
+from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
 from sqlalchemy.exc import ProgrammingError, InternalError
@@ -367,9 +367,13 @@ async def get_unassigned_geoids(
         bindparam(key="doc_uuid", type_=UUIDType),
         bindparam(key="exclude_ids", type_=ARRAY(String)),
     )
-    results = session.execute(
-        stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
-    ).fetchall()
+    try:
+        results = session.execute(
+            stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
+        ).fetchall()
+    except DataError:
+        # could not return null - no results found
+        results = []
     # returns a list of multipolygons of bboxes
     return {"features": [row[0] for row in results]}
 
