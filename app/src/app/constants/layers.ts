@@ -3,7 +3,7 @@ import {useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
 import GeometryWorker from '../utils/GeometryWorker';
 import {useChartStore} from '../store/chartStore';
-
+import euclideanDistance from '@turf/distance';
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
 export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';
@@ -146,6 +146,13 @@ const getDissolved = async () => {
   const mapRef = getMapRef();
   if (!mapRef || !GeometryWorker || !activeZones?.length) return;
   const currentView = mapRef.getBounds();
+  const distanceAcrossCanvas = euclideanDistance(
+    [currentView.getWest(), currentView.getNorth()],
+    [currentView.getEast(), currentView.getNorth()],
+    {units: 'kilometers'}
+  )
+  //px convert to km at current zoom
+  const bufferInKm = 50 / (mapRef.getCanvas().width / distanceAcrossCanvas); 
   const {centroids, dissolved} = await GeometryWorker.getCentroidsFromView({
     bounds: [
       currentView.getWest(),
@@ -155,6 +162,7 @@ const getDissolved = async () => {
     ],
     activeZones,
     fast: true,
+    minBuffer: bufferInKm,
   });
   return {centroids, dissolved};
 };

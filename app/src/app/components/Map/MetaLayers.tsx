@@ -64,6 +64,9 @@ const ZoneNumbersLayer = () => {
   const getMapRef = useMapStore(state => state.getMapRef);
   const [zoneNumberData, setZoneNumberData] = useState<any>(EMPTY_FT_COLLECTION);
   const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
+  const shouldHide = useMapStore(
+    state => state.mapOptions.showBlockPopulationNumbers && state.focusFeatures.length
+  );
 
   const addZoneMetaLayers = async () => {
     const showZoneNumbers = useMapStore.getState().mapOptions.showZoneNumbers;
@@ -119,7 +122,7 @@ const ZoneNumbersLayer = () => {
         type="circle"
         source="ZONE_LABEL"
         layout={{
-          visibility: 'visible',
+          visibility: shouldHide ? 'none' : 'visible',
         }}
         paint={{
           'circle-color': '#fff',
@@ -134,7 +137,7 @@ const ZoneNumbersLayer = () => {
         type="symbol"
         source="ZONE_LABEL"
         layout={{
-          visibility: 'visible',
+          visibility: shouldHide ? 'none' : 'visible',
           'text-field': ['get', 'zone'],
           'text-font': ['Barlow Bold'],
           'text-size': 18,
