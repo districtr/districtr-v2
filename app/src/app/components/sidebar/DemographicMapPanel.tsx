@@ -69,10 +69,6 @@ export const DemographicMapPanel: React.FC = () => {
     setVariable(newVariableName);
   };
 
-  useEffect(() => {
-    setVariable('total_pop');
-  }, []);
-
   if (!availableVariables.length) {
     return (
       <Blockquote color="crimson">

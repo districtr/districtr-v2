@@ -195,7 +195,6 @@ export var useDemographyStore = create(
     setScale: scale => set({scale}),
     clear: () => {
       set({
-        variable: 'total_pop',
         scale: undefined,
         dataHash: '',
       })
@@ -203,7 +202,6 @@ export var useDemographyStore = create(
     unmount: () => {
       set({
         getMapRef: () => undefined,
-        variable: 'total_pop',
         scale: undefined,
         dataHash: '',
       })
