@@ -17,7 +17,7 @@ import {
 import {Blockquote, Box, Flex, IconButton, Popover, Switch, Tabs, Text} from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
-import React, {useEffect} from 'react';
+import React from 'react';
 
 const mapOptions: Array<{
   label: string;
@@ -60,7 +60,7 @@ export const DemographicMapPanel: React.FC = () => {
   const colors = scale?.range() || [];
 
   const handleChange = (_newVariable?: DemographyVariable, _usePercent?: boolean) => {
-    const usePercent = _usePercent ?? variable.includes('pct');
+    const usePercent = _usePercent ?? (variable.includes('pct') || variable.includes('total'));
     const newVariable = _newVariable ?? config?.value;
     if (!newVariable) return;
     const hasPctVariable = !newVariable?.includes('total');
@@ -113,7 +113,7 @@ export const DemographicMapPanel: React.FC = () => {
               ))}
             </Select.Content>
           </Select.Root>
-          {displayVariable.toLowerCase().indexOf('Total') === -1 && (
+          {displayVariable.toLowerCase().indexOf('total') === -1 && (
             <Text as="label" size="2">
               <Flex gap="2">
                 <Switch
