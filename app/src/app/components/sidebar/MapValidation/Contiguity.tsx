@@ -16,7 +16,7 @@ export const Contiguity = () => {
       queryFn: () => mapDocument && getContiguity(mapDocument),
       enabled: !!mapDocument,
       staleTime: 0,
-      retry: 0,
+      retry: false,
       placeholderData: previousData => previousData,
     },
     queryClient
@@ -28,7 +28,6 @@ export const Contiguity = () => {
   };
 
   const tableData = useMemo(() => {
-    console.log('Updating contiguity', data);
     if (!data) return [];
     const cleanData: any = [];
     const numDistricts = mapDocument?.num_districts ?? 4;
