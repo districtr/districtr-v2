@@ -7,7 +7,6 @@ import {ZoneLockPicker} from '@/app/components/Toolbar/ZoneLockPicker';
 import {ActiveTool} from '@constants/types';
 import {ExitBlockViewButtons} from '@/app/components/Toolbar/ExitBlockViewButtons';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import { ZoomToUnassigned } from '../sidebar/ZoomToUnassigned';
 
 const ToolControlsConfig: Record<
   Partial<ActiveTool>,
@@ -35,9 +34,6 @@ const ToolControlsConfig: Record<
         return <Text>Click a feature to show the census blocks within it</Text>;
       }
     },
-  },
-  zoomToUnassigned: {
-    Component: ZoomToUnassigned
   }
 };
 

@@ -77,7 +77,7 @@ def ks_demo_view_census_blocks_total_vap_districtrmap_fixture(
         session=session,
         name=f"Districtr map {GERRY_DB_TOTAL_VAP_FIXTURE_NAME}",
         gerrydb_table_name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
-        parent_layer_name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        parent_layer=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
     )
     session.commit()
 
@@ -122,7 +122,7 @@ def ks_demo_view_census_blocks_no_pop_districtrmap_fixture(
         session=session,
         name=f"Districtr map {GERRY_DB_NO_POP_FIXTURE_NAME}",
         gerrydb_table_name=GERRY_DB_NO_POP_FIXTURE_NAME,
-        parent_layer_name=GERRY_DB_NO_POP_FIXTURE_NAME,
+        parent_layer=GERRY_DB_NO_POP_FIXTURE_NAME,
     )
     session.commit()
 
@@ -136,7 +136,7 @@ def districtr_map_fixtures(
             session=session,
             name=f"Districtr map {i}",
             gerrydb_table_name=f"districtr_map_{i}",
-            parent_layer_name=GERRY_DB_FIXTURE_NAME,
+            parent_layer=GERRY_DB_FIXTURE_NAME,
         )
     session.commit()
 
@@ -267,7 +267,9 @@ def test_patch_assignments(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 3}
+    assert response.json().get("assignments_upserted") == 3
+    updated_at = response.json().get("updated_at")
+    assert updated_at is not None
 
 
 def test_patch_assignments_nulls(client, document_id):
@@ -283,7 +285,9 @@ def test_patch_assignments_nulls(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 3}
+    data = response.json()
+    assert data.get("assignments_upserted") == 3
+    assert data.get("updated_at") is not None
 
 
 def test_patch_assignments_twice(client, document_id):
@@ -298,7 +302,9 @@ def test_patch_assignments_twice(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 2}
+    data = response.json()
+    assert data.get("assignments_upserted") == 2
+    assert data.get("updated_at") is not None
 
     response = client.patch(
         "/api/update_assignments",
@@ -311,7 +317,8 @@ def test_patch_assignments_twice(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 2}
+    assert data.get("assignments_upserted") == 2
+    assert data.get("updated_at") is not None
     # Check that the assignments were updated and not inserted
     doc_uuid = str(uuid.UUID(document_id))
     response = client.get(f"/api/get_assignments/{doc_uuid}")
@@ -349,7 +356,9 @@ def test_get_document_population_totals_null_assignments(
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 3}
+    data = response.json()
+    assert data.get("assignments_upserted") == 3
+    assert data.get("updated_at") is not None
     doc_uuid = str(uuid.UUID(document_id))
     result = client.get(f"/api/document/{doc_uuid}/total_pop")
     assert result.status_code == 200
@@ -422,7 +431,7 @@ def districtr_map_soft_deleted_fixture(
             session=session,
             name=f"Districtr map {i}",
             gerrydb_table_name=f"districtr_map_{i}",
-            parent_layer_name=GERRY_DB_FIXTURE_NAME,
+            parent_layer=GERRY_DB_FIXTURE_NAME,
             visibility=bool(
                 i
             ),  # Should have one hidden (index 0) and one visible (index 1)
@@ -478,10 +487,10 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    (districtr_map_uuid,) = create_districtr_map(
+    districtr_map_uuid = create_districtr_map(
         session=session,
         name="DistrictMap with P1 view",
-        parent_layer_name=layer,
+        parent_layer=layer,
         gerrydb_table_name=layer,
     )
     summary_stats = add_available_summary_stats_to_districtrmap(
@@ -567,10 +576,10 @@ def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    (districtr_map_uuid,) = create_districtr_map(
+    districtr_map_uuid = create_districtr_map(
         session=session,
         name="DistrictMap with P4 view",
-        parent_layer_name=layer,
+        parent_layer=layer,
         gerrydb_table_name=layer,
     )
     summary_stats = add_available_summary_stats_to_districtrmap(

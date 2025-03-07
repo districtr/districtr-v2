@@ -6,6 +6,8 @@ import logging
 from urllib.parse import ParseResult
 import os
 from app.core.config import settings
+from urllib.parse import urlparse
+from pathlib import Path
 
 
 from app.models import SummaryStatisticType, UUIDType, DistrictrMap, DistrictrMapUpdate
@@ -17,8 +19,8 @@ logging.basicConfig(level=logging.INFO)
 def create_districtr_map(
     session: Session,
     name: str,
-    parent_layer_name: str,
-    child_layer_name: str | None = None,
+    parent_layer: str,
+    child_layer: str | None = None,
     gerrydb_table_name: str | None = None,
     num_districts: int | None = None,
     tiles_s3_path: str | None = None,
@@ -69,12 +71,12 @@ def create_districtr_map(
             "gerrydb_table_name": gerrydb_table_name,
             "num_districts": num_districts,
             "tiles_s3_path": tiles_s3_path,
-            "parent_layer_name": parent_layer_name,
-            "child_layer_name": child_layer_name,
+            "parent_layer_name": parent_layer,
+            "child_layer_name": child_layer,
             "visibility": visibility,
         },
     )
-    return inserted_map_uuid  # pyright: ignore
+    return inserted_map_uuid[0]  # pyright: ignore
 
 
 def update_districtrmap(
@@ -114,8 +116,8 @@ def update_districtrmap(
 
 def create_shatterable_gerrydb_view(
     session: Session,
-    parent_layer_name: str,
-    child_layer_name: str,
+    parent_layer: str,
+    child_layer: str,
     gerrydb_table_name: str,
 ) -> None:
     stmt = text(
@@ -128,8 +130,8 @@ def create_shatterable_gerrydb_view(
     session.execute(
         stmt,
         {
-            "parent_layer_name": parent_layer_name,
-            "child_layer_name": child_layer_name,
+            "parent_layer_name": parent_layer,
+            "child_layer_name": child_layer,
             "gerrydb_table_name": gerrydb_table_name,
         },
     )
@@ -313,7 +315,9 @@ def add_available_summary_stats_to_districtrmap(
     return available_summary_stats
 
 
-def download_file_from_s3(s3, url: ParseResult, replace=False) -> str:
+def download_file_from_s3(
+    s3, url: ParseResult, out_path: str | None = None, replace=False
+) -> str:
     """
     Download a file from S3 to the local volume path.
 
@@ -327,26 +331,53 @@ def download_file_from_s3(s3, url: ParseResult, replace=False) -> str:
     if not s3:
         raise ValueError("S3 client is not available")
 
-    file_name = url.path.lstrip("/")
-    logger.info("File name: %s", file_name)
-    object_information = s3.head_object(Bucket=url.netloc, Key=file_name)
+    s3_prefix = url.path.lstrip("/")
+    logger.info("File name: %s", s3_prefix)
+    object_information = s3.head_object(Bucket=url.netloc, Key=s3_prefix)
 
     if object_information["ResponseMetadata"]["HTTPStatusCode"] != 200:
-        raise ValueError(
-            f"GeoPackage file {file_name} not found in S3 bucket {url.netloc}"
-        )
+        raise ValueError(f"File {s3_prefix} not found in S3 bucket {url.netloc}")
 
-    logger.info("Downloading GerryDB view. Got response:\n%s", object_information)
+    logger.info("Downloading file from s3. Got response:\n%s", object_information)
 
-    path = os.path.join(settings.VOLUME_PATH, file_name)
+    if not out_path:
+        out_path = s3_prefix
+
+    path = os.path.join(settings.VOLUME_PATH, out_path)
+    logger.info("Path: %s", path)
 
     if os.path.exists(path) and not replace:
         logger.info("File already exists. Skipping download.")
     else:
         logger.info("Downloading file...")
-        s3.download_file(url.netloc, file_name, path)
+
+        path_dir = Path(path).parent
+        logger.info("Creating directory: %s", path_dir)
+        path_dir.mkdir(parents=True, exist_ok=True)
+        s3.download_file(url.netloc, s3_prefix, path)
 
     return path
+
+
+def get_local_or_s3_path(file_path: str, replace: bool = False) -> str:
+    """
+    Get the local or S3 path for a file.
+
+    Args:
+        file_path (str): The path to the file.
+        replace (bool): If True, replace the file if it already exists
+
+    Returns the path to the downloaded file.
+    """
+    url = urlparse(file_path)
+    logger.info("URL: %s", url)
+
+    if url.scheme == "s3":
+        s3 = settings.get_s3_client()
+        assert s3, "S3 client is not available"
+        return download_file_from_s3(s3=s3, url=url, replace=replace)
+
+    return file_path
 
 
 def remove_file(filename: str) -> None:
