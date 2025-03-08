@@ -117,14 +117,15 @@ export const DemographicMapPanel: React.FC = () => {
           </Select.Root>
           {displayVariable.toLowerCase().indexOf('total') === -1 && (
             <Text as="label" size="2">
-              <Flex gap="2">
+              <Flex gap="2" align="center" justify={"center"}>
+                <Text as="label" size="1">Count</Text>
                 <Switch
                   checked={variable.includes('pct')}
                   onCheckedChange={value => {
                     handleChange(undefined, value);
                   }}
                 />
-                Show %
+                <Text as="label" size="1">%</Text>
               </Flex>
             </Text>
           )}
@@ -204,9 +205,9 @@ export const DemographicMapPanel: React.FC = () => {
           </Popover.Root>
         </Flex>
       )}
-      <Text size="2" align="center">
+      {demographicMapMode === 'side-by-side' && <Text size="2" align="center">
         Gray = zero population
-      </Text>
+      </Text>}
     </Flex>
   );
 };
