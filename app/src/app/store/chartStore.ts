@@ -10,13 +10,6 @@ export interface ChartStore {
   setPaintedChanges: (popChanges: Record<number, number>) => void;
   dataUpdateHash: string;
   setDataUpdateHash: (hash: string) => void;
-  chartInfo: {
-    stats?: {min: number; max: number; range: number};
-    chartData: Array<{zone: number; total_pop: number}>;
-    unassigned: number | null;
-    totPop: number;
-  };
-  setChartInfo: (info: ChartStore['chartInfo']) => void;
 }
 
 export const useChartStore = create(
@@ -38,14 +31,7 @@ export const useChartStore = create(
           changes[zone] = (changes[zone] || 0) + pop;
         });
         set({paintedChanges: changes});
-      },
-      chartInfo: {
-        stats: undefined,
-        chartData: [],
-        unassigned: null,
-        totPop: 0,
-      },
-      setChartInfo: chartInfo => set({chartInfo}),
+      }
     })),
     {
       ...devToolsConfig,
