@@ -7,28 +7,29 @@ import {useMemo, useState} from 'react';
 import {CheckCircledIcon, CrossCircledIcon, DashIcon} from '@radix-ui/react-icons';
 import {colorScheme} from '@/app/constants/colors';
 import { FALLBACK_NUM_DISTRICTS } from '@/app/constants/layers';
+import {isAxiosError} from 'axios';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
-  const [lastUpdated, setLastUpdated] = useState<string|null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const {data, error, isLoading, refetch} = useQuery(
     {
       queryKey: ['Contiguity', mapDocument?.document_id],
       queryFn: () => mapDocument && getContiguity(mapDocument),
       enabled: !!mapDocument,
       staleTime: 0,
+      retry: false,
       placeholderData: previousData => previousData,
     },
     queryClient
   );
 
-  const update = () => {
-    refetch();
+  const update = async () => {
+    await refetch();
     setLastUpdated(new Date().toLocaleString());
-  }
+  };
 
   const tableData = useMemo(() => {
-    console.log('Updating contiguity', data);
     if (!data) return [];
     const cleanData: any = [];
     const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
@@ -47,11 +48,17 @@ export const Contiguity = () => {
     }
     return cleanData;
   }, [data]);
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
-  if (error || data?.detail) {
-    return <Blockquote color="red">Error: {error?.message || data?.detail}</Blockquote>;
+
+  if (error) {
+    if (isAxiosError(error)) {
+      return <Blockquote color="red">{error.response?.data?.detail || error.message}</Blockquote>;
+    } else {
+      return <Blockquote color="red">{error.message}</Blockquote>;
+    }
   }
 
   return (
