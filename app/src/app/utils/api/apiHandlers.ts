@@ -93,6 +93,18 @@ export interface DocumentObject {
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   available_summary_stats: string[];
+  map_metadata: DocumentMetadata;
+  status: 'locked' | 'unlocked' | 'checked_out';
+  genesis: 'shared' | 'copied' | 'created';
+  token?: string | null;
+  password?: string | null;
+}
+
+export interface DocumentMetadata {
+  name: string | null;
+  tags: string | null;
+  description: string | null;
+  eventId: string | null;
 }
 
 /**
@@ -103,37 +115,80 @@ export interface DocumentObject {
  */
 export interface DocumentCreate {
   gerrydb_table: string;
+  user_id: string | null;
+  metadata?: DocumentMetadata;
+  copy_from_doc?: string;
 }
 
 export const createMapDocument: (document: DocumentCreate) => Promise<DocumentObject> = async (
   document: DocumentCreate
 ) => {
+  if (!document.user_id) return;
   return await axios
-    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
-      gerrydb_table: document.gerrydb_table,
-    })
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, document)
     .then(res => {
       return res.data;
+    })
+    .catch(err => {
+      console.error(err);
     });
 };
 
 /**
  * Get data from current document.
  * @param document_id - string, the document id
+ * @param userID - string, the user id against which to check document status
  * @returns Promise<DocumentObject>
  */
 export const getDocument: (document_id: string) => Promise<DocumentObject> = async (
   document_id: string
 ) => {
-  if (document_id) {
+  const userID = useMapStore.getState().userID;
+  if (document_id && userID) {
     return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`)
+      .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`, {
+        user_id: userID,
+      })
       .then(res => {
         return res.data;
       });
   } else {
     throw new Error('No document id found');
   }
+};
+
+/**
+ *
+ * @param mapDocument Unlock the document
+ * @returns
+ */
+
+export const unlockMapDocument: (document_id: string) => Promise<DocumentObject> = async (
+  document_id: string
+) => {
+  const userID = useMapStore.getState().userID;
+  if (document_id && userID) {
+    return await axios
+      .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/unlock`, {
+        user_id: userID,
+      })
+      .then(res => {
+        return res.data;
+      });
+  } else {
+    throw new Error('No document id found');
+  }
+};
+
+export const getMapLockStatus: (document_id: string) => Promise<string> = (document_id: string) => {
+  const userID = useMapStore.getState().userID;
+  return axios
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/status`, {
+      user_id: userID,
+    })
+    .then(res => {
+      return res.data.status;
+    });
 };
 
 export type RemoteAssignmentsResponse = {
@@ -147,9 +202,13 @@ type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | null>;
 export const getAssignments: (
   mapDocument: DocumentObject | null
 ) => GetAssignmentsResponse = async mapDocument => {
-  if (mapDocument && mapDocument.document_id === useMapStore.getState().loadedMapId) {
+  if (
+    mapDocument &&
+    mapDocument.document_id === useMapStore.getState().loadedMapId &&
+    useMapStore.getState().assignmentsHash
+  ) {
     console.log(
-      'Map already loaded, skipping assignment load',
+      'Map already loaded, skipping assignment load in handlers',
       mapDocument.document_id,
       useMapStore.getState().loadedMapId
     );
@@ -211,6 +270,7 @@ export const getZonePopulations: (
         signal: populationAbortController.signal,
       })
       .then(res => {
+        mapDocument.genesis = 'created'; // complete the cycle of map creation + population fetch
         return {
           data: res.data as ZonePopulation[],
           hash: assignmentHash,
@@ -584,4 +644,69 @@ export const patchUnShatterParents: (params: {
     .then(res => {
       return res.data;
     });
+};
+
+export const saveMapDocumentMetadata = async ({
+  document_id,
+  metadata,
+  // for consistency, does it make sense to also require a user id? not convinced but
+}: {
+  document_id: string;
+  metadata: DocumentMetadata;
+}) => {
+  return await axios
+    .put(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/metadata`, metadata)
+    .then(res => {
+      return res.data;
+    })
+    .catch(err => {
+      console.error(err);
+    });
+};
+
+export const getSharePlanLink = async ({
+  document_id,
+  password,
+  access_type,
+}: {
+  document_id: string | undefined;
+  password: string | null;
+  access_type: string | undefined;
+}) => {
+  try {
+    const res = await axios.post(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/share`,
+      {
+        password: password ?? null,
+        access_type: access_type ?? 'read',
+      }
+    );
+    if (!res.data) {
+      throw new Error('No token returned from API');
+    }
+    return res.data;
+  } catch (err) {
+    console.error('Error in getSharePlanLink: ', err);
+    throw err;
+  }
+};
+
+export const getLoadPlanFromShare = async ({
+  token,
+  password,
+}: {
+  token: string;
+  password?: string | null;
+}) => {
+  const res = await axios.post(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/share/load_plan_from_share`,
+    {
+      token: token,
+      user_id: useMapStore.getState().userID,
+      password: password ?? null,
+    },
+    {headers: {'Content-Type': 'application/json'}}
+  );
+  const {document_id, assignments} = res.data;
+  return res.data; // failure is handled in mutations.ts
 };

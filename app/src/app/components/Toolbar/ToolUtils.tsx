@@ -32,38 +32,45 @@ export const useActiveTools = () => {
   const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);
-  const metaKey = typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
-  
+  const metaKey =
+    typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
+
   const config: ActiveToolConfig[] = [
     {
       hotKeyLabel: 'M',
       mode: 'pan',
       disabled: !mapDocument?.document_id,
       label: 'Move',
-      icon: HandIcon ,
-      hotKeyAccessor: (e) => {
-        return e.code === 'KeyM'
-      }
+      icon: HandIcon,
+      hotKeyAccessor: e => {
+        return e.code === 'KeyM';
+      },
     },
     {
       hotKeyLabel: 'P',
       mode: 'brush',
-      disabled: !mapDocument?.document_id,
+      disabled:
+        !mapDocument?.document_id ||
+        mapDocument?.status === 'locked' ||
+        mapDocument?.genesis === 'shared',
       label: 'Paint',
       icon: Pencil2Icon,
-      hotKeyAccessor: (e) => {
-        return e.code === 'KeyP'
-      }
+      hotKeyAccessor: e => {
+        return e.code === 'KeyP';
+      },
     },
     {
       hotKeyLabel: 'E',
       mode: 'eraser',
-      disabled: !mapDocument?.document_id,
+      disabled:
+        !mapDocument?.document_id ||
+        mapDocument?.status === 'locked' ||
+        mapDocument?.genesis === 'shared',
       label: 'Erase',
       icon: EraserIcon,
-      hotKeyAccessor: (e) => {
-        return e.code === 'KeyE'
-      }
+      hotKeyAccessor: e => {
+        return e.code === 'KeyE';
+      },
     },
     {
       hotKeyLabel: `${metaKey} + Z`,
@@ -75,10 +82,10 @@ export const useActiveTools = () => {
         setIsTemporalAction(true);
         handleUndo();
       },
-      hotKeyAccessor: (e) => {
+      hotKeyAccessor: e => {
         // command or control Z
-        return (e.metaKey || e.ctrlKey) && !e.shiftKey && e.code === 'KeyZ'
-      }
+        return (e.metaKey || e.ctrlKey) && !e.shiftKey && e.code === 'KeyZ';
+      },
     },
     {
       hotKeyLabel: `${metaKey} + Shift + Z`,
@@ -91,10 +98,10 @@ export const useActiveTools = () => {
         setIsTemporalAction(true);
         handleRedo();
       },
-      hotKeyAccessor: (e) => {
+      hotKeyAccessor: e => {
         // command or control AND shift + y
-        return (e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyZ'
-      }
+        return (e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'KeyZ';
+      },
     },
     {
       hotKeyLabel: 'B',
@@ -102,20 +109,24 @@ export const useActiveTools = () => {
       disabled: !mapDocument?.child_layer,
       label: 'Break',
       icon: ViewGridIcon,
-      hotKeyAccessor: (e) => {
-        return e.code === 'KeyB'
-      }
+      hotKeyAccessor: e => {
+        return e.code === 'KeyB';
+      },
     },
     {
       hotKeyLabel: 'L',
       mode: 'lock',
-      disabled: !mapDocument?.document_id,
+      disabled:
+        !mapDocument?.document_id ||
+        mapDocument?.status === 'locked' ||
+        mapDocument?.genesis === 'shared',
       label: 'Lock',
       icon: LockOpen1Icon,
-      hotKeyAccessor: (e) => {
-        return e.code === 'KeyL'
-      }
-    }
+      hotKeyAccessor: e => {
+        return e.code === 'KeyL';
+      },
+    },
   ];
+  if (mapDocument?.status === 'locked' || mapDocument?.genesis === 'shared') return [];
   return config;
 };
