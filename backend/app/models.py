@@ -310,7 +310,6 @@ class Assignments(AssignmentsBase, table=True):
 
 class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
-    updated_at: datetime
 
 
 class AssignmentsResponse(SQLModel):
@@ -322,6 +321,9 @@ class AssignmentsResponse(SQLModel):
 
 class GEOIDS(BaseModel):
     geoids: list[str]
+
+
+class GEOIDSResponse(GEOIDS):
     updated_at: datetime
 
 
@@ -331,7 +333,6 @@ class UserID(BaseModel):
 
 class AssignedGEOIDS(GEOIDS):
     zone: int | None
-    updated_at: datetime
 
 
 class UnassignedBboxGeoJSONs(BaseModel):
@@ -341,6 +342,7 @@ class UnassignedBboxGeoJSONs(BaseModel):
 class ShatterResult(BaseModel):
     parents: GEOIDS
     children: list[Assignments]
+    updated_at: datetime
 
 
 class ZonePopulation(BaseModel):

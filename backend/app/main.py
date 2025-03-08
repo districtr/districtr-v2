@@ -7,6 +7,8 @@ from fastapi import (
     BackgroundTasks,
     Body,
 )
+import botocore.exceptions
+from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
 from sqlalchemy.exc import (
@@ -33,6 +35,8 @@ import jwt
 from uuid import uuid4
 
 from sqlalchemy.orm import sessionmaker
+import app.contiguity.main as contiguity
+from networkx import Graph
 from app.models import (
     Assignments,
     AssignmentsCreate,
@@ -45,6 +49,7 @@ from app.models import (
     DocumentEditStatus,
     GEOIDS,
     UserID,
+    GEOIDSResponse,
     AssignedGEOIDS,
     UUIDType,
     ZonePopulation,
@@ -60,12 +65,15 @@ from app.models import (
     TokenRequest,
     DocumentShareStatus,
 )
+from sqlalchemy.sql import func
 from app.utils import remove_file
 from app.exports import (
     get_export_sql_method,
     DocumentExportType,
     DocumentExportFormat,
 )
+from aiocache import Cache
+
 
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
@@ -79,6 +87,8 @@ app = FastAPI()
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+cache = Cache(cache_class=Cache.MEMORY)
 
 
 # Set all CORS enabled origins
@@ -101,14 +111,15 @@ def get_session():
 def update_timestamp(
     session: Session,
     document_id: str,
-    updated_at: str,
-):
+) -> datetime:
     update_stmt = (
         update(Document)
         .where(Document.document_id == document_id)
-        .values(updated_at=updated_at)
+        .values(updated_at=func.now())
+        .returning(Document.updated_at)
     )
-    session.execute(update_stmt)
+    updated_at = session.scalar(update_stmt)
+    return updated_at
 
 
 @app.get("/")
@@ -283,10 +294,11 @@ async def update_assignments(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
     session.execute(stmt)
+    updated_at = None
     if len(data.assignments) > 0:
-        update_timestamp(session, assignments[0]["document_id"], data.updated_at)
+        updated_at = update_timestamp(session, assignments[0]["document_id"])
     session.commit()
-    return {"assignments_upserted": len(data.assignments)}
+    return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
 
 
 @app.patch(
@@ -315,15 +327,15 @@ async def shatter_parent(
         Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
         for document_id, geo_id, zone in results
     ]
-    result = ShatterResult(parents=data, children=assignments)
-    update_timestamp(session, document_id, data.updated_at)
+    updated_at = update_timestamp(session, document_id)
+    result = ShatterResult(parents=data, children=assignments, updated_at=updated_at)
     session.commit()
     return result
 
 
 @app.patch(
     "/api/update_assignments/{document_id}/unshatter_parents",
-    response_model=GEOIDS,
+    response_model=GEOIDSResponse,
 )
 async def unshatter_parent(
     document_id: str, data: AssignedGEOIDS, session: Session = Depends(get_session)
@@ -345,9 +357,9 @@ async def unshatter_parent(
         },
     ).first()
 
-    update_timestamp(session, document_id, data.updated_at)
+    updated_at = update_timestamp(session, document_id)
     session.commit()
-    return {"geoids": results[0], "updated_at": data.updated_at}
+    return {"geoids": results[0], "updated_at": updated_at}
 
 
 @app.patch(
@@ -577,6 +589,107 @@ async def get_unassigned_geoids(
     ).fetchall()
     # returns a list of multipolygons of bboxes
     return {"features": [row[0] for row in results]}
+
+
+@app.get("/api/document/{document_id}/contiguity")
+async def check_document_contiguity(
+    document_id: str,
+    # TODO: Allow passing zones to check contiguity for specific zones
+    # Should be slightly more efficient that checking all zones
+    # zone: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
+    # sql/get_block_assignments.sql also fetches the child layer. Would be nice not
+    # to have to do this twice. TODO: when supporting multiple zones, in new
+    # function also return the child layer name
+    stmt = (
+        select(DistrictrMap)
+        .join(
+            Document,
+            Document.gerrydb_table
+            == DistrictrMap.gerrydb_table_name,  # pyright: ignore
+            isouter=True,
+        )
+        .where(Document.document_id == document_id)
+    )
+
+    try:
+        districtr_map = session.exec(
+            stmt,
+        ).one()
+    except NoResultFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID {document_id} not found",
+        )
+    except MultipleResultsFound:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Multiple DistrictrMaps found for Document with ID {document_id}",
+        )
+
+    if districtr_map.child_layer is not None:
+        logger.info(
+            f"Using child layer {districtr_map.child_layer} for document {document_id}"
+        )
+        gerrydb_name = districtr_map.child_layer
+        zone_assignments = contiguity.get_block_assignments(
+            session, document_id, districtr_map.uuid
+        )
+    else:
+        gerrydb_name = districtr_map.parent_layer
+        logger.info(
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+        )
+        sql = text(
+            """
+            select zone, array_agg(geo_id) as nodes
+            from assignments
+            where document_id = :document_id group by zone
+            and zone is not null"""
+        )
+        result = session.execute(sql, {"document_id": document_id}).fetchall()
+        zone_assignments = [
+            contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
+        ]
+
+    try:
+        path = contiguity.get_gerrydb_graph_file(gerrydb_name)
+    except botocore.exceptions.ClientError as e:
+        # TODO: Maybe in the future this should actually create the graph
+        logger.error(f"Graph not found: {str(e)}")
+        raise HTTPException(
+            status_code=404,
+            detail="Graph unavailable. This map does not support contiguity checks.",
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Something went wrong: {str(e)}")
+
+    G = await cache.get(gerrydb_name)
+
+    try:
+        if G is None:
+            logger.info(f"Graph not found in cache, loading from {path}")
+            G = contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
+            assert await cache.set(gerrydb_name, G), "Unable to cache graph"
+        else:
+            logger.info("Graph found in cache")
+    except Exception as e:
+        logger.warning(f"Unable to load and cache graph: {str(e)}")
+
+    if not isinstance(G, Graph):
+        logger.error(f"Expected Graph, got {type(G)}")
+        raise HTTPException(status_code=500, detail="Error loading graph")
+
+    results = {}
+    for zone_blocks in zone_assignments:
+        logger.info(f"Checking contiguity for zone {zone_blocks.zone}")
+        results[zone_blocks.zone] = contiguity.subgraph_number_connected_components(
+            G=G, subgraph_nodes=zone_blocks.nodes
+        )
+
+    return results
 
 
 @app.get("/api/document/{document_id}/evaluation/{summary_stat}")
@@ -932,6 +1045,7 @@ async def get_survey_results(
         with open(_out_file, "wb") as f:
             while data := copy.read():
                 f.write(data)
+            f.close()
 
         media_type = {
             DocumentExportFormat.csv: "text/csv; charset=utf-8",

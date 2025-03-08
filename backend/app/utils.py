@@ -8,6 +8,7 @@ import os
 from app.core.config import settings
 import bcrypt
 from urllib.parse import urlparse
+from pathlib import Path
 
 
 from app.models import SummaryStatisticType, UUIDType, DistrictrMap, DistrictrMapUpdate
@@ -327,7 +328,9 @@ def add_available_summary_stats_to_districtrmap(
     return available_summary_stats
 
 
-def download_file_from_s3(s3, url: ParseResult, replace=False) -> str:
+def download_file_from_s3(
+    s3, url: ParseResult, out_path: str | None = None, replace=False
+) -> str:
     """
     Download a file from S3 to the local volume path.
 
@@ -341,24 +344,30 @@ def download_file_from_s3(s3, url: ParseResult, replace=False) -> str:
     if not s3:
         raise ValueError("S3 client is not available")
 
-    file_name = url.path.lstrip("/")
-    logger.info("File name: %s", file_name)
-    object_information = s3.head_object(Bucket=url.netloc, Key=file_name)
+    s3_prefix = url.path.lstrip("/")
+    logger.info("File name: %s", s3_prefix)
+    object_information = s3.head_object(Bucket=url.netloc, Key=s3_prefix)
 
     if object_information["ResponseMetadata"]["HTTPStatusCode"] != 200:
-        raise ValueError(
-            f"GeoPackage file {file_name} not found in S3 bucket {url.netloc}"
-        )
+        raise ValueError(f"File {s3_prefix} not found in S3 bucket {url.netloc}")
 
-    logger.info("Downloading GerryDB view. Got response:\n%s", object_information)
+    logger.info("Downloading file from s3. Got response:\n%s", object_information)
 
-    path = os.path.join(settings.VOLUME_PATH, file_name)
+    if not out_path:
+        out_path = s3_prefix
+
+    path = os.path.join(settings.VOLUME_PATH, out_path)
+    logger.info("Path: %s", path)
 
     if os.path.exists(path) and not replace:
         logger.info("File already exists. Skipping download.")
     else:
         logger.info("Downloading file...")
-        s3.download_file(url.netloc, file_name, path)
+
+        path_dir = Path(path).parent
+        logger.info("Creating directory: %s", path_dir)
+        path_dir.mkdir(parents=True, exist_ok=True)
+        s3.download_file(url.netloc, s3_prefix, path)
 
     return path
 
