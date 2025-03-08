@@ -1,6 +1,6 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query, BackgroundTasks
 import botocore.exceptions
-from sqlalchemy.exc import MultipleResultsFound, NoResultFound
+from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
 from sqlalchemy.exc import ProgrammingError, InternalError
@@ -32,12 +32,8 @@ from app.models import (
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
-    SummaryStatisticType,
-    SummaryStatsP1,
-    PopulationStatsP1,
-    SummaryStatsP4,
-    PopulationStatsP4,
     UnassignedBboxGeoJSONs,
+    SummaryStatisticColumnLists,
 )
 from sqlalchemy.sql import func
 from app.utils import remove_file
@@ -371,11 +367,18 @@ async def get_unassigned_geoids(
         bindparam(key="doc_uuid", type_=UUIDType),
         bindparam(key="exclude_ids", type_=ARRAY(String)),
     )
-    results = session.execute(
-        stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
-    ).fetchall()
+    try:
+        results = session.execute(
+            stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
+        ).fetchall()
+        print(results)
+    except DataError:
+        # could not return null - no results found
+        results = []
+
+    print(results)
     # returns a list of multipolygons of bboxes
-    return {"features": [row[0] for row in results]}
+    return {"features": [row[0] for row in results if row[0] is not None]}
 
 
 @app.get("/api/document/{document_id}/contiguity")
@@ -476,98 +479,79 @@ async def check_document_contiguity(
     return results
 
 
-@app.get("/api/document/{document_id}/evaluation/{summary_stat}")
-async def get_summary_stat(
-    document_id: str, summary_stat: str, session: Session = Depends(get_session)
+@app.get("/api/document/{document_id}/demography")
+async def get_map_demography(
+    document_id: str,
+    ids: list[str] = Query(default=[]),
+    stats: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
 ):
-    try:
-        _summary_stat = SummaryStatisticType[summary_stat]
-    except ValueError:
+    document = session.exec(
+        select(Document).filter(Document.document_id == document_id)
+    ).one()
+
+    dm = session.exec(
+        select(DistrictrMap).filter(
+            DistrictrMap.gerrydb_table_name == document.gerrydb_table
+        )
+    ).one()
+
+    columns = []
+    if dm.available_summary_stats is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid summary_stat: {summary_stat}",
+            detail=str("Summary statistic not available for this map"),
         )
+    # by default use all available columns otherwise the requested columns
+    available_summary_stats = dm.available_summary_stats if len(stats) == 0 else stats
+    # By default, provide all summary stats
+    for summary_stat in available_summary_stats:
+        if summary_stat not in SummaryStatisticColumnLists.__members__:
+            continue
+        else:
+            stat_cols = SummaryStatisticColumnLists[summary_stat]
+            columns.extend(stat_cols.value)
 
-    try:
-        stmt, SummaryStatsModel = {
-            "P1": (
-                text(
-                    "SELECT * from get_summary_stats_p1(:document_id) WHERE zone is not null"
-                ),
-                SummaryStatsP1,
-            ),
-            "P4": (
-                text(
-                    "SELECT * from get_summary_stats_p4(:document_id) WHERE zone is not null"
-                ),
-                SummaryStatsP4,
-            ),
-        }[summary_stat]
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Summary stats not implemented for {summary_stat}",
+    if len(ids) > 0:
+        # If the user sends a selection of IDs, just use those
+        # This bypasses the document.assignments and gerrydb.parent full query
+        # Essentially we use the user provided IDs as start of the join
+        # This could be a where clause at the end, but this should be faster
+        ids_subquery = text(
+            """
+            SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
+        """.format(",".join(f"(:id{i})" for i in range(len(ids))))
         )
+        # This is for efficiency but slightly slippery
+        # Adding the format here provides some safety
+        params = {f"id{i}": id for i, id in enumerate(ids)}
+    else:
+        # direct string interpolation of dm.parent_layer is safe
+        # since it always comes from the database
+        # This gives us all VTDs
+        # and any shattered children
+        # The FE will filter for shattered parents
+        ids_subquery = text(f"""SELECT distinct geo_id
+            FROM document.assignments
+            WHERE document_id = :document_id
+            UNION
+            SELECT path as geo_id
+            FROM gerrydb.{dm.parent_layer}""")
+        params = {"document_id": document_id}
 
-    try:
-        results = session.execute(stmt, {"document_id": document_id}).fetchall()
-        return {
-            "summary_stat": _summary_stat.value,
-            "results": [SummaryStatsModel.model_validate(row) for row in results],
-        }
-    except (ProgrammingError, InternalError) as e:
-        logger.error(e)
-        error_text = str(e)
-        if f"Table name not found for document_id: {document_id}" in error_text:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document_id} not found",
-            )
+    stmt = text(f"""
+        SELECT path, {",".join(columns)}
+        FROM ({ids_subquery}) as ids
+        LEFT JOIN gerrydb.{dm.gerrydb_table_name} gdb
+        on gdb.path = ids.geo_id
+        WHERE path is not null
+    """)
 
-
-@app.get("/api/districtrmap/{gerrydb_table}/evaluation/{summary_stat}")
-async def get_gerrydb_summary_stat(
-    gerrydb_table: str, summary_stat: str, session: Session = Depends(get_session)
-):
-    try:
-        _summary_stat = SummaryStatisticType[summary_stat]
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid summary_stat: {summary_stat}",
-        )
-
-    try:
-        summary_stat_udf, SummaryStatsModel = {
-            "P1": ("get_summary_p1_totals", PopulationStatsP1),
-            "P4": ("get_summary_p4_totals", PopulationStatsP4),
-        }[summary_stat]
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Summary stats not implemented for {summary_stat}",
-        )
-
-    stmt = text(
-        f"""SELECT *
-        FROM {summary_stat_udf}(:gerrydb_table)"""
-    ).bindparams(
-        bindparam(key="gerrydb_table", type_=String),
-    )
-    try:
-        results = session.execute(stmt, {"gerrydb_table": gerrydb_table}).fetchone()
-        return {
-            "summary_stat": _summary_stat.value,
-            "results": SummaryStatsModel.model_validate(results),
-        }
-    except (ProgrammingError, InternalError) as e:
-        logger.error(e)
-        error_text = str(e)
-        if f"Table {gerrydb_table} does not exist in gerrydb schema" in error_text:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Gerrydb Table with ID {gerrydb_table} not found",
-            )
+    results = session.execute(stmt, params).fetchall()
+    return {
+        "columns": ["path", *columns],
+        "results": [[*row] for row in results],
+    }
 
 
 @app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])

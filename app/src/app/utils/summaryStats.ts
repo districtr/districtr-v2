@@ -1,15 +1,3 @@
-import { P1ZoneSummaryStats, P4ZoneSummaryStats } from "./api/apiHandlers";
-
-export const getEntryTotal = (entry: Omit<P1ZoneSummaryStats | P4ZoneSummaryStats, 'zone'>) =>
-  Object.entries(entry).reduce((total, [key, value]) => {
-    if (key !== 'zone') {
-      // @ts-ignore
-      return total + value; // Sum values of properties except 'zone'
-    }
-    return total; // Return total unchanged for 'zone'
-  }, 0);
-
-
 export const sumArray = (arr: number[]) => arr.reduce((total, value) => total + value, 0);
 export const stdDevArray = (arr: number[]) => {
     const mean = sumArray(arr) / arr.length; // Calculate mean
