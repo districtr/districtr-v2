@@ -59,10 +59,13 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
     if (!isDemographicMap) {
       const protocol = new Protocol();
       maplibregl.addProtocol('pmtiles', protocol.tile);
-      return () => {
-        maplibregl.removeProtocol('pmtiles');
-      };
     }
+
+    return () => {
+      if (!isDemographicMap) {
+        maplibregl.removeProtocol('pmtiles');
+      }
+    };
   }, []);
 
   const handleSyncMaps = (demoMapRef?: maplibregl.Map) => {
@@ -135,6 +138,11 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         minPitch={0}
         dragRotate={false}
         onLoad={(e) => {
+          if (!mapRef.current) {
+            // on re-mount, the ref is null
+            // This is a workaround, but not ideal
+            mapRef.current = {getMap: () => e.target} as MapRef;
+          }
           updateMapRef();
           if (isDemographicMap) {
             handleSyncMaps(e.target);
