@@ -55,12 +55,12 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
 export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
-  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures, setIsPainting} =
+  const {activeTool, handleShatter, selectMapFeatures, setIsPainting} =
     mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
-    const selectedFeatures = mapStore.paintFunction(map, e, 0, [BLOCK_HOVER_LAYER_ID]);
+    const selectedFeatures = mapStore.paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
     if (documentId && e.features?.length) {
       handleShatter(
         documentId,
