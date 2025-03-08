@@ -175,7 +175,7 @@ export const Topbar: React.FC = () => {
 
       <Dialog.Root
         open={modalOpen === 'upload'}
-        onOpenChange={isOpen => (isOpen ? setModalOpen(false) : setModalOpen('upload'))}
+        onOpenChange={isOpen => (isOpen ? setModalOpen('upload') : setModalOpen(false))}
       >
         <Dialog.Content className="max-w-[50vw]">
           <Flex align="center" className="mb-4">
