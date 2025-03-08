@@ -164,6 +164,7 @@ def document_p14_fixture(client):
             "gerrydb_table": GERRY_DB_P14_FIXTURE_NAME,
         },
     )
+    print("!!!", response.json())
     document_id = response.json()["document_id"]
     return document_id
 
@@ -565,7 +566,7 @@ def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
 
-@pytest.fixture(name=GERRY_DB_P14_FIXTURE_NAME)
+@pytest.fixture(name="ks_demo_view_census_blocks_summary_stats_p14")
 def ks_demo_view_census_blocks_summary_stats_p14(session: Session):
     layer = GERRY_DB_P14_FIXTURE_NAME
     result = subprocess.run(
@@ -613,7 +614,9 @@ def ks_demo_view_census_blocks_summary_stats_p14(session: Session):
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
 
-def test_get_demography_table(client, document_id_p14):
+def test_get_demography_table(
+    client, document_id_p14, ks_demo_view_census_blocks_summary_stats_p14
+):
     doc_uuid = str(uuid.UUID(document_id_p14))
     result = client.get(f"/api/document/{doc_uuid}/demography")
     print(result.json())
@@ -624,7 +627,10 @@ def test_get_demography_table(client, document_id_p14):
     assert len(data["columns"]) == 9
     assert len(data["results"]) == 10
 
-def test_get_demography_select_ids(client, document_id_p14):
+
+def test_get_demography_select_ids(
+    client, document_id_p14, ks_demo_view_census_blocks_summary_stats_p14
+):
     doc_uuid = str(uuid.UUID(document_id_p14))
     result = client.get(
         f"/api/document/{doc_uuid}/demography?ids=202090416004010&ids=202090416003004"
