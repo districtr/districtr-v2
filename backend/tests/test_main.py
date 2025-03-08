@@ -157,14 +157,13 @@ def document_total_vap_fixture(
 
 
 @pytest.fixture(name="document_id_p14")
-def document_p14_fixture(client):
+def document_p14_fixture(client, ks_demo_view_census_blocks_summary_stats_p14):
     response = client.post(
         "/api/create_document",
         json={
             "gerrydb_table": GERRY_DB_P14_FIXTURE_NAME,
         },
     )
-    print("!!!", response.json())
     document_id = response.json()["document_id"]
     return document_id
 
@@ -566,7 +565,7 @@ def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
 
-@pytest.fixture(name="ks_demo_view_census_blocks_summary_stats_p14")
+@pytest.fixture(name=GERRY_DB_P14_FIXTURE_NAME)
 def ks_demo_view_census_blocks_summary_stats_p14(session: Session):
     layer = GERRY_DB_P14_FIXTURE_NAME
     result = subprocess.run(
@@ -604,8 +603,8 @@ def ks_demo_view_census_blocks_summary_stats_p14(session: Session):
     summary_stats = add_available_summary_stats_to_districtrmap(
         session=session, districtr_map_uuid=districtr_map_uuid
     )
-    assert ["P1"] in summary_stats, f"Expected P1 to be available, got {summary_stats}"
-    assert ["P4"] in summary_stats, f"Expected P4 to be available, got {summary_stats}"
+    assert "P1" in summary_stats, f"Expected P1 to be available, got {summary_stats}"
+    assert "P4" in summary_stats, f"Expected P4 to be available, got {summary_stats}"
 
     session.commit()
 
@@ -624,7 +623,7 @@ def test_get_demography_table(
     data = result.json()
     assert "columns" in data
     assert "results" in data
-    assert len(data["columns"]) == 9
+    assert len(data["columns"]) == 18
     assert len(data["results"]) == 10
 
 
@@ -638,5 +637,19 @@ def test_get_demography_select_ids(
     assert result.status_code == 200
     data = result.json()
     assert len(data["results"]) == 2
-    assert data["results"][0]["geo_id"] == "202090416004010"
-    assert data["results"][1]["geo_id"] == "202090416003004"
+    assert data["results"][0][0] == "202090416004010"
+    assert data["results"][1][0] == "202090416003004"
+
+
+def test_get_demography_select_ids_and_select_table(
+    client, document_id_p14, ks_demo_view_census_blocks_summary_stats_p14
+):
+    doc_uuid = str(uuid.UUID(document_id_p14))
+    result = client.get(
+        f"/api/document/{doc_uuid}/demography?ids=202090416004010&ids=202090416003004&stats=P1"
+    )
+    assert result.status_code == 200
+    data = result.json()
+    assert len(data["results"]) == 2
+    assert "total_pop" in data["columns"]
+    assert "total_vap" not in data["columns"]
