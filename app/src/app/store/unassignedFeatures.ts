@@ -2,7 +2,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import {create} from 'zustand';
-import { demographyCache } from '../utils/demography/demographyCache';
+import {demographyCache} from '../utils/demography/demographyCache';
 
 type UnassignedFeatureStore = {
   unassignedFeatureBboxes: GeoJSON.Feature[];
@@ -16,7 +16,7 @@ type UnassignedFeatureStore = {
   updateUnassignedFeatures: () => void;
 };
 
-export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set,get) => ({
+export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get) => ({
   unassignedFeatureBboxes: [],
   unassignedOverallBbox: null,
   hasFoundUnassigned: false,
@@ -38,18 +38,13 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set,get)
       selectedIndex: null,
     }),
   updateUnassignedFeatures: async () => {
-    const {shatterIds, zoneAssignments, mapDocument, getMapRef} = useMapStore.getState();
+    const {shatterIds, mapDocument, getMapRef} = useMapStore.getState();
     const mapRef = getMapRef();
     if (!GeometryWorker || !mapRef) return;
     const expectedFeatures = demographyCache.table?.size;
-    const nSeen = Object.keys(await GeometryWorker.activeGeometries).length
+    const nSeen = Object.keys(await GeometryWorker.activeGeometries).length;
     // disabling local implementation for now
-    const useBackend = true; //expectedFeatures !== nSeen;
-    if (!useBackend) {
-      await GeometryWorker.updateProps(Array.from(zoneAssignments.entries()));
-    }
     const unassignedGeometries = await GeometryWorker.getUnassignedGeometries(
-      useBackend,
       mapDocument?.document_id,
       Array.from(shatterIds.parents)
     );
