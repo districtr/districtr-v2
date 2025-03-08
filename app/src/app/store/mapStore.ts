@@ -1,16 +1,12 @@
 'use client';
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
-import {create} from 'zustand';
-import {subscribeWithSelector} from 'zustand/middleware';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '@constants/types';
 import {Zone, GDBPath} from '@constants/types';
 import {
   DistrictrMap,
   DocumentObject,
   lastSentAssignments,
-  P1TotPopSummaryStats,
-  P4TotPopSummaryStats,
   RemoteAssignmentsResponse,
   ShatterResult,
 } from '@utils/api/apiHandlers';
@@ -25,23 +21,20 @@ import {
   resetZoneColors,
   setZones,
 } from '../utils/helpers';
-import {getRenderSubscriptions} from './mapRenderSubs';
-import {getSearchParamsObserver} from '../utils/api/queryParamsListener';
-import {getMapEditSubs} from './mapEditSubs';
-import {getQueriesResultsSubs} from '../utils/api/queries';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
-import {BLOCK_SOURCE_ID} from '../constants/layers';
+import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
-import {devToolsConfig, devwrapper} from './middlewareConfig';
 import {onlyUnique} from '../utils/arrays';
-import {idCache} from './idCache';
-import {getMapMetricsSubs} from './metricsSubs';
 import {queryClient} from '../utils/api/queryClient';
 import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
+import { P1TotPopSummaryStats, P4VapPopSummaryStats } from '../utils/api/summaryStats';
+import { demographyCache } from '../utils/demography/demographyCache';
+import {useDemographyStore} from './demographyStore';
+import { initSubs } from './subscriptions';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -92,12 +85,9 @@ export interface MapStore {
   loadedMapId: string;
   setLoadedMapId: (mapId: string) => void;
   summaryStats: {
-    totpop?: {
-      data: (P1TotPopSummaryStats | P4TotPopSummaryStats) & {total: number};
-    };
-    idealpop?: {
-      data: number;
-    };
+    P1?: P1TotPopSummaryStats;
+    P4?: P4VapPopSummaryStats;
+    idealpop?: number
   };
   setSummaryStat: <T extends keyof MapStore['summaryStats']>(
     stat: T,
@@ -231,7 +221,7 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
-  sidebarPanels: Array<'layers' | 'population' | 'evaluation' | 'mapValidation'>;
+  sidebarPanels: Array<'layers' | 'population' | 'evaluation' | 'demography' | 'mapValidation'>;
   setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
   activeTool: ActiveTool;
@@ -283,7 +273,7 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export const useMapStore = createWithMiddlewares<MapStore>(
+export var useMapStore = createWithMiddlewares<MapStore>(
   (set, get) => ({
         appLoadingState: initialLoadingState,
         setAppLoadingState: appLoadingState => set({appLoadingState}),
@@ -389,7 +379,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
             );
           });
 
-          useChartStore.getState().updateMetrics(popChanges);
+          useChartStore.getState().setPaintedChanges(popChanges);
           set({
             isTemporalAction: false,
             assignmentsHash: new Date().toISOString(),
@@ -399,6 +389,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         setMapViews: mapViews => set({mapViews}),
         mapDocument: null,
         setMapDocument: mapDocument => {
+          demographyCache.clear();
           const {
             mapDocument: currentMapDocument,
             setFreshMap,
@@ -415,11 +406,12 @@ export const useMapStore = createWithMiddlewares<MapStore>(
           } else {
             GeometryWorker?.resetZones();
           }
-          idCache.clear();
           allPainted.clear();
           lastSentAssignments.clear();
+          demographyCache.clear();
           setFreshMap(true);
           resetZoneAssignments();
+          useDemographyStore.getState().clear();
           useUnassignFeaturesStore.getState().reset();
 
           const upsertMapOnDrawSub = useMapStore.subscribe(
@@ -877,7 +869,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         setSidebarPanels: sidebarPanels => set({sidebarPanels}),
         toggleLockAllAreas: () => {
           const {mapOptions, mapDocument} = get();
-          const num_districts = mapDocument?.num_districts ?? 4;
+          const num_districts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
           set({
             mapOptions: {
               ...mapOptions,
@@ -900,7 +892,7 @@ export const useMapStore = createWithMiddlewares<MapStore>(
         setSpatialUnit: unit => set({spatialUnit: unit}),
         selectedZone: 1,
         setSelectedZone: zone => {
-          const numDistricts = get().mapDocument?.num_districts ?? 4;
+          const numDistricts = get().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
           const isPainting = get().isPainting;
           if (zone <= numDistricts && !isPainting) {
             set({
@@ -1006,45 +998,4 @@ export const useMapStore = createWithMiddlewares<MapStore>(
       })
 )
 
-export interface HoverFeatureStore {
-  // HOVERING
-  /**
-   * Features that area highlighted and hovered.
-   * Map render effects in `mapRenderSubs` -> `_hoverMapSideEffectRender`
-   */
-  hoverFeatures: Array<MapFeatureInfo>;
-  setHoverFeatures: (features?: Array<MapGeoJSONFeature>) => void;
-}
-
-export const useHoverStore = create(
-  devwrapper(
-    subscribeWithSelector<HoverFeatureStore>((set, get) => ({
-      hoverFeatures: [],
-      setHoverFeatures: _features => {
-        const hoverFeatures = _features
-          ? _features.map(f => ({
-            source: f.source,
-              sourceLayer: f.sourceLayer,
-              id: f.id,
-            }))
-          : [];
-
-        set({hoverFeatures});
-      },
-    })),
-
-    {
-      ...devToolsConfig,
-      name: "Districtr Hover Feature Store"
-    }
-  ) as any
-  // TODO: Zustand is releasing a major version bump and we have breaking issues
-);
-
-
-// these need to initialize after the map store
-getRenderSubscriptions(useMapStore, useHoverStore);
-getQueriesResultsSubs(useMapStore);
-getMapEditSubs(useMapStore);
-getMapMetricsSubs(useMapStore)
-getSearchParamsObserver();
+initSubs();
