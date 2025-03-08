@@ -1,11 +1,9 @@
-import {
-  DataDrivenPropertyValueSpecification,
-  ExpressionSpecification,
-} from 'maplibre-gl';
+import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
 import {useMapStore} from '../store/mapStore';
 import {colorScheme} from './colors';
 import GeometryWorker from '../utils/GeometryWorker';
 import {useChartStore} from '../store/chartStore';
+import {demographyCache} from '../utils/demography/demographyCache';
 
 export const FALLBACK_NUM_DISTRICTS = 4;
 export const BLOCK_SOURCE_ID = 'blocks';
@@ -22,13 +20,18 @@ export const ZONE_LABEL_LAYERS = ['ZONE_OUTLINE', 'ZONE_LABEL', 'ZONE_LABEL_BG']
 export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 export const COUNTY_LAYERS = ['counties_fill', 'counties_boundary', 'counties_labels'];
 
+export const OVERLAY_OPACITY = 0.7;
+
 export const CHILD_LAYERS = [
   BLOCK_LAYER_ID_CHILD,
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
 ];
 
-export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {type: 'FeatureCollection', features: []};
+export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
+  type: 'FeatureCollection',
+  features: [],
+};
 
 export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels'];
 
@@ -118,10 +121,7 @@ export function getLayerFill(
 }
 
 const getDissolved = async () => {
-  const activeZones = useChartStore
-    .getState()
-    .chartInfo?.chartData?.filter(f => f.total_pop > 0)
-    ?.map(f => f.zone);
+  const activeZones = demographyCache.populations.filter(row => row.total_pop > 0).map(f => f.zone);
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !GeometryWorker || !activeZones?.length) return;
