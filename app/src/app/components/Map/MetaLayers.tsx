@@ -1,15 +1,16 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
-import {useRef, useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 
-export const MetaLayers = () => {
-
+export const MetaLayers: React.FC<{isDemographicMap:boolean}> = ({
+  isDemographicMap
+}) => {
   return (
     <>
-      <ZoneNumbersLayer />
+      {!isDemographicMap && <ZoneNumbersLayer />}
       <PopulationTextLayer />
     </>
   );
