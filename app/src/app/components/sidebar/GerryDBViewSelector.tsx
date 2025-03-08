@@ -1,53 +1,32 @@
-import {useState} from 'react';
-import {Flex, Popover, Select, Text, Tooltip} from '@radix-ui/themes';
+import React, {useState} from 'react';
+import {Flex, Select, Text} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
-import {document} from '@/app/utils/api/mutations';
-import {useTemporalStore} from '@/app/store/temporalStore';
+import {DistrictrMap} from '@/app/utils/api/apiHandlers';
 
-export function GerryDBViewSelector() {
-  const [limit, setLimit] = useState<number>(30);
-  const [offset, setOffset] = useState<number>(0);
-  const mapDocument = useMapStore(state => state.mapDocument);
+export const GerryDBViewSelector: React.FC<{
+  onChange: (map: DistrictrMap) => void;
+  value?: DistrictrMap;
+}> = ({onChange, value}) => {
   const mapViews = useMapStore(state => state.mapViews);
-  const clear = useTemporalStore(store => store.clear);
   const {isPending, isError, data, error} = mapViews || {};
-
-  const selectedView = data?.find(view => view.gerrydb_table_name === mapDocument?.gerrydb_table);
-
-  const handleValueChange = (value: string) => {
-    console.log('Value changed: ', value);
-    const selectedDistrictrMap = data?.find(view => view.name === value);
-    console.log('Selected view: ', selectedDistrictrMap);
-    if (
-      !selectedDistrictrMap ||
-      selectedDistrictrMap.gerrydb_table_name === mapDocument?.gerrydb_table
-    ) {
-      console.log('No document or same document');
-      return;
-    }
-    console.log('mutating to create new document');
-    clear();
-    document.mutate({gerrydb_table: selectedDistrictrMap.gerrydb_table_name});
-  };
-
   if (isPending) return <div>Loading geographies... 🌎</div>;
-
   if (isError) return <div>Error loading geographies: {error?.message}</div>;
 
   return (
-    <Select.Root onValueChange={handleValueChange} value={selectedView?.name}>
-      <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
-        <Select.Trigger
-          placeholder="Select a geography"
-          className="mr-1"
-          color="blue"
-          variant="ghost"
-        >
-          <Flex align="center">
-            <Text>Map: {selectedView?.name}</Text>
-          </Flex>
-        </Select.Trigger>
-      </Tooltip>
+    <Select.Root
+      onValueChange={name => {
+        const value = data?.find(view => view.name === name);
+        if (value) {
+          onChange(value);
+        }
+      }}
+      value={value?.name}
+    >
+      <Select.Trigger placeholder="Select a geography">
+        <Flex align="center">
+          <Text>Map: {value?.name}</Text>
+        </Flex>
+      </Select.Trigger>
       <Select.Content>
         <Select.Group>
           <Select.Label>Districtr map options</Select.Label>
@@ -60,4 +39,4 @@ export function GerryDBViewSelector() {
       </Select.Content>
     </Select.Root>
   );
-}
+};
