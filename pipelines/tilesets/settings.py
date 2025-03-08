@@ -21,19 +21,19 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str | None = None
 
     def get_s3_client(self):
-        if (
-            not self.ACCOUNT_ID
-            or not self.AWS_ACCESS_KEY_ID
-            or not self.AWS_SECRET_ACCESS_KEY
-        ):
+        if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY:
             return None
+
+        kwargs = {}
+        if self.AWS_S3_ENDPOINT:
+            kwargs["region_name"] = "auto"
+            kwargs["endpoint_url"] = self.AWS_S3_ENDPOINT
 
         return boto3.client(
             service_name="s3",
-            endpoint_url=f"https://{self.ACCOUNT_ID}.r2.cloudflarestorage.com",
             aws_access_key_id=self.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=self.AWS_SECRET_ACCESS_KEY,
-            region_name="auto",
+            **kwargs,
         )
 
 

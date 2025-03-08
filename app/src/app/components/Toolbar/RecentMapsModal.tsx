@@ -52,6 +52,7 @@ export const RecentMapsModal: React.FC<{
     router.push(pathname + '?' + urlParams.toString());
     // close dialog
     setDialogOpen(false);
+    onClose?.();
   };
 
   useEffect(() => {

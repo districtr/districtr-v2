@@ -1085,27 +1085,6 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     },
   },
   {
-    id: 'counties_fill',
-    type: 'fill',
-    source: 'counties',
-    'source-layer': 'tl_2023_us_county',
-    paint: {
-      'fill-color': '#fff',
-      'fill-opacity': 0,
-    },
-  },
-  {
-    id: 'counties_boundary',
-    type: 'line',
-    source: 'counties',
-    'source-layer': 'tl_2023_us_county',
-    paint: {
-      'line-color': '#333',
-      'line-opacity': 0.8,
-      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, .625, 9, 1.625, 18, 2.25],
-    },
-  },
-  {
     id: 'places_locality',
     type: 'symbol',
     source: 'protomaps',
@@ -1260,26 +1239,5 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     paint: {
       'text-color': '#b8b8b8',
     },
-  },
-  {
-    id: 'counties_labels',
-    type: 'symbol',
-    source: 'counties',
-    'source-layer': 'tl_2023_us_county_label',
-    minzoom: 6,
-    layout: {
-      'text-field': ['get', 'NAME'],
-      'text-font': ['Barlow Bold'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 5, 8, 8, 12, 12, 16],
-      'text-transform': 'uppercase',
-      'text-letter-spacing': 0.1,
-      'text-max-width': 12,
-      'text-padding': ['interpolate', ['linear'], ['zoom'], 5, 3, 8, 7, 12, 11],
-    },
-    paint: {
-      'text-color': '#666',
-      'text-halo-color': '#ffffff',
-      'text-halo-width': 2,
-    }
-  },
+  }
 ];
