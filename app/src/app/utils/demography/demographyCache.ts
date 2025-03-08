@@ -138,7 +138,6 @@ class DemographyCache {
           .filter(escape((row: TableRow) => row.path && !excludeIds.has(row.path) && !this.idsToExclude.has(row.path)))
       );
     }
-    console.log("ROWS", this.table.size)
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
@@ -185,7 +184,6 @@ class DemographyCache {
  */
   exclude(idsToExclude: string[]): void {
     this.idsToExclude = new Set([...this.idsToExclude, ...idsToExclude]);
-    console.log("Excluding...", this.idsToExclude)
   }
   /**
    * Gets the filtered data for a given ID.

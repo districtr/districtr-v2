@@ -5,7 +5,7 @@ import React, {useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 
-export const MetaLayers: React.FC<{isDemographicMap:boolean}> = ({
+export const MetaLayers: React.FC<{isDemographicMap?:boolean}> = ({
   isDemographicMap
 }) => {
   return (
