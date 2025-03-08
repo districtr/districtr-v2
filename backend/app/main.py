@@ -263,13 +263,13 @@ async def create_document(
             session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Document creation failed",
+                detail="Document creation failed - no doc id",
             )
         if not doc.parent_layer:
             session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Document creation failed",
+                detail="Document creation failed - no parent layer",
             )
 
         session.commit()
@@ -280,7 +280,7 @@ async def create_document(
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Document creation failed",
+            detail="Document creation failed: " + str(e),
         )
 
 

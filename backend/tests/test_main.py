@@ -700,7 +700,7 @@ def test_share_districtr_plan(client, document_id):
 
 
 @pytest.fixture()
-def seeded_token(session: Session):
+def seeded_token(client, session: Session):
     """Create a valid test token in the database before testing."""
     token_id = str(uuid4())
     document_id = str(uuid4())
@@ -708,31 +708,47 @@ def seeded_token(session: Session):
     expiration_date = datetime.now(UTC) + timedelta(days=1)  # Valid expiration
 
     # Create a dummy document
-    document = Document(
-        document_id=document_id,
-        gerrydb_table=GERRY_DB_FIXTURE_NAME,
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_P4_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
     )
-    session.add(document)
+    print(response.json())
+    # document_id = response.json()["document_id"]
+
+    session.execute(
+        text(
+            """
+                INSERT INTO document.map_document_token (token_id, document_id, password_hash, expiration_date)
+                VALUES (:token_id, :document_id, :password_hash, :expiration_date)
+                returning *
+                """
+        ),
+        {
+            "token_id": token_id,
+            "document_id": document_id,
+            "password_hash": hashed_pw,
+            "expiration_date": expiration_date,
+        },
+    )
+
     session.commit()
 
-    # Now add the token
-    token_entry = MapDocumentToken(
-        token_id=token_id,
-        document_id=document_id,
-        password_hash=hashed_pw,
-        expiration_date=expiration_date,
-    )
-    session.add(token_entry)
-    session.commit()  # Commit the token
-
-    return token_entry
+    return {"token_id": token_id, "response_object": response.json()}
 
 
 def test_load_plan_from_share(seeded_token, client):
     """Test retrieving a document using a shared token."""
-    data = TokenRequest(token=seeded_token.token_id, password=None, user_id="test_user")
-
+    data = TokenRequest(
+        token=seeded_token["token_id"],
+        password="test_password",
+        user_id="test_user",
+    )
+    print(seeded_token["response_object"])
     response = client.post("/api/share/load_plan_from_share", json=data.dict())
+    print(response.text)
     assert response.status_code == 200
 
     # todo: remove the document + token from the database after the test
