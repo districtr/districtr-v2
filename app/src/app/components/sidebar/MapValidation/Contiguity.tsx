@@ -6,6 +6,7 @@ import {queryClient} from '@utils/api/queryClient';
 import {useMemo, useState} from 'react';
 import {CheckCircledIcon, CrossCircledIcon, DashIcon} from '@radix-ui/react-icons';
 import {colorScheme} from '@/app/constants/colors';
+import { FALLBACK_NUM_DISTRICTS } from '@/app/constants/layers';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
@@ -30,7 +31,7 @@ export const Contiguity = () => {
     console.log('Updating contiguity', data);
     if (!data) return [];
     const cleanData: any = [];
-    const numDistricts = mapDocument?.num_districts ?? 4;
+    const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     for (let i = 1; i < numDistricts + 1; i++) {
       if (i in data) {
         cleanData.push({

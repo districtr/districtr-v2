@@ -2,7 +2,7 @@
 import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
 import {DocumentObject} from '../api/apiHandlers';
-import {BLOCK_SOURCE_ID} from '../../constants/layers';
+import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../../constants/layers';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
 import {useChartStore} from '../../store/chartStore';
@@ -246,7 +246,7 @@ class DemographyCache {
   calculatePopulations(
     zoneAssignments?: MapStore['zoneAssignments']
   ): {ok: true; table: SummaryTable} | {ok: false} {
-    const numZones = useMapStore.getState().mapDocument?.num_districts ?? 4;
+    const numZones = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
     }
@@ -323,7 +323,7 @@ class DemographyCache {
     });
 
     this.summaryStats.totalPopulation = summaries.total_pop;
-    this.summaryStats.idealpop = summaries.total_pop / (mapDocument?.num_districts ?? 4);
+    this.summaryStats.idealpop = summaries.total_pop / (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
 
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
   }

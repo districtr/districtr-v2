@@ -23,7 +23,7 @@ import {
 } from '../utils/helpers';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
-import {BLOCK_SOURCE_ID} from '../constants/layers';
+import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
@@ -869,7 +869,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
         setSidebarPanels: sidebarPanels => set({sidebarPanels}),
         toggleLockAllAreas: () => {
           const {mapOptions, mapDocument} = get();
-          const num_districts = mapDocument?.num_districts ?? 4;
+          const num_districts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
           set({
             mapOptions: {
               ...mapOptions,
@@ -892,7 +892,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
         setSpatialUnit: unit => set({spatialUnit: unit}),
         selectedZone: 1,
         setSelectedZone: zone => {
-          const numDistricts = get().mapDocument?.num_districts ?? 4;
+          const numDistricts = get().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
           const isPainting = get().isPainting;
           if (zone <= numDistricts && !isPainting) {
             set({

@@ -10,6 +10,7 @@ import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
 import { useDemography } from '@/app/hooks/useDemography';
 import { useSummaryStats } from '@/app/hooks/useSummaryStats';
+import { FALLBACK_NUM_DISTRICTS } from '@/app/constants/layers';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
@@ -18,7 +19,7 @@ export const PopulationPanel = () => {
   const {summaryStats, zoneStats} = useSummaryStats();
   const idealPopulation = summaryStats?.idealpop;
   const unassigned = summaryStats.unassigned;
-  const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? 4);
+  const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
   const allPainted = numDistricts === zoneStats?.paintedZones
   
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);

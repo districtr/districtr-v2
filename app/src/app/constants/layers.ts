@@ -7,6 +7,7 @@ import {colorScheme} from './colors';
 import GeometryWorker from '../utils/GeometryWorker';
 import {useChartStore} from '../store/chartStore';
 
+export const FALLBACK_NUM_DISTRICTS = 4;
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
 export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';

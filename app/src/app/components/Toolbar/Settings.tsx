@@ -2,6 +2,7 @@ import React from 'react';
 import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import { FALLBACK_NUM_DISTRICTS } from '@/app/constants/layers';
 
 const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
   {
@@ -49,7 +50,7 @@ export const ToolSettings: React.FC = () => {
           mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
           mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
           mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
-          (mapOptions.lockPaintedAreas.length === (mapDocument?.num_districts ?? 4)) ? 'lockAll' : '',
+          (mapOptions.lockPaintedAreas.length === (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)) ? 'lockAll' : '',
           mapOptions.showDemographicMap === 'side-by-side' ? 'showDemographicMap' : '',
           mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
           mapOptions.showZoneNumbers === true ? 'showZoneNumbers' : '',
