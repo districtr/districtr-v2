@@ -494,6 +494,11 @@ async def get_map_demography(
     ).one()
 
     columns = []
+    if dm.available_summary_stats is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str("Summary statistic not available for this map"),
+        )
     # by default use all available columns otherwise the requested columns
     available_summary_stats = dm.available_summary_stats if len(stats) == 0 else stats
     # By default, provide all summary stats
