@@ -371,11 +371,14 @@ async def get_unassigned_geoids(
         results = session.execute(
             stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
         ).fetchall()
+        print(results)
     except DataError:
         # could not return null - no results found
         results = []
+
+    print(results)
     # returns a list of multipolygons of bboxes
-    return {"features": [row[0] for row in results]}
+    return {"features": [row[0] for row in results if row[0] is not None]}
 
 
 @app.get("/api/document/{document_id}/contiguity")
@@ -529,7 +532,7 @@ async def get_map_demography(
         # and any shattered children
         # The FE will filter for shattered parents
         ids_subquery = text(f"""SELECT distinct geo_id
-            FROM document.assignments 
+            FROM document.assignments
             WHERE document_id = :document_id
             UNION
             SELECT path as geo_id
