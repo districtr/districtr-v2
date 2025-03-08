@@ -24,7 +24,6 @@ import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import { useMapRenderer } from '@/app/hooks/useMapRenderer';
 
 export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
-  const mapRef: MutableRefObject<MapRef | null> = useRef(null);
   const getStateMapRef = useMapStore(state => state.getMapRef);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore(state => state.mapLock);
@@ -32,7 +31,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
   const mapOptions = useMapStore(state => state.mapOptions);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const synced = useRef<false | (() => void)>(false);
-  const {updateMapRef} = useMapRenderer(mapRef, isDemographicMap ? 'demographic' : 'main');
+  const {mapRef, onLoad} = useMapRenderer(isDemographicMap ? 'demographic' : 'main');
 
   const initialViewState = useMemo(() => {
     if (!isDemographicMap) {
@@ -138,12 +137,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         minPitch={0}
         dragRotate={false}
         onLoad={(e) => {
-          if (!mapRef.current) {
-            // on re-mount, the ref is null
-            // This is a workaround, but not ideal
-            mapRef.current = {getMap: () => e.target} as MapRef;
-          }
-          updateMapRef();
+          onLoad(e)
           if (isDemographicMap) {
             handleSyncMaps(e.target);
             useDemographyStore.getState().setGetMapRef(() => e.target);

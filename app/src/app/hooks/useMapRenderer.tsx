@@ -6,12 +6,14 @@ import { useHoverStore } from "../store/hoverFeatures";
 import { useDemographyStore } from "../store/demographyStore";
 
 export const useMapRenderer = (
-  mapRef: MutableRefObject<MapRef | null>,
   mapType: 'demographic' | 'main' = 'main'
 ) => {
+  const mapRef = useRef<MapRef | null>(null);
   const renderer = useRef<MapRenderSubscriber | null>(null);
-  const updateMapRef = () => {
-    if (!mapRef.current) return;
+  const onLoad = (e: maplibregl.MapLibreEvent) => {
+    if (!mapRef.current) {
+      mapRef.current = {getMap: () => e.target} as MapRef
+    }
     const renderSubscriber = new MapRenderSubscriber(
       mapRef.current.getMap(),
       mapType,
@@ -30,7 +32,8 @@ export const useMapRenderer = (
   },[])
 
   return {
-    updateMapRef,
-    renderer
+    onLoad,
+    renderer,
+    mapRef
   }
 }
