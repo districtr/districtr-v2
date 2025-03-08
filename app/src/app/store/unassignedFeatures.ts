@@ -40,16 +40,11 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set,get)
     }),
   updateUnassignedFeatures: async () => {
     const {shatterIds, zoneAssignments, mapDocument, getMapRef} = useMapStore.getState();
-    console.log("hello world")
     const mapRef = getMapRef();
-    console.log("1")
     if (!GeometryWorker || !mapRef) return;
-    console.log("2")
     const useBackend =
       idCache.getTotalPopSeen(shatterIds.parents) !== useChartStore.getState().chartInfo.totPop;
-    console.log("useBackend", useBackend)
     if (!useBackend) {
-      console.log("not using backend", Array.from(zoneAssignments.entries()))
       await GeometryWorker.updateProps(Array.from(zoneAssignments.entries()));
     }
     const unassignedGeometries = await GeometryWorker.getUnassignedGeometries(
