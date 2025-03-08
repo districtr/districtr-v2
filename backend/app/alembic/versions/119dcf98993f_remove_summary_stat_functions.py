@@ -31,12 +31,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for udf in [
-        "summary_stats_p1.sql",
-        "summary_stats_p1_totals.sql",
-        "summary_stats_p4.sql",
-        "summary_stats_p4_totals.sql",
-    ]:
-        with Path(SQL_DIR, udf).open() as f:
-            sql = f.read()
-            op.execute(sql)
+    pass
