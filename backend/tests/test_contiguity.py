@@ -13,7 +13,7 @@ from app.contiguity.main import (
 )
 from app.utils import create_parent_child_edges
 from tempfile import NamedTemporaryFile
-from tests.constants import FIXTURES_PATH
+from tests.constants import FIXTURES_PATH, USER_ID
 from sqlmodel import Session
 import sqlalchemy as sa
 
@@ -111,9 +111,7 @@ def document_id_fixture(
     )
     response = client.post(
         "/api/create_document",
-        json={
-            "gerrydb_table": "simple_geos",
-        },
+        json={"gerrydb_table": "simple_geos", "user_id": USER_ID},
     )
     assert response.status_code == 201
     doc = response.json()
@@ -144,13 +142,15 @@ def test_all_zones_contiguous(
 ):
     document_id = simple_contiguous_assignments
     districtr_map_uuid = session.execute(
-        sa.text("""
+        sa.text(
+            """
         SELECT districtrmap.uuid
             FROM document.document
             LEFT JOIN districtrmap
             ON document.gerrydb_table = districtrmap.gerrydb_table_name
             WHERE document.document_id = :document_id;
-        """),
+        """
+        ),
         {"document_id": document_id},
     ).scalar()
     assert districtr_map_uuid is not None
@@ -248,9 +248,7 @@ def ks_ellis_document_id(
     )
     response = client.post(
         "/api/create_document",
-        json={
-            "gerrydb_table": "ks_ellis_geos",
-        },
+        json={"gerrydb_table": "ks_ellis_geos", "user_id": USER_ID},
     )
     assert response.status_code == 201
     doc = response.json()

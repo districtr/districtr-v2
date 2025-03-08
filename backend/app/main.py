@@ -179,109 +179,109 @@ def check_map_lock(document_id, user_id, session):
 async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
-    try:
-        results = session.execute(
-            text("SELECT create_document(:gerrydb_table_name);"),
-            {"gerrydb_table_name": data.gerrydb_table},
+    # try:
+    results = session.execute(
+        text("SELECT create_document(:gerrydb_table_name);"),
+        {"gerrydb_table_name": data.gerrydb_table},
+    )
+    plan_genesis = "created"
+    document_id = results.one()[0]  # should be only one row, one column of results
+
+    lock_status = check_map_lock(document_id, data.user_id, session)
+
+    copy_from_doc = getattr(data, "copy_from_doc", None)
+
+    # if copy from doc, need to get assignments from that document, copy them for the new doc
+    if copy_from_doc:
+        prev_assignments = Assignments.__table__.select().where(
+            Assignments.document_id == copy_from_doc
         )
-        plan_genesis = "created"
-        document_id = results.one()[0]  # should be only one row, one column of results
+        # create a new copy with the fresh document id
+        # set document id to new document id
+        prev_assignments = select(
+            Assignments.geo_id,
+            Assignments.zone,
+            literal(document_id).label("document_id"),
+        ).where(Assignments.document_id == copy_from_doc)
 
-        lock_status = check_map_lock(document_id, data.user_id, session)
-
-        copy_from_doc = getattr(data, "copy_from_doc", None)
-
-        # if copy from doc, need to get assignments from that document, copy them for the new doc
-        if copy_from_doc:
-            prev_assignments = Assignments.__table__.select().where(
-                Assignments.document_id == copy_from_doc
-            )
-            # create a new copy with the fresh document id
-            # set document id to new document id
-            prev_assignments = select(
-                Assignments.geo_id,
-                Assignments.zone,
-                literal(document_id).label("document_id"),
-            ).where(Assignments.document_id == copy_from_doc)
-
-            create_copy_stmt = insert(Assignments).from_select(
-                ["geo_id", "zone", "document_id"], prev_assignments
-            )
-
-            session.execute(create_copy_stmt)
-            plan_genesis = "copied"
-
-        # check if there is a metadata item in the request
-        if data.metadata:
-            update_districtrmap_metadata(document_id, data.metadata.dict(), session)
-
-        stmt = (
-            select(
-                Document.document_id,
-                Document.created_at,
-                Document.gerrydb_table,
-                Document.updated_at,
-                DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
-                DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
-                DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
-                DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
-                DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
-                DistrictrMap.extent.label("extent"),  # pyright: ignore
-                coalesce(plan_genesis).label("genesis"),
-                DistrictrMap.available_summary_stats.label(
-                    "available_summary_stats"
-                ),  # pyright: ignore
-                # send metadata as a null object on init of document
-                coalesce(
-                    None,
-                ).label("map_metadata"),
-                coalesce(
-                    None,
-                    lock_status,
-                ).label("status"),
-            )
-            .where(Document.document_id == document_id)
-            .join(
-                DistrictrMap,
-                Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
-                isouter=True,
-            )
-            .limit(1)
+        create_copy_stmt = insert(Assignments).from_select(
+            ["geo_id", "zone", "document_id"], prev_assignments
         )
-        # Document id has a unique constraint so I'm not sure we need to hit the DB again here
-        # more valuable would be to check that the assignments table
-        doc = session.exec(
-            stmt,
-        ).one()  # again if we've got more than one, we have problems.
-        if not doc.map_uuid:
-            session.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"DistrictrMap matching {data.gerrydb_table} does not exist.",
-            )
-        if not doc.document_id:
-            session.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Document creation failed - no doc id",
-            )
-        if not doc.parent_layer:
-            session.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Document creation failed - no parent layer",
-            )
 
-        session.commit()
+        session.execute(create_copy_stmt)
+        plan_genesis = "copied"
 
-        return doc
-    except Exception as e:
-        logger.error(e)
+    # check if there is a metadata item in the request
+    if data.metadata:
+        update_districtrmap_metadata(document_id, data.metadata.dict(), session)
+
+    stmt = (
+        select(
+            Document.document_id,
+            Document.created_at,
+            Document.gerrydb_table,
+            Document.updated_at,
+            DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
+            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
+            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
+            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            DistrictrMap.extent.label("extent"),  # pyright: ignore
+            coalesce(plan_genesis).label("genesis"),
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
+            # send metadata as a null object on init of document
+            coalesce(
+                None,
+            ).label("map_metadata"),
+            coalesce(
+                None,
+                lock_status,
+            ).label("status"),
+        )
+        .where(Document.document_id == document_id)
+        .join(
+            DistrictrMap,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            isouter=True,
+        )
+        .limit(1)
+    )
+    # Document id has a unique constraint so I'm not sure we need to hit the DB again here
+    # more valuable would be to check that the assignments table
+    doc = session.exec(
+        stmt,
+    ).one()  # again if we've got more than one, we have problems.
+    if not doc.map_uuid:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"DistrictrMap matching {data.gerrydb_table} does not exist.",
+        )
+    if not doc.document_id:
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Document creation failed: " + str(e),
+            detail="Document creation failed - no doc id",
         )
+    if not doc.parent_layer:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document creation failed - no parent layer",
+        )
+
+    session.commit()
+
+    return doc
+    # except Exception as e:
+    #     logger.error(e)
+    #     session.rollback()
+    #     raise HTTPException(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         detail="Document creation failed: " + str(e),
+    #     )
 
 
 @app.patch("/api/update_assignments")

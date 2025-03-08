@@ -160,6 +160,7 @@ def document_total_vap_fixture(
             "user_id": USER_ID,
         },
     )
+
     document_id = response.json()["document_id"]
     return document_id
 
@@ -700,23 +701,26 @@ def test_share_districtr_plan(client, document_id):
 
 
 @pytest.fixture()
-def seeded_token(client, session: Session):
-    """Create a valid test token in the database before testing."""
-    token_id = str(uuid4())
-    document_id = str(uuid4())
-    hashed_pw = hash_password("test_password")  # Hash a known password
-    expiration_date = datetime.now(UTC) + timedelta(days=1)  # Valid expiration
+def test_load_plan_from_share(client, session: Session):
+    """Test retrieving a document using a shared token."""
 
-    # Create a dummy document
+    token_id = str(uuid4())
+    hashed_pw = hash_password("test_password")
+    expiration_date = datetime.now(UTC) + timedelta(days=1)  # test expiration
+
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": GERRY_DB_P4_FIXTURE_NAME,
+            "gerrydb_table": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
             "user_id": USER_ID,
         },
     )
-    print(response.json())
-    # document_id = response.json()["document_id"]
+
+    assert response.status_code == 200, f"Failed to create document: {response.text}"
+    document_id = response.json().get("document_id")
+
+    if not document_id:
+        raise ValueError("Document creation failed; no document_id returned.")
 
     session.execute(
         text(
@@ -724,7 +728,7 @@ def seeded_token(client, session: Session):
                 INSERT INTO document.map_document_token (token_id, document_id, password_hash, expiration_date)
                 VALUES (:token_id, :document_id, :password_hash, :expiration_date)
                 returning *
-                """
+            """
         ),
         {
             "token_id": token_id,
@@ -736,19 +740,14 @@ def seeded_token(client, session: Session):
 
     session.commit()
 
-    return {"token_id": token_id, "response_object": response.json()}
-
-
-def test_load_plan_from_share(seeded_token, client):
-    """Test retrieving a document using a shared token."""
     data = TokenRequest(
-        token=seeded_token["token_id"],
+        token=token_id,
         password="test_password",
         user_id="test_user",
     )
-    print(seeded_token["response_object"])
+
     response = client.post("/api/share/load_plan_from_share", json=data.dict())
-    print(response.text)
-    assert response.status_code == 200
+
+    assert response.status_code == 200, f"Failed to load document: {response.text}"
 
     # todo: remove the document + token from the database after the test
