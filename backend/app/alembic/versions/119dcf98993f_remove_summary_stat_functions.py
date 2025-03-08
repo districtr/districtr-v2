@@ -9,8 +9,6 @@ Create Date: 2025-02-21 20:49:39.037016
 from typing import Sequence, Union
 
 from alembic import op
-from pathlib import Path
-from app.constants import SQL_DIR
 
 
 # revision identifiers, used by Alembic.
