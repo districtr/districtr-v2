@@ -32,6 +32,7 @@ GERRY_DB_TOTAL_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_total_vap"
 GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 GERRY_DB_P1_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 GERRY_DB_P4_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_p4"
+GERRY_DB_P14_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_p14"
 
 
 ## Test DB
@@ -149,6 +150,18 @@ def document_total_vap_fixture(
         "/api/create_document",
         json={
             "gerrydb_table": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        },
+    )
+    document_id = response.json()["document_id"]
+    return document_id
+
+
+@pytest.fixture(name="document_id_p14")
+def document_p14_fixture(client):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_P14_FIXTURE_NAME,
         },
     )
     document_id = response.json()["document_id"]
@@ -552,17 +565,56 @@ def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
 
-@pytest.fixture(name="demography_table_output")
-def test_get_document_demography_totals(client):
-    response = client.post(
-        "/api/create_document",
-        json={
-            "gerrydb_table": GERRY_DB_P1_FIXTURE_NAME,
-        },
+@pytest.fixture(name=GERRY_DB_P14_FIXTURE_NAME)
+def ks_demo_view_census_blocks_summary_stats_p14(session: Session):
+    layer = GERRY_DB_P14_FIXTURE_NAME
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",
+        ],
     )
-    document_id = response.json()["document_id"]
 
-    doc_uuid = str(uuid.UUID(document_id))
+    upsert_query = text(
+        """
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """
+    )
+
+    session.execute(upsert_query, {"name": layer})
+
+    districtr_map_uuid = create_districtr_map(
+        session=session,
+        name="DistrictMap with P14 view",
+        parent_layer=layer,
+        gerrydb_table_name=layer,
+    )
+    summary_stats = add_available_summary_stats_to_districtrmap(
+        session=session, districtr_map_uuid=districtr_map_uuid
+    )
+    assert ["P1"] in summary_stats, f"Expected P1 to be available, got {summary_stats}"
+    assert ["P4"] in summary_stats, f"Expected P4 to be available, got {summary_stats}"
+
+    session.commit()
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+def test_get_demography_table(client, document_id_p14):
+    doc_uuid = str(uuid.UUID(document_id_p14))
     result = client.get(f"/api/document/{doc_uuid}/demography")
     print(result.json())
     assert result.status_code == 200
@@ -571,3 +623,14 @@ def test_get_document_demography_totals(client):
     assert "results" in data
     assert len(data["columns"]) == 9
     assert len(data["results"]) == 10
+
+def test_get_demography_select_ids(client, document_id_p14):
+    doc_uuid = str(uuid.UUID(document_id_p14))
+    result = client.get(
+        f"/api/document/{doc_uuid}/demography?ids=202090416004010&ids=202090416003004"
+    )
+    assert result.status_code == 200
+    data = result.json()
+    assert len(data["results"]) == 2
+    assert data["results"][0]["geo_id"] == "202090416004010"
+    assert data["results"][1]["geo_id"] == "202090416003004"
