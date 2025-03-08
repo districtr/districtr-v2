@@ -5,6 +5,7 @@ import {
   BLOCK_LAYER_ID_CHILD,
   BLOCK_SOURCE_ID,
   LABELS_BREAK_LAYER_ID,
+  OVERLAY_OPACITY,
 } from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import {FilterSpecification} from 'maplibre-gl';
@@ -43,7 +44,7 @@ export const DemographicLayer: React.FC<{
         visibility: 'visible',
       }}
       paint={{
-        'fill-opacity': isOverlay ? 0.4 : 0.9,
+        'fill-opacity': isOverlay ? OVERLAY_OPACITY : 0.9,
         'fill-color': [
           'case',
           ['boolean', ['feature-state', 'hasColor'], false],

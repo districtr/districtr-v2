@@ -1,4 +1,5 @@
 'use client';
+import { OVERLAY_OPACITY } from '@/app/constants/layers';
 import {
   AllDemographyVariables,
   DemographyVariable,
@@ -43,6 +44,7 @@ export const DemographicMapPanel: React.FC = () => {
   const demographicMapMode = useMapStore(state => state.mapOptions.showDemographicMap);
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapOptions = useMapStore(state => state.setMapOptions);
+  const isOverlay = demographicMapMode === 'overlay';
 
   const variable = useDemographyStore(state => state.variable);
   const setVariable = useDemographyStore(state => state.setVariable);
@@ -148,6 +150,7 @@ export const DemographicMapPanel: React.FC = () => {
                           display: 'inline-block',
                           height: '1rem',
                           backgroundColor: colors[i],
+                          opacity: isOverlay ? OVERLAY_OPACITY : 0.9,
                         }}
                         key={`legend-bar-${i}`}
                       ></Box>
