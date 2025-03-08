@@ -94,8 +94,8 @@ export interface DocumentObject {
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   available_summary_stats: string[];
   map_metadata: DocumentMetadata;
-  status: string;
-  genesis: string;
+  status: 'locked' | 'unlocked' | 'checked_out';
+  genesis: 'shared' | 'copied' | 'created';
   token?: string | null;
   password?: string | null;
 }
