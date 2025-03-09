@@ -2,9 +2,10 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapStore} from '@/app/store/mapStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
-import {ChevronLeftIcon, ChevronRightIcon, ReloadIcon} from '@radix-ui/react-icons';
+import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
 import {Button, Flex, Heading, IconButton, Select, Text, Tooltip} from '@radix-ui/themes';
 import React, {useEffect, useLayoutEffect, useRef} from 'react';
+import {RefreshButton, TimestampDisplay} from '../../Time/TimestampDisplay';
 
 export const ZoomToUnassigned = () => {
   const {
@@ -121,11 +122,10 @@ export const ZoomToUnassigned = () => {
             {`Show ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
           </Button>
         )}
-        <Tooltip content={`Last update ${lastUpdated}`}>
-          <Button onClick={updateUnassignedFeatures} variant="outline" className="block text-wrap">
-            <ReloadIcon /> Refresh
-          </Button>
-        </Tooltip>
+        <Flex direction="row" gapX="4" pt="4" align="center">
+          <RefreshButton onClick={updateUnassignedFeatures} />
+          <TimestampDisplay timestamp={lastUpdated} />
+        </Flex>
       </Flex>
     </Flex>
   );

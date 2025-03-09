@@ -54,7 +54,7 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
       selectedIndex: null,
       unassignedOverallBbox: unassignedGeometries?.overall || null,
       unassignedFeatureBboxes: unassignedGeometries?.dissolved?.features || [],
-      lastUpdated: new Date().toLocaleTimeString(),
+      lastUpdated: new Date().toLocaleString(),
     });
   },
 }));
