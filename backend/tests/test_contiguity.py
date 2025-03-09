@@ -15,7 +15,6 @@ from app.utils import create_parent_child_edges
 from tempfile import NamedTemporaryFile
 from tests.constants import FIXTURES_PATH
 from sqlmodel import Session
-import sqlalchemy as sa
 
 
 @fixture
@@ -143,21 +142,20 @@ def test_all_zones_contiguous(
     session: Session, simple_geos_graph: Graph, simple_contiguous_assignments: str
 ):
     document_id = simple_contiguous_assignments
-    districtr_map_uuid = session.execute(
-        sa.text("""
-        SELECT districtrmap.uuid
-            FROM document.document
-            LEFT JOIN districtrmap
-            ON document.gerrydb_table = districtrmap.gerrydb_table_name
-            WHERE document.document_id = :document_id;
-        """),
-        {"document_id": document_id},
-    ).scalar()
-    assert districtr_map_uuid is not None
-    zone_block_nodes = get_block_assignments(session, document_id, districtr_map_uuid)
+
+    zone_block_nodes = get_block_assignments(session, document_id)
 
     for zone in zone_block_nodes:
         assert check_subgraph_contiguity(simple_geos_graph, zone.nodes)
+
+
+def test_subset_of_zones_contiguous(
+    session: Session, simple_geos_graph: Graph, simple_contiguous_assignments: str
+):
+    document_id = simple_contiguous_assignments
+
+    (zone_block_nodes,) = get_block_assignments(session, document_id, zones=[1])
+    assert check_subgraph_contiguity(simple_geos_graph, zone_block_nodes.nodes)
 
 
 def test_graph_from_gpkg():

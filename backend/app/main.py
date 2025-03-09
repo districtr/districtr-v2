@@ -1,4 +1,5 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query, BackgroundTasks
+from typing import Annotated
 import botocore.exceptions
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
 from fastapi.responses import FileResponse
@@ -191,13 +192,32 @@ async def update_assignments(
     return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
 
 
+def _get_document(
+    document_id: str, session: Session = Depends(get_session)
+) -> Document:
+    try:
+        document = session.exec(
+            select(Document).filter(Document.document_id == document_id)  # pyright: ignore
+        ).one()
+    except NoResultFound:
+        raise HTTPException(status_code=404, detail="Document not found")
+    except Exception as e:
+        logger.error(f"Error loading document: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error loading document")
+
+    return document
+
+
 @app.patch(
     "/api/update_assignments/{document_id}/shatter_parents",
     response_model=ShatterResult,
 )
 async def shatter_parent(
-    document_id: str, data: GEOIDS, session: Session = Depends(get_session)
+    document: Annotated[Document, Depends(_get_document)],
+    data: GEOIDS,
+    session: Session = Depends(get_session),
 ):
+    assert document.document_id is not None
     stmt = text(
         """SELECT *
         FROM shatter_parent(:input_document_id, :parent_geoids)"""
@@ -208,7 +228,7 @@ async def shatter_parent(
     results = session.execute(
         statement=stmt,
         params={
-            "input_document_id": document_id,
+            "input_document_id": document.document_id,
             "parent_geoids": data.geoids,
         },
     )
@@ -217,7 +237,7 @@ async def shatter_parent(
         Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
         for document_id, geo_id, zone in results
     ]
-    updated_at = update_timestamp(session, document_id)
+    updated_at = update_timestamp(session, document.document_id)
     result = ShatterResult(parents=data, children=assignments, updated_at=updated_at)
     session.commit()
     return result
@@ -228,7 +248,9 @@ async def shatter_parent(
     response_model=GEOIDSResponse,
 )
 async def unshatter_parent(
-    document_id: str, data: AssignedGEOIDS, session: Session = Depends(get_session)
+    document: Annotated[Document, Depends(_get_document)],
+    data: AssignedGEOIDS,
+    session: Session = Depends(get_session),
 ):
     stmt = text(
         """SELECT *
@@ -241,13 +263,16 @@ async def unshatter_parent(
     results = session.execute(
         statement=stmt,
         params={
-            "input_document_id": document_id,
+            "input_document_id": document.document_id,
             "parent_geoids": data.geoids,
             "input_zone": data.zone,
         },
     ).first()
 
-    updated_at = update_timestamp(session, document_id)
+    assert (
+        results is not None and document.document_id is not None
+    ), "No results returned from unshatter_parent"
+    updated_at = update_timestamp(session, document.document_id)
     session.commit()
     return {"geoids": results[0], "updated_at": updated_at}
 
@@ -255,9 +280,12 @@ async def unshatter_parent(
 @app.patch(
     "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
 )
-async def reset_map(document_id: str, session: Session = Depends(get_session)):
+async def reset_map(
+    document: Annotated[Document, Depends(_get_document)],
+    session: Session = Depends(get_session),
+):
     # Drop the partition for the given assignments
-    partition_name = f'"document.assignments_{document_id}"'
+    partition_name = f'"document.assignments_{document.document_id}"'
     session.execute(text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;"))
 
     # Recreate the partition
@@ -265,19 +293,25 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
         text(
             f"""
         CREATE TABLE {partition_name} PARTITION OF document.assignments
-        FOR VALUES IN ('{document_id}');
+        FOR VALUES IN ('{document.document_id}');
     """
         )
     )
 
     session.commit()
 
-    return {"message": "Assignments partition reset", "document_id": document_id}
+    return {
+        "message": "Assignments partition reset",
+        "document_id": document.document_id,
+    }
 
 
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
-async def get_assignments(document_id: str, session: Session = Depends(get_session)):
+async def get_assignments(
+    document: Annotated[Document, Depends(_get_document)],
+    session: Session = Depends(get_session),
+):
     stmt = (
         select(
             Assignments.geo_id,
@@ -292,7 +326,7 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
             (Assignments.geo_id == ParentChildEdges.child_path)
             & (ParentChildEdges.districtr_map == DistrictrMap.uuid),
         )
-        .where(Assignments.document_id == document_id)
+        .where(Assignments.document_id == document.document_id)
     )
 
     return session.execute(stmt).fetchall()
@@ -319,32 +353,46 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
             isouter=True,
         )
-        .limit(1)
     )
     result = session.exec(stmt)
 
-    return result.one()
+    try:
+        return result.one()
+    except NoResultFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {document_id}",
+        )
+    except MultipleResultsFound:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Multiple documents found for ID: {document_id}",
+        )
 
 
 @app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
 async def get_total_population(
-    document_id: str, session: Session = Depends(get_session)
+    document: Annotated[Document, Depends(_get_document)],
+    session: Session = Depends(get_session),
 ):
     stmt = text(
         "SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL"
     )
     try:
-        result = session.execute(stmt, {"document_id": document_id})
+        result = session.execute(stmt, {"document_id": document.document_id})
         return [
             ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()
         ]
     except (ProgrammingError, InternalError) as e:
         logger.error(e)
         error_text = str(e)
-        if f"Table name not found for document_id: {document_id}" in error_text:
+        if (
+            f"Table name not found for document_id: {document.document_id}"
+            in error_text
+        ):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document_id} not found",
+                detail=f"Document with ID {document.document_id} not found",
             )
         elif "Population column not found for gerrydbview" in error_text:
             raise HTTPException(
@@ -357,7 +405,7 @@ async def get_total_population(
     "/api/document/{document_id}/unassigned", response_model=UnassignedBboxGeoJSONs
 )
 async def get_unassigned_geoids(
-    document_id: str,
+    document: Annotated[Document, Depends(_get_document)],
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
@@ -369,7 +417,7 @@ async def get_unassigned_geoids(
     )
     try:
         results = session.execute(
-            stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
+            stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
         ).fetchall()
         print(results)
     except DataError:
@@ -381,17 +429,10 @@ async def get_unassigned_geoids(
     return {"features": [row[0] for row in results if row[0] is not None]}
 
 
-@app.get("/api/document/{document_id}/contiguity")
-async def check_document_contiguity(
+def _get_districtr_map(
     document_id: str,
-    # TODO: Allow passing zones to check contiguity for specific zones
-    # Should be slightly more efficient that checking all zones
-    # zone: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
-):
-    # sql/get_block_assignments.sql also fetches the child layer. Would be nice not
-    # to have to do this twice. TODO: when supporting multiple zones, in new
-    # function also return the child layer name
+) -> DistrictrMap:
     stmt = (
         select(DistrictrMap)
         .join(
@@ -417,13 +458,30 @@ async def check_document_contiguity(
             detail=f"Multiple DistrictrMaps found for Document with ID {document_id}",
         )
 
+    return districtr_map
+
+
+@app.get("/api/document/{document_id}/contiguity")
+async def check_document_contiguity(
+    document_id: str,
+    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
+    zone: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"
         )
         gerrydb_name = districtr_map.child_layer
+        try:
+            kwargs = {"zones": [int(z) for z in zone]} if zone else {}
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid zone value(s) provided",
+            )
         zone_assignments = contiguity.get_block_assignments(
-            session, document_id, districtr_map.uuid
+            session, document_id, **kwargs
         )
     else:
         gerrydb_name = districtr_map.parent_layer
@@ -482,29 +540,24 @@ async def check_document_contiguity(
 @app.get("/api/document/{document_id}/demography")
 async def get_map_demography(
     document_id: str,
+    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
     ids: list[str] = Query(default=[]),
     stats: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    document = session.exec(
-        select(Document).filter(Document.document_id == document_id)
-    ).one()
-
-    dm = session.exec(
-        select(DistrictrMap).filter(
-            DistrictrMap.gerrydb_table_name == document.gerrydb_table
-        )
-    ).one()
-
     columns = []
-    if dm.available_summary_stats is None:
+    if districtr_map.available_summary_stats is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str("Summary statistic not available for this map"),
         )
     # by default use all available columns otherwise the requested columns
-    available_summary_stats = dm.available_summary_stats if len(stats) == 0 else stats
+
+    available_summary_stats = (
+        districtr_map.available_summary_stats if len(stats) == 0 else stats
+    )
     # By default, provide all summary stats
+
     for summary_stat in available_summary_stats:
         if summary_stat not in SummaryStatisticColumnLists.__members__:
             continue
@@ -536,13 +589,13 @@ async def get_map_demography(
             WHERE document_id = :document_id
             UNION
             SELECT path as geo_id
-            FROM gerrydb.{dm.parent_layer}""")
+            FROM gerrydb.{districtr_map.parent_layer}""")
         params = {"document_id": document_id}
 
     stmt = text(f"""
         SELECT path, {",".join(columns)}
         FROM ({ids_subquery}) as ids
-        LEFT JOIN gerrydb.{dm.gerrydb_table_name} gdb
+        LEFT JOIN gerrydb.{districtr_map.gerrydb_table_name} gdb
         on gdb.path = ids.geo_id
         WHERE path is not null
     """)
