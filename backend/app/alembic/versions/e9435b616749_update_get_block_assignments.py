@@ -32,6 +32,8 @@ def upgrade() -> None:
     ]:
         with open(f"{SQL_DIR}/{udf}.sql", "r") as f:
             sql = f.read()
+        # Need to drop the function before creating it again because the function signature has changed
+        op.execute(sa.text(f"DROP FUNCTION IF EXISTS {udf};"))
         op.execute(sa.text(sql))
 
 
