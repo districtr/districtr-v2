@@ -62,9 +62,6 @@ export const ZoomToUnassigned = () => {
 
   return (
     <Flex direction="column">
-      <Heading as="h3" size="3">
-        Unassigned areas
-      </Heading>
       {unassigned !== undefined && (
         <InfoText
           unassigned={unassigned}
@@ -73,17 +70,7 @@ export const ZoomToUnassigned = () => {
         />
       )}
       {unassignedFeatureBboxes.length > 1 && (
-        <Flex
-          direction="row"
-          align={'center'}
-          gapX="2"
-          gapY="2"
-          wrap="wrap"
-          justify={{
-            initial: 'center',
-            xl: 'start',
-          }}
-        >
+        <Flex direction="row" align="center" gapX="2" gapY="2" wrap="wrap" justify="start" pt="2">
           <div>
             <IconButton
               variant="outline"
@@ -114,18 +101,14 @@ export const ZoomToUnassigned = () => {
               <ChevronRightIcon />
             </IconButton>
           </div>
-        </Flex>
-      )}
-      <Flex direction={'row'} gap="4" align="center" my="2">
-        {unassignedOverallBbox && (
           <Button onClick={fitToOverallBounds} variant="surface" className="block">
             {`Show ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
           </Button>
-        )}
-        <Flex direction="row" gapX="4" pt="4" align="center">
-          <RefreshButton onClick={updateUnassignedFeatures} />
-          <TimestampDisplay timestamp={lastUpdated} />
         </Flex>
+      )}
+      <Flex direction="row" gapX="4" pt="4" align="center">
+        <RefreshButton onClick={updateUnassignedFeatures} />
+        <TimestampDisplay timestamp={lastUpdated} />
       </Flex>
     </Flex>
   );
