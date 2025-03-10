@@ -564,9 +564,14 @@ async def get_connected_component_bboxes(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"
         )
         gerrydb_name = districtr_map.child_layer
-        (zone_assignments,) = contiguity.get_block_assignments(
+        zone_assignments = contiguity.get_block_assignments(
             session, document_id, zones=[zone]
         )
+        if len(zone_assignments) == 0:
+            raise HTTPException(status_code=404, detail="Zone not found")
+        elif len(zone_assignments) > 1:
+            raise HTTPException(status_code=500, detail="Multiple zones found")
+        zone_assignments = zone_assignments[0]
     else:
         gerrydb_name = districtr_map.parent_layer
         logger.info(

@@ -227,6 +227,18 @@ def test_simple_geos_contiguity_subgraph_bboxes(
     assert len(data["features"]) == 1
 
 
+def test_simple_geos_contiguity_subgraph_bboxes_nonexistent_zone(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity/3/connected_component_bboxes",
+    )
+    assert response.status_code == 404
+    data = response.json()
+    assert data["detail"] == "Zone not found"
+
+
 def test_simple_geos_discontiguity(
     client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
 ):
