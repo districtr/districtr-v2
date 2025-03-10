@@ -2,17 +2,16 @@ import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {useMapStore} from '@/app/store/mapStore';
 import {useUnassignFeaturesStore} from '@/app/store/unassignedFeatures';
 import {formatNumber} from '@/app/utils/numbers';
-import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
-import {Button, Flex, Heading, IconButton, Select, Text, Tooltip} from '@radix-ui/themes';
-import React, {useEffect, useLayoutEffect, useRef} from 'react';
+import {Button, Flex, Text} from '@radix-ui/themes';
+import React, {useEffect, useRef} from 'react';
 import {RefreshButton, TimestampDisplay} from '../../Time/TimestampDisplay';
+import ZoomToFeature from './ZoomToFeature';
 
 export const ZoomToUnassigned = () => {
   const {
     updateUnassignedFeatures,
     selectedIndex,
     setSelectedIndex,
-    changeSelectedIndex,
     unassignedFeatureBboxes,
     hasFoundUnassigned,
     unassignedOverallBbox,
@@ -25,21 +24,6 @@ export const ZoomToUnassigned = () => {
   // prevent duplicate requests to get unassigned features
   const initialMapDocument = useRef(mapDocument);
   const unassigned = summaryStats?.unassigned;
-  // on repeat visit, prevent zooming to bounds on first render
-  const [hasMounted, setHasMounted] = React.useState(false);
-
-  useEffect(() => {
-    if (selectedIndex !== null && hasMounted) {
-      const feature = unassignedFeatureBboxes[selectedIndex];
-      feature.properties?.bbox && mapRef?.fitBounds(feature.properties.bbox);
-    }
-  }, [selectedIndex]);
-
-  // fires on first layout render
-  // after useEffect in component lifecycle
-  useLayoutEffect(() => {
-    setHasMounted(true);
-  }, []);
 
   const fitToOverallBounds = () =>
     unassignedOverallBbox && mapRef?.fitBounds(unassignedOverallBbox);
@@ -69,43 +53,16 @@ export const ZoomToUnassigned = () => {
           numFeatures={unassignedFeatureBboxes.length}
         />
       )}
-      {unassignedFeatureBboxes.length > 1 && (
-        <Flex direction="row" align="center" gapX="2" gapY="2" wrap="wrap" justify="start" pt="2">
-          <div>
-            <IconButton
-              variant="outline"
-              onClick={() => changeSelectedIndex(-1)}
-              disabled={!selectedIndex || selectedIndex === 0}
-            >
-              <ChevronLeftIcon />
-            </IconButton>
-            <Select.Root
-              value={`${selectedIndex || 0}`}
-              onValueChange={value => setSelectedIndex(parseInt(value))}
-            >
-              <Select.Trigger mx="2" />
-              <Select.Content>
-                {unassignedFeatureBboxes.map((feature, index) => (
-                  <Select.Item key={index} value={`${index}`}>
-                    {index + 1}
-                  </Select.Item>
-                ))}
-              </Select.Content>
-            </Select.Root>
-
-            <IconButton
-              variant="outline"
-              onClick={() => changeSelectedIndex(1)}
-              disabled={selectedIndex === unassignedFeatureBboxes.length - 1}
-            >
-              <ChevronRightIcon />
-            </IconButton>
-          </div>
-          <Button onClick={fitToOverallBounds} variant="surface" className="block">
-            {`Show ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
-          </Button>
-        </Flex>
-      )}
+      <Flex direction="row" align="center" gapX="2" gapY="2" wrap="wrap" justify="start" pt="2">
+        <ZoomToFeature
+          features={unassignedFeatureBboxes}
+          selectedIndex={selectedIndex}
+          setSelectedIndex={setSelectedIndex}
+        />
+        <Button onClick={fitToOverallBounds} variant="surface" className="block">
+          {`Show ${unassignedFeatureBboxes.length === 1 ? 'unassigned area' : 'all unassigned areas'}`}
+        </Button>
+      </Flex>
       <Flex direction="row" gapX="4" pt="4" align="center">
         <RefreshButton onClick={updateUnassignedFeatures} />
         <TimestampDisplay timestamp={lastUpdated} />
