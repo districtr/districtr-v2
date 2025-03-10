@@ -10,10 +10,6 @@ type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; 
 
 export const TOTPOPColumnConfig: ColumnConfiguration<TOTPOPZoneSummaryStats> = [
   {
-    label: 'White',
-    column: 'white_pop_20',
-  },
-  {
     label: 'Black',
     column: 'bpop_20',
   },
@@ -22,26 +18,30 @@ export const TOTPOPColumnConfig: ColumnConfiguration<TOTPOPZoneSummaryStats> = [
     column: 'hpop_20',
   },
   {
-    label: 'Asian',
+    label: 'Asian and Native Hawaiian/Pacific Islander',
     column: 'asian_nhpi_pop_20',
   },
   {
-    label: 'Am. Indian',
+    label: 'American Indian and Alaska Native',
     column: 'amin_pop_20',
   },
   {
-    label: 'Other',
-    column: 'other_pop_20',
+    label: 'White',
+    column: 'white_pop_20',
   },
+  {
+    label: 'Some Other Race',
+    column: 'other_pop_20',
+  }
 ];
 
 export const VAPColumnConfig: ColumnConfiguration<VAPZoneSummaryStats> = [
-  {column: "white_vap_20", label: "White VAP"},
-  {column: "other_vap_20", label: "Some Other Race VAP"},
+  {column: "bvap_20", label: "Black VAP"},
+  {column: "hvap_20", label: "Hispanic VAP"},
   {column: "amin_vap_20", label: "American Indian/Alaska Native VAP"},
   {column: "asian_nhpi_vap_20", label: "Asian and NHPI VAP"},
-  {column: "hvap_20", label: "Hispanic VAP"},
-  {column: "bvap_20", label: "Black VAP"},
+  {column: "white_vap_20", label: "White VAP"},
+  {column: "other_vap_20", label: "Some Other Race VAP"}
 ];
 
 export const columnConfigs = {

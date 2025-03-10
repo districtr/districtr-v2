@@ -35,7 +35,7 @@ export const demographyVariables: Array<{
     models: ['TOTPOP'],
   },
   {
-    label: 'Population: Asian',
+    label: 'Population: Asian or Native Hawaiian/Pacific Islander',
     value: 'asian_nhpi_pop_20',
     models: ['TOTPOP'],
   },
