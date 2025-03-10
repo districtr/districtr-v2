@@ -1,73 +1,77 @@
 name: vap and election batch tileset load
 version: 0.1.0
 tilesets:
-  ak_all_vap_elec:
-    - gpkg: ak_vtd_all_vap_elec.gpkg
-      layer_name: ak_vtd_all_vap_elec_graph
-      new_layer_name: ak_vtd_all_vap_elec
-    - gpkg: ak_block_all_vap_elec.gpkg
-      layer_name: ak_block_all_vap_elec_graph
-      new_layer_name: ak_block_all_vap_elec
-  co_all_vap_elec:
-    - gpkg: co_vtd_all_vap_elec.gpkg
-      layer_name: co_vtd_all_vap_elec_graph
-      new_layer_name: co_vtd_all_vap_elec
-    - gpkg: co_block_all_vap_elec.gpkg
-      layer_name: co_block_all_vap_elec_graph
-      new_layer_name: co_block_all_vap_elec
-  fl_all_vap_elec:
-    - gpkg: fl_vtd_all_vap_elec.gpkg
-      layer_name: fl_vtd_all_vap_elec_graph
-      new_layer_name: fl_vtd_all_vap_elec
-    - gpkg: fl_block_all_vap_elec.gpkg
-      layer_name: fl_block_all_vap_elec_graph
-      new_layer_name: fl_block_all_vap_elec
-  ks_all_vap_elec:
-    - gpkg: ks_vtd_all_vap_elec.gpkg
-      layer_name: ks_vtd_all_vap_elec_graph
-      new_layer_name: ks_vtd_all_vap_elec
-    - gpkg: ks_block_all_vap_elec.gpkg
-      layer_name: ks_block_all_vap_elec_graph
-      new_layer_name: ks_block_all_vap_elec
-  ma_all_vap_elec:
-    - gpkg: ma_vtd_all_vap_elec.gpkg
-      layer_name: ma_vtd_all_vap_elec_graph
-      new_layer_name: ma_vtd_all_vap_elec
-    - gpkg: ma_block_all_vap_elec.gpkg
-      layer_name: ma_block_all_vap_elec_graph
-      new_layer_name: ma_block_all_vap_elec
-  mt_all_vap_elec:
-    - gpkg: mt_vtd_all_vap_elec.gpkg
-      layer_name: mt_vtd_all_vap_elec_graph
-      new_layer_name: mt_vtd_all_vap_elec
-    - gpkg: mt_block_all_vap_elec.gpkg
-      layer_name: mt_block_all_vap_elec_graph
-      new_layer_name: mt_block_all_vap_elec
-  nc_all_vap_elec:
-    - gpkg: nc_vtd_all_vap_elec.gpkg
-      layer_name: nc_vtd_all_vap_elec_graph
-      new_layer_name: nc_vtd_all_vap_elec
-    - gpkg: nc_block_all_vap_elec.gpkg
-      layer_name: nc_block_all_vap_elec_graph
-      new_layer_name: nc_block_all_vap_elec
-  pa_all_vap_elec:
-    - gpkg: pa_vtd_all_vap_elec.gpkg
-      layer_name: pa_vtd_all_vap_elec_graph
-      new_layer_name: pa_vtd_all_vap_elec
-    - gpkg: pa_block_all_vap_elec.gpkg
-      layer_name: pa_block_all_vap_elec_graph
-      new_layer_name: pa_block_all_vap_elec
-  tx_all_vap_elec:
-    - gpkg: tx_vtd_all_vap_elec.gpkg
-      layer_name: tx_vtd_all_vap_elec_graph
-      new_layer_name: tx_vtd_all_vap_elec
-    - gpkg: tx_block_all_vap_elec.gpkg
-      layer_name: tx_block_all_vap_elec_graph
-      new_layer_name: tx_block_all_vap_elec
-  wa_all_vap_elec:
-    - gpkg: wa_vtd_all_vap_elec.gpkg
-      layer_name: wa_vtd_all_vap_elec_graph
-      new_layer_name: wa_vtd_all_vap_elec
-    - gpkg: wa_block_all_vap_elec.gpkg
-      layer_name: wa_block_all_vap_elec_graph
-      new_layer_name: wa_block_all_vap_elec
+  ak_districtr_view:
+    - gpkg: ak_vtd_districtr_view.gpkg
+      layer_name: ak_vtd_districtr_view
+      new_layer_name: ak_vtd_districtr_view
+    - gpkg: ak_block_districtr_view.gpkg
+      layer_name: ak_block_districtr_view
+      new_layer_name: ak_block_districtr_view
+  co_districtr_view:
+    - gpkg: co_vtd_districtr_view.gpkg
+      layer_name: co_vtd_districtr_view
+      new_layer_name: co_vtd_districtr_view
+    - gpkg: co_block_districtr_view.gpkg
+      layer_name: co_block_districtr_view
+      new_layer_name: co_block_districtr_view
+  fl_districtr_view:
+    - gpkg: fl_vtd_districtr_view.gpkg
+      layer_name: fl_vtd_districtr_view
+      new_layer_name: fl_vtd_districtr_view
+    - gpkg: fl_block_districtr_view.gpkg
+      layer_name: fl_block_districtr_view
+      new_layer_name: fl_block_districtr_view
+  ks_districtr_view:
+    - gpkg: ks_vtd_districtr_view.gpkg
+      layer_name: ks_vtd_districtr_view
+      new_layer_name: ks_vtd_districtr_view
+    - gpkg: ks_block_districtr_view.gpkg
+      layer_name: ks_block_districtr_view
+      new_layer_name: ks_block_districtr_view
+  ma_districtr_view:
+    - gpkg: ma_vtd_districtr_view.gpkg
+      layer_name: ma_vtd_districtr_view
+      new_layer_name: ma_vtd_districtr_view
+    - gpkg: ma_block_districtr_view.gpkg
+      layer_name: ma_block_districtr_view
+      new_layer_name: ma_block_districtr_view
+  mt_districtr_view:
+    - gpkg: mt_vtd_districtr_view.gpkg
+      layer_name: mt_vtd_districtr_view
+      new_layer_name: mt_vtd_districtr_view
+    - gpkg: mt_block_districtr_view.gpkg
+      layer_name: mt_block_districtr_view
+      new_layer_name: mt_block_districtr_view
+  nc_districtr_view:
+    - gpkg: nc_vtd_districtr_view.gpkg
+      layer_name: nc_vtd_districtr_view
+      new_layer_name: nc_vtd_districtr_view
+    - gpkg: nc_block_districtr_view.gpkg
+      layer_name: nc_block_districtr_view
+      new_layer_name: nc_block_districtr_view
+  pa_districtr_view:
+    - gpkg: pa_vtd_districtr_view.gpkg
+      layer_name: pa_vtd_districtr_view
+      new_layer_name: pa_vtd_districtr_view
+    - gpkg: pa_block_districtr_view.gpkg
+      layer_name: pa_block_districtr_view
+      new_layer_name: pa_block_districtr_view
+  tx_districtr_view:
+    - gpkg: tx_vtd_districtr_view.gpkg
+      layer_name: tx_vtd_districtr_view
+      new_layer_name: tx_vtd_districtr_view
+    - gpkg: tx_block_districtr_view.gpkg
+      layer_name: tx_block_districtr_view
+      new_layer_name: tx_block_districtr_view
+  wa_districtr_view:
+    - gpkg: wa_vtd_districtr_view.gpkg
+      layer_name: wa_vtd_districtr_view
+      new_layer_name: wa_vtd_districtr_view
+    - gpkg: wa_block_districtr_view.gpkg
+      layer_name: wa_block_districtr_view
+      new_layer_name: wa_block_districtr_view
+  # wv_districtr_view:
+  #   - gpkg: wv_block_districtr_view.gpkg
+  #     layer_name: wv_block_districtr_view
+  #     new_layer_name: wv_block_districtr_view
