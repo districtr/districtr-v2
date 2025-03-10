@@ -49,10 +49,9 @@ class TimeStampMixin(SQLModel):
 
 
 class SummaryStatisticType(Enum):
-    P1 = "Population by Race"
-    P2 = "Hispanic or Latino, and Not Hispanic or Latino by Race"
-    P3 = "Voting Age Population by Race"
-    P4 = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+    TOTPOP = "Population by Race"
+    VAP = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+    VHISTORY = "Voting History"
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -224,39 +223,36 @@ class SummaryStats(BaseModel):
     results: list[Any]
 
 
-class PopulationStatsP1(BaseModel):
+class PopulationStatsTOTPOP(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    other_pop: int
-    asian_pop: int
-    amin_pop: int
-    nhpi_pop: int
-    black_pop: int
-    white_pop: int
-    two_or_more_races_pop: int
-    total_pop: int
+    other_pop_20: int
+    amin_pop_20: int
+    asian_nhpi_pop_20: int
+    black_pop_20: int
+    white_pop_20: int
+    two_or_more_races_pop_20: int
+    total_pop_20: int
 
 
-class SummaryStatsP1(PopulationStatsP1):
+class SummaryStatsTOTPOP(PopulationStatsTOTPOP):
     zone: int
 
 
-class PopulationStatsP4(BaseModel):
+class PopulationStatsVAP(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    hispanic_vap: int
-    non_hispanic_asian_vap: int
-    non_hispanic_amin_vap: int
-    non_hispanic_nhpi_vap: int
-    non_hispanic_black_vap: int
-    non_hispanic_white_vap: int
-    non_hispanic_other_vap: int
-    non_hispanic_two_or_more_races_vap: int
-    total_vap: int
+    white_vap_20: int
+    other_vap_20: int
+    amin_vap_20: int
+    asian_nhpi_vap_20: int
+    hvap_20: int
+    bvap_20: int
+    total_vap_20: int
 
 
-class SummaryStatsP4(PopulationStatsP4):
+class SummaryStatsVAP(PopulationStatsVAP):
     zone: int
 
 
 class SummaryStatisticColumnLists(Enum):
-    P1 = PopulationStatsP1.model_fields.keys()
-    P4 = PopulationStatsP4.model_fields.keys()
+    TOTPOP = PopulationStatsTOTPOP.model_fields.keys()
+    VAP = PopulationStatsVAP.model_fields.keys()
