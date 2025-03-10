@@ -5,6 +5,7 @@ import * as RadioGroup from '@radix-ui/react-radio-group';
 import {blackA} from '@radix-ui/colors';
 import {useMapStore} from '@/app/store/mapStore';
 import {NullableZone} from '@/app/constants/types';
+import { FALLBACK_NUM_DISTRICTS } from '@/app/constants/layers';
 
 type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
@@ -35,7 +36,7 @@ export const ColorPicker = <T extends boolean>({
   const mapDocument = useMapStore(state => state.mapDocument);
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const numDistricts = mapDocument?.num_districts ?? 4;
+  const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
 
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
