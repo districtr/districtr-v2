@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS get_available_summary_stats(TEXT);
 CREATE OR REPLACE FUNCTION get_available_summary_stats(gerrydb_table_name TEXT)
 RETURNS TABLE (summary_stat TEXT) AS $$
 DECLARE
@@ -16,7 +17,7 @@ BEGIN
           'asian_nhpi_pop_20',
           'hpop_20',
           'bpop_20',
-          'total_pop_20',
+          'total_pop_20'
         )
     ;
 
@@ -31,7 +32,7 @@ BEGIN
           'asian_nhpi_vap_20',
           'hvap_20',
           'bvap_20',
-          'total_vap_20',
+          'total_vap_20'
         )
     ;
 
@@ -57,7 +58,7 @@ BEGIN
           'pres_20_rep',
           'pres_20_dem',
           'pres_16_rep',
-          'pres_16_dem',
+          'pres_16_dem'
         )
     ;
 
