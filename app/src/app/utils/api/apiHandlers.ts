@@ -92,7 +92,7 @@ export interface DocumentObject {
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
-  available_summary_stats: Array<keyof SummaryTypes>;
+  available_summary_stats: Array<SummaryTypes>;
 }
 
 /**

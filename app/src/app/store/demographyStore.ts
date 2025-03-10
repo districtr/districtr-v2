@@ -7,92 +7,95 @@ import maplibregl from 'maplibre-gl';
 import * as scale from 'd3-scale'
 import { demographyCache } from '../utils/demography/demographyCache';
 import { updateDemography } from '../utils/api/queries';
+import { AllDemographyVariables, SummaryTypes } from '../utils/api/summaryStats';
 
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
 
-export const demographyVariables = [
+export const demographyVariables: Array<{
+  label: string;
+  value: AllDemographyVariables;
+  models: Array<SummaryTypes>;
+  colorScheme?: typeof chromatic.schemeBlues
+}> = [
   {
     label: 'Population: Total',
-    value: 'total_pop',
-    models: ['P1'],
+    value: 'total_pop_20',
+    models: ['TOTPOP'],
     colorScheme: chromatic.schemeBuGn,
   },
   {
     label: 'Population: White',
-    value: 'white_pop',
-    models: ['P1'],
+    value: 'white_pop_20',
+    models: ['TOTPOP'],
   },
   {
     label: 'Population: Black',
-    value: 'black_pop',
-    models: ['P1'],
+    value: 'black_pop_20',
+    models: ['TOTPOP'],
   },
   {
     label: 'Population: Asian',
-    value: 'asian_pop',
-    models: ['P1'],
+    value: 'asian_pop_20',
+    models: ['TOTPOP'],
   },
   {
     label: 'Population: Native Hawaiian/Pacific Islander',
-    value: 'nhpi_pop',
-    models: ['P1'],
+    value: 'nhpi_pop_20',
+    models: ['TOTPOP'],
   },
   {
     label: 'Population: American Indian/Alaska Native',
-    value: 'amin_pop',
-    models: ['P1'],
+    value: 'amin_pop_20',
+    models: ['TOTPOP'],
   },
   {
     label: 'Population: Other',
-    value: 'other_pop',
-    models: ['P1'],
+    value: 'other_pop_20',
+    models: ['TOTPOP'],
   },
   {
     label: 'Voting Population: Total',
     value: 'total_vap',
-    models: ['P4'],
+    models: ['VAP'],
   },
   {
     label: 'Voting Population: White',
     value: 'non_hispanic_white_vap',
-    models: ['P4'],
+    models: ['VAP'],
   },
   {
     label: 'Voting Population: Black',
     value: 'non_hispanic_black_vap',
-    models: ['P4'],
+    models: ['VAP'],
   },
   {
     label: 'Voting Population: Hispanic',
     value: 'hispanic_vap',
-    models: ['P4'],
+    models: ['VAP'],
   },
   {
     label: 'Voting Population: Asian',
     value: 'non_hispanic_asian_vap',
-    models: ['P4'],
+    models: ['VAP'],
   },
   {
     label: 'Voting Population: Native Hawaiian/Pacific Islander',
     value: 'non_hispanic_nhpi_vap',
-    models: ['P4'],
+    models: ['VAP'],
   },
   {
     label: 'Voting Population: American Indian/Alaska Native',
     value: 'non_hispanic_amin_vap',
-    models: ['P4'],
+    models: ['VAP'],
   },
   {
     label: 'Voting Population: Other',
     value: 'non_hispanic_other_vap',
-    models: ['P4'],
+    models: ['VAP'],
   },
 ] as const;
 
-export type DemographyVariable = (typeof demographyVariables)[number]['value'];
-export type DemographyPercentVariable = `${DemographyVariable}_pct`;
-export type AllDemographyVariables = DemographyVariable | DemographyPercentVariable;
 /**
  * Zustand schema for managing demographic map data and operations.
  */

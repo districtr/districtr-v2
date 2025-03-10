@@ -1,7 +1,7 @@
-import { CleanedP1ZoneSummaryStats, CleanedP4ZoneSummaryStats, P1TotPopSummaryStats, P4VapPopSummaryStats } from "../api/summaryStats";
+import { CleanedTOTPOPZoneSummaryStats, CleanedVAPZoneSummaryStats, TOTPOPTotPopSummaryStats, VAPVapPopSummaryStats } from "../api/summaryStats";
 
-export type DemographyRow = {path: string, sourceLayer: string} & P1TotPopSummaryStats & P4VapPopSummaryStats;
-export type AllPropertyKeys = keyof P1TotPopSummaryStats | keyof P4VapPopSummaryStats | keyof CleanedP1ZoneSummaryStats | keyof CleanedP4ZoneSummaryStats
+export type DemographyRow = {path: string, sourceLayer: string} & TOTPOPTotPopSummaryStats & VAPVapPopSummaryStats;
+export type AllPropertyKeys = keyof TOTPOPTotPopSummaryStats | keyof VAPVapPopSummaryStats | keyof CleanedTOTPOPZoneSummaryStats | keyof CleanedVAPZoneSummaryStats
 export type MaxRollups = Record<AllPropertyKeys, string>
 
 export type MaxValues = Record<AllPropertyKeys, number>

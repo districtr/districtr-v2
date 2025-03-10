@@ -7,10 +7,10 @@ import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
 import {useChartStore} from '../../store/chartStore';
 import {
-  P1TotPopSummaryStats,
-  P1ZoneSummaryStats,
-  P4VapPopSummaryStats,
-  P4ZoneSummaryStats,
+  TOTPOPTotPopSummaryStats,
+  TOTPOPZoneSummaryStats,
+  VAPVapPopSummaryStats,
+  VAPZoneSummaryStats,
   SummaryStatKeys,
   SummaryTypes,
 } from '../api/summaryStats';
@@ -59,8 +59,8 @@ class DemographyCache {
    * Available summary statistics / derived values.
    */
   summaryStats: {
-    P1?: P1TotPopSummaryStats;
-    P4?: P4VapPopSummaryStats;
+    TOTPOP?: TOTPOPTotPopSummaryStats;
+    VAP?: VAPVapPopSummaryStats;
     idealpop?: number;
     totalPopulation?: number;
     unassigned?: number;
@@ -220,10 +220,10 @@ class DemographyCache {
    *
    * @returns The available summaries object.
    */
-  getAvailableSummariesObject(): Record<keyof SummaryTypes, boolean> {
+  getAvailableSummariesObject(): Record<SummaryTypes, boolean> {
     const mapDocument = useMapStore.getState().mapDocument;
     if (!mapDocument?.available_summary_stats) {
-      return {} as Record<keyof SummaryTypes, boolean>;
+      return {} as Record<SummaryTypes, boolean>;
     }
 
     return mapDocument.available_summary_stats.reduce(
@@ -231,7 +231,7 @@ class DemographyCache {
         acc[stat] = true;
         return acc;
       },
-      {} as Record<keyof SummaryTypes, boolean>
+      {} as Record<SummaryTypes, boolean>
     );
   }
 
@@ -312,12 +312,12 @@ class DemographyCache {
     const mapDocument = useMapStore.getState().mapDocument;
 
     Object.keys(availableStats).forEach(key => {
-      const summaryStats: Partial<P1ZoneSummaryStats & P4ZoneSummaryStats> = {};
-      const statKeys = SummaryStatKeys[key as keyof SummaryTypes];
+      const summaryStats: Partial<TOTPOPZoneSummaryStats & VAPZoneSummaryStats> = {};
+      const statKeys = SummaryStatKeys[key as SummaryTypes];
       if (!statKeys) return;
       statKeys.forEach(stat => (summaryStats[stat] = summaries[stat]));
-      this.summaryStats[key as keyof SummaryTypes] = summaryStats as P1TotPopSummaryStats &
-        P4VapPopSummaryStats;
+      this.summaryStats[key as SummaryTypes] = summaryStats as TOTPOPTotPopSummaryStats &
+        VAPVapPopSummaryStats;
     });
 
     this.summaryStats.totalPopulation = summaries.total_pop;

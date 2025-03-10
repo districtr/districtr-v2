@@ -1,58 +1,56 @@
 import {NumberFormats} from '@/app/utils/numbers';
 import {
-  P1ZoneSummaryStats,
-  P4ZoneSummaryStats,
+  TOTPOPZoneSummaryStats,
+  VAPZoneSummaryStats,
   SummaryTypes,
 } from '@/app/utils/api/summaryStats';
 
 export type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends Record<string, any>> = Array<{label: string; column: keyof T}>;
 
-export const p1ColumnConfig: ColumnConfiguration<P1ZoneSummaryStats> = [
+export const TOTPOPColumnConfig: ColumnConfiguration<TOTPOPZoneSummaryStats> = [
   {
     label: 'White',
-    column: 'white_pop',
+    column: 'white_pop_20',
   },
   {
     label: 'Black',
-    column: 'black_pop',
+    column: 'black_pop_20',
   },
   {
     label: 'Asian',
-    column: 'asian_pop',
+    column: 'asian_pop_20',
   },
   {
     label: 'Am. Indian',
-    column: 'amin_pop',
+    column: 'amin_pop_20',
   },
   {
     label: 'Pacific Isl.',
-    column: 'nhpi_pop',
+    column: 'nhpi_pop_20',
   },
   {
     label: 'Two or More Races',
-    column: 'two_or_more_races_pop',
+    column: 'two_or_more_races_pop_20',
   },
   {
     label: 'Other',
-    column: 'other_pop',
+    column: 'other_pop_20',
   },
 ];
 
-export const p4ColumnConfig: ColumnConfiguration<P4ZoneSummaryStats> = [
-  {column: 'hispanic_vap', label: 'Hispanic'},
-  {column: 'non_hispanic_asian_vap', label: 'Non-hispanic Asian'},
-  {column: 'non_hispanic_amin_vap', label: 'Non-hispanic Amin.'},
-  {column: 'non_hispanic_nhpi_vap', label: 'Non-hispanic NHPI'},
-  {column: 'non_hispanic_black_vap', label: 'Non-hispanic Black'},
-  {column: 'non_hispanic_white_vap', label: 'Non-hispanic White'},
-  {column: 'non_hispanic_other_vap', label: 'Non-hispanic Other'},
-  {column: 'non_hispanic_two_or_more_races_vap', label: 'Non-hispanic 2+ Races'},
+export const VAPColumnConfig: ColumnConfiguration<VAPZoneSummaryStats> = [
+  {column: "white_vap_20", label: "White VAP"},
+  {column: "other_vap_20", label: "Some Other Race VAP"},
+  {column: "amin_vap_20", label: "American Indian/Alaska Native VAP"},
+  {column: "asian_nhpi_vap_20", label: "Asian and NHPI VAP"},
+  {column: "hvap_20", label: "Hispanic VAP"},
+  {column: "bvap_20", label: "Black VAP"},
 ];
 
 export const columnConfigs = {
-  P1: p1ColumnConfig,
-  P4: p4ColumnConfig,
+  TOTPOP: TOTPOPColumnConfig,
+  VAP: VAPColumnConfig,
 } as const;
 
 export const modeButtonConfig: Array<{label: string; value: EvalModes}> = [
@@ -73,15 +71,15 @@ export const numberFormats: Record<EvalModes, NumberFormats> = {
 };
 
 export const summaryStatLabels: Array<{
-  value: keyof SummaryTypes;
+  value: SummaryTypes;
   label: string;
 }> = [
   {
-    value: 'P4',
+    value: 'VAP',
     label: 'Voting age population',
   },
   {
-    value: 'P1',
+    value: 'TOTPOP',
     label: 'Total population',
   }
 ]

@@ -29,17 +29,17 @@ const Evaluation: React.FC = () => {
     mapDocument?.available_summary_stats?.includes(f.value)
   );
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
-  const [summaryType, setSummaryType] = useState<keyof SummaryTypes | undefined>(
-    (mapDocument?.available_summary_stats?.includes('P4')
-      ? 'P4'
-      : mapDocument?.available_summary_stats?.[0]) as keyof SummaryTypes
+  const [summaryType, setSummaryType] = useState<SummaryTypes | undefined>(
+    (mapDocument?.available_summary_stats?.includes('VAP')
+      ? 'VAP'
+      : mapDocument?.available_summary_stats?.[0]) as SummaryTypes
   );
   const totals = summaryStats?.[summaryType as keyof typeof summaryStats];
 
   useEffect(() => {
     const hasCurrent = summaryType && mapDocument?.available_summary_stats?.includes(summaryType);
     if (!hasCurrent) {
-      setSummaryType(mapDocument?.available_summary_stats?.[0] as keyof SummaryTypes);
+      setSummaryType(mapDocument?.available_summary_stats?.[0] as SummaryTypes);
     }
   }, [mapDocument?.available_summary_stats]);
 
@@ -59,7 +59,7 @@ const Evaluation: React.FC = () => {
     <Box width={'100%'}>
       <Tabs.Root
         value={summaryType}
-        onValueChange={value => setSummaryType(value as keyof SummaryTypes)}
+        onValueChange={value => setSummaryType(value as SummaryTypes)}
       >
         <Tabs.List>
           {availableSummaries.map(({value, label}) => (
