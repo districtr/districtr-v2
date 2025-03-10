@@ -145,8 +145,18 @@ def downgrade() -> None:
     op.execute(
         "DROP PROCEDURE IF EXISTS create_shatterable_gerrydb_view(TEXT, TEXT, TEXT)"
     )
-    for func_name in [
-        "create_districtr_map",
-        "shatter_parent",
-    ]:
-        op.execute(f"DROP FUNCTION IF EXISTS {func_name}")
+    try:
+        for func_name in [
+            """create_districtr_map(
+                map_name VARCHAR,
+                gerrydb_table_name VARCHAR,
+                num_districts INTEGER,
+                tiles_s3_path VARCHAR,
+                parent_layer_name VARCHAR,
+                child_layer_name VARCHAR
+            )""",
+            "shatter_parent",
+        ]:
+            op.execute(f"DROP FUNCTION IF EXISTS {func_name}")
+    except Exception as e:
+        print(e)
