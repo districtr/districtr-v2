@@ -4,8 +4,7 @@ export type SummaryTypes = 'TOTPOP' | 'VAP';
  * TOTPOPZoneSummaryStats
  *
  * @interface
- * @property {number} zone - The zone.
- * @property {number} total_pop - The total population.
+ * @property {number} total_pop_20 - The total population.
  */
 export interface TOTPOPZoneSummaryStats {
   other_pop_20: number;
@@ -27,12 +26,12 @@ export const TOTPOPZoneSummaryStatsKeys: Array<keyof TOTPOPZoneSummaryStats> = [
   'nhpi_pop_20',
   'black_pop_20',
   'white_pop_20',
-  'two_or_more_races_pop_20_x',
+  'two_or_more_races_pop_20',
 ] as const;
 
 export type CleanedTOTPOPZoneSummaryStats = WithPercentColumns<
   TOTPOPZoneSummaryStats,
-  Exclude<(typeof TOTPOPZoneSummaryStatsKeys)[number], 'total_pop'>
+  Exclude<(typeof TOTPOPZoneSummaryStatsKeys)[number], 'total_pop_20'>
 >;
 
 export interface VAPZoneSummaryStats {
@@ -61,7 +60,7 @@ export const VAPZoneSummaryStatsKeys: Array<keyof VAPZoneSummaryStats> = [
  *
  * @interface
  * @property {number} zone - The zone.
- * @property {number} total_pop - The total population.
+ * @property {number} total_vap_20 - The total population.
  */
 
 export type CleanedVAPZoneSummaryStats = WithPercentColumns<
@@ -78,18 +77,19 @@ export const TotalColumnKeys = {
   TOTPOP: 'total_pop_20',
   VAP: 'total_vap_20',
 } as const;
+export const TotalColumnKeysArray = Object.values(TotalColumnKeys);
 
 export type TotalColumnVariables = (typeof TotalColumnKeys)[keyof typeof TotalColumnKeys];
 
 export type DemographyVariable =
-  | typeof TOTPOPZoneSummaryStatsKeys
-  | typeof VAPZoneSummaryStatsKeys
+  | typeof TOTPOPZoneSummaryStatsKeys[number]
+  | typeof VAPZoneSummaryStatsKeys[number]
   | TotalColumnVariables;
   
 export type AllDemographyVariables =
+  | DemographyVariable
   | keyof CleanedTOTPOPZoneSummaryStats
   | keyof CleanedVAPZoneSummaryStats
-  | TotalColumnVariables;
 
 // GENERICS
 export type WithPercentColumns<

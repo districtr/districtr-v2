@@ -42,7 +42,7 @@ const PopulationTextLayer = () => {
         type="symbol"
         source="POPULATION_TEXT"
         layout={{
-          'text-field': ['get', 'total_pop'],
+          'text-field': ['get', 'total_pop_20'],
           'text-font': ['Barlow Bold'],
           'text-size': 18,
           'text-anchor': 'center',

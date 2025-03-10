@@ -121,7 +121,7 @@ export function getLayerFill(
 }
 
 const getDissolved = async () => {
-  const activeZones = demographyCache.populations.filter(row => row.total_pop > 0).map(f => f.zone);
+  const activeZones = demographyCache.populations.filter(row => row.total_pop_20 > 0).map(f => f.zone);
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !GeometryWorker || !activeZones?.length) return;

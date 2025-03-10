@@ -56,42 +56,37 @@ export const demographyVariables: Array<{
   },
   {
     label: 'Voting Population: Total',
-    value: 'total_vap',
+    value: 'total_vap_20',
     models: ['VAP'],
   },
   {
     label: 'Voting Population: White',
-    value: 'non_hispanic_white_vap',
+    value: 'white_vap_20',
     models: ['VAP'],
   },
   {
     label: 'Voting Population: Black',
-    value: 'non_hispanic_black_vap',
+    value: 'bvap_20',
     models: ['VAP'],
   },
   {
     label: 'Voting Population: Hispanic',
-    value: 'hispanic_vap',
+    value: 'hvap_20',
     models: ['VAP'],
   },
   {
-    label: 'Voting Population: Asian',
-    value: 'non_hispanic_asian_vap',
-    models: ['VAP'],
-  },
-  {
-    label: 'Voting Population: Native Hawaiian/Pacific Islander',
-    value: 'non_hispanic_nhpi_vap',
+    label: 'Voting Population: Asian or Native Hawaiian/Pacific Islander',
+    value: 'asian_nhpi_vap_20',
     models: ['VAP'],
   },
   {
     label: 'Voting Population: American Indian/Alaska Native',
-    value: 'non_hispanic_amin_vap',
+    value: 'amin_vap_20',
     models: ['VAP'],
   },
   {
     label: 'Voting Population: Other',
-    value: 'non_hispanic_other_vap',
+    value: 'other_vap_20',
     models: ['VAP'],
   },
 ] as const;
@@ -192,7 +187,7 @@ export var useDemographyStore = create(
         })
       }
     },
-    variable: 'total_pop',
+    variable: 'total_pop_20',
     setVariable: variable => set({variable}),
     scale: undefined,
     setScale: scale => set({scale}),

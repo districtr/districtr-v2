@@ -26,37 +26,31 @@ const NaNfN = (_row: DemographyRow) => NaN;
 export const getPctDerives = (
   stats: Record<SummaryTypes, boolean>
 ): Record<string, (row: DemographyRow) => number> => ({
-  other_pop_pct: !stats.TOTPOP ? NaNfN : row => row['other_pop'] / row['total_pop'],
-  asian_pop_pct: !stats.TOTPOP ? NaNfN : row => row['asian_pop'] / row['total_pop'],
-  amin_pop_pct: !stats.TOTPOP ? NaNfN : row => row['amin_pop'] / row['total_pop'],
-  nhpi_pop_pct: !stats.TOTPOP ? NaNfN : row => row['nhpi_pop'] / row['total_pop'],
-  black_pop_pct: !stats.TOTPOP ? NaNfN : row => row['black_pop'] / row['total_pop'],
-  white_pop_pct: !stats.TOTPOP ? NaNfN : row => row['white_pop'] / row['total_pop'],
-  two_or_more_races_pop_pct: !stats.TOTPOP
+  other_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['other_pop_20'] / row['total_pop_20'],
+  asian_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['asian_pop_20'] / row['total_pop_20'],
+  amin_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['amin_pop_20'] / row['total_pop_20'],
+  nhpi_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['nhpi_pop_20'] / row['total_pop_20'],
+  black_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['black_pop_20'] / row['total_pop_20'],
+  white_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['white_pop_20'] / row['total_pop_20'],
+  two_or_more_races_pop_20_pct: !stats.TOTPOP
     ? NaNfN
-    : row => row['two_or_more_races_pop'] / row['total_pop'],
-  hispanic_vap_pct: !stats.VAP ? NaNfN : row => row['hispanic_vap'] / row['total_vap'],
-  non_hispanic_asian_vap_pct: !stats.VAP
+    : row => row['two_or_more_races_pop_20'] / row['total_pop_20'],
+  hvap_20_pct: !stats.VAP ? NaNfN : row => row['hvap_20'] / row['total_vap_20'],
+  asian_nhpi_vap_20_pct: !stats.VAP
     ? NaNfN
-    : row => row['non_hispanic_asian_vap'] / row['total_vap'],
-  non_hispanic_amin_vap_pct: !stats.VAP
+    : row => row['asian_nhpi_vap_20'] / row['total_vap_20'],
+  amin_vap_20_pct: !stats.VAP
     ? NaNfN
-    : row => row['non_hispanic_amin_vap'] / row['total_vap'],
-  non_hispanic_nhpi_vap_pct: !stats.VAP
+    : row => row['amin_vap_20'] / row['total_vap_20'],
+  bvap_20_pct: !stats.VAP
     ? NaNfN
-    : row => row['non_hispanic_nhpi_vap'] / row['total_vap'],
-  non_hispanic_black_vap_pct: !stats.VAP
+    : row => row['bvap_20'] / row['total_vap_20'],
+  white_vap_20_pct: !stats.VAP
     ? NaNfN
-    : row => row['non_hispanic_black_vap'] / row['total_vap'],
-  non_hispanic_white_vap_pct: !stats.VAP
+    : row => row['white_vap_20'] / row['total_vap_20'],
+  other_vap_20_pct: !stats.VAP
     ? NaNfN
-    : row => row['non_hispanic_white_vap'] / row['total_vap'],
-  non_hispanic_other_vap_pct: !stats.VAP
-    ? NaNfN
-    : row => row['non_hispanic_other_vap'] / row['total_vap'],
-  non_hispanic_two_or_more_races_vap_pct: !stats.VAP
-    ? NaNfN
-    : row => row['non_hispanic_two_or_more_races_vap'] / row['total_vap'],
+    : row => row['other_vap_20'] / row['total_vap_20'],
 });
 
 /**

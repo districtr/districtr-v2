@@ -175,11 +175,11 @@ export const getAssignments: (
  *
  * @interface
  * @property {number} zone - The zone.
- * @property {number} total_pop - The total population.
+ * @property {number} total_pop_20 - The total population.
  */
 export interface ZonePopulation {
   zone: number;
-  total_pop: number;
+  total_pop_20: number;
 }
 
 /**

@@ -350,7 +350,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
 
             accumulatedGeoids.add(feature.properties?.path);
             // TODO: Tiles should have population values as numbers, not strings
-            const popValue = parseInt(feature.properties?.total_pop);
+            const popValue = parseInt(feature.properties?.total_pop_20);
             if (!isNaN(popValue)) {
               if (prevAssignment) {
                 popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
