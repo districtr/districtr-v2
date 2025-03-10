@@ -5,6 +5,7 @@ import {
   VAPVapPopSummaryStats,
   SummaryStatKeys,
   SummaryTypes,
+  TotalColumnKeys,
 } from '../api/summaryStats';
 import {DemographyRow, MaxRollups} from './types';
 
@@ -60,6 +61,10 @@ export const getPctDerives = (
 export const getRollups = (stats: Record<SummaryTypes, boolean>) => {
   const rollups: Partial<TOTPOPTotPopSummaryStats & VAPVapPopSummaryStats> = {};
   Object.keys(stats).forEach(stat => {
+    const totalColumn = TotalColumnKeys[stat as SummaryTypes];
+    if (totalColumn) {
+      rollups[totalColumn] = op.sum(totalColumn);
+    }
     if (stat in SummaryStatKeys) {
       const keys = SummaryStatKeys[stat as SummaryTypes];
       keys.forEach(key => {
@@ -67,6 +72,7 @@ export const getRollups = (stats: Record<SummaryTypes, boolean>) => {
       });
     }
   });
+  
   return rollups;
 };
 
