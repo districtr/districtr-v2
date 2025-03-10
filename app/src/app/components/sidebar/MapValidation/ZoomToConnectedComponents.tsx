@@ -4,7 +4,7 @@ import {getZoneConnectedComponentBBoxes} from '@/app/utils/api/apiHandlers';
 import {Blockquote, Flex, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {useState} from 'react';
+import {useState, useEffect} from 'react';
 import {ChevronDownIcon, ChevronUpIcon, CrossCircledIcon} from '@radix-ui/react-icons';
 
 interface ZoomToConnectedComponentsProps {
@@ -19,6 +19,7 @@ export default function ZoomToConnectedComponents({
   const mapDocument = useMapStore(store => store.mapDocument);
   const [showZoom, setShowZoom] = useState(false);
   const [selectedFeature, setSelectedFeature] = useState<number | null>(null);
+  const [numberConnectedComponents, setNumberConnectedComponents] = useState<number>(contiguity);
 
   const {data, error, isLoading, isFetched} = useQuery(
     {
@@ -32,11 +33,17 @@ export default function ZoomToConnectedComponents({
     queryClient
   );
 
+  useEffect(() => {
+    if (data) {
+      setNumberConnectedComponents(data.features.length);
+    }
+  }, [data]);
+
   return (
     <div>
       <Flex direction="row" gap="1" justify="start" align="center">
         <CrossCircledIcon color="red" />
-        <Text color="gray">{contiguity} connected components</Text>
+        <Text color="gray">{numberConnectedComponents} connected components</Text>
         <Tooltip content="View connected components">
           <IconButton variant="ghost" onClick={() => setShowZoom(!showZoom)}>
             {showZoom ? <ChevronUpIcon /> : <ChevronDownIcon />}
