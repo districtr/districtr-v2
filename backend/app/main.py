@@ -16,7 +16,7 @@ import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
 import app.contiguity.main as contiguity
-from networkx import Graph
+from networkx import Graph, connected_components
 from app.models import (
     Assignments,
     AssignmentsCreate,
@@ -33,7 +33,7 @@ from app.models import (
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
-    UnassignedBboxGeoJSONs,
+    BBoxGeoJSONs,
     SummaryStatisticColumnLists,
 )
 from sqlalchemy.sql import func
@@ -401,9 +401,7 @@ async def get_total_population(
             )
 
 
-@app.get(
-    "/api/document/{document_id}/unassigned", response_model=UnassignedBboxGeoJSONs
-)
+@app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
 async def get_unassigned_geoids(
     document: Annotated[Document, Depends(_get_document)],
     exclude_ids: list[str] = Query(default=[]),
@@ -461,43 +459,18 @@ def _get_districtr_map(
     return districtr_map
 
 
-@app.get("/api/document/{document_id}/contiguity")
-async def check_document_contiguity(
-    document_id: str,
-    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
-    zone: list[str] = Query(default=[]),
-    session: Session = Depends(get_session),
-):
-    if districtr_map.child_layer is not None:
-        logger.info(
-            f"Using child layer {districtr_map.child_layer} for document {document_id}"
-        )
-        gerrydb_name = districtr_map.child_layer
-        try:
-            kwargs = {"zones": [int(z) for z in zone]} if zone else {}
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid zone value(s) provided",
-            )
-        zone_assignments = contiguity.get_block_assignments(
-            session, document_id, **kwargs
-        )
-    else:
-        gerrydb_name = districtr_map.parent_layer
-        logger.info(
-            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
-        )
-        sql = text("""
-            select zone, array_agg(geo_id) as nodes
-            from assignments
-            where document_id = :document_id group by zone
-            and zone is not null""")
-        result = session.execute(sql, {"document_id": document_id}).fetchall()
-        zone_assignments = [
-            contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
-        ]
+async def _get_graph(gerrydb_name: str) -> Graph:
+    """
+    Get a graph from the cache or load it from a local file or S3.
+    - If cached, return it
+    - If not cached, download it to the VM if not already downloaded and cache it
 
+    Args:
+        gerrydb_name (str): The name of the GerryDB to get the graph for.
+
+    Returns:
+        Graph: The graph for the given GerryDB.
+    """
     try:
         path = contiguity.get_gerrydb_graph_file(gerrydb_name)
     except botocore.exceptions.ClientError as e:
@@ -527,6 +500,48 @@ async def check_document_contiguity(
         logger.error(f"Expected Graph, got {type(G)}")
         raise HTTPException(status_code=500, detail="Error loading graph")
 
+    return G
+
+
+@app.get("/api/document/{document_id}/contiguity")
+async def check_document_contiguity(
+    document_id: str,
+    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
+    zone: list[int] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
+    if districtr_map.child_layer is not None:
+        logger.info(
+            f"Using child layer {districtr_map.child_layer} for document {document_id}"
+        )
+        gerrydb_name = districtr_map.child_layer
+        kwargs = {"zones": zone} if len(zone) > 0 else {}
+        zone_assignments = contiguity.get_block_assignments(
+            session, document_id, **kwargs
+        )
+    else:
+        gerrydb_name = districtr_map.parent_layer
+        logger.info(
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+        )
+        sql = text("""
+            SELECT
+                zone,
+                array_agg(geo_id) as nodes
+            FROM
+                assignments
+            WHERE
+                document_id = :document_id
+            GROUP BY
+                zone
+                AND zone IS NOT NULL""")
+        result = session.execute(sql, {"document_id": document_id}).fetchall()
+        zone_assignments = [
+            contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
+        ]
+
+    G = await _get_graph(gerrydb_name)
+
     results = {}
     for zone_blocks in zone_assignments:
         logger.info(f"Checking contiguity for zone {zone_blocks.zone}")
@@ -535,6 +550,92 @@ async def check_document_contiguity(
         )
 
     return results
+
+
+@app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
+async def get_connected_component_bboxes(
+    document_id: str,
+    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
+    zone: int,
+    session: Session = Depends(get_session),
+):
+    if districtr_map.child_layer is not None:
+        logger.info(
+            f"Using child layer {districtr_map.child_layer} for document {document_id}"
+        )
+        gerrydb_name = districtr_map.child_layer
+        (zone_assignments,) = contiguity.get_block_assignments(
+            session, document_id, zones=[zone]
+        )
+    else:
+        gerrydb_name = districtr_map.parent_layer
+        logger.info(
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+        )
+        sql = text("""
+            SELECT
+                zone,
+                array_agg(geo_id) as nodes
+            FROM
+                assignments
+            WHERE
+                document_id = :document_id
+            GROUP BY
+                zone
+                AND zone = :zone""")
+        row = session.execute(
+            sql, {"document_id": document_id, "zone": zone}
+        ).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Zone not found")
+        zone_assignments = contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes)
+
+    G = await _get_graph(gerrydb_name)
+    subgraph = G.subgraph(nodes=zone_assignments.nodes)
+    zone_connected_components = connected_components(subgraph)
+
+    geo_ids_param = bindparam(key="geo_ids", type_=ARRAY(String))
+    subgraph_ids_param = bindparam(key="subgraph_ids", type_=ARRAY(String))
+
+    sql = text(f"""SELECT
+        st_asgeojson(
+            st_transform(
+                st_envelope(
+                    st_collect(
+                        geometry
+                    )
+                ), 4326
+            )
+        )::json as bbox
+    FROM (
+        SELECT
+            i.subgraph_index,
+            g.geometry
+        FROM
+            gerrydb.{gerrydb_name} g
+        JOIN (
+            SELECT
+                unnest(:geo_ids) as geo_id,
+                unnest(:subgraph_ids) as subgraph_index
+            ) i ON g.path = i.geo_id
+    ) AS grouped_geometries
+    GROUP BY
+        subgraph_index
+    """).bindparams(geo_ids_param, subgraph_ids_param)
+
+    # TODO: Don't love all this iteration but unfortunately postgres doesn't support
+    # multidimensional arrays with different dimensions, precluding some nice ideas
+    geo_ids = []
+    subgraph_ids = []
+    for idx, component in enumerate(zone_connected_components):
+        geo_ids.extend(component)
+        subgraph_ids.extend([idx] * len(component))
+
+    results = session.execute(
+        sql, params={"geo_ids": geo_ids, "subgraph_ids": subgraph_ids}
+    ).fetchall()
+
+    return BBoxGeoJSONs(features=[r.bbox for r in results])
 
 
 @app.get("/api/document/{document_id}/demography")

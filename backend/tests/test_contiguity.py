@@ -204,6 +204,29 @@ def test_simple_geos_contiguity(
     assert response.json() == {"1": 1, "2": 1}
 
 
+def test_simple_geos_contiguity_single_zone(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity?zone=1",
+    )
+    assert response.status_code == 200
+    assert response.json() == {"1": 1}
+
+
+def test_simple_geos_contiguity_subgraph_bboxes(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity/1/connected_component_bboxes",
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["features"]) == 1
+
+
 def test_simple_geos_discontiguity(
     client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
 ):
@@ -232,6 +255,37 @@ def test_simple_geos_discontiguity(
     )
     assert response.status_code == 200
     assert response.json() == {"1": 2, "2": 1}
+
+
+def test_simple_geos_discontiguity_subgraph_bboxes(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity",
+    )
+    assert response.status_code == 200
+    assert response.json() == {"1": 1, "2": 1}
+
+    # Break one parent and create discontiguous assignments
+    # See `simple_geos_graph` fixture for graph diagram and
+    # `simple_contigous_assignments` fixture for existing assignments
+    response = client.patch(
+        f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}
+    )
+    assert response.status_code == 200
+    response = client.patch(
+        "/api/update_assignments",
+        json={"assignments": [{"document_id": document_id, "geo_id": "e", "zone": 2}]},
+    )
+    assert response.status_code == 200
+
+    response = client.get(
+        f"/api/document/{document_id}/contiguity/1/connected_component_bboxes",
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["features"]) == 2
 
 
 @fixture
