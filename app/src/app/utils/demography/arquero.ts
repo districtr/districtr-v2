@@ -27,14 +27,11 @@ export const getPctDerives = (
   stats: Record<SummaryTypes, boolean>
 ): Record<string, (row: DemographyRow) => number> => ({
   other_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['other_pop_20'] / row['total_pop_20'],
-  asian_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['asian_pop_20'] / row['total_pop_20'],
+  asian_nhpi_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['asian_nhpi_pop_20'] / row['total_pop_20'],
   amin_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['amin_pop_20'] / row['total_pop_20'],
-  nhpi_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['nhpi_pop_20'] / row['total_pop_20'],
-  black_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['black_pop_20'] / row['total_pop_20'],
+  bpop_20_pct: !stats.TOTPOP ? NaNfN : row => row['bpop_20'] / row['total_pop_20'],
+  hpop_20_pct: !stats.TOTPOP ? NaNfN : row => row['hpop_20'] / row['total_pop_20'],
   white_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['white_pop_20'] / row['total_pop_20'],
-  two_or_more_races_pop_20_pct: !stats.TOTPOP
-    ? NaNfN
-    : row => row['two_or_more_races_pop_20'] / row['total_pop_20'],
   hvap_20_pct: !stats.VAP ? NaNfN : row => row['hvap_20'] / row['total_vap_20'],
   asian_nhpi_vap_20_pct: !stats.VAP
     ? NaNfN

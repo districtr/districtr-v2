@@ -31,17 +31,12 @@ export const demographyVariables: Array<{
   },
   {
     label: 'Population: Black',
-    value: 'black_pop_20',
+    value: 'bpop_20',
     models: ['TOTPOP'],
   },
   {
     label: 'Population: Asian',
-    value: 'asian_pop_20',
-    models: ['TOTPOP'],
-  },
-  {
-    label: 'Population: Native Hawaiian/Pacific Islander',
-    value: 'nhpi_pop_20',
+    value: 'asian_nhpi_pop_20',
     models: ['TOTPOP'],
   },
   {

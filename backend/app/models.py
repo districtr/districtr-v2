@@ -228,7 +228,7 @@ class PopulationStatsTOTPOP(BaseModel):
     other_pop_20: int
     amin_pop_20: int
     asian_nhpi_pop_20: int
-    black_pop_20: int
+    bpop_20: int
     white_pop_20: int
     two_or_more_races_pop_20: int
     total_pop_20: int

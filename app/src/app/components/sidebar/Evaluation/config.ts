@@ -15,23 +15,19 @@ export const TOTPOPColumnConfig: ColumnConfiguration<TOTPOPZoneSummaryStats> = [
   },
   {
     label: 'Black',
-    column: 'black_pop_20',
+    column: 'bpop_20',
+  },
+  {
+    label: 'Hispanic',
+    column: 'hpop_20',
   },
   {
     label: 'Asian',
-    column: 'asian_pop_20',
+    column: 'asian_nhpi_pop_20',
   },
   {
     label: 'Am. Indian',
     column: 'amin_pop_20',
-  },
-  {
-    label: 'Pacific Isl.',
-    column: 'nhpi_pop_20',
-  },
-  {
-    label: 'Two or More Races',
-    column: 'two_or_more_races_pop_20',
   },
   {
     label: 'Other',
