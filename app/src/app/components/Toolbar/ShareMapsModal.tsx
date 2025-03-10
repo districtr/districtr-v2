@@ -55,7 +55,15 @@ export const ShareMapsModal: React.FC<{
       setPasswordDisabled(true);
       setIsVisible(false);
     }
-  }, [currentMap]);
+  }, [currentMap, mapDocument]);
+
+  useEffect(() => {
+    if (mapDocument && !currentMap) {
+      setPasswordDisabled(false);
+      setIsVisible(true);
+      setPassword(null);
+    }
+  }, [mapDocument, currentMap]);
 
   const handleCreateShareLink = async () => {
     const payload = {
