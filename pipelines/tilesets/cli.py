@@ -99,6 +99,9 @@ def batch_create_tilesets(
     """
     Batch create tilesets from a config file. Does not upload the tileset to S3. Use the s3 cli for that.
     """
+    if not os.path.exists(settings.OUT_SCRATCH):
+        os.makedirs(settings.OUT_SCRATCH)
+        
     tileset_batch = TilesetBatch.from_file(file_path=config_path)
     tileset_batch.create_all(replace=replace, data_dir=data_dir)
 
