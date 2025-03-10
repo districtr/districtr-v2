@@ -1,12 +1,13 @@
 import {ChevronLeftIcon, ChevronRightIcon} from '@radix-ui/react-icons';
 import {Box, IconButton, Select} from '@radix-ui/themes';
-import {useEffect, useLayoutEffect, useState} from 'react';
+import {useEffect, useLayoutEffect, useState, Dispatch, SetStateAction} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
+import {Feature, Polygon} from 'geojson';
 
 interface ZoomToFeatureProps {
   selectedIndex: number | null;
-  setSelectedIndex: (index: number) => void;
-  features: GeoJSON.Feature[];
+  setSelectedIndex: (index: number) => void | Dispatch<SetStateAction<number | null>>;
+  features: GeoJSON.Feature[] | GeoJSON.Polygon[];
 }
 
 export default function ZoomToFeature({
@@ -32,11 +33,44 @@ export default function ZoomToFeature({
     setSelectedIndex(newIndex);
   };
 
+  function isFeature(feature: any): feature is Feature {
+    return feature && typeof feature === 'object' && feature.type === 'Feature';
+  }
+
+  function isPolygon(feature: any): feature is Polygon {
+    return feature && typeof feature === 'object' && feature.type === 'Polygon';
+  }
+
   useEffect(() => {
+    console.log(selectedIndex, hasMounted);
+    let feature;
     if (selectedIndex !== null && hasMounted) {
-      const feature = features[selectedIndex];
-      feature.properties?.bbox && mapRef?.fitBounds(feature.properties.bbox);
+      feature = features[selectedIndex];
+    } else {
+      return;
     }
+    if (isFeature(feature) && feature.properties?.bbox) {
+      mapRef?.fitBounds(feature.properties.bbox);
+      return;
+    }
+
+    // This is just assuming that the Polygon is the valid BBOX output from
+    // `ST_Envelope` function in PostGIS, which:
+    // ```
+    // Returns the double-precision (float8) minimum bounding box for the supplied geometry, as a geometry.
+    // The polygon is defined by the corner points of the bounding box
+    // ((MINX, MINY), (MINX, MAXY), (MAXX, MAXY), (MAXX, MINY), (MINX, MINY)).
+    // (PostGIS will add a ZMIN/ZMAX coordinate as well).
+    // ```
+    // If an arbitrary polygon is provided, this won't work.
+    if (isPolygon(feature)) {
+      let SE = {lng: feature.coordinates[0][0][0], lat: feature.coordinates[0][0][1]};
+      let NW = {lng: feature.coordinates[0][2][0], lat: feature.coordinates[0][2][1]};
+      mapRef?.fitBounds([SE, NW]);
+      return;
+    }
+
+    console.error('Invalid feature type');
   }, [selectedIndex]);
 
   return (
