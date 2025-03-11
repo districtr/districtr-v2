@@ -169,8 +169,7 @@ fetchDemography.subscribe(demography => {
     demographyCache.update(
       result.columns,
       result.results,
-      shatterIds.parents,
-      shatterIds.children,
+      shatterIds,
       mapDocument,
       dataHash
     );
