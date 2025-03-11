@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useEffect } from 'react';
 import {MapContextMenu} from '../components/ContextMenu';
 import {MapComponent} from '../components/Map/Map';
 import SidebarComponent from '../components/sidebar/Sidebar';
@@ -12,9 +12,18 @@ import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@components/Topbar';
 import { Flex } from '@radix-ui/themes';
 import { useMapStore } from '../store/mapStore';
+import { initSubs } from '../store/subscriptions';
 
 export default function Map() {
   const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap === 'side-by-side');
+  
+  useEffect(() => {
+    const unsub = initSubs();
+    return () => {
+      console.log('unsubscribing');
+      unsub();
+    };
+  },[])
 
   if (queryClient) {
     return (
