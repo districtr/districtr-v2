@@ -33,7 +33,7 @@ export const Topbar: React.FC = () => {
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
   const handleChangeColors = () => {
-    setColorModalOpen(true);
+    setColorModalOpen(!!mapDocument?.document_id);
   };
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {

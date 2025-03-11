@@ -2,12 +2,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
 import {TwitterPicker, type ColorResult} from 'react-color';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {
-  Box,
-  Flex,
-  Dialog,
-  RadioGroup,
-} from '@radix-ui/themes';
+import {Box, Flex, Dialog, RadioGroup} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
 
 const DialogContentContainer = styled(Dialog.Content, {
@@ -16,12 +11,16 @@ const DialogContentContainer = styled(Dialog.Content, {
 });
 
 const groupItemCSS = {
-  width: 40,
-  height: 40,
-  margin: 2.5,
+  width: 45,
+  height: 45,
+  margin: 1.1,
+  marginBottom: 2.5,
+  cursor: 'pointer',
+  color: '#fff',
   alignItems: 'center',
   border: '1px solid #ccc',
   borderRadius: '8px',
+  textShadow: '1px 1px 1px #444',
 };
 const RadioGroupItem = styled(RadioGroup.Item, groupItemCSS);
 const RadioGroupRoot = styled(RadioGroup.Root, {});
@@ -38,8 +37,9 @@ export const ColorChangeModal: React.FC<{
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [colorSelectIndex, setColorSelectIndex] = useState(-1);
 
-  const filteredColors = useMemo(() =>
-    colorScheme.filter(color => !colorScheme.slice(0, numDistricts).includes(color)).slice(0, 17),
+  const filteredColors = useMemo(
+    () =>
+      colorScheme.filter(color => !colorScheme.slice(0, numDistricts).includes(color)).slice(0, 17),
     [colorScheme, numDistricts]
   );
 
@@ -67,7 +67,9 @@ export const ColorChangeModal: React.FC<{
     >
       <DialogContentContainer className="max-w-[50vw]">
         <Flex align="center" className="mb-4">
-          <Dialog.Title className="m-0 text-xl font-bold flex-1">Change District Colors</Dialog.Title>
+          <Dialog.Title className="m-0 text-xl font-bold flex-1">
+            Change District Colors
+          </Dialog.Title>
 
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
@@ -76,17 +78,20 @@ export const ColorChangeModal: React.FC<{
             <Cross2Icon />
           </Dialog.Close>
         </Flex>
-        <Box className="max-h-[50vh] overflow-y-auto">
-          <RadioGroupRoot onValueChange={(value: String) => {
-            setColorSelectIndex(Number(value));
-          }}>
-            <Flex direction="row" wrap="wrap" style={{ paddingBottom: '15rem' }}>
+        <Box className="max-h-[40vh] overflow-y-auto">
+          <RadioGroupRoot
+            onValueChange={(value: String) => {
+              setColorSelectIndex(Number(value));
+            }}
+          >
+            <Flex direction="row" wrap="wrap" style={{paddingBottom: '15rem'}}>
               {!!mapDocument &&
                 colorScheme.slice(0, numDistricts).map((color, i) => (
                   <Flex direction="column" key={i}>
                     <RadioGroupItem style={{backgroundColor: color}} value={String(i)}>
+                      {i + 1}
                     </RadioGroupItem>
-                    <div style={{ display: i === colorSelectIndex ? 'block' : 'none', width: 0}}>
+                    <div style={{display: i === colorSelectIndex ? 'block' : 'none', width: 0}}>
                       <TwitterPicker
                         color={color}
                         colors={filteredColors}
