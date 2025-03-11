@@ -64,9 +64,9 @@ export default function ZoomToFeature({
     // ```
     // If an arbitrary polygon is provided, this won't work.
     if (isPolygon(feature)) {
-      let SE = {lng: feature.coordinates[0][0][0], lat: feature.coordinates[0][0][1]};
-      let NW = {lng: feature.coordinates[0][2][0], lat: feature.coordinates[0][2][1]};
-      mapRef?.fitBounds([SE, NW]);
+      let SW = {lng: feature.coordinates[0][0][0], lat: feature.coordinates[0][0][1]};
+      let NE = {lng: feature.coordinates[0][2][0], lat: feature.coordinates[0][2][1]};
+      mapRef?.fitBounds([SW, NE]);
       return;
     }
 
