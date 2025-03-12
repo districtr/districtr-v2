@@ -15,16 +15,16 @@ import {
   IconButton,
   RadioCards,
 } from '@radix-ui/themes';
+import {SaveMapDetails} from './SaveMapsModal';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
-import {metadata} from '@/app/utils/api/mutations';
 import {styled} from '@stitches/react';
 import {useTemporalStore} from '@/app/store/temporalStore';
 import {size} from 'lodash';
 type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {
-  maxWidth: 'calc(100vw - 2rem)',
+  maxWidth: '75vw',
   maxHeight: 'calc(100vh-2rem)',
 });
 
@@ -80,6 +80,7 @@ export const RecentMapsModal: React.FC<{
 
   return (
     <Dialog.Root
+      width="75vw"
       open={dialogOpen}
       onOpenChange={isOpen =>
         isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen)
@@ -230,7 +231,7 @@ const RecentMapsRow: React.FC<{
 
       {/* Accordion Content */}
       <Accordion.Content className="px-4 py-2">
-        <Text>foo</Text>
+        <SaveMapDetails />
       </Accordion.Content>
     </div>
   );

@@ -21,7 +21,7 @@ import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {ShareMapsModal} from './Toolbar/ShareMapsModal';
 import {PasswordPromptModal} from './Toolbar/PasswordPromptModal';
-import {SaveMapsModal} from './Toolbar/SaveMapsModal';
+
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);

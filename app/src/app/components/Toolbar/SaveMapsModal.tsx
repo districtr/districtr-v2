@@ -1,6 +1,5 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
-import {Cross2Icon} from '@radix-ui/react-icons';
 import {
   Button,
   Flex,
@@ -12,6 +11,8 @@ import {
   Checkbox,
   IconButton,
   RadioCards,
+  RadioGroup,
+  TextArea,
 } from '@radix-ui/themes';
 import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
@@ -25,7 +26,7 @@ const BoxContainer = styled(Box, {
   gap: '1rem',
 });
 
-export const SaveMapsModal: React.FC<{
+export const SaveMapDetails: React.FC<{
   open?: boolean;
   onClose?: () => void;
   showTrigger?: boolean;
@@ -100,6 +101,7 @@ export const SaveMapsModal: React.FC<{
   };
 
   const handleMapSave = () => {
+    console.log('saving map');
     if (mapDocument?.document_id) {
       const savedMapMetadata = userMaps.find(
         map => map.document_id === mapDocument?.document_id
@@ -165,23 +167,24 @@ export const SaveMapsModal: React.FC<{
   }
 
   return (
-    <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
-      <DialogContentContainer className="max-w-[75vw]">
-        <Flex align="center" className="mb-4">
-          <Dialog.Title className="m-0 text-xl font-bold flex-1">Save and Collaborate</Dialog.Title>
-          <Dialog.Close
-            className="rounded-full size-[24px] hover:bg-red-100 p-1"
-            aria-label="Close"
-          >
-            <Cross2Icon />
-          </Dialog.Close>
-        </Flex>
-        <BoxContainer>
-          <Box maxWidth="200px">
+    <>
+      <BoxContainer>
+        <Flex css={{justifyContent: 'space-between'}} gap={'5'}>
+          <Box maxWidth="200px" width={'33%'}>
+            <Text as="label" size="2">
+              Comments
+            </Text>
+            <TextArea
+              placeholder={'Comments'}
+              size="3"
+              onChange={e => handleMetadataChange('comments', e.target.value)}
+            ></TextArea>
+          </Box>
+          <Box maxWidth="200px" width={'33%'}>
             {mapDocument?.status && mapDocument?.status === 'locked' ? (
               <Text>Name your Copy </Text>
             ) : (
-              <Text>Team or Plan Name</Text>
+              <Text>Group Name</Text>
             )}
             <TextField.Root
               placeholder={mapName ?? 'Plan Name'}
@@ -189,49 +192,40 @@ export const SaveMapsModal: React.FC<{
               value={mapName ?? undefined}
               onChange={e => handleMetadataChange('name', e.target.value)}
             ></TextField.Root>
-          </Box>
-          <Box maxWidth="200px">
+
             <Text>Tags</Text>
             <TextField.Root
-              placeholder={'Tag or Event Code'}
+              placeholder={'Tags'}
               size="3"
               value={mapTags ?? ''}
               disabled
               onChange={e => handleMetadataChange('tags', e.target.value)}
             ></TextField.Root>
           </Box>
-          <Text as="label" size="2">
+
+          <Box>
             <Flex gap="2">
-              <Checkbox size="1" disabled /> Save as Draft (coming soon)
+              <RadioGroup.Root>
+                <RadioGroup.Item value="share">Share with Team (coming soon) </RadioGroup.Item>
+                <RadioGroup.Item value="draft"> Save as Draft (coming soon) </RadioGroup.Item>
+              </RadioGroup.Root>
             </Flex>
-          </Text>
-
-          {/* save map */}
-          <Button
-            variant="soft"
-            className="flex items-center"
-            onClick={handleMapSave}
-            disabled={nameIsSaved && tagsIsSaved}
-          >
-            {mapDocument.status !== 'locked' && nameIsSaved && tagsIsSaved
-              ? 'Saved!'
-              : mapDocument.status === 'locked'
-                ? 'Create Copy'
-                : 'Save'}
-          </Button>
-
-          {/* close dialog */}
-          <Button
-            variant="soft"
-            className="flex items-center"
-            onClick={() => {
-              setDialogOpen(false);
-            }}
-          >
-            Close
-          </Button>
-        </BoxContainer>
-      </DialogContentContainer>
-    </Dialog.Root>
+          </Box>
+        </Flex>
+        {/* save map */}
+        <Button
+          variant="soft"
+          className="flex items-center "
+          onClick={handleMapSave}
+          disabled={nameIsSaved && tagsIsSaved}
+        >
+          {mapDocument.status !== 'locked' && nameIsSaved && tagsIsSaved
+            ? 'Saved!'
+            : mapDocument.status === 'locked'
+              ? 'Create Copy'
+              : 'Save'}
+        </Button>
+      </BoxContainer>
+    </>
   );
 };
