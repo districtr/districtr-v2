@@ -1,6 +1,9 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
+import * as Accordion from '@radix-ui/react-accordion';
+import classNames from 'classnames';
+import {DoubleArrowDownIcon, DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 import {
   Button,
   Flex,
@@ -17,6 +20,7 @@ import {DocumentObject} from '../../utils/api/apiHandlers';
 import {metadata} from '@/app/utils/api/mutations';
 import {styled} from '@stitches/react';
 import {useTemporalStore} from '@/app/store/temporalStore';
+import {size} from 'lodash';
 type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {
@@ -38,6 +42,7 @@ export const RecentMapsModal: React.FC<{
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const setActiveTool = useMapStore(store => store.setActiveTool);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
+  const [openItem, setOpenItem] = React.useState<string | null>(null);
 
   useEffect(() => {
     setDialogOpen(open || false);
@@ -83,13 +88,13 @@ export const RecentMapsModal: React.FC<{
       {!!showTrigger && (
         <Dialog.Trigger>
           <Button variant="ghost" disabled={!userMaps.length}>
-            Recent Maps
+            Saved Maps
           </Button>
         </Dialog.Trigger>
       )}
       <DialogContentContainer className="max-w-[50vw]">
         <Flex align="center" className="mb-4">
-          <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
+          <Dialog.Title className="m-0 text-xl font-bold flex-1">Saved Maps</Dialog.Title>
 
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
@@ -99,18 +104,33 @@ export const RecentMapsModal: React.FC<{
           </Dialog.Close>
         </Flex>
         <Box className="max-h-[50vh] overflow-y-auto">
-          <Table.Root size="3" variant="surface">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeaderCell pl=".5rem">Map Name</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>Last Updated</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>{/* load */}</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>{/* delete */}</Table.ColumnHeaderCell>
-              </Table.Row>
-            </Table.Header>
+          <Flex
+            align="center"
+            display="grid"
+            justify="center"
+            className="grid grid-cols-3 py-2 border-b font-bold bg-gray-100 w-full"
+            gapX="22%"
+            width="100%"
+          >
+            <Text>Name</Text>
 
-            <Table.Body>
-              {userMaps.map((userMap, i) => (
+            <Text>Last Updated</Text>
+            <Text>Actions</Text>
+            <Text></Text>
+          </Flex>
+          <Accordion.Root
+            type="single"
+            size="3"
+            value={openItem}
+            onValueChange={value => setOpenItem(value || null)}
+          >
+            {userMaps.map((userMap, i) => (
+              <Accordion.Item
+                key={i}
+                value={userMap.document_id}
+                pl=".5rem"
+                className={`${openItem === userMap.document_id ? 'bg-yellow-100' : ''}`}
+              >
                 <RecentMapsRow
                   key={i}
                   active={mapDocument?.document_id === userMap.document_id}
@@ -122,10 +142,14 @@ export const RecentMapsModal: React.FC<{
                   }
                   data={userMap}
                   onSelect={handleMapDocument}
+                  isOpen={openItem === userMap.document_id}
+                  toggleOpen={() =>
+                    setOpenItem(prev => (prev === userMap.document_id ? null : userMap.document_id))
+                  }
                 />
-              ))}
-            </Table.Body>
-          </Table.Root>
+              </Accordion.Item>
+            ))}
+          </Accordion.Root>
         </Box>
       </DialogContentContainer>
     </Dialog.Root>
@@ -137,86 +161,114 @@ const RecentMapsRow: React.FC<{
   onSelect: (data: DocumentObject) => void;
   active: boolean;
   onChange?: (data?: DocumentObject) => void;
-}> = ({data, onSelect, active, onChange}) => {
+  isOpen: boolean;
+  toggleOpen: () => void;
+}> = ({data, onSelect, active, onChange, isOpen, toggleOpen}) => {
   const updatedDate = new Date(data.updated_at as string);
-  const formattedData = updatedDate.toLocaleDateString();
+  const formattedDate = updatedDate.toLocaleDateString();
   const name = data?.map_metadata?.name || data.gerrydb_table;
   const [newName, setNewName] = React.useState(name);
   const [nameIsChanged, setNameIsChanged] = React.useState(false);
-  const savedMapMetadata = useMapStore
-    .getState()
-    .userMaps.find(map => map.document_id === data.document_id)?.map_metadata;
 
   const handleChangeName = () => {
     onChange?.({...data, map_metadata: {...data.map_metadata, name: newName}});
-    if (!savedMapMetadata) {
-      return;
-    }
-    metadata.mutate({
-      document_id: data.document_id,
-      metadata: savedMapMetadata,
-    });
     setNameIsChanged(false);
   };
 
   return (
-    <Table.Row align="center" className={`${active ? 'bg-yellow-100' : ''}`}>
-      <Table.Cell pl=".5rem">
-        {!!(active && onChange) ? (
-          <Box maxWidth="250px">
-            <Flex align="center" gap="1">
-              <TextField.Root
-                placeholder={newName}
-                size="3"
-                value={newName}
-                onChange={e => {
-                  setNewName(e.target.value);
-                  setNameIsChanged(true);
-                }}
-              ></TextField.Root>
-              {nameIsChanged ? (
-                <Button
-                  onClick={() => {
-                    handleChangeName();
+    <div className="flex flex-col">
+      <Accordion.Header className="w-full">
+        <div className="grid grid-cols-4 gap-4 w-full items-center px-4 py-2">
+          <div>
+            {!!(active && onChange) ? (
+              <Flex align="center" gap="2">
+                <TextField.Root
+                  size="3"
+                  value={newName}
+                  onChange={e => {
+                    setNewName(e.target.value);
+                    setNameIsChanged(true);
                   }}
-                  variant="outline"
-                  className="box-content size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
-                >
-                  Save
-                </Button>
-              ) : null}
-            </Flex>
-          </Box>
-        ) : (
-          <Text>{name}</Text>
-        )}
-      </Table.Cell>
-      <Table.Cell>
-        <Text>{formattedData}</Text>
-      </Table.Cell>
-      <Table.Cell py=".5rem">
-        {!active && (
-          <Button
-            onClick={() => onSelect(data)}
-            variant="outline"
-            className="box-content size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
-          >
-            Load
-          </Button>
-        )}
-      </Table.Cell>
-      <Table.Cell py=".5rem">
-        {!active && (
-          <IconButton
-            onClick={() => onChange?.()}
-            variant="ghost"
-            color="ruby"
-            className="size-full"
-          >
-            <Cross2Icon />
-          </IconButton>
-        )}
-      </Table.Cell>
-    </Table.Row>
+                />
+                {nameIsChanged && (
+                  <Button variant="outline" onClick={handleChangeName}>
+                    Save
+                  </Button>
+                )}
+              </Flex>
+            ) : (
+              <Text>{name}</Text>
+            )}
+          </div>
+
+          {/* Last Updated Date */}
+          <div className="flex justify-center">
+            <Text>{formattedDate}</Text>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-center">
+            {active ? (
+              <Button variant="outline" onClick={toggleOpen}>
+                {isOpen ? 'Close Details' : 'Edit Details'}
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => onSelect(data)}>
+                Load
+              </Button>
+            )}
+          </div>
+
+          {/* Delete Icon */}
+          {!active && (
+            <IconButton variant="ghost" color="ruby" onClick={() => onChange?.()}>
+              <Cross2Icon />
+            </IconButton>
+          )}
+        </div>
+      </Accordion.Header>
+
+      {/* Accordion Content */}
+      <Accordion.Content className="px-4 py-2">
+        <Text>foo</Text>
+      </Accordion.Content>
+    </div>
   );
 };
+
+const AccordionTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentPropsWithoutRef<typeof Accordion.Trigger>
+>(({children, className, ...props}, forwardedRef) => (
+  <Accordion.Header className="flex">
+    <Accordion.Trigger
+      className={classNames(
+        `bg-white group flex h-[45px] flex-1 cursor-default items-center justify-between px-5 leading-none rounded-md data-[state=closed]:shadow-md outline-none hover:bg-blue-200`,
+        className
+      )}
+      {...props}
+      ref={forwardedRef}
+    >
+      {children}
+    </Accordion.Trigger>
+  </Accordion.Header>
+));
+
+AccordionTrigger.displayName = 'AccordionTrigger';
+
+const AccordionContent = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<typeof Accordion.Content>
+>(({children, className, ...props}, forwardedRef) => (
+  <Accordion.Content
+    className={classNames(
+      'overflow-hidden text-[15px] data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown',
+      className
+    )}
+    {...props}
+    ref={forwardedRef}
+  >
+    <div className="px-5 py-[15px]">{children}</div>
+  </Accordion.Content>
+));
+AccordionContent.displayName = 'AccordionContent';

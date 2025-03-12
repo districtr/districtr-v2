@@ -137,7 +137,7 @@ export const Topbar: React.FC = () => {
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
               <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
-                View Recent Maps
+                View Saved Maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
                 <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
@@ -164,7 +164,7 @@ export const Topbar: React.FC = () => {
             >
               Share
             </Button>
-            <Button
+            {/*<Button
               variant="outline"
               className="mr-2"
               disabled={!mapDocument?.document_id}
@@ -173,7 +173,7 @@ export const Topbar: React.FC = () => {
               {mapDocument?.genesis === 'shared' || mapDocument?.status === 'locked'
                 ? 'Make a Copy'
                 : 'Save Metadata'}
-            </Button>
+            </Button> */}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               onClick={() => setSettingsOpen(prev => !prev)}
@@ -191,7 +191,7 @@ export const Topbar: React.FC = () => {
       </Flex>
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
       <ShareMapsModal open={shareMapsModal} onClose={() => setShareMapsModal(false)} />
-      <SaveMapsModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} />
+      {/*<SaveMapsModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} /> */}
       <PasswordPromptModal />
     </>
   );
