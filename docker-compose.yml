@@ -33,7 +33,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: districtr
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - __postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
