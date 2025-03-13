@@ -142,7 +142,6 @@ async def db_is_alive(session: Session = Depends(get_session)):
 def check_map_lock(document_id, user_id, session):
     result = session.execute(
         text(
-            # something is wrong with the conflict check
             """WITH ins AS (
                 INSERT INTO document.map_document_user_session (document_id, user_id)
                 SELECT :document_id, :user_id
@@ -161,11 +160,35 @@ def check_map_lock(document_id, user_id, session):
         {"document_id": document_id, "user_id": user_id},
     ).fetchone()
 
-    status = (
-        DocumentEditStatus.unlocked
-        if result and result.user_id == user_id
-        else DocumentEditStatus.locked
-    )
+    # if there is no result, the map can be checked out.
+    # return checked out, and add a record to the map_document_user_session table
+
+    if not result:
+
+        session.execute(
+            text(
+                f"""INSERT INTO document.map_document_user_session (document_id, user_id)
+                VALUES ('{document_id}', '{user_id}')"""
+            ),
+            {
+                "document_id": document_id,
+                "user_id": user_id,
+            },
+        )
+        session.commit()
+        status = DocumentEditStatus.checked_out
+    else:
+        # if user id matches, return the document checked out, otherwise return locked
+        status = (
+            DocumentEditStatus.unlocked
+            if result and result.user_id == user_id
+            else DocumentEditStatus.locked
+        )
+    # status = (
+    #     DocumentEditStatus.unlocked
+    #     if result and result.user_id == user_id
+    #     else DocumentEditStatus.locked
+    # )
 
     return status
 
@@ -413,9 +436,11 @@ async def get_document(
     user_id: UserID,
     session: Session,
     shared: bool = False,
+    access_type: DocumentShareStatus = DocumentShareStatus.read,
 ):
     lock_status = check_map_lock(document_id, user_id, session)
-
+    # lock_status = get_document_status(document_id, user_id, session)
+    print("shared???", shared)
     stmt = (
         select(
             Document.document_id,
@@ -436,8 +461,14 @@ async def get_document(
                 "shared" if shared else "created",
             ).label("genesis"),
             coalesce(
-                lock_status,
+                lock_status,  # locked or unlocked
             ).label("status"),
+            coalesce(
+                access_type,
+            ).label(
+                "access"
+            ),  # read or edit
+            # add access - read or edit
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
@@ -994,7 +1025,11 @@ async def load_plan_from_share(
 
     # return the document to the user with the password
     return await get_document(
-        str(result.document_id), data.user_id, session, shared=True
+        str(result.document_id),
+        data.user_id,
+        session,
+        shared=True,
+        access_type=data.access,
     )
 
 

@@ -18,6 +18,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {mapMetrics} from './queries';
 import {useChartStore} from '@/app/store/chartStore';
 import type {AxiosError} from 'axios';
+import {stat} from 'fs';
 
 export interface AxiosErrorData {
   detail: 'Invalid password' | 'Password required';
@@ -164,7 +165,8 @@ export const sharePlan = new MutationObserver(queryClient, {
         ...mapDocument,
         document_id: mapDocument?.document_id || '',
         token: data.token,
-        status: data.access === 'edit' ? 'unlocked' : 'locked', // TODO: align fe and be syntax for statuses
+        access: data.access,
+        status: data.status, // TODO: align fe and be syntax for statuses
       },
     });
     return data.token;
@@ -177,10 +179,12 @@ export const sharedDocument = new MutationObserver(queryClient, {
     token,
     password,
     status,
+    access,
   }: {
     token: string;
     password: string | null;
     status: string | null;
+    access: string;
   }) => {
     const passwordRequired = useMapStore.getState().passwordPrompt;
     useMapStore.getState().setAppLoadingState('loading');
@@ -201,7 +205,6 @@ export const sharedDocument = new MutationObserver(queryClient, {
     const {setMapDocument, setLoadedMapId, setAppLoadingState, setPasswordPrompt} =
       useMapStore.getState();
     useMapStore.getState().setLoadedMapId('');
-    data.status = 'locked';
     getAssignments(data);
     setMapDocument(data);
     setLoadedMapId(data.document_id);

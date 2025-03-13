@@ -39,12 +39,12 @@ export const ShareMapsModal: React.FC<{
     () => userMaps.find(map => map.document_id === mapDocument?.document_id),
     [mapDocument?.document_id, userMaps]
   );
-  const [sharetype, setSharetype] = React.useState('view');
+  const [sharetype, setSharetype] = React.useState('read');
   const [linkCopied, setLinkCopied] = React.useState(false);
   const [password, setPassword] = React.useState<string | null>(currentMap?.password ?? null);
   const [passwordDisabled, setPasswordDisabled] = React.useState(false);
   const [isVisible, setIsVisible] = React.useState(true);
-
+  console.log(mapDocument);
   useEffect(() => {
     setDialogOpen(open || false);
   }, [open]);
@@ -200,8 +200,11 @@ export const ShareMapsModal: React.FC<{
               </Flex>
               <Flex gap="2" className="flex-col">
                 <RadioCards.Root onValueChange={handleShareTypeChange} value={sharetype}>
-                  <RadioCards.Item value="view">Share View Only</RadioCards.Item>
-                  <RadioCards.Item value="edit" disabled>
+                  <RadioCards.Item value="read">Share View Only</RadioCards.Item>
+                  <RadioCards.Item
+                    value="edit"
+                    disabled={mapDocument?.genesis === 'shared' ?? false}
+                  >
                     Share and make editable
                   </RadioCards.Item>
                 </RadioCards.Root>

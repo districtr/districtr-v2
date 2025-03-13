@@ -531,7 +531,7 @@ export const updateChartData = (
     });
   } else {
     console.error('Error updating chart data');
-    console.log('mapMetrics', mapMetrics);
+
     useChartStore.getState().setChartInfo({
       stats: undefined,
       chartData: [],

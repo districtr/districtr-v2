@@ -32,10 +32,16 @@ class UUIDType(UUID):
         super().__init__(*args, **kwargs)
 
 
+class DocumentShareStatus(str, Enum):
+    read = "read"
+    edit = "edit"
+
+
 class TokenRequest(BaseModel):
     token: str
     password: str | None = None
     user_id: str | None = None
+    access: DocumentShareStatus = DocumentShareStatus.read
 
 
 class TimeStampMixin(SQLModel):
@@ -265,11 +271,6 @@ class DocumentEditStatus(str, Enum):
     # others?
 
 
-class DocumentShareStatus(str, Enum):
-    read = "read"
-    edit = "edit"
-
-
 class DocumentGenesis(str, Enum):
     created = "created"
     shared = "shared"
@@ -291,6 +292,7 @@ class DocumentPublic(BaseModel):
         DocumentEditStatus.unlocked
     )  # locked, unlocked, checked_out
     genesis: str | None = None
+    access: DocumentShareStatus = DocumentShareStatus.read
 
 
 class AssignmentsBase(SQLModel):

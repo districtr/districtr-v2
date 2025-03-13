@@ -36,7 +36,7 @@ export const getSearchParamsObserver = () => {
     }
     if (shareToken) {
       const decodedToken = jwtDecode(shareToken);
-
+      console.log('decodedToken', decodedToken);
       useMapStore.getState().setReceivedShareToken((decodedToken as any).token as string);
       if ((decodedToken as any).password_required === true) {
         useMapStore.getState().setPasswordPrompt(true);
@@ -44,7 +44,8 @@ export const getSearchParamsObserver = () => {
         sharedDocument.mutate({
           token: (decodedToken as any).token as string,
           password: null,
-          status: (decodedToken as any).access as string,
+          access: (decodedToken as any).access as string,
+          status: (decodedToken as any).status as string,
         });
       }
     }

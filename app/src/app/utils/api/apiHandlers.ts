@@ -95,6 +95,7 @@ export interface DocumentObject {
   available_summary_stats: string[];
   map_metadata: DocumentMetadata;
   status: 'locked' | 'unlocked' | 'checked_out';
+  access: 'read' | 'edit';
   genesis: 'shared' | 'copied' | 'created';
   token?: string | null;
   password?: string | null;
@@ -696,9 +697,11 @@ export const getSharePlanLink = async ({
 export const getLoadPlanFromShare = async ({
   token,
   password,
+  access,
 }: {
   token: string;
   password?: string | null;
+  access: string;
 }) => {
   const res = await axios.post(
     `${process.env.NEXT_PUBLIC_API_URL}/api/share/load_plan_from_share`,
@@ -706,9 +709,9 @@ export const getLoadPlanFromShare = async ({
       token: token,
       user_id: useMapStore.getState().userID,
       password: password ?? null,
+      access: access,
     },
     {headers: {'Content-Type': 'application/json'}}
   );
-  const {document_id, assignments} = res.data;
   return res.data; // failure is handled in mutations.ts
 };

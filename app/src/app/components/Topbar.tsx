@@ -164,16 +164,6 @@ export const Topbar: React.FC = () => {
             >
               Share
             </Button>
-            {/*<Button
-              variant="outline"
-              className="mr-2"
-              disabled={!mapDocument?.document_id}
-              onClick={() => setSaveMapsModal(true)}
-            >
-              {mapDocument?.genesis === 'shared' || mapDocument?.status === 'locked'
-                ? 'Make a Copy'
-                : 'Save Metadata'}
-            </Button> */}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               onClick={() => setSettingsOpen(prev => !prev)}

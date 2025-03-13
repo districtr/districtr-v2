@@ -49,10 +49,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'P',
       mode: 'brush',
-      disabled:
-        !mapDocument?.document_id ||
-        mapDocument?.status === 'locked' ||
-        mapDocument?.genesis === 'shared',
+      disabled: !mapDocument?.document_id || mapDocument?.status === 'locked',
       label: 'Paint',
       icon: Pencil2Icon,
       hotKeyAccessor: e => {
@@ -62,10 +59,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'E',
       mode: 'eraser',
-      disabled:
-        !mapDocument?.document_id ||
-        mapDocument?.status === 'locked' ||
-        mapDocument?.genesis === 'shared',
+      disabled: !mapDocument?.document_id || mapDocument?.status === 'locked',
       label: 'Erase',
       icon: EraserIcon,
       hotKeyAccessor: e => {
@@ -116,10 +110,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'L',
       mode: 'lock',
-      disabled:
-        !mapDocument?.document_id ||
-        mapDocument?.status === 'locked' ||
-        mapDocument?.genesis === 'shared',
+      disabled: !mapDocument?.document_id || mapDocument?.status === 'locked',
       label: 'Lock',
       icon: LockOpen1Icon,
       hotKeyAccessor: e => {
@@ -127,6 +118,6 @@ export const useActiveTools = () => {
       },
     },
   ];
-  if (mapDocument?.status === 'locked' || mapDocument?.genesis === 'shared') return [];
+  if (mapDocument?.status === 'locked') return [];
   return config;
 };
