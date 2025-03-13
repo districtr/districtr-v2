@@ -4,6 +4,7 @@ import {TwitterPicker, type ColorResult} from 'react-color';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Box, Flex, Dialog, RadioGroup, Text, Heading} from '@radix-ui/themes';
 import {ColorPicker} from './ColorPicker';
+import {colorScheme as DefaultColorScheme} from '@constants/colors';
 
 export const ColorChangeModal: React.FC<{
   open?: boolean;
@@ -19,16 +20,17 @@ export const ColorChangeModal: React.FC<{
 
   const filteredColors = useMemo(
     () =>
-      colorScheme.filter(color => !colorScheme.slice(0, numDistricts).includes(color)).slice(0, 17),
+      DefaultColorScheme.filter(color => !colorScheme.slice(0, numDistricts).includes(color)).slice(0, 17),
     [colorScheme, numDistricts]
   );
 
   const handleColorPick = (idx: number, color: ColorResult) => {
-    if (colorScheme.slice(0, numDistricts).includes(color.hex)) {
+    const planColors = colorScheme.slice(0, numDistricts)
+    if (planColors.includes(color.hex)) {
       // reject repeating a district color
       return;
     }
-    let dupe = [...colorScheme];
+    let dupe = [...planColors];
     dupe[colorSelectIndex] = color.hex;
     setColorScheme(dupe);
   };
