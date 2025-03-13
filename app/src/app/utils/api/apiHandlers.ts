@@ -3,6 +3,7 @@ import 'maplibre-gl';
 import {useMapStore} from '@store/mapStore';
 import {useChartStore} from '@store/chartStore';
 import {NullableZone} from '@constants/types';
+import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import {SummaryStatKeys, SummaryStatsResult, SummaryTypes, TotalColumnKeys} from './summaryStats';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
@@ -81,6 +82,7 @@ export interface DistrictrMap {
  * @property {number | null} num_districts - The number of districts to enforce.
  * @property {string} created_at - The created at.
  * @property {string} updated_at - The updated at.
+ * @property {string[]} color_scheme - The colors for districts.
  */
 export interface DocumentObject {
   document_id: string;
@@ -92,6 +94,7 @@ export interface DocumentObject {
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
+  color_scheme: string[] | null;
   available_summary_stats: Array<keyof SummaryTypes>;
 }
 
@@ -357,6 +360,40 @@ export const patchUnShatterParents: (params: {
     });
 };
 
+/**
+ * Set colors response
+ *   @interface
+ *   @property {boolean} success - Confirming if the operation succeeded
+ *   @property {string} document_id - Document ID
+ */
+export interface ColorsSet {
+  success: boolean;
+  document_id: string;
+}
+
+
+/**
+ * Save changed colors
+ *
+ * @param document_id - string, the document id
+ * @param color_scheme - string[], the hex colors for districts
+ */
+export const saveColorScheme: (params: {
+  document_id: string;
+  colors: string[];
+}) => Promise<ColorsSet> = async ({document_id, colors}) => {
+  if (colors === DefaultColorScheme) {
+    return
+  }
+  return await axios
+    .patch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/update_colors`,
+      colors,
+    )
+    .then(res => {
+      return res.data;
+    });
+};
 
 /**
  * Fetches demography table for a given document.
