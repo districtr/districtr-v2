@@ -44,7 +44,7 @@ export default function ZoomToConnectedComponents({
   useEffect(() => {
     queryClient.setQueryData([`ConnectedComponentBboxes-${zone}`, mapDocument?.document_id], null);
     setShowZoom(false);
-  }, [updateTrigger]);
+  }, [updateTrigger, contiguity]);
 
   return (
     <div>
