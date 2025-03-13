@@ -17,7 +17,7 @@ import {
 } from '@radix-ui/themes';
 import {SaveMapDetails} from './SaveMapsModal';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
-import {DocumentObject} from '../../utils/api/apiHandlers';
+import {DocumentObject, DocumentMetadata} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {useTemporalStore} from '@/app/store/temporalStore';
 import {size} from 'lodash';
@@ -56,6 +56,9 @@ export const RecentMapsModal: React.FC<{
     const urlParams = new URLSearchParams(searchParams.toString());
     urlParams.set('document_id', data.document_id);
     router.push(pathname + '?' + urlParams.toString());
+
+    // open the correct accordion item
+    setOpenItem(data.document_id);
 
     // close dialog
     setDialogOpen(false);
@@ -167,13 +170,24 @@ const RecentMapsRow: React.FC<{
 }> = ({data, onSelect, active, onChange, isOpen, toggleOpen}) => {
   const updatedDate = new Date(data.updated_at as string);
   const formattedDate = updatedDate.toLocaleDateString();
-  const name = data?.map_metadata?.name || data.gerrydb_table;
-  const [newName, setNewName] = React.useState(name);
+  const metadataName = data?.map_metadata?.name || data.gerrydb_table;
+  const [mapName, setMapName] = React.useState(metadataName);
   const [nameIsChanged, setNameIsChanged] = React.useState(false);
+  const [nameIsSaved, setNameIsSaved] = React.useState(true);
 
-  const handleChangeName = () => {
-    onChange?.({...data, map_metadata: {...data.map_metadata, name: newName}});
-    setNameIsChanged(false);
+  const handleChangeName = (name: string | null) => {
+    // if name does not match metadata, make eligible to save
+    if (name !== metadataName && name !== null) {
+      setNameIsSaved(false);
+      setMapName(name);
+    }
+  };
+
+  const handleChangeNameMetadata = (value: string | null) => {
+    if (value !== metadataName) {
+      handleChangeName(value);
+    }
+    onChange?.({...data, map_metadata: {...data.map_metadata, name: value}});
   };
 
   return (
@@ -185,20 +199,14 @@ const RecentMapsRow: React.FC<{
               <Flex align="center" gap="2">
                 <TextField.Root
                   size="3"
-                  value={newName}
+                  value={mapName}
                   onChange={e => {
-                    setNewName(e.target.value);
-                    setNameIsChanged(true);
+                    handleChangeNameMetadata(e.target.value);
                   }}
                 />
-                {nameIsChanged && (
-                  <Button variant="outline" onClick={handleChangeName}>
-                    Save
-                  </Button>
-                )}
               </Flex>
             ) : (
-              <Text>{name}</Text>
+              <Text>{mapName}</Text>
             )}
           </div>
 
@@ -231,7 +239,7 @@ const RecentMapsRow: React.FC<{
 
       {/* Accordion Content */}
       <Accordion.Content className="px-4 py-2">
-        <SaveMapDetails />
+        <SaveMapDetails nameIsSaved={nameIsSaved} setNameIsSaved={setNameIsSaved} />
       </Accordion.Content>
     </div>
   );

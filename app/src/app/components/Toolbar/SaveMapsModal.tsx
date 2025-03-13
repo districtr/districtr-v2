@@ -30,7 +30,9 @@ export const SaveMapDetails: React.FC<{
   open?: boolean;
   onClose?: () => void;
   showTrigger?: boolean;
-}> = ({open, onClose, showTrigger}) => {
+  nameIsSaved?: boolean;
+  setNameIsSaved?: () => void;
+}> = ({open, onClose, showTrigger, nameIsSaved, setNameIsSaved}) => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const gerryDBTable = mapDocument?.gerrydb_table;
@@ -48,29 +50,36 @@ export const SaveMapDetails: React.FC<{
     () => userMaps.find(map => map.document_id === mapDocument?.document_id)?.map_metadata,
     [mapDocument?.document_id, userMaps]
   );
-  const [mapName, setMapName] = React.useState<string | undefined | null>(currentMapMetadata?.name);
+  const [groupName, setGroupName] = React.useState<string | undefined | null>(
+    currentMapMetadata?.group
+  );
+  const [mapDescription, setMapDescription] = React.useState<string | undefined | null>(
+    currentMapMetadata?.description
+  );
+
   const [mapTags, setTags] = React.useState<string | undefined | null>(currentMapMetadata?.tags);
-  const [nameIsSaved, setNameIsSaved] = React.useState(false);
+  const [groupNameIsSaved, setGroupNameIsSaved] = React.useState(false);
   const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
 
   React.useEffect(() => {
-    setMapName(mapName);
+    setGroupName(groupName);
     setTags(mapTags);
-  }, [mapName, mapTags, dialogOpen]);
+  }, [groupName, mapTags, dialogOpen]);
 
-  const handleChangeName = (name: string | null) => {
+  const handleChangeGroupName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
-    if (name !== mapName && name !== null) {
-      setNameIsSaved(false);
-      setMapName(name);
+    if (name !== groupName && name !== null) {
+      setGroupNameIsSaved(false);
+      setGroupName(name);
     }
   };
 
   useEffect(() => {
     if (dialogOpen && initialMetadataRef.current === null) {
       initialMetadataRef.current = currentMapMetadata ?? null;
-      setMapName(currentMapMetadata?.name);
+      setGroupName(currentMapMetadata?.name);
       setTags(currentMapMetadata?.tags);
+      setMapDescription(currentMapMetadata?.description);
     }
   }, [currentMapMetadata, dialogOpen]);
 
@@ -80,12 +89,21 @@ export const SaveMapDetails: React.FC<{
     }
   };
 
+  const handleChangeDescription = (description: string | null) => {
+    if (description !== mapDescription && description !== null) {
+      setMapDescription(description);
+    }
+  };
+
   const handleMetadataChange = (key: keyof DocumentMetadata, value: any) => {
     if (mapDocument?.document_id) {
-      if (key === 'name') {
-        handleChangeName(value);
+      if (key === 'group') {
+        handleChangeGroupName(value);
       } else if (key === 'tags') {
         handleChangeTag(value);
+      } else if (key === 'description') {
+        // handle description
+        handleChangeDescription(value);
       }
       upsertUserMap({
         documentId: mapDocument?.document_id,
@@ -151,8 +169,9 @@ export const SaveMapDetails: React.FC<{
         });
       }
     }
-    setNameIsSaved(true);
+    setGroupNameIsSaved(true);
     setTagsIsSaved(true);
+    setNameIsSaved(true);
   };
 
   useEffect(() => {
@@ -177,7 +196,8 @@ export const SaveMapDetails: React.FC<{
             <TextArea
               placeholder={'Comments'}
               size="3"
-              onChange={e => handleMetadataChange('comments', e.target.value)}
+              value={mapDescription ?? undefined}
+              onChange={e => handleMetadataChange('description', e.target.value)}
             ></TextArea>
           </Box>
           <Box maxWidth="200px" width={'33%'}>
@@ -187,10 +207,10 @@ export const SaveMapDetails: React.FC<{
               <Text>Group Name</Text>
             )}
             <TextField.Root
-              placeholder={mapName ?? 'Plan Name'}
+              placeholder={groupName ?? 'Group Name'}
               size="3"
-              value={mapName ?? undefined}
-              onChange={e => handleMetadataChange('name', e.target.value)}
+              value={groupName ?? undefined}
+              onChange={e => handleMetadataChange('group', e.target.value)}
             ></TextField.Root>
 
             <Text>Tags</Text>

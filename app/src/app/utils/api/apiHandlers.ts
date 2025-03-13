@@ -102,6 +102,7 @@ export interface DocumentObject {
 
 export interface DocumentMetadata {
   name: string | null;
+  group: string | null;
   tags: string | null;
   description: string | null;
   eventId: string | null;
@@ -286,9 +287,7 @@ export const getZonePopulations: (
  * @param mapDocument - DocumentObject, the document object
  * @returns Promise<ZonePopulation[]>
  */
-export const getContiguity: (
-  mapDocument: DocumentObject
-) => Promise<any> = async mapDocument => {
+export const getContiguity: (mapDocument: DocumentObject) => Promise<any> = async mapDocument => {
   // const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
   // if (currentHash !== assignmentHash) {
   //   // return stale data if map already changed
@@ -296,10 +295,12 @@ export const getContiguity: (
   // }
   if (mapDocument) {
     return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity`, {
-      })
+      .get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity`,
+        {}
+      )
       .then(res => {
-        return res.data
+        return res.data;
       });
   } else {
     throw new Error('No document provided');
