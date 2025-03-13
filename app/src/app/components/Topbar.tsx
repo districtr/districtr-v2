@@ -19,6 +19,7 @@ import {useTemporalStore} from '../store/temporalStore';
 import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
+import Link from 'next/link';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -66,6 +67,9 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
               <DropdownMenu.Sub>
+                <DropdownMenu.Item>
+                  <Link href="/">Home</Link>
+                </DropdownMenu.Item>
                 <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
                   <DropdownMenu.SubTrigger>Select Map</DropdownMenu.SubTrigger>
                 </Tooltip>
