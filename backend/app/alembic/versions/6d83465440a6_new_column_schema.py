@@ -21,15 +21,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    with open(f"{SQL_DIR}/available_summary_stat_udf_rev2.sql") as f:
-        query = f.read()
-    op.execute(sa.text(query))
-
+    for udf in ['available_summary_stat_udf_rev2.sql', 'total_pop_udf_rev2.sql']:
+        with open(f"{SQL_DIR}/{udf}") as f:
+            query = f.read()
+            op.execute(sa.text(query))
     pass
 
 
 def downgrade() -> None:
-    with open(f"{SQL_DIR}/available_summary_stat_udf.sql") as f:
-        query = f.read()
-    op.execute(sa.text(query))
+    for udf in ['available_summary_stat_udf.sql', 'total_pop_udf.sql']:
+        with open(f"{SQL_DIR}/{udf}") as f:
+            query = f.read()
+            op.execute(sa.text(query))
     pass

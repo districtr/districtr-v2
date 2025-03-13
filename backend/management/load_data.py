@@ -71,13 +71,13 @@ def import_gerrydb_view(
         logger.info("Deleted file %s", path)
 
     logger.info(f"GerryDB view {table_name} imported successfully")
-    
+
     # Make sure changes are committed to satisfy constraints
     # before doing the upsert
     session.commit()
 
     upsert_query = sa.text(
-        f"""
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
