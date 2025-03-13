@@ -157,7 +157,9 @@ def document_total_vap_fixture(
 
 
 @pytest.fixture(name="document_id_all_stats")
-def document_all_stats_fixture(client, ks_demo_view_census_blocks_summary_stats_all_stats):
+def document_all_stats_fixture(
+    client, ks_demo_view_census_blocks_summary_stats_all_stats
+):
     response = client.post(
         "/api/create_document",
         json={
@@ -188,9 +190,21 @@ def assignments_fixture(client, document_id_all_stats):
         "/api/update_assignments",
         json={
             "assignments": [
-                {"document_id": document_id_all_stats, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id_all_stats, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id_all_stats, "geo_id": "200979691001108", "zone": 2},
+                {
+                    "document_id": document_id_all_stats,
+                    "geo_id": "202090441022004",
+                    "zone": 1,
+                },
+                {
+                    "document_id": document_id_all_stats,
+                    "geo_id": "202090428002008",
+                    "zone": 1,
+                },
+                {
+                    "document_id": document_id_all_stats,
+                    "geo_id": "200979691001108",
+                    "zone": 2,
+                },
             ],
             "updated_at": "2023-01-01T00:00:00",
         },
@@ -361,9 +375,21 @@ def test_get_document_population_totals_null_assignments(
         "/api/update_assignments",
         json={
             "assignments": [
-                {"document_id": document_id_all_stats, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id_all_stats, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id_all_stats, "geo_id": "200979691001108", "zone": None},
+                {
+                    "document_id": document_id_all_stats,
+                    "geo_id": "202090441022004",
+                    "zone": 1,
+                },
+                {
+                    "document_id": document_id_all_stats,
+                    "geo_id": "202090428002008",
+                    "zone": 1,
+                },
+                {
+                    "document_id": document_id_all_stats,
+                    "geo_id": "200979691001108",
+                    "zone": None,
+                },
             ],
             "updated_at": "2023-01-01T00:00:00",
         },
@@ -509,7 +535,9 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
     summary_stats = add_available_summary_stats_to_districtrmap(
         session=session, districtr_map_uuid=districtr_map_uuid
     )
-    assert summary_stats == ["TOTPOP"], f"Expected TOTPOP to be available, got {summary_stats}"
+    assert summary_stats == [
+        "TOTPOP"
+    ], f"Expected TOTPOP to be available, got {summary_stats}"
 
     session.commit()
 
@@ -556,7 +584,9 @@ def ks_demo_view_census_blocks_summary_stats_vap(session: Session):
     summary_stats = add_available_summary_stats_to_districtrmap(
         session=session, districtr_map_uuid=districtr_map_uuid
     )
-    assert summary_stats == ["VAP"], f"Expected VAP to be available, got {summary_stats}"
+    assert summary_stats == [
+        "VAP"
+    ], f"Expected VAP to be available, got {summary_stats}"
 
     session.commit()
 
@@ -604,7 +634,9 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
     summary_stats = add_available_summary_stats_to_districtrmap(
         session=session, districtr_map_uuid=districtr_map_uuid
     )
-    assert "TOTPOP" in summary_stats, f"Expected TOTPOP to be available, got {summary_stats}"
+    assert (
+        "TOTPOP" in summary_stats
+    ), f"Expected TOTPOP to be available, got {summary_stats}"
     assert "VAP" in summary_stats, f"Expected VAP to be available, got {summary_stats}"
 
     session.commit()

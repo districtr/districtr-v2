@@ -21,7 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    for udf in ['available_summary_stat_udf_rev2.sql', 'total_pop_udf_rev2.sql']:
+    for udf in ["available_summary_stat_udf_rev2.sql", "total_pop_udf_rev2.sql"]:
         with open(f"{SQL_DIR}/{udf}") as f:
             query = f.read()
             op.execute(sa.text(query))
@@ -29,7 +29,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for udf in ['available_summary_stat_udf.sql', 'total_pop_udf.sql']:
+    for udf in ["available_summary_stat_udf.sql", "total_pop_udf.sql"]:
         with open(f"{SQL_DIR}/{udf}") as f:
             query = f.read()
             op.execute(sa.text(query))
