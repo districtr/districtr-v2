@@ -29,7 +29,7 @@ const updateMapViews = (limit: number, offset: number) => {
 };
 
 const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
-  mapViewsQuery.subscribe(result => {
+  return mapViewsQuery.subscribe(result => {
     if (result) {
       _useMapStore.getState().setMapViews(result);
     }
@@ -169,8 +169,7 @@ fetchDemography.subscribe(demography => {
     demographyCache.update(
       result.columns,
       result.results,
-      shatterIds.parents,
-      shatterIds.children,
+      shatterIds,
       mapDocument,
       dataHash
     );
