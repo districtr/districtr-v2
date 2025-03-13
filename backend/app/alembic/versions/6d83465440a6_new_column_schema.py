@@ -1,7 +1,7 @@
 """new column schema
 
 Revision ID: 6d83465440a6
-Revises: 119dcf98993f
+Revises: 4b0aec5f8350
 Create Date: 2025-03-10 14:45:51.980701
 
 """
@@ -15,7 +15,7 @@ from app.constants import SQL_DIR
 
 # revision identifiers, used by Alembic.
 revision: str = "6d83465440a6"
-down_revision: Union[str, None] = "119dcf98993f"
+down_revision: Union[str, None] = "4b0aec5f8350"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
