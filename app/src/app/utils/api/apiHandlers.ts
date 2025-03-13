@@ -106,6 +106,7 @@ export interface DocumentMetadata {
   tags: string | null;
   description: string | null;
   eventId: string | null;
+  is_draft: boolean;
 }
 
 /**

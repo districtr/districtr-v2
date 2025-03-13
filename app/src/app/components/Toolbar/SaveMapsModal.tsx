@@ -27,11 +27,11 @@ const BoxContainer = styled(Box, {
 });
 
 export const SaveMapDetails: React.FC<{
+  nameIsSaved: boolean;
+  setNameIsSaved: (value: boolean) => void;
   open?: boolean;
   onClose?: () => void;
   showTrigger?: boolean;
-  nameIsSaved?: boolean;
-  setNameIsSaved?: () => void;
 }> = ({open, onClose, showTrigger, nameIsSaved, setNameIsSaved}) => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const setMapDocument = useMapStore(store => store.setMapDocument);
@@ -56,10 +56,15 @@ export const SaveMapDetails: React.FC<{
   const [mapDescription, setMapDescription] = React.useState<string | undefined | null>(
     currentMapMetadata?.description
   );
+  const [mapIsDraft, setMapIsDraft] = React.useState<boolean | undefined | null>(
+    currentMapMetadata?.is_draft
+  );
 
   const [mapTags, setTags] = React.useState<string | undefined | null>(currentMapMetadata?.tags);
   const [groupNameIsSaved, setGroupNameIsSaved] = React.useState(false);
   const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
+  const [descriptionIsSaved, setDescriptionIsSaved] = React.useState(false);
+  const [shareStateIsSaved, setShareStateIsSaved] = React.useState(false);
 
   React.useEffect(() => {
     setGroupName(groupName);
@@ -80,6 +85,7 @@ export const SaveMapDetails: React.FC<{
       setGroupName(currentMapMetadata?.name);
       setTags(currentMapMetadata?.tags);
       setMapDescription(currentMapMetadata?.description);
+      setMapIsDraft(currentMapMetadata?.is_draft);
     }
   }, [currentMapMetadata, dialogOpen]);
 
@@ -92,19 +98,32 @@ export const SaveMapDetails: React.FC<{
   const handleChangeDescription = (description: string | null) => {
     if (description !== mapDescription && description !== null) {
       setMapDescription(description);
+      setDescriptionIsSaved(false);
     }
+  };
+
+  const handleChangeIsDraft = (isDraft: boolean) => {
+    setMapIsDraft(isDraft);
+    setShareStateIsSaved(false);
   };
 
   const handleMetadataChange = (key: keyof DocumentMetadata, value: any) => {
     if (mapDocument?.document_id) {
-      if (key === 'group') {
-        handleChangeGroupName(value);
-      } else if (key === 'tags') {
-        handleChangeTag(value);
-      } else if (key === 'description') {
-        // handle description
-        handleChangeDescription(value);
+      switch (key) {
+        case 'group':
+          handleChangeGroupName(value);
+          break;
+        case 'tags':
+          handleChangeTag(value);
+          break;
+        case 'description':
+          handleChangeDescription(value);
+          break;
+        case 'is_draft':
+          handleChangeIsDraft(value);
+          break;
       }
+
       upsertUserMap({
         documentId: mapDocument?.document_id,
         mapDocument: {
@@ -172,6 +191,8 @@ export const SaveMapDetails: React.FC<{
     setGroupNameIsSaved(true);
     setTagsIsSaved(true);
     setNameIsSaved(true);
+    setDescriptionIsSaved(true);
+    setShareStateIsSaved(true);
   };
 
   useEffect(() => {
@@ -225,9 +246,14 @@ export const SaveMapDetails: React.FC<{
 
           <Box>
             <Flex gap="2">
-              <RadioGroup.Root>
-                <RadioGroup.Item value="share">Share with Team (coming soon) </RadioGroup.Item>
-                <RadioGroup.Item value="draft"> Save as Draft (coming soon) </RadioGroup.Item>
+              <RadioGroup.Root
+                value={mapIsDraft ? 'draft' : 'share'}
+                onValueChange={value => {
+                  handleMetadataChange('is_draft', value === 'draft');
+                }}
+              >
+                <RadioGroup.Item value="share">Ready to Share</RadioGroup.Item>
+                <RadioGroup.Item value="draft">In Progress (Draft)</RadioGroup.Item>
               </RadioGroup.Root>
             </Flex>
           </Box>
@@ -237,9 +263,20 @@ export const SaveMapDetails: React.FC<{
           variant="soft"
           className="flex items-center "
           onClick={handleMapSave}
-          disabled={nameIsSaved && tagsIsSaved}
+          disabled={
+            nameIsSaved &&
+            tagsIsSaved &&
+            descriptionIsSaved &&
+            groupNameIsSaved &&
+            shareStateIsSaved
+          }
         >
-          {mapDocument.status !== 'locked' && nameIsSaved && tagsIsSaved
+          {mapDocument.status !== 'locked' &&
+          nameIsSaved &&
+          tagsIsSaved &&
+          descriptionIsSaved &&
+          groupNameIsSaved &&
+          shareStateIsSaved
             ? 'Saved!'
             : mapDocument.status === 'locked'
               ? 'Create Copy'

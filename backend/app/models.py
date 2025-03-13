@@ -159,6 +159,7 @@ class DistrictrMapMetadata(BaseModel):
     tags: Optional[list[str]] | None = None
     description: Optional[str] | None = None
     event_id: Optional[str] | None = None
+    is_draft: bool = False
 
 
 class DocumentCreate(BaseModel):
