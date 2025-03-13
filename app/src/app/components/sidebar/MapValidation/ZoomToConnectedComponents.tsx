@@ -10,11 +10,13 @@ import {ChevronDownIcon, ChevronUpIcon, CrossCircledIcon} from '@radix-ui/react-
 interface ZoomToConnectedComponentsProps {
   zone: number;
   contiguity: number;
+  updateTrigger?: number | string | null;
 }
 
 export default function ZoomToConnectedComponents({
   zone,
   contiguity,
+  updateTrigger,
 }: ZoomToConnectedComponentsProps) {
   const mapDocument = useMapStore(store => store.mapDocument);
   const [showZoom, setShowZoom] = useState(false);
@@ -28,7 +30,7 @@ export default function ZoomToConnectedComponents({
       enabled: !!mapDocument && showZoom,
       staleTime: 0,
       retry: false,
-      placeholderData: previousData => previousData,
+      placeholderData: null,
     },
     queryClient
   );
@@ -38,6 +40,11 @@ export default function ZoomToConnectedComponents({
       setNumberConnectedComponents(data.features.length);
     }
   }, [data]);
+
+  useEffect(() => {
+    queryClient.setQueryData([`ConnectedComponentBboxes-${zone}`, mapDocument?.document_id], null);
+    setShowZoom(false);
+  }, [updateTrigger, contiguity]);
 
   return (
     <div>
@@ -54,7 +61,7 @@ export default function ZoomToConnectedComponents({
       {showZoom && error && (
         <Blockquote color="red">Error fetching connected components</Blockquote>
       )}
-      {showZoom && isFetched && (
+      {!!(showZoom && isFetched && data) && (
         <Flex direction="column" gap="1" justify="start" align="start" py="2">
           <Text color="gray">Zoom to connected components</Text>
           <ZoomToFeature
