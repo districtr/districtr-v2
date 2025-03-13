@@ -102,7 +102,11 @@ export const Contiguity = () => {
                 ) : row.contiguity == 1 ? (
                   <CheckCircledIcon color="green" />
                 ) : (
-                  <ZoomToConnectedComponents zone={row.zone} contiguity={row.contiguity} />
+                  <ZoomToConnectedComponents
+                    zone={row.zone}
+                    contiguity={row.contiguity}
+                    updateTrigger={lastUpdated}
+                  />
                 )}
               </Table.Cell>
             </Table.Row>
