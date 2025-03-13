@@ -136,6 +136,8 @@ class DemographyCache {
     this.idsToExclude.clear();
   }
   filterShattered(table: ColumnTable, shatterIds: {parents: Set<string>, children: Set<string>}, mapDocument: DocumentObject) {
+    // not shatterable
+    if (!mapDocument.child_layer) return table;
     return table.filter(escape((row: TableRow) => row.path && (
       (row.sourceLayer === mapDocument.parent_layer && !shatterIds.parents.has(row.path)) || 
       (row.sourceLayer === mapDocument.child_layer && shatterIds.children.has(row.path))

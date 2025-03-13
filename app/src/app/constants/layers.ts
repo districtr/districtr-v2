@@ -1,6 +1,5 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
 import {useMapStore} from '../store/mapStore';
-import {colorScheme} from './colors';
 import GeometryWorker from '../utils/GeometryWorker';
 import {useChartStore} from '../store/chartStore';
 import {demographyCache} from '../utils/demography/demographyCache';
@@ -37,30 +36,27 @@ export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels
 
 export const LABELS_BREAK_LAYER_ID = 'places_subplace';
 
-const colorStyleBaseline: any[] = ['case'];
-
-export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = colorScheme.reduce((val, color, i) => {
-  val.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
-  return val;
-}, colorStyleBaseline);
-ZONE_ASSIGNMENT_STYLE_DYNAMIC.push('#cecece');
-
-// cast the above as an ExpressionSpecification
-// @ts-ignore
-export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = ZONE_ASSIGNMENT_STYLE_DYNAMIC;
-
-export const ZONE_LABEL_STYLE_DYNAMIC = colorScheme.reduce(
-  (val, color, i) => {
-    val.push(['==', ['get', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+export const ZONE_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
+  const colorStyleBaseline: any[] = ['case'];
+  let group = [...colorScheme].reduce((val, color, i) => {
+    val.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
     return val;
-  },
-  ['case'] as any
-);
-ZONE_LABEL_STYLE_DYNAMIC.push('#cecece');
+  }, colorStyleBaseline);
+  group.push('#cecece');
+  return group as ExpressionSpecification;
+};
 
-// cast the above as an ExpressionSpecification
-// @ts-ignore
-export const ZONE_LABEL_STYLE: ExpressionSpecification = ZONE_LABEL_STYLE_DYNAMIC;
+export const ZONE_LABEL_STYLE = (colorScheme: string[]) => {
+  let group = [...colorScheme].reduce(
+    (val, color, i) => {
+      val.push(['==', ['get', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+      return val;
+    },
+    ['case'] as any
+  );
+  group.push('#cecece');
+  return group as ExpressionSpecification;
+};
 
 export const LAYER_LINE_WIDTHS = {
   [BLOCK_LAYER_ID]: 2,

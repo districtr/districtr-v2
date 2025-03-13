@@ -3,7 +3,6 @@ import {useMapStore} from '@/app/store/mapStore';
 import {Blockquote, Box, Button, CheckboxGroup, Heading, Table, Tabs} from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
-import {colorScheme} from '@/app/constants/colors';
 import {interpolateGreys} from 'd3-scale-chromatic';
 import {SummaryStatKeys, SummaryTypes, TotalColumnKeys} from '@/app/utils/api/summaryStats';
 import {
@@ -29,6 +28,7 @@ const Evaluation: React.FC = () => {
     mapDocument?.available_summary_stats?.includes(f.value)
   );
   const assignmentsHash = useMapStore(state => state.assignmentsHash);
+  const colorScheme = useMapStore(state => state.colorScheme);
   const [summaryType, setSummaryType] = useState<SummaryTypes | undefined>(
     (mapDocument?.available_summary_stats?.includes('VAP')
       ? 'VAP'

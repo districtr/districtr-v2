@@ -115,7 +115,7 @@ export const getFeatureUnderCursor = (
   brushSize: number,
   layers: string[] = [BLOCK_HOVER_LAYER_ID]
 ): MapGeoJSONFeature[] | undefined => {
-  return filterFeatures(map?.queryRenderedFeatures(e.point, {layers}) || []);
+  return filterFeatures(map?.queryRenderedFeatures(e.point, {layers}) || [], true);
 };
 
 /**
@@ -438,15 +438,35 @@ const filterFeatures = (
   filterLocked: boolean = true,
   additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = []
 ) => {
-  const {captiveIds, lockedFeatures, mapDocument, checkParentsToHeal, shatterIds} =
-    useMapStore.getState();
+  const {
+    activeTool,
+    captiveIds,
+    lockedFeatures,
+    mapDocument,
+    mapOptions,
+    checkParentsToHeal,
+    selectedZone,
+    shatterIds,
+    zoneAssignments,
+  } = useMapStore.getState();
   const parentIdsToHeal: MapStore['parentsToHeal'] = [];
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
   if (captiveIds.size) {
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
-  if (filterLocked && lockedFeatures.size) {
-    filterFunctions.push(f => !lockedFeatures.has(f.id?.toString() || ''));
+  if (filterLocked) {
+    if (activeTool === 'brush' && mapOptions.lockPaintedAreas.includes(selectedZone)) {
+      return [];
+    } else if (mapOptions.lockPaintedAreas.length) {
+      const lockedAreas = mapOptions.lockPaintedAreas;
+      filterFunctions.push(
+        f =>
+          !lockedFeatures.has(f.id?.toString() || '') &&
+          !lockedAreas.includes(zoneAssignments.get(f.id?.toString() || '') || null)
+      );
+    } else if (lockedFeatures.size) {
+      filterFunctions.push(f => !lockedFeatures.has(f.id?.toString() || ''));
+    }
   }
   if (mapDocument?.child_layer && shatterIds.parents.size) {
     filterFunctions.push(f => {
