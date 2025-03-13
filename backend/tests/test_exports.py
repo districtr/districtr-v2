@@ -9,9 +9,9 @@ def assignments_fixture(client, document_id) -> str:
         "/api/update_assignments",
         json={
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
+                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
+                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
+                {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
             "updated_at": "2023-01-01T00:00:00",
         },
@@ -32,7 +32,8 @@ def test_get_zone_assignments_csv_export(
     response = client.get(
         f"/api/document/{assignments_document_id}/export?format=CSV&limit=10&export_type=ZoneAssignments",
     )
-
+    print("!!!", response.text)
+    print("!!!", csv_result)
     assert response.status_code == 200, response.json()
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
     assert response.text == csv_result
