@@ -1,7 +1,7 @@
 """save color palette
 
 Revision ID: 4b0aec5f8350
-Revises: f36266d50cf7
+Revises: 119dcf98993f
 Create Date: 2025-03-03 13:38:10.774799
 
 """
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "4b0aec5f8350"
-down_revision: Union[str, None] = "f36266d50cf7"
+down_revision: Union[str, None] = "119dcf98993f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
