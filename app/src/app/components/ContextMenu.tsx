@@ -11,13 +11,13 @@ export const MapContextMenu: React.FC = () => {
   const lockFeature = useMapStore(state => state.lockFeature);
   const shatterMappings = useMapStore(state => state.shatterMappings);
 
+  if (!contextMenu?.data?.layer) return null;
   const canShatter = Boolean(
     mapDocument?.parent_layer &&
       mapDocument.child_layer &&
       mapDocument.child_layer !== contextMenu?.data.sourceLayer
   );
 
-  if (!contextMenu) return null;
   const isChild = CHILD_LAYERS.includes(contextMenu.data.layer.id);
   const id = contextMenu.data.id?.toString() || '';
   const parent =
@@ -68,9 +68,9 @@ export const MapContextMenu: React.FC = () => {
             Break to Blocks
           </ContextMenu.Item>
         )}
-        <ContextMenu.Item onSelect={handleLock}>
+        {/* <ContextMenu.Item onSelect={handleLock}>
           {featureIsLocked ? 'Unlock' : 'Lock'}
-        </ContextMenu.Item>
+        </ContextMenu.Item> */}
 
         {!!parent && (
           <>

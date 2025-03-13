@@ -113,7 +113,9 @@ jobs:
                     POSTGRES_PASSWORD=${{ secrets.FLY_PR_PG_PASSWORD }} \
                     POSTGRES_DB="districtr_v2_api" \
                     BACKEND_CORS_ORIGINS="https://${{ github.event.repository.name }}-${{ github.event.number }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
-                    DATABASE_URL="postgresql+psycopg://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5433/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic"
+                    DATABASE_URL="postgresql+psycopg://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5433/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic" \
+                    AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
+                    AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
                     
                     flyctl deploy \
                     --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \

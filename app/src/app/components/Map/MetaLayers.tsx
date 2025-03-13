@@ -1,15 +1,16 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
-import {useRef, useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 
-export const MetaLayers = () => {
-
+export const MetaLayers: React.FC<{isDemographicMap?:boolean}> = ({
+  isDemographicMap
+}) => {
   return (
     <>
-      <ZoneNumbersLayer />
+      {!isDemographicMap && <ZoneNumbersLayer />}
       <PopulationTextLayer />
     </>
   );
@@ -62,7 +63,7 @@ const ZoneNumbersLayer = () => {
   const zoneAssignments = useMapStore(state => state.zoneAssignments);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
-  const [zoneNumberData, setZoneNumberData] = useState<any>(EMPTY_FT_COLLECTION);
+  const [zoneNumberData, setZoneNumberData] = useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
   const shouldHide = useMapStore(
     state => state.mapOptions.showBlockPopulationNumbers && state.focusFeatures.length

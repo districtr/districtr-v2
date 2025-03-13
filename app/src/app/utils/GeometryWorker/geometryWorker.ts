@@ -277,7 +277,8 @@ const GeometryWorker: GeometryWorkerClass = {
         const f = this.activeGeometries[key];
         if (f.properties?.zone == null) continue;
         const zone = f.properties.zone;
-        if (visitedZones.has(zone) || !activeZones.includes(zone) || f.geometry.type !== 'Polygon') continue;
+        if (visitedZones.has(zone) || !activeZones.includes(zone) || f.geometry.type !== 'Polygon')
+          continue;
         const within = booleanWithin(f, bboxGeom);
         if (!within) continue;
         try {
@@ -337,51 +338,26 @@ const GeometryWorker: GeometryWorkerClass = {
       features,
     };
   },
-  async getUnassignedGeometries(useBackend = false, documentId?: string, exclude_ids?: string[]) {
+  async getUnassignedGeometries(documentId?: string, exclude_ids?: string[]) {
     const geomsToDissolve: GeoJSON.Feature[] = [];
-    if (useBackend) {
-      const url = new URL(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`
-      );
-      if (exclude_ids?.length) {
-        exclude_ids.forEach(id => url.searchParams.append('exclude_ids', id));
-      }
-      const remoteUnassignedFeatures = await fetch(url).then(r => r.json());
-      remoteUnassignedFeatures.features.forEach((geo: GeoJSON.MultiPolygon | GeoJSON.Polygon) => {
-        if (geo.type === 'Polygon') {
-          geomsToDissolve.push({
-            type: 'Feature',
-            properties: {},
-            geometry: geo,
-          });
-        } else if (geo.type === 'MultiPolygon') {
-          const polygons = explodeMultiPolygonToPolygons(geo);
-          polygons.forEach(p => geomsToDissolve.push(p));
-        }
-      });
-    } else {
-      for (const id in this.geometries) {
-        const geom = this.geometries[id];
-        if (!geom.properties?.zone && !exclude_ids?.includes(id)) {
-          const featureBbox = bbox(geom);
-          geomsToDissolve.push({
-            type: 'Feature',
-            geometry: {
-              coordinates: [
-                [
-                  [featureBbox[0], featureBbox[1]],
-                  [featureBbox[0], featureBbox[3]],
-                  [featureBbox[2], featureBbox[3]],
-                  [featureBbox[2], featureBbox[1]],
-                  [featureBbox[0], featureBbox[1]],
-                ],
-              ],
-              type: 'Polygon',
-            },
-          } as GeoJSON.Feature);
-        }
-      }
+    const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/unassigned`);
+    if (exclude_ids?.length) {
+      exclude_ids.forEach(id => url.searchParams.append('exclude_ids', id));
     }
+    const remoteUnassignedFeatures = await fetch(url).then(r => r.json());
+    remoteUnassignedFeatures.features.forEach((geo: GeoJSON.MultiPolygon | GeoJSON.Polygon) => {
+      if (geo.type === 'Polygon') {
+        geomsToDissolve.push({
+          type: 'Feature',
+          properties: {},
+          geometry: geo,
+        });
+      } else if (geo.type === 'MultiPolygon') {
+        const polygons = explodeMultiPolygonToPolygons(geo);
+        polygons.forEach(p => geomsToDissolve.push(p));
+      }
+    });
+
     if (!geomsToDissolve.length) {
       return {dissolved: {type: 'FeatureCollection', features: []}, overall: null};
     }
