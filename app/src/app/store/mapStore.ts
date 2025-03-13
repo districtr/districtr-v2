@@ -435,6 +435,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
               ...initialMapOptions,
               bounds: mapDocument.extent,
             },
+            colorScheme: DefaultColorScheme,
             sidebarPanels: ['population'],
             appLoadingState: 'initializing',
             shatterIds: {parents: new Set(), children: new Set()},

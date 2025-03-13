@@ -3,6 +3,7 @@ import 'maplibre-gl';
 import {useMapStore} from '@store/mapStore';
 import {useChartStore} from '@store/chartStore';
 import {NullableZone} from '@constants/types';
+import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import {SummaryStatKeys, SummaryStatsResult, SummaryTypes, TotalColumnKeys} from './summaryStats';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
@@ -381,6 +382,9 @@ export const saveColorScheme: (params: {
   document_id: string;
   colors: string[];
 }) => Promise<ColorsSet> = async ({document_id, colors}) => {
+  if (colors === DefaultColorScheme) {
+    return
+  }
   return await axios
     .patch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/update_colors`,
