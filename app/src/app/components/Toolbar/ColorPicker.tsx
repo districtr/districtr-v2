@@ -4,6 +4,7 @@ import {styled} from '@stitches/react';
 import * as RadioGroup from '@radix-ui/react-radio-group';
 import {blackA} from '@radix-ui/colors';
 import {useMapStore} from '@/app/store/mapStore';
+import {NullableZone} from '@/app/constants/types';
 import { FALLBACK_NUM_DISTRICTS } from '@/app/constants/layers';
 
 type ColorPickerProps<T extends boolean = false> = T extends true
@@ -13,6 +14,7 @@ type ColorPickerProps<T extends boolean = false> = T extends true
       onValueChange: (indices: number[], color: string[]) => void;
       colorArray: string[];
       multiple: true;
+      disabledValues?: NullableZone[];
     }
   : {
       defaultValue: number;
@@ -20,6 +22,7 @@ type ColorPickerProps<T extends boolean = false> = T extends true
       onValueChange: (i: number, color: string) => void;
       colorArray: string[];
       multiple?: false;
+      disabledValues?: NullableZone[];
     };
 
 export const ColorPicker = <T extends boolean>({
@@ -28,6 +31,7 @@ export const ColorPicker = <T extends boolean>({
   onValueChange,
   colorArray,
   multiple,
+  disabledValues,
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const hotkeyRef = useRef<string | null>(null);
@@ -100,6 +104,7 @@ export const ColorPicker = <T extends boolean>({
                 <Flex direction="column" align="center" key={i}>
                   <CheckboxGroupItem
                     key={i}
+                    disabled={disabledValues?.includes(i)}
                     // @ts-ignore Correct behavior, global CSS variables need to be extended
                     style={{'--accent-indicator': color}}
                     value={color}
@@ -129,8 +134,16 @@ export const ColorPicker = <T extends boolean>({
           {!!mapDocument &&
             colorArray.slice(0, numDistricts).map((color, i) => (
               <Flex direction="column" align="center" key={i}>
-                <RadioGroupItem key={i} style={{backgroundColor: color}} value={color}>
-                  <RadioGroupIndicator />
+                <RadioGroupItem
+                  key={i}
+                  style={{backgroundColor: color}}
+                  value={color}
+                  disabled={disabledValues?.includes(i)}
+                  className={disabledValues?.includes(i) ? 'opacity-25' : ''}
+                >
+                  <RadioGroupIndicator
+                    className={disabledValues?.includes(i) ? 'opacity-25' : ''}
+                  />
                 </RadioGroupItem>
                 <Text size="1">{i + 1}</Text>
               </Flex>
