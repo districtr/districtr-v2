@@ -660,7 +660,7 @@ def test_change_colors(
     client, document_id_p14, ks_demo_view_census_blocks_summary_stats_p14
 ):
     response = client.patch(
-        f"/api/{document_id_p14}/update_colors",
+        f"/api/document/{document_id_p14}/update_colors",
         json=["#FF0001", "#FF0002", "#FF0003", "#FF0004"],
     )
 
