@@ -1,7 +1,7 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
-import React, {useRef, useState} from 'react';
+import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 
@@ -75,8 +75,6 @@ const ZoneNumbersLayer = () => {
     const showZoneNumbers = useMapStore.getState().mapOptions.showZoneNumbers;
     const id = `${mapDocumentId}`;
     if (showZoneNumbers) {
-      const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
-      await GeometryWorker?.updateProps(zoneEntries);
       const geoms = await getDissolved();
       if (geoms && mapDocumentId === id){
         setZoneNumberData(geoms.centroids);
@@ -95,7 +93,7 @@ const ZoneNumbersLayer = () => {
     }
   };
 
-  useEffect(handleUpdate, [showZoneNumbers, zoneAssignments]);
+  useLayoutEffect(handleUpdate, [showZoneNumbers, zoneAssignments]);
 
   useEffect(() => {
     const map = getMapRef();
