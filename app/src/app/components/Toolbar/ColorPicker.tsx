@@ -5,6 +5,8 @@ import * as RadioGroup from '@radix-ui/react-radio-group';
 import {blackA} from '@radix-ui/colors';
 import {useMapStore} from '@/app/store/mapStore';
 import {extendColorArray} from '@/app/utils/colors';
+import {NullableZone} from '@/app/constants/types';
+import { FALLBACK_NUM_DISTRICTS } from '@/app/constants/layers';
 
 type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
@@ -12,12 +14,14 @@ type ColorPickerProps<T extends boolean = false> = T extends true
       value?: number[];
       onValueChange: (indices: number[], color: string[]) => void;
       multiple: true;
+      disabledValues?: NullableZone[];
     }
   : {
       defaultValue: number;
       value?: number;
       onValueChange: (i: number, color: string) => void;
       multiple?: false;
+      disabledValues?: NullableZone[];
     };
 
 export const ColorPicker = <T extends boolean>({
@@ -25,12 +29,13 @@ export const ColorPicker = <T extends boolean>({
   value,
   onValueChange,
   multiple,
+  disabledValues,
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const colorScheme = useMapStore(state => state.colorScheme);
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const numDistricts = mapDocument?.num_districts ?? 4;
+  const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
   const colorArray =
     numDistricts > colorScheme.length ? extendColorArray(colorScheme, numDistricts) : colorScheme;
 
@@ -100,6 +105,7 @@ export const ColorPicker = <T extends boolean>({
                 <Flex direction="column" align="center" key={i}>
                   <CheckboxGroupItem
                     key={i}
+                    disabled={disabledValues?.includes(i)}
                     // @ts-ignore Correct behavior, global CSS variables need to be extended
                     style={{'--accent-indicator': color}}
                     value={color}
@@ -129,8 +135,16 @@ export const ColorPicker = <T extends boolean>({
           {!!mapDocument &&
             colorScheme.slice(0, numDistricts).map((color, i) => (
               <Flex direction="column" align="center" key={i}>
-                <RadioGroupItem key={i} style={{backgroundColor: color}} value={color}>
-                  <RadioGroupIndicator />
+                <RadioGroupItem
+                  key={i}
+                  style={{backgroundColor: color}}
+                  value={color}
+                  disabled={disabledValues?.includes(i)}
+                  className={disabledValues?.includes(i) ? 'opacity-25' : ''}
+                >
+                  <RadioGroupIndicator
+                    className={disabledValues?.includes(i) ? 'opacity-25' : ''}
+                  />
                 </RadioGroupItem>
                 <Text size="1">{i + 1}</Text>
               </Flex>

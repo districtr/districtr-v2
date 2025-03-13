@@ -21,8 +21,8 @@ import GeometryWorker from '../GeometryWorker';
 import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
-import {useHoverStore} from '@/app/store/mapStore';
-import { idCache } from '@/app/store/idCache';
+import {useHoverStore} from '@/app/store/hoverFeatures';
+import { getFeatureUnderCursor } from '../helpers';
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -55,25 +55,19 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
 export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
-  const {activeTool, handleShatter, lockedFeatures, lockFeature, selectMapFeatures, setIsPainting} =
+  const {activeTool, handleShatter, selectMapFeatures, setIsPainting} =
     mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
+    const selectedFeatures = mapStore.paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
     if (documentId && e.features?.length) {
       handleShatter(
         documentId,
-        e.features.filter(f => f.layer.id === BLOCK_HOVER_LAYER_ID)
+        selectedFeatures || []
       );
     }
     return;
-  } else if (activeTool === 'lock') {
-    const documentId = mapStore.mapDocument?.document_id;
-    if (documentId && e.features?.length) {
-      const feature = e.features[0];
-      const id = feature.id?.toString() || '';
-      lockFeature(id, !lockedFeatures.has(id));
-    }
   } else if (activeTool === 'brush' || activeTool === 'eraser') {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
     const selectedFeatures = mapStore.paintFunction(mapRef, e, mapStore.brushSize, paintLayers);
@@ -105,7 +99,7 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
 
-  if (activeTool === 'pan' || activeTool === 'zoomToUnassigned') {
+  if (activeTool === 'pan') {
     // enable drag pan
     mapRef.dragPan.enable();
   } else if (activeTool === 'brush' || activeTool === 'eraser') {
@@ -153,7 +147,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     activeTool
   );
 
-  const isBrushingTool = sourceLayer && ['brush', 'eraser', 'shatter', 'lock'].includes(activeTool);
+  const isBrushingTool = sourceLayer && ['brush', 'eraser', 'shatter'].includes(activeTool);
   if (!isBrushingTool) {
     useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
@@ -263,9 +257,7 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
       tileID: e.tile.tileID.canonical,
       mapDocument,
       idProp: 'path',
-    }).then(data => {
-      idCache.loadFeatures(data, JSON.stringify(e.tile.tileID.canonical));
-    });
+    })
   }
 };
 

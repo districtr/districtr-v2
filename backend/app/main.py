@@ -1,4 +1,6 @@
 from fastapi import FastAPI, status, Depends, HTTPException, Query, BackgroundTasks
+import botocore.exceptions
+from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
 from sqlalchemy.exc import ProgrammingError, InternalError
@@ -12,6 +14,8 @@ from datetime import datetime, UTC
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
+import app.contiguity.main as contiguity
+from networkx import Graph
 from app.models import (
     Assignments,
     AssignmentsCreate,
@@ -22,25 +26,25 @@ from app.models import (
     DocumentCreate,
     DocumentPublic,
     GEOIDS,
+    GEOIDSResponse,
     AssignedGEOIDS,
     UUIDType,
     ZonePopulation,
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
-    SummaryStatisticType,
-    SummaryStatsP1,
-    PopulationStatsP1,
-    SummaryStatsP4,
-    PopulationStatsP4,
     UnassignedBboxGeoJSONs,
+    SummaryStatisticColumnLists,
 )
+from sqlalchemy.sql import func
 from app.utils import remove_file
 from app.exports import (
     get_export_sql_method,
     DocumentExportType,
     DocumentExportFormat,
 )
+from aiocache import Cache
+
 
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
@@ -54,6 +58,8 @@ app = FastAPI()
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+cache = Cache(cache_class=Cache.MEMORY)
 
 
 # Set all CORS enabled origins
@@ -76,14 +82,15 @@ def get_session():
 def update_timestamp(
     session: Session,
     document_id: str,
-    updated_at: str,
-):
+) -> datetime:
     update_stmt = (
         update(Document)
         .where(Document.document_id == document_id)
-        .values(updated_at=updated_at)
+        .values(updated_at=func.now())
+        .returning(Document.updated_at)
     )
-    session.execute(update_stmt)
+    updated_at = session.scalar(update_stmt)
+    return updated_at
 
 
 @app.get("/")
@@ -138,13 +145,12 @@ async def create_document(
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
             isouter=True,
         )
-        .limit(1)
     )
     # Document id has a unique constraint so I'm not sure we need to hit the DB again here
     # more valuable would be to check that the assignments table
     doc = session.exec(
         stmt,
-    ).one()  # again if we've got more than one, we have problems.
+    ).one()
     if not doc.map_uuid:
         session.rollback()
         raise HTTPException(
@@ -179,10 +185,11 @@ async def update_assignments(
         constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
     )
     session.execute(stmt)
+    updated_at = None
     if len(data.assignments) > 0:
-        update_timestamp(session, assignments[0]["document_id"], data.updated_at)
+        updated_at = update_timestamp(session, assignments[0]["document_id"])
     session.commit()
-    return {"assignments_upserted": len(data.assignments)}
+    return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
 
 
 @app.patch(
@@ -211,15 +218,15 @@ async def shatter_parent(
         Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
         for document_id, geo_id, zone in results
     ]
-    result = ShatterResult(parents=data, children=assignments)
-    update_timestamp(session, document_id, data.updated_at)
+    updated_at = update_timestamp(session, document_id)
+    result = ShatterResult(parents=data, children=assignments, updated_at=updated_at)
     session.commit()
     return result
 
 
 @app.patch(
     "/api/update_assignments/{document_id}/unshatter_parents",
-    response_model=GEOIDS,
+    response_model=GEOIDSResponse,
 )
 async def unshatter_parent(
     document_id: str, data: AssignedGEOIDS, session: Session = Depends(get_session)
@@ -241,9 +248,9 @@ async def unshatter_parent(
         },
     ).first()
 
-    update_timestamp(session, document_id, data.updated_at)
+    updated_at = update_timestamp(session, document_id)
     session.commit()
-    return {"geoids": results[0], "updated_at": data.updated_at}
+    return {"geoids": results[0], "updated_at": updated_at}
 
 
 @app.patch(
@@ -388,105 +395,191 @@ async def get_unassigned_geoids(
         bindparam(key="doc_uuid", type_=UUIDType),
         bindparam(key="exclude_ids", type_=ARRAY(String)),
     )
-    results = session.execute(
-        stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
-    ).fetchall()
+    try:
+        results = session.execute(
+            stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
+        ).fetchall()
+        print(results)
+    except DataError:
+        # could not return null - no results found
+        results = []
+
+    print(results)
     # returns a list of multipolygons of bboxes
-    return {"features": [row[0] for row in results]}
+    return {"features": [row[0] for row in results if row[0] is not None]}
 
 
-@app.get("/api/document/{document_id}/evaluation/{summary_stat}")
-async def get_summary_stat(
-    document_id: str, summary_stat: str, session: Session = Depends(get_session)
+@app.get("/api/document/{document_id}/contiguity")
+async def check_document_contiguity(
+    document_id: str,
+    # TODO: Allow passing zones to check contiguity for specific zones
+    # Should be slightly more efficient that checking all zones
+    # zone: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
 ):
-    try:
-        _summary_stat = SummaryStatisticType[summary_stat]
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid summary_stat: {summary_stat}",
+    # sql/get_block_assignments.sql also fetches the child layer. Would be nice not
+    # to have to do this twice. TODO: when supporting multiple zones, in new
+    # function also return the child layer name
+    stmt = (
+        select(DistrictrMap)
+        .join(
+            Document,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,  # pyright: ignore
+            isouter=True,
         )
-
-    try:
-        stmt, SummaryStatsModel = {
-            "P1": (
-                text(
-                    "SELECT * from get_summary_stats_p1(:document_id) WHERE zone is not null"
-                ),
-                SummaryStatsP1,
-            ),
-            "P4": (
-                text(
-                    "SELECT * from get_summary_stats_p4(:document_id) WHERE zone is not null"
-                ),
-                SummaryStatsP4,
-            ),
-        }[summary_stat]
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Summary stats not implemented for {summary_stat}",
-        )
-
-    try:
-        results = session.execute(stmt, {"document_id": document_id}).fetchall()
-        return {
-            "summary_stat": _summary_stat.value,
-            "results": [SummaryStatsModel.model_validate(row) for row in results],
-        }
-    except (ProgrammingError, InternalError) as e:
-        logger.error(e)
-        error_text = str(e)
-        if f"Table name not found for document_id: {document_id}" in error_text:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document_id} not found",
-            )
-
-
-@app.get("/api/districtrmap/{gerrydb_table}/evaluation/{summary_stat}")
-async def get_gerrydb_summary_stat(
-    gerrydb_table: str, summary_stat: str, session: Session = Depends(get_session)
-):
-    try:
-        _summary_stat = SummaryStatisticType[summary_stat]
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid summary_stat: {summary_stat}",
-        )
-
-    try:
-        summary_stat_udf, SummaryStatsModel = {
-            "P1": ("get_summary_p1_totals", PopulationStatsP1),
-            "P4": ("get_summary_p4_totals", PopulationStatsP4),
-        }[summary_stat]
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Summary stats not implemented for {summary_stat}",
-        )
-
-    stmt = text(
-        f"""SELECT *
-        FROM {summary_stat_udf}(:gerrydb_table)"""
-    ).bindparams(
-        bindparam(key="gerrydb_table", type_=String),
+        .where(Document.document_id == document_id)
     )
+
     try:
-        results = session.execute(stmt, {"gerrydb_table": gerrydb_table}).fetchone()
-        return {
-            "summary_stat": _summary_stat.value,
-            "results": SummaryStatsModel.model_validate(results),
-        }
-    except (ProgrammingError, InternalError) as e:
-        logger.error(e)
-        error_text = str(e)
-        if f"Table {gerrydb_table} does not exist in gerrydb schema" in error_text:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Gerrydb Table with ID {gerrydb_table} not found",
-            )
+        districtr_map = session.exec(
+            stmt,
+        ).one()
+    except NoResultFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID {document_id} not found",
+        )
+    except MultipleResultsFound:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Multiple DistrictrMaps found for Document with ID {document_id}",
+        )
+
+    if districtr_map.child_layer is not None:
+        logger.info(
+            f"Using child layer {districtr_map.child_layer} for document {document_id}"
+        )
+        gerrydb_name = districtr_map.child_layer
+        zone_assignments = contiguity.get_block_assignments(
+            session, document_id, districtr_map.uuid
+        )
+    else:
+        gerrydb_name = districtr_map.parent_layer
+        logger.info(
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+        )
+        sql = text("""
+            select zone, array_agg(geo_id) as nodes
+            from assignments
+            where document_id = :document_id group by zone
+            and zone is not null""")
+        result = session.execute(sql, {"document_id": document_id}).fetchall()
+        zone_assignments = [
+            contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
+        ]
+
+    try:
+        path = contiguity.get_gerrydb_graph_file(gerrydb_name)
+    except botocore.exceptions.ClientError as e:
+        # TODO: Maybe in the future this should actually create the graph
+        logger.error(f"Graph not found: {str(e)}")
+        raise HTTPException(
+            status_code=404,
+            detail="Graph unavailable. This map does not support contiguity checks.",
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Something went wrong: {str(e)}")
+
+    G = await cache.get(gerrydb_name)
+
+    try:
+        if G is None:
+            logger.info(f"Graph not found in cache, loading from {path}")
+            G = contiguity.get_gerrydb_block_graph(path, replace_local_copy=False)
+            assert await cache.set(gerrydb_name, G), "Unable to cache graph"
+        else:
+            logger.info("Graph found in cache")
+    except Exception as e:
+        logger.warning(f"Unable to load and cache graph: {str(e)}")
+
+    if not isinstance(G, Graph):
+        logger.error(f"Expected Graph, got {type(G)}")
+        raise HTTPException(status_code=500, detail="Error loading graph")
+
+    results = {}
+    for zone_blocks in zone_assignments:
+        logger.info(f"Checking contiguity for zone {zone_blocks.zone}")
+        results[zone_blocks.zone] = contiguity.subgraph_number_connected_components(
+            G=G, subgraph_nodes=zone_blocks.nodes
+        )
+
+    return results
+
+
+@app.get("/api/document/{document_id}/demography")
+async def get_map_demography(
+    document_id: str,
+    ids: list[str] = Query(default=[]),
+    stats: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
+    document = session.exec(
+        select(Document).filter(Document.document_id == document_id)
+    ).one()
+
+    dm = session.exec(
+        select(DistrictrMap).filter(
+            DistrictrMap.gerrydb_table_name == document.gerrydb_table
+        )
+    ).one()
+
+    columns = []
+    if dm.available_summary_stats is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str("Summary statistic not available for this map"),
+        )
+    # by default use all available columns otherwise the requested columns
+    available_summary_stats = dm.available_summary_stats if len(stats) == 0 else stats
+    # By default, provide all summary stats
+    for summary_stat in available_summary_stats:
+        if summary_stat not in SummaryStatisticColumnLists.__members__:
+            continue
+        else:
+            stat_cols = SummaryStatisticColumnLists[summary_stat]
+            columns.extend(stat_cols.value)
+
+    if len(ids) > 0:
+        # If the user sends a selection of IDs, just use those
+        # This bypasses the document.assignments and gerrydb.parent full query
+        # Essentially we use the user provided IDs as start of the join
+        # This could be a where clause at the end, but this should be faster
+        ids_subquery = text(
+            """
+            SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
+        """.format(",".join(f"(:id{i})" for i in range(len(ids))))
+        )
+        # This is for efficiency but slightly slippery
+        # Adding the format here provides some safety
+        params = {f"id{i}": id for i, id in enumerate(ids)}
+    else:
+        # direct string interpolation of dm.parent_layer is safe
+        # since it always comes from the database
+        # This gives us all VTDs
+        # and any shattered children
+        # The FE will filter for shattered parents
+        ids_subquery = text(f"""SELECT distinct geo_id
+            FROM document.assignments
+            WHERE document_id = :document_id
+            UNION
+            SELECT path as geo_id
+            FROM gerrydb.{dm.parent_layer}""")
+        params = {"document_id": document_id}
+
+    stmt = text(f"""
+        SELECT path, {",".join(columns)}
+        FROM ({ids_subquery}) as ids
+        LEFT JOIN gerrydb.{dm.gerrydb_table_name} gdb
+        on gdb.path = ids.geo_id
+        WHERE path is not null
+    """)
+
+    results = session.execute(stmt, params).fetchall()
+    return {
+        "columns": ["path", *columns],
+        "results": [[*row] for row in results],
+    }
 
 
 @app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
@@ -553,6 +646,7 @@ async def get_survey_results(
         with open(_out_file, "wb") as f:
             while data := copy.read():
                 f.write(data)
+            f.close()
 
         media_type = {
             DocumentExportFormat.csv: "text/csv; charset=utf-8",

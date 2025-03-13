@@ -4,35 +4,94 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
 import type {MutableRefObject} from 'react';
-import React, {useEffect, useRef} from 'react';
-import {MAP_OPTIONS} from '../../constants/configuration';
-import {handleWheelOrPinch, mapContainerEvents, mapEventHandlers} from '../../utils/events/mapEvents';
-import {INTERACTIVE_LAYERS} from '../../constants/layers';
-import {useMapStore} from '../../store/mapStore';
+import React, {useEffect, useMemo, useRef} from 'react';
+import {MAP_OPTIONS} from '@constants/configuration';
+import {
+  handleWheelOrPinch,
+  mapContainerEvents,
+  mapEventHandlers,
+} from '@utils/events/mapEvents';
+import {INTERACTIVE_LAYERS} from '@constants/layers';
+import {useMapStore} from '@store/mapStore';
+import { useDemographyStore } from '@/app/store/demographyStore';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
-import { CountyLayers } from './CountyLayers';
-import { ZoneLayers } from './ZoneLayers';
-import { MetaLayers } from './MetaLayers';
+import {CountyLayers} from './CountyLayers';
+import {VtdBlockLayers} from './VtdBlockLayers';
+import {MetaLayers} from './MetaLayers';
+// @ts-ignore plugin has no types 
+import syncMaps from '@mapbox/mapbox-gl-sync-move';
+import { useMapRenderer } from '@/app/hooks/useMapRenderer';
 
-export const MapComponent: React.FC = () => {
-  const mapRef: MutableRefObject<MapRef | null> = useRef(null);
+export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
+  const getStateMapRef = useMapStore(state => state.getMapRef);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore(state => state.mapLock);
   const setMapRef = useMapStore(state => state.setMapRef);
   const mapOptions = useMapStore(state => state.mapOptions);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
-  
+  const synced = useRef<false | (() => void)>(false);
+  const {mapRef, onLoad} = useMapRenderer(isDemographicMap ? 'demographic' : 'main');
+
+  const initialViewState = useMemo(() => {
+    if (!isDemographicMap) {
+      // Maplibre and react-map-gl disagree on types
+      const center = MAP_OPTIONS.center as [number, number];
+      return {
+        latitude: center[1],
+        longitude: center[0],
+        zoom: MAP_OPTIONS.zoom,
+      }
+    }
+    const mainMapRef = getStateMapRef();
+    if (!mainMapRef) return;
+    const center = mainMapRef.getCenter();
+    const zoom = mainMapRef.getZoom();
+    return {
+      latitude: center.lat,
+      longitude: center.lng,
+      zoom,
+    }
+  }, [getStateMapRef]);
+
   useEffect(() => {
-    const protocol = new Protocol();
-    maplibregl.addProtocol('pmtiles', protocol.tile);
+    if (!isDemographicMap) {
+      const protocol = new Protocol();
+      maplibregl.addProtocol('pmtiles', protocol.tile);
+    }
+
     return () => {
-      maplibregl.removeProtocol('pmtiles');
+      if (!isDemographicMap) {
+        maplibregl.removeProtocol('pmtiles');
+      }
     };
   }, []);
 
+  const handleSyncMaps = (demoMapRef?: maplibregl.Map) => {
+    const mainMapRef = getStateMapRef();
+    if (isDemographicMap && demoMapRef && mainMapRef && synced.current === false) {
+      synced.current = syncMaps(demoMapRef, mainMapRef);
+    }
+  };
+
+  useEffect(() => {
+    if (isDemographicMap) {
+      handleSyncMaps(mapRef.current?.getMap());
+    }
+    return () => {
+      if (synced.current) {
+        synced.current();
+        synced.current = false;
+      }
+      if (isDemographicMap){
+        useDemographyStore.getState().unmount()
+        mapRef.current = null;
+      }
+    }
+  }, [getStateMapRef]);
+
   const fitMapToBounds = () => {
-    if (mapRef.current && mapOptions.bounds) {
+    if (mapRef.current && mapOptions.bounds && !isDemographicMap) {
       if (mapOptions.bounds) {
         mapRef.current.fitBounds(mapOptions.bounds, {
           padding: 20,
@@ -64,29 +123,29 @@ export const MapComponent: React.FC = () => {
       className={`relative w-full flex-1 flex-grow
         ${mapLock ? 'pointer-events-none' : ''}
         ${document_id ? '' : 'opacity-25 pointer-events-none'}
+        ${isDemographicMap ? 'border-l-2 border-black' : ''}
         `}
       ref={mapContainer}
     >
       <GlMap
         ref={mapRef}
         mapStyle={MAP_OPTIONS.style || undefined}
-        initialViewState={{
-          // Maplibre and react-map-gl disagree on types
-          latitude: (MAP_OPTIONS.center as [number,number])?.[1] || 0,
-          longitude: (MAP_OPTIONS.center as [number,number])?.[0] || 0,
-          zoom: MAP_OPTIONS.zoom
-        }}
+        initialViewState={initialViewState}
         maxZoom={MAP_OPTIONS.maxZoom || undefined}
         pitchWithRotate={false}
         maxPitch={0}
         minPitch={0}
         dragRotate={false}
-        onLoad={() => {
-          if (mapRef.current) {
+        onLoad={(e) => {
+          onLoad(e)
+          if (isDemographicMap) {
+            handleSyncMaps(e.target);
+            useDemographyStore.getState().setGetMapRef(() => e.target);
+          } else {
             setMapRef(mapRef);
             handleWheelOrPinch({} as TouchEvent, mapRef.current);
-            fitMapToBounds();
           }
+          fitMapToBounds();
         }}
         onClick={mapEventHandlers.onClick}
         onZoom={mapEventHandlers.onZoom}
@@ -107,8 +166,8 @@ export const MapComponent: React.FC = () => {
         reuseMaps
       >
         <CountyLayers />
-        <ZoneLayers />
-        <MetaLayers />
+        <VtdBlockLayers isDemographicMap={isDemographicMap} />
+        <MetaLayers isDemographicMap={isDemographicMap} />
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
 
       </GlMap>

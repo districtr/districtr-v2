@@ -16,8 +16,7 @@ from sqlmodel import (
 )
 from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
-from pydantic_geojson.multi_polygon import MultiPolygonModel
-from pydantic_geojson.polygon import PolygonModel
+import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
 from enum import Enum
 from typing import Any
@@ -184,7 +183,6 @@ class Assignments(AssignmentsBase, table=True):
 
 class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
-    updated_at: datetime
 
 
 class AssignmentsResponse(SQLModel):
@@ -196,21 +194,28 @@ class AssignmentsResponse(SQLModel):
 
 class GEOIDS(BaseModel):
     geoids: list[str]
+
+
+class GEOIDSResponse(GEOIDS):
     updated_at: datetime
 
 
 class AssignedGEOIDS(GEOIDS):
     zone: int | None
-    updated_at: datetime
 
 
 class UnassignedBboxGeoJSONs(BaseModel):
-    features: list[MultiPolygonModel | PolygonModel]
+    features: list[
+        pydantic_geojson.feature.FeatureModel
+        | pydantic_geojson.multi_polygon.MultiPolygonModel
+        | pydantic_geojson.polygon.PolygonModel
+    ]
 
 
 class ShatterResult(BaseModel):
     parents: GEOIDS
     children: list[Assignments]
+    updated_at: datetime
 
 
 class ColorsSetResult(BaseModel):
@@ -236,6 +241,7 @@ class PopulationStatsP1(BaseModel):
     black_pop: int
     white_pop: int
     two_or_more_races_pop: int
+    total_pop: int
 
 
 class SummaryStatsP1(PopulationStatsP1):
@@ -252,7 +258,13 @@ class PopulationStatsP4(BaseModel):
     non_hispanic_white_vap: int
     non_hispanic_other_vap: int
     non_hispanic_two_or_more_races_vap: int
+    total_vap: int
 
 
 class SummaryStatsP4(PopulationStatsP4):
     zone: int
+
+
+class SummaryStatisticColumnLists(Enum):
+    P1 = PopulationStatsP1.model_fields.keys()
+    P4 = PopulationStatsP4.model_fields.keys()

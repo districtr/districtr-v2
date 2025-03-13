@@ -32,6 +32,7 @@ GERRY_DB_TOTAL_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_total_vap"
 GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 GERRY_DB_P1_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 GERRY_DB_P4_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_p4"
+GERRY_DB_P14_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_p14"
 
 
 ## Test DB
@@ -155,6 +156,18 @@ def document_total_vap_fixture(
     return document_id
 
 
+@pytest.fixture(name="document_id_p14")
+def document_p14_fixture(client, ks_demo_view_census_blocks_summary_stats_p14):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_P14_FIXTURE_NAME,
+        },
+    )
+    document_id = response.json()["document_id"]
+    return document_id
+
+
 @pytest.fixture(name="document_no_gerrydb_pop")
 def document_no_gerrydb_pop_fixture(
     client, ks_demo_view_census_no_pop_blocks_districtrmap
@@ -267,7 +280,9 @@ def test_patch_assignments(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 3}
+    assert response.json().get("assignments_upserted") == 3
+    updated_at = response.json().get("updated_at")
+    assert updated_at is not None
 
 
 def test_patch_assignments_nulls(client, document_id):
@@ -283,7 +298,9 @@ def test_patch_assignments_nulls(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 3}
+    data = response.json()
+    assert data.get("assignments_upserted") == 3
+    assert data.get("updated_at") is not None
 
 
 def test_patch_assignments_twice(client, document_id):
@@ -298,7 +315,9 @@ def test_patch_assignments_twice(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 2}
+    data = response.json()
+    assert data.get("assignments_upserted") == 2
+    assert data.get("updated_at") is not None
 
     response = client.patch(
         "/api/update_assignments",
@@ -311,7 +330,8 @@ def test_patch_assignments_twice(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 2}
+    assert data.get("assignments_upserted") == 2
+    assert data.get("updated_at") is not None
     # Check that the assignments were updated and not inserted
     doc_uuid = str(uuid.UUID(document_id))
     response = client.get(f"/api/get_assignments/{doc_uuid}")
@@ -349,7 +369,9 @@ def test_get_document_population_totals_null_assignments(
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"assignments_upserted": 3}
+    data = response.json()
+    assert data.get("assignments_upserted") == 3
+    assert data.get("updated_at") is not None
     doc_uuid = str(uuid.UUID(document_id))
     result = client.get(f"/api/document/{doc_uuid}/total_pop")
     assert result.status_code == 200
@@ -496,48 +518,6 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
 
-@pytest.fixture(name="document_id_p1_summary_stats")
-def document_summary_stats_fixture(client, ks_demo_view_census_blocks_summary_stats):
-    response = client.post(
-        "/api/create_document",
-        json={
-            "gerrydb_table": GERRY_DB_P1_FIXTURE_NAME,
-        },
-    )
-    document_id = response.json()["document_id"]
-    return document_id
-
-
-def test_get_p1_summary_stats(client, document_id_p1_summary_stats):
-    # Set up assignments
-    document_id = document_id_p1_summary_stats
-    response = client.patch(
-        "/api/update_assignments",
-        json={
-            "assignments": [
-                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ],
-            "updated_at": "2023-01-01T00:00:00",
-        },
-    )
-
-    summary_stat = "P1"
-    response = client.get(f"/api/document/{document_id}/evaluation/{summary_stat}")
-    data = response.json()
-    assert response.status_code == 200
-    assert data.get("summary_stat") == "Population by Race"
-    results = data.get("results")
-    assert results is not None
-    assert len(results) == 2
-    record_1, record_2 = data.get("results")
-    assert record_1.get("zone") == 1
-    assert record_2.get("zone") == 2
-    assert record_1.get("other_pop") == 13
-    assert record_2.get("other_pop") == 24
-
-
 @pytest.fixture(name=GERRY_DB_P4_FIXTURE_NAME)
 def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
     layer = GERRY_DB_P4_FIXTURE_NAME
@@ -585,48 +565,91 @@ def ks_demo_view_census_blocks_summary_stats_p4(session: Session):
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
 
-@pytest.fixture(name="document_id_p4_summary_stats")
-def document_p4_summary_stats_fixture(
-    client, ks_demo_view_census_blocks_summary_stats_p4
+@pytest.fixture(name=GERRY_DB_P14_FIXTURE_NAME)
+def ks_demo_view_census_blocks_summary_stats_p14(session: Session):
+    layer = GERRY_DB_P14_FIXTURE_NAME
+    result = subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",
+        ],
+    )
+
+    upsert_query = text(
+        """
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """
+    )
+
+    session.execute(upsert_query, {"name": layer})
+
+    districtr_map_uuid = create_districtr_map(
+        session=session,
+        name="DistrictMap with P14 view",
+        parent_layer=layer,
+        gerrydb_table_name=layer,
+    )
+    summary_stats = add_available_summary_stats_to_districtrmap(
+        session=session, districtr_map_uuid=districtr_map_uuid
+    )
+    assert "P1" in summary_stats, f"Expected P1 to be available, got {summary_stats}"
+    assert "P4" in summary_stats, f"Expected P4 to be available, got {summary_stats}"
+
+    session.commit()
+
+    if result.returncode != 0:
+        print(f"ogr2ogr failed. Got {result}")
+        raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
+
+def test_get_demography_table(
+    client, document_id_p14, ks_demo_view_census_blocks_summary_stats_p14
 ):
-    response = client.post(
-        "/api/create_document",
-        json={
-            "gerrydb_table": GERRY_DB_P4_FIXTURE_NAME,
-        },
-    )
-    document_id = response.json()["document_id"]
-    return document_id
+    doc_uuid = str(uuid.UUID(document_id_p14))
+    result = client.get(f"/api/document/{doc_uuid}/demography")
+    print(result.json())
+    assert result.status_code == 200
+    data = result.json()
+    assert "columns" in data
+    assert "results" in data
+    assert len(data["columns"]) == 18
+    assert len(data["results"]) == 10
 
 
-def test_get_p4_summary_stats(client, document_id_p4_summary_stats):
-    # Set up assignments
-    document_id = str(document_id_p4_summary_stats)
-    response = client.patch(
-        "/api/update_assignments",
-        json={
-            "assignments": [
-                {"document_id": document_id, "geo_id": "202090416004010", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090416003004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090434001003", "zone": 2},
-            ],
-            "updated_at": "2023-01-01T00:00:00",
-        },
+def test_get_demography_select_ids(
+    client, document_id_p14, ks_demo_view_census_blocks_summary_stats_p14
+):
+    doc_uuid = str(uuid.UUID(document_id_p14))
+    result = client.get(
+        f"/api/document/{doc_uuid}/demography?ids=202090416004010&ids=202090416003004"
     )
+    assert result.status_code == 200
+    data = result.json()
+    assert len(data["results"]) == 2
+    assert data["results"][0][0] == "202090416004010"
+    assert data["results"][1][0] == "202090416003004"
 
-    summary_stat = "P4"
-    response = client.get(f"/api/document/{document_id}/evaluation/{summary_stat}")
-    data = response.json()
-    assert response.status_code == 200
-    assert (
-        data.get("summary_stat")
-        == "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+
+def test_get_demography_select_ids_and_select_table(
+    client, document_id_p14, ks_demo_view_census_blocks_summary_stats_p14
+):
+    doc_uuid = str(uuid.UUID(document_id_p14))
+    result = client.get(
+        f"/api/document/{doc_uuid}/demography?ids=202090416004010&ids=202090416003004&stats=P1"
     )
-    results = data.get("results")
-    assert results is not None
-    assert len(results) == 2
-    record_1, record_2 = data.get("results")
-    assert record_1.get("zone") == 1
-    assert record_2.get("zone") == 2
-    assert record_1.get("hispanic_vap") == 13
-    assert record_2.get("hispanic_vap") == 24
+    assert result.status_code == 200
+    data = result.json()
+    assert len(data["results"]) == 2
+    assert "total_pop" in data["columns"]
+    assert "total_vap" not in data["columns"]

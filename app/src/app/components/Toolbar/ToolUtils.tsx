@@ -8,7 +8,6 @@ import {
   LockOpen1Icon,
   ViewGridIcon,
   ResetIcon,
-  ValueNoneIcon
 } from '@radix-ui/react-icons';
 import {useTemporalStore} from '@/app/store/temporalStore';
 import {useCallback} from 'react';
@@ -33,7 +32,6 @@ export const useActiveTools = () => {
   const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);
-  const thereAreAssignments = useMapStore(state => state.zoneAssignments.size > 0);
   const metaKey = typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl';
   
   const config: ActiveToolConfig[] = [
@@ -116,16 +114,6 @@ export const useActiveTools = () => {
       icon: LockOpen1Icon,
       hotKeyAccessor: (e) => {
         return e.code === 'KeyL'
-      }
-    },
-    {
-      hotKeyLabel: 'F',
-      mode: 'zoomToUnassigned',
-      disabled: !mapDocument?.document_id || !thereAreAssignments,
-      label: 'Find Unassigned',
-      icon: ValueNoneIcon,
-      hotKeyAccessor: (e) => {
-        return e.code === 'KeyF'
       }
     }
   ];
