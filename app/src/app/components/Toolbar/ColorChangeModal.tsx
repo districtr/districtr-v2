@@ -47,7 +47,7 @@ export const ColorChangeModal: React.FC<{
       <Dialog.Content className="max-w-[600px] max-h-[80vw]">
         <Flex align="start">
           <Dialog.Title className="m-0 flex-1">
-            <Heading size="4">Change District Colors</Heading>
+            <Heading size="4">Customize District Colors</Heading>
           </Dialog.Title>
 
           <Dialog.Close
