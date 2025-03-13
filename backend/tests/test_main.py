@@ -599,6 +599,7 @@ def ks_demo_view_census_blocks_summary_stats_p14(session: Session):
         name="DistrictMap with P14 view",
         parent_layer=layer,
         gerrydb_table_name=layer,
+        num_districts=4
     )
     summary_stats = add_available_summary_stats_to_districtrmap(
         session=session, districtr_map_uuid=districtr_map_uuid
@@ -653,3 +654,31 @@ def test_get_demography_select_ids_and_select_table(
     assert len(data["results"]) == 2
     assert "total_pop" in data["columns"]
     assert "total_vap" not in data["columns"]
+
+def test_change_colors(
+    client, 
+    document_id_p14,
+    ks_demo_view_census_blocks_summary_stats_p14
+):
+    response = client.patch(
+        f"/api/{document_id_p14}/update_colors",
+        json=["#FF0001", "#FF0002", "#FF0003", "#FF0004"]
+    )
+
+    assert response.status_code == 200
+    assert "colors" in response.json()
+    assert response.json()["colors"] == ["#FF0001", "#FF0002", "#FF0003", "#FF0004"]
+
+def test_change_colors_error(
+    client, 
+    document_id_p14,
+    ks_demo_view_census_blocks_summary_stats_p14
+):
+    response = client.patch(
+        f"/api/document/{document_id_p14}/update_colors",
+        json=["#FF0001"]
+    )
+
+    assert response.status_code == 400
+    assert "detail" in response.json()
+    assert response.json()["detail"] == "Number of colors provided (1) does not match number of zones (4)"

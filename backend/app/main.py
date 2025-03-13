@@ -283,12 +283,28 @@ async def reset_map(document_id: str, session: Session = Depends(get_session)):
 
 
 @app.patch(
-    "/api/{document_id}/update_colors",
+    "/api/document/{document_id}/update_colors",
     response_model=ColorsSetResult,
 )
 async def update_colors(
     document_id: str, colors: list[str], session: Session = Depends(get_session)
 ):
+    districtr_map = session.exec(
+        select(DistrictrMap)
+        .join(
+            Document,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,  # pyright: ignore
+            isouter=True,
+        )
+        .where(Document.document_id == document_id)
+    ).one()
+
+    if districtr_map.num_districts != len(colors):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Number of colors provided ({len(colors)}) does not match number of zones ({districtr_map.num_districts})",
+        )
+    
     stmt = text(
         """UPDATE document.document
         SET color_scheme = :colors

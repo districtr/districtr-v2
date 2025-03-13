@@ -383,7 +383,7 @@ export const saveColorScheme: (params: {
 }) => Promise<ColorsSet> = async ({document_id, colors}) => {
   return await axios
     .patch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/${document_id}/update_colors`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/update_colors`,
       colors,
     )
     .then(res => {
