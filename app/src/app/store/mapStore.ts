@@ -997,5 +997,3 @@ export var useMapStore = createWithMiddlewares<MapStore>(
         setUserMaps: userMaps => set({userMaps}),
       })
 )
-
-initSubs();

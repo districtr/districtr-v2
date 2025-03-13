@@ -8,11 +8,11 @@ import {MapStore, useMapStore} from './mapStore';
 
 export const initSubs = () => {
   // these need to initialize after the map store
-  getQueriesResultsSubs(useMapStore);
-  getMapEditSubs(useMapStore);
+  const querySubs = getQueriesResultsSubs(useMapStore);
+  const mapEditSubs =  getMapEditSubs(useMapStore);
   getSearchParamsObserver();
 
-  useMapStore.subscribe<
+  const healSub = useMapStore.subscribe<
     [MapStore['mapDocument'], MapStore['shatterIds'], MapStore['appLoadingState']]
   >(
     state => [state.mapDocument, state.shatterIds, state.appLoadingState],
@@ -26,7 +26,7 @@ export const initSubs = () => {
     {equalityFn: shallowCompareArray}
   );
 
-  useDemographyStore.subscribe(
+  const demogSub = useDemographyStore.subscribe(
     state => state.getMapRef,
     getMapRef => {
       const mapRef = getMapRef();
@@ -37,4 +37,12 @@ export const initSubs = () => {
       }
     }
   );
+
+  const unsub = () => {
+    querySubs();
+    mapEditSubs.forEach(sub => sub());
+    healSub();
+    demogSub();
+  }
+  return unsub;
 };

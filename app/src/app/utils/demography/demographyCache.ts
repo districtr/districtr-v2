@@ -110,7 +110,6 @@ class DemographyCache {
    *
    * @param columns - The columns to update.
    * @param dataRows - The data rows to update.
-   * @param excludeIds - The set of IDs to exclude.
    * @param childIds - The set of child IDs.
    * @param mapDocument - The map document object.
    * @param hash - The hash representing the new state.
@@ -118,25 +117,17 @@ class DemographyCache {
   update(
     columns: Array<string>,
     dataRows: Array<Array<string | number>>,
-    excludeIds: Set<string> = new Set(),
-    childIds: Set<string>,
+    shatterIds: {parents: Set<string>, children: Set<string>},
     mapDocument: DocumentObject,
     hash: string
   ): void {
     if (hash === this.hash) return;
-    const newColumnarData = this.rotate(columns, dataRows, childIds, mapDocument);
+    const newColumnarData = this.rotate(columns, dataRows, shatterIds.children, mapDocument);
     const newTable = table(newColumnarData);
     if (!this.table) {
-      this.table = table(
-        newTable.filter(escape((row: TableRow) => row.path && !excludeIds.has(row.path) && !this.idsToExclude.has(row.path)))
-      );
+      this.table = table(this.filterShattered(newTable, shatterIds, mapDocument))
     } else {
-      this.table = table(
-        this.table
-          .concat(newTable)
-          .dedupe('path')
-          .filter(escape((row: TableRow) => row.path && !excludeIds.has(row.path) && !this.idsToExclude.has(row.path)))
-      );
+      this.table = table(this.filterShattered(this.table.concat(newTable).dedupe('path'), shatterIds, mapDocument));
     }
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
@@ -145,7 +136,14 @@ class DemographyCache {
     this.hash = hash;
     this.idsToExclude.clear();
   }
-
+  filterShattered(table: ColumnTable, shatterIds: {parents: Set<string>, children: Set<string>}, mapDocument: DocumentObject) {
+    // not shatterable
+    if (!mapDocument.child_layer) return table;
+    return table.filter(escape((row: TableRow) => row.path && (
+      (row.sourceLayer === mapDocument.parent_layer && !shatterIds.parents.has(row.path)) || 
+      (row.sourceLayer === mapDocument.child_layer && shatterIds.children.has(row.path))
+    )))
+  }
   /**
    * Updates the zone table with new zone assignments.
    *
@@ -254,12 +252,21 @@ class DemographyCache {
         ok: false,
       };
     }
+    const {mapDocument, shatterIds} = useMapStore.getState();
+    if (mapDocument === null) {
+      console.error('No map document');
+    }
 
-    const joinedTable = this.table.join_full(this.zoneTable, ['path', 'path']).dedupe('path');
+    const joinedTable = this.filterShattered(
+      this.table.join_full(this.zoneTable, ['path', 'path']).dedupe('path'),
+      shatterIds,
+      mapDocument!
+    )
 
     const missingPopulations = joinedTable.filter(
       escape((row: TableRow & {zone: NullableZone}) => row['total_pop'] === undefined && row['zone'] !== undefined)
     );
+    
     if (missingPopulations.size) {
       console.log('Populations not yet loaded');
       return {
