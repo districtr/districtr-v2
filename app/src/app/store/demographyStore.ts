@@ -25,23 +25,28 @@ export const demographyVariables: Array<{
     colorScheme: chromatic.schemeBuGn,
   },
   {
-    label: 'Population: White',
-    value: 'white_pop_20',
-    models: ['TOTPOP'],
-  },
-  {
     label: 'Population: Black',
     value: 'bpop_20',
     models: ['TOTPOP'],
   },
   {
-    label: 'Population: Asian or Native Hawaiian/Pacific Islander',
+    label: 'Population: Hispanic',
+    value: 'hpop_20',
+    models: ['TOTPOP'],
+  },
+  {
+    label: 'Population: Asian',
     value: 'asian_nhpi_pop_20',
     models: ['TOTPOP'],
   },
   {
-    label: 'Population: American Indian/Alaska Native',
+    label: 'Population: AMIN',
     value: 'amin_pop_20',
+    models: ['TOTPOP'],
+  },
+  {
+    label: 'Population: White',
+    value: 'white_pop_20',
     models: ['TOTPOP'],
   },
   {
@@ -55,11 +60,6 @@ export const demographyVariables: Array<{
     models: ['VAP'],
   },
   {
-    label: 'Voting Population: White',
-    value: 'white_vap_20',
-    models: ['VAP'],
-  },
-  {
     label: 'Voting Population: Black',
     value: 'bvap_20',
     models: ['VAP'],
@@ -70,13 +70,18 @@ export const demographyVariables: Array<{
     models: ['VAP'],
   },
   {
-    label: 'Voting Population: Asian or Native Hawaiian/Pacific Islander',
+    label: 'Voting Population: Asian',
     value: 'asian_nhpi_vap_20',
     models: ['VAP'],
   },
   {
-    label: 'Voting Population: American Indian/Alaska Native',
+    label: 'Voting Population: AMIN',
     value: 'amin_vap_20',
+    models: ['VAP'],
+  },
+  {
+    label: 'Voting Population: White',
+    value: 'white_vap_20',
     models: ['VAP'],
   },
   {

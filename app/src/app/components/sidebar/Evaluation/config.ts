@@ -18,30 +18,30 @@ export const TOTPOPColumnConfig: ColumnConfiguration<TOTPOPZoneSummaryStats> = [
     column: 'hpop_20',
   },
   {
-    label: 'Asian and Native Hawaiian/Pacific Islander',
-    column: 'asian_nhpi_pop_20',
+    label: 'AMIN',
+    column: 'amin_pop_20',
   },
   {
-    label: 'American Indian and Alaska Native',
-    column: 'amin_pop_20',
+    label: 'Asian',
+    column: 'asian_nhpi_pop_20',
   },
   {
     label: 'White',
     column: 'white_pop_20',
   },
   {
-    label: 'Some Other Race',
+    label: 'Other',
     column: 'other_pop_20',
   }
 ];
 
 export const VAPColumnConfig: ColumnConfiguration<VAPZoneSummaryStats> = [
-  {column: "bvap_20", label: "Black VAP"},
-  {column: "hvap_20", label: "Hispanic VAP"},
-  {column: "amin_vap_20", label: "American Indian/Alaska Native VAP"},
-  {column: "asian_nhpi_vap_20", label: "Asian and NHPI VAP"},
-  {column: "white_vap_20", label: "White VAP"},
-  {column: "other_vap_20", label: "Some Other Race VAP"}
+  {column: "bvap_20", label: "Black"},
+  {column: "hvap_20", label: "Hispanic"},
+  {column: "amin_vap_20", label: "AMIN"},
+  {column: "asian_nhpi_vap_20", label: "Asian"},
+  {column: "white_vap_20", label: "White"},
+  {column: "other_vap_20", label: "Other"}
 ];
 
 export const columnConfigs = {
