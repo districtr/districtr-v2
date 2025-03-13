@@ -41,8 +41,7 @@ export default function ZoomToFeature({
     return feature && typeof feature === 'object' && feature.type === 'Polygon';
   }
 
-  useEffect(() => {
-    console.log(selectedIndex, hasMounted);
+  const zoomToFeature = (selectedIndex: number | null) => {
     let feature;
     if (selectedIndex !== null && hasMounted) {
       feature = features[selectedIndex];
@@ -71,6 +70,10 @@ export default function ZoomToFeature({
     }
 
     console.error('Invalid feature type');
+  };
+
+  useEffect(() => {
+    zoomToFeature(selectedIndex);
   }, [selectedIndex]);
 
   return (
@@ -84,14 +87,21 @@ export default function ZoomToFeature({
           >
             <ChevronLeftIcon />
           </IconButton>
-          <Select.Root
-            value={`${selectedIndex || 0}`}
-            onValueChange={value => setSelectedIndex(parseInt(value))}
-          >
+          <Select.Root value={`${selectedIndex || 0}`}>
             <Select.Trigger mx="2" />
             <Select.Content>
-              {features.map((feature, index) => (
-                <Select.Item key={index} value={`${index}`}>
+              {features.map((_, index) => (
+                <Select.Item
+                  key={index}
+                  value={`${index}`}
+                  onMouseDown={() => {
+                    if (index === selectedIndex) {
+                      zoomToFeature(index);
+                    } else {
+                      setSelectedIndex(index);
+                    }
+                  }}
+                >
                   {index + 1}
                 </Select.Item>
               ))}
