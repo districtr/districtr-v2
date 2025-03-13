@@ -44,7 +44,7 @@ export const ShareMapsModal: React.FC<{
   const [password, setPassword] = React.useState<string | null>(currentMap?.password ?? null);
   const [passwordDisabled, setPasswordDisabled] = React.useState(false);
   const [isVisible, setIsVisible] = React.useState(true);
-  console.log(mapDocument);
+
   useEffect(() => {
     setDialogOpen(open || false);
   }, [open]);
