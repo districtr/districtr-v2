@@ -70,6 +70,9 @@ updateDocumentFromId.subscribe(mapDocument => {
   }
   if (mapDocument.data && mapDocument.data.document_id !== useMapStore.getState().loadedMapId) {
     useMapStore.getState().setMapDocument(mapDocument.data);
+    if (mapDocument.data.color_scheme?.length) {
+      useMapStore.getState().setColorScheme(mapDocument.data.color_scheme);
+    }
   }
 });
 

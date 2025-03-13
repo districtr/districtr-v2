@@ -19,6 +19,7 @@ import {Layer} from 'react-map-gl/maplibre';
 export const ZoneLayerGroup: React.FC<{
   child?: boolean;
 }> = ({child = false}) => {
+  const colorScheme = useMapStore(state => state.colorScheme);
   const mapDocument = useMapStore(state => state.mapDocument);
   const shatterIds = useMapStore(state => state.shatterIds);
   const captiveIds = useMapStore(state => state.captiveIds);
@@ -98,7 +99,7 @@ export const ZoneLayerGroup: React.FC<{
         }}
         paint={{
           'fill-opacity': layerOpacity,
-          'fill-color': ZONE_ASSIGNMENT_STYLE || '#000000',
+          'fill-color': ZONE_ASSIGNMENT_STYLE(colorScheme) || '#000000',
         }}
       />
       <Layer
