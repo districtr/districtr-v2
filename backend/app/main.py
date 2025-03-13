@@ -304,7 +304,7 @@ async def update_colors(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Number of colors provided ({len(colors)}) does not match number of zones ({districtr_map.num_districts})",
         )
-    
+
     stmt = text(
         """UPDATE document.document
         SET color_scheme = :colors
