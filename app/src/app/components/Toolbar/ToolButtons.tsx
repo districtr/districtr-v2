@@ -15,18 +15,19 @@ export const ToolButtons: React.FC<{
 }> = ({showShortcuts, isMobile, toolbarItemsRef}) => {
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
+  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
   const {rotation: userRotation, customizeToolbar, toolbarSize} = useToolbarStore(state => state);
   const activeTools = useActiveTools();
-  const rotation = customizeToolbar && !isMobile ? userRotation : 'horizontal';
+  const rotation = customizeToolbar && !isMobile && toolbarLocation === 'map' ? userRotation : 'horizontal';
 
   return (
     <Flex
-      justify={'center'}
-      align="center"
+      justify={toolbarLocation === 'map' ? "center" : 'start'}
+      align={toolbarLocation === 'map' ? "center" : 'start'}
       ref={toolbarItemsRef}
       direction={rotation === 'horizontal' ? 'row' : 'column'}
-      className="shadow-md overflow-hidden bg-white"
+      className={`${toolbarLocation === 'map' ? 'shadow-md overflow-hidden bg-white' : ''}`}
       width="100%"
     >
       {activeTools.map((tool, i) => {
@@ -44,7 +45,8 @@ export const ToolButtons: React.FC<{
                   key={`${tool.mode}-flex`}
                   className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
                     i === activeTools.length - 1 ? 'rounded-r-lg' : ''
-                  }`}
+                  }
+                  `}
                   onMouseEnter={() => setActiveTooltip(tool.mode)}
                   onMouseLeave={() => setActiveTooltip(null)}
                   onClick={() => {

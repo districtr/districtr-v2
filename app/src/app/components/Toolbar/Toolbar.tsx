@@ -1,19 +1,79 @@
 'use client';
-import {IconButton} from '@radix-ui/themes';
+import {Box, Flex, IconButton} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import {MoveIcon, RotateCounterClockwiseIcon} from '@radix-ui/react-icons';
+import {MoveIcon, PinRightIcon, RotateCounterClockwiseIcon} from '@radix-ui/react-icons';
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {ActiveTool} from '@constants/types';
 import Draggable from 'react-draggable';
-import {useToolbarStore} from '@/app/store/toolbarStore';
+import {ToolbarState, useToolbarStore} from '@/app/store/toolbarStore';
 import {ToolControls} from '@/app/components/Toolbar/ToolControls';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import {ToolButtons} from './ToolButtons';
 
-export const Toolbar = () => {
+export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = () => {
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const {
+    x: userX,
+    y: userY,
+    customizeToolbar,
+    defaultX,
+    defaultY,
+    isMobile,
+  } = useToolbarStore(state => state);
+  const toolbarItemsRef = useRef<HTMLDivElement | null>(null);
+  const activeTools = useActiveTools();
+
+  const [x, y] = customizeToolbar && !isMobile ? [userX, userY] : [defaultX, defaultY];
+
+  useEffect(() => {
+    // add a listener for option or alt key press and release
+    const handleKeyPress = (event: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      // if active element is an input, don't do anything
+      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+        return;
+      // if alt, showShortcuts
+      if (event.altKey) {
+        setShowShortcuts(true);
+      } else {
+        setShowShortcuts(false);
+      }
+
+      const tool = activeTools.find(f => f.hotKeyAccessor(event));
+      if (tool) {
+        event.preventDefault();
+        tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    document.addEventListener('keyup', handleKeyPress);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, []);
+
+  if (!activeTool) return null;
+  return (
+    <>
+      <ToolButtons
+        showShortcuts={showShortcuts}
+        isMobile={isMobile}
+        toolbarItemsRef={toolbarItemsRef}
+      />
+      <ToolControls isMobile={isMobile} />
+    </>
+  );
+};
+
+export const DraggableToolbar = () => {
+  const activeTool = useMapStore(state => state.activeTool);
+  const setActiveTool = useMapStore(state => state.setActiveTool);
+  const setToolbarLocation = useToolbarStore(state => state.setToolbarLocation);
   const {
     x: userX,
     y: userY,
@@ -72,41 +132,12 @@ export const Toolbar = () => {
 
   useLayoutEffect(handleContainerResize, [rotation, toolbarSize]);
 
-  useEffect(() => {
-    // add a listener for option or alt key press and release
-    const handleKeyPress = (event: KeyboardEvent) => {
-      const activeElement = document.activeElement;
-      // if active element is an input, don't do anything
-      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
-        return;
-      // if alt, showShortcuts
-      if (event.altKey) {
-        setShowShortcuts(true);
-      } else {
-        setShowShortcuts(false);
-      }
-
-      const tool = activeTools.find(f => f.hotKeyAccessor(event));
-      if (tool) {
-        event.preventDefault();
-        tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyPress);
-    document.addEventListener('keyup', handleKeyPress);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyPress);
-      document.removeEventListener('keydown', handleKeyPress);
-    };
-  }, []);
-
   if (!activeTool) return null;
+
   return (
     <Draggable
-      defaultPosition={isMobile ? {x: 0, y: 0} : {x: x || 100, y: y || 100}}
-      position={isMobile ? {x: 0, y: 0} : {x: x || 100, y: y || 100}}
+      defaultPosition={isMobile ? {x: 0, y: 0} : {x: x === null ? 100 : x, y: y === null ? 100 : y}}
+      position={isMobile ? {x: 0, y: 0} : {x: x === null ? 100 : x, y: y === null ? 100 : y}}
       handle="#handle"
       grid={[10, 10]}
       onStart={() => {
@@ -129,23 +160,21 @@ export const Toolbar = () => {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <ToolButtons
-          showShortcuts={showShortcuts}
-          isMobile={isMobile}
-          toolbarItemsRef={toolbarItemsRef}
-        />
+        <Toolbar />
         {hovered && customizeToolbar && (
-          <>
+          <Flex
+            id="icon-button-group"
+            className={`absolute left-4 top-[-10px]`}
+            direction={'row'}
+            gap="2"
+          >
             <IconButton
               id="handle"
-              className={`absolute flex-none cursor-move rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+              className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
               variant="ghost"
               style={{
-                position: 'absolute',
                 background: 'rgba(255,255,255,0.8)',
-                top: 0,
                 cursor: 'move',
-                left: 0,
               }}
             >
               <MoveIcon fontSize={'12'} />
@@ -153,24 +182,31 @@ export const Toolbar = () => {
             <IconButton
               id="rotate"
               onClick={() => setRotation(rotation === 'horizontal' ? 'vertical' : 'horizontal')}
-              className={`absolute flex-none cursor-move rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+              className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
               variant="ghost"
               style={{
-                position: 'absolute',
                 background: 'rgba(255,255,255,0.8)',
-                bottom: rotation === 'horizontal' ? 0 : undefined,
-                top: rotation !== 'horizontal' ? 0 : undefined,
                 cursor: 'rotate',
-                left: rotation === 'horizontal' ? 0 : undefined,
-                right: rotation !== 'horizontal' ? 0 : undefined,
               }}
             >
               <RotateCounterClockwiseIcon fontSize={'12'} />
             </IconButton>
-          </>
+            <IconButton
+              id="rotate"
+              onClick={() => {
+                setToolbarLocation('sidebar')
+              }}
+              className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+              variant="ghost"
+              style={{
+                background: 'rgba(255,255,255,0.8)',
+                cursor: 'rotate',
+              }}
+            >
+              <PinRightIcon fontSize={'12'} />
+            </IconButton>
+          </Flex>
         )}
-
-        <ToolControls isMobile={isMobile} />
       </div>
     </Draggable>
   );

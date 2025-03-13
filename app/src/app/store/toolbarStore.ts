@@ -18,6 +18,8 @@ export type ToolbarState = {
   setCustomzieToolbar: (customize: boolean) => void;
   isMobile: boolean;
   setIsMobile: (isMobile: boolean) => void;
+  toolbarLocation: 'map' | 'sidebar';
+  setToolbarLocation: (location: 'map' | 'sidebar') => void;
 };
 
 export const useToolbarStore = create(
@@ -28,12 +30,18 @@ export const useToolbarStore = create(
       defaultX: null,
       defaultY: null,
       isMobile: false,
+      toolbarLocation: 'map',
+      setToolbarLocation: toolbarLocation => set({toolbarLocation}),
       setIsMobile: isMobile => set({isMobile}),
       rotation: 'horizontal',
       setXY: (_x, _y, rectify) => {
         const {maxX, maxY} = get().maxXY;
-        const x = rectify ? Math.min(Math.max(_x, 0), maxX || Math.pow(2, 16)) : _x;
-        const y = rectify ? Math.min(Math.max(_y, 32), maxY || Math.pow(2, 16)) : _y;
+        if (maxX && _x > maxX) {
+
+          return
+        }
+        const x = rectify ? Math.min(Math.max(_x, -14), maxX || Math.pow(2, 16)) : _x;
+        const y = rectify ? Math.min(Math.max(_y, 26), maxY || Math.pow(2, 16)) : _y;
         set({
           x,
           y,
@@ -68,6 +76,7 @@ export const useToolbarStore = create(
         rotation: state.rotation,
         toolbarSize: state.toolbarSize,
         customizeToolbar: state.customizeToolbar,
+        toolbarLocation: state.toolbarLocation,
       }),
     }
   )
