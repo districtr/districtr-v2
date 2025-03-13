@@ -75,9 +75,6 @@ export function getLayerFill(
     // is broken parent
     ['boolean', ['feature-state', 'broken'], false],
     0,
-    // geography is locked
-    ['boolean', ['feature-state', 'locked'], false],
-    baseOpacity - 0.25,
     // zone is selected and hover is true and hover is not null
     [
       'all',

@@ -41,8 +41,6 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
     const {shatterIds, mapDocument, getMapRef} = useMapStore.getState();
     const mapRef = getMapRef();
     if (!GeometryWorker || !mapRef) return;
-    const expectedFeatures = demographyCache.table?.size;
-    const nSeen = Object.keys(await GeometryWorker.activeGeometries).length;
     // disabling local implementation for now
     const unassignedGeometries = await GeometryWorker.getUnassignedGeometries(
       mapDocument?.document_id,

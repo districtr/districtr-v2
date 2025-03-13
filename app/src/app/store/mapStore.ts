@@ -869,7 +869,8 @@ export var useMapStore = createWithMiddlewares<MapStore>(
           lockPaintedAreas: [],
           prominentCountyNames: true,
           showCountyBoundaries: true,
-          showPaintedDistricts: true
+          showPaintedDistricts: true,
+          showZoneNumbers: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
         sidebarPanels: ['population'],

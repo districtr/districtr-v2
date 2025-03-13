@@ -64,6 +64,7 @@ const ZoneNumbersLayer = () => {
   const colorScheme = useMapStore(state => state.colorScheme);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
+  const lockedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const [zoneNumberData, setZoneNumberData] = useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
   const shouldHide = useMapStore(
@@ -99,6 +100,8 @@ const ZoneNumbersLayer = () => {
   useEffect(() => {
     const map = getMapRef();
     if (map) {
+      map.loadImage('/lock.png')
+        .then(image => map.addImage('lock', image.data));
       map.on('moveend', handleUpdate);
       map.on('zoomend', handleUpdate);
     }
@@ -122,7 +125,7 @@ const ZoneNumbersLayer = () => {
       <Layer
         id="ZONE_LABEL_BG"
         type="circle"
-        source="ZONE_LABEL"
+        source="zone-label"
         layout={{
           visibility: shouldHide ? 'none' : 'visible',
         }}
@@ -137,7 +140,7 @@ const ZoneNumbersLayer = () => {
       <Layer
         id="ZONE_LABEL"
         type="symbol"
-        source="ZONE_LABEL"
+        source="zone-label"
         layout={{
           visibility: shouldHide ? 'none' : 'visible',
           'text-field': ['get', 'zone'],
@@ -149,6 +152,24 @@ const ZoneNumbersLayer = () => {
         paint={{
           'text-color': '#000',
         }}
+        filter={
+          // get zone not in lockedAreas
+          ['!', ['in', ['get', 'zone'], ['literal', lockedAreas]]]
+        }
+      ></Layer>
+      <Layer
+        id="ZONE_LOCK_LABE"
+        type="symbol"
+        source="zone-label"
+        layout={{
+          visibility: shouldHide ? 'none' : 'visible',
+          'icon-image': 'lock',
+          'icon-size': 1
+        }}
+        filter={
+          // get zone not in lockedAreas
+          ['in', ['get', 'zone'], ['literal', lockedAreas]]
+        }
       ></Layer>
     </Source>
   );
