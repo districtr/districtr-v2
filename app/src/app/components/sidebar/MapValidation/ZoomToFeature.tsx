@@ -95,6 +95,8 @@ export default function ZoomToFeature({
                   key={index}
                   value={`${index}`}
                   onMouseDown={() => {
+                    // Allow re-zooming to currently selected feature
+                    // The root level onValueChange event won't trigger if the same item is clicked
                     if (index === selectedIndex) {
                       zoomToFeature(index);
                     } else {
