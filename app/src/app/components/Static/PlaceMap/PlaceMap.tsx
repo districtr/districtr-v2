@@ -51,7 +51,8 @@ export const PlaceMap: React.FC<any> = ({width, height}: GeoAlbersUsaProps) => {
           translate={[centerX, centerY - 25]}
         >
           {({features}) =>
-            features.map(({feature, path, projection}, i) => {
+            features.map(({feature, path}, i) => {
+              // @ts-ignore
               const name: string = stateAbbrs[feature.id];
 
               return (
