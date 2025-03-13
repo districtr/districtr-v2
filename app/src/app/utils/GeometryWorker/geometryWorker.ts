@@ -54,26 +54,12 @@ const GeometryWorker: GeometryWorkerClass = {
       features: Object.values(this.activeGeometries),
     };
   },
-  updateProps(entries, iters = 0) {
-    let ok = 0;
-    let missing = 0;
-    if (iters > 5) {
-      return;
-    }
+  updateProps(entries) {
     entries.forEach(([id, zone]) => {
       if (this.geometries[id]?.properties) {
-        ok++;
         this.geometries[id].properties['zone'] = zone;
-      } else {
-        missing++;
       }
     });
-    const total = ok + missing;
-    if (missing / total > 0.5) {
-      setTimeout(() => {
-        this.updateProps(entries, iters + 1);
-      }, 50);
-    }
   },
   handleShatterHeal({parents, children}) {
     const toAdd = [
