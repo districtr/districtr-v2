@@ -55,10 +55,11 @@ const GeometryWorker: GeometryWorkerClass = {
       features: Object.values(this.activeGeometries),
     };
   },
-  updateProps(entries) {
-    entries.forEach(([id, zone]) => {
-      this.zoneAssignments[id] = zone as number;
-    });
+  updateZones(entries) {
+    this.zoneAssignments = entries.reduce((acc, [id, zone]) => {
+      acc[id] = zone as number;
+      return acc;
+    }, {} as Record<string, number>);
   },
   handleShatterHeal({parents, children}) {
     const toAdd = [

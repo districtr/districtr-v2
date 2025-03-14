@@ -67,6 +67,8 @@ const ZoneNumbersLayer = () => {
   const lockedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const [zoneNumberData, setZoneNumberData] = useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
+  const mapRenderingState = useMapStore(state => state.mapRenderingState);
+  const appLoadingState = useMapStore(state => state.appLoadingState);
   const shouldHide = useMapStore(
     state => state.mapOptions.showBlockPopulationNumbers && state.focusFeatures.length
   );
@@ -93,7 +95,7 @@ const ZoneNumbersLayer = () => {
     }
   };
 
-  useLayoutEffect(handleUpdate, [showZoneNumbers, zoneAssignments]);
+  useLayoutEffect(handleUpdate, [showZoneNumbers, zoneAssignments, mapRenderingState, appLoadingState]);
 
   useEffect(() => {
     const map = getMapRef();

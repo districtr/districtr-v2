@@ -39,19 +39,16 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   >(
     state => [state.zoneAssignments, state.appLoadingState],
     ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
-      if (
-        previousAppLoadingState !== 'loaded' ||
-        appLoadingState === 'blurred' ||
-        !allowSendZoneUpdates
-      )
-        return;
-      const {getMapRef} = useMapStore.getState();
-      // Second to backend
-      debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
+      if (appLoadingState === 'blurred' || !allowSendZoneUpdates) return
+      // Update GeometryWorker on first render
+      const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
+      GeometryWorker?.updateZones(zoneEntries);
       // Update caches / workers
       demographyCache.updatePopulations(zoneAssignments);
-      const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
-      GeometryWorker?.updateProps(zoneEntries);
+      // If previously not loaded, this is the initial render
+      if (previousAppLoadingState !== 'loaded') return;
+      const {getMapRef} = useMapStore.getState();
+      debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
     },
     {equalityFn: shallowCompareArray}
   );
