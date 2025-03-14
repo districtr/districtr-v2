@@ -27,9 +27,11 @@ export const PopulationLabels: React.FC<{
   showTopBottomDeviation,
   width,
 }) => {
-  const popDiffLabel = formatNumber(entry.total_pop_20 - (idealPopulation || 0), 'string');
+  const popDiff = entry.total_pop_20 - (idealPopulation || 0);
+  const _popDiffLabel = Math.abs(popDiff) < 1 ? `0` : formatNumber(popDiff, 'string');
+  const popDiffLabel = popDiff >= 1 ? `+${_popDiffLabel}` : _popDiffLabel;
   const popLabel = formatNumber(entry.total_pop_20, 'string');
-  if (!popDiffLabel || !popLabel) return null;
+  if (popDiffLabel === undefined || popLabel === undefined) return null;
   const [left, top] = [xScale(entry.total_pop_20), yScale(index) + barHeight];
 
   let offsetLeft = 0;
@@ -42,13 +44,26 @@ export const PopulationLabels: React.FC<{
   return (
     <Group left={left + offsetLeft} top={top} style={{pointerEvents: 'none'}}>
       {!!(isHovered || showPopNumbers) && (
-        <text x={5} y={-2} fontSize={14} fontWeight={'bold'} textAnchor="start">
-          {popLabel}
-        </text>
+        <>
+          <text x={5} y={-2} fontSize={14} fontWeight={'bold'} textAnchor="start">
+            {popLabel}
+          </text>
+        </>
       )}
       {!!(isHovered || showTopBottomDeviation) && (
         <>
-          <text x={-5} y={-2} fontSize={14} textAnchor="end">
+          <text
+            x={-5}
+            y={-1}
+            fontSize={14}
+            textAnchor="end"
+            fill="white"
+            stroke="white"
+            strokeWidth="3"
+          >
+            {popDiffLabel}
+          </text>
+          <text x={-5} y={-1} fontSize={14} textAnchor="end">
             {popDiffLabel}
           </text>
         </>

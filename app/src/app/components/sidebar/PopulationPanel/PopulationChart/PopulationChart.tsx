@@ -7,7 +7,6 @@ import {scaleLinear} from '@visx/scale';
 import {AxisBottom} from '@visx/axis';
 import {useChartStore} from '@/app/store/chartStore';
 import {PopulationLabels} from './PopulationLabels';
-import {PopulationCustomTooltip} from './PopulationTooltip';
 
 export const PopulationChart: React.FC<{
   width: number;
@@ -116,20 +115,6 @@ export const PopulationChart: React.FC<{
           <React.Fragment key={`pop-bar-group-${index}`}>
             {entry.total_pop_20 > 0 && (
               <>
-                {hoveredIndex === index && (
-                  <Bar
-                    key={`bg-bar-${entry.zone}`}
-                    x={0}
-                    y={yScale(index)}
-                    width={xMax + margins.right}
-                    height={barHeight + 6}
-                    fill={colorScheme[entry.zone - 1]}
-                    fillOpacity={0.3}
-                    style={{
-                      pointerEvents: 'none',
-                    }}
-                  />
-                )}
                 <Bar
                   key={`bar-${entry.zone}`}
                   x={0}
@@ -185,17 +170,6 @@ export const PopulationChart: React.FC<{
           }}
           tickFormat={v => formatNumber(v as number, 'compact')}
         />
-
-        {hoveredIndex !== null && (
-          <PopulationCustomTooltip
-            y={yScale(hoveredIndex) + 5}
-            index={hoveredIndex}
-            pop={data[hoveredIndex].total_pop_20}
-            idealPopulation={idealPopulation}
-            maxPop={maxPop}
-            colorScheme={colorScheme}
-          />
-        )}
       </Group>
     </svg>
   );

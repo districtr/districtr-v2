@@ -20,7 +20,7 @@ export const PopulationPanel = () => {
   const idealPopulation = summaryStats?.idealpop;
   const unassigned = summaryStats.unassigned;
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
-  const allPainted = numDistricts === zoneStats?.paintedZones
+  const allPainted = numDistricts === populationData.length
   
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
@@ -29,7 +29,7 @@ export const PopulationPanel = () => {
   const setLockedZones = useMapStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
   const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
-
+  
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));

@@ -20,6 +20,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # check if column exists
+    conn = op.get_bind()
+    inspector = sa.engine.reflection.Inspector.from_engine(conn)
+    columns = inspector.get_columns("document", schema="document")
+    if "color_scheme" in [column["name"] for column in columns]:
+        return
     op.add_column(
         "document",
         sa.Column("color_scheme", sa.ARRAY(sa.VARCHAR), nullable=True),
