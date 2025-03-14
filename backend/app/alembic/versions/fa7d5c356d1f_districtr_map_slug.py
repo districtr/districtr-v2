@@ -1,7 +1,7 @@
 """districtr_map_slug
 
 Revision ID: fa7d5c356d1f
-Revises: 4b0aec5f8350
+Revises: e9435b616749
 Create Date: 2025-03-13 22:24:40.076745
 
 """
@@ -15,7 +15,7 @@ from app.core.config import settings
 
 # revision identifiers, used by Alembic.
 revision: str = "fa7d5c356d1f"
-down_revision: Union[str, None] = "4b0aec5f8350"
+down_revision: Union[str, None] = "e9435b616749"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -30,7 +30,9 @@ def upgrade() -> None:
         "get_total_population(UUID)",
         "get_zone_assignments_geo(UUID)",
         "get_block_assignments(UUID)",
+        "get_block_assignments(UUID, INTEGER[])",
         "get_block_assignments_geo(UUID)",
+        "get_block_assignments_geo(UUID, INTEGER[])",
         "get_unassigned_bboxes(UUID, VARCHAR[])",
         "get_summary_stats_p1(UUID)",
         "get_summary_stats_p4(UUID)",
@@ -46,8 +48,11 @@ def upgrade() -> None:
         "unshatter_parent",
         "total_pop_udf",
         "export_zone_assignments_geo",
+        "get_block_assignments",
         "get_block_assignments_geo",
         "get_block_assignments_geo",
+        "get_block_zone_assignments",
+        "get_block_zone_assignments_geo",
         "get_unassigned_bboxes_udf_rev2",
         "summary_stats_p1",
         "summary_stats_p4",

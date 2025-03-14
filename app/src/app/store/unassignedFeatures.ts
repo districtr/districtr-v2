@@ -10,7 +10,6 @@ type UnassignedFeatureStore = {
   hasFoundUnassigned: boolean;
   selectedIndex: number | null;
   lastUpdated: string | null;
-  changeSelectedIndex: (amount: number) => void;
   setSelectedIndex: (index: number | null) => void;
   reset: () => void;
   updateUnassignedFeatures: () => void;
@@ -22,13 +21,6 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
   hasFoundUnassigned: false,
   selectedIndex: null,
   lastUpdated: null,
-  changeSelectedIndex: (amount: number) => {
-    const {selectedIndex, unassignedFeatureBboxes} = get();
-    const prevIndex = selectedIndex || 0;
-    const newIndex = prevIndex + amount;
-    if (newIndex < 0 || newIndex >= unassignedFeatureBboxes.length) return;
-    set({selectedIndex: newIndex});
-  },
   setSelectedIndex: (index: number | null) => set({selectedIndex: index}),
   reset: () =>
     set({
@@ -41,8 +33,8 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
     const {shatterIds, mapDocument, getMapRef} = useMapStore.getState();
     const mapRef = getMapRef();
     if (!GeometryWorker || !mapRef) return;
-    const expectedFeatures = demographyCache.table?.size;
-    const nSeen = Object.keys(await GeometryWorker.activeGeometries).length;
+    // const expectedFeatures = demographyCache.table?.size;
+    // const nSeen = Object.keys(await GeometryWorker.activeGeometries).length;
     // disabling local implementation for now
     const unassignedGeometries = await GeometryWorker.getUnassignedGeometries(
       mapDocument?.document_id,
@@ -54,7 +46,7 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
       selectedIndex: null,
       unassignedOverallBbox: unassignedGeometries?.overall || null,
       unassignedFeatureBboxes: unassignedGeometries?.dissolved?.features || [],
-      lastUpdated: new Date().toLocaleTimeString(),
+      lastUpdated: new Date().toLocaleString(),
     });
   },
 }));

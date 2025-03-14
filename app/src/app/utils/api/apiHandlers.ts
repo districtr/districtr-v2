@@ -214,6 +214,28 @@ export const getContiguity: (
 };
 
 /**
+ * Get zone populations from the server.
+ * @param mapDocument - DocumentObject, the document object
+ * @param zone - number, the zone id
+ * @returns Promise<GeoJSON[]>
+ */
+export const getZoneConnectedComponentBBoxes: (
+  mapDocument: DocumentObject,
+  zone: number
+) => Promise<any> = async (mapDocument, zone) => {
+  if (mapDocument) {
+    return await axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity/${zone}/connected_component_bboxes`, {
+      })
+      .then(res => {
+        return res.data
+      });
+  } else {
+    throw new Error('No document provided');
+  }
+};
+
+/**
  * Get available DistrictrMap views from the server.
  * @param limit - number, the number of views to return (default 10, max 100)
  * @param offset - number, the number of views to skip (default 0)
