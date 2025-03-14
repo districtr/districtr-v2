@@ -110,12 +110,9 @@ export const RecentMapsModal: React.FC<{
         <Box className="max-h-[50vh] overflow-y-auto">
           <Flex
             align="center"
-            display="grid"
             justify="center"
-            className="grid grid-cols-5 py-2 border-b font-bold bg-gray-100 w-full"
+            className="grid grid-cols-5 py-2 border-b font-bold bg-gray-100 w-full absolute"
             gapX="20%"
-            width="100%"
-            position="absolute"
           >
             <Text>Name</Text>
             <Text>Last Updated</Text>
