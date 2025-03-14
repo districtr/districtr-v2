@@ -180,11 +180,6 @@ def check_map_lock(document_id, user_id, session):
             if result and result.user_id == user_id
             else DocumentEditStatus.locked
         )
-    # status = (
-    #     DocumentEditStatus.unlocked
-    #     if result and result.user_id == user_id
-    #     else DocumentEditStatus.locked
-    # )
 
     return status
 
@@ -294,13 +289,6 @@ async def create_document(
     session.commit()
 
     return doc
-    # except Exception as e:
-    #     logger.error(e)
-    #     session.rollback()
-    #     raise HTTPException(
-    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #         detail="Document creation failed: " + str(e),
-    #     )
 
 
 @app.patch("/api/update_assignments")
