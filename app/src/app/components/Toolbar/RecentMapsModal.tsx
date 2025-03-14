@@ -121,7 +121,6 @@ export const RecentMapsModal: React.FC<{
           </Flex>
           <Accordion.Root
             type="single"
-            size="3"
             value={openItem ?? undefined}
             onValueChange={value => setOpenItem(value || null)}
           >
