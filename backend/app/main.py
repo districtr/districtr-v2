@@ -775,7 +775,6 @@ async def get_projects(
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)
-        .filter(DistrictrMap.gerrydb_table_name.notin_(LEGACY_VIEWS))
     ).all()
     return gerrydb_views
 
