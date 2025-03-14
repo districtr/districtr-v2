@@ -14,6 +14,7 @@ import {
   TextField,
   IconButton,
   RadioCards,
+  Separator,
 } from '@radix-ui/themes';
 import {SaveMapDetails} from './SaveMapsModal';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
@@ -115,9 +116,9 @@ export const RecentMapsModal: React.FC<{
             className="grid grid-cols-3 py-2 border-b font-bold bg-gray-100 w-full"
             gapX="22%"
             width="100%"
+            position="absolute"
           >
             <Text>Name</Text>
-
             <Text>Last Updated</Text>
             <Text>Actions</Text>
             <Text></Text>
@@ -198,7 +199,8 @@ const RecentMapsRow: React.FC<{
             {!!(active && onChange) ? (
               <Flex align="center" gap="2">
                 <TextField.Root
-                  size="3"
+                  size="2"
+                  maxWidth="100%"
                   value={mapName}
                   onChange={e => {
                     handleChangeNameMetadata(e.target.value);
@@ -239,6 +241,9 @@ const RecentMapsRow: React.FC<{
 
       {/* Accordion Content */}
       <Accordion.Content className="px-4 py-2">
+        <Flex gap="4">
+          <Separator size="4" className="p-1" />
+        </Flex>
         <SaveMapDetails nameIsSaved={nameIsSaved} setNameIsSaved={setNameIsSaved} />
       </Accordion.Content>
     </div>

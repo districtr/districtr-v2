@@ -209,8 +209,8 @@ export const SaveMapDetails: React.FC<{
   return (
     <>
       <BoxContainer>
-        <Flex css={{justifyContent: 'space-between'}} gap={'5'}>
-          <Box maxWidth="200px" width={'33%'}>
+        <Flex gap="2" width={'100%'} display={'flex'}>
+          <Box width={'33%'}>
             <Text as="label" size="2">
               Comments
             </Text>
@@ -221,7 +221,7 @@ export const SaveMapDetails: React.FC<{
               onChange={e => handleMetadataChange('description', e.target.value)}
             ></TextArea>
           </Box>
-          <Box maxWidth="200px" width={'33%'}>
+          <Box width={'33%'}>
             {mapDocument?.status && mapDocument?.status === 'locked' ? (
               <Text>Name your Copy </Text>
             ) : (
@@ -244,7 +244,7 @@ export const SaveMapDetails: React.FC<{
             ></TextField.Root>
           </Box>
 
-          <Box>
+          <Box width={'33%'}>
             <Flex gap="2">
               <RadioGroup.Root
                 value={mapIsDraft ? 'draft' : 'share'}
@@ -260,7 +260,7 @@ export const SaveMapDetails: React.FC<{
         </Flex>
         {/* save map */}
         <Button
-          variant="soft"
+          variant="solid"
           className="flex items-center "
           onClick={handleMapSave}
           disabled={

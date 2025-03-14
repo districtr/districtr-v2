@@ -174,6 +174,7 @@ def document_all_stats_fixture(
         "/api/create_document",
         json={
             "gerrydb_table": GERRY_DB_ALL_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
