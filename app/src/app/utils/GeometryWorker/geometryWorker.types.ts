@@ -25,6 +25,7 @@ export type GeometryWorkerClass = {
     parents: string[];
     children: string[];
   };
+  zoneAssignments: Record<string, number>;
   previousCentroids: Record<number, GeoJSON.Feature<GeoJSON.Point>>;
   /**
    * Updates the zone assignments of the geometries.

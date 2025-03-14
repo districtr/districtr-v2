@@ -30,6 +30,7 @@ const explodeMultiPolygonToPolygons = (
 const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
   activeGeometries: {},
+  zoneAssignments: {},
   shatterIds: {
     parents: [],
     children: [],
@@ -56,9 +57,7 @@ const GeometryWorker: GeometryWorkerClass = {
   },
   updateProps(entries) {
     entries.forEach(([id, zone]) => {
-      if (this.geometries[id]?.properties) {
-        this.geometries[id].properties['zone'] = zone;
-      }
+      this.zoneAssignments[id] = zone as number;
     });
   },
   handleShatterHeal({parents, children}) {
@@ -96,9 +95,7 @@ const GeometryWorker: GeometryWorkerClass = {
     };
   },
   resetZones() {
-    for (const id in this.geometries) {
-      this.geometries[id].properties.zone = null;
-    }
+    this.zoneAssignments = {};
   },
   loadTileData({tileData, tileID, mapDocument, idProp}) {
     const returnData = [];
@@ -170,7 +167,7 @@ const GeometryWorker: GeometryWorkerClass = {
     );
     let largestDissolvedFeatures: Record<number, {feature: GeoJSON.Feature; area: number}> = {};
     dissolved.features.forEach(feature => {
-      const zone = feature.properties?.zone;
+      const zone = this.zoneAssignments[feature.properties?.id];
       if (!zone) return;
       const featureArea = area(feature);
       // TODO: This makes sense for now given that we are not enforcing contiguity on zones,
@@ -187,6 +184,7 @@ const GeometryWorker: GeometryWorkerClass = {
       type: 'FeatureCollection',
       features: cleanDissolvedFeatures.map(f => {
         const center = centerOfMass(f);
+        const zone = this.zoneAssignments[f.properties?.id];
         const geometry =
           pointsWithinPolygon(center, f as any).features.length === 1
             ? center.geometry
@@ -195,7 +193,7 @@ const GeometryWorker: GeometryWorkerClass = {
         return {
           type: 'Feature',
           properties: {
-            zone: Number(f.properties?.zone),
+            zone
           },
           geometry,
         } as GeoJSON.Feature<GeoJSON.Point>;
@@ -246,7 +244,8 @@ const GeometryWorker: GeometryWorkerClass = {
     }
     const clippedFeatures: GeoJSON.Feature[] = [];
     this.getGeos().features.forEach(f => {
-      if (f.properties?.zone == null) return;
+      const zone = this.zoneAssignments[f.properties?.id];
+      if (zone === null || zone === undefined) return;
       const clipped = bboxClip(f.geometry as GeoJSON.Polygon, bounds);
       if (clipped.geometry?.coordinates.length) {
         clippedFeatures.push({
@@ -276,22 +275,27 @@ const GeometryWorker: GeometryWorkerClass = {
     // re-use previous centroids if possible
     Object.entries(this.previousCentroids).forEach(([zone, previousCentroid]) => {
       const previousCentroidId = previousCentroid.properties?.id;
-      const previousCentroidZone = previousCentroid.properties?.zone;
-      if (!previousCentroidId || !previousCentroidZone) return;
-      const currentZone = this.activeGeometries[previousCentroidId]?.properties?.zone;
-      const zoneChanged = currentZone !== previousCentroidZone;
+      if (!previousCentroidId) return;
+      const currentZone = this.zoneAssignments[previousCentroidId];
+      const zoneChanged = currentZone !== +zone && activeZones.includes(currentZone);
       // if this geo was erased or change the zone, do not re-use it
-      if (currentZone === null || zoneChanged) return;
+      if (currentZone === null || zoneChanged) {
+        return
+      };
       // check if within current view
       const geoIsWithinView = booleanWithin(previousCentroid, bboxGeom);
-      if (!geoIsWithinView) return;
+      if (!geoIsWithinView) {
+        return
+      };
       try {
         // check if it intersects with any other centroid given the new view
         const intersectsAny = centroids.features.some(pointFeature => {
           const distanceBetween = distance(previousCentroid, pointFeature, {units: 'kilometers'});
           return distanceBetween < minimumDistance;
         });
-        if (intersectsAny) return;
+        if (intersectsAny) {
+          return
+        };
         centroids.features.push(previousCentroid);
         visitedZones.add(+zone);
       } catch (e) {}
@@ -303,7 +307,7 @@ const GeometryWorker: GeometryWorkerClass = {
       if (activeZones.every(zone => visitedZones.has(zone))) break;
       const key = keys[i];
       const f = this.activeGeometries[key];
-      const zone = f.properties?.zone;
+      const zone = this.zoneAssignments[key];
       const zoneExists = zone !== null && zone !== undefined
       const zoneIsNeeded = !visitedZones.has(zone) && activeZones.includes(zone);
       const zoneGeoIsPolygon = f.geometry.type == 'Polygon';
@@ -314,7 +318,7 @@ const GeometryWorker: GeometryWorkerClass = {
         let centroid = centerOfMass(f);
         const intersectsAny = Object.entries(this.previousCentroids).some(
           ([cZone, prevCentroid]) => {
-            if (zone === cZone || !prevCentroid || !cZone) return false;
+            if (+zone === +cZone || !prevCentroid || !cZone) return false;
             const distanceBetween = distance(centroid, prevCentroid, {units: 'kilometers'});
             return distanceBetween < minimumDistance;
           }
