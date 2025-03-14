@@ -206,8 +206,9 @@ const GeometryWorker: GeometryWorkerClass = {
       dissolved,
     };
   },
-  getCentroidsFromView({bounds: [minLon, minLat, maxLon, maxLat], activeZones, fast, minBuffer}) {
-    const visitedZones = new Set();
+  getCentroidBoilerplate(bounds) {
+    const [minLon, minLat, maxLon, maxLat] = bounds;
+    const visitedZones = new Set<number>();
     const centroids: GeoJSON.FeatureCollection<GeoJSON.Point> = {
       type: 'FeatureCollection',
       features: [],
@@ -228,82 +229,121 @@ const GeometryWorker: GeometryWorkerClass = {
         ],
       ],
     };
+    return {
+      centroids,
+      dissolved,
+      visitedZones,
+      bboxGeom,
+    };
+  },
+  getCentersOfMass(bounds, activeZones) {
+    const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
     if (!activeZones.length) {
       return {
         centroids,
         dissolved,
       };
     }
-
-    if (fast) {
-      const minimumDistance = minBuffer ?? CENTROID_BUFFER_KM
-      // convert 30pixels
-      Object.entries(this.previousCentroids).forEach(([zone, centroid]) => {
-        if (!centroid.properties?.id || !centroid.properties.zone) return;
-        const props = centroid.properties;
-        const currZone = this.activeGeometries[props.id]?.properties?.zone;
-        if (!currZone || currZone !== props.zone && activeZones.includes(currZone)) return;
-        const within = booleanWithin(centroid, bboxGeom);
-        if (!within) return;
-        try {
-
-          const intersectsAny = centroids.features.some(pointFeature => {
-            const distanceBetween = distance(centroid, pointFeature, { units: 'kilometers' });
-            return distanceBetween < minimumDistance;
-          })
-          if (intersectsAny) return;
-          centroids.features.push(centroid);
-          visitedZones.add(+zone);
-        } catch (e) {}
-      });
-      const keys = Object.keys(this.activeGeometries).sort(() => Math.random() - 0.5);
-      for (let i = 0; i < keys.length; i++) {
-        if (activeZones.every(zone => visitedZones.has(zone))) break;
-        const key = keys[i];
-        const f = this.activeGeometries[key];
-        if (f.properties?.zone == null) continue;
-        const zone = f.properties.zone;
-        if (visitedZones.has(zone) || !activeZones.includes(zone) || f.geometry.type !== 'Polygon')
-          continue;
-        const within = booleanWithin(f, bboxGeom);
-        if (!within) continue;
-        try {
-          let centroid = centerOfMass(f);
-          const intersectsAny = Object.entries(this.previousCentroids).some(([cZone, prevCentroid]) => {
-            if (zone === cZone || !prevCentroid || !cZone) return false;
-            const distanceBetween = distance(centroid, prevCentroid, { units: 'kilometers' });
-            return distanceBetween < minimumDistance;
-          })
-          if (intersectsAny) continue;
-          centroid.properties = {zone, id: key};
-          // @ts-ignore
-          centroids.features.push(centroid);
-          visitedZones.add(zone);
-          this.previousCentroids[zone] = centroid;
-        } catch (e) {
-          console.log(e);
-        }
+    const clippedFeatures: GeoJSON.Feature[] = [];
+    this.getGeos().features.forEach(f => {
+      if (f.properties?.zone == null) return;
+      const clipped = bboxClip(f.geometry as GeoJSON.Polygon, bounds);
+      if (clipped.geometry?.coordinates.length) {
+        clippedFeatures.push({
+          ...f,
+          geometry: clipped.geometry,
+        });
       }
-    } else {
-      const clippedFeatures: GeoJSON.Feature[] = [];
-      this.getGeos().features.forEach(f => {
-        if (f.properties?.zone == null) return;
-        const clipped = bboxClip(f.geometry as GeoJSON.Polygon, [minLon, minLat, maxLon, maxLat]);
-        if (clipped.geometry?.coordinates.length) {
-          clippedFeatures.push({
-            ...f,
-            geometry: clipped.geometry,
-          });
-        }
-      });
-      const results = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
-      centroids.features = results.centroids.features as GeoJSON.Feature<GeoJSON.Point>[];
-      dissolved.features = results.dissolved.features;
+    });
+    const results = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
+    centroids.features = results.centroids.features as GeoJSON.Feature<GeoJSON.Point>[];
+    dissolved.features = results.dissolved.features;
+    return {
+      centroids,
+      dissolved,
+    };
+  },
+  getNonCollidingRandomCentroids(bounds, activeZones, minBuffer) {
+    const {centroids, dissolved, visitedZones, bboxGeom} = this.getCentroidBoilerplate(bounds);
+    if (!activeZones.length) {
+      return {
+        centroids,
+        dissolved,
+      };
+    }
+    const minimumDistance = minBuffer ?? CENTROID_BUFFER_KM;
+
+    // re-use previous centroids if possible
+    Object.entries(this.previousCentroids).forEach(([zone, previousCentroid]) => {
+      const previousCentroidId = previousCentroid.properties?.id;
+      const previousCentroidZone = previousCentroid.properties?.zone;
+      if (!previousCentroidId || !previousCentroidZone) return;
+      const currentZone = this.activeGeometries[previousCentroidId]?.properties?.zone;
+      const zoneChanged = currentZone !== previousCentroidZone;
+      // if this geo was erased or change the zone, do not re-use it
+      if (currentZone === null || zoneChanged) return;
+      // check if within current view
+      const geoIsWithinView = booleanWithin(previousCentroid, bboxGeom);
+      if (!geoIsWithinView) return;
+      try {
+        // check if it intersects with any other centroid given the new view
+        const intersectsAny = centroids.features.some(pointFeature => {
+          const distanceBetween = distance(previousCentroid, pointFeature, {units: 'kilometers'});
+          return distanceBetween < minimumDistance;
+        });
+        if (intersectsAny) return;
+        centroids.features.push(previousCentroid);
+        visitedZones.add(+zone);
+      } catch (e) {}
+    });
+    // randomly sort the active geometries to avoid bias
+    const keys = Object.keys(this.activeGeometries).sort(() => Math.random() - 0.5);
+    for (let i = 0; i < keys.length; i++) {
+      // once every zone has a point, break the loop
+      if (activeZones.every(zone => visitedZones.has(zone))) break;
+      const key = keys[i];
+      const f = this.activeGeometries[key];
+      const zone = f.properties?.zone;
+      const zoneExists = zone !== null && zone !== undefined
+      const zoneIsNeeded = !visitedZones.has(zone) && activeZones.includes(zone);
+      const zoneGeoIsPolygon = f.geometry.type == 'Polygon';
+      if (!zoneExists || !zoneIsNeeded || !zoneGeoIsPolygon) continue;
+      const geoIsWithinView = booleanWithin(f, bboxGeom);
+      if (!geoIsWithinView) continue;
+      try {
+        let centroid = centerOfMass(f);
+        const intersectsAny = Object.entries(this.previousCentroids).some(
+          ([cZone, prevCentroid]) => {
+            if (zone === cZone || !prevCentroid || !cZone) return false;
+            const distanceBetween = distance(centroid, prevCentroid, {units: 'kilometers'});
+            return distanceBetween < minimumDistance;
+          }
+        );
+        // if it intersects with any other centroid of the current view, skip
+        if (intersectsAny) continue;
+        centroid.properties = {zone, id: key};
+        // @ts-ignore
+        centroids.features.push(centroid);
+        visitedZones.add(zone);
+        this.previousCentroids[zone] = centroid;
+      } catch (e) {
+        console.log(e);
+      }
     }
     return {
       centroids,
       dissolved,
     };
+  },
+  getCentroidsFromView({bounds, activeZones, strategy='non-colliding-centroids', minBuffer}) {
+    switch (strategy) {
+      case 'center-of-mass':
+        return this.getCentersOfMass(bounds, activeZones);
+      case 'non-colliding-centroids':
+        return this.getNonCollidingRandomCentroids(bounds, activeZones, minBuffer);
+      default:
+        return this.getNonCollidingRandomCentroids(bounds, activeZones);
+    }
   },
   getPropertiesCentroids(ids) {
     const features: GeoJSON.Feature<GeoJSON.Point>[] = [];

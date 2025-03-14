@@ -62,6 +62,39 @@ export type GeometryWorkerClass = {
   dissolveGeometry: (features: MinGeoJSONFeature[]) => CentroidReturn;
 
   /**
+   * Convenience method for DRY of getCentroidsFromView
+   * @param bounds number[] the view bounds
+   * @returns CentroidReturn
+   * @see getCentroidsFromView
+   */
+  getCentroidBoilerplate: (bounds: [number, number, number, number]) => {
+    centroids: GeoJSON.FeatureCollection<GeoJSON.Point>;
+    dissolved: GeoJSON.FeatureCollection;
+    visitedZones: Set<number>;
+    bboxGeom: GeoJSON.Polygon;
+  };
+  /**
+   * Strategy for finding centroids by dissolving the zone geometries and finding the center of mass.
+   * @param bounds number[] the view bounds
+   * @param activeZones list of current drawn zones
+   * @returns CentroidReturn
+   * @see getCentroidsFromView
+   */
+  getCentersOfMass: (bounds: [number, number, number, number], activeZones: number[]) => CentroidReturn;
+  /**
+   * Strategy for finding centroids choosing random centroids that do not intersect with each other
+   * @param bounds number[] the view bounds
+   * @param activeZones list of current drawn zones
+   * @param minBuffer number minimum buffer distance between centroids in pixels
+   * @returns CentroidReturn
+   * @see getCentroidsFromView
+   */
+  getNonCollidingRandomCentroids: (
+    bounds: [number, number, number, number],
+    activeZones: number[],
+    minBuffer?: number
+  ) => CentroidReturn;
+  /**
    * Parses geometries within a specified view and returns their centroids.
    * @param minLon - The minimum longitude of the view.
    * @param minLat - The minimum latitude of the view.
@@ -70,10 +103,10 @@ export type GeometryWorkerClass = {
    * @returns The centroids and dissolved outlines of the parsed features within the view.
    */
   getCentroidsFromView: (props: {
-    bounds: [number, number, number, number],
-    activeZones: number[],
-    fast?: boolean,
-    minBuffer?: number
+    bounds: [number, number, number, number];
+    activeZones: number[];
+    strategy: 'center-of-mass' | 'non-colliding-centroids';
+    minBuffer?: number;
   }) => CentroidReturn;
   getPropertiesCentroids: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
   /**
