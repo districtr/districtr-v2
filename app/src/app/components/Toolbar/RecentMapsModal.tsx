@@ -113,15 +113,15 @@ export const RecentMapsModal: React.FC<{
             align="center"
             display="grid"
             justify="center"
-            className="grid grid-cols-3 py-2 border-b font-bold bg-gray-100 w-full"
-            gapX="22%"
+            className="grid grid-cols-5 py-2 border-b font-bold bg-gray-100 w-full"
+            gapX="20%"
             width="100%"
             position="absolute"
           >
             <Text>Name</Text>
             <Text>Last Updated</Text>
             <Text>Actions</Text>
-            <Text></Text>
+            <Text>Remove</Text>
           </Flex>
           <Accordion.Root
             type="single"
@@ -242,7 +242,7 @@ const RecentMapsRow: React.FC<{
       {/* Accordion Content */}
       <Accordion.Content className="px-4 py-2">
         <Flex gap="4">
-          <Separator size="4" className="p-1" />
+          <Separator size="4" className="pt-1 mt-2 mb-2" />
         </Flex>
         <SaveMapDetails nameIsSaved={nameIsSaved} setNameIsSaved={setNameIsSaved} />
       </Accordion.Content>

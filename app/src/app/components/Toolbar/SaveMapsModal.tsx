@@ -209,7 +209,7 @@ export const SaveMapDetails: React.FC<{
   return (
     <>
       <BoxContainer>
-        <Flex gap="2" width={'100%'} display={'flex'}>
+        <Flex gap="4" width={'100%'} display={'flex'}>
           <Box width={'33%'}>
             <Text as="label" size="2">
               Comments
@@ -245,6 +245,7 @@ export const SaveMapDetails: React.FC<{
           </Box>
 
           <Box width={'33%'}>
+            <Text> Map Status </Text>
             <Flex gap="2">
               <RadioGroup.Root
                 value={mapIsDraft ? 'draft' : 'share'}

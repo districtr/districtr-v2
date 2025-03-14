@@ -514,8 +514,6 @@ async def get_document(
     access_type: DocumentShareStatus = DocumentShareStatus.read,
 ):
     lock_status = check_map_lock(document_id, user_id, session)
-    # lock_status = get_document_status(document_id, user_id, session)
-    print("shared???", shared)
     stmt = (
         select(
             Document.document_id,

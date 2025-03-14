@@ -14,7 +14,7 @@ import {
   RadioCards,
 } from '@radix-ui/themes';
 import {sharedDocument} from '@/app/utils/api/mutations';
-
+import {jwtDecode} from 'jwt-decode';
 export const PasswordPromptModal = () => {
   const passwordRequired = useMapStore(store => store.passwordPrompt);
   const [dialogOpen, setDialogOpen] = React.useState(passwordRequired);
@@ -28,11 +28,17 @@ export const PasswordPromptModal = () => {
   }, [passwordRequired]);
 
   const handlePasswordSubmit = () => {
-    sharedDocument.mutate({
-      token: useMapStore.getState().receivedShareToken ?? '',
-      password: password,
-      status: 'view',
-    });
+    const shareToken = new URLSearchParams(window.location.search).get('share');
+    if (shareToken) {
+      const decodedToken = jwtDecode(shareToken);
+      console.log(decodedToken);
+      sharedDocument.mutate({
+        token: useMapStore.getState().receivedShareToken ?? '',
+        password: password,
+        access: (decodedToken as any).access as string,
+        status: null,
+      });
+    }
   };
 
   const handlePasswordEntry = (pw: string) => {
