@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION get_block_assignments(document_id UUID)
+CREATE OR REPLACE FUNCTION get_block_assignments(document_id UUID, zones INTEGER[])
 RETURNS TABLE (geo_id TEXT, zone INTEGER) AS $$
 DECLARE
     doc_districtrmap RECORD;
@@ -25,13 +25,14 @@ BEGIN
             LEFT JOIN document.assignments a1
                 ON a1.geo_id = edges.parent_path
                 AND a1.document_id = $1
+                AND a1.zone = ANY($2)
             LEFT JOIN document.assignments a2
                 ON a2.geo_id = edges.child_path
                 AND a2.document_id = $1
-            WHERE a1.zone is not null or a2.zone is not null
+                AND a2.zone = ANY($2)
         ', doc_districtrmap.uuid);
     END IF;
 
-    RETURN QUERY EXECUTE sql_query USING $1;
+    RETURN QUERY EXECUTE sql_query USING $1, $2;
 END;
 $$ LANGUAGE plpgsql;
