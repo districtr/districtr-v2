@@ -15,6 +15,7 @@ from datetime import datetime, UTC
 import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
+from app.constants import LEGACY_VIEWS
 import app.contiguity.main as contiguity
 from networkx import Graph, connected_components
 from app.models import (
@@ -705,6 +706,11 @@ async def get_map_demography(
     available_summary_stats = (
         districtr_map.available_summary_stats if len(stats) == 0 else stats
     )
+    if districtr_map.gerrydb_table_name in LEGACY_VIEWS:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="This map is no longer supported",
+        )
     # By default, provide all summary stats
 
     for summary_stat in available_summary_stats:
@@ -769,6 +775,7 @@ async def get_projects(
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)
+        .filter(DistrictrMap.gerrydb_table_name.notin_(LEGACY_VIEWS))
     ).all()
     return gerrydb_views
 

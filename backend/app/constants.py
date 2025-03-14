@@ -8,3 +8,9 @@ SQL_DIR = Path(__file__).resolve().parent / "sql"
 # DO NOT CHANGE THIS CONSTANT
 GERRY_DB_SCHEMA = "gerrydb"
 DOCUMENT_SCHEMA = "document"
+LEGACY_VIEWS = [
+  "co_p1_view",
+  "ks_p14_view",
+  "ks_p14_view_stateleg",
+  "pa_p14_view" 
+]
