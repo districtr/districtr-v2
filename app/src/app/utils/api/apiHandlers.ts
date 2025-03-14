@@ -94,8 +94,8 @@ export interface DocumentObject {
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
+  available_summary_stats: Array<SummaryTypes>;
   color_scheme: string[] | null;
-  available_summary_stats: Array<keyof SummaryTypes>;
 }
 
 /**
@@ -178,11 +178,11 @@ export const getAssignments: (
  *
  * @interface
  * @property {number} zone - The zone.
- * @property {number} total_pop - The total population.
+ * @property {number} total_pop_20 - The total population.
  */
 export interface ZonePopulation {
   zone: number;
-  total_pop: number;
+  total_pop_20: number;
 }
 
 /**

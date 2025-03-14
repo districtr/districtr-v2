@@ -32,7 +32,7 @@ import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
-import { P1TotPopSummaryStats, P4VapPopSummaryStats } from '../utils/api/summaryStats';
+import { TOTPOPTotPopSummaryStats, VAPVapPopSummaryStats } from '../utils/api/summaryStats';
 import { demographyCache } from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demographyStore';
 import { initSubs } from './subscriptions';
@@ -87,15 +87,6 @@ export interface MapStore {
   setColorScheme: (colors: string[]) => void;
   loadedMapId: string;
   setLoadedMapId: (mapId: string) => void;
-  summaryStats: {
-    P1?: P1TotPopSummaryStats;
-    P4?: P4VapPopSummaryStats;
-    idealpop?: number
-  };
-  setSummaryStat: <T extends keyof MapStore['summaryStats']>(
-    stat: T,
-    value: MapStore['summaryStats'][T]
-  ) => void;
   // SHATTERING
   /**
    * A subset of IDs that a user is working on in a focused view.
@@ -362,7 +353,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
 
             accumulatedGeoids.add(feature.properties?.path);
             // TODO: Tiles should have population values as numbers, not strings
-            const popValue = parseInt(feature.properties?.total_pop);
+            const popValue = parseInt(feature.properties?.total_pop_20);
             if (!isNaN(popValue)) {
               if (prevAssignment) {
                 popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
@@ -445,15 +436,6 @@ export var useMapStore = createWithMiddlewares<MapStore>(
         setColorScheme: colorScheme => set({colorScheme}),
         loadedMapId: '',
         setLoadedMapId: loadedMapId => set({loadedMapId}),
-        summaryStats: {},
-        setSummaryStat: (stat, value) => {
-          set({
-            summaryStats: {
-              ...get().summaryStats,
-              [stat]: value,
-            },
-          });
-        },
         // TODO: Refactor to something like this
         // featureStates: {
         //   locked: [],

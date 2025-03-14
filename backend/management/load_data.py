@@ -64,13 +64,17 @@ def import_gerrydb_view(
         logger.error("ogr2ogr failed. Got %s", result)
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
-    logger.info("GerryDB view imported successfully")
+    logger.info(f"GerryDB view {table_name} imported successfully")
 
     if rm:
         os.remove(path)
         logger.info("Deleted file %s", path)
 
-    logger.info("GerryDB view imported successfully")
+    logger.info(f"GerryDB view {table_name} imported successfully")
+
+    # Make sure changes are committed to satisfy constraints
+    # before doing the upsert
+    session.commit()
 
     upsert_query = sa.text(
         """
@@ -207,9 +211,13 @@ def load_sample_data(
             print(f"File {gpkg} does not exist.")
             gpkg = f"s3://{settings.R2_BUCKET_NAME}/gerrydb/{view.gpkg}"
 
-        table_exists = session.execute(
-            sa.text(f"select 1 from gerrydb.{view._table_name} limit 1")
-        ).scalar()
+        try:
+            table_exists = session.execute(
+                sa.text(f"select 1 from gerrydb.{view._table_name} limit 1")
+            ).scalar()
+        except sa.exc.ProgrammingError:
+            table_exists = False
+
         if table_exists:
             logger.info(f"GerryDB view {view.table_name} already exists.")
         else:

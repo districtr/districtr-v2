@@ -5,7 +5,7 @@ import {Group} from '@visx/group';
 export const PopulationLabels: React.FC<{
   xScale: (value: number) => number;
   yScale: (value: number) => number;
-  entry: {zone: number; total_pop: number};
+  entry: {zone: number; total_pop_20: number};
   maxPop: number;
   idealPopulation?: number;
   index: number;
@@ -27,10 +27,10 @@ export const PopulationLabels: React.FC<{
   showTopBottomDeviation,
   width,
 }) => {
-  const popDiffLabel = formatNumber(entry.total_pop - (idealPopulation || 0), 'string');
-  const popLabel = formatNumber(entry.total_pop, 'string');
+  const popDiffLabel = formatNumber(entry.total_pop_20 - (idealPopulation || 0), 'string');
+  const popLabel = formatNumber(entry.total_pop_20, 'string');
   if (!popDiffLabel || !popLabel) return null;
-  const [left, top] = [xScale(entry.total_pop), yScale(index) + barHeight];
+  const [left, top] = [xScale(entry.total_pop_20), yScale(index) + barHeight];
 
   let offsetLeft = 0;
   if (left < popDiffLabel.length * 8 && (isHovered || showTopBottomDeviation)) {
