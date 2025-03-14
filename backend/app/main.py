@@ -295,6 +295,7 @@ async def reset_map(
     """)
     session.execute(stmt)
 
+    # Reset color scheme
     stmt = text(
         "UPDATE document.document SET color_scheme = NULL WHERE document_id = :document_id"
     ).bindparams(bindparam(key="document_id", type_=UUIDType))
