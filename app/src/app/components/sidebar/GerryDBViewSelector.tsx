@@ -12,7 +12,9 @@ export function GerryDBViewSelector() {
   const clear = useTemporalStore(store => store.clear);
   const {isPending, isError, data, error} = mapViews || {};
 
-  const selectedView = data?.find(view => view.gerrydb_table_name === mapDocument?.gerrydb_table);
+  const selectedView = data?.find(
+    view => view.districtr_map_slug === mapDocument?.districtr_map_slug
+  );
 
   const handleValueChange = (value: string) => {
     console.log('Value changed: ', value);
@@ -20,14 +22,14 @@ export function GerryDBViewSelector() {
     console.log('Selected view: ', selectedDistrictrMap);
     if (
       !selectedDistrictrMap ||
-      selectedDistrictrMap.gerrydb_table_name === mapDocument?.gerrydb_table
+      selectedDistrictrMap.districtr_map_slug === mapDocument?.districtr_map_slug
     ) {
       console.log('No document or same document');
       return;
     }
     console.log('mutating to create new document');
     clear();
-    document.mutate({gerrydb_table: selectedDistrictrMap.gerrydb_table_name});
+    document.mutate({districtr_map_slug: selectedDistrictrMap.districtr_map_slug});
   };
 
   if (isPending) return <div>Loading geographies... 🌎</div>;

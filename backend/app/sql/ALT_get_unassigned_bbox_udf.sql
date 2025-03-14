@@ -11,9 +11,9 @@ BEGIN
   SELECT dm.gerrydb_table_name, dm.parent_layer, dm.child_layer, dm.uuid
   INTO gerrydb_table, parent_layer, child_layer, dm_uuid
   FROM document.document d
-  JOIN public.districtrmap dm ON d.gerrydb_table = dm.gerrydb_table_name
+  JOIN public.districtrmap dm ON d.districtr_map_slug = dm.districtr_map_slug
   WHERE d.document_id = doc_uuid;
-    
+
   RETURN QUERY EXECUTE format(
     -- IDS as CTE instead of subquery
     'WITH ids AS (
@@ -59,12 +59,12 @@ BEGIN
   )
   ',
     parent_layer,
-    CASE 
+    CASE
       WHEN child_layer IS NOT NULL THEN 'COALESCE(parentgeo.geometry, childgeo.geometry)'
       ELSE 'parentgeo.geometry'
     END,
     parent_layer,
-    CASE 
+    CASE
       WHEN child_layer IS NOT NULL THEN format('LEFT JOIN gerrydb.%I childgeo ON ids.geo_id = childgeo.path', child_layer)
       ELSE ''
     END,
