@@ -116,20 +116,6 @@ export const PopulationChart: React.FC<{
           <React.Fragment key={`pop-bar-group-${index}`}>
             {entry.total_pop > 0 && (
               <>
-                {hoveredIndex === index && (
-                  <Bar
-                    key={`bg-bar-${entry.zone}`}
-                    x={0}
-                    y={yScale(index)}
-                    width={xMax + margins.right}
-                    height={barHeight + 6}
-                    fill={colorScheme[entry.zone - 1]}
-                    fillOpacity={0.3}
-                    style={{
-                      pointerEvents: 'none',
-                    }}
-                  />
-                )}
                 <Bar
                   key={`bar-${entry.zone}`}
                   x={0}
