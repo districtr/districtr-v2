@@ -37,7 +37,7 @@ import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {TOTPOPTotPopSummaryStats, VAPVapPopSummaryStats} from '../utils/api/summaryStats';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demographyStore';
-import { initSubs } from './subscriptions';
+import {initSubs} from './subscriptions';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -273,7 +273,9 @@ export interface MapStore {
     name?: any,
     tags?: any,
     description?: any,
-    eventId?: any
+    group?: any,
+    eventId?: any,
+    is_draft?: boolean
   ) => void;
   // SHARE MAP
   passwordPrompt: boolean;
@@ -371,7 +373,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
 
       accumulatedGeoids.add(feature.properties?.path);
       // TODO: Tiles should have population values as numbers, not strings
-            const popValue = parseInt(feature.properties?.total_pop_20);
+      const popValue = parseInt(feature.properties?.total_pop_20);
       if (!isNaN(popValue)) {
         if (prevAssignment) {
           popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
@@ -391,7 +393,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       );
     });
 
-          useChartStore.getState().setPaintedChanges(popChanges);
+    useChartStore.getState().setPaintedChanges(popChanges);
     set({
       isTemporalAction: false,
       assignmentsHash: new Date().toISOString(),
@@ -401,7 +403,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setMapViews: mapViews => set({mapViews}),
   mapDocument: null,
   setMapDocument: mapDocument => {
-          demographyCache.clear();
+    demographyCache.clear();
     const {
       mapDocument: currentMapDocument,
       setFreshMap,
@@ -420,10 +422,10 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     }
     allPainted.clear();
     lastSentAssignments.clear();
-          demographyCache.clear();
+    demographyCache.clear();
     setFreshMap(true);
     resetZoneAssignments();
-          useDemographyStore.getState().clear();
+    useDemographyStore.getState().clear();
     useUnassignFeaturesStore.getState().reset();
 
     const upsertMapOnDrawSub = useMapStore.subscribe(
@@ -444,17 +446,17 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         ...initialMapOptions,
         bounds: mapDocument.extent,
       },
-            colorScheme: DefaultColorScheme,
+      colorScheme: DefaultColorScheme,
       sidebarPanels: ['population'],
       appLoadingState: 'initializing',
       shatterIds: {parents: new Set(), children: new Set()},
     });
   },
-        colorScheme: DefaultColorScheme,
-        setColorScheme: colorScheme => set({colorScheme}),
+  colorScheme: DefaultColorScheme,
+  setColorScheme: colorScheme => set({colorScheme}),
   loadedMapId: '',
   setLoadedMapId: loadedMapId => set({loadedMapId}),
- 
+
   // TODO: Refactor to something like this
   // featureStates: {
   //   locked: [],
@@ -822,7 +824,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         appLoadingState: 'loaded',
         mapLock: false,
         activeTool: 'pan',
-              colorScheme: DefaultColorScheme,
+        colorScheme: DefaultColorScheme,
         assignmentsHash: updateHash,
         lastUpdatedHash: updateHash,
       });
@@ -863,14 +865,14 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     prominentCountyNames: true,
     showCountyBoundaries: true,
     showPaintedDistricts: true,
-          showZoneNumbers: true
+    showZoneNumbers: true,
   },
   setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
   sidebarPanels: ['population'],
   setSidebarPanels: sidebarPanels => set({sidebarPanels}),
   toggleLockAllAreas: () => {
     const {mapOptions, mapDocument} = get();
-          const num_districts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+    const num_districts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     set({
       mapOptions: {
         ...mapOptions,
@@ -895,7 +897,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setSpatialUnit: unit => set({spatialUnit: unit}),
   selectedZone: 1,
   setSelectedZone: zone => {
-          const numDistricts = get().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+    const numDistricts = get().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     const isPainting = get().isPainting;
     if (zone <= numDistricts && !isPainting) {
       set({
@@ -1015,6 +1017,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     tags: null,
     description: null,
     eventId: null,
+    group: null,
+    is_draft: true,
   },
   updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
     set(state => {
@@ -1043,7 +1047,3 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   shareMapMessage: null,
   setShareMapMessage: message => set({shareMapMessage: message}),
 }));
-
-
-
-
