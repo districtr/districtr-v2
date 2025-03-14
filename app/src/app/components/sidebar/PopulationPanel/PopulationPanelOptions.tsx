@@ -1,16 +1,19 @@
-import {CheckboxGroup, Flex, IconButton, Radio, Text, TextField} from '@radix-ui/themes';
+import {Button, CheckboxGroup, Flex, IconButton, Radio, Text, TextField} from '@radix-ui/themes';
 import React from 'react'; // Import ParentSize
 import {Popover} from '@radix-ui/themes';
 import {GearIcon} from '@radix-ui/react-icons';
 import InfoTip from '@components/InfoTip';
 import {ChartStore} from '@store/chartStore';
+import { ColorChangeModal } from '../../Toolbar/ColorChangeModal';
 
 export const PopulationPanelOptions: React.FC<{
   chartOptions: ChartStore['chartOptions'];
   setChartOptions: ChartStore['setChartOptions'];
   idealPopulation?: number;
 }> = ({chartOptions, setChartOptions, idealPopulation}) => {
+  const [colorModalOpen, setColorModalOpen] = React.useState(false);
   return (
+    <>
     <Popover.Root>
       <Popover.Trigger>
         <IconButton
@@ -58,6 +61,7 @@ export const PopulationPanelOptions: React.FC<{
             Show district zone numbers
           </CheckboxGroup.Item>
         </CheckboxGroup.Root>
+        <Button onClick={() => setColorModalOpen(true)} variant="outline" size="1" mt="2">Customize district colors</Button>
         <Flex direction="column" gap="1" py="2" mt="2">
           <Text size="2">
             X-Axis bar scaling
@@ -162,5 +166,7 @@ export const PopulationPanelOptions: React.FC<{
         </Flex>
       </Popover.Content>
     </Popover.Root>
+    <ColorChangeModal open={colorModalOpen} onClose={() => setColorModalOpen(false)} />
+    </>
   );
 };

@@ -7,17 +7,15 @@ export const MapContextMenu: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const contextMenu = useMapStore(state => state.contextMenu);
   const handleShatter = useMapStore(state => state.handleShatter);
-  const lockedFeatures = useMapStore(state => state.lockedFeatures);
-  const lockFeature = useMapStore(state => state.lockFeature);
   const shatterMappings = useMapStore(state => state.shatterMappings);
 
+  if (!contextMenu?.data?.layer) return null;
   const canShatter = Boolean(
     mapDocument?.parent_layer &&
       mapDocument.child_layer &&
       mapDocument.child_layer !== contextMenu?.data.sourceLayer
   );
 
-  if (!contextMenu) return null;
   const isChild = CHILD_LAYERS.includes(contextMenu.data.layer.id);
   const id = contextMenu.data.id?.toString() || '';
   const parent =
@@ -27,17 +25,12 @@ export const MapContextMenu: React.FC = () => {
       })?.[0]) ||
     false;
   const shatterableId = isChild && parent ? parent : contextMenu?.data?.id;
-  const featureIsLocked = lockedFeatures.has(id);
 
   const handleSelect = () => {
     if (!mapDocument || !shatterableId) return;
     const shatterData = isChild ? {id: shatterableId} : contextMenu.data;
     handleShatter(mapDocument.document_id, [shatterData]);
     contextMenu.close();
-  };
-
-  const handleLock = () => {
-    lockFeature(id, !featureIsLocked);
   };
 
   return (
@@ -68,10 +61,6 @@ export const MapContextMenu: React.FC = () => {
             Break to Blocks
           </ContextMenu.Item>
         )}
-        <ContextMenu.Item onSelect={handleLock}>
-          {featureIsLocked ? 'Unlock' : 'Lock'}
-        </ContextMenu.Item>
-
         {!!parent && (
           <>
             <ContextMenu.Label>

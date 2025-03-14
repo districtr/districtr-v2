@@ -1,9 +1,10 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
 import {useMapStore} from '../store/mapStore';
-import {colorScheme} from './colors';
 import GeometryWorker from '../utils/GeometryWorker';
-import {useChartStore} from '../store/chartStore';
+import euclideanDistance from '@turf/distance';
+import {demographyCache} from '../utils/demography/demographyCache';
 
+export const FALLBACK_NUM_DISTRICTS = 4;
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
 export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';
@@ -18,6 +19,8 @@ export const ZONE_LABEL_LAYERS = ['ZONE_OUTLINE', 'ZONE_LABEL', 'ZONE_LABEL_BG']
 export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 export const COUNTY_LAYERS = ['counties_fill', 'counties_boundary', 'counties_labels'];
 
+export const OVERLAY_OPACITY = 0.7;
+
 export const CHILD_LAYERS = [
   BLOCK_LAYER_ID_CHILD,
   BLOCK_HOVER_LAYER_ID_CHILD,
@@ -29,41 +32,31 @@ export const EMPTY_FT_COLLECTION: GeoJSON.FeatureCollection<any> = {
   features: [],
 };
 
-export const DEFAULT_PAINT_STYLE: ExpressionSpecification = [
-  'case',
-  ['boolean', ['feature-state', 'hover'], false],
-  '#FF0000',
-  '#000000',
-];
-
 export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels'];
 
 export const LABELS_BREAK_LAYER_ID = 'places_subplace';
 
-const colorStyleBaseline: any[] = ['case'];
-
-export const ZONE_ASSIGNMENT_STYLE_DYNAMIC = colorScheme.reduce((val, color, i) => {
-  val.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
-  return val;
-}, colorStyleBaseline);
-ZONE_ASSIGNMENT_STYLE_DYNAMIC.push('#cecece');
-
-// cast the above as an ExpressionSpecification
-// @ts-ignore
-export const ZONE_ASSIGNMENT_STYLE: ExpressionSpecification = ZONE_ASSIGNMENT_STYLE_DYNAMIC;
-
-export const ZONE_LABEL_STYLE_DYNAMIC = colorScheme.reduce(
-  (val, color, i) => {
-    val.push(['==', ['get', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+export const ZONE_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
+  const colorStyleBaseline: any[] = ['case'];
+  let group = [...colorScheme].reduce((val, color, i) => {
+    val.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
     return val;
-  },
-  ['case'] as any
-);
-ZONE_LABEL_STYLE_DYNAMIC.push('#cecece');
+  }, colorStyleBaseline);
+  group.push('#cecece');
+  return group as ExpressionSpecification;
+};
 
-// cast the above as an ExpressionSpecification
-// @ts-ignore
-export const ZONE_LABEL_STYLE: ExpressionSpecification = ZONE_LABEL_STYLE_DYNAMIC;
+export const ZONE_LABEL_STYLE = (colorScheme: string[]) => {
+  let group = [...colorScheme].reduce(
+    (val, color, i) => {
+      val.push(['==', ['get', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+      return val;
+    },
+    ['case'] as any
+  );
+  group.push('#cecece');
+  return group as ExpressionSpecification;
+};
 
 export const LAYER_LINE_WIDTHS = {
   [BLOCK_LAYER_ID]: 2,
@@ -73,16 +66,15 @@ export const LAYER_LINE_WIDTHS = {
 export function getLayerFill(
   captiveIds?: Set<string>,
   shatterIds?: Set<string>,
-  child?: boolean
+  child?: boolean,
+  isDemographic?: boolean
 ): DataDrivenPropertyValueSpecification<number> {
+  const baseOpacity = isDemographic ? 1 : 0.6;
   const innerFillSpec = [
     'case',
     // is broken parent
     ['boolean', ['feature-state', 'broken'], false],
     0,
-    // geography is locked
-    ['boolean', ['feature-state', 'locked'], false],
-    0.35,
     // zone is selected and hover is true and hover is not null
     [
       'all',
@@ -95,34 +87,18 @@ export function getLayerFill(
         ['boolean', ['feature-state', 'hover'], true],
       ],
     ],
-    0.9,
-    // zone is selected and hover is false, and hover is not null
-    [
-      'all',
-      // @ts-ignore
-      ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
-      [
-        'all',
-        // @ts-ignore
-        ['!', ['==', ['feature-state', 'hover'], null]], //< desired behavior but typerror
-        ['boolean', ['feature-state', 'hover'], false],
-      ],
-    ],
-    0.7,
+    baseOpacity + 0.3,
     // zone is selected, fallback, regardless of hover state
     // @ts-ignore
     ['!', ['==', ['feature-state', 'zone'], null]], //< desired behavior but typerror
-    0.7,
-    // hover is true, fallback, regardless of zone state
-    ['boolean', ['feature-state', 'hover'], false],
-    0.6,
-    0.2,
+    baseOpacity + 0.1,
+    isDemographic ? baseOpacity - 0.2 : baseOpacity - 0.4,
   ] as unknown as DataDrivenPropertyValueSpecification<number>;
   if (captiveIds?.size) {
     return [
       'case',
       ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
-      0.35,
+      baseOpacity - 0.25,
       innerFillSpec,
     ] as DataDrivenPropertyValueSpecification<number>;
   } else if (shatterIds?.size && !child) {
@@ -138,14 +114,18 @@ export function getLayerFill(
 }
 
 const getDissolved = async () => {
-  const activeZones = useChartStore
-    .getState()
-    .chartInfo?.chartData?.filter(f => f.total_pop > 0)
-    ?.map(f => f.zone);
+  const activeZones = demographyCache.populations.filter(row => row.total_pop_20 > 0).map(f => f.zone);
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !GeometryWorker || !activeZones?.length) return;
   const currentView = mapRef.getBounds();
+  const distanceAcrossCanvas = euclideanDistance(
+    [currentView.getWest(), currentView.getNorth()],
+    [currentView.getEast(), currentView.getNorth()],
+    {units: 'kilometers'}
+  )
+  //px convert to km at current zoom
+  const bufferInKm = 50 / (mapRef.getCanvas().width / distanceAcrossCanvas); 
   const {centroids, dissolved} = await GeometryWorker.getCentroidsFromView({
     bounds: [
       currentView.getWest(),
@@ -154,7 +134,8 @@ const getDissolved = async () => {
       currentView.getNorth(),
     ],
     activeZones,
-    fast: true,
+    strategy: 'non-colliding-centroids',
+    minBuffer: bufferInKm,
   });
   return {centroids, dissolved};
 };

@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION get_block_assignments(document_id UUID)
-RETURNS TABLE (geo_id TEXT, zone TEXT) AS $$
+RETURNS TABLE (geo_id TEXT, zone INTEGER) AS $$
 DECLARE
     doc_districtrmap RECORD;
     sql_query TEXT;
@@ -14,24 +14,21 @@ BEGIN
         RAISE EXCEPTION 'Table name not found for document_id: %', $1;
     END IF;
 
-    -- NOTE: This is a super slow query because of the nested loop join
-    -- caused by the OR condition in the join clause. My bad!
-    -- We shoud optimize using the strategy employed by get_block_assignments
-    -- in contiguity module.
-    -- TODO: Do this before merging
-
     IF doc_districtrmap.child_layer IS NULL THEN
-        RAISE EXCEPTION 'Child layer is NULL for document_id: %. Block-level exports are not supported', $1;
+        RAISE EXCEPTION 'Child layer is NULL for document_id: %. Block-level queries are not supported', $1;
     ELSE
         sql_query := format('
             SELECT
                 edges.child_path::TEXT AS geo_id,
-                assignments.zone::TEXT AS zone
+                COALESCE(a1.zone, a2.zone) AS zone
             FROM "parentchildedges_%s" edges
-            LEFT JOIN document.assignments assignments
-            ON (
-                assignments.geo_id = edges.parent_path OR assignments.geo_id = edges.child_path
-            ) AND assignments.document_id = $1
+            LEFT JOIN document.assignments a1
+                ON a1.geo_id = edges.parent_path
+                AND a1.document_id = $1
+            LEFT JOIN document.assignments a2
+                ON a2.geo_id = edges.child_path
+                AND a2.document_id = $1
+            WHERE a1.zone is not null or a2.zone is not null
         ', doc_districtrmap.uuid);
     END IF;
 

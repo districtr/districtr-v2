@@ -7,8 +7,9 @@ from fastapi import (
     BackgroundTasks,
     Body,
 )
+from typing import Annotated
 import botocore.exceptions
-from sqlalchemy.exc import MultipleResultsFound, NoResultFound
+from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
 from sqlalchemy.exc import (
@@ -36,11 +37,12 @@ from uuid import uuid4
 
 from sqlalchemy.orm import sessionmaker
 import app.contiguity.main as contiguity
-from networkx import Graph
+from networkx import Graph, connected_components
 from app.models import (
     Assignments,
     AssignmentsCreate,
     AssignmentsResponse,
+    ColorsSetResult,
     DistrictrMap,
     Document,
     DocumentCreate,
@@ -64,6 +66,8 @@ from app.models import (
     UnassignedBboxGeoJSONs,
     TokenRequest,
     DocumentShareStatus,
+    BBoxGeoJSONs,
+    SummaryStatisticColumnLists,
 )
 from sqlalchemy.sql import func
 from app.utils import remove_file
@@ -324,13 +328,34 @@ async def update_assignments(
     return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
 
 
+def _get_document(
+    document_id: str, session: Session = Depends(get_session)
+) -> Document:
+    try:
+        document = session.exec(
+            select(Document).filter(
+                Document.document_id == document_id
+            )  # pyright: ignore
+        ).one()
+    except NoResultFound:
+        raise HTTPException(status_code=404, detail="Document not found")
+    except Exception as e:
+        logger.error(f"Error loading document: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error loading document")
+
+    return document
+
+
 @app.patch(
     "/api/update_assignments/{document_id}/shatter_parents",
     response_model=ShatterResult,
 )
 async def shatter_parent(
-    document_id: str, data: GEOIDS, session: Session = Depends(get_session)
+    document: Annotated[Document, Depends(_get_document)],
+    data: GEOIDS,
+    session: Session = Depends(get_session),
 ):
+    assert document.document_id is not None
     stmt = text(
         """SELECT *
         FROM shatter_parent(:input_document_id, :parent_geoids)"""
@@ -341,7 +366,7 @@ async def shatter_parent(
     results = session.execute(
         statement=stmt,
         params={
-            "input_document_id": document_id,
+            "input_document_id": document.document_id,
             "parent_geoids": data.geoids,
         },
     )
@@ -350,7 +375,7 @@ async def shatter_parent(
         Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
         for document_id, geo_id, zone in results
     ]
-    updated_at = update_timestamp(session, document_id)
+    updated_at = update_timestamp(session, document.document_id)
     result = ShatterResult(parents=data, children=assignments, updated_at=updated_at)
     session.commit()
     return result
@@ -361,7 +386,9 @@ async def shatter_parent(
     response_model=GEOIDSResponse,
 )
 async def unshatter_parent(
-    document_id: str, data: AssignedGEOIDS, session: Session = Depends(get_session)
+    document: Annotated[Document, Depends(_get_document)],
+    data: AssignedGEOIDS,
+    session: Session = Depends(get_session),
 ):
     stmt = text(
         """SELECT *
@@ -374,13 +401,16 @@ async def unshatter_parent(
     results = session.execute(
         statement=stmt,
         params={
-            "input_document_id": document_id,
+            "input_document_id": document.document_id,
             "parent_geoids": data.geoids,
             "input_zone": data.zone,
         },
     ).first()
 
-    updated_at = update_timestamp(session, document_id)
+    assert (
+        results is not None and document.document_id is not None
+    ), "No results returned from unshatter_parent"
+    updated_at = update_timestamp(session, document.document_id)
     session.commit()
     return {"geoids": results[0], "updated_at": updated_at}
 
@@ -388,29 +418,82 @@ async def unshatter_parent(
 @app.patch(
     "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
 )
-async def reset_map(document_id: str, session: Session = Depends(get_session)):
-    # Drop the partition for the given assignments
-    partition_name = f'"document.assignments_{document_id}"'
+async def reset_map(
+    document: Annotated[Document, Depends(_get_document)],
+    session: Session = Depends(get_session),
+):
+    partition_name = f'"document.assignments_{document.document_id}"'
     session.execute(text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;"))
 
     # Recreate the partition
-    session.execute(
-        text(
-            f"""
-        CREATE TABLE {partition_name} PARTITION OF document.assignments
-        FOR VALUES IN ('{document_id}');
+    stmt = text(
+        f"""CREATE TABLE {partition_name}
+        PARTITION OF document.assignments
+        FOR VALUES IN ('{document.document_id}');
     """
-        )
+    )
+    session.execute(stmt)
+
+    # Reset color scheme
+    stmt = text(
+        "UPDATE document.document SET color_scheme = NULL WHERE document_id = :document_id"
+    ).bindparams(bindparam(key="document_id", type_=UUIDType))
+    session.execute(
+        stmt,
+        {"document_id": document.document_id},
     )
 
     session.commit()
 
-    return {"message": "Assignments partition reset", "document_id": document_id}
+    return {
+        "message": "Assignments partition reset",
+        "document_id": document.document_id,
+    }
+
+
+@app.patch(
+    "/api/document/{document_id}/update_colors",
+    response_model=ColorsSetResult,
+)
+async def update_colors(
+    document_id: str, colors: list[str], session: Session = Depends(get_session)
+):
+    districtr_map = session.exec(
+        select(DistrictrMap)
+        .join(
+            Document,
+            Document.gerrydb_table
+            == DistrictrMap.gerrydb_table_name,  # pyright: ignore
+            isouter=True,
+        )
+        .where(Document.document_id == document_id)
+    ).one()
+
+    if districtr_map.num_districts != len(colors):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Number of colors provided ({len(colors)}) does not match number of zones ({districtr_map.num_districts})",
+        )
+
+    stmt = text(
+        """UPDATE document.document
+        SET color_scheme = :colors
+        WHERE document_id = :document_id"""
+    ).bindparams(
+        bindparam(key="document_id", type_=UUIDType),
+        bindparam(key="colors", type_=ARRAY(String)),
+    )
+    session.execute(stmt, {"document_id": document_id, "colors": colors})
+    session.commit()
+    return ColorsSetResult(colors=colors)
 
 
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
-async def get_assignments(document_id: str, session: Session = Depends(get_session)):
+async def get_assignments(
+    document: Annotated[Document, Depends(_get_document)],
+    session: Session = Depends(get_session),
+):
     stmt = (
         select(
             Assignments.geo_id,
@@ -425,7 +508,7 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
             (Assignments.geo_id == ParentChildEdges.child_path)
             & (ParentChildEdges.districtr_map == DistrictrMap.uuid),
         )
-        .where(Assignments.document_id == document_id)
+        .where(Assignments.document_id == document.document_id)
     )
 
     return session.execute(stmt).fetchall()
@@ -447,6 +530,7 @@ async def get_document(
             Document.created_at,
             Document.gerrydb_table,
             Document.updated_at,
+            Document.color_scheme,
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
@@ -484,7 +568,18 @@ async def get_document(
     )
     result = session.exec(stmt)
 
-    return result.one()
+    try:
+        return result.one()
+    except NoResultFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {document_id}",
+        )
+    except MultipleResultsFound:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Multiple documents found for ID: {document_id}",
+        )
 
 
 @app.post("/api/document/{document_id}", response_model=DocumentPublic)
@@ -576,23 +671,27 @@ def cleanup_expired_locks():
 
 @app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
 async def get_total_population(
-    document_id: str, session: Session = Depends(get_session)
+    document: Annotated[Document, Depends(_get_document)],
+    session: Session = Depends(get_session),
 ):
     stmt = text(
         "SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL"
     )
     try:
-        result = session.execute(stmt, {"document_id": document_id})
+        result = session.execute(stmt, {"document_id": document.document_id})
         return [
             ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()
         ]
     except (ProgrammingError, InternalError) as e:
         logger.error(e)
         error_text = str(e)
-        if f"Table name not found for document_id: {document_id}" in error_text:
+        if (
+            f"Table name not found for document_id: {document.document_id}"
+            in error_text
+        ):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document_id} not found",
+                detail=f"Document with ID {document.document_id} not found",
             )
         elif "Population column not found for gerrydbview" in error_text:
             raise HTTPException(
@@ -601,11 +700,9 @@ async def get_total_population(
             )
 
 
-@app.get(
-    "/api/document/{document_id}/unassigned", response_model=UnassignedBboxGeoJSONs
-)
+@app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
 async def get_unassigned_geoids(
-    document_id: str,
+    document: Annotated[Document, Depends(_get_document)],
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
@@ -615,24 +712,24 @@ async def get_unassigned_geoids(
         bindparam(key="doc_uuid", type_=UUIDType),
         bindparam(key="exclude_ids", type_=ARRAY(String)),
     )
-    results = session.execute(
-        stmt, {"doc_uuid": document_id, "exclude_ids": exclude_ids}
-    ).fetchall()
+    try:
+        results = session.execute(
+            stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
+        ).fetchall()
+        print(results)
+    except DataError:
+        # could not return null - no results found
+        results = []
+
+    print(results)
     # returns a list of multipolygons of bboxes
-    return {"features": [row[0] for row in results]}
+    return {"features": [row[0] for row in results if row[0] is not None]}
 
 
-@app.get("/api/document/{document_id}/contiguity")
-async def check_document_contiguity(
+def _get_districtr_map(
     document_id: str,
-    # TODO: Allow passing zones to check contiguity for specific zones
-    # Should be slightly more efficient that checking all zones
-    # zone: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
-):
-    # sql/get_block_assignments.sql also fetches the child layer. Would be nice not
-    # to have to do this twice. TODO: when supporting multiple zones, in new
-    # function also return the child layer name
+) -> DistrictrMap:
     stmt = (
         select(DistrictrMap)
         .join(
@@ -659,31 +756,21 @@ async def check_document_contiguity(
             detail=f"Multiple DistrictrMaps found for Document with ID {document_id}",
         )
 
-    if districtr_map.child_layer is not None:
-        logger.info(
-            f"Using child layer {districtr_map.child_layer} for document {document_id}"
-        )
-        gerrydb_name = districtr_map.child_layer
-        zone_assignments = contiguity.get_block_assignments(
-            session, document_id, districtr_map.uuid
-        )
-    else:
-        gerrydb_name = districtr_map.parent_layer
-        logger.info(
-            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
-        )
-        sql = text(
-            """
-            select zone, array_agg(geo_id) as nodes
-            from assignments
-            where document_id = :document_id group by zone
-            and zone is not null"""
-        )
-        result = session.execute(sql, {"document_id": document_id}).fetchall()
-        zone_assignments = [
-            contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
-        ]
+    return districtr_map
 
+
+async def _get_graph(gerrydb_name: str) -> Graph:
+    """
+    Get a graph from the cache or load it from a local file or S3.
+    - If cached, return it
+    - If not cached, download it to the VM if not already downloaded and cache it
+
+    Args:
+        gerrydb_name (str): The name of the GerryDB to get the graph for.
+
+    Returns:
+        Graph: The graph for the given GerryDB.
+    """
     try:
         path = contiguity.get_gerrydb_graph_file(gerrydb_name)
     except botocore.exceptions.ClientError as e:
@@ -713,6 +800,50 @@ async def check_document_contiguity(
         logger.error(f"Expected Graph, got {type(G)}")
         raise HTTPException(status_code=500, detail="Error loading graph")
 
+    return G
+
+
+@app.get("/api/document/{document_id}/contiguity")
+async def check_document_contiguity(
+    document_id: str,
+    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
+    zone: list[int] = Query(default=[]),
+    session: Session = Depends(get_session),
+):
+    if districtr_map.child_layer is not None:
+        logger.info(
+            f"Using child layer {districtr_map.child_layer} for document {document_id}"
+        )
+        gerrydb_name = districtr_map.child_layer
+        kwargs = {"zones": zone} if len(zone) > 0 else {}
+        zone_assignments = contiguity.get_block_assignments(
+            session, document_id, **kwargs
+        )
+    else:
+        gerrydb_name = districtr_map.parent_layer
+        logger.info(
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+        )
+        sql = text(
+            """
+            SELECT
+                zone,
+                array_agg(geo_id) as nodes
+            FROM
+                assignments
+            WHERE
+                document_id = :document_id
+            GROUP BY
+                zone
+                AND zone IS NOT NULL"""
+        )
+        result = session.execute(sql, {"document_id": document_id}).fetchall()
+        zone_assignments = [
+            contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
+        ]
+
+    G = await _get_graph(gerrydb_name)
+
     results = {}
     for zone_blocks in zone_assignments:
         logger.info(f"Checking contiguity for zone {zone_blocks.zone}")
@@ -723,98 +854,175 @@ async def check_document_contiguity(
     return results
 
 
-@app.get("/api/document/{document_id}/evaluation/{summary_stat}")
-async def get_summary_stat(
-    document_id: str, summary_stat: str, session: Session = Depends(get_session)
+@app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
+async def get_connected_component_bboxes(
+    document_id: str,
+    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
+    zone: int,
+    session: Session = Depends(get_session),
 ):
-    try:
-        _summary_stat = SummaryStatisticType[summary_stat]
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid summary_stat: {summary_stat}",
+    if districtr_map.child_layer is not None:
+        logger.info(
+            f"Using child layer {districtr_map.child_layer} for document {document_id}"
         )
-
-    try:
-        stmt, SummaryStatsModel = {
-            "P1": (
-                text(
-                    "SELECT * from get_summary_stats_p1(:document_id) WHERE zone is not null"
-                ),
-                SummaryStatsP1,
-            ),
-            "P4": (
-                text(
-                    "SELECT * from get_summary_stats_p4(:document_id) WHERE zone is not null"
-                ),
-                SummaryStatsP4,
-            ),
-        }[summary_stat]
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Summary stats not implemented for {summary_stat}",
+        gerrydb_name = districtr_map.child_layer
+        zone_assignments = contiguity.get_block_assignments(
+            session, document_id, zones=[zone]
         )
+        if len(zone_assignments) == 0:
+            raise HTTPException(status_code=404, detail="Zone not found")
+        elif len(zone_assignments) > 1:
+            raise HTTPException(status_code=500, detail="Multiple zones found")
+        zone_assignments = zone_assignments[0]
+    else:
+        gerrydb_name = districtr_map.parent_layer
+        logger.info(
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+        )
+        sql = text(
+            """
+            SELECT
+                zone,
+                array_agg(geo_id) as nodes
+            FROM
+                assignments
+            WHERE
+                document_id = :document_id
+            GROUP BY
+                zone
+                AND zone = :zone"""
+        )
+        row = session.execute(
+            sql, {"document_id": document_id, "zone": zone}
+        ).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Zone not found")
+        zone_assignments = contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes)
 
-    try:
-        results = session.execute(stmt, {"document_id": document_id}).fetchall()
-        return {
-            "summary_stat": _summary_stat.value,
-            "results": [SummaryStatsModel.model_validate(row) for row in results],
-        }
-    except (ProgrammingError, InternalError) as e:
-        logger.error(e)
-        error_text = str(e)
-        if f"Table name not found for document_id: {document_id}" in error_text:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document_id} not found",
+    G = await _get_graph(gerrydb_name)
+    subgraph = G.subgraph(nodes=zone_assignments.nodes)
+    zone_connected_components = connected_components(subgraph)
+
+    geo_ids_param = bindparam(key="geo_ids", type_=ARRAY(String))
+    subgraph_ids_param = bindparam(key="subgraph_ids", type_=ARRAY(String))
+
+    sql = text(
+        f"""SELECT
+        st_asgeojson(
+            st_transform(
+                st_envelope(
+                    st_collect(
+                        geometry
+                    )
+                ), 4326
             )
+        )::json as bbox
+    FROM (
+        SELECT
+            i.subgraph_index,
+            g.geometry
+        FROM
+            gerrydb.{gerrydb_name} g
+        JOIN (
+            SELECT
+                unnest(:geo_ids) as geo_id,
+                unnest(:subgraph_ids) as subgraph_index
+            ) i ON g.path = i.geo_id
+    ) AS grouped_geometries
+    GROUP BY
+        subgraph_index
+    """
+    ).bindparams(geo_ids_param, subgraph_ids_param)
+
+    # TODO: Don't love all this iteration but unfortunately postgres doesn't support
+    # multidimensional arrays with different dimensions, precluding some nice ideas
+    geo_ids = []
+    subgraph_ids = []
+    for idx, component in enumerate(zone_connected_components):
+        geo_ids.extend(component)
+        subgraph_ids.extend([idx] * len(component))
+
+    results = session.execute(
+        sql, params={"geo_ids": geo_ids, "subgraph_ids": subgraph_ids}
+    ).fetchall()
+
+    return BBoxGeoJSONs(features=[r.bbox for r in results])
 
 
-@app.get("/api/districtrmap/{gerrydb_table}/evaluation/{summary_stat}")
-async def get_gerrydb_summary_stat(
-    gerrydb_table: str, summary_stat: str, session: Session = Depends(get_session)
+@app.get("/api/document/{document_id}/demography")
+async def get_map_demography(
+    document_id: str,
+    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
+    ids: list[str] = Query(default=[]),
+    stats: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
 ):
-    try:
-        _summary_stat = SummaryStatisticType[summary_stat]
-    except ValueError:
+    columns = []
+    if districtr_map.available_summary_stats is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid summary_stat: {summary_stat}",
+            detail=str("Summary statistic not available for this map"),
         )
+    # by default use all available columns otherwise the requested columns
 
-    try:
-        summary_stat_udf, SummaryStatsModel = {
-            "P1": ("get_summary_p1_totals", PopulationStatsP1),
-            "P4": ("get_summary_p4_totals", PopulationStatsP4),
-        }[summary_stat]
-    except KeyError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Summary stats not implemented for {summary_stat}",
+    available_summary_stats = (
+        districtr_map.available_summary_stats if len(stats) == 0 else stats
+    )
+    # By default, provide all summary stats
+
+    for summary_stat in available_summary_stats:
+        if summary_stat not in SummaryStatisticColumnLists.__members__:
+            continue
+        else:
+            stat_cols = SummaryStatisticColumnLists[summary_stat]
+            columns.extend(stat_cols.value)
+
+    if len(ids) > 0:
+        # If the user sends a selection of IDs, just use those
+        # This bypasses the document.assignments and gerrydb.parent full query
+        # Essentially we use the user provided IDs as start of the join
+        # This could be a where clause at the end, but this should be faster
+        ids_subquery = text(
+            """
+            SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
+        """.format(
+                ",".join(f"(:id{i})" for i in range(len(ids)))
+            )
         )
+        # This is for efficiency but slightly slippery
+        # Adding the format here provides some safety
+        params = {f"id{i}": id for i, id in enumerate(ids)}
+    else:
+        # direct string interpolation of dm.parent_layer is safe
+        # since it always comes from the database
+        # This gives us all VTDs
+        # and any shattered children
+        # The FE will filter for shattered parents
+        ids_subquery = text(
+            f"""SELECT distinct geo_id
+            FROM document.assignments
+            WHERE document_id = :document_id
+            UNION
+            SELECT path as geo_id
+            FROM gerrydb.{districtr_map.parent_layer}"""
+        )
+        params = {"document_id": document_id}
 
     stmt = text(
-        f"""SELECT *
-        FROM {summary_stat_udf}(:gerrydb_table)"""
-    ).bindparams(
-        bindparam(key="gerrydb_table", type_=String),
+        f"""
+        SELECT path, {",".join(columns)}
+        FROM ({ids_subquery}) as ids
+        LEFT JOIN gerrydb.{districtr_map.gerrydb_table_name} gdb
+        on gdb.path = ids.geo_id
+        WHERE path is not null
+    """
     )
-    try:
-        results = session.execute(stmt, {"gerrydb_table": gerrydb_table}).fetchone()
-        return {
-            "summary_stat": _summary_stat.value,
-            "results": SummaryStatsModel.model_validate(results),
-        }
-    except (ProgrammingError, InternalError) as e:
-        logger.error(e)
-        error_text = str(e)
-        if f"Table {gerrydb_table} does not exist in gerrydb schema" in error_text:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Gerrydb Table with ID {gerrydb_table} not found",
-            )
+
+    results = session.execute(stmt, params).fetchall()
+    return {
+        "columns": ["path", *columns],
+        "results": [[*row] for row in results],
+    }
 
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)

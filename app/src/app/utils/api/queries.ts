@@ -1,94 +1,37 @@
-import {QueryObserver, skipToken} from '@tanstack/react-query';
+import {QueryObserver} from '@tanstack/react-query';
 import {queryClient} from './queryClient';
 import {
   DistrictrMap,
   getAvailableDistrictrMaps,
-  Assignment,
   DocumentObject,
   getAssignments,
   getDocument,
-  getZonePopulations,
-  ZonePopulation,
-  SummaryStatsResult,
-  getTotPopSummaryStats,
-  P1TotPopSummaryStats,
-  P4TotPopSummaryStats,
   RemoteAssignmentsResponse,
+  getDemography,
 } from './apiHandlers';
-import {getEntryTotal} from '@/app/utils/summaryStats';
 import {useMapStore} from '@/app/store/mapStore';
-import {useChartStore} from '@/app/store/chartStore';
-import {updateChartData} from '../helpers';
+import {demographyCache} from '../demography/demographyCache';
+import {useDemographyStore} from '@/app/store/demographyStore';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
 
-export const mapMetrics = new QueryObserver<{data: ZonePopulation[]; hash: string}>(queryClient, {
-  queryKey: ['_zonePopulations'],
-  queryFn: skipToken,
-});
-
-export const updateMapMetrics = (mapDocument: DocumentObject) => {
-  mapMetrics.setOptions({
-    queryKey: ['zonePopulations', mapDocument.document_id],
-    queryFn: mapDocument ? () => getZonePopulations(mapDocument) : skipToken,
-  });
-};
-
-mapMetrics.subscribe(result => {
-  // don't load the result if:
-  // no data
-  // if the query is currently fetching
-  // hash is stale, but not the initial hash
-  if (
-    result?.data?.data &&
-    !result.isFetching &&
-    (useMapStore.getState().lastUpdatedHash === result.data?.hash || result?.data.hash == '')
-  ) {
-    useChartStore.getState().setMapMetrics({
-      ...result,
-      // @ts-ignore data is not undefined
-      data: result.data.data,
-    });
-  }
-});
-
-export const mapViewsQuery = new QueryObserver<DistrictrMap[]>(queryClient, {
+const mapViewsQuery = new QueryObserver<DistrictrMap[]>(queryClient, {
   queryKey: ['views', INITIAL_VIEW_LIMIT, INITIAL_VIEW_OFFSET],
   queryFn: () => getAvailableDistrictrMaps(INITIAL_VIEW_LIMIT, INITIAL_VIEW_OFFSET),
 });
 
-export const updateMapViews = (limit: number, offset: number) => {
+const updateMapViews = (limit: number, offset: number) => {
   mapViewsQuery.setOptions({
     queryKey: ['views', limit, offset],
     queryFn: () => getAvailableDistrictrMaps(limit, offset),
   });
 };
 
-export const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
-  mapViewsQuery.subscribe(result => {
+const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
+  return mapViewsQuery.subscribe(result => {
     if (result) {
       _useMapStore.getState().setMapViews(result);
-    }
-  });
-  fetchTotPop.subscribe(response => {
-    if (response?.data?.results) {
-      const data = {
-        ...response.data.results,
-        total: getEntryTotal(response.data.results),
-      };
-      const {setSummaryStat, mapDocument} = _useMapStore.getState();
-      setSummaryStat('totpop', {data});
-      setSummaryStat('idealpop', {
-        data: data.total / (mapDocument?.num_districts ?? 1),
-      });
-
-      const mapMetrics = useChartStore.getState().mapMetrics;
-      if (mapMetrics && mapDocument?.num_districts && data.total) {
-        updateChartData(mapMetrics, mapDocument.num_districts, data.total);
-      }
-    } else {
-      useMapStore.getState().setSummaryStat('totpop', undefined);
     }
   });
 };
@@ -105,17 +48,10 @@ const getDocumentFunction = (documentId?: string) => {
   };
 };
 
-export const updateDocumentFromId = new QueryObserver<DocumentObject | null>(queryClient, {
+const updateDocumentFromId = new QueryObserver<DocumentObject | null>(queryClient, {
   queryKey: ['mapDocument', undefined],
   queryFn: getDocumentFunction(),
 });
-
-export const updateGetDocumentFromId = (documentId: string) => {
-  updateDocumentFromId.setOptions({
-    queryKey: ['mapDocument', documentId],
-    queryFn: getDocumentFunction(documentId),
-  });
-};
 
 updateDocumentFromId.subscribe(mapDocument => {
   if (typeof window === 'undefined') return;
@@ -142,15 +78,25 @@ updateDocumentFromId.subscribe(mapDocument => {
   }
   if (mapDocument.data && mapDocument.data.document_id !== useMapStore.getState().loadedMapId) {
     useMapStore.getState().setMapDocument(mapDocument.data);
+    if (mapDocument.data.color_scheme?.length) {
+      useMapStore.getState().setColorScheme(mapDocument.data.color_scheme);
+    }
   }
 });
+
+const updateGetDocumentFromId = (documentId: string) => {
+  updateDocumentFromId.setOptions({
+    queryKey: ['mapDocument', documentId],
+    queryFn: getDocumentFunction(documentId),
+  });
+};
 
 export const fetchAssignments = new QueryObserver<null | RemoteAssignmentsResponse>(queryClient, {
   queryKey: ['assignments'],
   queryFn: () => getAssignments(useMapStore.getState().mapDocument),
 });
 
-export const updateAssignments = (mapDocument: DocumentObject) => {
+const updateAssignments = (mapDocument: DocumentObject) => {
   fetchAssignments.setOptions({
     queryFn: () => getAssignments(mapDocument),
     queryKey: ['assignments', performance.now()],
@@ -159,31 +105,99 @@ export const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    const {loadZoneAssignments, setAppLoadingState} = useMapStore.getState();
-    loadZoneAssignments(assignments.data);
-    fetchTotPop.refetch();
-    useMapStore.temporal.getState().clear(); // we will soon factor our temporal state anyway
-
+    const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
+    if (assignments.data.documentId === loadedMapId) {
+      console.log(
+        'Map already loaded, skipping assignment load',
+        assignments.data.documentId,
+        loadedMapId
+      );
+    } else {
+      loadZoneAssignments(assignments.data);
+      useMapStore.temporal.getState().clear();
+    }
     setAppLoadingState('loaded');
   }
 });
 
-export const fetchTotPop = new QueryObserver<SummaryStatsResult<
-  P1TotPopSummaryStats | P4TotPopSummaryStats
-> | null>(queryClient, {
-  queryKey: ['gerrydb_tot_pop'],
-  queryFn: () =>
-    getTotPopSummaryStats(
-      useMapStore.getState().mapDocument,
-      useMapStore.getState().mapDocument?.available_summary_stats?.[0]
-    ),
+const fetchDemography = new QueryObserver<null | {
+  columns: string[];
+  results: (string | number)[][];
+  dataHash: string;
+}>(queryClient, {
+  queryKey: ['demography'],
+  queryFn: async () => {
+    const result = await getDemography({
+      document_id: useMapStore.getState().mapDocument?.document_id,
+    });
+    return {
+      ...result,
+      dataHash: result.dataHash || '',
+    };
+  },
 });
 
-export const updateTotPop = (mapDocument: DocumentObject | null) => {
-  fetchTotPop.setOptions({
-    queryFn: () => getTotPopSummaryStats(mapDocument, mapDocument?.available_summary_stats?.[0]),
-    queryKey: ['gerrydb_tot_pop', mapDocument?.gerrydb_table],
+export const updateDemography = ({
+  document_id,
+  ids,
+  dataHash,
+}: {
+  document_id: string;
+  ids?: string[];
+  dataHash: string;
+}) => {
+  fetchDemography.setOptions({
+    queryFn: async () => {
+      const result = await getDemography({document_id, ids, dataHash});
+      return {
+        ...result,
+        dataHash: result.dataHash || '',
+      };
+    },
+    queryKey: ['demography', performance.now()],
   });
 };
 
-// getNullableParamQuery(, mapDocument, mapDocument?.available_summary_stats?.[0]),
+fetchDemography.subscribe(demography => {
+  if (demography.data) {
+    const {
+      setDataHash,
+      variable,
+      setVariable,
+      getMapRef: getDemogMapRef,
+    } = useDemographyStore.getState();
+    const {shatterIds, mapDocument, getMapRef: getMainMapRef, mapOptions} = useMapStore.getState();
+    const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
+    const result = demography.data;
+
+    if (!mapDocument || !result) return;
+
+    if (dataHash !== result.dataHash) {
+      console.log('Data hash mismatch, skipping update', dataHash, result.dataHash);
+      return;
+    }
+
+    demographyCache.update(result.columns, result.results, shatterIds, mapDocument, dataHash);
+    setDataHash(dataHash);
+    setVariable(variable);
+    const newIds = demography.data.results.map(row => row[0]) as string[];
+    let mapRef = mapOptions.showDemographicMap === 'overlay' ? getMainMapRef() : getDemogMapRef();
+    if (mapRef && newIds.length) {
+      demographyCache.paintDemography({
+        variable,
+        mapRef,
+        ids: newIds,
+      });
+    }
+  }
+});
+
+export {
+  updateMapViews,
+  getQueriesResultsSubs,
+  mapViewsQuery,
+  updateGetDocumentFromId,
+  updateAssignments,
+  updateDocumentFromId,
+  fetchDemography,
+};

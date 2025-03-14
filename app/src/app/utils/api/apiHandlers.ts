@@ -1,9 +1,10 @@
 import axios from 'axios';
 import 'maplibre-gl';
-import {MapStore, useMapStore} from '@store/mapStore';
-import {getEntryTotal} from '@utils/summaryStats';
+import {useMapStore} from '@store/mapStore';
 import {useChartStore} from '@store/chartStore';
 import {NullableZone} from '@constants/types';
+import {colorScheme as DefaultColorScheme} from '@constants/colors';
+import {SummaryStatKeys, SummaryStatsResult, SummaryTypes, TotalColumnKeys} from './summaryStats';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
 export const FormatAssignments = () => {
@@ -81,6 +82,7 @@ export interface DistrictrMap {
  * @property {number | null} num_districts - The number of districts to enforce.
  * @property {string} created_at - The created at.
  * @property {string} updated_at - The updated at.
+ * @property {string[]} color_scheme - The colors for districts.
  */
 export interface DocumentObject {
   document_id: string;
@@ -92,7 +94,6 @@ export interface DocumentObject {
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
-  available_summary_stats: string[];
   map_metadata: DocumentMetadata;
   status: 'locked' | 'unlocked' | 'checked_out';
   access: 'read' | 'edit';
@@ -108,6 +109,8 @@ export interface DocumentMetadata {
   description: string | null;
   eventId: string | null;
   is_draft: boolean;
+  available_summary_stats: Array<SummaryTypes>;
+  color_scheme: string[] | null;
 }
 
 /**
@@ -237,52 +240,12 @@ export const getAssignments: (
  *
  * @interface
  * @property {number} zone - The zone.
- * @property {number} total_pop - The total population.
+ * @property {number} total_pop_20 - The total population.
  */
 export interface ZonePopulation {
   zone: number;
-  total_pop: number;
+  total_pop_20: number;
 }
-
-// TODO: Tanstack has a built in abort controller, we should use that
-// https://tanstack.com/query/v5/docs/framework/react/guides/query-cancellation
-export let populationAbortController: AbortController | null = null;
-export let currentHash: string = '';
-
-/**
- * Get zone populations from the server.
- * @param mapDocument - DocumentObject, the document object
- * @returns Promise<ZonePopulation[]>
- */
-export const getZonePopulations: (
-  mapDocument: DocumentObject
-) => Promise<{data: ZonePopulation[]; hash: string}> = async mapDocument => {
-  populationAbortController?.abort();
-  populationAbortController = new AbortController();
-  const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
-  if (currentHash !== assignmentHash) {
-    // return stale data if map already changed
-    return {
-      data: useChartStore.getState().mapMetrics?.data || [],
-      hash: assignmentHash,
-    };
-  }
-  if (mapDocument) {
-    return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/total_pop`, {
-        signal: populationAbortController.signal,
-      })
-      .then(res => {
-        mapDocument.genesis = 'created'; // complete the cycle of map creation + population fetch
-        return {
-          data: res.data as ZonePopulation[],
-          hash: assignmentHash,
-        };
-      });
-  } else {
-    throw new Error('No document provided');
-  }
-};
 
 /**
  * Get zone populations from the server.
@@ -309,190 +272,25 @@ export const getContiguity: (mapDocument: DocumentObject) => Promise<any> = asyn
   }
 };
 
-export interface SummaryStatsResult<T extends object> {
-  summary_stat: string;
-  results: T;
-}
-
 /**
- * P1ZoneSummaryStats
- *
- * @interface
- * @property {number} zone - The zone.
- * @property {number} total_pop - The total population.
- */
-export interface P1ZoneSummaryStats {
-  zone: number;
-  other_pop: number;
-  asian_pop: number;
-  amin_pop: number;
-  nhpi_pop: number;
-  black_pop: number;
-  white_pop: number;
-  two_or_more_races_pop: number;
-}
-export type P1TotPopSummaryStats = Omit<P1ZoneSummaryStats, 'zone'>;
-
-export const P1ZoneSummaryStatsKeys = [
-  'other_pop',
-  'asian_pop',
-  'amin_pop',
-  'nhpi_pop',
-  'black_pop',
-  'white_pop',
-  'two_or_more_races_pop',
-] as const;
-
-export const CleanedP1ZoneSummaryStatsKeys = [
-  ...P1ZoneSummaryStatsKeys,
-  'total',
-  'other_pop_pct',
-  'asian_pop_pct',
-  'amin_pop_pct',
-  'nhpi_pop_pct',
-  'black_pop_pct',
-  'white_pop_pct',
-  'two_or_more_races_pop_pct',
-] as const;
-
-export interface CleanedP1ZoneSummaryStats extends P1ZoneSummaryStats {
-  total: number;
-  other_pop_pct: number;
-  asian_pop_pct: number;
-  amin_pop_pct: number;
-  nhpi_pop_pct: number;
-  black_pop_pct: number;
-  white_pop_pct: number;
-  two_or_more_races_pop_pct: number;
-}
-
-/**
- * P4ZoneSummaryStats
- *
- * @interface
- * @property {number} zone - The zone.
- * @property {number} total_pop - The total population.
- */
-export interface P4ZoneSummaryStats {
-  zone: number;
-  hispanic_vap: number;
-  non_hispanic_asian_vap: number;
-  non_hispanic_amin_vap: number;
-  non_hispanic_nhpi_vap: number;
-  non_hispanic_black_vap: number;
-  non_hispanic_white_vap: number;
-  non_hispanic_other_vap: number;
-  non_hispanic_two_or_more_races_vap: number;
-}
-export type P4TotPopSummaryStats = Omit<P4ZoneSummaryStats, 'zone'>;
-
-export const P4ZoneSummaryStatsKeys = [
-  'hispanic_vap',
-  'non_hispanic_asian_vap',
-  'non_hispanic_amin_vap',
-  'non_hispanic_nhpi_vap',
-  'non_hispanic_black_vap',
-  'non_hispanic_white_vap',
-  'non_hispanic_other_vap',
-  'non_hispanic_two_or_more_races_vap',
-] as const;
-
-export const CleanedP4ZoneSummaryStatsKeys = [
-  ...P4ZoneSummaryStatsKeys,
-  'total',
-  'hispanic_vap',
-  'non_hispanic_asian_vap',
-  'non_hispanic_amin_vap',
-  'non_hispanic_nhpi_vap',
-  'non_hispanic_black_vap',
-  'non_hispanic_white_vap',
-  'non_hispanic_other_vap',
-  'non_hispanic_two_or_more_races_vap',
-] as const;
-
-export interface CleanedP4ZoneSummaryStats extends P4ZoneSummaryStats {
-  total: number;
-  hispanic_vap: number;
-  non_hispanic_asian_vap: number;
-  non_hispanic_amin_vap: number;
-  non_hispanic_nhpi_vap: number;
-  non_hispanic_black_vap: number;
-  non_hispanic_white_vap: number;
-  non_hispanic_other_vap: number;
-  non_hispanic_two_or_more_races_vap: number;
-}
-
-/**
- * Get zone stats from the server.
+ * Get zone populations from the server.
  * @param mapDocument - DocumentObject, the document object
- * @param summaryType - string, the summary type
- * @returns Promise<CleanedP1ZoneSummaryStats[] | CleanedP4ZoneSummaryStats[]>
+ * @param zone - number, the zone id
+ * @returns Promise<GeoJSON[]>
  */
-export const getSummaryStats: (
+export const getZoneConnectedComponentBBoxes: (
   mapDocument: DocumentObject,
-  summaryType: string | null | undefined
-) => Promise<
-  SummaryStatsResult<CleanedP1ZoneSummaryStats[] | CleanedP4ZoneSummaryStats[]>
-> = async (mapDocument, summaryType) => {
-  if (mapDocument && summaryType) {
+  zone: number
+) => Promise<any> = async (mapDocument, zone) => {
+  if (mapDocument) {
     return await axios
-      .get<
-        SummaryStatsResult<P1ZoneSummaryStats[] | P4ZoneSummaryStats[]>
-      >(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/evaluation/${summaryType}`)
+      .get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity/${zone}/connected_component_bboxes`,
+        {}
+      )
       .then(res => {
-        const results = res.data.results.map(row => {
-          const total = getEntryTotal(row);
-
-          const zoneSummaryStatsKeys = (() => {
-            switch (summaryType) {
-              case 'P1':
-                return P1ZoneSummaryStatsKeys;
-              case 'P4':
-                return P4ZoneSummaryStatsKeys;
-              default:
-                throw new Error('Invalid summary type');
-            }
-          })();
-
-          return zoneSummaryStatsKeys.reduce<any>(
-            (acc, key) => {
-              acc[`${key}_pct`] = acc[key] / total;
-              return acc;
-            },
-            {
-              ...row,
-              total,
-            }
-          ) as CleanedP1ZoneSummaryStats;
-        });
-        return {
-          ...res.data,
-          results,
-        };
+        return res.data;
       });
-  } else {
-    throw new Error('No document provided');
-  }
-};
-
-/**
- * Get P1 zone stats from the server.
- * @param mapDocument - DocumentObject, the document object
- * @returns Promise<CleanedP1ZoneSummaryStats[]>
- */
-export const getTotPopSummaryStats: (
-  mapDocument: DocumentObject | null,
-  summaryType: string | null | undefined
-) => Promise<SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats>> = async (
-  mapDocument,
-  summaryType
-) => {
-  if (mapDocument && summaryType) {
-    return await axios
-      .get<
-        SummaryStatsResult<P1TotPopSummaryStats | P4TotPopSummaryStats>
-      >(`${process.env.NEXT_PUBLIC_API_URL}/api/districtrmap/${mapDocument.parent_layer}/evaluation/${summaryType}`)
-      .then(res => res.data);
   } else {
     throw new Error('No document provided');
   }
@@ -558,7 +356,6 @@ export const patchUpdateAssignments: (upadteData: {
   assignments: Assignment[];
   updateHash: string;
 }) => Promise<AssignmentsCreate> = async ({assignments, updateHash}) => {
-  currentHash = `${useMapStore.getState().assignmentsHash}`;
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
       assignments: assignments,
@@ -714,4 +511,67 @@ export const getLoadPlanFromShare = async ({
     {headers: {'Content-Type': 'application/json'}}
   );
   return res.data; // failure is handled in mutations.ts
+};
+
+/**
+ * Set colors response
+ *   @interface
+ *   @property {boolean} success - Confirming if the operation succeeded
+ *   @property {string} document_id - Document ID
+ */
+export interface ColorsSet {
+  success: boolean;
+  document_id: string;
+}
+
+/**
+ * Save changed colors
+ *
+ * @param document_id - string, the document id
+ * @param color_scheme - string[], the hex colors for districts
+ */
+export const saveColorScheme: (params: {
+  document_id: string;
+  colors: string[];
+}) => Promise<ColorsSet> = async ({document_id, colors}) => {
+  if (colors === DefaultColorScheme) {
+    return;
+  }
+  return await axios
+    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/update_colors`, colors)
+    .then(res => {
+      return res.data;
+    });
+};
+
+/**
+ * Fetches demography table for a given document.
+ *
+ * @param document_id - string, the document_id
+ * @param ids - Optional array of IDs to filter the demography data.
+ * @returns A promise that resolves to an object containing a lsit of columns and results (2d array).
+ * @throws Will throw an error if the request fails.
+ */
+export const getDemography: (params: {
+  document_id?: string;
+  ids?: string[];
+  dataHash?: string;
+}) => Promise<{columns: string[]; results: (string | number)[][]; dataHash?: string}> = async ({
+  document_id,
+  ids,
+  dataHash,
+}) => {
+  if (!document_id) {
+    throw new Error('No document id provided');
+  }
+  const fetchUrl = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/demography`
+  );
+  ids?.forEach(id => fetchUrl.searchParams.append('ids', id));
+  const result = await axios.get(fetchUrl.toString()).then(res => res.data);
+  return {
+    columns: result.columns,
+    results: result.results,
+    dataHash: dataHash,
+  };
 };

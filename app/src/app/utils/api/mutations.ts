@@ -9,20 +9,12 @@ import {
   patchUpdateAssignments,
   patchUpdateReset,
   saveMapDocumentMetadata,
-  populationAbortController,
-  getSharePlanLink,
-  getLoadPlanFromShare,
-  getAssignments,
 } from '@/app/utils/api/apiHandlers';
-import {useMapStore} from '@/app/store/mapStore';
-import {mapMetrics} from './queries';
-import {useChartStore} from '@/app/store/chartStore';
-import type {AxiosError} from 'axios';
-import {stat} from 'fs';
-
 export interface AxiosErrorData {
   detail: 'Invalid password' | 'Password required';
 }
+import {useMapStore} from '@/app/store/mapStore';
+import type {AxiosError} from 'axios';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,
@@ -65,8 +57,7 @@ export const patchUnShatter = new MutationObserver(queryClient, {
 export const patchUpdates = new MutationObserver(queryClient, {
   mutationFn: patchUpdateAssignments,
   onMutate: () => {
-    populationAbortController?.abort();
-
+    console.log('Updating assignments');
     const {zoneAssignments, shatterIds, shatterMappings, mapDocument, lastUpdatedHash} =
       useMapStore.getState();
     if (!mapDocument) return;
@@ -77,10 +68,6 @@ export const patchUpdates = new MutationObserver(queryClient, {
   onSuccess: (data: AssignmentsCreate) => {
     console.log(`Successfully upserted ${data.assignments_upserted} assignments`);
     const {isPainting} = useMapStore.getState();
-    const {mapMetrics: _mapMetrics} = useChartStore.getState();
-    if (!isPainting || !_mapMetrics?.data) {
-      mapMetrics.refetch();
-    }
     // remove trailing shattered features
     // This needs to happen AFTER the updates are done
     const {processHealParentsQueue, mapOptions, parentsToHeal} = useMapStore.getState();
@@ -100,7 +87,6 @@ export const patchReset = new MutationObserver(queryClient, {
   },
   onSuccess: (data: AssignmentsReset) => {
     console.log(`Successfully reset ${data.document_id}`);
-    mapMetrics.refetch();
   },
 });
 

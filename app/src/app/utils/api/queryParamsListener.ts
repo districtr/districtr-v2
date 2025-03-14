@@ -15,6 +15,7 @@ export const getSearchParamsObserver = () => {
     if (document.visibilityState === 'visible') {
       // resume temporal states on tab re-focus
       useMapStore.temporal.getState().resume();
+      useMapStore.getState().setAppLoadingState('loaded');
       updateDocumentFromId.refetch();
     } else {
       // prevent temporal states from generating while tab is not visible

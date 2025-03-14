@@ -240,8 +240,17 @@ def add_extent_to_districtrmap(
             INTO rec;
 
             EXECUTE format('
-                SELECT ST_Extent(ST_Transform(geometry, 4326))
+                SELECT ST_Transform(
+                    ST_SetSRID(
+                        ST_Extent(
+                            geometry
+                        ),
+                        (SELECT ST_SRID(geometry) FROM gerrydb.%I WHERE geometry IS NOT NULL LIMIT 1)
+                    ),
+                    4326
+                )
                 FROM gerrydb.%I',
+                rec.parent_layer,
                 rec.parent_layer
             ) INTO layer_extent;
 

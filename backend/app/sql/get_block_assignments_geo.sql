@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION get_block_assignments_geo(document_id UUID)
-RETURNS TABLE (geo_id TEXT, zone TEXT, geometry GEOMETRY) AS $$
+RETURNS TABLE (geo_id TEXT, zone INTEGER, geometry GEOMETRY) AS $$
 DECLARE
     doc_districtrmap RECORD;
     sql_query TEXT;
