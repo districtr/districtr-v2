@@ -95,6 +95,8 @@ export interface DocumentObject {
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
+  available_summary_stats: Array<SummaryTypes>;
+  color_scheme: string[] | null;
   status: 'locked' | 'unlocked' | 'checked_out';
   access: 'read' | 'edit';
   genesis: 'shared' | 'copied' | 'created';
@@ -109,8 +111,6 @@ export interface DocumentMetadata {
   description: string | null;
   eventId: string | null;
   is_draft: boolean;
-  available_summary_stats: Array<SummaryTypes>;
-  color_scheme: string[] | null;
 }
 
 /**
