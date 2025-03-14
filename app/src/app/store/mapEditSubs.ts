@@ -5,7 +5,7 @@ import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
 import GeometryWorker from '../utils/GeometryWorker';
-import { demographyCache } from '../utils/demography/demographyCache';
+import {demographyCache} from '../utils/demography/demographyCache';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
@@ -39,15 +39,16 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   >(
     state => [state.zoneAssignments, state.appLoadingState],
     ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
-      if (
-        previousAppLoadingState !== 'loaded' ||
-        appLoadingState === 'blurred' ||
-        !allowSendZoneUpdates
-      )
-        return;
+      if (appLoadingState === 'blurred' || !allowSendZoneUpdates) return
+      // Update GeometryWorker on first render
+      const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
+      GeometryWorker?.updateZones(zoneEntries);
+      // Update caches / workers
+      demographyCache.updatePopulations(zoneAssignments);
+      // If previously not loaded, this is the initial render
+      if (previousAppLoadingState !== 'loaded') return;
       const {getMapRef} = useMapStore.getState();
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
-      demographyCache.updatePopulations(zoneAssignments)
     },
     {equalityFn: shallowCompareArray}
   );
@@ -70,13 +71,13 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
 
   const updateGeometryWorkerState = useMapStore.subscribe(
     state => state.shatterIds,
-    (curr) => {
+    curr => {
       GeometryWorker?.handleShatterHeal({
         parents: Array.from(curr.parents),
         children: Array.from(curr.children),
-      })
+      });
     }
-  )
+  );
 
   const lockMapOnShatterIdChange = useMapStore.subscribe<
     [MapStore['shatterIds']['parents'], MapStore['appLoadingState']]
@@ -139,5 +140,12 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     {equalityFn: shallowCompareArray}
   );
 
-  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange, updateGeometryWorkerState, _addColorSchemeSub];
+  return [
+    sendZoneUpdatesOnUpdate,
+    fetchAssignmentsSub,
+    healAfterEdits,
+    lockMapOnShatterIdChange,
+    updateGeometryWorkerState,
+    _addColorSchemeSub,
+  ];
 };

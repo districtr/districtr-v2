@@ -1,7 +1,7 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
-import React, {useRef, useState} from 'react';
+import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 
@@ -64,15 +64,19 @@ const ZoneNumbersLayer = () => {
   const colorScheme = useMapStore(state => state.colorScheme);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
+  const lockedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const [zoneNumberData, setZoneNumberData] = useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
+  const mapRenderingState = useMapStore(state => state.mapRenderingState);
+  const appLoadingState = useMapStore(state => state.appLoadingState);
+  const shouldHide = useMapStore(
+    state => state.mapOptions.showBlockPopulationNumbers && state.focusFeatures.length
+  );
 
   const addZoneMetaLayers = async () => {
     const showZoneNumbers = useMapStore.getState().mapOptions.showZoneNumbers;
     const id = `${mapDocumentId}`;
     if (showZoneNumbers) {
-      const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
-      await GeometryWorker?.updateProps(zoneEntries);
       const geoms = await getDissolved();
       if (geoms && mapDocumentId === id){
         setZoneNumberData(geoms.centroids);
@@ -91,11 +95,13 @@ const ZoneNumbersLayer = () => {
     }
   };
 
-  useEffect(handleUpdate, [showZoneNumbers, zoneAssignments]);
+  useLayoutEffect(handleUpdate, [showZoneNumbers, zoneAssignments, mapRenderingState, appLoadingState]);
 
   useEffect(() => {
     const map = getMapRef();
     if (map) {
+      map.loadImage('/lock.png')
+        .then(image => map.addImage('lock', image.data));
       map.on('moveend', handleUpdate);
       map.on('zoomend', handleUpdate);
     }
@@ -119,9 +125,9 @@ const ZoneNumbersLayer = () => {
       <Layer
         id="ZONE_LABEL_BG"
         type="circle"
-        source="ZONE_LABEL"
+        source="zone-label"
         layout={{
-          visibility: 'visible',
+          visibility: shouldHide ? 'none' : 'visible',
         }}
         paint={{
           'circle-color': '#fff',
@@ -134,9 +140,9 @@ const ZoneNumbersLayer = () => {
       <Layer
         id="ZONE_LABEL"
         type="symbol"
-        source="ZONE_LABEL"
+        source="zone-label"
         layout={{
-          visibility: 'visible',
+          visibility: shouldHide ? 'none' : 'visible',
           'text-field': ['get', 'zone'],
           'text-font': ['Barlow Bold'],
           'text-size': 18,
@@ -146,6 +152,24 @@ const ZoneNumbersLayer = () => {
         paint={{
           'text-color': '#000',
         }}
+        filter={
+          // get zone not in lockedAreas
+          ['!', ['in', ['get', 'zone'], ['literal', lockedAreas]]]
+        }
+      ></Layer>
+      <Layer
+        id="ZONE_LOCK_LABE"
+        type="symbol"
+        source="zone-label"
+        layout={{
+          visibility: shouldHide ? 'none' : 'visible',
+          'icon-image': 'lock',
+          'icon-size': 1
+        }}
+        filter={
+          // get zone not in lockedAreas
+          ['in', ['get', 'zone'], ['literal', lockedAreas]]
+        }
       ></Layer>
     </Source>
   );
