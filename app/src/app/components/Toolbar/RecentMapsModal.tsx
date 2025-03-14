@@ -84,7 +84,6 @@ export const RecentMapsModal: React.FC<{
 
   return (
     <Dialog.Root
-      width="75vw"
       open={dialogOpen}
       onOpenChange={isOpen =>
         isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen)
