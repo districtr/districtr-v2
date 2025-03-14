@@ -34,7 +34,7 @@ export const VtdBlockLayers: React.FC<{
       setClearOldSource(false);
       setMapRenderingState('loaded');
     }, 10);
-  }, [mapDocument?.tiles_s3_path]);
+  }, [mapDocument?.tiles_s3_path, mapDocument?.document_id]);
 
   const handleDemographyRender = ({numberOfBins}: {numberOfBins?: number}) => {
     const _map = mapRef.current?.getMap();
