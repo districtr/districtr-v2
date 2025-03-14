@@ -285,24 +285,22 @@ async def reset_map(
     document: Annotated[Document, Depends(_get_document)],
     session: Session = Depends(get_session),
 ):
-    # Drop the partition for the given assignments
     partition_name = f'"document.assignments_{document.document_id}"'
     session.execute(text(f"DROP TABLE IF EXISTS {partition_name} CASCADE;"))
 
     # Recreate the partition
-    session.execute(
-        text(
-            f"""
-        CREATE TABLE {partition_name} PARTITION OF document.assignments
+    stmt = text(f"""CREATE TABLE {partition_name}
+        PARTITION OF document.assignments
         FOR VALUES IN ('{document.document_id}');
-    """
-        )
-    )
+    """)
+    session.execute(stmt)
 
+    stmt = text(
+        "UPDATE document.document SET color_scheme = NULL WHERE document_id = :document_id"
+    ).bindparams(bindparam(key="document_id", type_=UUIDType))
     session.execute(
-        text(
-            f"UPDATE document.document SET color_scheme = NULL WHERE document_id = '{document_id}'"
-        )
+        stmt,
+        {"document_id": document.document_id},
     )
 
     session.commit()
