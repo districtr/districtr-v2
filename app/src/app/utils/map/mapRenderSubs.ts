@@ -196,56 +196,6 @@ export class MapRenderSubscriber {
       )
     );
   }
-  renderLock(
-    lockedFeatures: MapStore['lockedFeatures'],
-    previousLockedFeatures?: MapStore['lockedFeatures']
-  ) {
-    const {shatterIds, mapDocument} = this.useMapStore.getState();
-    if (!mapDocument) return;
-
-    const getLayer = (id: string) => {
-      const isChild = shatterIds.children.has(id);
-      if (isChild && mapDocument.child_layer) {
-        return mapDocument.child_layer;
-      }
-      return mapDocument.parent_layer;
-    };
-
-    lockedFeatures.forEach(id => {
-      if (!previousLockedFeatures?.has(id)) {
-        this.mapRef.setFeatureState(
-          {
-            id,
-            source: BLOCK_SOURCE_ID,
-            sourceLayer: getLayer(id),
-          },
-          {
-            locked: true,
-          }
-        );
-      }
-    });
-
-    previousLockedFeatures?.forEach(id => {
-      if (!lockedFeatures.has(id)) {
-        this.mapRef.setFeatureState(
-          {
-            id,
-            source: BLOCK_SOURCE_ID,
-            sourceLayer: getLayer(id),
-          },
-          {
-            locked: false,
-          }
-        );
-      }
-    });
-  }
-  subscribeLock() {
-    this.subscriptions.push(
-      this.useMapStore.subscribe(state => state.lockedFeatures, this.renderLock.bind(this))
-    );
-  }
   renderColorZones(curr: ColorZoneAssignmentsState, prev?: ColorZoneAssignmentsState) {
     colorZoneAssignments(this.mapRef, curr, prev);
     if (this.useMapStore.getState().isTemporalAction) {
@@ -254,8 +204,6 @@ export class MapRenderSubscriber {
     const {
       captiveIds,
       shatterIds,
-      setLockedFeatures,
-      lockedFeatures,
       mapRenderingState,
       mapOptions,
     } = this.useMapStore.getState();
@@ -277,35 +225,6 @@ export class MapRenderSubscriber {
         );
       }
     });
-    const [lockPaintedAreas, prevLockPaintedAreas] = [curr[5], prev?.[5]];
-    const sameLockedAreas =
-      JSON.stringify(lockPaintedAreas) === JSON.stringify(prevLockPaintedAreas);
-    const zoneAssignments = curr[0];
-    // if lockPaintedAreas, lock all zones
-    if (lockPaintedAreas.length) {
-      const previousWasArray = Array.isArray(prevLockPaintedAreas);
-      const nonNullZones = new Set(
-        [...zoneAssignments.entries()]
-          .filter(
-            ([key, value]) =>
-              // locked zones include assignment zone
-              lockPaintedAreas.includes(value) ||
-              // locked zones are the same, and this individual feature was previously locked
-              (sameLockedAreas && lockedFeatures.has(key)) ||
-              // locked zones are changed, BUT this individual feature is not in a zone
-              // that was previously locked
-              (!sameLockedAreas &&
-                previousWasArray &&
-                !lockPaintedAreas.includes(value) &&
-                !prevLockPaintedAreas.includes(value) &&
-                lockedFeatures.has(key))
-          )
-          .map(([key]) => key)
-      );
-      setLockedFeatures(nonNullZones);
-    } else if (!lockPaintedAreas.length && prevLockPaintedAreas) {
-      setLockedFeatures(new Set());
-    }
   }
   subscribeColorZones() {
     this.subscriptions.push(
@@ -335,7 +254,6 @@ export class MapRenderSubscriber {
     ]);
     this.renderCursor(mapState.activeTool);
     this.renderHover(hoverState.hoverFeatures);
-    this.renderLock(mapState.lockedFeatures);
     this.renderFocus(mapState.focusFeatures);
     if (this.mapType === 'main') {
       this.renderColorZones([
@@ -353,7 +271,6 @@ export class MapRenderSubscriber {
     this.subscribeShatter();
     this.subscribeCursor();
     this.subscribeHover();
-    this.subscribeLock();
     this.subscribeFocus();
     if (this.mapType === 'main') {
       this.subscribeColorZones();

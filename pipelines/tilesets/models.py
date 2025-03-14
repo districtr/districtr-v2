@@ -59,7 +59,7 @@ class GerryDBTileset(BaseModel):
     columns: Iterable[str] = [
         "path",
         "geography",
-        "total_pop",
+        "total_pop_20",
     ]
 
     @computed_field

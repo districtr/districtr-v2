@@ -11,7 +11,7 @@ import {PopulationLabels} from './PopulationLabels';
 export const PopulationChart: React.FC<{
   width: number;
   height: number;
-  data: Array<{zone: number; total_pop: number}>;
+  data: Array<{zone: number; total_pop_20: number}>;
   margins?: {left: number; right: number; top: number; bottom: number};
   idealPopulation?: number;
 }> = ({
@@ -35,11 +35,11 @@ export const PopulationChart: React.FC<{
     width - margins.left - margins.right,
     height - margins.top - margins.bottom,
   ];
-  const maxPop = Math.max(...data.map(r => r.total_pop));
+  const maxPop = Math.max(...data.map(r => r.total_pop_20));
   const xMaxValue = scaleToCurrent
     ? maxPop * 1.05
-    : Math.max((idealPopulation || 0) * 1.3, ...data.map(r => r.total_pop * 1.2));
-  const xMinValue = scaleToCurrent ? Math.min(...data.map(r => r.total_pop)) : 0;
+    : Math.max((idealPopulation || 0) * 1.3, ...data.map(r => r.total_pop_20 * 1.2));
+  const xMinValue = scaleToCurrent ? Math.min(...data.map(r => r.total_pop_20)) : 0;
 
   const xScale = useCallback(
     scaleLinear<number>({
@@ -113,13 +113,13 @@ export const PopulationChart: React.FC<{
         )}
         {data.map((entry, index) => (
           <React.Fragment key={`pop-bar-group-${index}`}>
-            {entry.total_pop > 0 && (
+            {entry.total_pop_20 > 0 && (
               <>
                 <Bar
                   key={`bar-${entry.zone}`}
                   x={0}
                   y={yScale(index) + 5}
-                  width={entry.total_pop > 0 ? xScale(entry.total_pop) : 0}
+                  width={entry.total_pop_20 > 0 ? xScale(entry.total_pop_20) : 0}
                   height={barHeight}
                   fill={colorScheme[entry.zone - 1]}
                   fillOpacity={0.9}
@@ -140,7 +140,7 @@ export const PopulationChart: React.FC<{
                 />
               </>
             )}
-            {entry.total_pop > 0 && (
+            {entry.total_pop_20 > 0 && (
               <PopulationLabels
                 {...{
                   xScale,

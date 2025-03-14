@@ -1,10 +1,9 @@
 'use client';
 import { OVERLAY_OPACITY } from '@/app/constants/layers';
 import {
-  AllDemographyVariables,
-  DemographyVariable,
   demographyVariables,
 } from '@/app/store/demographyStore';
+import {AllDemographyVariables, DemographyVariable} from '@/app/utils/api/summaryStats';
 import {useDemographyStore} from '@/app/store/demographyStore';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {formatNumber} from '@/app/utils/numbers';
@@ -19,7 +18,6 @@ import {Blockquote, Box, Flex, IconButton, Popover, Switch, Tabs, Text} from '@r
 import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React from 'react';
-
 const mapOptions: Array<{
   label: string;
   value: MapStore['mapOptions']['showDemographicMap'];
@@ -66,8 +64,7 @@ export const DemographicMapPanel: React.FC = () => {
     const newVariable = _newVariable ?? config?.value;
     if (!newVariable) return;
     const hasPctVariable = !newVariable?.includes('total');
-    const newVariableName: AllDemographyVariables =
-      usePercent && hasPctVariable ? `${newVariable}_pct` : newVariable;
+    const newVariableName = (usePercent && hasPctVariable ? `${newVariable}_pct` : newVariable) as AllDemographyVariables;
     setVariable(newVariableName);
   };
 

@@ -441,7 +441,6 @@ const filterFeatures = (
   const {
     activeTool,
     captiveIds,
-    lockedFeatures,
     mapDocument,
     mapOptions,
     checkParentsToHeal,
@@ -461,11 +460,8 @@ const filterFeatures = (
       const lockedAreas = mapOptions.lockPaintedAreas;
       filterFunctions.push(
         f =>
-          !lockedFeatures.has(f.id?.toString() || '') &&
           !lockedAreas.includes(zoneAssignments.get(f.id?.toString() || '') || null)
       );
-    } else if (lockedFeatures.size) {
-      filterFunctions.push(f => !lockedFeatures.has(f.id?.toString() || ''));
     }
   }
   if (mapDocument?.child_layer && shatterIds.parents.size) {

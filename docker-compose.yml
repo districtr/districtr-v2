@@ -19,7 +19,7 @@ services:
         condition: service_healthy
     command: bash -c "
       alembic upgrade head && \
-      if [ $LOAD_DATA = 'True' ]; then python cli.py batch-create-districtr-maps --config-file=management/configs/basic_shatterable_maps.json --skip-gerrydb-loads; fi && \
+      if [ $LOAD_DATA = 'True' ]; then python cli.py batch-create-districtr-maps --config-file=management/configs/geopackages_vap_and_election.yaml --data-dir=/data --skip-gerrydb-loads; fi && \
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/**/*.py'
       "
     ports:
@@ -33,7 +33,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: districtr
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - __postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
@@ -64,4 +64,4 @@ services:
     command: sh -c "pip install pre-commit && pre-commit run --all-files"
 
 volumes:
-  postgres_data:
+  __postgres_data:
