@@ -112,7 +112,7 @@ def document_id_fixture(
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": "simple_geos",
+            "districtr_map_slug": "simple_geos",
         },
     )
     assert response.status_code == 201
@@ -148,7 +148,7 @@ def test_all_zones_contiguous(
         SELECT districtrmap.uuid
             FROM document.document
             LEFT JOIN districtrmap
-            ON document.gerrydb_table = districtrmap.gerrydb_table_name
+            ON document.districtr_map_slug = districtrmap.districtr_map_slug
             WHERE document.document_id = :document_id;
         """),
         {"document_id": document_id},
@@ -249,7 +249,7 @@ def ks_ellis_document_id(
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": "ks_ellis_geos",
+            "districtr_map_slug": "ks_ellis_geos",
         },
     )
     assert response.status_code == 201

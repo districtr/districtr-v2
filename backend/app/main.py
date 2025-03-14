@@ -88,7 +88,7 @@ def update_timestamp(
         .where(Document.document_id == document_id)
         .values(updated_at=func.now())
         .returning(Document.updated_at)
-    )
+    )  # pyright: ignore
     updated_at = session.scalar(update_stmt)
     return updated_at
 
@@ -120,8 +120,8 @@ async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
     results = session.execute(
-        text("SELECT create_document(:gerrydb_table_name);"),
-        {"gerrydb_table_name": data.gerrydb_table},
+        text("SELECT create_document(:districtr_map_slug);"),
+        {"districtr_map_slug": data.districtr_map_slug},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
 
@@ -129,6 +129,7 @@ async def create_document(
         select(
             Document.document_id,
             Document.created_at,
+            Document.districtr_map_slug,
             Document.gerrydb_table,
             Document.updated_at,
             DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
@@ -142,7 +143,7 @@ async def create_document(
         .where(Document.document_id == document_id)
         .join(
             DistrictrMap,
-            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
             isouter=True,
         )
     )
@@ -155,7 +156,7 @@ async def create_document(
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"DistrictrMap matching {data.gerrydb_table} does not exist.",
+            detail=f"DistrictrMap matching {data.districtr_map_slug} does not exist.",
         )
     if not doc.document_id:
         session.rollback()
@@ -250,6 +251,13 @@ async def unshatter_parent(
 
     updated_at = update_timestamp(session, document_id)
     session.commit()
+
+    if results is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to unshatter parent",
+        )
+
     return {"geoids": results[0], "updated_at": updated_at}
 
 
@@ -293,7 +301,7 @@ async def update_colors(
         select(DistrictrMap)
         .join(
             Document,
-            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -329,7 +337,9 @@ async def get_assignments(document_id: str, session: Session = Depends(get_sessi
             ParentChildEdges.parent_path,
         )
         .join(Document, Assignments.document_id == Document.document_id)
-        .join(DistrictrMap, Document.gerrydb_table == DistrictrMap.gerrydb_table_name)
+        .join(
+            DistrictrMap, Document.districtr_map_slug == DistrictrMap.districtr_map_slug
+        )
         .outerjoin(
             ParentChildEdges,
             (Assignments.geo_id == ParentChildEdges.child_path)
@@ -347,6 +357,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
         select(
             Document.document_id,
             Document.created_at,
+            Document.districtr_map_slug,
             Document.gerrydb_table,
             Document.updated_at,
             Document.color_scheme,
@@ -360,7 +371,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
         .where(Document.document_id == document_id)
         .join(
             DistrictrMap,
-            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
             isouter=True,
         )
         .limit(1)
@@ -440,7 +451,7 @@ async def check_document_contiguity(
         select(DistrictrMap)
         .join(
             Document,
-            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -531,12 +542,12 @@ async def get_map_demography(
     session: Session = Depends(get_session),
 ):
     document = session.exec(
-        select(Document).filter(Document.document_id == document_id)
+        select(Document).filter(Document.document_id == document_id)  # pyright: ignore
     ).one()
 
     dm = session.exec(
         select(DistrictrMap).filter(
-            DistrictrMap.gerrydb_table_name == document.gerrydb_table
+            DistrictrMap.districtr_map_slug == document.districtr_map_slug
         )
     ).one()
 
