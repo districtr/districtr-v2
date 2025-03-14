@@ -7,10 +7,11 @@ import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
 import {useChartStore} from '../../store/chartStore';
 import {
-  P1TotPopSummaryStats,
-  P1ZoneSummaryStats,
-  P4VapPopSummaryStats,
-  P4ZoneSummaryStats,
+  AllDemographyVariables,
+  TOTPOPTotPopSummaryStats,
+  TOTPOPZoneSummaryStats,
+  VAPVapPopSummaryStats,
+  VAPZoneSummaryStats,
   SummaryStatKeys,
   SummaryTypes,
 } from '../api/summaryStats';
@@ -18,12 +19,10 @@ import {getMaxRollups, getPctDerives, getRollups} from './arquero';
 import {TableRow, MaxValues, SummaryRecord, SummaryTable} from './types';
 import * as scale from 'd3-scale';
 import {
-  AllDemographyVariables,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_COLOR_SCHEME_GRAY,
 } from '@/app/store/demographyStore';
 import { NullableZone } from '@/app/constants/types';
-
 /**
  * Class to organize queries on current demographic data
  */
@@ -59,8 +58,8 @@ class DemographyCache {
    * Available summary statistics / derived values.
    */
   summaryStats: {
-    P1?: P1TotPopSummaryStats;
-    P4?: P4VapPopSummaryStats;
+    TOTPOP?: TOTPOPTotPopSummaryStats;
+    VAP?: VAPVapPopSummaryStats;
     idealpop?: number;
     totalPopulation?: number;
     unassigned?: number;
@@ -194,7 +193,7 @@ class DemographyCache {
       return [];
     }
     const ids = this.table
-      .select(this.id_col, 'sourceLayer', 'total_pop')
+      .select(this.id_col, 'sourceLayer', 'total_pop_20')
       .params({
         id: id,
         vtdId: `vtd:${id}`,
@@ -218,10 +217,10 @@ class DemographyCache {
    *
    * @returns The available summaries object.
    */
-  getAvailableSummariesObject(): Record<keyof SummaryTypes, boolean> {
+  getAvailableSummariesObject(): Record<SummaryTypes, boolean> {
     const mapDocument = useMapStore.getState().mapDocument;
     if (!mapDocument?.available_summary_stats) {
-      return {} as Record<keyof SummaryTypes, boolean>;
+      return {} as Record<SummaryTypes, boolean>;
     }
 
     return mapDocument.available_summary_stats.reduce(
@@ -229,7 +228,7 @@ class DemographyCache {
         acc[stat] = true;
         return acc;
       },
-      {} as Record<keyof SummaryTypes, boolean>
+      {} as Record<SummaryTypes, boolean>
     );
   }
 
@@ -264,7 +263,7 @@ class DemographyCache {
     )
 
     const missingPopulations = joinedTable.filter(
-      escape((row: TableRow & {zone: NullableZone}) => row['total_pop'] === undefined && row['zone'] !== undefined)
+      escape((row: TableRow & {zone: NullableZone}) => row['total_pop_20'] === undefined && row['zone'] !== undefined)
     );
     
     if (missingPopulations.size) {
@@ -291,16 +290,16 @@ class DemographyCache {
       for (let i = 1; i < numZones + 1; i++) {
         if (!zonePopulationsTable.find(row => row.zone === i)) {
           // @ts-ignore
-          zonePopulationsTable.push({zone: i, total_pop: 0});
+          zonePopulationsTable.push({zone: i, total_pop_20: 0});
         }
       }
     }
     this.populations = zonePopulationsTable.sort((a, b) => a.zone - b.zone);
-    const popNumbers = this.populations.map(row => row.total_pop);
+    const popNumbers = this.populations.map(row => row.total_pop_20);
     this.zoneStats.maxPopulation = Math.max(...popNumbers);
     this.zoneStats.minPopulation = Math.min(...popNumbers);
     this.zoneStats.range = this.zoneStats.maxPopulation - this.zoneStats.minPopulation;
-    this.summaryStats.unassigned = this.populations.find(f => !f.zone)?.total_pop ?? 0;
+    this.summaryStats.unassigned = this.populations.find(f => !f.zone)?.total_pop_20 ?? 0;
     this.zoneStats.paintedZones = popNumbers.filter(pop => pop > 0).length;
     return {
       ok: true,
@@ -319,16 +318,16 @@ class DemographyCache {
     const mapDocument = useMapStore.getState().mapDocument;
 
     Object.keys(availableStats).forEach(key => {
-      const summaryStats: Partial<P1ZoneSummaryStats & P4ZoneSummaryStats> = {};
-      const statKeys = SummaryStatKeys[key as keyof SummaryTypes];
+      const summaryStats: Partial<TOTPOPZoneSummaryStats & VAPZoneSummaryStats> = {};
+      const statKeys = SummaryStatKeys[key as SummaryTypes];
       if (!statKeys) return;
       statKeys.forEach(stat => (summaryStats[stat] = summaries[stat]));
-      this.summaryStats[key as keyof SummaryTypes] = summaryStats as P1TotPopSummaryStats &
-        P4VapPopSummaryStats;
+      this.summaryStats[key as SummaryTypes] = summaryStats as TOTPOPTotPopSummaryStats &
+        VAPVapPopSummaryStats;
     });
 
-    this.summaryStats.totalPopulation = summaries.total_pop;
-    this.summaryStats.idealpop = summaries.total_pop / (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
+    this.summaryStats.totalPopulation = summaries.total_pop_20;
+    this.summaryStats.idealpop = summaries.total_pop_20 / (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
 
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
   }

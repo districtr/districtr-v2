@@ -175,7 +175,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
         {
           label: 'Total Pop',
           value:
-            selectedFeatures?.reduce((acc, curr) => acc + parseInt(curr.properties.total_pop), 0) ??
+            selectedFeatures?.reduce((acc, curr) => acc + parseInt(curr.properties.total_pop_20), 0) ??
             'N/A',
         },
       ],

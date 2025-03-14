@@ -1,112 +1,103 @@
-export type SummaryTypes = {
-  P1: {
-    raw: P1TotPopSummaryStats,
-    cleaned: CleanedP1ZoneSummaryStats,
-  }
-  P4: {
-    raw: P4VapPopSummaryStats,
-    cleaned: CleanedP4ZoneSummaryStats,
-  }
-}
-
+export type SummaryTypes = 'TOTPOP' | 'VAP';
 
 /**
- * P1ZoneSummaryStats
+ * TOTPOPZoneSummaryStats
  *
  * @interface
- * @property {number} zone - The zone.
- * @property {number} total_pop - The total population.
+ * @property {number} total_pop_20 - The total population.
  */
-export interface P1ZoneSummaryStats {
-  zone: number;
-  other_pop: number;
-  asian_pop: number;
-  amin_pop: number;
-  nhpi_pop: number;
-  black_pop: number;
-  white_pop: number;
-  two_or_more_races_pop: number;
-  total_pop: number;
+export interface TOTPOPZoneSummaryStats {
+  white_pop_20: number;
+  other_pop_20: number;
+  amin_pop_20: number;
+  asian_nhpi_pop_20: number;
+  hpop_20: number;
+  bpop_20: number;
+  total_pop_20: number;
 }
 
-export type P1TotPopSummaryStats = Omit<P1ZoneSummaryStats, 'zone'>;
+export type TOTPOPTotPopSummaryStats = Omit<TOTPOPZoneSummaryStats, 'zone'>;
 
-export const P1ZoneSummaryStatsKeys = [
-  'other_pop',
-  'asian_pop',
-  'amin_pop',
-  'nhpi_pop',
-  'black_pop',
-  'white_pop',
-  'two_or_more_races_pop',
-  'total_pop',
+export const TOTPOPZoneSummaryStatsKeys: Array<keyof TOTPOPZoneSummaryStats> = [
+  'white_pop_20',
+  'other_pop_20',
+  'amin_pop_20',
+  'asian_nhpi_pop_20',
+  'hpop_20',
+  'bpop_20',
 ] as const;
 
-export type CleanedP1ZoneSummaryStats = WithPercentColumns<
-  P1ZoneSummaryStats, 
-  Exclude<typeof P1ZoneSummaryStatsKeys[number], 'total_pop'>
+export type CleanedTOTPOPZoneSummaryStats = WithPercentColumns<
+  TOTPOPZoneSummaryStats,
+  Exclude<(typeof TOTPOPZoneSummaryStatsKeys)[number], 'total_pop_20'>
 >;
 
-export interface P4ZoneSummaryStats {
-  zone: number;
-  hispanic_vap: number;
-  non_hispanic_asian_vap: number;
-  non_hispanic_amin_vap: number;
-  non_hispanic_nhpi_vap: number;
-  non_hispanic_black_vap: number;
-  non_hispanic_white_vap: number;
-  non_hispanic_other_vap: number;
-  non_hispanic_two_or_more_races_vap: number;
-  total_vap: number;
+export interface VAPZoneSummaryStats {
+  white_vap_20: number;
+  other_vap_20: number;
+  amin_vap_20: number;
+  asian_nhpi_vap_20: number;
+  hvap_20: number;
+  bvap_20: number;
+  total_vap_20: number;
 }
 
-export type P4VapPopSummaryStats = Omit<P4ZoneSummaryStats, 'zone'>;
+export type VAPVapPopSummaryStats = Omit<VAPZoneSummaryStats, 'zone'>;
 
-export const P4ZoneSummaryStatsKeys = [
-  'hispanic_vap',
-  'non_hispanic_asian_vap',
-  'non_hispanic_amin_vap',
-  'non_hispanic_nhpi_vap',
-  'non_hispanic_black_vap',
-  'non_hispanic_white_vap',
-  'non_hispanic_other_vap',
-  'non_hispanic_two_or_more_races_vap',
-  'total_vap',
+export const VAPZoneSummaryStatsKeys: Array<keyof VAPZoneSummaryStats> = [
+  'white_vap_20',
+  'other_vap_20',
+  'amin_vap_20',
+  'asian_nhpi_vap_20',
+  'hvap_20',
+  'bvap_20',
 ] as const;
 
 /**
- * P4ZoneSummaryStats
+ * VAPZoneSummaryStats
  *
  * @interface
  * @property {number} zone - The zone.
- * @property {number} total_pop - The total population.
+ * @property {number} total_vap_20 - The total population.
  */
 
-
-export type CleanedP4ZoneSummaryStats = WithPercentColumns<
-  P4ZoneSummaryStats, 
-  Exclude<typeof P4ZoneSummaryStatsKeys[number], 'total_vap'>
+export type CleanedVAPZoneSummaryStats = WithPercentColumns<
+  VAPZoneSummaryStats,
+  Exclude<(typeof VAPZoneSummaryStatsKeys)[number], 'total_vap_20'>
 >;
 
 export const SummaryStatKeys = {
-  P1: P1ZoneSummaryStatsKeys,
-  P4: P4ZoneSummaryStatsKeys,
+  TOTPOP: TOTPOPZoneSummaryStatsKeys,
+  VAP: VAPZoneSummaryStatsKeys,
 } as const;
 
 export const TotalColumnKeys = {
-  P1: 'total_pop',
-  P4: 'total_vap',
+  TOTPOP: 'total_pop_20',
+  VAP: 'total_vap_20',
 } as const;
+export const TotalColumnKeysArray = Object.values(TotalColumnKeys);
+
+export type TotalColumnVariables = (typeof TotalColumnKeys)[keyof typeof TotalColumnKeys];
+
+export type DemographyVariable =
+  | (typeof TOTPOPZoneSummaryStatsKeys)[number]
+  | (typeof VAPZoneSummaryStatsKeys)[number]
+  | TotalColumnVariables;
+
+export type AllDemographyVariables =
+  | DemographyVariable
+  | keyof CleanedTOTPOPZoneSummaryStats
+  | keyof CleanedVAPZoneSummaryStats;
 
 // GENERICS
 export type WithPercentColumns<
-  TBase extends Record<string, any>, 
-  TPercentCols extends string
+  TBase extends Record<string, any>,
+  TPercentCols extends string,
 > = TBase & {
   [K in TPercentCols as `${K}_pct`]: number;
-}
+};
 
 export interface SummaryStatsResult<T extends object> {
   summary_stat: string;
-  results: T
+  results: T;
 }
