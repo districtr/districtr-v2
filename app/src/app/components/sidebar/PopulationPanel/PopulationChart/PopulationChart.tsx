@@ -171,17 +171,6 @@ export const PopulationChart: React.FC<{
           }}
           tickFormat={v => formatNumber(v as number, 'compact')}
         />
-
-        {hoveredIndex !== null && (
-          <PopulationCustomTooltip
-            y={yScale(hoveredIndex) + 5}
-            index={hoveredIndex}
-            pop={data[hoveredIndex].total_pop}
-            idealPopulation={idealPopulation}
-            maxPop={maxPop}
-            colorScheme={colorScheme}
-          />
-        )}
       </Group>
     </svg>
   );

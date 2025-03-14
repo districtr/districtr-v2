@@ -28,10 +28,10 @@ export const PopulationLabels: React.FC<{
   width,
 }) => {
   const popDiff = entry.total_pop - (idealPopulation || 0);
-  const _popDiffLabel = Math.abs(popDiff) < 1 ? 0 : formatNumber(popDiff, 'string');
+  const _popDiffLabel = Math.abs(popDiff) < 1 ? `0` : formatNumber(popDiff, 'string');
   const popDiffLabel = popDiff >= 1 ? `+${_popDiffLabel}` : _popDiffLabel;
   const popLabel = formatNumber(entry.total_pop, 'string');
-  if (!popDiffLabel || !popLabel) return null;
+  if (popDiffLabel === undefined || popLabel === undefined) return null;
   const [left, top] = [xScale(entry.total_pop), yScale(index) + barHeight];
 
   let offsetLeft = 0;
@@ -54,7 +54,7 @@ export const PopulationLabels: React.FC<{
         <>
           <text
             x={-5}
-            y={-2}
+            y={-1}
             fontSize={14}
             textAnchor="end"
             fill="white"
@@ -63,7 +63,7 @@ export const PopulationLabels: React.FC<{
           >
             {popDiffLabel}
           </text>
-          <text x={-5} y={-2} fontSize={14} textAnchor="end">
+          <text x={-5} y={-1} fontSize={14} textAnchor="end">
             {popDiffLabel}
           </text>
         </>
