@@ -34,8 +34,6 @@ from app.core.config import settings
 from app.utils import hash_password, verify_password
 import jwt
 from uuid import uuid4
-
-from sqlalchemy.orm import sessionmaker
 import app.contiguity.main as contiguity
 from networkx import Graph, connected_components
 from app.models import (
@@ -58,12 +56,6 @@ from app.models import (
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
-    SummaryStatisticType,
-    SummaryStatsP1,
-    PopulationStatsP1,
-    SummaryStatsP4,
-    PopulationStatsP4,
-    UnassignedBboxGeoJSONs,
     TokenRequest,
     DocumentShareStatus,
     BBoxGeoJSONs,
