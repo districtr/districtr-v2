@@ -128,7 +128,6 @@ export const RecentMapsModal: React.FC<{
               <Accordion.Item
                 key={i}
                 value={userMap.document_id}
-                pl=".5rem"
                 className={`${openItem === userMap.document_id ? 'bg-yellow-100' : ''}`}
               >
                 <RecentMapsRow
@@ -195,8 +194,7 @@ const RecentMapsRow: React.FC<{
               <Flex align="center" gap="2">
                 <TextField.Root
                   size="2"
-                  maxWidth="100%"
-                  value={mapName}
+                  value={mapName ?? undefined}
                   onChange={e => {
                     handleChangeNameMetadata(e.target.value);
                   }}
