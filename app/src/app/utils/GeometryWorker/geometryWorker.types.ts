@@ -31,7 +31,7 @@ export type GeometryWorkerClass = {
    * Updates the zone assignments of the geometries.
    * @param entries - An array of [id, zone] pairs to update.
    */
-  updateProps: (entries: Array<[string, unknown]>, iters?: number) => void;
+  updateZones: (entries: Array<[string, unknown]>) => void;
   handleShatterHeal: (data: {parents: string[]; children: string[]}) => void;
   /**
    * Loads geometries from an array of features or a string.
