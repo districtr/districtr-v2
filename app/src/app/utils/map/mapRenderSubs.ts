@@ -152,7 +152,7 @@ export class MapRenderSubscriber {
         this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
         break;
       case 'brush':
-        cursor = 'url(paintbrush.png) 50 0, none';
+        cursor = 'url(paintbrush.png) 20 20, none';
         this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
         break;
       case 'eraser':
