@@ -21,6 +21,7 @@ from app.models import (
     Assignments,
     AssignmentsCreate,
     AssignmentsResponse,
+    ColorsSetResult,
     DistrictrMap,
     Document,
     DocumentCreate,
@@ -298,12 +299,54 @@ async def reset_map(
         )
     )
 
+    session.execute(
+        text(
+            f"UPDATE document.document SET color_scheme = NULL WHERE document_id = '{document_id}'"
+        )
+    )
+
     session.commit()
 
     return {
         "message": "Assignments partition reset",
         "document_id": document.document_id,
     }
+
+
+@app.patch(
+    "/api/document/{document_id}/update_colors",
+    response_model=ColorsSetResult,
+)
+async def update_colors(
+    document_id: str, colors: list[str], session: Session = Depends(get_session)
+):
+    districtr_map = session.exec(
+        select(DistrictrMap)
+        .join(
+            Document,
+            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,  # pyright: ignore
+            isouter=True,
+        )
+        .where(Document.document_id == document_id)
+    ).one()
+
+    if districtr_map.num_districts != len(colors):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Number of colors provided ({len(colors)}) does not match number of zones ({districtr_map.num_districts})",
+        )
+
+    stmt = text(
+        """UPDATE document.document
+        SET color_scheme = :colors
+        WHERE document_id = :document_id"""
+    ).bindparams(
+        bindparam(key="document_id", type_=UUIDType),
+        bindparam(key="colors", type_=ARRAY(String)),
+    )
+    session.execute(stmt, {"document_id": document_id, "colors": colors})
+    session.commit()
+    return ColorsSetResult(colors=colors)
 
 
 # called by getAssignments in apiHandlers.ts
@@ -340,6 +383,7 @@ async def get_document(document_id: str, session: Session = Depends(get_session)
             Document.created_at,
             Document.gerrydb_table,
             Document.updated_at,
+            Document.color_scheme,
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore

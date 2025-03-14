@@ -1,5 +1,5 @@
 import {debounce} from 'lodash';
-import {FormatAssignments} from '../utils/api/apiHandlers';
+import {FormatAssignments, saveColorScheme} from '../utils/api/apiHandlers';
 import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
@@ -128,6 +128,16 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
       }
     }
   );
+  const _addColorSchemeSub = useMapStore.subscribe<MapStore['colorScheme']>(
+    state => state.colorScheme,
+    colorScheme => {
+      const {mapDocument} = useMapStore.getState();
+      if (mapDocument) {
+        saveColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
+      }
+    },
+    {equalityFn: shallowCompareArray}
+  );
 
-  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange, updateGeometryWorkerState];
+  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange, updateGeometryWorkerState, _addColorSchemeSub];
 };

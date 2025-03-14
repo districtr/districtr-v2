@@ -29,7 +29,7 @@ const updateMapViews = (limit: number, offset: number) => {
 };
 
 const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
-  mapViewsQuery.subscribe(result => {
+  return mapViewsQuery.subscribe(result => {
     if (result) {
       _useMapStore.getState().setMapViews(result);
     }
@@ -70,6 +70,9 @@ updateDocumentFromId.subscribe(mapDocument => {
   }
   if (mapDocument.data && mapDocument.data.document_id !== useMapStore.getState().loadedMapId) {
     useMapStore.getState().setMapDocument(mapDocument.data);
+    if (mapDocument.data.color_scheme?.length) {
+      useMapStore.getState().setColorScheme(mapDocument.data.color_scheme);
+    }
   }
 });
 
@@ -169,8 +172,7 @@ fetchDemography.subscribe(demography => {
     demographyCache.update(
       result.columns,
       result.results,
-      shatterIds.parents,
-      shatterIds.children,
+      shatterIds,
       mapDocument,
       dataHash
     );

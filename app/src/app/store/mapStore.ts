@@ -1,6 +1,7 @@
 'use client';
 import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
+import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '@constants/types';
 import {Zone, GDBPath} from '@constants/types';
 import {
@@ -82,6 +83,8 @@ export interface MapStore {
    */
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  colorScheme: string[];
+  setColorScheme: (colors: string[]) => void;
   loadedMapId: string;
   setLoadedMapId: (mapId: string) => void;
   summaryStats: {
@@ -432,11 +435,14 @@ export var useMapStore = createWithMiddlewares<MapStore>(
               ...initialMapOptions,
               bounds: mapDocument.extent,
             },
+            colorScheme: DefaultColorScheme,
             sidebarPanels: ['population'],
             appLoadingState: 'initializing',
             shatterIds: {parents: new Set(), children: new Set()},
           });
         },
+        colorScheme: DefaultColorScheme,
+        setColorScheme: colorScheme => set({colorScheme}),
         loadedMapId: '',
         setLoadedMapId: loadedMapId => set({loadedMapId}),
         summaryStats: {},
@@ -715,7 +721,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
               delete shatterMappings[parent.parentId];
               newShatterIds.parents.delete(parent.parentId);
               newZoneAssignments.set(parent.parentId, parent.zone!);
-            }); 
+            });
             set({
               shatterIds: newShatterIds,
               mapLock: false,
@@ -817,6 +823,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
               appLoadingState: 'loaded',
               mapLock: false,
               activeTool: 'pan',
+              colorScheme: DefaultColorScheme,
               assignmentsHash: updateHash,
               lastUpdatedHash: updateHash,
             });
@@ -997,5 +1004,3 @@ export var useMapStore = createWithMiddlewares<MapStore>(
         setUserMaps: userMaps => set({userMaps}),
       })
 )
-
-initSubs();
