@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION get_block_assignments_geo(document_id UUID)
+CREATE OR REPLACE FUNCTION get_block_assignments_geo(document_id UUID, zones INTEGER[])
 RETURNS TABLE (geo_id TEXT, zone INTEGER, geometry GEOMETRY) AS $$
 DECLARE
     doc_districtrmap RECORD;
@@ -21,7 +21,7 @@ BEGIN
             SELECT
                 assignments.*,
                 blocks.geometry
-            FROM get_block_assignments($1::UUID) assignments
+            FROM get_block_assignments($1::UUID, $2) assignments
             LEFT JOIN gerrydb.%I blocks
             ON blocks.path = assignments.geo_id
         ', doc_districtrmap.child_layer);

@@ -204,7 +204,7 @@ class AssignedGEOIDS(GEOIDS):
     zone: int | None
 
 
-class UnassignedBboxGeoJSONs(BaseModel):
+class BBoxGeoJSONs(BaseModel):
     features: list[
         pydantic_geojson.feature.FeatureModel
         | pydantic_geojson.multi_polygon.MultiPolygonModel
