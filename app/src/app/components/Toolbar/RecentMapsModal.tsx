@@ -122,7 +122,7 @@ export const RecentMapsModal: React.FC<{
           <Accordion.Root
             type="single"
             size="3"
-            value={openItem}
+            value={openItem ?? undefined}
             onValueChange={value => setOpenItem(value || null)}
           >
             {userMaps.map((userMap, i) => (
