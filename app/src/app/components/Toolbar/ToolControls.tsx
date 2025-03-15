@@ -34,7 +34,7 @@ const ToolControlsConfig: Record<
         return <Text>Click a feature to show the census blocks within it</Text>;
       }
     },
-  }
+  },
 };
 
 export const ToolControls: React.FC<{
@@ -45,6 +45,7 @@ export const ToolControls: React.FC<{
   const isHorizontal = !customizeToolbar || rotation === 'horizontal';
   const ContainerRef = useRef<HTMLDivElement | null>(null);
   const [shouldFlip, setShouldFlip] = useState(false);
+  const mapDocument = useMapStore(state => state.mapDocument);
 
   useLayoutEffect(() => {
     const bbox = ContainerRef?.current?.getBoundingClientRect?.();

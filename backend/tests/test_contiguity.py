@@ -13,7 +13,7 @@ from app.contiguity.main import (
 )
 from app.utils import create_parent_child_edges
 from tempfile import NamedTemporaryFile
-from tests.constants import FIXTURES_PATH
+from tests.constants import FIXTURES_PATH, USER_ID
 from sqlmodel import Session
 
 
@@ -110,9 +110,7 @@ def document_id_fixture(
     )
     response = client.post(
         "/api/create_document",
-        json={
-            "gerrydb_table": "simple_geos",
-        },
+        json={"gerrydb_table": "simple_geos", "user_id": USER_ID},
     )
     assert response.status_code == 201
     doc = response.json()
@@ -312,9 +310,7 @@ def ks_ellis_document_id(
     )
     response = client.post(
         "/api/create_document",
-        json={
-            "gerrydb_table": "ks_ellis_geos",
-        },
+        json={"gerrydb_table": "ks_ellis_geos", "user_id": USER_ID},
     )
     assert response.status_code == 201
     doc = response.json()

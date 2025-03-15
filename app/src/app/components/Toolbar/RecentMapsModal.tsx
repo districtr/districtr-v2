@@ -1,6 +1,8 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
+import * as Accordion from '@radix-ui/react-accordion';
+import classNames from 'classnames';
 import {
   Button,
   Flex,
@@ -11,15 +13,16 @@ import {
   TextField,
   IconButton,
   RadioCards,
+  Separator,
 } from '@radix-ui/themes';
+import {SaveMapDetails} from './SaveMaps';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {useTemporalStore} from '@/app/store/temporalStore';
-type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {
-  maxWidth: 'calc(100vw - 2rem)',
+  maxWidth: '75vw',
   maxHeight: 'calc(100vh-2rem)',
 });
 
@@ -37,6 +40,7 @@ export const RecentMapsModal: React.FC<{
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const setActiveTool = useMapStore(store => store.setActiveTool);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
+  const [openItem, setOpenItem] = React.useState<string | null>(null);
 
   useEffect(() => {
     setDialogOpen(open || false);
@@ -44,12 +48,16 @@ export const RecentMapsModal: React.FC<{
 
   const clear = useTemporalStore(store => store.clear);
 
-  const handleMapDocument = (data: NamedDocumentObject) => {
+  const handleMapDocument = (data: DocumentObject) => {
     setMapDocument(data);
     clear();
     const urlParams = new URLSearchParams(searchParams.toString());
     urlParams.set('document_id', data.document_id);
     router.push(pathname + '?' + urlParams.toString());
+
+    // open the correct accordion item
+    setOpenItem(data.document_id);
+
     // close dialog
     setDialogOpen(false);
     onClose?.();
@@ -58,6 +66,12 @@ export const RecentMapsModal: React.FC<{
   useEffect(() => {
     if (!dialogOpen) {
       setActiveTool('pan');
+    }
+  }, [dialogOpen]);
+
+  useEffect(() => {
+    if (!dialogOpen) {
+      onClose?.();
     }
   }, [dialogOpen]);
 
@@ -74,12 +88,14 @@ export const RecentMapsModal: React.FC<{
     >
       {!!showTrigger && (
         <Dialog.Trigger>
-          <Button variant="ghost">Recent Maps</Button>
+          <Button variant="ghost" disabled={!userMaps.length}>
+            Saved Maps
+          </Button>
         </Dialog.Trigger>
       )}
       <DialogContentContainer className="max-w-[50vw]">
         <Flex align="center" className="mb-4">
-          <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
+          <Dialog.Title className="m-0 text-xl font-bold flex-1">Saved Maps</Dialog.Title>
 
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
@@ -89,18 +105,29 @@ export const RecentMapsModal: React.FC<{
           </Dialog.Close>
         </Flex>
         <Box className="max-h-[50vh] overflow-y-auto">
-          <Table.Root size="3" variant="surface">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeaderCell pl=".5rem">Map Name</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>Last Updated</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>{/* load */}</Table.ColumnHeaderCell>
-                <Table.ColumnHeaderCell>{/* delete */}</Table.ColumnHeaderCell>
-              </Table.Row>
-            </Table.Header>
-
-            <Table.Body>
-              {userMaps.map((userMap, i) => (
+          <Flex
+            align="center"
+            justify="center"
+            className="grid grid-cols-5 py-2 border-b font-bold bg-gray-100 w-full absolute"
+            gapX="20%"
+          >
+            <Text>Name</Text>
+            <Text>Last Updated</Text>
+            <Text>Actions</Text>
+            <Text>Remove</Text>
+          </Flex>
+          <Accordion.Root
+            type="single"
+            value={openItem ?? undefined}
+            onValueChange={value => setOpenItem(value || null)}
+            className="my-12"
+          >
+            {userMaps.map((userMap, i) => (
+              <Accordion.Item
+                key={i}
+                value={userMap.document_id}
+                className={`${openItem === userMap.document_id ? 'bg-yellow-100' : ''}`}
+              >
                 <RecentMapsRow
                   key={i}
                   active={mapDocument?.document_id === userMap.document_id}
@@ -112,10 +139,14 @@ export const RecentMapsModal: React.FC<{
                   }
                   data={userMap}
                   onSelect={handleMapDocument}
+                  isOpen={openItem === userMap.document_id}
+                  toggleOpen={() =>
+                    setOpenItem(prev => (prev === userMap.document_id ? null : userMap.document_id))
+                  }
                 />
-              ))}
-            </Table.Body>
-          </Table.Root>
+              </Accordion.Item>
+            ))}
+          </Accordion.Root>
         </Box>
       </DialogContentContainer>
     </Dialog.Root>
@@ -123,61 +154,126 @@ export const RecentMapsModal: React.FC<{
 };
 
 const RecentMapsRow: React.FC<{
-  data: NamedDocumentObject;
-  onSelect: (data: NamedDocumentObject) => void;
+  data: DocumentObject;
+  onSelect: (data: DocumentObject) => void;
   active: boolean;
-  onChange?: (data?: NamedDocumentObject) => void;
-}> = ({data, onSelect, active, onChange}) => {
+  onChange?: (data?: DocumentObject) => void;
+  isOpen: boolean;
+  toggleOpen: () => void;
+}> = ({data, onSelect, active, onChange, isOpen, toggleOpen}) => {
   const updatedDate = new Date(data.updated_at as string);
-  const formattedData = updatedDate.toLocaleDateString();
-  const name = data?.name || data.gerrydb_table;
+  const formattedDate = updatedDate.toLocaleDateString();
+  const metadataName = data?.map_metadata?.name || data.gerrydb_table;
+  const [mapName, setMapName] = React.useState(metadataName);
+  const [nameIsChanged, setNameIsChanged] = React.useState(false);
+  const [nameIsSaved, setNameIsSaved] = React.useState(true);
 
-  const handleChangeName = (name?: string) => {
-    name?.length && onChange?.({...data, name});
+  const handleChangeName = (name: string | null) => {
+    // if name does not match metadata, make eligible to save
+    if (name !== metadataName && name !== null) {
+      setNameIsSaved(false);
+      setMapName(name);
+    }
+  };
+
+  const handleChangeNameMetadata = (value: string | null) => {
+    if (value !== metadataName) {
+      handleChangeName(value);
+    }
+    onChange?.({...data, map_metadata: {...data.map_metadata, name: value}});
   };
 
   return (
-    <Table.Row align="center" className={`${active ? 'bg-yellow-100' : ''}`}>
-      <Table.Cell pl=".5rem">
-        {!!(active && onChange) ? (
-          <Box maxWidth="200px">
-            <TextField.Root
-              placeholder={name}
-              size="3"
-              value={name}
-              onChange={e => handleChangeName(e.target.value)}
-            ></TextField.Root>
-          </Box>
-        ) : (
-          <Text>{name}</Text>
-        )}
-      </Table.Cell>
-      <Table.Cell>
-        <Text>{formattedData}</Text>
-      </Table.Cell>
-      <Table.Cell py=".5rem">
-        {!active && (
-          <Button
-            onClick={() => onSelect(data)}
-            variant="outline"
-            className="box-content size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
-          >
-            Load
-          </Button>
-        )}
-      </Table.Cell>
-      <Table.Cell py=".5rem">
-        {!active && (
-          <IconButton
-            onClick={() => onChange?.()}
-            variant="ghost"
-            color="ruby"
-            className="size-full"
-          >
-            <Cross2Icon />
-          </IconButton>
-        )}
-      </Table.Cell>
-    </Table.Row>
+    <div className="flex flex-col">
+      <Accordion.Header className="w-full">
+        <div className="grid grid-cols-4 gap-4 w-full items-center px-4 py-2">
+          <div>
+            {!!(active && onChange) ? (
+              <Flex align="center" gap="2">
+                <TextField.Root
+                  size="2"
+                  value={mapName ?? undefined}
+                  onChange={e => {
+                    handleChangeNameMetadata(e.target.value);
+                  }}
+                />
+              </Flex>
+            ) : (
+              <Text>{mapName}</Text>
+            )}
+          </div>
+
+          {/* Last Updated Date */}
+          <div className="flex justify-center">
+            <Text>{formattedDate}</Text>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-center">
+            {active ? (
+              <Button variant="outline" onClick={toggleOpen}>
+                {isOpen ? 'Close Details' : 'Edit Details'}
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => onSelect(data)}>
+                Load
+              </Button>
+            )}
+          </div>
+
+          {/* Delete Icon */}
+          {!active && (
+            <IconButton variant="ghost" color="ruby" onClick={() => onChange?.()}>
+              <Cross2Icon />
+            </IconButton>
+          )}
+        </div>
+      </Accordion.Header>
+
+      {/* Accordion Content */}
+      <Accordion.Content className="px-4 py-2">
+        <Flex gap="4">
+          <Separator size="4" className="pt-1 mt-2 mb-2" />
+        </Flex>
+        <SaveMapDetails nameIsSaved={nameIsSaved} setNameIsSaved={setNameIsSaved} />
+      </Accordion.Content>
+    </div>
   );
 };
+
+const AccordionTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentPropsWithoutRef<typeof Accordion.Trigger>
+>(({children, className, ...props}, forwardedRef) => (
+  <Accordion.Header className="flex">
+    <Accordion.Trigger
+      className={classNames(
+        `bg-white group flex h-[45px] flex-1 cursor-default items-center justify-between px-5 leading-none rounded-md data-[state=closed]:shadow-md outline-none hover:bg-blue-200`,
+        className
+      )}
+      {...props}
+      ref={forwardedRef}
+    >
+      {children}
+    </Accordion.Trigger>
+  </Accordion.Header>
+));
+
+AccordionTrigger.displayName = 'AccordionTrigger';
+
+const AccordionContent = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<typeof Accordion.Content>
+>(({children, className, ...props}, forwardedRef) => (
+  <Accordion.Content
+    className={classNames(
+      'overflow-hidden text-[15px] data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown',
+      className
+    )}
+    {...props}
+    ref={forwardedRef}
+  >
+    <div className="px-5 py-[15px]">{children}</div>
+  </Accordion.Content>
+));
+AccordionContent.displayName = 'AccordionContent';

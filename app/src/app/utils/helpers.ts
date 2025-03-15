@@ -217,13 +217,8 @@ export const colorZoneAssignments = (
   state: ColorZoneAssignmentsState,
   previousState?: ColorZoneAssignmentsState
 ) => {
-  const [
-    zoneAssignments,
-    mapDocument,
-    currentShatterIds,
-    appLoadingState,
-    mapRenderingState,
-  ] = state;
+  const [zoneAssignments, mapDocument, currentShatterIds, appLoadingState, mapRenderingState] =
+    state;
   const [previousZoneAssignments, prevShatterIds] = [
     previousState?.[0] || new Map(),
     previousState?.[2] || null,
@@ -239,7 +234,8 @@ export const colorZoneAssignments = (
     return;
   }
   const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
-  const featureStateChangesCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+  const featureStateChangesCache =
+    mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
   if (!featureStateCache) return;
 
   zoneAssignments.forEach((zone, id) => {
@@ -459,8 +455,7 @@ const filterFeatures = (
     } else if (mapOptions.lockPaintedAreas.length) {
       const lockedAreas = mapOptions.lockPaintedAreas;
       filterFunctions.push(
-        f =>
-          !lockedAreas.includes(zoneAssignments.get(f.id?.toString() || '') || null)
+        f => !lockedAreas.includes(zoneAssignments.get(f.id?.toString() || '') || null)
       );
     }
   }

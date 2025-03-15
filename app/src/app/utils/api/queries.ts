@@ -68,6 +68,14 @@ updateDocumentFromId.subscribe(mapDocument => {
     url.searchParams.delete('document_id');
     window.history.replaceState({}, document.title, url.toString());
   }
+  // TODO- this should really be a warning and not an error
+  if (mapDocument.data?.status === 'locked') {
+    useMapStore.getState().setErrorNotification({
+      severity: 2,
+      id: 'map-document-locked',
+      message: `The requested map "${mapDocument.data?.map_metadata?.name ?? documentId}" is locked by another user. Please create a copy or create a new map.`,
+    });
+  }
   if (mapDocument.data && mapDocument.data.document_id !== useMapStore.getState().loadedMapId) {
     useMapStore.getState().setMapDocument(mapDocument.data);
     if (mapDocument.data.color_scheme?.length) {
@@ -97,17 +105,9 @@ const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
-    if (assignments.data.documentId === loadedMapId) {
-      console.log(
-        'Map already loaded, skipping assignment load',
-        assignments.data.documentId,
-        loadedMapId
-      );
-    } else {
-      loadZoneAssignments(assignments.data);
-      useMapStore.temporal.getState().clear();
-    }
+    const {loadZoneAssignments, setAppLoadingState} = useMapStore.getState();
+    loadZoneAssignments(assignments.data);
+    useMapStore.temporal.getState().clear();
     setAppLoadingState('loaded');
   }
 });
@@ -169,13 +169,7 @@ fetchDemography.subscribe(demography => {
       return;
     }
 
-    demographyCache.update(
-      result.columns,
-      result.results,
-      shatterIds,
-      mapDocument,
-      dataHash
-    );
+    demographyCache.update(result.columns, result.results, shatterIds, mapDocument, dataHash);
     setDataHash(dataHash);
     setVariable(variable);
     const newIds = demography.data.results.map(row => row[0]) as string[];
