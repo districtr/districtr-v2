@@ -3,7 +3,6 @@ import {updateDocumentFromId, updateGetDocumentFromId} from './queries';
 import {jwtDecode} from 'jwt-decode';
 export let previousDocumentID = '';
 import {sharedDocument} from './mutations';
-import {unloadMapDocument} from './apiHandlers';
 
 export const getSearchParamsObserver = () => {
   // next ssr safety
