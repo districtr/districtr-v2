@@ -3,7 +3,7 @@ import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import Image from 'next/image';
 import NextLink from 'next/link';
 import {ContentSection} from '../components/Static/ContentSection';
-import {PlaceMap, ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
+import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
 
 const Main: React.FC = () => {
   return (
@@ -40,7 +40,19 @@ const Main: React.FC = () => {
         flavorImage={<Image src="/home-megaphone.png" alt="megaphone" width={200} height={200} />}
       >
         <Flex direction="column" gapY="9">
-          <Flex direction="row" align="center" justify="start" gapX="9">
+          <Flex
+            direction={{
+              initial: 'column',
+              md: 'row',
+            }}
+            align="center"
+            justify="start"
+            gapX="9"
+            gap={{
+              initial: '9',
+              md: '0',
+            }}
+          >
             <Flex direction={'column'}>
               <Heading size="6" as="h3" className="text-purple-700 mb-4">
                 You can draw districts.
@@ -63,7 +75,19 @@ const Main: React.FC = () => {
             </Flex>
             <Image src="/districting-plan.svg" alt="draw" width={200} height={400} />
           </Flex>
-          <Flex direction="row" align="center" justify="start" gapX="9">
+          <Flex
+            direction={{
+              initial: 'column',
+              md: 'row',
+            }}
+            align="center"
+            justify="start"
+            gapX="9"
+            gapY={{
+              initial: '9',
+              md: '0',
+            }}
+          >
             <Flex direction={'column'} gapY="4">
               <Heading size="6" as="h3" className="text-orange-700 mb-4">
                 You can draw your community.
@@ -104,6 +128,110 @@ const Main: React.FC = () => {
         <Box className="max-w-4xl w-full h-[50vh] mx-auto">
           <ResponsivePlaceMap />
         </Box>
+        <Heading size="6" as="h3" className="text-right mt-4">
+          Import an existing plan or community map (coming soon)
+        </Heading>
+        <Heading size="6" as="h3" className="text-right mt-4">
+          Features available by jurisdiction (coming soon)
+        </Heading>
+      </ContentSection>
+      <ContentSection title="About Districtr">
+        <Flex direction="column" gapY="4" py="4">
+          <Heading>Origin Story</Heading>
+
+          <Text size="5">
+            The goal of Districtr is to put the tools of redistricting in the hands of the public,
+            with an emphasis on meeting the needs of civil rights organizations, community groups,
+            and redistricting commissions.
+          </Text>
+
+          <Text size="5">
+            Districtr came about from a conversation with Lawyers for Civil Rights (LCR), the Boston
+            arm of the national Lawyers' Committee for Civil Rights Under Law. LCR was describing
+            their work with community members in Lowell, MA, who were frustrated about not having a
+            voice in the city council. In those conversations, a few places kept coming up...
+          </Text>
+
+          <Text size="5">
+            Like <b>Clemente Park</b>, a much-loved meeting point for the city's Asian and Latinx
+            populations, which felt unsafe at night because the city had not provided lighting...
+          </Text>
+
+          <Text size="5">
+            And <b>Lowell High School</b>, the city's only public high school, which serves over
+            3000 students. The city announced plans to move it from its traditional downtown
+            location, but without sufficient outreach to communities around the city about possible
+            new sites.
+          </Text>
+
+          <Text size="5">
+            Our idea was to create a mapping tool whose fundamental principle is to{' '}
+            <b>ask the community what matters</b>. With maps that build COIs around relevant zones
+            and landmarks, paired with community narratives, we can start to see local interests
+            come to life.
+          </Text>
+          <Heading>Our Values</Heading>
+
+          <Text size="5">
+            <b>Accessibility.</b> Participating in the redistricting process should be approachable
+            for everyone. Districtr is engineered for maximum accessibility. It's entirely
+            in-browser with no login and no downloads, it works on tablets as well as computers, and
+            we assign each plan its own web address for easy sharing.
+          </Text>
+
+          <Text size="5">
+            <b>Openness and transparency.</b> The entire project is open source, with permissive
+            licenses. We don't collect any information about users.
+          </Text>
+
+          <Text size="5">
+            <b>Maps not metrics.</b> We don't think that good maps can be measured in
+            one-size-fits-all metrics, so we've built a more lightweight mapping experience that
+            doesn't put scores front and center. You can export maps from Districtr in forms that
+            can be read in the other major redistricting software.
+          </Text>
+
+          <Text size="5">
+            <b>All politics is local.</b> We've got 760,000-person congressional districts and
+            13,000-person city council districts, and every scale in between: county commissions,
+            school zones, library boards—you name it, we map it.
+          </Text>
+
+          <Text size="5">
+            <b>Responsiveness to the community.</b> We aim to highlight specific local rules,
+            principles, and priorities whenever possible. We also build event pages for organizers
+            so they can see an overview of maps from the group at a glance.
+          </Text>
+          <Heading className='text-districtrIndigo pt-6'>Still have questions?</Heading>
+
+          <Text size="5">
+            If you are interested in partnering with us or sponsoring a voting rights project, reach
+            out to us at{' '}
+            <NextLink legacyBehavior href="mailto:Districtr@mggg.org">
+              <Link>Districtr@mggg.org</Link>
+            </NextLink>
+            .
+          </Text>
+
+          <Text size="5">Our team aims to respond to requests for new modules within a week.</Text>
+          
+          <Heading className='text-districtrIndigo pt-6'>Development Team</Heading>
+
+          <Text size="5">
+            <b>Project Manager</b>: Liz Kopecky
+          </Text>
+
+          <Text size="5">
+            {' '}
+            <b>Originating Team:</b> Max Hully, Ruth Buck
+          </Text>
+
+          <Text size="5">
+            <b>Contributors:</b> Jamie Atlas, Eion Blanchard, Jack Deschler, Nick Doiron, Moon
+            Duchin, Chris Gernon, Peter Horvath, Muniba Khan, Zhenghong Lieu, JN Matthews, Anthony
+            Pizzimenti, Heather Rosenfeld, Anna Schall, and many more
+          </Text>
+        </Flex>
       </ContentSection>
     </Flex>
   );

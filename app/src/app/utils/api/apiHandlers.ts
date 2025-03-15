@@ -1,10 +1,9 @@
 import axios from 'axios';
 import 'maplibre-gl';
 import {useMapStore} from '@store/mapStore';
-import {useChartStore} from '@store/chartStore';
 import {NullableZone} from '@constants/types';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
-import {SummaryStatKeys, SummaryStatsResult, SummaryTypes, TotalColumnKeys} from './summaryStats';
+import {SummaryTypes} from './summaryStats';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
 export const FormatAssignments = () => {
