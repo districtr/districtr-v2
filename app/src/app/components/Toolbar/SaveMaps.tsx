@@ -26,23 +26,12 @@ const BoxContainer = styled(Box, {
   gap: '1rem',
 });
 
-export const SaveMapDetails: React.FC<{
-  nameIsSaved: boolean;
-  setNameIsSaved: (value: boolean) => void;
-  open?: boolean;
-  onClose?: () => void;
-  showTrigger?: boolean;
-}> = ({open, onClose, showTrigger, nameIsSaved, setNameIsSaved}) => {
+export const SaveMapDetails: React.FC<{}> = ({}) => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const gerryDBTable = mapDocument?.gerrydb_table;
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
-  const [dialogOpen, setDialogOpen] = React.useState(open || false);
-
-  useEffect(() => {
-    setDialogOpen(open || false);
-  }, [open]);
 
   const initialMetadataRef = React.useRef<DocumentMetadata | null>(null);
 
@@ -50,26 +39,34 @@ export const SaveMapDetails: React.FC<{
     () => userMaps.find(map => map.document_id === mapDocument?.document_id)?.map_metadata,
     [mapDocument?.document_id, userMaps]
   );
+
+  const [mapName, setMapName] = React.useState<string | undefined | null>(currentMapMetadata?.name);
   const [groupName, setGroupName] = React.useState<string | undefined | null>(
     currentMapMetadata?.group
   );
   const [mapDescription, setMapDescription] = React.useState<string | undefined | null>(
     currentMapMetadata?.description
   );
-  const [mapIsDraft, setMapIsDraft] = React.useState<boolean | undefined | null>(
-    currentMapMetadata?.is_draft
+  const [mapIsDraft, setMapIsDraft] = React.useState<string | undefined | null>(
+    currentMapMetadata?.is_draft ? 'draft' : 'share'
   );
-
   const [mapTags, setTags] = React.useState<string | undefined | null>(currentMapMetadata?.tags);
+  const [mapNameIsSaved, setMapNameIsSaved] = React.useState(false);
   const [groupNameIsSaved, setGroupNameIsSaved] = React.useState(false);
   const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
   const [descriptionIsSaved, setDescriptionIsSaved] = React.useState(false);
   const [shareStateIsSaved, setShareStateIsSaved] = React.useState(false);
 
-  React.useEffect(() => {
-    setGroupName(groupName);
-    setTags(mapTags);
-  }, [groupName, mapTags, dialogOpen]);
+  const [latestMetadata, setLatestMetadata] = React.useState<DocumentMetadata | null>(null);
+
+  useEffect(() => {
+    const metadata = userMaps.find(
+      map => map.document_id === mapDocument?.document_id
+    )?.map_metadata;
+    if (metadata) {
+      setLatestMetadata(metadata);
+    }
+  }, [mapDocument?.document_id, userMaps]);
 
   const handleChangeGroupName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
@@ -78,16 +75,6 @@ export const SaveMapDetails: React.FC<{
       setGroupName(name);
     }
   };
-
-  useEffect(() => {
-    if (dialogOpen && initialMetadataRef.current === null) {
-      initialMetadataRef.current = currentMapMetadata ?? null;
-      setGroupName(currentMapMetadata?.name);
-      setTags(currentMapMetadata?.tags);
-      setMapDescription(currentMapMetadata?.description);
-      setMapIsDraft(currentMapMetadata?.is_draft);
-    }
-  }, [currentMapMetadata, dialogOpen]);
 
   const handleChangeTag = (tag: string | null) => {
     if (tag && mapTags && !mapTags.includes(tag)) {
@@ -102,104 +89,98 @@ export const SaveMapDetails: React.FC<{
     }
   };
 
-  const handleChangeIsDraft = (isDraft: boolean) => {
-    setMapIsDraft(isDraft);
+  const handleChangeIsDraft = (isDraft: string) => {
+    if (isDraft === 'draft') {
+      setMapIsDraft(true);
+    }
+    if (isDraft === 'share') {
+      setMapIsDraft(false);
+    }
     setShareStateIsSaved(false);
   };
 
-  const handleMetadataChange = (key: keyof DocumentMetadata, value: any) => {
-    if (mapDocument?.document_id) {
-      switch (key) {
-        case 'group':
-          handleChangeGroupName(value);
-          break;
-        case 'tags':
-          handleChangeTag(value);
-          break;
-        case 'description':
-          handleChangeDescription(value);
-          break;
-        case 'is_draft':
-          handleChangeIsDraft(value);
-          break;
-      }
-
-      upsertUserMap({
-        documentId: mapDocument?.document_id,
-        mapDocument: {
-          ...mapDocument,
-          map_metadata: {
-            ...mapDocument.map_metadata,
-            [key]: value ?? null,
-          },
-        },
-      });
+  const handleChangeMapName = (name: string | null) => {
+    if (name !== mapName && name !== null) {
+      setMapName(name);
+      setMapNameIsSaved(false);
     }
   };
 
+  const handleMetadataChange: (key: keyof DocumentMetadata, value: any) => void = (key, value) => {
+    if (!mapDocument?.document_id) return;
+
+    const handlers: Partial<Record<keyof DocumentMetadata, (val: any) => void>> = {
+      name: handleChangeMapName,
+      group: handleChangeGroupName,
+      tags: handleChangeTag,
+      description: handleChangeDescription,
+      is_draft: handleChangeIsDraft,
+    };
+
+    handlers[key]?.(value);
+
+    upsertUserMap({
+      documentId: mapDocument.document_id,
+      mapDocument: {
+        ...mapDocument,
+        map_metadata: {
+          ...(latestMetadata ?? mapDocument.map_metadata),
+          [key]: value ?? null,
+        },
+      },
+    });
+  };
+
   const handleMapSave = () => {
-    console.log('saving map');
     if (mapDocument?.document_id) {
-      const savedMapMetadata = userMaps.find(
-        map => map.document_id === mapDocument?.document_id
-      )?.map_metadata;
-      if (!savedMapMetadata) {
+      if (!latestMetadata) {
         return;
       }
+      console.log('latestMetadata', latestMetadata);
       if (mapDocument?.status === 'locked') {
-        // if you have a locked map, save a copy
         document
           .mutate({
             gerrydb_table: mapDocument?.gerrydb_table,
-            metadata: savedMapMetadata,
+            metadata: latestMetadata,
             user_id: useMapStore.getState().userID,
             copy_from_doc: mapDocument?.document_id,
           })
           .then(data => {
-            // update in db
             metadata.mutate({
               document_id: data.document_id,
-              metadata: savedMapMetadata,
+              metadata: latestMetadata,
             });
-            // update in usermaps
             upsertUserMap({
               documentId: data.document_id,
               mapDocument: {
                 ...data,
-                map_metadata: savedMapMetadata,
+                map_metadata: latestMetadata,
               },
             });
-            // swap out current map with newly copied one
-            data.map_metadata = savedMapMetadata;
+            data.map_metadata = latestMetadata;
             setMapDocument(data);
           });
       } else {
-        // otherwise just update
         metadata.mutate({
           document_id: mapDocument?.document_id,
-          metadata: savedMapMetadata,
+          metadata: latestMetadata,
         });
         upsertUserMap({
           documentId: mapDocument?.document_id,
           mapDocument: {
             ...mapDocument,
-            map_metadata: savedMapMetadata,
+            map_metadata: latestMetadata,
           },
         });
       }
     }
+
     setGroupNameIsSaved(true);
     setTagsIsSaved(true);
-    setNameIsSaved(true);
     setDescriptionIsSaved(true);
     setShareStateIsSaved(true);
+    setMapNameIsSaved(true);
   };
-
-  useEffect(() => {
-    if (!dialogOpen) {
-      onClose?.();
-    }
-  }, [dialogOpen]);
 
   // if no gerrydb table selected return null
   if (!gerryDBTable) {
@@ -210,45 +191,12 @@ export const SaveMapDetails: React.FC<{
     <>
       <BoxContainer>
         <Flex gap="4" width={'100%'} display={'flex'}>
-          <Box width={'33%'}>
-            <Text as="label" size="2">
-              Comments
-            </Text>
-            <TextArea
-              placeholder={'Comments'}
-              size="3"
-              value={mapDescription ?? undefined}
-              onChange={e => handleMetadataChange('description', e.target.value)}
-            ></TextArea>
-          </Box>
-          <Box width={'33%'}>
-            {mapDocument?.status && mapDocument?.status === 'locked' ? (
-              <Text>Name your Copy </Text>
-            ) : (
-              <Text>Group Name</Text>
-            )}
-            <TextField.Root
-              placeholder={groupName ?? 'Group Name'}
-              size="3"
-              value={groupName ?? undefined}
-              onChange={e => handleMetadataChange('group', e.target.value)}
-            ></TextField.Root>
-
-            <Text>Tags</Text>
-            <TextField.Root
-              placeholder={'Tags'}
-              size="3"
-              value={mapTags ?? ''}
-              disabled
-              onChange={e => handleMetadataChange('tags', e.target.value)}
-            ></TextField.Root>
-          </Box>
-
-          <Box width={'33%'}>
-            <Text> Map Status </Text>
+          <Box width={'25%'}>
+            {/* map status */}
+            <Text weight={'medium'}> Map Status </Text>
             <Flex gap="2">
               <RadioGroup.Root
-                value={mapIsDraft ? 'draft' : 'share'}
+                value={mapIsDraft}
                 onValueChange={value => {
                   handleMetadataChange('is_draft', value === 'draft');
                 }}
@@ -258,6 +206,47 @@ export const SaveMapDetails: React.FC<{
               </RadioGroup.Root>
             </Flex>
           </Box>
+          <Box width={'25%'}>
+            {/* map name */}
+            {mapDocument?.status && mapDocument?.status === 'locked' ? (
+              <Text>Name your Copy </Text>
+            ) : (
+              <Text>Map Name</Text>
+            )}
+            <TextField.Root
+              placeholder={mapName ?? 'Map Name'}
+              size="3"
+              value={mapName ?? undefined}
+              onChange={e => handleMetadataChange('name', e.target.value)}
+            ></TextField.Root>
+            {/* group name */}
+            <Text>Group Name</Text>
+            <TextField.Root
+              placeholder={groupName ?? 'Group Name'}
+              size="3"
+              value={groupName ?? undefined}
+              onChange={e => handleMetadataChange('group', e.target.value)}
+            ></TextField.Root>
+            {/* tags */}
+            <Text>Tags</Text>
+            <TextField.Root
+              placeholder={'Tags'}
+              size="3"
+              value={mapTags ?? ''}
+              disabled
+              onChange={e => handleMetadataChange('tags', e.target.value)}
+            ></TextField.Root>
+          </Box>
+          <Box width={'50%'} maxHeight={'80%'} overflowY={'auto'}>
+            {/* comments */}
+            <Text weight={'medium'}>Comments</Text>
+            <TextArea
+              placeholder={'Comments'}
+              size="3"
+              value={mapDescription ?? undefined}
+              onChange={e => handleMetadataChange('description', e.target.value)}
+            ></TextArea>
+          </Box>
         </Flex>
         {/* save map */}
         <Button
@@ -265,19 +254,19 @@ export const SaveMapDetails: React.FC<{
           className="flex items-center "
           onClick={handleMapSave}
           disabled={
-            nameIsSaved &&
             tagsIsSaved &&
             descriptionIsSaved &&
             groupNameIsSaved &&
-            shareStateIsSaved
+            shareStateIsSaved &&
+            mapNameIsSaved
           }
         >
           {mapDocument.status !== 'locked' &&
-          nameIsSaved &&
           tagsIsSaved &&
           descriptionIsSaved &&
           groupNameIsSaved &&
-          shareStateIsSaved
+          shareStateIsSaved &&
+          mapNameIsSaved
             ? 'Saved!'
             : mapDocument.status === 'locked'
               ? 'Create Copy'

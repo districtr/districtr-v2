@@ -163,6 +163,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 class DistrictrMapMetadata(BaseModel):
     name: Optional[str] | None = None
+    group: Optional[str] | None = None
     tags: Optional[list[str]] | None = None
     description: Optional[str] | None = None
     event_id: Optional[str] | None = None
