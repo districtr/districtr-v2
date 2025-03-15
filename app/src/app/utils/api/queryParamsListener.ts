@@ -37,6 +37,7 @@ export const getSearchParamsObserver = () => {
       const userID = useMapStore.getState().userID;
       if (userID) {
         formData.append('user_id', userID);
+        // sendbeacon ensures that the request is sent even if the tab is closed
         navigator.sendBeacon(
           `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/unload`,
           formData

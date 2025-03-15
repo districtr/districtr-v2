@@ -597,15 +597,3 @@ export const getDemography: (params: {
     dataHash: dataHash,
   };
 };
-
-export const unloadMapDocument = async (document_id: string) => {
-  return await axios
-    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/unload`, {
-      user_id: useMapStore.getState().userID,
-    })
-    .then(res => {
-      alert('Document is now unlocked');
-      alert(res.data);
-      return res.data;
-    });
-};
