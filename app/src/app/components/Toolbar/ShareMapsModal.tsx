@@ -174,7 +174,6 @@ export const ShareMapsModal: React.FC<{
   if (!gerryDBTable) {
     return <div></div>;
   }
-
   return (
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogContentContainer className="max-w-[75vw]">
@@ -273,7 +272,7 @@ export const ShareMapsModal: React.FC<{
           )}
 
           {/* close dialog */}
-          <Box className="border-t border-gray-200"></Box>
+          {/*<Box className="border-t border-gray-200"></Box>
           <Button
             variant="soft"
             className="flex items-center"
@@ -282,7 +281,7 @@ export const ShareMapsModal: React.FC<{
             }}
           >
             Close
-          </Button>
+          </Button> */}
         </BoxContainer>
       </DialogContentContainer>
     </Dialog.Root>

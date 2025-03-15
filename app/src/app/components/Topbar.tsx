@@ -162,7 +162,7 @@ export const Topbar: React.FC = () => {
               disabled={!mapDocument?.document_id}
               onClick={() => setShareMapsModal(true)}
             >
-              Share
+              {mapDocument?.status === 'locked' ? 'Share or Make Copy' : 'Share'}
             </Button>
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}

@@ -199,6 +199,16 @@ export const sharedDocument = new MutationObserver(queryClient, {
     setLoadedMapId(data.document_id);
     setAppLoadingState('loaded');
     setPasswordPrompt(false);
+
+    // check if map is already loaded by another user; if so, make the warning/error appear
+    if (data.status === 'locked') {
+      useMapStore.getState().setErrorNotification({
+        severity: 2,
+        id: 'map-document-locked',
+        message: `The requested map "${data?.map_metadata?.name ?? data.gerrydb_table}" is locked by another user. Please create a copy or create a new map.`,
+      });
+    }
+
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.delete('share'); // remove share + token from url
     documentUrl.searchParams.set('document_id', data.document_id);
