@@ -14,7 +14,7 @@ export const Header: React.FC = () => (
       <NextLink legacyBehavior href="/about"><Link>HOW TO USE</Link></NextLink>
       <PlaceMapModal />
       <NextLink legacyBehavior href="/about"><Link>ABOUT</Link></NextLink>
-      <NextLink legacyBehavior href="/updates"><Link>WHAT'S NEW?</Link></NextLink>
+      <NextLink legacyBehavior href="/updates"><Link>WHAT&apos;S NEW?</Link></NextLink>
       <NextLink legacyBehavior href="https://mggg.org/" target="_blank" >
         <Image src="/mggg.svg" alt="MGGG" width={100} height={50} className='cursor-pointer' />
       </NextLink>

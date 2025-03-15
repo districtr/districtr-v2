@@ -21,8 +21,8 @@ const PlacePage = async ({params}: {params: Promise<{place: string}>}) => {
     <Flex direction={'column'} className="max-w-screen-xl mx-auto p-4">
       <Heading>{placeTitleCase}</Heading>
       <Text>Blank Map</Text>
-      {filteredViews.map((view, i) => (
-        <CreateButton view={view} />
+      {filteredViews.map((view: any, i: number) => (
+        <CreateButton view={view} key={i} />
       ))}
     </Flex>
   );

@@ -1,3 +1,5 @@
+import { SummaryTypes } from "../summaryStats";
+
 export interface DocumentObject {
   document_id: string;
   gerrydb_table: string;
