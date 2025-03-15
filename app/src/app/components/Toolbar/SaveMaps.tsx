@@ -14,7 +14,7 @@ import {
   RadioGroup,
   TextArea,
 } from '@radix-ui/themes';
-import {DocumentMetadata, DocumentObject} from '../../utils/api/apiHandlers';
+import {DocumentMetadata} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {metadata, document} from '@/app/utils/api/mutations';
 

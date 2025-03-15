@@ -3,7 +3,6 @@ import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import * as Accordion from '@radix-ui/react-accordion';
 import classNames from 'classnames';
-import {DoubleArrowDownIcon, DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 import {
   Button,
   Flex,
@@ -18,11 +17,9 @@ import {
 } from '@radix-ui/themes';
 import {SaveMapDetails} from './SaveMaps';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
-import {DocumentObject, DocumentMetadata} from '../../utils/api/apiHandlers';
+import {DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {useTemporalStore} from '@/app/store/temporalStore';
-import {size} from 'lodash';
-type NamedDocumentObject = DocumentObject & {name?: string};
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxWidth: '75vw',
