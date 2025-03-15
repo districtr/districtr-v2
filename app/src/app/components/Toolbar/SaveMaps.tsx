@@ -89,12 +89,12 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
     }
   };
 
-  const handleChangeIsDraft = (isDraft: string) => {
-    if (isDraft === 'draft') {
-      setMapIsDraft(true);
+  const handleChangeIsDraft = (isDraft: boolean) => {
+    if (isDraft === true) {
+      setMapIsDraft('draft');
     }
-    if (isDraft === 'share') {
-      setMapIsDraft(false);
+    if (isDraft === false) {
+      setMapIsDraft('share');
     }
     setShareStateIsSaved(false);
   };
@@ -118,7 +118,6 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
     };
 
     handlers[key]?.(value);
-
     upsertUserMap({
       documentId: mapDocument.document_id,
       mapDocument: {
@@ -136,7 +135,6 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
       if (!latestMetadata) {
         return;
       }
-      console.log('latestMetadata', latestMetadata);
       if (mapDocument?.status === 'locked') {
         document
           .mutate({
@@ -193,10 +191,10 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
         <Flex gap="4" width={'100%'} display={'flex'}>
           <Box width={'25%'}>
             {/* map status */}
-            <Text weight={'medium'}> Map Status </Text>
+            <Text weight={'medium'}> Status </Text>
             <Flex gap="2">
               <RadioGroup.Root
-                value={mapIsDraft}
+                value={mapIsDraft ?? undefined}
                 onValueChange={value => {
                   handleMetadataChange('is_draft', value === 'draft');
                 }}
