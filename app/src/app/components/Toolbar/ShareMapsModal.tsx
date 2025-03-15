@@ -13,7 +13,7 @@ import {
   IconButton,
   RadioCards,
 } from '@radix-ui/themes';
-
+import {metadata, document} from '@/app/utils/api/mutations';
 import {styled} from '@stitches/react';
 import {sharePlan} from '@/app/utils/api/mutations';
 
@@ -33,7 +33,7 @@ export const ShareMapsModal: React.FC<{
   const mapDocument = useMapStore(store => store.mapDocument);
   const gerryDBTable = mapDocument?.gerrydb_table;
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
-  const {upsertUserMap} = useMapStore(store => store);
+  const {upsertUserMap, setMapDocument} = useMapStore(store => store);
   const userMaps = useMapStore(store => store.userMaps);
   const currentMap = React.useMemo(
     () => userMaps.find(map => map.document_id === mapDocument?.document_id),
@@ -133,6 +133,37 @@ export const ShareMapsModal: React.FC<{
     }
   };
 
+  const handleMapCopy = (documentId: string | undefined) => {
+    if (mapDocument?.gerrydb_table) {
+      document
+        .mutate({
+          gerrydb_table: mapDocument?.gerrydb_table,
+          metadata: mapDocument?.map_metadata,
+          user_id: useMapStore.getState().userID,
+          copy_from_doc: mapDocument?.document_id,
+        })
+        .then(data => {
+          // update in db
+          metadata.mutate({
+            document_id: data.document_id,
+            metadata: mapDocument?.map_metadata,
+          });
+          // update in usermaps
+          upsertUserMap({
+            documentId: data.document_id,
+            mapDocument: {
+              ...data,
+              map_metadata: mapDocument?.map_metadata,
+            },
+          });
+          // swap out current map with newly copied one
+          data.map_metadata = mapDocument?.map_metadata;
+          setMapDocument(data);
+          // should open the map save modal with the proper map open?
+        });
+    }
+  };
+
   useEffect(() => {
     if (!dialogOpen) {
       onClose?.();
@@ -173,7 +204,6 @@ export const ShareMapsModal: React.FC<{
                     variant="soft"
                     placeholder={'(Optional) Set a password'}
                     size="2"
-                    // style={{width: '50%'}}
                     value={password ?? undefined}
                     onChange={e => handlePasswordEntry(e.target.value)}
                     className="items-center w-1/2"
@@ -205,6 +235,7 @@ export const ShareMapsModal: React.FC<{
                     Share and make editable
                   </RadioCards.Item>
                 </RadioCards.Root>
+
                 <Button
                   variant="soft"
                   className="flex items-center"
@@ -216,14 +247,29 @@ export const ShareMapsModal: React.FC<{
               </Flex>
             </>
           ) : (
-            <Button
-              variant="soft"
-              className="flex items-center"
-              onClick={handleCreateShareLink}
-              disabled={linkCopied ?? false}
-            >
-              {linkCopied ? 'Copied!' : 'Click to copy link'}
-            </Button>
+            <Flex gap="2" className="flex-col">
+              <Button
+                variant="soft"
+                className="flex items-center"
+                onClick={() => {
+                  // make a copy of the map
+                  useMapStore.getState().setAppLoadingState('loading');
+                  handleMapCopy(mapDocument?.document_id);
+                  setDialogOpen(false);
+                }}
+              >
+                Make a Copy
+              </Button>
+
+              <Button
+                variant="soft"
+                className="flex items-center"
+                onClick={handleCreateShareLink}
+                disabled={linkCopied ?? false}
+              >
+                {linkCopied ? 'Copied!' : 'Click to copy share link'}
+              </Button>
+            </Flex>
           )}
 
           {/* close dialog */}

@@ -31,7 +31,6 @@ export const PasswordPromptModal = () => {
     const shareToken = new URLSearchParams(window.location.search).get('share');
     if (shareToken) {
       const decodedToken = jwtDecode(shareToken);
-      console.log(decodedToken);
       sharedDocument.mutate({
         token: useMapStore.getState().receivedShareToken ?? '',
         password: password,

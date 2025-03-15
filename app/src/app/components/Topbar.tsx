@@ -181,7 +181,6 @@ export const Topbar: React.FC = () => {
       </Flex>
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
       <ShareMapsModal open={shareMapsModal} onClose={() => setShareMapsModal(false)} />
-      {/*<SaveMapsModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} /> */}
       <PasswordPromptModal />
     </>
   );

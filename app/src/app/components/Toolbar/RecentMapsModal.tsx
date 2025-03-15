@@ -123,6 +123,7 @@ export const RecentMapsModal: React.FC<{
             type="single"
             value={openItem ?? undefined}
             onValueChange={value => setOpenItem(value || null)}
+            className="my-12"
           >
             {userMaps.map((userMap, i) => (
               <Accordion.Item

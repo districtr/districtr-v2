@@ -105,17 +105,9 @@ const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
-    if (assignments.data.documentId === loadedMapId) {
-      console.log(
-        'Map already loaded, skipping assignment load',
-        assignments.data.documentId,
-        loadedMapId
-      );
-    } else {
-      loadZoneAssignments(assignments.data);
-      useMapStore.temporal.getState().clear();
-    }
+    const {loadZoneAssignments, setAppLoadingState} = useMapStore.getState();
+    loadZoneAssignments(assignments.data);
+    useMapStore.temporal.getState().clear();
     setAppLoadingState('loaded');
   }
 });
