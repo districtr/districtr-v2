@@ -825,3 +825,20 @@ def test_load_plan_from_share(client, session: Session):
     assert response.status_code == 200, f"Failed to load document: {response.text}"
 
     # todo: remove the document + token from the database after the test
+
+
+def test_unlock_map(client, document_id):
+    # create document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+    # unlock document
+    response = client.post(
+        f"/api/document/{document_id}/unlock", json={"user_id": USER_ID}
+    )
+    assert response.status_code == 200
