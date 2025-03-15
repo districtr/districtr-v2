@@ -3,6 +3,7 @@ import {updateDocumentFromId, updateGetDocumentFromId} from './queries';
 import {jwtDecode} from 'jwt-decode';
 export let previousDocumentID = '';
 import {sharedDocument} from './mutations';
+import {unloadMapDocument} from './apiHandlers';
 
 export const getSearchParamsObserver = () => {
   // next ssr safety
@@ -26,6 +27,29 @@ export const getSearchParamsObserver = () => {
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
+  // listener for closing the tab
+  const handleUnload = () => {
+    // update db such that doc is no longer locked
+    alert('unloading');
+    const mapDocument = useMapStore.getState().mapDocument;
+    if (mapDocument && mapDocument.document_id) {
+      const formData = new FormData();
+      const userID = useMapStore.getState().userID;
+      if (userID) {
+        formData.append('user_id', userID);
+        navigator.sendBeacon(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/unload`,
+          formData
+        );
+      }
+      console.log('Document is now unlocked');
+    } else {
+      alert('not properly unlocked');
+    }
+  };
+  window.addEventListener('unload', handleUnload);
+
+  // listener for url changes
   let previousDocumentID = '';
   const observer = new MutationObserver(() => {
     const documentId = new URLSearchParams(window.location.search).get('document_id');

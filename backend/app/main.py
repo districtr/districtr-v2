@@ -6,6 +6,7 @@ from fastapi import (
     Query,
     BackgroundTasks,
     Body,
+    Form,
 )
 from typing import Annotated
 import botocore.exceptions
@@ -182,6 +183,31 @@ def check_map_lock(document_id, user_id, session):
         )
 
     return status
+
+
+@app.post("/api/document/{document_id}/unload", status_code=status.HTTP_200_OK)
+async def unlock_map(
+    document_id: str, user_id: str = Form(...), session: Session = Depends(get_session)
+):
+    """
+    unlock map when tab is unloaded
+    """
+    try:
+        session.execute(
+            text(
+                """DELETE FROM document.map_document_user_session
+                WHERE document_id = :document_id AND user_id = :user_id"""
+            ).bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+                bindparam(key="user_id", type_=String),
+            ),
+            {"document_id": document_id, "user_id": user_id},
+        )
+        session.commit()
+        return {"status": DocumentEditStatus.unlocked}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # matches createMapObject in apiHandlers.ts

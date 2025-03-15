@@ -446,6 +446,12 @@ export const patchUnShatterParents: (params: {
     });
 };
 
+/**
+ *
+ * @param document_id - string, the document id
+ * @param metadata - DocumentMetadata, the metadata to save
+ * @returns Promise
+ */
 export const saveMapDocumentMetadata = async ({
   document_id,
   metadata,
@@ -464,6 +470,14 @@ export const saveMapDocumentMetadata = async ({
     });
 };
 
+/**
+ * Creates a share link for a document.
+ *
+ * @param document_id - string, the document_id
+ * @param password - string, the password if required
+ * @param access_type - string, the access type (read or edit)
+ * @returns Promise
+ */
 export const getSharePlanLink = async ({
   document_id,
   password,
@@ -491,6 +505,14 @@ export const getSharePlanLink = async ({
   }
 };
 
+/**
+ * Loads plan from share link.
+ *
+ * @param token - string, the tokenized share link
+ * @param password - string, the password if required
+ * @param access - string, the access type (set via share link)
+ * @returns Promise
+ */
 export const getLoadPlanFromShare = async ({
   token,
   password,
@@ -574,4 +596,16 @@ export const getDemography: (params: {
     results: result.results,
     dataHash: dataHash,
   };
+};
+
+export const unloadMapDocument = async (document_id: string) => {
+  return await axios
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/unload`, {
+      user_id: useMapStore.getState().userID,
+    })
+    .then(res => {
+      alert('Document is now unlocked');
+      alert(res.data);
+      return res.data;
+    });
 };

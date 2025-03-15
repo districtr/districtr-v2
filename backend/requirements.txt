@@ -90,6 +90,8 @@ python-dateutil==2.9.0.post0
     #   pandas
 python-dotenv==1.0.1
     # via pydantic-settings
+python-multipart==0.0.20
+    # via fastapi
 pytz==2024.1
     # via pandas
 pyyaml==6.0.1
