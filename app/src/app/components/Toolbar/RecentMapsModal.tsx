@@ -16,7 +16,7 @@ import {
   RadioCards,
   Separator,
 } from '@radix-ui/themes';
-import {SaveMapDetails} from './SaveMapsModal';
+import {SaveMapDetails} from './SaveMaps';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject, DocumentMetadata} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
