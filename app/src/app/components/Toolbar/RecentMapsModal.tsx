@@ -202,14 +202,9 @@ const RecentMapsRow: React.FC<{
       </Table.Cell>
       <Table.Cell py=".5rem">
         {!active && (
-          <IconButton
-            onClick={() => onChange?.()}
-            variant="ghost"
-            color="ruby"
-            className="size-full"
-          >
-            <Cross2Icon />
-          </IconButton>
+          <Button onClick={() => onChange?.()} variant="ghost" color="ruby" className="size-full">
+            Delete
+          </Button>
         )}
       </Table.Cell>
     </Table.Row>
