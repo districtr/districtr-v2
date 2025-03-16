@@ -137,7 +137,7 @@ export const Topbar: React.FC = () => {
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
               <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
-                View Saved Maps
+                Recent Maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
                 <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
