@@ -25,6 +25,11 @@ import logging
 from sqlalchemy import bindparam, literal
 from sqlmodel import ARRAY, INT
 from datetime import datetime, UTC, timedelta
+import matplotlib.pyplot as plt
+import geopandas
+import math
+import io
+import base64
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import get_session
@@ -1083,6 +1088,81 @@ async def get_projects(
     ).all()
     return gerrydb_views
 
+@app.get("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
+async def thumbnail(
+    *,
+    document_id: str,
+    session: Session = Depends(get_session),
+):
+    stmt = text(
+        "SELECT gerrydb_table, color_scheme FROM document.document WHERE document_id = :document_id"
+    )
+    results = session.execute(stmt, {"document_id": document_id})
+    gerrydb_table, color_scheme = results.one()
+
+    if color_scheme is None or len(color_scheme) == 0:
+        color_scheme = ["#0099cd",
+            "#ffca5d",
+            "#00cd99",
+            "#99cd00",
+            "#cd0099",
+            "#9900cd",
+            "#8dd3c7",
+            "#bebada",
+            "#fb8072",
+            "#80b1d3",
+            "#fdb462",
+            "#b3de69",
+            "#fccde5",
+            "#bc80bd",
+            "#ccebc5",
+            "#ffed6f",
+            "#ffffb3",
+            "#a6cee3",
+            "#1f78b4",
+            "#b2df8a",
+            "#33a02c",
+            "#fb9a99",
+            "#e31a1c",
+            "#fdbf6f",
+            "#ff7f00",
+            "#cab2d6",
+            "#6a3d9a",
+            "#b15928",
+            "#64ffda",
+            "#00B8D4",
+            "#A1887F",
+            "#76FF03",
+            "#DCE775",
+            "#B388FF",
+            "#FF80AB",
+            "#D81B60",
+            "#26A69A",
+            "#FFEA00",
+            "#6200EA"]
+    def coloration(row):
+        if (math.isnan(row['zone'])):
+            return "#CCCCCC"
+        else:
+            return color_scheme[int(row['zone']) % len(color_scheme)]
+
+    sql = f"""SELECT geometry AS geom, geos.path, zone
+    FROM gerrydb.{gerrydb_table} geos
+    LEFT JOIN "document.assignments_{document_id}" assigned ON geos.path = assigned.geo_id
+    """
+    conn = conn = session.connection().connection
+    df = geopandas.read_postgis(sql, conn).to_crs(epsg=3857)
+
+    df['color'] = df.apply(lambda row: coloration(row), axis=1)
+    geoplt = df.plot(figsize=(2.8, 2.8), color=df['color'])
+    geoplt.set_axis_off()
+    pic_IObytes = io.BytesIO()
+    geoplt.figure.savefig(pic_IObytes, format='png')
+    pic_IObytes.seek(0)
+    pic_hash = str(base64.b64encode(pic_IObytes.read()))
+    fig = geoplt.figure
+    plt.close(fig)
+    return 'data:image/png;base64,' + pic_hash[2:-1]
 
 @app.post("/api/document/{document_id}/share")
 async def share_districtr_plan(
