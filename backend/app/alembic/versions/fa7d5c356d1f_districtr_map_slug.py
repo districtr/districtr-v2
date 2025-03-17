@@ -30,6 +30,7 @@ udfs_to_drop = [
 udfs = [
     "create_districtr_map_udf.sql",
     "create_document_udf.sql",
+    "shatter_parent.sql",
     "unshatter_parent.sql",
     "total_pop_udf.sql",
     "total_pop_udf_rev2.sql",
