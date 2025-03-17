@@ -2,66 +2,66 @@ gerrydb_views:
   - gpkg: ak_block_districtr_view.gpkg
     table_name: ak_block_districtr_view
     layer: ak_block_districtr_view
-  # - gpkg: ak_vtd_districtr_view.gpkg
-  #   table_name: ak_vtd_districtr_view
-  #   layer: ak_vtd_districtr_view
-  # - gpkg: co_block_districtr_view.gpkg
-  #   table_name: co_block_districtr_view
-  #   layer: co_block_districtr_view
-  # - gpkg: co_vtd_districtr_view.gpkg
-  #   table_name: co_vtd_districtr_view
-  #   layer: co_vtd_districtr_view
-  # - gpkg: fl_block_districtr_view.gpkg
-  #   table_name: fl_block_districtr_view
-  #   layer: fl_block_districtr_view
-  # - gpkg: fl_vtd_districtr_view.gpkg
-  #   table_name: fl_vtd_districtr_view
-  #   layer: fl_vtd_districtr_view
-  # - gpkg: ks_block_districtr_view.gpkg
-  #   table_name: ks_block_districtr_view
-  #   layer: ks_block_districtr_view
-  # - gpkg: ks_vtd_districtr_view.gpkg
-  #   table_name: ks_vtd_districtr_view
-  #   layer: ks_vtd_districtr_view
-  # - gpkg: ma_block_districtr_view.gpkg
-  #   table_name: ma_block_districtr_view
-  #   layer: ma_block_districtr_view
-  # - gpkg: ma_vtd_districtr_view.gpkg
-  #   table_name: ma_vtd_districtr_view
-  #   layer: ma_vtd_districtr_view
-  # - gpkg: mt_block_districtr_view.gpkg
-  #   table_name: mt_block_districtr_view
-  #   layer: mt_block_districtr_view
-  # - gpkg: mt_vtd_districtr_view.gpkg
-  #   table_name: mt_vtd_districtr_view
-  #   layer: mt_vtd_districtr_view
-  # - gpkg: nc_block_districtr_view.gpkg
-  #   table_name: nc_block_districtr_view
-  #   layer: nc_block_districtr_view
-  # - gpkg: nc_vtd_districtr_view.gpkg
-  #   table_name: nc_vtd_districtr_view
-  #   layer: nc_vtd_districtr_view
-  # - gpkg: pa_block_districtr_view.gpkg
-  #   table_name: pa_block_districtr_view
-  #   layer: pa_block_districtr_view
-  # - gpkg: pa_vtd_districtr_view.gpkg
-  #   table_name: pa_vtd_districtr_view
-  #   layer: pa_vtd_districtr_view
-  # - gpkg: tx_block_districtr_view.gpkg
-  #   table_name: tx_block_districtr_view
-  #   layer: tx_block_districtr_view
-  # - gpkg: tx_vtd_districtr_view.gpkg
-  #   table_name: tx_vtd_districtr_view
-  #   layer: tx_vtd_districtr_view
-  # - gpkg: wa_block_districtr_view.gpkg
-  #   table_name: wa_block_districtr_view
-  #   layer: wa_block_districtr_view
-  # - gpkg: wa_vtd_districtr_view.gpkg
-  #   table_name: wa_vtd_districtr_view
-  #   layer: wa_vtd_districtr_view
-  # - gpkg: wv_block_districtr_view.gpkg
-  #   table_name: wv_block_districtr_view
-  #   layer: wv_block_districtr_view
+  - gpkg: ak_vtd_districtr_view.gpkg
+    table_name: ak_vtd_districtr_view
+    layer: ak_vtd_districtr_view
+  - gpkg: co_block_districtr_view.gpkg
+    table_name: co_block_districtr_view
+    layer: co_block_districtr_view
+  - gpkg: co_vtd_districtr_view.gpkg
+    table_name: co_vtd_districtr_view
+    layer: co_vtd_districtr_view
+  - gpkg: fl_block_districtr_view.gpkg
+    table_name: fl_block_districtr_view
+    layer: fl_block_districtr_view
+  - gpkg: fl_vtd_districtr_view.gpkg
+    table_name: fl_vtd_districtr_view
+    layer: fl_vtd_districtr_view
+  - gpkg: ks_block_districtr_view.gpkg
+    table_name: ks_block_districtr_view
+    layer: ks_block_districtr_view
+  - gpkg: ks_vtd_districtr_view.gpkg
+    table_name: ks_vtd_districtr_view
+    layer: ks_vtd_districtr_view
+  - gpkg: ma_block_districtr_view.gpkg
+    table_name: ma_block_districtr_view
+    layer: ma_block_districtr_view
+  - gpkg: ma_vtd_districtr_view.gpkg
+    table_name: ma_vtd_districtr_view
+    layer: ma_vtd_districtr_view
+  - gpkg: mt_block_districtr_view.gpkg
+    table_name: mt_block_districtr_view
+    layer: mt_block_districtr_view
+  - gpkg: mt_vtd_districtr_view.gpkg
+    table_name: mt_vtd_districtr_view
+    layer: mt_vtd_districtr_view
+  - gpkg: nc_block_districtr_view.gpkg
+    table_name: nc_block_districtr_view
+    layer: nc_block_districtr_view
+  - gpkg: nc_vtd_districtr_view.gpkg
+    table_name: nc_vtd_districtr_view
+    layer: nc_vtd_districtr_view
+  - gpkg: pa_block_districtr_view.gpkg
+    table_name: pa_block_districtr_view
+    layer: pa_block_districtr_view
+  - gpkg: pa_vtd_districtr_view.gpkg
+    table_name: pa_vtd_districtr_view
+    layer: pa_vtd_districtr_view
+  - gpkg: tx_block_districtr_view.gpkg
+    table_name: tx_block_districtr_view
+    layer: tx_block_districtr_view
+  - gpkg: tx_vtd_districtr_view.gpkg
+    table_name: tx_vtd_districtr_view
+    layer: tx_vtd_districtr_view
+  - gpkg: wa_block_districtr_view.gpkg
+    table_name: wa_block_districtr_view
+    layer: wa_block_districtr_view
+  - gpkg: wa_vtd_districtr_view.gpkg
+    table_name: wa_vtd_districtr_view
+    layer: wa_vtd_districtr_view
+  - gpkg: wv_block_districtr_view.gpkg
+    table_name: wv_block_districtr_view
+    layer: wv_block_districtr_view
 shatterable_views:
   - gerrydb_table_name: ak_districtr_view
     districtr_map_slug: ak_districtr_view
