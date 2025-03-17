@@ -1,7 +1,7 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
 import {useMapStore} from '../store/mapStore';
 import GeometryWorker from '../utils/GeometryWorker';
-import {useChartStore} from '../store/chartStore';
+import euclideanDistance from '@turf/distance';
 import {demographyCache} from '../utils/demography/demographyCache';
 
 export const FALLBACK_NUM_DISTRICTS = 4;
@@ -75,9 +75,6 @@ export function getLayerFill(
     // is broken parent
     ['boolean', ['feature-state', 'broken'], false],
     0,
-    // geography is locked
-    ['boolean', ['feature-state', 'locked'], false],
-    baseOpacity - 0.25,
     // zone is selected and hover is true and hover is not null
     [
       'all',
@@ -117,11 +114,18 @@ export function getLayerFill(
 }
 
 const getDissolved = async () => {
-  const activeZones = demographyCache.populations.filter(row => row.total_pop > 0).map(f => f.zone);
+  const activeZones = demographyCache.populations.filter(row => row.total_pop_20 > 0).map(f => f.zone);
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !GeometryWorker || !activeZones?.length) return;
   const currentView = mapRef.getBounds();
+  const distanceAcrossCanvas = euclideanDistance(
+    [currentView.getWest(), currentView.getNorth()],
+    [currentView.getEast(), currentView.getNorth()],
+    {units: 'kilometers'}
+  )
+  //px convert to km at current zoom
+  const bufferInKm = 50 / (mapRef.getCanvas().width / distanceAcrossCanvas); 
   const {centroids, dissolved} = await GeometryWorker.getCentroidsFromView({
     bounds: [
       currentView.getWest(),
@@ -130,7 +134,8 @@ const getDissolved = async () => {
       currentView.getNorth(),
     ],
     activeZones,
-    fast: true,
+    strategy: 'non-colliding-centroids',
+    minBuffer: bufferInKm,
   });
   return {centroids, dissolved};
 };

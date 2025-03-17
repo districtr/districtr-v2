@@ -16,12 +16,12 @@ from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
 
 
-GERRY_DB_P1_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
+GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 
 
-@pytest.fixture(name=GERRY_DB_P1_FIXTURE_NAME)
+@pytest.fixture(name=GERRY_DB_TOTPOP_FIXTURE_NAME)
 def ks_demo_view_census_blocks_summary_stats(session: Session):
-    layer = GERRY_DB_P1_FIXTURE_NAME
+    layer = GERRY_DB_TOTPOP_FIXTURE_NAME
     result = subprocess.run(
         args=[
             "ogr2ogr",
@@ -45,7 +45,7 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
     """)
 
     session.begin()
-    session.execute(upsert_query, {"name": GERRY_DB_P1_FIXTURE_NAME})
+    session.execute(upsert_query, {"name": GERRY_DB_TOTPOP_FIXTURE_NAME})
 
     if result.returncode != 0:
         print(f"ogr2ogr failed. Got {result}")
@@ -210,13 +210,13 @@ def test_shattering(client, session: Session, document_id):
 def test_get_available_summary_stats(
     session: Session, ks_demo_view_census_blocks_summary_stats
 ):
-    result = get_available_summary_stats(session, GERRY_DB_P1_FIXTURE_NAME)
+    result = get_available_summary_stats(session, GERRY_DB_TOTPOP_FIXTURE_NAME)
     assert len(result) == 1
     (summary_stats_available,) = result
     assert summary_stats_available
     assert len(summary_stats_available) == 1
     (summary_stat,) = summary_stats_available
-    assert summary_stat == "P1"
+    assert summary_stat == "TOTPOP"
 
 
 def test_unshatter_process(client, document_id):

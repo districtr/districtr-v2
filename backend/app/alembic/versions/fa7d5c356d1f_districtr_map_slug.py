@@ -1,7 +1,7 @@
 """districtr_map_slug
 
 Revision ID: fa7d5c356d1f
-Revises: e9435b616749
+Revises: 6d83465440a6
 Create Date: 2025-03-13 22:24:40.076745
 
 """
@@ -15,7 +15,7 @@ from app.core.config import settings
 
 # revision identifiers, used by Alembic.
 revision: str = "fa7d5c356d1f"
-down_revision: str = "e9435b616749"
+down_revision: str = "6d83465440a6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -32,6 +32,7 @@ udfs = [
     "create_document_udf.sql",
     "unshatter_parent.sql",
     "total_pop_udf.sql",
+    "total_pop_udf_rev2.sql",
     "export_zone_assignments_geo.sql",
     "get_block_assignments.sql",
     "get_block_assignments_geo.sql",
@@ -78,7 +79,6 @@ def upgrade() -> None:
     op.execute(stmt)
 
     op.alter_column("districtrmap", "districtr_map_slug", nullable=False)
-    # op.alter_column('document', 'districtr_map_slug', nullable=False, schema="document")
 
     op.drop_constraint(
         "districtrmap_gerrydb_table_name_key", "districtrmap", type_="unique"

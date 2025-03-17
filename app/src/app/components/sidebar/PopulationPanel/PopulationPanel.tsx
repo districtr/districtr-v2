@@ -84,7 +84,7 @@ export const PopulationPanel = () => {
         </Flex>
         <ParentSize
           style={{
-            height: populationData.length ? `${populationData.length * 40 + 40}px` : '200px',
+            height: populationData.length ? `${populationData.length * 38 + 76}px` : '200px',
             width: '100%',
           }}
         >
