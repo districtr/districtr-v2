@@ -1141,7 +1141,7 @@ async def thumbnail(
         "#FFEA00",
         "#6200EA"]
     def coloration(row):
-        if (math.isnan(row['zone'])):
+        if (row['zone'] is None or math.isnan(row['zone'])):
             return "#CCCCCC"
         else:
             return color_scheme[int(row['zone']) % len(color_scheme)]
