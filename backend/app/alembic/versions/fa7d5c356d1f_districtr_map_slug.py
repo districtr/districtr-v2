@@ -90,6 +90,30 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_constraint("unique_districtr_map_slug", "districtrmap", type_="unique")
+
+    # Drop newest maps with duplicate gerrydb_table_name
+    get_repeated_stmt = sa.text("""select uuid from (
+        select
+            uuid,
+            row_number() over (partition by gerrydb_table_name order by created_at asc) as row_num
+        from districtrmap
+    ) as subquery
+    where row_num > 1""")
+
+    conn = op.get_bind()
+    repeated = conn.execute(get_repeated_stmt).scalars().all()
+
+    if repeated:
+        uuids = [str(u) for u in repeated]
+        op.execute(
+            sa.text(
+                f"DELETE FROM parentchildedges edges WHERE edges.districtr_map IN ('{', '.join(uuids)}')"
+            )
+        )
+        op.execute(
+            sa.text(f"DELETE FROM districtrmap WHERE uuid IN ('{', '.join(uuids)}')")
+        )
+
     op.create_unique_constraint(
         "districtrmap_gerrydb_table_name_key", "districtrmap", ["gerrydb_table_name"]
     )
