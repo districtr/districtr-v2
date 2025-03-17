@@ -130,7 +130,7 @@ const RecentMapsRow: React.FC<{
 }> = ({data, onSelect, active, onChange}) => {
   const updatedDate = new Date(data.updated_at as string);
   const formattedData = updatedDate.toLocaleDateString();
-  const name = data?.name || data.gerrydb_table;
+  const name = data?.name || data.districtr_map_slug;
 
   const handleChangeName = (name?: string) => {
     name?.length && onChange?.({...data, name});
