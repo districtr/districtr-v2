@@ -278,7 +278,7 @@ export const ShareMapsModal: React.FC<{
                   setDialogOpen(false);
                 }}
               >
-                Make a Copy
+                Make duplicate copy of this plan for editing
               </Button>
 
               <Button

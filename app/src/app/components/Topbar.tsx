@@ -162,7 +162,24 @@ export const Topbar: React.FC = () => {
               disabled={!mapDocument?.document_id}
               onClick={() => setShareMapsModal(true)}
             >
-              {mapDocument?.status === 'locked' ? 'Share or Make Copy' : 'Share'}
+              {mapDocument?.status === 'locked' ? 'Share' : 'Share'}
+            </Button>
+            <Button
+              variant="outline"
+              className="mr-2"
+              disabled={!mapDocument?.document_id}
+              onClick={() => setRecentMapsModalOpen(true)}
+            >
+              Status
+              {mapDocument?.document_id
+                ? useMapStore.getState().mapDocument?.status === 'locked' ||
+                  useMapStore.getState().mapDocument?.access === 'read'
+                  ? ': Frozen'
+                  : !useMapStore.getState().mapDocument?.map_metadata ||
+                      useMapStore.getState().mapDocument?.map_metadata?.is_draft === true
+                    ? ': In Progress'
+                    : ': Ready to Share'
+                : null}
             </Button>
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}

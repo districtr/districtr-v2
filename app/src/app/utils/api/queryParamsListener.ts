@@ -63,16 +63,16 @@ export const getSearchParamsObserver = () => {
       const decodedToken = jwtDecode(shareToken);
 
       useMapStore.getState().setReceivedShareToken((decodedToken as any).token as string);
-      if ((decodedToken as any).password_required === true) {
-        useMapStore.getState().setPasswordPrompt(true);
-      } else {
-        sharedDocument.mutate({
-          token: (decodedToken as any).token as string,
-          password: null,
-          access: (decodedToken as any).access as string,
-          status: (decodedToken as any).status as string,
-        });
-      }
+      // if ((decodedToken as any).password_required === true) {
+      //   useMapStore.getState().setPasswordPrompt(true);
+      // } else {
+      sharedDocument.mutate({
+        token: (decodedToken as any).token as string,
+        password: null,
+        access: (decodedToken as any).access as string,
+        status: (decodedToken as any).status as string,
+      });
+      // }
     }
   });
   const config = {subtree: true, childList: true};

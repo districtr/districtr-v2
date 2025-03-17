@@ -167,7 +167,7 @@ class DistrictrMapMetadata(BaseModel):
     tags: Optional[list[str]] | None = None
     description: Optional[str] | None = None
     event_id: Optional[str] | None = None
-    is_draft: bool = False
+    is_draft: bool = True
 
 
 class DocumentCreate(BaseModel):
@@ -294,7 +294,7 @@ class DocumentPublic(BaseModel):
         DocumentEditStatus.unlocked
     )  # locked, unlocked, checked_out
     genesis: str | None = None
-    access: DocumentShareStatus = DocumentShareStatus.read
+    access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
 
 

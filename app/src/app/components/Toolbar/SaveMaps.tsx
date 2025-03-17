@@ -48,7 +48,11 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
     currentMapMetadata?.description
   );
   const [mapIsDraft, setMapIsDraft] = React.useState<string | undefined | null>(
-    currentMapMetadata?.is_draft ? 'draft' : 'share'
+    currentMapMetadata?.is_draft === true
+      ? 'draft'
+      : currentMapMetadata?.is_draft === false
+        ? 'share'
+        : 'draft'
   );
   const [mapTags, setTags] = React.useState<string | undefined | null>(currentMapMetadata?.tags);
   const [mapNameIsSaved, setMapNameIsSaved] = React.useState(false);

@@ -525,7 +525,7 @@ async def get_document(
     user_id: UserID,
     session: Session,
     shared: bool = False,
-    access_type: DocumentShareStatus = DocumentShareStatus.read,
+    access_type: DocumentShareStatus = DocumentShareStatus.edit,
 ):
     lock_status = check_map_lock(document_id, user_id, session)
     stmt = (

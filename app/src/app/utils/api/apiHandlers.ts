@@ -460,6 +460,7 @@ export const saveMapDocumentMetadata = async ({
   document_id: string;
   metadata: DocumentMetadata;
 }) => {
+  console.log(metadata);
   return await axios
     .put(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/metadata`, metadata)
     .then(res => {

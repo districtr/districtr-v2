@@ -109,6 +109,7 @@ export const document = new MutationObserver(queryClient, {
     setLoadedMapId(data.document_id);
     setAssignmentsHash(Date.now().toString());
     setAppLoadingState('loaded');
+    console.log(data);
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.set('document_id', data.document_id);
     history.pushState({}, '', documentUrl.toString());
@@ -124,7 +125,8 @@ export const metadata = new MutationObserver(queryClient, {
     console.error('Error saving map metadata: ', error);
   },
   onSuccess: data => {
-    console.log('Successfully saved metadata');
+    console.log('Successfully saved metadata: ', data, metadata);
+    console.log(useMapStore.getState().mapDocument);
   },
 });
 
