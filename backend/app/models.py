@@ -13,6 +13,7 @@ from sqlmodel import (
     MetaData,
     String,
     Boolean,
+    Text,
 )
 from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
@@ -57,12 +58,13 @@ class SummaryStatisticType(Enum):
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
+    districtr_map_slug: str = Field(nullable=False, unique=True)
     # This is intentionally not a foreign key on `GerryDBTable` because in some cases
     # this may be the GerryDBTable but in others the pop table may be a materialized
     # view of two GerryDBTables in the case of shatterable maps.
     # We'll want to enforce the constraint tha the gerrydb_table_name is either in
     # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
-    gerrydb_table_name: str | None = Field(nullable=True, unique=True)
+    gerrydb_table_name: str | None = Field(nullable=True)
     # Null means default number of districts? Should we have a sensible default?
     num_districts: int | None = Field(nullable=True, default=None)
     tiles_s3_path: str | None = Field(nullable=True)
@@ -87,7 +89,8 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
 
 class DistrictrMapPublic(BaseModel):
     name: str
-    gerrydb_table_name: str
+    districtr_map_slug: str
+    gerrydb_table_name: str | None = None
     parent_layer: str
     child_layer: str | None = None
     tiles_s3_path: str | None = None
@@ -97,7 +100,8 @@ class DistrictrMapPublic(BaseModel):
 
 
 class DistrictrMapUpdate(BaseModel):
-    gerrydb_table_name: str
+    districtr_map_slug: str
+    gerrydb_table_name: str | None
     name: str | None = None
     parent_layer: str | None = None
     child_layer: str | None = None
@@ -140,6 +144,13 @@ class Document(TimeStampMixin, SQLModel, table=True):
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
+    districtr_map_slug: str = Field(
+        sa_column=Column(
+            Text,
+            ForeignKey("districtrmap.districtr_map_slug"),
+            nullable=False,
+        )
+    )
     gerrydb_table: str | None = Field(nullable=True)
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
@@ -147,11 +158,12 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentCreate(BaseModel):
-    gerrydb_table: str | None
+    districtr_map_slug: str | None
 
 
 class DocumentPublic(BaseModel):
     document_id: UUID4
+    districtr_map_slug: str | None
     gerrydb_table: str | None
     parent_layer: str
     child_layer: str | None

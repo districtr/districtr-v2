@@ -3,7 +3,7 @@
 -- LANGUAGE: plpgsql
 --
 -- DESCRIPTION:
--- This function retrieves the bounding boxes (bboxes) of unassigned geometries
+-- This function retrieves the bounding boxes (bboxes) of unassigned geometries 
 -- from a specified document, excluding certain geometries based on provided IDs.
 -- The specified IDs represent the broken parent geometries, which we want to exlcude.
 -- The function assumes that when breaking a geometry, ALL child geometries are assigned (or null).
@@ -26,7 +26,7 @@
 -- - child_layer (text): The name of the child layer in the gerrydb schema (if any).
 --
 -- LOGIC:
--- 1. Retrieve the table information (gerrydb_table, parent_layer, child_layer) from the document
+-- 1. Retrieve the table information (gerrydb_table, parent_layer, child_layer) from the document 
 --    using the provided document UUID.
 -- 2. Construct and execute a dynamic SQL query to:
 --    a. Select all the GEOIDs we expect to have assigned in a "compplete" plan, given the application state
@@ -47,7 +47,7 @@ BEGIN
   SELECT dm.gerrydb_table_name, dm.parent_layer, dm.child_layer
   INTO gerrydb_table, parent_layer, child_layer
   FROM document.document d
-  JOIN public.districtrmap dm ON d.districtr_map_slug = dm.districtr_map_slug
+  JOIN public.districtrmap dm ON d.gerrydb_table = dm.gerrydb_table_name
   WHERE d.document_id = doc_uuid;
 
   RETURN QUERY EXECUTE format(
@@ -88,13 +88,13 @@ BEGIN
     WHERE doc.zone IS NULL
     -- Exclude broken parents
     AND ids.geo_id NOT IN (SELECT unnest($2))',
-    CASE
+    CASE 
       WHEN child_layer IS NOT NULL THEN 'COALESCE(parentgeo.geometry, childgeo.geometry)'
       ELSE 'parentgeo.geometry'
     END,
     parent_layer,
     parent_layer,
-    CASE
+    CASE 
       WHEN child_layer IS NOT NULL THEN format('LEFT JOIN gerrydb.%I childgeo ON ids.geo_id = childgeo.path', child_layer)
       ELSE ''
     END

@@ -347,7 +347,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             const stateChanges = featureStateChangesCache?.[feature.sourceLayer]?.[id];
 
             const prevAssignment = stateChanges?.zone || state?.zone || false;
-            
+
             const shouldSkip = accumulatedGeoids.has(id) || state?.['locked'] || prevAssignment === selectedZone || false;
             if (shouldSkip) return;
 
@@ -389,7 +389,8 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             setFreshMap,
             resetZoneAssignments,
             upsertUserMap,
-            allPainted
+            allPainted,
+            mapOptions
           } = get();
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
@@ -425,6 +426,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             mapOptions: {
               ...initialMapOptions,
               bounds: mapDocument.extent,
+              currentStateFp: currentMapDocument?.parent_layer === mapDocument?.parent_layer ? mapOptions.currentStateFp : undefined,
             },
             colorScheme: DefaultColorScheme,
             sidebarPanels: ['population'],
@@ -548,7 +550,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
               errorNotification: {
                 severity: 2,
                 message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
-                id: `break-patchShatter-no-children-${mapDocument?.gerrydb_table}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
+                id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
               },
             });
             return;
@@ -733,7 +735,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
               f => f.document_id === mapDocument?.document_id
             );
             const documentInfo = mapViews.find(
-              view => view.gerrydb_table_name === mapDocument.gerrydb_table
+              view => view.districtr_map_slug === mapDocument.districtr_map_slug
             );
             if (documentIndex !== -1) {
               userMaps[documentIndex] = {
@@ -918,7 +920,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             children: new Set<string>(),
           };
           const shatterMappings: MapStore['shatterMappings'] = {};
-    
+
           assignments.forEach(assignment => {
             zoneAssignments.set(assignment.geo_id, assignment.zone);
             // preload last sent assignments with last fetched assignments
