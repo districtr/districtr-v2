@@ -15,51 +15,41 @@ from app.core.config import settings
 
 # revision identifiers, used by Alembic.
 revision: str = "fa7d5c356d1f"
-down_revision: Union[str, None] = "e9435b616749"
+down_revision: str = "e9435b616749"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+# UDFs with function parameter name changes and matching parameter type signatures
+# can't be replaced without first being dropped and recreated with the new parameters
+udfs_to_drop = [
+    "create_districtr_map(VARCHAR, VARCHAR, INTEGER, VARCHAR, VARCHAR, VARCHAR)",
+    "create_districtr_map(VARCHAR, VARCHAR, INTEGER, VARCHAR, VARCHAR, VARCHAR, BOOLEAN)",
+    "create_document(TEXT)",
+]
+
+udfs = [
+    "create_districtr_map_udf.sql",
+    "create_document_udf.sql",
+    "unshatter_parent.sql",
+    "total_pop_udf.sql",
+    "export_zone_assignments_geo.sql",
+    "get_block_assignments.sql",
+    "get_block_assignments_geo.sql",
+    "get_block_assignments_geo.sql",
+    "get_block_zone_assignments.sql",
+    "get_block_zone_assignments_geo.sql",
+    "get_unassigned_bboxes_udf_rev2.sql",
+    "summary_stats_p1.sql",
+    "summary_stats_p4.sql",
+]
+
 
 def upgrade() -> None:
-    udfs_to_drop = [
-        "create_districtr_map(VARCHAR, VARCHAR, INTEGER, VARCHAR, VARCHAR, VARCHAR)",
-        "create_districtr_map(VARCHAR, VARCHAR, INTEGER, VARCHAR, VARCHAR, VARCHAR, BOOLEAN)",
-        "create_document(TEXT)",
-        "shatter_parent(UUID, VARCHAR[])",
-        "unshatter_parent(UUID, VARCHAR[], INTEGER)",
-        "get_total_population(UUID)",
-        "get_zone_assignments_geo(UUID)",
-        "get_block_assignments(UUID)",
-        "get_block_assignments(UUID, INTEGER[])",
-        "get_block_assignments_geo(UUID)",
-        "get_block_assignments_geo(UUID, INTEGER[])",
-        "get_unassigned_bboxes(UUID, VARCHAR[])",
-        "get_summary_stats_p1(UUID)",
-        "get_summary_stats_p4(UUID)",
-        "get_unassigned_bboxes_slow(UUID)",
-    ]
     for udf in udfs_to_drop:
         op.execute(sa.text(f"DROP FUNCTION IF EXISTS {udf}"))
 
-    udfs = [
-        "create_districtr_map_udf",
-        "create_document_udf",
-        "shatter_parent",
-        "unshatter_parent",
-        "total_pop_udf",
-        "export_zone_assignments_geo",
-        "get_block_assignments",
-        "get_block_assignments_geo",
-        "get_block_assignments_geo",
-        "get_block_zone_assignments",
-        "get_block_zone_assignments_geo",
-        "get_unassigned_bboxes_udf_rev2",
-        "summary_stats_p1",
-        "summary_stats_p4",
-        "ALT_get_unassigned_bbox_udf",
-    ]
     for udf in udfs:
-        with open(settings.SQL_DIR / f"{udf}.sql", "r") as f:
+        with open(settings.SQL_DIR / udf, "r") as f:
             sql = f.read()
         op.execute(sa.text(sql))
 
@@ -106,4 +96,10 @@ def downgrade() -> None:
     op.drop_column("districtrmap", "districtr_map_slug")
     op.drop_column("document", "districtr_map_slug", schema="document")
 
-    # Add previous UDFs
+    for udf in udfs_to_drop:
+        op.execute(sa.text(f"DROP FUNCTION IF EXISTS {udf}"))
+
+    for udf in udfs:
+        with open(settings.SQL_DIR / "versions" / down_revision / udf, "r") as f:
+            sql = f.read()
+        op.execute(sa.text(sql))

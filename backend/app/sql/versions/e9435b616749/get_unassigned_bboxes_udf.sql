@@ -47,21 +47,24 @@ BEGIN
   SELECT dm.gerrydb_table_name, dm.parent_layer, dm.child_layer
   INTO gerrydb_table, parent_layer, child_layer
   FROM document.document d
-  JOIN public.districtrmap dm ON d.districtr_map_slug = dm.districtr_map_slug
+  JOIN public.districtrmap dm ON d.gerrydb_table = dm.gerrydb_table_name
   WHERE d.document_id = doc_uuid;
 
   RETURN QUERY EXECUTE format(
     'SELECT ST_AsGeoJSON(
-      -- To web projection
-      ST_Transform(
-        -- Union the envelopes into a single contiguous bbox
-        ST_Union(
-          ST_Envelope(
-          -- See 92-95 - coalesce parentgeo.geometry with childgeo.geometry depending on which type of geo
-            %s
-          )
-        ),
-      4326
+      -- Explode multipolygon into individual polygons
+      ST_Dump(
+        -- To web projection
+        ST_Transform(
+          -- Union the envelopes into a single contiguous bbox
+          ST_Union(
+            ST_Envelope(
+            -- See 92-95 - coalesce parentgeo.geometry with childgeo.geometry depending on which type of geo
+              %s
+            )
+          ),
+          4326
+        )
       )
     )::json as bbox
     FROM (
@@ -87,7 +90,7 @@ BEGIN
     %s
     WHERE doc.zone IS NULL
     -- Exclude broken parents
-    AND ids.geo_id NOT IN (SELECT unnest($2))',
+    AND doc.geo_id NOT IN (SELECT unnest($2))',
     CASE
       WHEN child_layer IS NOT NULL THEN 'COALESCE(parentgeo.geometry, childgeo.geometry)'
       ELSE 'parentgeo.geometry'
