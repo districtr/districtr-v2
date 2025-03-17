@@ -13,6 +13,7 @@ from sqlmodel import (
     MetaData,
     String,
     Boolean,
+    Text,
 )
 from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy import Float
@@ -49,21 +50,21 @@ class TimeStampMixin(SQLModel):
 
 
 class SummaryStatisticType(Enum):
-    P1 = "Population by Race"
-    P2 = "Hispanic or Latino, and Not Hispanic or Latino by Race"
-    P3 = "Voting Age Population by Race"
-    P4 = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+    TOTPOP = "Population by Race"
+    VAP = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+    VHISTORY = "Voting History"
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
+    districtr_map_slug: str = Field(nullable=False, unique=True)
     # This is intentionally not a foreign key on `GerryDBTable` because in some cases
     # this may be the GerryDBTable but in others the pop table may be a materialized
     # view of two GerryDBTables in the case of shatterable maps.
     # We'll want to enforce the constraint tha the gerrydb_table_name is either in
     # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
-    gerrydb_table_name: str | None = Field(nullable=True, unique=True)
+    gerrydb_table_name: str | None = Field(nullable=True)
     # Null means default number of districts? Should we have a sensible default?
     num_districts: int | None = Field(nullable=True, default=None)
     tiles_s3_path: str | None = Field(nullable=True)
@@ -88,7 +89,8 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
 
 class DistrictrMapPublic(BaseModel):
     name: str
-    gerrydb_table_name: str
+    districtr_map_slug: str
+    gerrydb_table_name: str | None = None
     parent_layer: str
     child_layer: str | None = None
     tiles_s3_path: str | None = None
@@ -98,7 +100,8 @@ class DistrictrMapPublic(BaseModel):
 
 
 class DistrictrMapUpdate(BaseModel):
-    gerrydb_table_name: str
+    districtr_map_slug: str
+    gerrydb_table_name: str | None
     name: str | None = None
     parent_layer: str | None = None
     child_layer: str | None = None
@@ -141,6 +144,13 @@ class Document(TimeStampMixin, SQLModel, table=True):
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
+    districtr_map_slug: str = Field(
+        sa_column=Column(
+            Text,
+            ForeignKey("districtrmap.districtr_map_slug"),
+            nullable=False,
+        )
+    )
     gerrydb_table: str | None = Field(nullable=True)
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
@@ -148,11 +158,12 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentCreate(BaseModel):
-    gerrydb_table: str | None
+    districtr_map_slug: str | None
 
 
 class DocumentPublic(BaseModel):
     document_id: UUID4
+    districtr_map_slug: str | None
     gerrydb_table: str | None
     parent_layer: str
     child_layer: str | None
@@ -204,7 +215,7 @@ class AssignedGEOIDS(GEOIDS):
     zone: int | None
 
 
-class UnassignedBboxGeoJSONs(BaseModel):
+class BBoxGeoJSONs(BaseModel):
     features: list[
         pydantic_geojson.feature.FeatureModel
         | pydantic_geojson.multi_polygon.MultiPolygonModel
@@ -232,39 +243,36 @@ class SummaryStats(BaseModel):
     results: list[Any]
 
 
-class PopulationStatsP1(BaseModel):
+class PopulationStatsTOTPOP(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    other_pop: int
-    asian_pop: int
-    amin_pop: int
-    nhpi_pop: int
-    black_pop: int
-    white_pop: int
-    two_or_more_races_pop: int
-    total_pop: int
+    other_pop_20: int
+    amin_pop_20: int
+    asian_nhpi_pop_20: int
+    bpop_20: int
+    hpop_20: int
+    white_pop_20: int
+    total_pop_20: int
 
 
-class SummaryStatsP1(PopulationStatsP1):
+class SummaryStatsTOTPOP(PopulationStatsTOTPOP):
     zone: int
 
 
-class PopulationStatsP4(BaseModel):
+class PopulationStatsVAP(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    hispanic_vap: int
-    non_hispanic_asian_vap: int
-    non_hispanic_amin_vap: int
-    non_hispanic_nhpi_vap: int
-    non_hispanic_black_vap: int
-    non_hispanic_white_vap: int
-    non_hispanic_other_vap: int
-    non_hispanic_two_or_more_races_vap: int
-    total_vap: int
+    white_vap_20: int
+    other_vap_20: int
+    amin_vap_20: int
+    asian_nhpi_vap_20: int
+    hvap_20: int
+    bvap_20: int
+    total_vap_20: int
 
 
-class SummaryStatsP4(PopulationStatsP4):
+class SummaryStatsVAP(PopulationStatsVAP):
     zone: int
 
 
 class SummaryStatisticColumnLists(Enum):
-    P1 = PopulationStatsP1.model_fields.keys()
-    P4 = PopulationStatsP4.model_fields.keys()
+    TOTPOP = PopulationStatsTOTPOP.model_fields.keys()
+    VAP = PopulationStatsVAP.model_fields.keys()

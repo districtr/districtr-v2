@@ -38,14 +38,14 @@ export const useDemography = (includeUnassigned?: boolean) => {
     if (zonesPresent.length < numDistricts) {
       for (let i = 1; i <= numDistricts; i++) {
         if (!zonesPresent.includes(i)) {
-          cleanedData.push({zone: i, total_pop: 0} as SummaryRecord);
+          cleanedData.push({zone: i, total_pop_20: 0} as SummaryRecord);
         }
       }
     }
     Object.entries(paintedChanges).forEach(([zone, pop]) => {
       const index = cleanedData.findIndex(row => row.zone === parseInt(zone));
       if (index !== -1) {
-        cleanedData[index].total_pop += pop;
+        cleanedData[index].total_pop_20 += pop;
       }
     });
 

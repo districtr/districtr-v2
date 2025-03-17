@@ -19,6 +19,7 @@ logging.basicConfig(level=logging.INFO)
 def create_districtr_map(
     session: Session,
     name: str,
+    districtr_map_slug: str,
     parent_layer: str,
     child_layer: str | None = None,
     gerrydb_table_name: str | None = None,
@@ -32,6 +33,7 @@ def create_districtr_map(
     Args:
         session: The database session.
         name: The name of the map.
+        districtr_map_slug: The slug of the districtr map.
         parent_layer_name: The name of the parent layer.
         child_layer_name: The name of the child layer.
         gerrydb_table_name: The name of the gerrydb table.
@@ -47,6 +49,7 @@ def create_districtr_map(
     SELECT *
     FROM create_districtr_map(
         :map_name,
+        :districtr_map_slug,
         :gerrydb_table_name,
         :num_districts,
         :tiles_s3_path,
@@ -56,6 +59,7 @@ def create_districtr_map(
     )"""
     ).bindparams(
         bindparam(key="map_name", type_=String),
+        bindparam(key="districtr_map_slug", type_=String),
         bindparam(key="gerrydb_table_name", type_=String),
         bindparam(key="num_districts", type_=Integer),
         bindparam(key="tiles_s3_path", type_=String),
@@ -68,6 +72,7 @@ def create_districtr_map(
         stmt,
         {
             "map_name": name,
+            "districtr_map_slug": districtr_map_slug,
             "gerrydb_table_name": gerrydb_table_name,
             "num_districts": num_districts,
             "tiles_s3_path": tiles_s3_path,
@@ -81,7 +86,7 @@ def create_districtr_map(
 
 def update_districtrmap(
     session: Session,
-    gerrydb_table_name: str,
+    districtr_map_slug: str,
     **kwargs,
 ):
     """
@@ -89,15 +94,15 @@ def update_districtrmap(
 
     Args:
         session: The database session.
-        gerrydb_table_name: The name of the gerrydb table.
+        districtr_map_slug: The name of the gerrydb table.
         **kwargs: The fields to update.
 
     Returns:
         The updated districtr map.
     """
-    data = DistrictrMapUpdate(gerrydb_table_name=gerrydb_table_name, **kwargs)
+    data = DistrictrMapUpdate(districtr_map_slug=districtr_map_slug, **kwargs)
     update_districtrmap = data.model_dump(
-        exclude_unset=True, exclude={"gerrydb_table_name"}, exclude_none=True
+        exclude_unset=True, exclude={"districtr_map_slug"}, exclude_none=True
     )
 
     if not update_districtrmap.keys():
@@ -105,7 +110,7 @@ def update_districtrmap(
 
     stmt = (
         update(DistrictrMap)
-        .where(DistrictrMap.gerrydb_table_name == data.gerrydb_table_name)  # pyright: ignore
+        .where(DistrictrMap.districtr_map_slug == data.districtr_map_slug)  # pyright: ignore
         .values(update_districtrmap)
         .returning(DistrictrMap)
     )
@@ -228,8 +233,17 @@ def add_extent_to_districtrmap(
             INTO rec;
 
             EXECUTE format('
-                SELECT ST_Extent(ST_Transform(geometry, 4326))
+                SELECT ST_Transform(
+                    ST_SetSRID(
+                        ST_Extent(
+                            geometry
+                        ),
+                        (SELECT ST_SRID(geometry) FROM gerrydb.%I WHERE geometry IS NOT NULL LIMIT 1)
+                    ),
+                    4326
+                )
                 FROM gerrydb.%I',
+                rec.parent_layer,
                 rec.parent_layer
             ) INTO layer_extent;
 

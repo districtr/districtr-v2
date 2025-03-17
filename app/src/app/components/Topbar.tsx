@@ -31,12 +31,12 @@ export const Topbar: React.FC = () => {
   const data = mapViews?.data || [];
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
-    if (selectedMap.gerrydb_table_name === mapDocument?.gerrydb_table) {
+    if (selectedMap.districtr_map_slug === mapDocument?.districtr_map_slug) {
       console.log('No document or same document');
       return;
     }
     clear();
-    document.mutate({gerrydb_table: selectedMap.gerrydb_table_name});
+    document.mutate({districtr_map_slug: selectedMap.districtr_map_slug});
   };
 
   return (

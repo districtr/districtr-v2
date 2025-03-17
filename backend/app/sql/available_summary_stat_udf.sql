@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS get_available_summary_stats(TEXT);
 CREATE OR REPLACE FUNCTION get_available_summary_stats(gerrydb_table_name TEXT)
 RETURNS TABLE (summary_stat TEXT) AS $$
 DECLARE

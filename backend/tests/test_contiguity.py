@@ -15,7 +15,6 @@ from app.utils import create_parent_child_edges
 from tempfile import NamedTemporaryFile
 from tests.constants import FIXTURES_PATH
 from sqlmodel import Session
-import sqlalchemy as sa
 
 
 @fixture
@@ -112,7 +111,7 @@ def document_id_fixture(
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": "simple_geos",
+            "districtr_map_slug": "simple_geos",
         },
     )
     assert response.status_code == 201
@@ -143,21 +142,19 @@ def test_all_zones_contiguous(
     session: Session, simple_geos_graph: Graph, simple_contiguous_assignments: str
 ):
     document_id = simple_contiguous_assignments
-    districtr_map_uuid = session.execute(
-        sa.text("""
-        SELECT districtrmap.uuid
-            FROM document.document
-            LEFT JOIN districtrmap
-            ON document.gerrydb_table = districtrmap.gerrydb_table_name
-            WHERE document.document_id = :document_id;
-        """),
-        {"document_id": document_id},
-    ).scalar()
-    assert districtr_map_uuid is not None
-    zone_block_nodes = get_block_assignments(session, document_id, districtr_map_uuid)
+    zone_block_nodes = get_block_assignments(session, document_id)
 
     for zone in zone_block_nodes:
         assert check_subgraph_contiguity(simple_geos_graph, zone.nodes)
+
+
+def test_subset_of_zones_contiguous(
+    session: Session, simple_geos_graph: Graph, simple_contiguous_assignments: str
+):
+    document_id = simple_contiguous_assignments
+
+    (zone_block_nodes,) = get_block_assignments(session, document_id, zones=[1])
+    assert check_subgraph_contiguity(simple_geos_graph, zone_block_nodes.nodes)
 
 
 def test_graph_from_gpkg():
@@ -206,6 +203,41 @@ def test_simple_geos_contiguity(
     assert response.json() == {"1": 1, "2": 1}
 
 
+def test_simple_geos_contiguity_single_zone(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity?zone=1",
+    )
+    assert response.status_code == 200
+    assert response.json() == {"1": 1}
+
+
+def test_simple_geos_contiguity_subgraph_bboxes(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity/1/connected_component_bboxes",
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["features"]) == 1
+
+
+def test_simple_geos_contiguity_subgraph_bboxes_nonexistent_zone(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity/3/connected_component_bboxes",
+    )
+    assert response.status_code == 404
+    data = response.json()
+    assert data["detail"] == "Zone not found"
+
+
 def test_simple_geos_discontiguity(
     client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
 ):
@@ -236,6 +268,37 @@ def test_simple_geos_discontiguity(
     assert response.json() == {"1": 2, "2": 1}
 
 
+def test_simple_geos_discontiguity_subgraph_bboxes(
+    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = simple_contiguous_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity",
+    )
+    assert response.status_code == 200
+    assert response.json() == {"1": 1, "2": 1}
+
+    # Break one parent and create discontiguous assignments
+    # See `simple_geos_graph` fixture for graph diagram and
+    # `simple_contigous_assignments` fixture for existing assignments
+    response = client.patch(
+        f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}
+    )
+    assert response.status_code == 200
+    response = client.patch(
+        "/api/update_assignments",
+        json={"assignments": [{"document_id": document_id, "geo_id": "e", "zone": 2}]},
+    )
+    assert response.status_code == 200
+
+    response = client.get(
+        f"/api/document/{document_id}/contiguity/1/connected_component_bboxes",
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["features"]) == 2
+
+
 @fixture
 def ks_ellis_document_id(
     client,
@@ -249,7 +312,7 @@ def ks_ellis_document_id(
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": "ks_ellis_geos",
+            "districtr_map_slug": "ks_ellis_geos",
         },
     )
     assert response.status_code == 201

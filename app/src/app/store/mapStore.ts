@@ -32,7 +32,7 @@ import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import { useUnassignFeaturesStore } from './unassignedFeatures';
-import { P1TotPopSummaryStats, P4VapPopSummaryStats } from '../utils/api/summaryStats';
+import { TOTPOPTotPopSummaryStats, VAPVapPopSummaryStats } from '../utils/api/summaryStats';
 import { demographyCache } from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demographyStore';
 import { initSubs } from './subscriptions';
@@ -87,15 +87,6 @@ export interface MapStore {
   setColorScheme: (colors: string[]) => void;
   loadedMapId: string;
   setLoadedMapId: (mapId: string) => void;
-  summaryStats: {
-    P1?: P1TotPopSummaryStats;
-    P4?: P4VapPopSummaryStats;
-    idealpop?: number
-  };
-  setSummaryStat: <T extends keyof MapStore['summaryStats']>(
-    stat: T,
-    value: MapStore['summaryStats'][T]
-  ) => void;
   // SHATTERING
   /**
    * A subset of IDs that a user is working on in a focused view.
@@ -356,13 +347,13 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             const stateChanges = featureStateChangesCache?.[feature.sourceLayer]?.[id];
 
             const prevAssignment = stateChanges?.zone || state?.zone || false;
-            
+
             const shouldSkip = accumulatedGeoids.has(id) || state?.['locked'] || prevAssignment === selectedZone || false;
             if (shouldSkip) return;
 
             accumulatedGeoids.add(feature.properties?.path);
             // TODO: Tiles should have population values as numbers, not strings
-            const popValue = parseInt(feature.properties?.total_pop);
+            const popValue = parseInt(feature.properties?.total_pop_20);
             if (!isNaN(popValue)) {
               if (prevAssignment) {
                 popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
@@ -445,15 +436,6 @@ export var useMapStore = createWithMiddlewares<MapStore>(
         setColorScheme: colorScheme => set({colorScheme}),
         loadedMapId: '',
         setLoadedMapId: loadedMapId => set({loadedMapId}),
-        summaryStats: {},
-        setSummaryStat: (stat, value) => {
-          set({
-            summaryStats: {
-              ...get().summaryStats,
-              [stat]: value,
-            },
-          });
-        },
         // TODO: Refactor to something like this
         // featureStates: {
         //   locked: [],
@@ -566,7 +548,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
               errorNotification: {
                 severity: 2,
                 message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
-                id: `break-patchShatter-no-children-${mapDocument?.gerrydb_table}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
+                id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
               },
             });
             return;
@@ -751,7 +733,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
               f => f.document_id === mapDocument?.document_id
             );
             const documentInfo = mapViews.find(
-              view => view.gerrydb_table_name === mapDocument.gerrydb_table
+              view => view.districtr_map_slug === mapDocument.districtr_map_slug
             );
             if (documentIndex !== -1) {
               userMaps[documentIndex] = {
@@ -869,7 +851,8 @@ export var useMapStore = createWithMiddlewares<MapStore>(
           lockPaintedAreas: [],
           prominentCountyNames: true,
           showCountyBoundaries: true,
-          showPaintedDistricts: true
+          showPaintedDistricts: true,
+          showZoneNumbers: true
         },
         setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
         sidebarPanels: ['population'],
@@ -935,7 +918,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             children: new Set<string>(),
           };
           const shatterMappings: MapStore['shatterMappings'] = {};
-    
+
           assignments.forEach(assignment => {
             zoneAssignments.set(assignment.geo_id, assignment.zone);
             // preload last sent assignments with last fetched assignments

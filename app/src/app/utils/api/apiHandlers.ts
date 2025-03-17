@@ -55,6 +55,7 @@ export const FormatAssignments = () => {
  *
  * @interface
  * @property {string} name - The name.
+ * @property {string} districtr_map_slug - The gerrydb table name.
  * @property {string} gerrydb_table_name - The gerrydb table name.
  * @property {string} parent_layer - The parent layer.
  * @property {string | null} child_layer - The child layer.
@@ -63,6 +64,7 @@ export const FormatAssignments = () => {
  */
 export interface DistrictrMap {
   name: string;
+  districtr_map_slug: string;
   gerrydb_table_name: string;
   parent_layer: string;
   child_layer: string | null;
@@ -86,7 +88,8 @@ export interface DistrictrMap {
  */
 export interface DocumentObject {
   document_id: string;
-  gerrydb_table: string;
+  districtr_map_slug: string;
+  gerrydb_table: string | null;
   parent_layer: string;
   child_layer: string | null;
   tiles_s3_path: string | null;
@@ -94,8 +97,8 @@ export interface DocumentObject {
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
+  available_summary_stats: Array<SummaryTypes>;
   color_scheme: string[] | null;
-  available_summary_stats: Array<keyof SummaryTypes>;
 }
 
 /**
@@ -105,7 +108,7 @@ export interface DocumentObject {
  * @property {string} gerrydb_table - The gerrydb table.
  */
 export interface DocumentCreate {
-  gerrydb_table: string;
+  districtr_map_slug: string;
 }
 
 export const createMapDocument: (document: DocumentCreate) => Promise<DocumentObject> = async (
@@ -113,7 +116,7 @@ export const createMapDocument: (document: DocumentCreate) => Promise<DocumentOb
 ) => {
   return await axios
     .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
-      gerrydb_table: document.gerrydb_table,
+      districtr_map_slug: document.districtr_map_slug,
     })
     .then(res => {
       return res.data;
@@ -178,11 +181,11 @@ export const getAssignments: (
  *
  * @interface
  * @property {number} zone - The zone.
- * @property {number} total_pop - The total population.
+ * @property {number} total_pop_20 - The total population.
  */
 export interface ZonePopulation {
   zone: number;
-  total_pop: number;
+  total_pop_20: number;
 }
 
 /**
@@ -201,6 +204,28 @@ export const getContiguity: (
   if (mapDocument) {
     return await axios
       .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity`, {
+      })
+      .then(res => {
+        return res.data
+      });
+  } else {
+    throw new Error('No document provided');
+  }
+};
+
+/**
+ * Get zone populations from the server.
+ * @param mapDocument - DocumentObject, the document object
+ * @param zone - number, the zone id
+ * @returns Promise<GeoJSON[]>
+ */
+export const getZoneConnectedComponentBBoxes: (
+  mapDocument: DocumentObject,
+  zone: number
+) => Promise<any> = async (mapDocument, zone) => {
+  if (mapDocument) {
+    return await axios
+      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity/${zone}/connected_component_bboxes`, {
       })
       .then(res => {
         return res.data
