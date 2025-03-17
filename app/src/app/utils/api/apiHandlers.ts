@@ -408,15 +408,20 @@ export const saveColorScheme: (params: {
   colors: string[];
 }) => Promise<ColorsSet> = async ({document_id, colors}) => {
   if (colors === DefaultColorScheme) {
-    return
+    return;
   }
   return await axios
-    .patch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/update_colors`,
-      colors,
-    )
+    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/update_colors`, colors)
     .then(res => {
       return res.data;
+    })
+    .catch(err => {
+      const setErrorNotification = useMapStore.getState().setErrorNotification;
+      setErrorNotification({
+        message: err.response.data.message,
+        severity: 2,
+        id: `change-colors-${document}-${colors.join('-')}`,
+      });
     });
 };
 

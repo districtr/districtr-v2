@@ -295,7 +295,7 @@ class DemographyCache {
       }
     }
     this.populations = zonePopulationsTable.sort((a, b) => a.zone - b.zone);
-    const popNumbers = this.populations.map(row => row.total_pop_20);
+    const popNumbers = this.populations.filter(row => row.zone !== undefined && row.zone !== null).map(row => row.total_pop_20);
     this.zoneStats.maxPopulation = Math.max(...popNumbers);
     this.zoneStats.minPopulation = Math.min(...popNumbers);
     this.zoneStats.range = this.zoneStats.maxPopulation - this.zoneStats.minPopulation;

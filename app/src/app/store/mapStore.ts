@@ -389,7 +389,8 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             setFreshMap,
             resetZoneAssignments,
             upsertUserMap,
-            allPainted
+            allPainted,
+            mapOptions
           } = get();
           if (currentMapDocument?.document_id === mapDocument.document_id) {
             return;
@@ -425,6 +426,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             mapOptions: {
               ...initialMapOptions,
               bounds: mapDocument.extent,
+              currentStateFp: currentMapDocument?.parent_layer === mapDocument?.parent_layer ? mapOptions.currentStateFp : undefined,
             },
             colorScheme: DefaultColorScheme,
             sidebarPanels: ['population'],
