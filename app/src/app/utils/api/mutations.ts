@@ -12,6 +12,7 @@ import {
   getSharePlanLink,
   getLoadPlanFromShare,
   getAssignments,
+  checkoutMapDocument,
 } from '@/app/utils/api/apiHandlers';
 export interface AxiosErrorData {
   detail: 'Invalid password' | 'Password required';
@@ -103,9 +104,8 @@ export const document = new MutationObserver(queryClient, {
     console.error('Error creating map document: ', error);
   },
   onSuccess: data => {
-    const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} =
-      useMapStore.getState();
-    setMapDocument(data);
+    const {setLoadedMapId, setAssignmentsHash, setAppLoadingState} = useMapStore.getState();
+    // setMapDocument(data);
     setLoadedMapId(data.document_id);
     setAssignmentsHash(Date.now().toString());
     setAppLoadingState('loaded');
@@ -125,8 +125,7 @@ export const metadata = new MutationObserver(queryClient, {
     console.error('Error saving map metadata: ', error);
   },
   onSuccess: data => {
-    console.log('Successfully saved metadata: ', data, metadata);
-    console.log(useMapStore.getState().mapDocument);
+    console.log('Successfully saved metadata');
   },
 });
 
@@ -193,27 +192,52 @@ export const sharedDocument = new MutationObserver(queryClient, {
     }
   },
   onSuccess: data => {
-    const {setMapDocument, setLoadedMapId, setAppLoadingState, setPasswordPrompt} =
+    const {mapDocument, setMapDocument, setLoadedMapId, setAppLoadingState, setPasswordPrompt} =
       useMapStore.getState();
     useMapStore.getState().setLoadedMapId('');
     getAssignments(data);
-    setMapDocument(data);
+    if (!mapDocument) {
+      setMapDocument(data);
+    }
     setLoadedMapId(data.document_id);
     setAppLoadingState('loaded');
     setPasswordPrompt(false);
 
     // check if map is already loaded by another user; if so, make the warning/error appear
     if (data.status === 'locked') {
-      useMapStore.getState().setErrorNotification({
-        severity: 2,
-        id: 'map-document-locked',
-        message: `The requested map "${data?.map_metadata?.name ?? data.gerrydb_table}" is locked by another user. Please create a copy or create a new map.`,
-      });
-    }
+      // useMapStore.getState().setErrorNotification({
+      //   severity: 2,
+      //   id: 'map-document-locked',
+      //   message: `The requested map "${data?.map_metadata?.name ?? data.gerrydb_table}" is locked by another user. Please create a copy or create a new map.`,
+      // });
+    } else {
+      const documentUrl = new URL(window.location.toString());
+      documentUrl.searchParams.delete('share'); // remove share + token from url
 
-    const documentUrl = new URL(window.location.toString());
-    documentUrl.searchParams.delete('share'); // remove share + token from url
-    documentUrl.searchParams.set('document_id', data.document_id);
-    history.pushState({}, '', documentUrl.toString());
+      documentUrl.searchParams.set('document_id', data.document_id);
+      history.pushState({}, '', documentUrl.toString());
+    }
+  },
+});
+
+export const checkoutDocument = new MutationObserver(queryClient, {
+  mutationFn: checkoutMapDocument,
+  onSuccess: data => {
+    console.log('updated the status');
+    return data;
+  },
+  onError: error => {
+    const errorData = (error as AxiosError)?.response?.data as AxiosErrorData;
+    if (errorData.detail === 'Invalid password') {
+      useMapStore.getState().setShareMapMessage('Error: Incorrect password. Please try again');
+    } else if (errorData.detail === 'Password required') {
+      useMapStore
+        .getState()
+        .setShareMapMessage(
+          'This document requires a password to view. Please enter a valid password'
+        );
+    } else {
+      console.log('error: ', errorData);
+    }
   },
 });

@@ -227,7 +227,7 @@ async def create_document(
     plan_genesis = "created"
     document_id = results.one()[0]  # should be only one row, one column of results
 
-    lock_status = check_map_lock(document_id, data.user_id, session)
+    lock_status = DocumentEditStatus.unlocked
 
     copy_from_doc = getattr(data, "copy_from_doc", None)
 
@@ -526,8 +526,14 @@ async def get_document(
     session: Session,
     shared: bool = False,
     access_type: DocumentShareStatus = DocumentShareStatus.edit,
+    # optional lock status param
+    lock_status: DocumentEditStatus | None = DocumentEditStatus.unlocked,
 ):
-    lock_status = check_map_lock(document_id, user_id, session)
+    check_lock_status = (
+        check_map_lock(document_id, user_id, session)
+        if not lock_status == DocumentEditStatus.locked
+        else lock_status
+    )
     stmt = (
         select(
             Document.document_id,
@@ -549,7 +555,7 @@ async def get_document(
                 "shared" if shared else "created",
             ).label("genesis"),
             coalesce(
-                lock_status,  # locked or unlocked
+                check_lock_status,  # locked or unlocked
             ).label("status"),
             coalesce(
                 access_type,
@@ -1225,11 +1231,8 @@ async def load_plan_from_share(
     if result.password_hash:
         # password is required
         if data.password is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Password required",
-            )
-        if not verify_password(data.password, result.password_hash):
+            set_is_locked = True
+        if data.password and not verify_password(data.password, result.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid password",
@@ -1242,7 +1245,54 @@ async def load_plan_from_share(
         session,
         shared=True,
         access_type=data.access,
+        lock_status=(
+            DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
+        ),
     )
+
+
+@app.post("/api/document/{document_id}/checkout", status_code=status.HTTP_200_OK)
+async def checkout_plan(
+    document_id: str,
+    params: dict = Body(...),
+    session: Session = Depends(get_session),
+):
+    """
+    check user-provided password against database. if matches, check if map is checked out
+    - if pw matches and not checked out, check map out to user
+    - if pw matches and checked out, return warning that map is still locked but switch access to edit
+    """
+
+    token_id = params["token"]
+    result = session.execute(
+        text(
+            """
+            SELECT document_id, password_hash, expiration_date
+            FROM document.map_document_token
+            WHERE token_id = :token
+            """
+        ),
+        {"token": token_id},
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Token not found",
+        )
+    if params["password"] and not verify_password(
+        params["password"], result.password_hash
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid password",
+        )
+
+    if verify_password(params["password"], result.password_hash):
+        # check lock status
+        lock_status = check_map_lock(document_id, params["user_id"], session)
+
+        return {"status": lock_status, "access": DocumentShareStatus.edit}
 
 
 @app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)

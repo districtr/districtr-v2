@@ -16,8 +16,8 @@ import {
 } from '@radix-ui/themes';
 import {DocumentMetadata} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
-import {metadata, document} from '@/app/utils/api/mutations';
-
+import {metadata, document, checkoutDocument} from '@/app/utils/api/mutations';
+import {jwtDecode} from 'jwt-decode';
 const DialogContentContainer = styled(Dialog.Content);
 
 const BoxContainer = styled(Box, {
@@ -32,8 +32,6 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
   const gerryDBTable = mapDocument?.gerrydb_table;
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
-
-  const initialMetadataRef = React.useRef<DocumentMetadata | null>(null);
 
   const currentMapMetadata = React.useMemo(
     () => userMaps.find(map => map.document_id === mapDocument?.document_id)?.map_metadata,
@@ -60,8 +58,66 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
   const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
   const [descriptionIsSaved, setDescriptionIsSaved] = React.useState(false);
   const [shareStateIsSaved, setShareStateIsSaved] = React.useState(false);
+  const [password, setPassword] = React.useState<string | null>(null);
+  const shareToken = new URLSearchParams(window.location.search).get('share');
+  const decodedToken = shareToken && jwtDecode(shareToken);
 
   const [latestMetadata, setLatestMetadata] = React.useState<DocumentMetadata | null>(null);
+
+  useEffect(() => {
+    console.log(mapDocument);
+  }, [mapDocument]);
+
+  const handleCreateBlankMetadataObject = (): DocumentMetadata => {
+    return {
+      name: null,
+      group: null,
+      tags: null,
+      description: null,
+      is_draft: true,
+      eventId: null,
+    };
+  };
+
+  const handlePasswordSubmit = () => {
+    console.log('submitting password');
+    if (mapDocument?.document_id && useMapStore.getState().receivedShareToken) {
+      checkoutDocument
+        .mutate({
+          document_id: mapDocument?.document_id ?? '',
+          token: useMapStore.getState().receivedShareToken ?? '',
+          password: password ?? '',
+        })
+        .then(data => {
+          console.log(data);
+          upsertUserMap({
+            documentId: data.document_id,
+            mapDocument: {...mapDocument, access: data.access, status: data.status},
+          });
+          setMapDocument({
+            ...mapDocument,
+            access: data.access,
+            status: data.status,
+          });
+          const documentUrl = new URL(window.location.toString());
+          documentUrl.searchParams.delete('share'); // remove share + token from url
+          documentUrl.searchParams.set('document_id', mapDocument?.document_id);
+          history.pushState({}, '', documentUrl.toString());
+        });
+    }
+  };
+
+  useEffect(() => {
+    console.log(mapDocument);
+  }, [mapDocument]);
+
+  const handlePasswordEntry = (pw: string) => {
+    if (pw) {
+      setPassword(pw);
+    } else {
+      setPassword(null);
+    }
+  };
 
   useEffect(() => {
     const metadata = userMaps.find(
@@ -136,42 +192,41 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
 
   const handleMapSave = () => {
     if (mapDocument?.document_id) {
-      if (!latestMetadata) {
-        return;
-      }
       if (mapDocument?.status === 'locked') {
+        // atp doesn't matter that it's locked, even with pw; should be able to copy map
+        // what we need is a pw entry field to open if there's a pw required in the url
         document
           .mutate({
             gerrydb_table: mapDocument?.gerrydb_table,
-            metadata: latestMetadata,
+            metadata: latestMetadata ?? handleCreateBlankMetadataObject(),
             user_id: useMapStore.getState().userID,
             copy_from_doc: mapDocument?.document_id,
           })
           .then(data => {
-            metadata.mutate({
-              document_id: data.document_id,
-              metadata: latestMetadata,
-            });
-            upsertUserMap({
-              documentId: data.document_id,
-              mapDocument: {
-                ...data,
-                map_metadata: latestMetadata,
-              },
-            });
-            data.map_metadata = latestMetadata;
-            setMapDocument(data);
+            const updatedMetadata = latestMetadata ?? handleCreateBlankMetadataObject();
+            metadata.mutate({document_id: data.document_id, metadata: updatedMetadata});
+
+            const updatedMapDoc = {...data, map_metadata: updatedMetadata};
+
+            upsertUserMap({documentId: data.document_id, mapDocument: updatedMapDoc});
+
+            setMapDocument(updatedMapDoc);
+            const documentUrl = new URL(window.location.toString());
+            documentUrl.searchParams.delete('share'); // remove share + token from url
+            documentUrl.searchParams.set('document_id', data.document_id);
+            history.pushState({}, '', documentUrl.toString());
           });
       } else {
+        console.log('in the not locked category now');
         metadata.mutate({
           document_id: mapDocument?.document_id,
-          metadata: latestMetadata,
+          metadata: latestMetadata ?? handleCreateBlankMetadataObject(),
         });
         upsertUserMap({
           documentId: mapDocument?.document_id,
           mapDocument: {
             ...mapDocument,
-            map_metadata: latestMetadata,
+            map_metadata: latestMetadata ?? handleCreateBlankMetadataObject(),
           },
         });
       }
@@ -251,6 +306,25 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
           </Box>
         </Flex>
         {/* save map */}
+        {/* enter password to unlock if map is locked and the access type is edit*/}
+        <Flex>
+          {useMapStore.getState().mapDocument?.status === 'locked' &&
+          useMapStore.getState().mapDocument?.access === 'edit' ? (
+            <>
+              <TextField.Root
+                placeholder="Password"
+                size="3"
+                type="password"
+                value={password ?? undefined}
+                onChange={e => handlePasswordEntry(e.target.value)}
+              ></TextField.Root>
+              <Button onClick={handlePasswordSubmit}>Submit</Button>
+            </>
+          ) : useMapStore.getState().mapDocument?.status === 'locked' ? (
+            <Text>Map is locked for editing right now by another user. Try again later! </Text>
+          ) : null}
+        </Flex>
+
         <Button
           variant="solid"
           className="flex items-center "
