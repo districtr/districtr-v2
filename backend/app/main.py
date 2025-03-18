@@ -640,11 +640,13 @@ async def get_connected_component_bboxes(
                 document_id = :document_id
                 AND zone = :zone""")
 
-        nodes = session.execute(
-            sql, {"document_id": document_id, "zone": zone}
-        ).scalars()
+        nodes = (
+            session.execute(sql, {"document_id": document_id, "zone": zone})
+            .scalars()
+            .all()
+        )
 
-        if not nodes:
+        if not nodes or len(nodes) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
         zone_assignments = contiguity.ZoneBlockNodes(zone=zone, nodes=list(nodes))
 
