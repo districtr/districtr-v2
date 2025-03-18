@@ -413,3 +413,20 @@ def ks_ellis_shatterable_districtr_map(
     )
     session.commit()
     return inserted_districtr_map
+
+
+@pytest.fixture
+def ks_ellis_parent_layer_only_districtr_map(
+    session: Session, ks_ellis_county_block_gerrydb
+):
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="ks_ellis parent geos only layer",
+        districtr_map_slug="ks_ellis_county_block",
+        gerrydb_table_name="ks_ellis_county_block",
+        num_districts=2,
+        tiles_s3_path="tilesets/ks_ellis_shatterable_layer.pmtiles",
+        parent_layer="ks_ellis_county_block",
+    )
+    session.commit()
+    return inserted_districtr_map

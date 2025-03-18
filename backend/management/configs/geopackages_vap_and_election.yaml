@@ -59,9 +59,6 @@ gerrydb_views:
   - gpkg: wa_vtd_districtr_view.gpkg
     table_name: wa_vtd_districtr_view
     layer: wa_vtd_districtr_view
-  - gpkg: wv_block_districtr_view.gpkg
-    table_name: wv_block_districtr_view
-    layer: wv_block_districtr_view
 shatterable_views:
   - gerrydb_table_name: ak_districtr_view
     districtr_map_slug: ak_districtr_view
@@ -181,10 +178,3 @@ districtr_maps:
     parent_layer: wa_vtd_districtr_view
     child_layer: wa_block_districtr_view
     tiles_s3_path: tilesets/wa_districtr_view.pmtiles
-  # - name: West Virginia Congressional (2)
-  #   num_districts: 2
-  #   gerrydb_table_name: wv_districtr_view
-  #   districtr_map_slug: wv_districtr_view
-  #   parent_layer: wv_vtd_districtr_view
-  #   child_layer: wv_block_districtr_view
-  #   tiles_s3_path: tilesets/wv_districtr_view.pmtiles

@@ -583,12 +583,12 @@ async def check_document_contiguity(
                 zone,
                 array_agg(geo_id) as nodes
             FROM
-                assignments
+                document.assignments
             WHERE
                 document_id = :document_id
+                AND zone IS NOT NULL
             GROUP BY
-                zone
-                AND zone IS NOT NULL""")
+                zone""")
         result = session.execute(sql, {"document_id": document_id}).fetchall()
         zone_assignments = [
             contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
@@ -633,21 +633,22 @@ async def get_connected_component_bboxes(
         )
         sql = text("""
             SELECT
-                zone,
-                array_agg(geo_id) as nodes
+                geo_id
             FROM
-                assignments
+                document.assignments
             WHERE
                 document_id = :document_id
-            GROUP BY
-                zone
                 AND zone = :zone""")
-        row = session.execute(
-            sql, {"document_id": document_id, "zone": zone}
-        ).scalar_one_or_none()
-        if row is None:
+
+        nodes = (
+            session.execute(sql, {"document_id": document_id, "zone": zone})
+            .scalars()
+            .all()
+        )
+
+        if not nodes or len(nodes) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
-        zone_assignments = contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes)
+        zone_assignments = contiguity.ZoneBlockNodes(zone=zone, nodes=list(nodes))
 
     G = await _get_graph(gerrydb_name)
     subgraph = G.subgraph(nodes=zone_assignments.nodes)

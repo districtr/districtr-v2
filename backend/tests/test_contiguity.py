@@ -395,3 +395,90 @@ def test_fix_ks_ellis_geos_contiguity(
     )
     assert response.status_code == 200
     assert response.json() == {"1": 1, "2": 1, "3": 1}
+
+
+@fixture(name="ks_ellis_parent_only_document_id")
+def ks_ellis_parent_only_document_id(
+    client,
+    session: Session,
+    ks_ellis_parent_layer_only_districtr_map,
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "ks_ellis_county_block",
+        },
+    )
+    assert response.status_code == 201, response.json()
+    doc = response.json()
+
+    return doc["document_id"]
+
+
+@fixture
+def ks_ellis_parent_only_assignments(
+    client: TestClient, ks_ellis_parent_only_document_id: str
+) -> str:
+    document_id = ks_ellis_parent_only_document_id
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "200510730003052", "zone": 1},
+                {"document_id": document_id, "geo_id": "200510726002341", "zone": 1},
+                {"document_id": document_id, "geo_id": "200510730003101", "zone": 1},
+                {"document_id": document_id, "geo_id": "200510727011018", "zone": 1},
+                {"document_id": document_id, "geo_id": "200510728021088", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510730002103", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510730003026", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510726002312", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510726001064", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510730001263", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510726002362", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510730001013", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510730001224", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510726002422", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510728014082", "zone": 2},
+                {"document_id": document_id, "geo_id": "200510730001184", "zone": 2},
+            ],
+            "updated_at": "2023-10-01T00:00:00Z",
+        },
+    )
+    assert response.status_code == 200, response.json()
+
+    return document_id
+
+
+def test_ks_ellis_parent_only_geos_contiguity(
+    client: TestClient, ks_ellis_parent_only_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = ks_ellis_parent_only_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity",
+    )
+    assert response.status_code == 200, response.json()
+    assert response.json() == {"1": 4, "2": 12}
+
+
+def test_ks_ellis_parent_only_geos_zone_connected_components(
+    client: TestClient, ks_ellis_parent_only_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = ks_ellis_parent_only_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity/1/connected_component_bboxes",
+    )
+    assert response.status_code == 200, response.json()
+    data = response.json()
+    assert len(data["features"]) == 4
+
+
+def test_ks_ellis_parent_only_geos_zone_connected_components_missing_zone(
+    client: TestClient, ks_ellis_parent_only_assignments: str, mock_gerrydb_graph_file
+):
+    document_id = ks_ellis_parent_only_assignments
+    response = client.get(
+        f"/api/document/{document_id}/contiguity/3/connected_component_bboxes",
+    )
+    assert response.status_code == 404, response.json()
+    data = response.json()
+    assert data["detail"] == "Zone not found"
