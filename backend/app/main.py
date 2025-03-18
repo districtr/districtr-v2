@@ -706,6 +706,12 @@ async def get_map_demography(
     stats: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
+    if not districtr_map.visible:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="This map is no longer supported",
+        )
+    
     columns = []
     if districtr_map.available_summary_stats is None:
         raise HTTPException(
