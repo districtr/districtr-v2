@@ -1146,9 +1146,10 @@ async def thumbnail(
         else:
             return color_scheme[int(row['zone']) % len(color_scheme)]
 
-    sql = f"""SELECT geometry AS geom, geos.path, zone
+    sql = f"""SELECT ST_Union(geometry) AS geom, zone
     FROM gerrydb.{gerrydb_table} geos
     LEFT JOIN "document.assignments_{document_id}" assigned ON geos.path = assigned.geo_id
+    GROUP BY zone
     """
     conn = conn = session.connection().connection
     df = geopandas.read_postgis(sql, conn).to_crs(epsg=3857)
