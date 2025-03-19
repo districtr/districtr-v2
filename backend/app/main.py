@@ -540,7 +540,7 @@ async def get_document(
                 "shared" if shared else "created",
             ).label("genesis"),
             coalesce(
-                check_lock_status,  # locked or unlocked
+                check_lock_status,  # locked, unlocked, checked_out
             ).label("status"),
             coalesce(
                 access_type,
@@ -1033,18 +1033,11 @@ async def update_districtrmap_metadata(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Missing document_id"
             )
         try:
-            # metadata_obj = DistrictrMapMetadata.from_dict(
-            #     {"document_id": document_id, "map_metadata": metadata}
-            # )
-            metadata_obj = DistrictrMapMetadata(
-                document_id=document_id, map_metadata=metadata
-            )
-
             # update document record with metadata
             stmt = (
                 update(Document)
                 .where(Document.document_id == document_id)
-                .values(map_metadata=metadata_obj.map_metadata.dict())
+                .values(map_metadata=metadata)
             )
             session.execute(stmt)
             session.commit()
@@ -1054,19 +1047,6 @@ async def update_districtrmap_metadata(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Invalid metadata format: {ve.errors()}",
             )
-
-        # Create or update metadata on document recordrecord
-        # stmt = insert(DocumentMetadata).values(
-        #     document_id=document_id, map_metadata=metadata_obj.map_metadata.dict()
-        # )
-
-        # stmt = stmt.on_conflict_do_update(
-        #     index_elements=["document_id"],
-        #     set_={"map_metadata": stmt.excluded.map_metadata},
-        # )
-
-        # session.execute(stmt)
-        # session.commit()
 
     except IntegrityError as ie:
         session.rollback()

@@ -65,6 +65,13 @@ def upgrade() -> None:
         schema="document",
     )
 
+    # add metadata json column to the document table
+    op.add_column(
+        "document",
+        sa.Column("map_metadata", sa.JSON(), nullable=True),
+        schema="document",
+    )
+
     # ### end Alembic commands ###
 
 
