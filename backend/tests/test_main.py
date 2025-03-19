@@ -298,7 +298,7 @@ def test_get_document(client, document_id):
     assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
     assert data.get("updated_at")
     assert data.get("created_at")
-    assert data.get("status") in ["locked", "unlocked"]
+    assert data.get("status") in ["locked", "unlocked", "checked_out"]
 
     # assert data.get("tiles_s3_path") is None
 
