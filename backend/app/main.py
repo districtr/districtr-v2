@@ -161,7 +161,6 @@ def check_map_lock(document_id, user_id, session):
     # return checked out, and add a record to the map_document_user_session table
 
     if not result:
-
         session.execute(
             text(
                 f"""INSERT INTO document.map_document_user_session (document_id, user_id)
@@ -181,7 +180,10 @@ def check_map_lock(document_id, user_id, session):
             if result and result.user_id == user_id
             else DocumentEditStatus.locked
         )
-
+    print("---")
+    print(status)
+    print(document_id, user_id)
+    print("---")
     return status
 
 
@@ -227,7 +229,9 @@ async def create_document(
     plan_genesis = "created"
     document_id = results.one()[0]  # should be only one row, one column of results
 
-    lock_status = DocumentEditStatus.unlocked
+    lock_status = check_map_lock(
+        document_id, data.user_id, session
+    )  # this will properly create a lock record
 
     copy_from_doc = getattr(data, "copy_from_doc", None)
 

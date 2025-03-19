@@ -104,8 +104,9 @@ export const document = new MutationObserver(queryClient, {
     console.error('Error creating map document: ', error);
   },
   onSuccess: data => {
-    const {setLoadedMapId, setAssignmentsHash, setAppLoadingState} = useMapStore.getState();
-    // setMapDocument(data);
+    const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} =
+      useMapStore.getState();
+    setMapDocument(data);
     setLoadedMapId(data.document_id);
     setAssignmentsHash(Date.now().toString());
     setAppLoadingState('loaded');
