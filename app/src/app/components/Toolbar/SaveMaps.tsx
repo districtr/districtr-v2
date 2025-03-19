@@ -83,7 +83,6 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
   };
 
   const handlePasswordSubmit = () => {
-    console.log('submitting password');
     if (mapDocument?.document_id && useMapStore.getState().receivedShareToken) {
       checkoutDocument.mutate({
         document_id: mapDocument?.document_id ?? '',
@@ -308,7 +307,8 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
             ) : null}
           </Flex>
           <Flex gap="2" px="2">
-            {mapDocument.status === 'locked' && mapDocument.access === 'read' ? (
+            {mapDocument.status === 'locked' &&
+            new URL(window.location.toString()).searchParams.get('share') ? (
               <Text>{frozenConditions.lockedWithPW}</Text>
             ) : mapDocument.status === 'locked' && mapDocument.access === 'edit' ? (
               <Text>{frozenConditions.checkedOut}</Text>
