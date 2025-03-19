@@ -411,7 +411,10 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       upsertUserMap,
       allPainted,
     } = get();
-    if (currentMapDocument?.document_id === mapDocument.document_id) {
+    if (
+      currentMapDocument?.document_id === mapDocument.document_id &&
+      currentMapDocument?.status === mapDocument.status
+    ) {
       return;
     }
     const initialMapOptions = useMapStore.getInitialState().mapOptions;

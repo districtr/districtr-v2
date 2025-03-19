@@ -110,7 +110,6 @@ export const document = new MutationObserver(queryClient, {
     setLoadedMapId(data.document_id);
     setAssignmentsHash(Date.now().toString());
     setAppLoadingState('loaded');
-    console.log(data);
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.set('document_id', data.document_id);
     history.pushState({}, '', documentUrl.toString());
@@ -204,14 +203,7 @@ export const sharedDocument = new MutationObserver(queryClient, {
     setAppLoadingState('loaded');
     setPasswordPrompt(false);
 
-    // check if map is already loaded by another user; if so, make the warning/error appear
-    if (data.status === 'locked') {
-      // useMapStore.getState().setErrorNotification({
-      //   severity: 2,
-      //   id: 'map-document-locked',
-      //   message: `The requested map "${data?.map_metadata?.name ?? data.gerrydb_table}" is locked by another user. Please create a copy or create a new map.`,
-      // });
-    } else {
+    if (data.status !== 'locked') {
       const documentUrl = new URL(window.location.toString());
       documentUrl.searchParams.delete('share'); // remove share + token from url
 
@@ -224,8 +216,21 @@ export const sharedDocument = new MutationObserver(queryClient, {
 export const checkoutDocument = new MutationObserver(queryClient, {
   mutationFn: checkoutMapDocument,
   onSuccess: data => {
-    console.log('updated the status');
-    return data;
+    const {mapDocument, setMapDocument, upsertUserMap} = useMapStore.getState();
+    if (!mapDocument) return;
+    upsertUserMap({
+      documentId: mapDocument.document_id,
+      mapDocument: {...mapDocument, access: data.access, status: data.status},
+    });
+    setMapDocument({
+      ...mapDocument,
+      access: data.access,
+      status: data.status,
+    });
+    const documentUrl = new URL(window.location.toString());
+    documentUrl.searchParams.delete('share'); // remove share + token from url
+    documentUrl.searchParams.set('document_id', mapDocument?.document_id);
+    history.pushState({}, '', documentUrl.toString());
   },
   onError: error => {
     const errorData = (error as AxiosError)?.response?.data as AxiosErrorData;

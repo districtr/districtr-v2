@@ -89,28 +89,11 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
   const handlePasswordSubmit = () => {
     console.log('submitting password');
     if (mapDocument?.document_id && useMapStore.getState().receivedShareToken) {
-      checkoutDocument
-        .mutate({
-          document_id: mapDocument?.document_id ?? '',
-          token: useMapStore.getState().receivedShareToken ?? '',
-          password: password ?? '',
-        })
-        .then(data => {
-          console.log(data);
-          upsertUserMap({
-            documentId: data.document_id,
-            mapDocument: {...mapDocument, access: data.access, status: data.status},
-          });
-          setMapDocument({
-            ...mapDocument,
-            access: data.access,
-            status: data.status,
-          });
-          const documentUrl = new URL(window.location.toString());
-          documentUrl.searchParams.delete('share'); // remove share + token from url
-          documentUrl.searchParams.set('document_id', mapDocument?.document_id);
-          history.pushState({}, '', documentUrl.toString());
-        });
+      checkoutDocument.mutate({
+        document_id: mapDocument?.document_id ?? '',
+        token: useMapStore.getState().receivedShareToken ?? '',
+        password: password ?? '',
+      });
     }
   };
 
