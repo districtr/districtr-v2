@@ -45,7 +45,8 @@ from app.models import (
     DistrictrMap,
     Document,
     DocumentCreate,
-    DocumentMetadata,
+    DistrictrMapMetadata,
+    # DocumentMetadata,
     DocumentPublic,
     DocumentEditStatus,
     GEOIDS,
@@ -534,7 +535,7 @@ async def get_document(
                 "available_summary_stats"
             ),  # pyright: ignore
             # get metadata as a json object
-            DocumentMetadata.map_metadata.label("map_metadata"),  # pyright: ignore
+            Document.map_metadata.label("map_metadata"),  # pyright: ignore
             coalesce(
                 "shared" if shared else "created",
             ).label("genesis"),
@@ -554,11 +555,11 @@ async def get_document(
             Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
             isouter=True,
         )
-        .join(
-            DocumentMetadata,
-            Document.document_id == DocumentMetadata.document_id,
-            isouter=True,
-        )
+        # .join(
+        #     DocumentMetadata,
+        #     Document.document_id == DocumentMetadata.document_id,
+        #     isouter=True,
+        # )
     )
     result = session.exec(stmt)
 
@@ -1032,27 +1033,40 @@ async def update_districtrmap_metadata(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Missing document_id"
             )
         try:
-            metadata_obj = DocumentMetadata.from_dict(
-                {"document_id": document_id, "map_metadata": metadata}
+            # metadata_obj = DistrictrMapMetadata.from_dict(
+            #     {"document_id": document_id, "map_metadata": metadata}
+            # )
+            metadata_obj = DistrictrMapMetadata(
+                document_id=document_id, map_metadata=metadata
             )
+
+            # update document record with metadata
+            stmt = (
+                update(Document)
+                .where(Document.document_id == document_id)
+                .values(map_metadata=metadata_obj.map_metadata.dict())
+            )
+            session.execute(stmt)
+            session.commit()
+
         except ValidationError as ve:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Invalid metadata format: {ve.errors()}",
             )
 
-        # Create or update metadata record
-        stmt = insert(DocumentMetadata).values(
-            document_id=document_id, map_metadata=metadata_obj.map_metadata.dict()
-        )
+        # Create or update metadata on document recordrecord
+        # stmt = insert(DocumentMetadata).values(
+        #     document_id=document_id, map_metadata=metadata_obj.map_metadata.dict()
+        # )
 
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["document_id"],
-            set_={"map_metadata": stmt.excluded.map_metadata},
-        )
+        # stmt = stmt.on_conflict_do_update(
+        #     index_elements=["document_id"],
+        #     set_={"map_metadata": stmt.excluded.map_metadata},
+        # )
 
-        session.execute(stmt)
-        session.commit()
+        # session.execute(stmt)
+        # session.commit()
 
     except IntegrityError as ie:
         session.rollback()

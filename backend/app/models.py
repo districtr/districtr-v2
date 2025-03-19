@@ -150,6 +150,15 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
+class DistrictrMapMetadata(BaseModel):
+    name: Optional[str] | None = None
+    group: Optional[str] | None = None
+    tags: Optional[list[str]] | None = None
+    description: Optional[str] | None = None
+    event_id: Optional[str] | None = None
+    is_draft: bool = True
+
+
 class Document(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str | None = Field(
@@ -159,15 +168,9 @@ class Document(TimeStampMixin, SQLModel, table=True):
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
     )
-
-
-class DistrictrMapMetadata(BaseModel):
-    name: Optional[str] | None = None
-    group: Optional[str] | None = None
-    tags: Optional[list[str]] | None = None
-    description: Optional[str] | None = None
-    event_id: Optional[str] | None = None
-    is_draft: bool = True
+    map_metadata: DistrictrMapMetadata | None = Field(
+        sa_column=Column(JSON, nullable=True)
+    )
 
 
 class DocumentCreate(BaseModel):
@@ -183,20 +186,20 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     """
 
     __tablename__ = "map_document_user_session"
-    __table_args__ = (
-        UniqueConstraint("document_id", name="unique_document"),
-        {"schema": DOCUMENT_SCHEMA},
-    )
+    # __table_args__ = (
+    #     UniqueConstraint("document_id", name="unique_document"),
+    #     {"schema": DOCUMENT_SCHEMA},
+    # )
     session_id: int = Field(
         sa_column=Column(Integer, primary_key=True, autoincrement=True)
     )
     user_id: str = Field(sa_column=Column(String, nullable=False))
-    document_id: str = Field(
-        sa_column=Column(
-            UUIDType,
-            ForeignKey("document.document_id"),
-        )
-    )
+    # document_id: str = Field(
+    #     sa_column=Column(
+    #         UUIDType,
+    #         ForeignKey("document.document_id"),
+    #     )
+    # )
 
 
 class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
@@ -207,20 +210,20 @@ class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
     """
 
     __tablename__ = "map_document_token"
-    __table_args__ = (
-        UniqueConstraint("document_id", name="unique_document"),
-        {"schema": DOCUMENT_SCHEMA},
-    )
+    # __table_args__ = (
+    #     UniqueConstraint("document.document_id", name="unique_document"),
+    #     {"schema": DOCUMENT_SCHEMA},
+    # )
     token_id: str = Field(
         UUIDType,
         primary_key=True,
     )
-    document_id: str = Field(
-        sa_column=Column(
-            UUIDType,
-            ForeignKey("document.document_id"),
-        )
-    )
+    # document_id: str = Field(
+    #     sa_column=Column(
+    #         UUIDType,
+    #         ForeignKey("document.document_id"),
+    #     )
+    # )
     password_hash: str = Field(
         sa_column=Column(String, nullable=True)  # optional password
     )
@@ -229,41 +232,41 @@ class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
     )  # expiration date
 
 
-class DocumentMetadata(TimeStampMixin, SQLModel, table=True):
-    __tablename__ = "map_document_metadata"
-    __table_args__ = (
-        UniqueConstraint("document_id", name="document_id_unique"),
-        {"schema": DOCUMENT_SCHEMA},
-    )
+# class DocumentMetadata(TimeStampMixin, SQLModel, table=True):
+#     __tablename__ = "map_document_metadata"
+#     __table_args__ = (
+#         UniqueConstraint("document_id", name="document_id_unique"),
+#         {"schema": DOCUMENT_SCHEMA},
+#     )
 
-    metadata_id: int = Field(
-        sa_column=Column(Integer, primary_key=True, autoincrement=True)
-    )
+#     metadata_id: int = Field(
+#         sa_column=Column(Integer, primary_key=True, autoincrement=True)
+#     )
 
-    document_id: str = Field(
-        sa_column=Column(
-            UUIDType,
-            ForeignKey("document.document_id"),
-        )
-    )
-    map_metadata: DistrictrMapMetadata = Field(
-        sa_column=Column(
-            JSON,
-            nullable=False,
-        )
-    )
+#     document_id: str = Field(
+#         sa_column=Column(
+#             UUIDType,
+#             ForeignKey("document.document_id"),
+#         )
+#     )
+#     map_metadata: DistrictrMapMetadata = Field(
+#         sa_column=Column(
+#             JSON,
+#             nullable=False,
+#         )
+#     )
 
-    @classmethod
-    def from_dict(cls, data: dict):
-        return cls(
-            document_id=data.get("document_id"),
-            map_metadata=DistrictrMapMetadata(**data.get("map_metadata", {})),
-        )
+#     @classmethod
+#     def from_dict(cls, data: dict):
+#         return cls(
+#             document_id=data.get("document_id"),
+#             map_metadata=DistrictrMapMetadata(**data.get("map_metadata", {})),
+#         )
 
-    def to_dict(self):
-        data = self.dict()
-        data["map_metadata"] = self.map_metadata.dict()
-        return data
+#     def to_dict(self):
+#         data = self.dict()
+#         data["map_metadata"] = self.map_metadata.dict()
+#         return data
 
 
 class DocumentEditStatus(str, Enum):
