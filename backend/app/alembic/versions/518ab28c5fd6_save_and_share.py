@@ -37,6 +37,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("token_id", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("document_id", app.models.UUIDType(), nullable=True),
         sa.Column("password_hash", sa.String(), nullable=True),
         sa.Column("expiration_date", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("token_id"),
