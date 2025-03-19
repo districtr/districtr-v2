@@ -69,6 +69,8 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
       'Checked Out:  Another user is actively editing this map.  You can choose to make a duplicate copy to edit, under a new PlanID, or you can wait and return to this later.',
     lockedWithPW:
       'Locked with Password:  Enter the password to continue editing this plan under its current ID, or you can choose to make a duplicate copy to edit under a new PlanID.',
+    viewOnly:
+      'View Only:  You can view this map, but you cannot edit it. Make a copy to duplicate the plan under a new PlanID.',
   };
 
   const handleCreateBlankMetadataObject = (): DocumentMetadata => {
@@ -308,10 +310,13 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
           </Flex>
           <Flex gap="2" px="2">
             {mapDocument.status === 'locked' &&
+            mapDocument.access === 'edit' &&
             new URL(window.location.toString()).searchParams.get('share') ? (
               <Text>{frozenConditions.lockedWithPW}</Text>
             ) : mapDocument.status === 'locked' && mapDocument.access === 'edit' ? (
               <Text>{frozenConditions.checkedOut}</Text>
+            ) : mapDocument.access === 'read' ? (
+              <Text>{frozenConditions.viewOnly}</Text>
             ) : null}
           </Flex>
         </Flex>
