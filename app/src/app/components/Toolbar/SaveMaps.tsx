@@ -71,10 +71,6 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
       'Locked with Password:  Enter the password to continue editing this plan under its current ID, or you can choose to make a duplicate copy to edit under a new PlanID.',
   };
 
-  useEffect(() => {
-    console.log(mapDocument);
-  }, [mapDocument]);
-
   const handleCreateBlankMetadataObject = (): DocumentMetadata => {
     return {
       name: null,
@@ -96,10 +92,6 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
       });
     }
   };
-
-  useEffect(() => {
-    console.log(mapDocument);
-  }, [mapDocument]);
 
   const handlePasswordEntry = (pw: string) => {
     if (pw) {

@@ -137,54 +137,33 @@ async def db_is_alive(session: Session = Depends(get_session)):
 
 
 def check_map_lock(document_id, user_id, session):
+    # Try to fetch an existing lock for this document
     result = session.execute(
         text(
-            """WITH ins AS (
-                INSERT INTO document.map_document_user_session (document_id, user_id)
-                SELECT :document_id, :user_id
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM document.map_document_user_session WHERE document_id = :document_id
-                )
-                RETURNING user_id
-            )
-            SELECT user_id FROM ins
-            UNION ALL
-            SELECT user_id FROM document.map_document_user_session
-            WHERE document_id = :document_id
-            LIMIT 1;
-            """
+            """SELECT user_id FROM document.map_document_user_session
+               WHERE document_id = :document_id
+               LIMIT 1;"""
         ),
-        {"document_id": document_id, "user_id": user_id},
+        {"document_id": document_id},
     ).fetchone()
 
-    # if there is no result, the map can be checked out.
-    # return checked out, and add a record to the map_document_user_session table
+    if result:
+        # If a record exists, check if the current user is the one who locked it
+        if result.user_id == user_id:
+            return DocumentEditStatus.checked_out
+        else:
+            return DocumentEditStatus.locked
 
-    if not result:
-        session.execute(
-            text(
-                f"""INSERT INTO document.map_document_user_session (document_id, user_id)
-                VALUES ('{document_id}', '{user_id}')"""
-            ),
-            {
-                "document_id": document_id,
-                "user_id": user_id,
-            },
-        )
-        session.commit()
-        status = DocumentEditStatus.checked_out
-    else:
-        # if user id matches, return the document checked out, otherwise return locked
-        status = (
-            DocumentEditStatus.unlocked
-            if result and result.user_id == user_id
-            else DocumentEditStatus.locked
-        )
-    print("---")
-    print(status)
-    print(document_id, user_id)
-    print("---")
-    return status
+    # If no record exists, insert a new one and return checked_out
+    session.execute(
+        text(
+            """INSERT INTO document.map_document_user_session (document_id, user_id)
+               VALUES (:document_id, :user_id);"""
+        ),
+        {"document_id": document_id, "user_id": user_id},
+    )
+    session.commit()
+    return DocumentEditStatus.checked_out
 
 
 @app.post("/api/document/{document_id}/unload", status_code=status.HTTP_200_OK)
@@ -531,13 +510,14 @@ async def get_document(
     shared: bool = False,
     access_type: DocumentShareStatus = DocumentShareStatus.edit,
     # optional lock status param
-    lock_status: DocumentEditStatus | None = DocumentEditStatus.unlocked,
+    lock_status: DocumentEditStatus | None = None,
 ):
     check_lock_status = (
         check_map_lock(document_id, user_id, session)
         if not lock_status == DocumentEditStatus.locked
         else lock_status
     )
+
     stmt = (
         select(
             Document.document_id,
@@ -645,6 +625,7 @@ async def get_document_status(
     if result:
         # if user id matches, return the document checked out, otherwise return locked
         if result.user_id == data.user_id:
+            # there's already a record so no need to create
             return {"status": DocumentEditStatus.checked_out}
 
         # the map is already checked out; should return as locked
