@@ -64,6 +64,13 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
 
   const [latestMetadata, setLatestMetadata] = React.useState<DocumentMetadata | null>(null);
 
+  const frozenConditions = {
+    checkedOut:
+      'Checked Out:  Another user is actively editing this map.  You can choose to make a duplicate copy to edit, under a new PlanID, or you can wait and return to this later.',
+    lockedWithPW:
+      'Locked with Password:  Enter the password to continue editing this plan under its current ID, or you can choose to make a duplicate copy to edit under a new PlanID.',
+  };
+
   useEffect(() => {
     console.log(mapDocument);
   }, [mapDocument]);
@@ -308,21 +315,30 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
         {/* save map */}
         {/* enter password to unlock if map is locked and the access type is edit*/}
         <Flex>
-          {useMapStore.getState().mapDocument?.status === 'locked' &&
-          useMapStore.getState().mapDocument?.access === 'edit' ? (
-            <>
-              <TextField.Root
-                placeholder="Password"
-                size="3"
-                type="password"
-                value={password ?? undefined}
-                onChange={e => handlePasswordEntry(e.target.value)}
-              ></TextField.Root>
-              <Button onClick={handlePasswordSubmit}>Submit</Button>
-            </>
-          ) : useMapStore.getState().mapDocument?.status === 'locked' ? (
-            <Text>Map is locked for editing right now by another user. Try again later! </Text>
-          ) : null}
+          <Flex gap="2">
+            {useMapStore.getState().mapDocument?.status === 'locked' &&
+            useMapStore.getState().mapDocument?.access === 'edit' ? (
+              <>
+                <TextField.Root
+                  placeholder="Password"
+                  size="3"
+                  type="password"
+                  value={password ?? undefined}
+                  onChange={e => handlePasswordEntry(e.target.value)}
+                ></TextField.Root>
+                <Flex gap="2" py="1">
+                  <Button onClick={handlePasswordSubmit}>Submit</Button>
+                </Flex>
+              </>
+            ) : null}
+          </Flex>
+          <Flex gap="2" px="2">
+            {mapDocument.status === 'locked' && mapDocument.access === 'read' ? (
+              <Text>{frozenConditions.lockedWithPW}</Text>
+            ) : mapDocument.status === 'locked' && mapDocument.access === 'edit' ? (
+              <Text>{frozenConditions.checkedOut}</Text>
+            ) : null}
+          </Flex>
         </Flex>
 
         <Button
