@@ -242,7 +242,8 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
 export const handleDataLoad = (e: MapSourceDataEvent) => {
   const {mapDocument, shatterMappings} = useMapStore.getState();
   const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {};
-  if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
+  const isParentOCchild = (e?.source as any)?.url?.includes(parent_layer) || (e?.source as any)?.url?.includes(child_layer);
+  if (!tiles_s3_path || !parent_layer || !isParentOCchild) return;
   const tileData = e?.tile?.latestFeatureIndex;
   if (!tileData) return;
   if (!tileData.vtLayers) {

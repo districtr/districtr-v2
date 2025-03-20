@@ -1,7 +1,6 @@
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
-  BLOCK_SOURCE_ID,
   LABELS_BREAK_LAYER_ID,
 } from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
@@ -33,7 +32,7 @@ export const HighlightOverlayerLayerGroup: React.FC<{
     <>
       <Layer
         id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_demography_hover'}
-        source={BLOCK_SOURCE_ID}
+        source={id}
         source-layer={id}
         filter={child ? layerFilter : ['literal', true]}
         beforeId={LABELS_BREAK_LAYER_ID}
@@ -48,7 +47,7 @@ export const HighlightOverlayerLayerGroup: React.FC<{
       />
       <Layer
         id={(child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID) + '_line'}
-        source={BLOCK_SOURCE_ID}
+        source={id}
         source-layer={id}
         filter={child ? layerFilter : ['literal', true]}
         beforeId={LABELS_BREAK_LAYER_ID}

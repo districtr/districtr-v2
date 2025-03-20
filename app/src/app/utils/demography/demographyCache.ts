@@ -2,7 +2,7 @@
 import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
 import {DocumentObject} from '../api/apiHandlers';
-import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../../constants/layers';
+import {FALLBACK_NUM_DISTRICTS} from '../../constants/layers';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
 import {useChartStore} from '../../store/chartStore';
@@ -206,7 +206,7 @@ class DemographyCache {
       .map((properties: TableRow) => ({
         id: properties.path,
         sourceLayer: properties.sourceLayer,
-        source: BLOCK_SOURCE_ID,
+        source: properties.sourceLayer,
         properties,
       })) as MapGeoJSONFeature[];
     return ids;
@@ -383,7 +383,7 @@ class DemographyCache {
 
       mapRef.setFeatureState(
         {
-          source: BLOCK_SOURCE_ID,
+          source: row.sourceLayer,
           sourceLayer: row.sourceLayer,
           id,
         },
@@ -422,7 +422,7 @@ class DemographyCache {
   }) {
     if (!this.table) return;
     const quantiles = this.calculateQuantiles(variable, numberOfBins);
-    const dataSoureExists = mapRef.getSource(BLOCK_SOURCE_ID);
+    const dataSoureExists = mapDocument?.parent_layer && mapRef.getSource(mapDocument.parent_layer);
     if (!mapRef || !mapDocument || !dataSoureExists || !quantiles) return;
     const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
     const defaultColor =

@@ -24,7 +24,7 @@ import {
 } from '../utils/helpers';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
-import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../constants/layers';
+import {FALLBACK_NUM_DISTRICTS} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
@@ -328,14 +328,6 @@ export var useMapStore = createWithMiddlewares<MapStore>(
           if (!map || !mapDocument?.document_id) {
             return;
           }
-          // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
-          // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
-          // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
-          // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
-          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
-          const featureStateChangesCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
-
-          if (!featureStateCache) return;
           // PAINT
           const popChanges: Record<number, number> = {};
           selectedZone !== null && (popChanges[selectedZone] = 0);
@@ -343,8 +335,12 @@ export var useMapStore = createWithMiddlewares<MapStore>(
           features?.forEach(feature => {
             const id = feature?.id?.toString() ?? undefined;
             if (!id || !feature.sourceLayer) return;
-            const state = featureStateCache[feature.sourceLayer]?.[id];
-            const stateChanges = featureStateChangesCache?.[feature.sourceLayer]?.[id];
+            // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
+            // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
+            // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
+            // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
+            const state = map.style.sourceCaches?.[feature.sourceLayer]?._state?.state?.[feature.sourceLayer]?.[id];
+            const stateChanges = map.style.sourceCaches?.[feature.sourceLayer]?._state?.stateChanges?.[feature.sourceLayer]?.[id];
 
             const prevAssignment = stateChanges?.zone || state?.zone || false;
 
@@ -365,7 +361,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             allPainted.add(id);
             map.setFeatureState(
               {
-                source: BLOCK_SOURCE_ID,
+                source: feature.sourceLayer,
                 id,
                 sourceLayer: feature.sourceLayer,
               },
@@ -473,9 +469,13 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             geoids,
             updateHash
           });
+          if (!mapDocument?.parent_layer) {
+            throw new Error('No parent layer found');
+            return;
+          }
           geoids.forEach(geoid => {
             mapRef?.setFeatureState({
-              source: BLOCK_SOURCE_ID,
+              source: mapDocument?.parent_layer,
               id: geoid,
               sourceLayer: mapDocument?.parent_layer,
             }, {
@@ -493,6 +493,10 @@ export var useMapStore = createWithMiddlewares<MapStore>(
           const updateHash = new Date().toISOString();
           const zone = zoneAssignments.get(parentsToHeal[0])!
           const sourceLayer = mapDocument?.parent_layer;
+          if (!sourceLayer) {
+            throw new Error('No parent layer found');
+            return;
+          }
           const r = await patchUnShatter.mutate({
             geoids: parentsToHeal,
             zone: zoneAssignments.get(parentsToHeal[0])!,
@@ -507,7 +511,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
 
           parentsToHeal.forEach(parent => {
             mapRef?.setFeatureState({
-              source: BLOCK_SOURCE_ID,
+              source: sourceLayer,
               id: parent,
               sourceLayer
             }, {
@@ -599,7 +603,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
             focusFeatures: [
               {
                 id: features[0].id,
-                source: BLOCK_SOURCE_ID,
+                source: get().mapDocument?.parent_layer!,
                 sourceLayer: get().mapDocument?.parent_layer,
               },
             ],
@@ -691,7 +695,7 @@ export var useMapStore = createWithMiddlewares<MapStore>(
                 mapRef.setFeatureState(
                   {
                     id: childId,
-                    source: BLOCK_SOURCE_ID,
+                    source: mapDocument.child_layer || '',
                     sourceLayer: mapDocument.child_layer || '',
                   },
                   {

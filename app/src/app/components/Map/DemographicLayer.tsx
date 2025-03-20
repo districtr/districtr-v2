@@ -3,7 +3,6 @@ import {
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_LAYER_ID,
   BLOCK_LAYER_ID_CHILD,
-  BLOCK_SOURCE_ID,
   LABELS_BREAK_LAYER_ID,
   OVERLAY_OPACITY,
 } from '@/app/constants/layers';
@@ -35,7 +34,7 @@ export const DemographicLayer: React.FC<{
     
     <Layer
       id={`${child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID}${isOverlay ? '_overlay' : ''}`}
-      source={BLOCK_SOURCE_ID}
+      source={id}
       source-layer={id}
       filter={child ? layerFilter : ['literal', true]}
       beforeId={LABELS_BREAK_LAYER_ID}
@@ -57,7 +56,7 @@ export const DemographicLayer: React.FC<{
 
           <Layer
             id={child ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID}
-            source={BLOCK_SOURCE_ID}
+            source={id}
             source-layer={id}
             filter={layerFilter}
             beforeId={LABELS_BREAK_LAYER_ID}

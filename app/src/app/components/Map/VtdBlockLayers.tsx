@@ -1,15 +1,13 @@
-import {
-  BLOCK_SOURCE_ID,
-} from '@/app/constants/layers';
 import {useDemographyStore} from '@/app/store/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
-import {useLayoutEffect, useState} from 'react';
+import React, {useLayoutEffect, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, useMap} from 'react-map-gl/maplibre';
-import { ZoneLayerGroup } from './ZoneLayerGroup';
-import { DemographicLayer } from './DemographicLayer';
-import { HighlightOverlayerLayerGroup } from './HighlightOverlayLayerGroup';
-import { demographyCache } from '@/app/utils/demography/demographyCache';
+import {ZoneLayerGroup} from './ZoneLayerGroup';
+import {DemographicLayer} from './DemographicLayer';
+import {HighlightOverlayerLayerGroup} from './HighlightOverlayLayerGroup';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {DocumentObject} from '@/app/utils/api/apiHandlers';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
@@ -51,7 +49,7 @@ export const VtdBlockLayers: React.FC<{
         return mapScale;
       };
       // handle asynchronous map / source loads
-      if (_map?.getSource(BLOCK_SOURCE_ID)) {
+      if (_map?.getSource(mapDocument?.parent_layer!)) {
         return updateFn();
       } else {
         _map.on('load', () => {
@@ -81,13 +79,8 @@ export const VtdBlockLayers: React.FC<{
   if (!mapDocument || clearOldSource) return null;
 
   return (
-    <>
-      <Source
-        id={BLOCK_SOURCE_ID}
-        type="vector"
-        url={`pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${mapDocument.tiles_s3_path}`}
-        promoteId="path"
-      >
+    <MapSource mapDocument={mapDocument}>
+      <MapSource mapDocument={mapDocument} child>
         {!isDemographicMap && (
           <>
             <ZoneLayerGroup />
@@ -102,7 +95,28 @@ export const VtdBlockLayers: React.FC<{
         )}
         <HighlightOverlayerLayerGroup />
         <HighlightOverlayerLayerGroup child />
-      </Source>
-    </>
+      </MapSource>
+    </MapSource>
   );
+};
+
+const MapSource: React.FC<{
+  children: React.ReactNode;
+  mapDocument: DocumentObject;
+  child?: boolean;
+}> = ({children, mapDocument, child = false}) => {
+  if (child && !mapDocument.child_layer) {
+    return <React.Fragment>{children}</React.Fragment>;
+  } else {
+    return (
+      <Source
+        id={child ? mapDocument.child_layer! : mapDocument.parent_layer!}
+        type="vector"
+        url={`pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/tilesets/${mapDocument[child ? 'child_layer' : 'parent_layer']}.pmtiles`}
+        promoteId="path"
+      >
+        {children}
+      </Source>
+    );
+  }
 };

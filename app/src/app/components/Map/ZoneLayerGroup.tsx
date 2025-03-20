@@ -5,7 +5,6 @@ import {
   BLOCK_LAYER_ID_CHILD,
   BLOCK_LAYER_ID_HIGHLIGHT,
   BLOCK_LAYER_ID_HIGHLIGHT_CHILD,
-  BLOCK_SOURCE_ID,
   getLayerFill,
   LABELS_BREAK_LAYER_ID,
   ZONE_ASSIGNMENT_STYLE,
@@ -52,7 +51,7 @@ export const ZoneLayerGroup: React.FC<{
     <>
       <Layer
         id={child ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID}
-        source={BLOCK_SOURCE_ID}
+        source={id}
         source-layer={id}
         filter={layerFilter}
         beforeId={LABELS_BREAK_LAYER_ID}
@@ -89,7 +88,7 @@ export const ZoneLayerGroup: React.FC<{
       />
       <Layer
         id={child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID}
-        source={BLOCK_SOURCE_ID}
+        source={id}
         source-layer={id}
         filter={child ? layerFilter : ['literal', true]}
         beforeId={LABELS_BREAK_LAYER_ID}
@@ -104,7 +103,7 @@ export const ZoneLayerGroup: React.FC<{
       />
       <Layer
         id={child ? BLOCK_LAYER_ID_HIGHLIGHT_CHILD : BLOCK_LAYER_ID_HIGHLIGHT}
-        source={BLOCK_SOURCE_ID}
+        source={id}
         source-layer={id}
         filter={child ? layerFilter : ['literal', true]}
         type="line"
