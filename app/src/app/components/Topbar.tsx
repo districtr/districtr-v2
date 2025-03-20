@@ -41,14 +41,10 @@ export const Topbar: React.FC = () => {
       return;
     }
     clear();
-<<<<<<< HEAD
     document.mutate({
-      gerrydb_table: selectedMap.gerrydb_table_name,
+      districtr_map_slug: selectedMap.districtr_map_slug,
       user_id: userID,
     });
-=======
-    document.mutate({districtr_map_slug: selectedMap.districtr_map_slug});
->>>>>>> d51403c03d3f9d806ddeb6fc9eb25f75d8253f13
   };
 
   return (
