@@ -1,6 +1,14 @@
 import {withSentryConfig} from '@sentry/nextjs';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: "/admin/:path*",
+        destination: "http://strapi:1337/admin/:path*",
+      },
+    ];
+  },
   async redirects() {
     return [
       // Basic redirect
@@ -56,7 +64,7 @@ export default withSentryConfig(nextConfig, {
       'PopulationTextLayer',
       'ZoneLayers',
       'ZoneLayerGroup',
-    ]
+    ],
   },
 
   // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.

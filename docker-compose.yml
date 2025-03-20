@@ -56,6 +56,16 @@ services:
       - "3000:3000" # Expose Next.js on port 3000
     command: sh -c "npm install && npm run dev"
 
+  strapi:
+    build:
+      context: ./strapi
+      dockerfile: Dockerfile.dev
+    container_name: strapi_cms
+    ports:
+      - "1337:1337"
+    environment:
+      - NODE_ENV=development
+
   pre-commit:
     image: python:3.9 # or whichever version you prefer
     volumes:
