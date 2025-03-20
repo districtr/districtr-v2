@@ -58,11 +58,10 @@ services:
 
   pre-commit:
     build: 
-      context: ./
-      dockerfile: ./pre-commit/Dockerfile
+      context: ./pre-commit
+      dockerfile: Dockerfile.dev
     volumes:
-      - .:/app
-    working_dir: /app
+      - ./:/app
     command: sh -c "pip install pre-commit && pre-commit run --all-files"
 
 volumes:

@@ -10,7 +10,7 @@ repos:
     hooks:
       - id: prettier
         name: Run Prettier
-        entry: npm run prettier
+        entry: bash -c "cd app && npm run prettier"
         language: system
-        pass_filenames: false
-        working_dir: app
+        # pass_filenames: false
+        # types: [javascript, typescript, json, css, scss, html]
