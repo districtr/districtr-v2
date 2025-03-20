@@ -5,3 +5,12 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: prettier
+        name: Run Prettier
+        entry: npm run prettier
+        language: system
+        pass_filenames: false
+        working_dir: app
