@@ -36,15 +36,19 @@ export const Topbar: React.FC = () => {
   const data = mapViews?.data || [];
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
-    if (selectedMap.gerrydb_table_name === mapDocument?.gerrydb_table) {
+    if (selectedMap.districtr_map_slug === mapDocument?.districtr_map_slug) {
       console.log('No document or same document');
       return;
     }
     clear();
+<<<<<<< HEAD
     document.mutate({
       gerrydb_table: selectedMap.gerrydb_table_name,
       user_id: userID,
     });
+=======
+    document.mutate({districtr_map_slug: selectedMap.districtr_map_slug});
+>>>>>>> d51403c03d3f9d806ddeb6fc9eb25f75d8253f13
   };
 
   return (

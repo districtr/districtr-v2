@@ -72,8 +72,6 @@ def import_gerrydb_view(
 
     logger.info(f"GerryDB view {table_name} imported successfully")
 
-    # Make sure changes are committed to satisfy constraints
-    # before doing the upsert
     session.commit()
 
     upsert_query = sa.text(
@@ -150,9 +148,24 @@ def get_filetype(file_path: str) -> str:
 
 
 class Config(BaseModel):
-    gerrydb_views: list[GerryDBViewImport]
-    shatterable_views: list[ShatterableViewImport]
-    districtr_maps: list[DistrictrMapPublic]
+    gerrydb_views: list[GerryDBViewImport] | None = None
+    shatterable_views: list[ShatterableViewImport] | None = None
+    districtr_maps: list[DistrictrMapPublic] | None = None
+
+    @computed_field
+    @property
+    def _gerrydb_views(self) -> list[GerryDBViewImport]:
+        return self.gerrydb_views or []
+
+    @computed_field
+    @property
+    def _shatterable_views(self) -> list[ShatterableViewImport]:
+        return self.shatterable_views or []
+
+    @computed_field
+    @property
+    def _districtr_maps(self) -> list[DistrictrMapPublic]:
+        return self.districtr_maps or []
 
     @classmethod
     def from_file(cls, file_path: str) -> "Config":
@@ -200,7 +213,7 @@ def load_sample_data(
         data_dir: Volume path
         skip_gerrydb_loads: Whether to skip loading GerryDB views
     """
-    for view in config.gerrydb_views:
+    for view in config._gerrydb_views:
         if skip_gerrydb_loads:
             continue
 
@@ -235,16 +248,17 @@ def load_sample_data(
         out_path = write_graph(G=G, gerrydb_name=view._table_name)
         logger.info(f"Graph saved to {out_path}")
 
-    for view in config.shatterable_views:
+    for view in config._shatterable_views:
         session = next(get_session())
         _create_shatterable_gerrydb_view(session=session, **view.model_dump())
         session.commit()
 
-    for view in config.districtr_maps:
+    for view in config._districtr_maps:
         session = next(get_session())
         u = _create_districtr_map(
             session=session,
             name=view.name,
+            districtr_map_slug=view.districtr_map_slug,
             gerrydb_table_name=view.gerrydb_table_name,
             parent_layer=view.parent_layer,
             child_layer=view.child_layer,
@@ -259,13 +273,13 @@ def load_sample_data(
             session = next(get_session())
             u = session.exec(
                 sa.select(DistrictrMap.uuid).where(  # pyright: ignore
-                    DistrictrMap.gerrydb_table_name == view.gerrydb_table_name
+                    DistrictrMap.districtr_map_slug == view.districtr_map_slug
                 )
             ).scalar_one_or_none()
             logger.info(f"Found districtr map with UUID {u}")
             if u is None:
                 raise ValueError(
-                    f"Districtr map with gerrydb_table_name {view.gerrydb_table_name} not found"
+                    f"Districtr map with districtr_map_slug {view.districtr_map_slug} not found"
                 )
 
         logger.info(f"Adding extent to districtr map with UUID {u}")

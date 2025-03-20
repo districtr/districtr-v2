@@ -167,6 +167,7 @@ def ks_demo_view_census_blocks_districtrmap_fixture(
     create_districtr_map(
         session=session,
         name=f"Districtr map {GERRY_DB_FIXTURE_NAME}",
+        districtr_map_slug=GERRY_DB_FIXTURE_NAME,
         gerrydb_table_name=GERRY_DB_FIXTURE_NAME,
         parent_layer=GERRY_DB_FIXTURE_NAME,
     )
@@ -178,7 +179,7 @@ def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
             "user_id": USER_ID,
         },
     )
@@ -289,6 +290,7 @@ def simple_parent_child_geos_districtr_map_fixture(
     inserted_districtr_map = create_districtr_map(
         session,
         name="Simple shatterable layer",
+        districtr_map_slug="simple_geos",
         gerrydb_table_name="simple_geos",
         num_districts=10,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
@@ -404,11 +406,29 @@ def ks_ellis_shatterable_districtr_map(
     inserted_districtr_map = create_districtr_map(
         session,
         name="ks_ellis shatterable layer",
+        districtr_map_slug="ks_ellis_geos",
         gerrydb_table_name="ks_ellis_geos",
         num_districts=10,
         tiles_s3_path="tilesets/ks_ellis_shatterable_layer.pmtiles",
         parent_layer="ks_ellis_county_vtd",
         child_layer="ks_ellis_county_block",
+    )
+    session.commit()
+    return inserted_districtr_map
+
+
+@pytest.fixture
+def ks_ellis_parent_layer_only_districtr_map(
+    session: Session, ks_ellis_county_block_gerrydb
+):
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="ks_ellis parent geos only layer",
+        districtr_map_slug="ks_ellis_county_block",
+        gerrydb_table_name="ks_ellis_county_block",
+        num_districts=2,
+        tiles_s3_path="tilesets/ks_ellis_shatterable_layer.pmtiles",
+        parent_layer="ks_ellis_county_block",
     )
     session.commit()
     return inserted_districtr_map

@@ -7,10 +7,10 @@ BEGIN
     SELECT districtrmap.* INTO doc_districtrmap
     FROM document.document
     LEFT JOIN districtrmap
-    ON document.districtr_map_slug = districtrmap.districtr_map_slug
+    ON document.gerrydb_table = districtrmap.gerrydb_table_name
     WHERE document.document_id = $1;
 
-    IF doc_districtrmap.districtr_map_slug IS NULL THEN
+    IF doc_districtrmap.gerrydb_table_name IS NULL THEN
         RAISE EXCEPTION 'Table name not found for document_id: %', $1;
     END IF;
 

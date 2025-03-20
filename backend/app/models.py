@@ -14,8 +14,8 @@ from sqlmodel import (
     String,
     Boolean,
     Integer,
+    Text,
 )
-from typing import List, Dict
 from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import Float
@@ -72,12 +72,13 @@ class SummaryStatisticType(Enum):
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
+    districtr_map_slug: str = Field(nullable=False, unique=True)
     # This is intentionally not a foreign key on `GerryDBTable` because in some cases
     # this may be the GerryDBTable but in others the pop table may be a materialized
     # view of two GerryDBTables in the case of shatterable maps.
     # We'll want to enforce the constraint tha the gerrydb_table_name is either in
     # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
-    gerrydb_table_name: str | None = Field(nullable=True, unique=True)
+    gerrydb_table_name: str | None = Field(nullable=True)
     # Null means default number of districts? Should we have a sensible default?
     num_districts: int | None = Field(nullable=True, default=None)
     tiles_s3_path: str | None = Field(nullable=True)
@@ -102,7 +103,8 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
 
 class DistrictrMapPublic(BaseModel):
     name: str
-    gerrydb_table_name: str
+    districtr_map_slug: str
+    gerrydb_table_name: str | None = None
     parent_layer: str
     child_layer: str | None = None
     tiles_s3_path: str | None = None
@@ -112,7 +114,8 @@ class DistrictrMapPublic(BaseModel):
 
 
 class DistrictrMapUpdate(BaseModel):
-    gerrydb_table_name: str
+    districtr_map_slug: str
+    gerrydb_table_name: str | None
     name: str | None = None
     parent_layer: str | None = None
     child_layer: str | None = None
@@ -164,6 +167,13 @@ class Document(TimeStampMixin, SQLModel, table=True):
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
+    districtr_map_slug: str = Field(
+        sa_column=Column(
+            Text,
+            ForeignKey("districtrmap.districtr_map_slug"),
+            nullable=False,
+        )
+    )
     gerrydb_table: str | None = Field(nullable=True)
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
@@ -174,7 +184,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentCreate(BaseModel):
-    gerrydb_table: str | None
+    districtr_map_slug: str | None
     user_id: str | None
     metadata: Optional[DistrictrMapMetadata] | None = None
     copy_from_doc: Optional[str] | None = None  # document_id to copy from
@@ -186,20 +196,10 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     """
 
     __tablename__ = "map_document_user_session"
-    # __table_args__ = (
-    #     UniqueConstraint("document_id", name="unique_document"),
-    #     {"schema": DOCUMENT_SCHEMA},
-    # )
     session_id: int = Field(
         sa_column=Column(Integer, primary_key=True, autoincrement=True)
     )
     user_id: str = Field(sa_column=Column(String, nullable=False))
-    # document_id: str = Field(
-    #     sa_column=Column(
-    #         UUIDType,
-    #         ForeignKey("document.document_id"),
-    #     )
-    # )
 
 
 class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
@@ -210,70 +210,22 @@ class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
     """
 
     __tablename__ = "map_document_token"
-    # __table_args__ = (
-    #     UniqueConstraint("document.document_id", name="unique_document"),
-    #     {"schema": DOCUMENT_SCHEMA},
-    # )
     token_id: str = Field(
         UUIDType,
         primary_key=True,
     )
-    # document_id: str = Field(
-    #     sa_column=Column(
-    #         UUIDType,
-    #         ForeignKey("document.document_id"),
-    #     )
-    # )
     password_hash: str = Field(
         sa_column=Column(String, nullable=True)  # optional password
     )
     expiration_date: datetime = Field(
         sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
-    )  # expiration date
-
-
-# class DocumentMetadata(TimeStampMixin, SQLModel, table=True):
-#     __tablename__ = "map_document_metadata"
-#     __table_args__ = (
-#         UniqueConstraint("document_id", name="document_id_unique"),
-#         {"schema": DOCUMENT_SCHEMA},
-#     )
-
-#     metadata_id: int = Field(
-#         sa_column=Column(Integer, primary_key=True, autoincrement=True)
-#     )
-
-#     document_id: str = Field(
-#         sa_column=Column(
-#             UUIDType,
-#             ForeignKey("document.document_id"),
-#         )
-#     )
-#     map_metadata: DistrictrMapMetadata = Field(
-#         sa_column=Column(
-#             JSON,
-#             nullable=False,
-#         )
-#     )
-
-#     @classmethod
-#     def from_dict(cls, data: dict):
-#         return cls(
-#             document_id=data.get("document_id"),
-#             map_metadata=DistrictrMapMetadata(**data.get("map_metadata", {})),
-#         )
-
-#     def to_dict(self):
-#         data = self.dict()
-#         data["map_metadata"] = self.map_metadata.dict()
-#         return data
+    )
 
 
 class DocumentEditStatus(str, Enum):
     locked = "locked"
     unlocked = "unlocked"
     checked_out = "checked_out"
-    # others?
 
 
 class DocumentGenesis(str, Enum):
@@ -283,6 +235,7 @@ class DocumentGenesis(str, Enum):
 
 class DocumentPublic(BaseModel):
     document_id: UUID4
+    districtr_map_slug: str | None
     gerrydb_table: str | None
     parent_layer: str
     child_layer: str | None

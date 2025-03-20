@@ -55,6 +55,7 @@ export const FormatAssignments = () => {
  *
  * @interface
  * @property {string} name - The name.
+ * @property {string} districtr_map_slug - The gerrydb table name.
  * @property {string} gerrydb_table_name - The gerrydb table name.
  * @property {string} parent_layer - The parent layer.
  * @property {string | null} child_layer - The child layer.
@@ -63,6 +64,7 @@ export const FormatAssignments = () => {
  */
 export interface DistrictrMap {
   name: string;
+  districtr_map_slug: string;
   gerrydb_table_name: string;
   parent_layer: string;
   child_layer: string | null;
@@ -86,7 +88,8 @@ export interface DistrictrMap {
  */
 export interface DocumentObject {
   document_id: string;
-  gerrydb_table: string;
+  districtr_map_slug: string;
+  gerrydb_table: string | null;
   parent_layer: string;
   child_layer: string | null;
   tiles_s3_path: string | null;
@@ -120,7 +123,7 @@ export interface DocumentMetadata {
  * @property {string} gerrydb_table - The gerrydb table.
  */
 export interface DocumentCreate {
-  gerrydb_table: string;
+  districtr_map_slug: string;
   user_id: string | null;
   metadata?: DocumentMetadata;
   copy_from_doc?: string;
@@ -585,6 +588,14 @@ export const saveColorScheme: (params: {
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/update_colors`, colors)
     .then(res => {
       return res.data;
+    })
+    .catch(err => {
+      const setErrorNotification = useMapStore.getState().setErrorNotification;
+      setErrorNotification({
+        message: err.response.data.message,
+        severity: 2,
+        id: `change-colors-${document}-${colors.join('-')}`,
+      });
     });
 };
 

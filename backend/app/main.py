@@ -45,7 +45,6 @@ from app.models import (
     DistrictrMap,
     Document,
     DocumentCreate,
-    DistrictrMapMetadata,
     # DocumentMetadata,
     DocumentPublic,
     DocumentEditStatus,
@@ -115,7 +114,7 @@ def update_timestamp(
         .where(Document.document_id == document_id)
         .values(updated_at=func.now())
         .returning(Document.updated_at)
-    )
+    )  # pyright: ignore
     updated_at = session.scalar(update_stmt)
     return updated_at
 
@@ -203,8 +202,8 @@ async def create_document(
 ):
     # try:
     results = session.execute(
-        text("SELECT create_document(:gerrydb_table_name);"),
-        {"gerrydb_table_name": data.gerrydb_table},
+        text("SELECT create_document(:districtr_map_slug);"),
+        {"districtr_map_slug": data.districtr_map_slug},
     )
     plan_genesis = "created"
     document_id = results.one()[0]  # should be only one row, one column of results
@@ -243,6 +242,7 @@ async def create_document(
         select(
             Document.document_id,
             Document.created_at,
+            Document.districtr_map_slug,
             Document.gerrydb_table,
             Document.updated_at,
             DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
@@ -252,9 +252,7 @@ async def create_document(
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             coalesce(plan_genesis).label("genesis"),
-            DistrictrMap.available_summary_stats.label(
-                "available_summary_stats"
-            ),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
             # send metadata as a null object on init of document
             coalesce(
                 None,
@@ -267,7 +265,7 @@ async def create_document(
         .where(Document.document_id == document_id)
         .join(
             DistrictrMap,
-            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
             isouter=True,
         )
         .limit(1)
@@ -281,7 +279,7 @@ async def create_document(
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"DistrictrMap matching {data.gerrydb_table} does not exist.",
+            detail=f"DistrictrMap matching {data.districtr_map_slug} does not exist.",
         )
     if not doc.document_id:
         session.rollback()
@@ -323,9 +321,7 @@ def _get_document(
 ) -> Document:
     try:
         document = session.exec(
-            select(Document).filter(
-                Document.document_id == document_id
-            )  # pyright: ignore
+            select(Document).filter(Document.document_id == document_id)  # pyright: ignore
         ).one()
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -402,6 +398,13 @@ async def unshatter_parent(
     ), "No results returned from unshatter_parent"
     updated_at = update_timestamp(session, document.document_id)
     session.commit()
+
+    if results is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to unshatter parent",
+        )
+
     return {"geoids": results[0], "updated_at": updated_at}
 
 
@@ -452,8 +455,7 @@ async def update_colors(
         select(DistrictrMap)
         .join(
             Document,
-            Document.gerrydb_table
-            == DistrictrMap.gerrydb_table_name,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -492,7 +494,9 @@ async def get_assignments(
             ParentChildEdges.parent_path,
         )
         .join(Document, Assignments.document_id == Document.document_id)
-        .join(DistrictrMap, Document.gerrydb_table == DistrictrMap.gerrydb_table_name)
+        .join(
+            DistrictrMap, Document.districtr_map_slug == DistrictrMap.districtr_map_slug
+        )
         .outerjoin(
             ParentChildEdges,
             (Assignments.geo_id == ParentChildEdges.child_path)
@@ -513,6 +517,7 @@ async def get_document(
     # optional lock status param
     lock_status: DocumentEditStatus | None = None,
 ):
+    # TODO: Rather than being a separate query, this should be part of the main query
     check_lock_status = (
         check_map_lock(document_id, user_id, session)
         if not lock_status == DocumentEditStatus.locked
@@ -523,6 +528,7 @@ async def get_document(
         select(
             Document.document_id,
             Document.created_at,
+            Document.districtr_map_slug,
             Document.gerrydb_table,
             Document.updated_at,
             Document.color_scheme,
@@ -531,9 +537,7 @@ async def get_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label(
-                "available_summary_stats"
-            ),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
             # get metadata as a json object
             Document.map_metadata.label("map_metadata"),  # pyright: ignore
             coalesce(
@@ -544,22 +548,15 @@ async def get_document(
             ).label("status"),
             coalesce(
                 access_type,
-            ).label(
-                "access"
-            ),  # read or edit
+            ).label("access"),  # read or edit
             # add access - read or edit
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
             DistrictrMap,
-            Document.gerrydb_table == DistrictrMap.gerrydb_table_name,
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
             isouter=True,
         )
-        # .join(
-        #     DocumentMetadata,
-        #     Document.document_id == DocumentMetadata.document_id,
-        #     isouter=True,
-        # )
     )
     result = session.exec(stmt)
 
@@ -646,6 +643,13 @@ async def get_document_status(
         return {"status": DocumentEditStatus.checked_out}
 
 
+# TODO
+# I'm pretty sure this is either going to keep the API awake, which doesn't take
+# advantage of Fly's automatic wakeup cost savings
+# OR it'll stop running when the API is idle. That's probably fine since nothing
+# will be going to the DB if the API isn't awake
+# That said, this really seems like a DB concern and could be implemented with
+# pg_cron https://github.com/citusdata/pg_cron
 @app.on_event("startup")
 @repeat_every(seconds=60)  # Run every minute
 def cleanup_expired_locks():
@@ -653,7 +657,7 @@ def cleanup_expired_locks():
     try:
         N_HOURS = 1  # arbitrary for now
         stmt = text(
-            """DELETE FROM document.map_document_user_session 
+            """DELETE FROM document.map_document_user_session
             WHERE updated_at < NOW() - make_interval(hours => :n_hours)"""
         )
 
@@ -730,8 +734,7 @@ def _get_districtr_map(
         select(DistrictrMap)
         .join(
             Document,
-            Document.gerrydb_table
-            == DistrictrMap.gerrydb_table_name,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -826,12 +829,12 @@ async def check_document_contiguity(
                 zone,
                 array_agg(geo_id) as nodes
             FROM
-                assignments
+                document.assignments
             WHERE
                 document_id = :document_id
+                AND zone IS NOT NULL
             GROUP BY
-                zone
-                AND zone IS NOT NULL"""
+                zone"""
         )
         result = session.execute(sql, {"document_id": document_id}).fetchall()
         zone_assignments = [
@@ -878,22 +881,23 @@ async def get_connected_component_bboxes(
         sql = text(
             """
             SELECT
-                zone,
-                array_agg(geo_id) as nodes
+                geo_id
             FROM
-                assignments
+                document.assignments
             WHERE
                 document_id = :document_id
-            GROUP BY
-                zone
                 AND zone = :zone"""
         )
-        row = session.execute(
-            sql, {"document_id": document_id, "zone": zone}
-        ).scalar_one_or_none()
-        if row is None:
+
+        nodes = (
+            session.execute(sql, {"document_id": document_id, "zone": zone})
+            .scalars()
+            .all()
+        )
+
+        if not nodes or len(nodes) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
-        zone_assignments = contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes)
+        zone_assignments = contiguity.ZoneBlockNodes(zone=zone, nodes=list(nodes))
 
     G = await _get_graph(gerrydb_name)
     subgraph = G.subgraph(nodes=zone_assignments.nodes)
@@ -953,6 +957,12 @@ async def get_map_demography(
     stats: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
+    if not districtr_map.visible:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="This map is no longer supported",
+        )
+
     columns = []
     if districtr_map.available_summary_stats is None:
         raise HTTPException(
@@ -981,9 +991,7 @@ async def get_map_demography(
         ids_subquery = text(
             """
             SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
-        """.format(
-                ",".join(f"(:id{i})" for i in range(len(ids)))
-            )
+        """.format(",".join(f"(:id{i})" for i in range(len(ids))))
         )
         # This is for efficiency but slightly slippery
         # Adding the format here provides some safety
@@ -1023,30 +1031,25 @@ async def get_map_demography(
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
-    document_id: str,
+    document: Annotated[Document, Depends(_get_document)],
     metadata: dict = Body(...),
     session: Session = Depends(get_session),
 ):
     try:
-        if not document_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Missing document_id"
-            )
-        try:
-            # update document record with metadata
-            stmt = (
-                update(Document)
-                .where(Document.document_id == document_id)
-                .values(map_metadata=metadata)
-            )
-            session.execute(stmt)
-            session.commit()
+        # update document record with metadata
+        stmt = (
+            update(Document)
+            .where(Document.document_id == document.document_id)
+            .values(map_metadata=metadata)
+        )
+        session.execute(stmt)
+        session.commit()
 
-        except ValidationError as ve:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Invalid metadata format: {ve.errors()}",
-            )
+    except ValidationError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid metadata format: {ve.errors()}",
+        )
 
     except IntegrityError as ie:
         session.rollback()
@@ -1091,7 +1094,7 @@ async def get_projects(
 
 @app.post("/api/document/{document_id}/share")
 async def share_districtr_plan(
-    document_id: str,
+    document: Annotated[Document, Depends(_get_document)],
     params: dict = Body(...),
     session: Session = Depends(get_session),
 ):
@@ -1103,7 +1106,7 @@ async def share_districtr_plan(
             WHERE document_id = :doc_id
             """
         ),
-        {"doc_id": document_id},
+        {"doc_id": document.document_id},
     ).fetchone()
 
     if existing_token:
@@ -1165,7 +1168,7 @@ async def share_districtr_plan(
             ),
             {
                 "token_id": token_uuid,
-                "document_id": document_id,
+                "document_id": document.document_id,
                 "password_hash": hashed_password,
                 "expiration_date": expiry,
             },
@@ -1207,6 +1210,8 @@ async def load_plan_from_share(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found",
         )
+
+    set_is_locked = False
     if result.password_hash:
         # password is required
         if data.password is None:
@@ -1232,7 +1237,7 @@ async def load_plan_from_share(
 
 @app.post("/api/document/{document_id}/checkout", status_code=status.HTTP_200_OK)
 async def checkout_plan(
-    document_id: str,
+    document: Annotated[Document, Depends(_get_document)],
     params: dict = Body(...),
     session: Session = Depends(get_session),
 ):
@@ -1269,7 +1274,7 @@ async def checkout_plan(
 
     if verify_password(params["password"], result.password_hash):
         # check lock status
-        lock_status = check_map_lock(document_id, params["user_id"], session)
+        lock_status = check_map_lock(document.document_id, params["user_id"], session)
 
         return {"status": lock_status, "access": DocumentShareStatus.edit}
 
@@ -1277,7 +1282,7 @@ async def checkout_plan(
 @app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
 async def get_survey_results(
     *,
-    document_id: str,
+    document: Annotated[Document, Depends(_get_document)],
     background_tasks: BackgroundTasks,
     format: str = "CSV",
     export_type: str = "ZoneAssignments",
@@ -1295,15 +1300,13 @@ async def get_survey_results(
         )
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
-    out_file_name = (
-        f"{document_id}_{_export_type.value}_{timestamp}.{_format.value.lower()}"
-    )
+    out_file_name = f"{document.document_id}_{_export_type.value}_{timestamp}.{_format.value.lower()}"
 
     try:
         get_sql = get_export_sql_method(_format)
         sql, params = get_sql(
             _export_type,
-            document_id=document_id,
+            document_id=document.document_id,
             offset=offset,
             limit=limit,
         )

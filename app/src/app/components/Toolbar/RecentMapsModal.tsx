@@ -1,20 +1,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import * as Accordion from '@radix-ui/react-accordion';
-import classNames from 'classnames';
-import {
-  Button,
-  Flex,
-  Text,
-  Table,
-  Dialog,
-  Box,
-  TextField,
-  IconButton,
-  RadioCards,
-  Separator,
-} from '@radix-ui/themes';
+import {Button, Flex, Text, Table, Dialog, Box, Separator} from '@radix-ui/themes';
 import {SaveMapDetails} from './SaveMaps';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
@@ -41,8 +28,6 @@ export const RecentMapsModal: React.FC<{
   const setActiveTool = useMapStore(store => store.setActiveTool);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [openItem, setOpenItem] = React.useState<string | null>(null);
-
-  const currentMapMetadataName = mapDocument?.map_metadata?.name || mapDocument?.gerrydb_table;
 
   useEffect(() => {
     setDialogOpen(open || false);
@@ -164,7 +149,7 @@ const RecentMapsRow: React.FC<{
 }> = ({data, onSelect, active, onChange}) => {
   const updatedDate = new Date(data.updated_at as string);
   const formattedDate = updatedDate.toLocaleDateString();
-  const metadataName = data?.map_metadata?.name || data.gerrydb_table;
+  const metadataName = data?.map_metadata?.name || data.districtr_map_slug;
   const [mapName, setMapName] = React.useState(metadataName);
 
   const handleChangeName = (name: string | null) => {

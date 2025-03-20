@@ -14,7 +14,7 @@ BEGIN
     SELECT districtrmap.uuid INTO districtr_map_uuid
     FROM document.document
     INNER JOIN districtrmap
-    ON document.districtr_map_slug = districtrmap.districtr_map_slug
+    ON document.gerrydb_table = districtrmap.gerrydb_table_name
     WHERE document.document_id = $1;
 
     IF districtr_map_uuid IS NULL THEN
