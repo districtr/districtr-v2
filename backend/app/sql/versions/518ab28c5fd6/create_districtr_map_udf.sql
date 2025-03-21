@@ -3,9 +3,8 @@ CREATE OR REPLACE FUNCTION create_districtr_map(
     districtr_map_slug VARCHAR,
     gerrydb_table_name VARCHAR,
     num_districts INTEGER,
-    parent_tiles_s3_path VARCHAR,
+    tiles_s3_path VARCHAR,
     parent_layer_name VARCHAR,
-    child_tiles_s3_path VARCHAR,
     child_layer_name VARCHAR,
     visibility BOOLEAN DEFAULT TRUE
 )
@@ -20,9 +19,8 @@ BEGIN
         districtr_map_slug,
         gerrydb_table_name,
         num_districts,
-        parent_tiles_s3_path,
+        tiles_s3_path,
         parent_layer,
-        cihld_tiles_s3_path,
         child_layer,
         visible
     )
@@ -33,9 +31,8 @@ BEGIN
         districtr_map_slug,
         gerrydb_table_name,
         num_districts,
-        parent_tiles_s3_path,
+        tiles_s3_path,
         parent_layer_name,
-        child_tiles_s3_path,
         child_layer_name,
         visibility
     )
