@@ -510,7 +510,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     geoids.forEach(geoid => {
       mapRef?.setFeatureState(
         {
-          source: mapDocument?.parent_layer,
+          source: mapDocument?.parent_layer || '',
           id: geoid,
           sourceLayer: mapDocument?.parent_layer,
         },
@@ -545,7 +545,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     parentsToHeal.forEach(parent => {
       mapRef?.setFeatureState(
         {
-          source: sourceLayer,
+          source: sourceLayer || '',
           id: parent,
           sourceLayer,
         },
