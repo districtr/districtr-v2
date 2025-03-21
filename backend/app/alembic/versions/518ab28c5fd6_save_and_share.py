@@ -75,3 +75,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("map_document_user_session", schema="document")
     op.drop_table("map_document_token", schema="document")
+    op.drop_column("document", "map_metadata", schema="document")
