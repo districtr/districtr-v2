@@ -13,7 +13,7 @@ from app.contiguity.main import (
 )
 from app.utils import create_parent_child_edges
 from tempfile import NamedTemporaryFile
-from tests.constants import FIXTURES_PATH
+from tests.constants import FIXTURES_PATH, USER_ID
 from sqlmodel import Session
 
 
@@ -110,9 +110,7 @@ def document_id_fixture(
     )
     response = client.post(
         "/api/create_document",
-        json={
-            "districtr_map_slug": "simple_geos",
-        },
+        json={"districtr_map_slug": "simple_geos", "user_id": USER_ID},
     )
     assert response.status_code == 201
     doc = response.json()
@@ -311,9 +309,7 @@ def ks_ellis_document_id(
     )
     response = client.post(
         "/api/create_document",
-        json={
-            "districtr_map_slug": "ks_ellis_geos",
-        },
+        json={"districtr_map_slug": "ks_ellis_geos", "user_id": USER_ID},
     )
     assert response.status_code == 201
     doc = response.json()
@@ -407,6 +403,7 @@ def ks_ellis_parent_only_document_id(
         "/api/create_document",
         json={
             "districtr_map_slug": "ks_ellis_county_block",
+            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
         },
     )
     assert response.status_code == 201, response.json()
