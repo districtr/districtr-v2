@@ -26,7 +26,7 @@ export const ShareMapsModal: React.FC<{
     () => userMaps.find(map => map.document_id === mapDocument?.document_id),
     [mapDocument?.document_id, userMaps]
   );
-  const [shareType, setShareType] = React.useState('read');
+  const [shareType, setShareType] = React.useState<'read' | 'edit'>('read');
   const [linkCopied, setLinkCopied] = React.useState(false);
   const [password, setPassword] = React.useState<string | null>(currentMap?.password ?? null);
   const [passwordDisabled, setPasswordDisabled] = React.useState(false);
@@ -52,7 +52,7 @@ export const ShareMapsModal: React.FC<{
     }
   }, [mapDocument, currentMap]);
 
-  const handleshareTypeChange = (value: string) => {
+  const handleshareTypeChange = (value: 'read' | 'edit') => {
     // handle share type change
     setShareType(value);
   };
@@ -121,7 +121,7 @@ export const ShareMapsModal: React.FC<{
                   </RadioCards.Item>
                 </RadioCards.Root>
                 <Flex gap="2" className="flex-row items-center ">
-                  <Text size="2">Password</Text>
+                  {shareType === 'edit' && <Text size="2">Password</Text>}
                   {shareType === 'read' ? (
                     <TextField.Root
                       disabled

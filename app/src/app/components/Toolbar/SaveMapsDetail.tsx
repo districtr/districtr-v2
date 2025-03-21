@@ -1,6 +1,15 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useMemo} from 'react';
-import {Button, Flex, Text, Box, TextField, RadioGroup, TextArea} from '@radix-ui/themes';
+import {
+  Button,
+  Flex,
+  Text,
+  Box,
+  TextField,
+  RadioGroup,
+  TextArea,
+  Blockquote,
+} from '@radix-ui/themes';
 import {DocumentMetadata} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
 import {checkoutDocument} from '@/app/utils/api/mutations';
@@ -45,6 +54,7 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
   const [shareStateIsSaved, setShareStateIsSaved] = React.useState(false);
   const [password, setPassword] = React.useState<string | null>(null);
   const receivedShareToken = useMapStore(store => store.receivedShareToken ?? '');
+  const shareMapMessage = useMapStore(store => store.shareMapMessage);
   const {frozenMessage} = useMapStatus();
   const mapIsSaved =
     tagsIsSaved && descriptionIsSaved && groupNameIsSaved && shareStateIsSaved && mapNameIsSaved;
@@ -56,13 +66,15 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
     return metadata ?? null;
   }, [mapDocument?.document_id, userMaps]);
 
-  const handlePasswordSubmit = () => {
+  const handlePasswordSubmit = async () => {
     if (mapDocument?.document_id && receivedShareToken.length) {
-      checkoutDocument.mutate({
-        document_id: mapDocument.document_id,
-        token: receivedShareToken,
-        password: password ?? '',
-      });
+      checkoutDocument
+        .mutate({
+          document_id: mapDocument.document_id,
+          token: receivedShareToken,
+          password: password ?? '',
+        }) // error is handled in the mutation observser
+        .catch(() => null);
     }
   };
 
@@ -201,27 +213,30 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
         </Flex>
         {/* save map */}
         {/* enter password to unlock if map is locked and the access type is edit*/}
-        <Flex>
-          <Flex gap="2">
-            {useMapStore.getState().mapDocument?.status === 'locked' &&
-            useMapStore.getState().mapDocument?.access === 'edit' ? (
-              <>
-                <TextField.Root
-                  placeholder="Password"
-                  size="3"
-                  type="password"
-                  value={password ?? undefined}
-                  onChange={e => setPassword(e.target.value ?? null)}
-                ></TextField.Root>
-                <Flex gap="2" py="1">
-                  <Button onClick={handlePasswordSubmit}>Submit</Button>
-                </Flex>
-              </>
-            ) : null}
+        <Flex direction="column">
+          <Flex direction="row">
+            <Flex gap="2">
+              {useMapStore.getState().mapDocument?.status === 'locked' &&
+              useMapStore.getState().mapDocument?.access === 'edit' ? (
+                <>
+                  <TextField.Root
+                    placeholder="Password"
+                    size="3"
+                    type="password"
+                    value={password ?? undefined}
+                    onChange={e => setPassword(e.target.value ?? null)}
+                  ></TextField.Root>
+                  <Flex gap="2" py="1">
+                    <Button onClick={handlePasswordSubmit}>Submit</Button>
+                  </Flex>
+                </>
+              ) : null}
+            </Flex>
+            <Flex gap="2" px="2">
+              {!!frozenMessage && <Text>{frozenMessage}</Text>}
+            </Flex>
           </Flex>
-          <Flex gap="2" px="2">
-            {!!frozenMessage && <Text>{frozenMessage}</Text>}
-          </Flex>
+          <Blockquote color="red">{shareMapMessage}</Blockquote>
         </Flex>
 
         <Button
