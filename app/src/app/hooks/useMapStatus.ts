@@ -16,6 +16,7 @@ export const useMapStatus = () => {
   }, [status, access, document_id, mapMetadata]);
 
   const frozenMessage = useMemo(() => {
+    if (typeof window === 'undefined') return null
     const shareUrl = new URL(window.location.toString()).searchParams.get('share')
     if (status === 'locked' && access === 'edit' && shareUrl) {
       return FROZEN_CONDITIONS.lockedWithPW
