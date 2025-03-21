@@ -76,8 +76,9 @@ export const Toolbar = () => {
     // add a listener for option or alt key press and release
     const handleKeyPress = (event: KeyboardEvent) => {
       const activeElement = document.activeElement;
+      const mapIsLocked = useMapStore.getState().mapDocument?.status !== 'unlocked';
       // if active element is an input, don't do anything
-      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement || mapIsLocked)
         return;
       // if alt, showShortcuts
       if (event.altKey) {
