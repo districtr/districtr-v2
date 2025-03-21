@@ -101,8 +101,11 @@ export interface DocumentObject extends StatusObject {
   document_id: string;
   districtr_map_slug: string;
   gerrydb_table: string | null;
+  parent_tiles_s3_path: string | null;
   parent_layer: string;
+  child_tiles_s3_path: string | null;
   child_layer: string | null;
+  // vestigial
   tiles_s3_path: string | null;
   num_districts: number | null;
   created_at: string;
