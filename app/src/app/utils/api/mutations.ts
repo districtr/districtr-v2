@@ -215,17 +215,16 @@ export const sharedDocument = new MutationObserver(queryClient, {
 export const checkoutDocument = new MutationObserver(queryClient, {
   mutationFn: checkoutMapDocument,
   onSuccess: data => {
-    const {mapDocument, setMapDocument, upsertUserMap} = useMapStore.getState();
+    const {mapDocument, setMapStatus, upsertUserMap, loadedMapId} = useMapStore.getState();
     if (!mapDocument) return;
     upsertUserMap({
       documentId: mapDocument.document_id,
       mapDocument: {...mapDocument, access: data.access, status: data.status},
     });
-    setMapDocument({
-      ...mapDocument,
+    setMapStatus({
       access: data.access,
       status: data.status,
-    });
+    })
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.delete('share'); // remove share + token from url
     documentUrl.searchParams.set('document_id', mapDocument?.document_id);

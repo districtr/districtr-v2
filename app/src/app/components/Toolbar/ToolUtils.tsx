@@ -28,6 +28,7 @@ export type ActiveToolConfig = {
 
 export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
+  const status = useMapStore(state => state.mapStatus?.status);
   const {futureStates, pastStates, redo, undo} = useTemporalStore(state => state); // TemporalState<MapStore>
   const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
@@ -49,7 +50,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'P',
       mode: 'brush',
-      disabled: !mapDocument?.document_id || mapDocument?.status === 'locked',
+      disabled: !mapDocument?.document_id || status === 'locked',
       label: 'Paint',
       icon: Pencil2Icon,
       hotKeyAccessor: e => {
@@ -59,7 +60,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'E',
       mode: 'eraser',
-      disabled: !mapDocument?.document_id || mapDocument?.status === 'locked',
+      disabled: !mapDocument?.document_id || status === 'locked',
       label: 'Erase',
       icon: EraserIcon,
       hotKeyAccessor: e => {
@@ -110,7 +111,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'L',
       mode: 'lock',
-      disabled: !mapDocument?.document_id || mapDocument?.status === 'locked',
+      disabled: !mapDocument?.document_id || status === 'locked',
       label: 'Lock',
       icon: LockOpen1Icon,
       hotKeyAccessor: e => {
@@ -118,6 +119,6 @@ export const useActiveTools = () => {
       },
     },
   ];
-  if (mapDocument?.status === 'locked') return [];
+  if (status === 'locked') return [];
   return config;
 };

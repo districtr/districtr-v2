@@ -24,6 +24,7 @@ const BoxContainer = styled(Box, {
 
 export const SaveMapDetails: React.FC<{}> = ({}) => {
   const mapDocument = useMapStore(store => store.mapDocument);
+  const status = useMapStore(store => store.mapStatus?.status);
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
 
@@ -171,7 +172,7 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
           </Box>
           <Box width={'25%'}>
             {/* map name */}
-            {mapDocument?.status && mapDocument?.status === 'locked' ? (
+            {status === 'locked' ? (
               <Text>Name your Copy </Text>
             ) : (
               <Text>Map Name</Text>
@@ -216,8 +217,8 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
         <Flex direction="column">
           <Flex direction="row">
             <Flex gap="2">
-              {useMapStore.getState().mapDocument?.status === 'locked' &&
-              useMapStore.getState().mapDocument?.access === 'edit' ? (
+              {useMapStore.getState().mapStatus?.status === 'locked' &&
+              useMapStore.getState().mapStatus?.access === 'edit' ? (
                 <>
                   <TextField.Root
                     placeholder="Password"
@@ -245,9 +246,9 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
           onClick={handleMapSave}
           disabled={mapIsSaved}
         >
-          {mapDocument.status !== 'locked' && mapIsSaved
+          {status !== 'locked' && mapIsSaved
             ? 'Saved!'
-            : mapDocument.status === 'locked'
+            : status === 'locked'
               ? 'Create Copy'
               : 'Save'}
         </Button>

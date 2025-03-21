@@ -30,6 +30,7 @@ export const Topbar: React.FC = () => {
   const [saveMapsModal, setSaveMapsModal] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
+  const status = useMapStore(state => state.mapStatus?.status);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
   const {statusText} = useMapStatus();
@@ -164,7 +165,7 @@ export const Topbar: React.FC = () => {
               disabled={!mapDocument?.document_id}
               onClick={() => setShareMapsModal(true)}
             >
-              {mapDocument?.status === 'locked' ? 'Share' : 'Share'}
+              {status === 'locked' ? 'Share' : 'Share'}
             </Button>}
             {!!statusText && <Button
               variant="outline"

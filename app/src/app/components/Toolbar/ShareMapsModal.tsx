@@ -19,6 +19,7 @@ export const ShareMapsModal: React.FC<{
   onClose?: () => void;
 }> = ({open, onClose}) => {
   const mapDocument = useMapStore(store => store.mapDocument);
+  const mapStatus = useMapStore(store => store.mapStatus);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const {upsertUserMap} = useMapStore(store => store);
   const userMaps = useMapStore(store => store.userMaps);
@@ -80,7 +81,7 @@ export const ShareMapsModal: React.FC<{
   }, [dialogOpen]);
 
   // ensure a map is loaded
-  if (!mapDocument) {
+  if (!mapDocument || !mapStatus) {
     return <div></div>;
   }
   return (
@@ -97,7 +98,7 @@ export const ShareMapsModal: React.FC<{
         </Flex>
         <BoxContainer>
           {/* share logic */}
-          {mapDocument?.genesis !== 'shared' ? (
+          {mapStatus?.genesis !== 'shared' ? (
             <>
               <Text size="2">
                 Generate a URL to share your plan. If you share editable, then anyone with the

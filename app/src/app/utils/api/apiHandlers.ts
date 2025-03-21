@@ -72,6 +72,14 @@ export interface DistrictrMap {
   num_districts: number | null;
 }
 
+export interface StatusObject {
+  status: 'locked' | 'unlocked' | 'checked_out';
+  access: 'read' | 'edit';
+  genesis: 'shared' | 'copied' | 'created';
+  token?: string | null;
+  password?: string | null;
+}
+
 /**
  * Document
  *
@@ -86,7 +94,7 @@ export interface DistrictrMap {
  * @property {string} updated_at - The updated at.
  * @property {string[]} color_scheme - The colors for districts.
  */
-export interface DocumentObject {
+export interface DocumentObject extends StatusObject {
   document_id: string;
   districtr_map_slug: string;
   gerrydb_table: string | null;
@@ -100,12 +108,9 @@ export interface DocumentObject {
   map_metadata: DocumentMetadata;
   available_summary_stats: Array<SummaryTypes>;
   color_scheme: string[] | null;
-  status: 'locked' | 'unlocked' | 'checked_out';
-  access: 'read' | 'edit';
-  genesis: 'shared' | 'copied' | 'created';
-  token?: string | null;
-  password?: string | null;
 }
+
+
 
 export interface DocumentMetadata {
   name: string | null;

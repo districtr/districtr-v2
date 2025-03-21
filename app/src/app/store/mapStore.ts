@@ -11,6 +11,7 @@ import {
   RemoteAssignmentsResponse,
   ShatterResult,
   DocumentMetadata,
+  StatusObject,
 } from '@utils/api/apiHandlers';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
@@ -83,6 +84,8 @@ export interface MapStore {
    */
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  mapStatus: StatusObject | null;
+  setMapStatus: (status: Partial<StatusObject>) => void;
   colorScheme: string[];
   setColorScheme: (colors: string[]) => void;
   loadedMapId: string;
@@ -411,8 +414,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       mapOptions,
     } = get();
     if (
-      currentMapDocument?.document_id === mapDocument.document_id &&
-      currentMapDocument?.status === mapDocument.status
+      currentMapDocument?.document_id === mapDocument.document_id
     ) {
       return;
     }
@@ -452,11 +454,23 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
             ? mapOptions.currentStateFp
             : undefined,
       },
+      mapStatus: {
+        status: mapDocument.status,
+        access: mapDocument.access,
+        genesis: mapDocument.genesis,
+        token: mapDocument.token,
+        password: mapDocument.password,
+      },
       colorScheme: DefaultColorScheme,
       sidebarPanels: ['population'],
       appLoadingState: 'initializing',
       shatterIds: {parents: new Set(), children: new Set()},
     });
+  },
+  mapStatus: null,
+  setMapStatus: mapStatus => {
+    const prev = get().mapStatus || {};
+    set({mapStatus: {...prev, ...mapStatus} as StatusObject});
   },
   colorScheme: DefaultColorScheme,
   setColorScheme: colorScheme => set({colorScheme}),

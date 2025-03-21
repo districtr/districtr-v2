@@ -4,9 +4,9 @@ import {handleCreateBlankMetadataObject} from '../../helpers';
 import {DocumentMetadata} from '../apiHandlers';
 
 export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
-  const {mapDocument, upsertUserMap, setMapDocument, setShareMapMessage} = useMapStore.getState();
+  const {mapDocument, mapStatus, upsertUserMap, setMapDocument, setShareMapMessage} = useMapStore.getState();
   if (mapDocument?.document_id) {
-    if (mapDocument?.status === 'locked') {
+    if (mapStatus?.status === 'locked') {
       // atp doesn't matter that it's locked, even with pw; should be able to copy map
       // what we need is a pw entry field to open if there's a pw required in the url
       await document
