@@ -22,7 +22,7 @@ BEGIN
         num_districts,
         parent_tiles_s3_path,
         parent_layer,
-        cihld_tiles_s3_path,
+        child_tiles_s3_path,
         child_layer,
         visible
     )

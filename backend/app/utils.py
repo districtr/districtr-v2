@@ -33,7 +33,8 @@ def create_districtr_map(
     child_layer: str | None = None,
     gerrydb_table_name: str | None = None,
     num_districts: int | None = None,
-    tiles_s3_path: str | None = None,
+    parent_tiles_s3_path: str | None = None,
+    child_tiles_s3_path: str | None = None,
     visibility: bool = True,
 ) -> str:
     """
@@ -86,9 +87,9 @@ def create_districtr_map(
             "districtr_map_slug": districtr_map_slug,
             "gerrydb_table_name": gerrydb_table_name,
             "num_districts": num_districts,
-            "parent_tiles_s3_path": tiles_s3_path,
+            "parent_tiles_s3_path": parent_tiles_s3_path,
             "parent_layer_name": parent_layer,
-            "child_tiles_s3_path": tiles_s3_path,
+            "child_tiles_s3_path": child_tiles_s3_path,
             "child_layer_name": child_layer,
             "visibility": visibility,
         },
