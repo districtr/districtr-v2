@@ -16,10 +16,7 @@ from sqlalchemy import text, update
 from sqlalchemy.exc import (
     ProgrammingError,
     InternalError,
-    IntegrityError,
-    SQLAlchemyError,
 )
-from pydantic import ValidationError
 from sqlmodel import Session, String, select, true
 from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
@@ -45,7 +42,6 @@ from app.models import (
     DistrictrMap,
     Document,
     DocumentCreate,
-    # DocumentMetadata,
     DocumentPublic,
     DocumentEditStatus,
     GEOIDS,
@@ -63,13 +59,14 @@ from app.models import (
     SummaryStatisticColumnLists,
 )
 from sqlalchemy.sql import func
-from app.utils import remove_file
+from app.utils import remove_file, _cleanup_expired_locks, _remove_all_locks
 from app.exports import (
     get_export_sql_method,
     DocumentExportType,
     DocumentExportFormat,
 )
 from aiocache import Cache
+from contextlib import asynccontextmanager
 
 
 if settings.ENVIRONMENT in ("production", "qa"):
@@ -80,7 +77,22 @@ if settings.ENVIRONMENT in ("production", "qa"):
         environment=settings.ENVIRONMENT.value,
     )
 
-app = FastAPI()
+
+@repeat_every(seconds=60)
+async def cleanup_expired_locks():
+    session = next(get_session())
+    _cleanup_expired_locks(session=session, hours=1)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await cleanup_expired_locks()
+    yield
+    session = next(get_session())
+    _remove_all_locks(session=session)
+
+
+app = FastAPI(lifespan=lifespan)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -252,9 +264,7 @@ async def create_document(
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             coalesce(plan_genesis).label("genesis"),
-            DistrictrMap.available_summary_stats.label(
-                "available_summary_stats"
-            ),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
             # send metadata as a null object on init of document
             coalesce(
                 None,
@@ -323,9 +333,7 @@ def _get_document(
 ) -> Document:
     try:
         document = session.exec(
-            select(Document).filter(
-                Document.document_id == document_id
-            )  # pyright: ignore
+            select(Document).filter(Document.document_id == document_id)  # pyright: ignore
         ).one()
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -459,8 +467,7 @@ async def update_colors(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug
-            == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -542,9 +549,7 @@ async def get_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label(
-                "available_summary_stats"
-            ),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
             # get metadata as a json object
             Document.map_metadata.label("map_metadata"),  # pyright: ignore
             coalesce(
@@ -555,9 +560,7 @@ async def get_document(
             ).label("status"),
             coalesce(
                 access_type,
-            ).label(
-                "access"
-            ),  # read or edit
+            ).label("access"),  # read or edit
             # add access - read or edit
         )  # pyright: ignore
         .where(Document.document_id == document_id)
@@ -652,32 +655,6 @@ async def get_document_status(
         return {"status": DocumentEditStatus.checked_out}
 
 
-# TODO
-# I'm pretty sure this is either going to keep the API awake, which doesn't take
-# advantage of Fly's automatic wakeup cost savings
-# OR it'll stop running when the API is idle. That's probably fine since nothing
-# will be going to the DB if the API isn't awake
-# That said, this really seems like a DB concern and could be implemented with
-# pg_cron https://github.com/citusdata/pg_cron
-@app.on_event("startup")
-@repeat_every(seconds=60)  # Run every minute
-def cleanup_expired_locks():
-    session = next(get_session())
-    try:
-        N_HOURS = 1  # arbitrary for now
-        stmt = text(
-            """DELETE FROM document.map_document_user_session
-            WHERE updated_at < NOW() - make_interval(hours => :n_hours)"""
-        )
-
-        result = session.execute(stmt, {"n_hours": N_HOURS})
-        session.commit()
-        print(f"Deleted {result.rowcount} expired locks.")
-    except Exception as e:
-        session.rollback()
-        print(f"Error deleting expired locks: {e}")
-
-
 @app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
 async def get_total_population(
     document: Annotated[Document, Depends(_get_document)],
@@ -743,8 +720,7 @@ def _get_districtr_map(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug
-            == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -1001,9 +977,7 @@ async def get_map_demography(
         ids_subquery = text(
             """
             SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
-        """.format(
-                ",".join(f"(:id{i})" for i in range(len(ids)))
-            )
+        """.format(",".join(f"(:id{i})" for i in range(len(ids))))
         )
         # This is for efficiency but slightly slippery
         # Adding the format here provides some safety
