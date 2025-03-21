@@ -784,58 +784,17 @@ def test_share_districtr_plan(client, document_id):
     assert decoded_token["access"] == "view"
     assert decoded_token["password_required"]
 
-
-@pytest.fixture()
-def test_load_plan_from_share(client, session: Session):
-    """Test retrieving a document using a shared token."""
-
-    token_id = str(uuid4())
-    hashed_pw = hash_password("test_password")
-    expiration_date = datetime.now(UTC) + timedelta(days=1)  # test expiration
-
+    # test sharing from an existing token
     response = client.post(
-        "/api/create_document",
+        f"/api/document/{document_id}/share",
         json={
-            "gerrydb_table": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
-            "user_id": USER_ID,
+            "password": share_payload["password"],
+            "access_type": share_payload["access_type"],
         },
     )
 
-    assert response.status_code == 200, f"Failed to create document: {response.text}"
-    document_id = response.json().get("document_id")
-
-    if not document_id:
-        raise ValueError("Document creation failed; no document_id returned.")
-
-    session.execute(
-        text(
-            """
-                INSERT INTO document.map_document_token (token_id, document_id, password_hash, expiration_date)
-                VALUES (:token_id, :document_id, :password_hash, :expiration_date)
-                returning *
-            """
-        ),
-        {
-            "token_id": token_id,
-            "document_id": document_id,
-            "password_hash": hashed_pw,
-            "expiration_date": expiration_date,
-        },
-    )
-
-    session.commit()
-
-    data = TokenRequest(
-        token=token_id,
-        password="test_password",
-        user_id="test_user",
-    )
-
-    response = client.post("/api/share/load_plan_from_share", json=data.dict())
-
-    assert response.status_code == 200, f"Failed to load document: {response.text}"
-
-    # todo: remove the document + token from the database after the test
+    assert response.status_code == 200
+    assert "token" in data
 
 
 def test_unlock_map(client, document_id):
@@ -935,7 +894,6 @@ def test_load_plan_from_share(client, document_id):
     )
 
     assert response.status_code == 200
-    # assert response.json().get("status") == DocumentEditStatus.checked_out
 
 
 def test_document_checkout(client, document_id):
