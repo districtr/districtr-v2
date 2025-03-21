@@ -293,7 +293,8 @@ def simple_parent_child_geos_districtr_map_fixture(
         districtr_map_slug="simple_geos",
         gerrydb_table_name="simple_geos",
         num_districts=10,
-        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
+        parent_tiles_s3_path="tilesets/simple_shatterable_parent_layer.pmtiles",
+        child_tiles_s3_path="tilesets/simple_shatterable_child_layer.pmtiles",
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",
     )
@@ -409,7 +410,8 @@ def ks_ellis_shatterable_districtr_map(
         districtr_map_slug="ks_ellis_geos",
         gerrydb_table_name="ks_ellis_geos",
         num_districts=10,
-        tiles_s3_path="tilesets/ks_ellis_shatterable_layer.pmtiles",
+        parent_tiles_s3_path="tilesets/ks_ellis_shatterable_parent_layer.pmtiles",
+        child_tiles_s3_path="tilesets/ks_ellis_shatterable_child_layer.pmtiles",
         parent_layer="ks_ellis_county_vtd",
         child_layer="ks_ellis_county_block",
     )
@@ -427,7 +429,8 @@ def ks_ellis_parent_layer_only_districtr_map(
         districtr_map_slug="ks_ellis_county_block",
         gerrydb_table_name="ks_ellis_county_block",
         num_districts=2,
-        tiles_s3_path="tilesets/ks_ellis_shatterable_layer.pmtiles",
+        parent_tiles_s3_path="tilesets/ks_ellis_shatterable_parent_layer.pmtiles",
+        child_tiles_s3_path="tilesets/ks_ellis_shatterable_child_layer.pmtiles",
         parent_layer="ks_ellis_county_block",
     )
     session.commit()

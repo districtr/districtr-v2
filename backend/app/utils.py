@@ -33,7 +33,8 @@ def create_districtr_map(
     child_layer: str | None = None,
     gerrydb_table_name: str | None = None,
     num_districts: int | None = None,
-    tiles_s3_path: str | None = None,
+    parent_tiles_s3_path: str | None = None,
+    child_tiles_s3_path: str | None = None,
     visibility: bool = True,
 ) -> str:
     """
@@ -61,8 +62,9 @@ def create_districtr_map(
         :districtr_map_slug,
         :gerrydb_table_name,
         :num_districts,
-        :tiles_s3_path,
+        :parent_tiles_s3_path,
         :parent_layer_name,
+        :child_tiles_s3_path,
         :child_layer_name,
         :visibility
     )"""
@@ -71,8 +73,9 @@ def create_districtr_map(
         bindparam(key="districtr_map_slug", type_=String),
         bindparam(key="gerrydb_table_name", type_=String),
         bindparam(key="num_districts", type_=Integer),
-        bindparam(key="tiles_s3_path", type_=String),
+        bindparam(key="parent_tiles_s3_path", type_=String),
         bindparam(key="parent_layer_name", type_=String),
+        bindparam(key="child_tiles_s3_path", type_=String),
         bindparam(key="child_layer_name", type_=String),
         bindparam(key="visibility", type_=Boolean),
     )
@@ -84,8 +87,9 @@ def create_districtr_map(
             "districtr_map_slug": districtr_map_slug,
             "gerrydb_table_name": gerrydb_table_name,
             "num_districts": num_districts,
-            "tiles_s3_path": tiles_s3_path,
+            "parent_tiles_s3_path": parent_tiles_s3_path,
             "parent_layer_name": parent_layer,
+            "child_tiles_s3_path": child_tiles_s3_path,
             "child_layer_name": child_layer,
             "visibility": visibility,
         },

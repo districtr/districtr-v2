@@ -1,4 +1,3 @@
-import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapRef} from 'react-map-gl/maplibre';
 import {MapStore} from '@/app/store/mapStore';
@@ -22,7 +21,7 @@ export const ResetMapSelectState = (
 ) => {
   if (map && Object.keys(mapStoreRef.zoneAssignments).length) {
     map.removeFeatureState({
-      source: BLOCK_SOURCE_ID,
+      source: sourceLayer,
       sourceLayer: sourceLayer,
     });
 

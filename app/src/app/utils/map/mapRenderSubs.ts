@@ -1,4 +1,4 @@
-import {PARENT_LAYERS, CHILD_LAYERS, getLayerFill, BLOCK_SOURCE_ID} from '@constants/layers';
+import {PARENT_LAYERS, CHILD_LAYERS, getLayerFill} from '@constants/layers';
 import {
   ColorZoneAssignmentsState,
   colorZoneAssignments,
@@ -52,7 +52,7 @@ export class MapRenderSubscriber {
     shatterIds.parents.forEach(id => {
       this.mapRef.setFeatureState(
         {
-          source: BLOCK_SOURCE_ID,
+          source: mapDocument?.parent_layer,
           id,
           sourceLayer: mapDocument?.parent_layer,
         },
@@ -68,7 +68,7 @@ export class MapRenderSubscriber {
         this.mapRef.setFeatureState(
           {
             id: parentId,
-            source: BLOCK_SOURCE_ID,
+            source: mapDocument.parent_layer,
             sourceLayer: mapDocument.parent_layer,
           },
           {

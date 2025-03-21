@@ -82,6 +82,8 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # Null means default number of districts? Should we have a sensible default?
     num_districts: int | None = Field(nullable=True, default=None)
     tiles_s3_path: str | None = Field(nullable=True)
+    parent_tiles_s3_path: str | None = Field(nullable=True)
+    child_tiles_s3_path: str | None = Field(nullable=True)
     parent_layer: str = Field(
         sa_column=Column(String, ForeignKey("gerrydbtable.name"), nullable=False)
     )
@@ -108,6 +110,8 @@ class DistrictrMapPublic(BaseModel):
     parent_layer: str
     child_layer: str | None = None
     tiles_s3_path: str | None = None
+    parent_tiles_s3_path: str | None = None
+    child_tiles_s3_path: str | None = None
     num_districts: int | None = None
     visible: bool = True
     available_summary_stats: list[str] | None = None
@@ -120,6 +124,8 @@ class DistrictrMapUpdate(BaseModel):
     parent_layer: str | None = None
     child_layer: str | None = None
     tiles_s3_path: str | None = None
+    parent_tiles_s3_path: str | None = None
+    child_tiles_s3_path: str | None = None
     num_districts: int | None = None
     visible: bool | None = None
     available_summary_stats: list[str] | None = None
@@ -240,6 +246,8 @@ class DocumentPublic(BaseModel):
     parent_layer: str
     child_layer: str | None
     tiles_s3_path: str | None = None
+    parent_tiles_s3_path: str | None = None
+    child_tiles_s3_path: str | None = None
     num_districts: int | None = None
     created_at: datetime
     updated_at: datetime

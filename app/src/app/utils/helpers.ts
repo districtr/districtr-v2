@@ -9,7 +9,6 @@ import {
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
-  BLOCK_SOURCE_ID,
 } from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
@@ -201,7 +200,6 @@ export const getMap = (_getMapRef?: MapStore['getMapRef']) => {
  * @returns {void}
  *
  * @requires useMapStore
- * @requires BLOCK_SOURCE_ID
  *
  * @description
  * This function does the following:
@@ -232,23 +230,20 @@ export const colorZoneAssignments = (
   ) {
     return;
   }
-  const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
-  const featureStateChangesCache =
-    mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
-  if (!featureStateCache) return;
 
   zoneAssignments.forEach((zone, id) => {
     if (!id) return;
     const isChild = currentShatterIds.children.has(id);
     const sourceLayer = isChild ? mapDocument.child_layer : mapDocument.parent_layer;
     if (!sourceLayer) return;
-    const featureState = featureStateCache?.[sourceLayer]?.[id];
-    const futureState = featureStateChangesCache?.[sourceLayer]?.[id];
+    
+    const featureState = mapRef.style.sourceCaches?.[sourceLayer]?._state?.state?.[sourceLayer]?.[id];
+    const futureState = mapRef.style.sourceCaches?.[sourceLayer]?._state?.stateChanges?.[sourceLayer]?.[id];
     if (!isInitialRender && (featureState?.zone === zone || futureState?.zone === zone)) return;
 
     mapRef?.setFeatureState(
       {
-        source: BLOCK_SOURCE_ID,
+        source: sourceLayer,
         id,
         sourceLayer,
       },
@@ -266,7 +261,7 @@ export const colorZoneAssignments = (
     if (!sourceLayer) return;
     mapRef?.setFeatureState(
       {
-        source: BLOCK_SOURCE_ID,
+        source: sourceLayer,
         id,
         sourceLayer,
       },
@@ -321,7 +316,7 @@ export const resetZoneColors = ({
     const sourceLayer = getSourceLayer(id);
     mapRef?.setFeatureState(
       {
-        source: BLOCK_SOURCE_ID,
+        source: sourceLayer,
         id,
         sourceLayer,
       },
