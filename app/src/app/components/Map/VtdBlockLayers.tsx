@@ -1,6 +1,6 @@
 import {useDemographyStore} from '@/app/store/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
-import React, {useLayoutEffect, useState} from 'react';
+import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, useMap} from 'react-map-gl/maplibre';
 import {ZoneLayerGroup} from './ZoneLayerGroup';
@@ -14,26 +14,33 @@ export const VtdBlockLayers: React.FC<{
 }> = ({isDemographicMap}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
+  const mapRenderingState = useMapStore(state => state.mapRenderingState);
   const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap);
   const demographicVariable = useDemographyStore(state => state.variable);
   const setScale = useDemographyStore(state => state.setScale);
   const demographyDataHash = useDemographyStore(state => state.dataHash);
   const shatterIds = useMapStore(state => state.shatterIds);
-  const [clearOldSource, setClearOldSource] = useState(false);
   const showDemography = isDemographicMap || showDemographicMap === 'overlay';
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
-  const renderChildLayers = useMapStore(state => Boolean(state.mapDocument?.child_layer && state.shatterIds.children.size > 0));
+  const renderChildLayers = useMapStore(state =>
+    Boolean(state.mapDocument?.child_layer && state.shatterIds.children.size > 0)
+  );
+  const currentDocumentId = useRef<string | null | undefined>(mapDocument?.document_id);
 
   useEffect(() => {
-    // clears old source before re-adding
-    // only happens on map document change
-    setClearOldSource(true);
-    setTimeout(() => {
-      setClearOldSource(false);
+    // Prevent source IDs from changing by returning null if previous
+    // document_id does not match the currentDocumentId
+    // useRef synchonrously updates
+    // So this change happens **before** the next render
+    // This resolves two issues:
+    // source IDs changing between plan selection (throws maplibre error)
+    // clearing zone assignments when going between maps of the same state
+    currentDocumentId.current = useMapStore.getState().mapDocument?.document_id;
+    if (mapRenderingState !== 'loaded') {
       setMapRenderingState('loaded');
-    }, 10);
-  }, [mapDocument?.tiles_s3_path, mapDocument?.document_id]);
+    }
+  }, [mapDocument?.document_id, mapRenderingState]);
 
   const handleDemographyRender = ({numberOfBins}: {numberOfBins?: number}) => {
     const _map = mapRef.current?.getMap();
@@ -77,7 +84,9 @@ export const VtdBlockLayers: React.FC<{
     mapDocument,
   ]);
 
-  if (!mapDocument || clearOldSource) return null;
+  if (!mapDocument || currentDocumentId.current !== mapDocument.document_id) {
+    return null;
+  }
 
   return (
     <MapSource mapDocument={mapDocument}>
