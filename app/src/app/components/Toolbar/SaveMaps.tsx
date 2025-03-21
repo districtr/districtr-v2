@@ -29,7 +29,6 @@ const BoxContainer = styled(Box, {
 export const SaveMapDetails: React.FC<{}> = ({}) => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const setMapDocument = useMapStore(store => store.setMapDocument);
-  const gerryDBTable = mapDocument?.gerrydb_table;
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
 
@@ -221,8 +220,8 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
     setMapNameIsSaved(true);
   };
 
-  // if no gerrydb table selected return null
-  if (!gerryDBTable) {
+  // if no document, return
+  if (!mapDocument) {
     return <div></div>;
   }
 
