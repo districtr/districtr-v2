@@ -5,9 +5,7 @@ import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
 
-export const MetaLayers: React.FC<{isDemographicMap?:boolean}> = ({
-  isDemographicMap
-}) => {
+export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
     <>
       {!isDemographicMap && <ZoneNumbersLayer />}
@@ -18,8 +16,11 @@ export const MetaLayers: React.FC<{isDemographicMap?:boolean}> = ({
 
 const PopulationTextLayer = () => {
   const captiveIds = useMapStore(state => state.captiveIds);
-  const [pointFeatureCollection, setPointFeatureCollection] = useState<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
-  const showBlockPopulationNumbers = useMapStore(state => state.mapOptions.showBlockPopulationNumbers);
+  const [pointFeatureCollection, setPointFeatureCollection] =
+    useState<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
+  const showBlockPopulationNumbers = useMapStore(
+    state => state.mapOptions.showBlockPopulationNumbers
+  );
 
   useEffect(() => {
     if (captiveIds.size === 0) {
@@ -27,12 +28,14 @@ const PopulationTextLayer = () => {
       return;
     }
     if (showBlockPopulationNumbers) {
-      GeometryWorker?.getPropertiesCentroids(Array.from(captiveIds)).then(setPointFeatureCollection);
+      GeometryWorker?.getPropertiesCentroids(Array.from(captiveIds)).then(
+        setPointFeatureCollection
+      );
     }
-  }, [captiveIds, showBlockPopulationNumbers])
+  }, [captiveIds, showBlockPopulationNumbers]);
 
   if (!showBlockPopulationNumbers || !pointFeatureCollection.features.length || !captiveIds.size) {
-    return null
+    return null;
   }
 
   return (
@@ -56,7 +59,7 @@ const PopulationTextLayer = () => {
       ></Layer>
     </Source>
   );
-}
+};
 
 const ZoneNumbersLayer = () => {
   const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
@@ -65,7 +68,8 @@ const ZoneNumbersLayer = () => {
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
   const lockedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
-  const [zoneNumberData, setZoneNumberData] = useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
+  const [zoneNumberData, setZoneNumberData] =
+    useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
   const mapRenderingState = useMapStore(state => state.mapRenderingState);
   const appLoadingState = useMapStore(state => state.appLoadingState);
@@ -78,7 +82,7 @@ const ZoneNumbersLayer = () => {
     const id = `${mapDocumentId}`;
     if (showZoneNumbers) {
       const geoms = await getDissolved();
-      if (geoms && mapDocumentId === id){
+      if (geoms && mapDocumentId === id) {
         setZoneNumberData(geoms.centroids);
       }
     } else {
@@ -95,13 +99,17 @@ const ZoneNumbersLayer = () => {
     }
   };
 
-  useLayoutEffect(handleUpdate, [showZoneNumbers, zoneAssignments, mapRenderingState, appLoadingState]);
+  useLayoutEffect(handleUpdate, [
+    showZoneNumbers,
+    zoneAssignments,
+    mapRenderingState,
+    appLoadingState,
+  ]);
 
   useEffect(() => {
     const map = getMapRef();
     if (map) {
-      map.loadImage('/lock.png')
-        .then(image => map.addImage('lock', image.data));
+      map.loadImage('/lock.png').then(image => map.addImage('lock', image.data));
       map.on('moveend', handleUpdate);
       map.on('zoomend', handleUpdate);
     }
@@ -115,10 +123,10 @@ const ZoneNumbersLayer = () => {
 
   useEffect(() => {
     setZoneNumberData(EMPTY_FT_COLLECTION);
-  }, [mapDocumentId])
+  }, [mapDocumentId]);
 
   if (!showZoneNumbers) {
-    return null
+    return null;
   }
   return (
     <Source id="zone-label" type="geojson" data={zoneNumberData}>
@@ -164,7 +172,7 @@ const ZoneNumbersLayer = () => {
         layout={{
           visibility: shouldHide ? 'none' : 'visible',
           'icon-image': 'lock',
-          'icon-size': 1
+          'icon-size': 1,
         }}
         filter={
           // get zone not in lockedAreas

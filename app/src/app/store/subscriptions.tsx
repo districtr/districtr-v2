@@ -1,6 +1,6 @@
 import {getQueriesResultsSubs} from '../utils/api/queries';
 import {getSearchParamsObserver} from '../utils/api/queryParamsListener';
-import { demographyCache } from '../utils/demography/demographyCache';
+import {demographyCache} from '../utils/demography/demographyCache';
 import {shallowCompareArray} from '../utils/helpers';
 import {useDemographyStore} from './demographyStore';
 import {getMapEditSubs} from './mapEditSubs';
@@ -9,7 +9,7 @@ import {MapStore, useMapStore} from './mapStore';
 export const initSubs = () => {
   // these need to initialize after the map store
   const querySubs = getQueriesResultsSubs(useMapStore);
-  const mapEditSubs =  getMapEditSubs(useMapStore);
+  const mapEditSubs = getMapEditSubs(useMapStore);
   getSearchParamsObserver();
 
   const healSub = useMapStore.subscribe<
@@ -18,8 +18,10 @@ export const initSubs = () => {
     state => [state.mapDocument, state.shatterIds, state.appLoadingState],
     ([mapDocument, shatterIds, appLoadingState], [_prevMapDoc, prevShatterIds]) => {
       if (appLoadingState === 'loaded') {
-        const healedChildren = Array.from(prevShatterIds.children).filter(id => !shatterIds.children.has(id));
-        demographyCache.exclude(healedChildren)
+        const healedChildren = Array.from(prevShatterIds.children).filter(
+          id => !shatterIds.children.has(id)
+        );
+        demographyCache.exclude(healedChildren);
         useDemographyStore.getState().updateData(mapDocument, prevShatterIds.parents);
       }
     },
@@ -43,6 +45,6 @@ export const initSubs = () => {
     mapEditSubs.forEach(sub => sub());
     healSub();
     demogSub();
-  }
+  };
   return unsub;
 };

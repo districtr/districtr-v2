@@ -78,7 +78,11 @@ export const Toolbar = () => {
       const activeElement = document.activeElement;
       const mapIsLocked = useMapStore.getState().mapStatus?.status === 'locked';
       // if active element is an input, don't do anything
-      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement || mapIsLocked)
+      if (
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        mapIsLocked
+      )
         return;
       // if alt, showShortcuts
       if (event.altKey) {

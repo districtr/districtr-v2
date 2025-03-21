@@ -1,14 +1,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {
-  Button,
-  Flex,
-  Text,
-  Dialog,
-  Box,
-  TextField,
-} from '@radix-ui/themes';
+import {Button, Flex, Text, Dialog, Box, TextField} from '@radix-ui/themes';
 import {sharedDocument} from '@/app/utils/api/mutations';
 import {jwtDecode} from 'jwt-decode';
 export const PasswordPromptModal = () => {
@@ -18,7 +11,7 @@ export const PasswordPromptModal = () => {
   const shareMapMessage = useMapStore(store => store.shareMapMessage);
   const setPasswordPrompt = useMapStore(store => store.setPasswordPrompt);
   const setAppLoadingState = useMapStore(store => store.setAppLoadingState);
-  const receivedShareToken = useMapStore(store => store.receivedShareToken ?? ''); 
+  const receivedShareToken = useMapStore(store => store.receivedShareToken ?? '');
 
   useEffect(() => {
     setDialogOpen(passwordRequired);

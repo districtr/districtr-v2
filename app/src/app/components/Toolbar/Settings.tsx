@@ -3,7 +3,7 @@ import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes'
 import {useMapStore} from '@store/mapStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
-import { ColorChangeModal } from './ColorChangeModal';
+import {ColorChangeModal} from './ColorChangeModal';
 
 const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
   {

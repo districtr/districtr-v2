@@ -39,7 +39,7 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   >(
     state => [state.zoneAssignments, state.appLoadingState],
     ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
-      if (appLoadingState === 'blurred' || !allowSendZoneUpdates) return
+      if (appLoadingState === 'blurred' || !allowSendZoneUpdates) return;
       // Update GeometryWorker on first render
       const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
       GeometryWorker?.updateZones(zoneEntries);

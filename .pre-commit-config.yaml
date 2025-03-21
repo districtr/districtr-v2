@@ -5,3 +5,10 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: prettier
+        name: Run Prettier
+        entry: bash -c "cd app && npm run prettier"
+        language: system

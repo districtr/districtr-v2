@@ -1,5 +1,5 @@
-import { useMapStore } from "@/app/store/mapStore";
-import { sharePlan } from "../mutations";
+import {useMapStore} from '@/app/store/mapStore';
+import {sharePlan} from '../mutations';
 
 export const getShareLink = async (
   password: string | null,
@@ -8,7 +8,7 @@ export const getShareLink = async (
   setPasswordDisabled: (isDisabled: boolean) => void,
   setLinkCopied: (isCopied: boolean) => void
 ) => {
-  const {upsertUserMap, setErrorNotification, mapDocument} = useMapStore.getState()
+  const {upsertUserMap, setErrorNotification, mapDocument} = useMapStore.getState();
   if (!mapDocument?.document_id) {
     setErrorNotification({message: 'No document found while', severity: 2});
     return;

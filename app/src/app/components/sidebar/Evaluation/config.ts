@@ -32,16 +32,16 @@ export const TOTPOPColumnConfig: ColumnConfiguration<TOTPOPZoneSummaryStats> = [
   {
     label: 'Other',
     column: 'other_pop_20',
-  }
+  },
 ];
 
 export const VAPColumnConfig: ColumnConfiguration<VAPZoneSummaryStats> = [
-  {column: "bvap_20", label: "Black"},
-  {column: "hvap_20", label: "Hispanic"},
-  {column: "amin_vap_20", label: "AMIN"},
-  {column: "asian_nhpi_vap_20", label: "Asian"},
-  {column: "white_vap_20", label: "White"},
-  {column: "other_vap_20", label: "Other"}
+  {column: 'bvap_20', label: 'Black'},
+  {column: 'hvap_20', label: 'Hispanic'},
+  {column: 'amin_vap_20', label: 'AMIN'},
+  {column: 'asian_nhpi_vap_20', label: 'Asian'},
+  {column: 'white_vap_20', label: 'White'},
+  {column: 'other_vap_20', label: 'Other'},
 ];
 
 export const columnConfigs = {
@@ -77,5 +77,5 @@ export const summaryStatLabels: Array<{
   {
     value: 'TOTPOP',
     label: 'Total population',
-  }
-]
+  },
+];

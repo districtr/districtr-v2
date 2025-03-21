@@ -81,7 +81,10 @@ export type GeometryWorkerClass = {
    * @returns CentroidReturn
    * @see getCentroidsFromView
    */
-  getCentersOfMass: (bounds: [number, number, number, number], activeZones: number[]) => CentroidReturn;
+  getCentersOfMass: (
+    bounds: [number, number, number, number],
+    activeZones: number[]
+  ) => CentroidReturn;
   /**
    * Strategy for finding centroids choosing random centroids that do not intersect with each other
    * @param bounds number[] the view bounds

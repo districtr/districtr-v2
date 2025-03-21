@@ -21,7 +21,7 @@ import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {ShareMapsModal} from './Toolbar/ShareMapsModal';
 import {PasswordPromptModal} from './Toolbar/PasswordPromptModal';
-import { useMapStatus } from '../hooks/useMapStatus';
+import {useMapStatus} from '../hooks/useMapStatus';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -159,22 +159,26 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
-            {!!statusText && <Button
-              variant="outline"
-              className="mr-2"
-              disabled={!mapDocument?.document_id}
-              onClick={() => setShareMapsModal(true)}
-            >
-              {status === 'locked' ? 'Share' : 'Share'}
-            </Button>}
-            {!!statusText && <Button
-              variant="outline"
-              className="mr-2"
-              disabled={!mapDocument?.document_id}
-              onClick={() => setRecentMapsModalOpen(true)}
-            >
-              {statusText}
-            </Button>}
+            {!!statusText && (
+              <Button
+                variant="outline"
+                className="mr-2"
+                disabled={!mapDocument?.document_id}
+                onClick={() => setShareMapsModal(true)}
+              >
+                {status === 'locked' ? 'Share' : 'Share'}
+              </Button>
+            )}
+            {!!statusText && (
+              <Button
+                variant="outline"
+                className="mr-2"
+                disabled={!mapDocument?.document_id}
+                onClick={() => setRecentMapsModalOpen(true)}
+              >
+                {statusText}
+              </Button>
+            )}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               onClick={() => setSettingsOpen(prev => !prev)}

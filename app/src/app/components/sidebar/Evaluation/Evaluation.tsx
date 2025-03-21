@@ -12,8 +12,8 @@ import {
   columnConfigs,
   modeButtonConfig,
 } from './config';
-import { useDemography } from '@/app/hooks/useDemography';
-import { useSummaryStats } from '@/app/hooks/useSummaryStats';
+import {useDemography} from '@/app/hooks/useDemography';
+import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 
 const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
@@ -57,10 +57,7 @@ const Evaluation: React.FC = () => {
 
   return (
     <Box width={'100%'}>
-      <Tabs.Root
-        value={summaryType}
-        onValueChange={value => setSummaryType(value as SummaryTypes)}
-      >
+      <Tabs.Root value={summaryType} onValueChange={value => setSummaryType(value as SummaryTypes)}>
         <Tabs.List>
           {availableSummaries.map(({value, label}) => (
             <Tabs.Trigger key={value} value={value}>
@@ -120,7 +117,7 @@ const Evaluation: React.FC = () => {
           </Table.Header>
           <Table.Body>
             {populationData
-              .sort((a, b) => (a.zone||0) - (b.zone||0))
+              .sort((a, b) => (a.zone || 0) - (b.zone || 0))
               .map((row, i) => {
                 const isUnassigned = row.zone === undefined;
                 const zoneName = isUnassigned ? 'None' : row.zone;
