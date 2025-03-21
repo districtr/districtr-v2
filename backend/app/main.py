@@ -252,7 +252,9 @@ async def create_document(
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             coalesce(plan_genesis).label("genesis"),
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
             # send metadata as a null object on init of document
             coalesce(
                 None,
@@ -321,7 +323,9 @@ def _get_document(
 ) -> Document:
     try:
         document = session.exec(
-            select(Document).filter(Document.document_id == document_id)  # pyright: ignore
+            select(Document).filter(
+                Document.document_id == document_id
+            )  # pyright: ignore
         ).one()
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -455,7 +459,8 @@ async def update_colors(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug
+            == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -537,7 +542,9 @@ async def get_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label(
+                "available_summary_stats"
+            ),  # pyright: ignore
             # get metadata as a json object
             Document.map_metadata.label("map_metadata"),  # pyright: ignore
             coalesce(
@@ -548,7 +555,9 @@ async def get_document(
             ).label("status"),
             coalesce(
                 access_type,
-            ).label("access"),  # read or edit
+            ).label(
+                "access"
+            ),  # read or edit
             # add access - read or edit
         )  # pyright: ignore
         .where(Document.document_id == document_id)
@@ -734,7 +743,8 @@ def _get_districtr_map(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug
+            == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -991,7 +1001,9 @@ async def get_map_demography(
         ids_subquery = text(
             """
             SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
-        """.format(",".join(f"(:id{i})" for i in range(len(ids))))
+        """.format(
+                ",".join(f"(:id{i})" for i in range(len(ids)))
+            )
         )
         # This is for efficiency but slightly slippery
         # Adding the format here provides some safety
@@ -1044,28 +1056,6 @@ async def update_districtrmap_metadata(
         )
         session.execute(stmt)
         session.commit()
-
-    except ValidationError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid metadata format: {ve.errors()}",
-        )
-
-    except IntegrityError as ie:
-        session.rollback()
-        logger.error(f"Database integrity error: {ie}")
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Conflict: Metadata entry already exists or violates constraints",
-        )
-
-    except SQLAlchemyError as se:
-        session.rollback()
-        logger.error(f"Database error: {se}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="A database error occurred while updating metadata",
-        )
 
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
