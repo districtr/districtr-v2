@@ -419,7 +419,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       return;
     }
     const initialMapOptions = useMapStore.getInitialState().mapOptions;
-    if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
+    if (currentMapDocument?.parent_tiles_s3_path !== mapDocument.parent_tiles_s3_path) {
       GeometryWorker?.clear();
     } else {
       GeometryWorker?.resetZones();

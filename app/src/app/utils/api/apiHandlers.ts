@@ -67,7 +67,10 @@ export interface DistrictrMap {
   districtr_map_slug: string;
   gerrydb_table_name: string;
   parent_layer: string;
+  parent_tiles_s3_path: string;
   child_layer: string | null;
+  child_tiles_s3_path: string | null;
+  // vestigial
   tiles_s3_path: string | null;
   num_districts: number | null;
 }
