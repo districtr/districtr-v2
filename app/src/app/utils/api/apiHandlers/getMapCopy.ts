@@ -3,15 +3,17 @@ import {document, metadata} from '../mutations';
 
 export const getMapCopy = () => {
   const {mapDocument, upsertUserMap, setMapDocument} = useMapStore.getState();
-  if (mapDocument?.gerrydb_table) {
+  console.log("!!!", mapDocument)
+  if (mapDocument?.districtr_map_slug) {
     document
       .mutate({
-        districtr_map_slug: mapDocument?.gerrydb_table ?? '',
+        districtr_map_slug: mapDocument?.districtr_map_slug ?? '',
         metadata: mapDocument?.map_metadata,
         user_id: useMapStore.getState().userID,
         copy_from_doc: mapDocument?.document_id,
       })
       .then(data => {
+        console.log("!!!", data)
         // update in db
         metadata.mutate({
           document_id: data.document_id,
