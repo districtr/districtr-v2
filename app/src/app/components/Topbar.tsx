@@ -21,6 +21,7 @@ import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {ShareMapsModal} from './Toolbar/ShareMapsModal';
 import {PasswordPromptModal} from './Toolbar/PasswordPromptModal';
+import { useMapStatus } from '../hooks/useMapStatus';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -31,6 +32,7 @@ export const Topbar: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
+  const mapStatus = useMapStatus();
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
@@ -156,31 +158,22 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
-            <Button
+            {!!mapStatus && <Button
               variant="outline"
               className="mr-2"
               disabled={!mapDocument?.document_id}
               onClick={() => setShareMapsModal(true)}
             >
               {mapDocument?.status === 'locked' ? 'Share' : 'Share'}
-            </Button>
-            <Button
+            </Button>}
+            {!!mapStatus && <Button
               variant="outline"
               className="mr-2"
               disabled={!mapDocument?.document_id}
               onClick={() => setRecentMapsModalOpen(true)}
             >
-              Status
-              {mapDocument?.document_id
-                ? useMapStore.getState().mapDocument?.status === 'locked' ||
-                  useMapStore.getState().mapDocument?.access === 'read'
-                  ? ': Frozen'
-                  : !useMapStore.getState().mapDocument?.map_metadata ||
-                      useMapStore.getState().mapDocument?.map_metadata?.is_draft === true
-                    ? ': In Progress'
-                    : ': Ready to Share'
-                : null}
-            </Button>
+              Status{mapStatus}
+            </Button>}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               onClick={() => setSettingsOpen(prev => !prev)}
