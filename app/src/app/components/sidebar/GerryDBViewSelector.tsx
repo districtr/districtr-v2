@@ -1,15 +1,13 @@
-import {useState} from 'react';
 import {Flex, Popover, Select, Text, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
 import {document} from '@/app/utils/api/mutations';
 import {useTemporalStore} from '@/app/store/temporalStore';
 
 export function GerryDBViewSelector() {
-  const [limit, setLimit] = useState<number>(30);
-  const [offset, setOffset] = useState<number>(0);
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapViews = useMapStore(state => state.mapViews);
   const clear = useTemporalStore(store => store.clear);
+  const userID = useMapStore(state => state.userID);
   const {isPending, isError, data, error} = mapViews || {};
 
   const selectedView = data?.find(
@@ -29,7 +27,10 @@ export function GerryDBViewSelector() {
     }
     console.log('mutating to create new document');
     clear();
-    document.mutate({districtr_map_slug: selectedDistrictrMap.districtr_map_slug});
+    document.mutate({
+      districtr_map_slug: selectedDistrictrMap.districtr_map_slug,
+      user_id: userID,
+    });
   };
 
   if (isPending) return <div>Loading geographies... 🌎</div>;
