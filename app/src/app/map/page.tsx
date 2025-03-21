@@ -17,12 +17,14 @@ import {initSubs} from '../store/subscriptions';
 export default function Map() {
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
-  if (!userID) {
-    useMapStore.getState().setUserID();
-  }
+  const setUserID = useMapStore(state => state.setUserID);
   const showDemographicMap = useMapStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
+
+  useEffect(() => {
+    !userID && setUserID();
+  }, [userID, setUserID]);
 
   useEffect(() => {
     const unsub = initSubs();
