@@ -26,7 +26,7 @@ import {
 } from '../utils/helpers';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
-import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../constants/layers';
+import {FALLBACK_NUM_DISTRICTS} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
@@ -347,15 +347,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     if (!map || !mapDocument?.document_id) {
       return;
     }
-    // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
-    // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
-    // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
-    // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
-    const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
-    const featureStateChangesCache =
-      map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
-
-    if (!featureStateCache) return;
     // PAINT
     const popChanges: Record<number, number> = {};
     selectedZone !== null && (popChanges[selectedZone] = 0);
@@ -363,8 +354,12 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     features?.forEach(feature => {
       const id = feature?.id?.toString() ?? undefined;
       if (!id || !feature.sourceLayer) return;
-      const state = featureStateCache[feature.sourceLayer]?.[id];
-      const stateChanges = featureStateChangesCache?.[feature.sourceLayer]?.[id];
+      // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
+      // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
+      // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
+      // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
+      const state =  map.style.sourceCaches?.[feature.sourceLayer]?._state?.state?.[feature.sourceLayer]?.[id];
+      const stateChanges = map.style.sourceCaches?.[feature.sourceLayer]?._state?.stateChanges?.[feature.sourceLayer]?.[id];
 
       const prevAssignment = stateChanges?.zone || state?.zone || false;
 
@@ -386,7 +381,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       allPainted.add(id);
       map.setFeatureState(
         {
-          source: BLOCK_SOURCE_ID,
+          source: feature.sourceLayer,
           id,
           sourceLayer: feature.sourceLayer,
         },
@@ -515,7 +510,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     geoids.forEach(geoid => {
       mapRef?.setFeatureState(
         {
-          source: BLOCK_SOURCE_ID,
+          source: mapDocument?.parent_layer,
           id: geoid,
           sourceLayer: mapDocument?.parent_layer,
         },
@@ -550,7 +545,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     parentsToHeal.forEach(parent => {
       mapRef?.setFeatureState(
         {
-          source: BLOCK_SOURCE_ID,
+          source: sourceLayer,
           id: parent,
           sourceLayer,
         },
@@ -572,7 +567,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
 
     const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
     const updateHash = new Date().toISOString();
-    const {shatterIds, shatterMappings, lockedFeatures} = get();
+    const {shatterIds, shatterMappings, lockedFeatures, mapDocument} = get();
     const isAlreadyShattered = geoids.some(id => shatterMappings.hasOwnProperty(id));
     const shatterResult: ShatterResult = isAlreadyShattered
       ? ({
@@ -590,7 +585,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         });
 
     if (!shatterResult.children.length) {
-      const mapDocument = get().mapDocument;
       set({
         errorNotification: {
           severity: 2,
@@ -626,7 +620,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       // todo handle multiple shattered case
     } else if (isAlreadyShattered) {
     }
-
     set({
       shatterIds: {
         parents: existingParents,
@@ -644,8 +637,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       focusFeatures: [
         {
           id: features[0].id,
-          source: BLOCK_SOURCE_ID,
-          sourceLayer: get().mapDocument?.parent_layer,
+          source: mapDocument?.parent_layer || '',
+          sourceLayer: mapDocument?.parent_layer,
         },
       ],
       activeTool: 'brush',
@@ -734,7 +727,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
           mapRef.setFeatureState(
             {
               id: childId,
-              source: BLOCK_SOURCE_ID,
+              source: mapDocument.child_layer || '',
               sourceLayer: mapDocument.child_layer || '',
             },
             {
