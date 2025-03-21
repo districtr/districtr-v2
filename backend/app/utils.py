@@ -6,6 +6,7 @@ import logging
 from urllib.parse import ParseResult
 import os
 from app.core.config import settings
+import bcrypt
 from urllib.parse import urlparse
 from pathlib import Path
 
@@ -14,6 +15,14 @@ from app.models import SummaryStatisticType, UUIDType, DistrictrMap, DistrictrMa
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
 def create_districtr_map(
@@ -221,7 +230,8 @@ def add_extent_to_districtrmap(
         raise ValueError(
             f"Districtr map with UUID {districtr_map_uuid} does not exist."
         )
-    stmt = text(f"""
+    stmt = text(
+        f"""
         DO $$
         DECLARE
             rec RECORD;
@@ -259,7 +269,8 @@ def add_extent_to_districtrmap(
             EXCEPTION WHEN undefined_table THEN
                 RAISE NOTICE 'Table % does not exist for layer %', rec.parent_layer, rec.name;
         END $$;
-        """)
+        """
+    )
     session.execute(stmt)
 
 
@@ -407,3 +418,65 @@ def remove_file(filename: str) -> None:
     except FileNotFoundError:
         logger.warning(f"File {filename} not found")
         pass
+
+
+def _cleanup_expired_locks(session: Session, hours: int) -> list[str] | None:
+    """
+    Delete expired locks from the database.
+
+    Args:
+        hours (int): The number of hours to keep locks.
+
+    Returns:
+        list[str]: A list of document IDs that had their locks deleted.
+
+    Note:
+    This feels like a DB concern and could be implemented with pg_cron.
+    Did a brief spike trying to get pg_cron set up. Definitely a bit of a hassle
+    so this will work for now.
+    """
+    stmt = text("DELETE FROM locks WHERE created_at < NOW() - INTERVAL :n_hours HOUR")
+    try:
+        stmt = text(
+            """DELETE FROM document.map_document_user_session
+            WHERE updated_at < NOW() - make_interval(hours => :n_hours)
+            RETURNING document_id"""
+        )
+
+        result = session.execute(stmt, {"n_hours": hours}).scalars()
+        locks = list(result)
+        session.commit()
+        logger.info(
+            f"Deleted {len(locks)} expired locks: [{' '.join(map(str, locks))}]"
+        )
+        return locks
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Error deleting expired locks: {e}")
+
+
+def _remove_all_locks(session: Session) -> list[str] | None:
+    """
+    Delete all locks from the database.
+
+    Args:
+        session (Session): The database session.
+
+    Returns:
+        list[str]: A list of document IDs that had their locks deleted.
+    """
+    stmt = text("DELETE FROM locks")
+    try:
+        stmt = text(
+            """DELETE FROM document.map_document_user_session
+            RETURNING document_id"""
+        )
+
+        result = session.execute(stmt).scalars()
+        locks = list(result)
+        session.commit()
+        logger.info(f"Deleted {len(locks)} locks: [{' '.join(map(str, locks))}]")
+        return locks
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Error deleting all locks: {e}")

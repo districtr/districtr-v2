@@ -10,6 +10,8 @@ import {
   lastSentAssignments,
   RemoteAssignmentsResponse,
   ShatterResult,
+  DocumentMetadata,
+  StatusObject,
 } from '@utils/api/apiHandlers';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
@@ -31,11 +33,10 @@ import {queryClient} from '../utils/api/queryClient';
 import {useChartStore} from './chartStore';
 import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
-import { useUnassignFeaturesStore } from './unassignedFeatures';
-import { TOTPOPTotPopSummaryStats, VAPVapPopSummaryStats } from '../utils/api/summaryStats';
-import { demographyCache } from '../utils/demography/demographyCache';
+import {nanoid} from 'nanoid';
+import {useUnassignFeaturesStore} from './unassignedFeatures';
+import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demographyStore';
-import { initSubs } from './subscriptions';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -83,10 +84,13 @@ export interface MapStore {
    */
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  mapStatus: StatusObject | null;
+  setMapStatus: (status: Partial<StatusObject>) => void;
   colorScheme: string[];
   setColorScheme: (colors: string[]) => void;
   loadedMapId: string;
   setLoadedMapId: (mapId: string) => void;
+
   // SHATTERING
   /**
    * A subset of IDs that a user is working on in a focused view.
@@ -149,8 +153,8 @@ export interface MapStore {
    * @param {string[]} [additionalIds] - Optional array of additional IDs to include in the healing process.
    */
   processHealParentsQueue: (additionalIds?: string[]) => void;
-  silentlyShatter: (document_id: string, geoids: string[]) => Promise<void>
-  silentlyHeal: (document_id: string, parentsToHeal: MapStore['parentsToHeal']) => Promise<void>
+  silentlyShatter: (document_id: string, geoids: string[]) => Promise<void>;
+  silentlyHeal: (document_id: string, parentsToHeal: MapStore['parentsToHeal']) => Promise<void>;
   /**
    * Removes local shatter data and updates the map view based on the provided parents to heal.
    * This function checks the current state of parents and determines if any need to be healed,
@@ -229,9 +233,7 @@ export interface MapStore {
   assignmentsHash: string;
   lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
-  loadZoneAssignments: (
-    assignmentsData: RemoteAssignmentsResponse
-  ) => void;
+  loadZoneAssignments: (assignmentsData: RemoteAssignmentsResponse) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
   setZonePopulations: (zone: Zone, population: number) => void;
@@ -251,6 +253,10 @@ export interface MapStore {
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
 
+  // user id
+  userID: string | null;
+  setUserID: () => void;
+
   // USER MAPS / RECENT MAPS
   userMaps: Array<DocumentObject & {name?: string}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
@@ -260,6 +266,27 @@ export interface MapStore {
     userMapDocumentId?: string;
     userMapData?: MapStore['userMaps'][number];
   }) => void;
+
+  mapName: () => string | undefined;
+  mapMetadata: DocumentObject['map_metadata'];
+  updateMetadata: (
+    documentId: string,
+    name?: any,
+    tags?: any,
+    description?: any,
+    group?: any,
+    eventId?: any,
+    is_draft?: boolean
+  ) => void;
+  // SHARE MAP
+  passwordPrompt: boolean;
+  setPasswordPrompt: (prompt: boolean) => void;
+  password: string | null;
+  setPassword: (password: string | null | undefined) => void;
+  receivedShareToken: string | null;
+  setReceivedShareToken: (token: string | null) => void;
+  shareMapMessage: string | null;
+  setShareMapMessage: (message: string | null) => void;
 }
 
 const initialLoadingState =
@@ -267,725 +294,776 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export var useMapStore = createWithMiddlewares<MapStore>(
-  (set, get) => ({
-        appLoadingState: initialLoadingState,
-        setAppLoadingState: appLoadingState => set({appLoadingState}),
-        mapRenderingState: 'initializing',
-        setMapRenderingState: mapRenderingState => set({mapRenderingState}),
-        isTemporalAction: false,
-        setIsTemporalAction: (isTemporalAction: boolean) => set({isTemporalAction}),
-        captiveIds: new Set<string>(),
-        exitBlockView: (lock: boolean = false) => {
-          const {
-            focusFeatures,
-            mapOptions,
-            zoneAssignments,
-            shatterMappings,
-            lockFeatures,
-          } = get();
+export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
+  appLoadingState: initialLoadingState,
+  setAppLoadingState: appLoadingState => set({appLoadingState}),
+  mapRenderingState: 'initializing',
+  setMapRenderingState: mapRenderingState => set({mapRenderingState}),
+  isTemporalAction: false,
+  setIsTemporalAction: (isTemporalAction: boolean) => set({isTemporalAction}),
+  captiveIds: new Set<string>(),
+  exitBlockView: (lock: boolean = false) => {
+    const {focusFeatures, mapOptions, zoneAssignments, shatterMappings, lockFeatures} = get();
 
-          set({
-            captiveIds: new Set<string>(),
-            focusFeatures: [],
-            mapOptions: {
-              ...mapOptions,
-              mode: 'default',
-            },
-            activeTool: 'shatter'
-          });
+    set({
+      captiveIds: new Set<string>(),
+      focusFeatures: [],
+      mapOptions: {
+        ...mapOptions,
+        mode: 'default',
+      },
+      activeTool: 'shatter',
+    });
 
-          const parentId = focusFeatures?.[0].id?.toString();
-          if (!parentId) return;
-          const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal;
-          const children = shatterMappings[parentId];
-          if (lock && !willHeal && children?.size) lockFeatures(children, true);
+    const parentId = focusFeatures?.[0].id?.toString();
+    if (!parentId) return;
+    const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal;
+    const children = shatterMappings[parentId];
+    if (lock && !willHeal && children?.size) lockFeatures(children, true);
+  },
+  getMapRef: () => undefined,
+  setMapRef: mapRef => {
+    set({
+      getMapRef: () => mapRef.current?.getMap(),
+      appLoadingState: initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
+    });
+  },
+  mapLock: false,
+  setMapLock: mapLock => set({mapLock}),
+  errorNotification: {},
+  setErrorNotification: errorNotification => set({errorNotification}),
+  selectMapFeatures: features => {
+    let {
+      accumulatedGeoids,
+      activeTool,
+      mapDocument,
+      getMapRef,
+      selectedZone: _selectedZone,
+      allPainted,
+    } = get();
+
+    const map = getMapRef();
+    const selectedZone = activeTool === 'eraser' ? null : _selectedZone;
+    if (!map || !mapDocument?.document_id) {
+      return;
+    }
+    // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
+    // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
+    // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
+    // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
+    const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+    const featureStateChangesCache =
+      map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+
+    if (!featureStateCache) return;
+    // PAINT
+    const popChanges: Record<number, number> = {};
+    selectedZone !== null && (popChanges[selectedZone] = 0);
+
+    features?.forEach(feature => {
+      const id = feature?.id?.toString() ?? undefined;
+      if (!id || !feature.sourceLayer) return;
+      const state = featureStateCache[feature.sourceLayer]?.[id];
+      const stateChanges = featureStateChangesCache?.[feature.sourceLayer]?.[id];
+
+      const prevAssignment = stateChanges?.zone || state?.zone || false;
+
+      const shouldSkip =
+        accumulatedGeoids.has(id) || state?.['locked'] || prevAssignment === selectedZone || false;
+      if (shouldSkip) return;
+
+      accumulatedGeoids.add(feature.properties?.path);
+      // TODO: Tiles should have population values as numbers, not strings
+      const popValue = parseInt(feature.properties?.total_pop_20);
+      if (!isNaN(popValue)) {
+        if (prevAssignment) {
+          popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
+        }
+        if (selectedZone) {
+          popChanges[selectedZone] = (popChanges[selectedZone] || 0) + popValue;
+        }
+      }
+      allPainted.add(id);
+      map.setFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          id,
+          sourceLayer: feature.sourceLayer,
         },
-        getMapRef: () => undefined,
-        setMapRef: mapRef => {
-          set({
-            getMapRef: () => mapRef.current?.getMap(),
-            appLoadingState:
-              initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
-          });
+        {selected: true, zone: selectedZone}
+      );
+    });
+
+    useChartStore.getState().setPaintedChanges(popChanges);
+    set({
+      isTemporalAction: false,
+      assignmentsHash: new Date().toISOString(),
+    });
+  },
+  mapViews: {isPending: true},
+  setMapViews: mapViews => set({mapViews}),
+  mapDocument: null,
+  setMapDocument: mapDocument => {
+    demographyCache.clear();
+    const {
+      mapDocument: currentMapDocument,
+      setFreshMap,
+      resetZoneAssignments,
+      upsertUserMap,
+      allPainted,
+      mapOptions,
+    } = get();
+    if (
+      currentMapDocument?.document_id === mapDocument.document_id
+    ) {
+      return;
+    }
+    const initialMapOptions = useMapStore.getInitialState().mapOptions;
+    if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
+      GeometryWorker?.clear();
+    } else {
+      GeometryWorker?.resetZones();
+    }
+    allPainted.clear();
+    lastSentAssignments.clear();
+    demographyCache.clear();
+    setFreshMap(true);
+    resetZoneAssignments();
+    useDemographyStore.getState().clear();
+    useUnassignFeaturesStore.getState().reset();
+
+    const upsertMapOnDrawSub = useMapStore.subscribe(
+      state => state.zoneAssignments,
+      za => {
+        if (useMapStore.getState().mapDocument !== mapDocument || za.size) {
+          upsertMapOnDrawSub();
+        }
+        if (useMapStore.getState().mapDocument === mapDocument && za.size) {
+          upsertUserMap({mapDocument});
+        }
+      }
+    );
+
+    set({
+      mapDocument: mapDocument,
+      mapOptions: {
+        ...initialMapOptions,
+        bounds: mapDocument.extent,
+        currentStateFp:
+          currentMapDocument?.parent_layer === mapDocument?.parent_layer
+            ? mapOptions.currentStateFp
+            : undefined,
+      },
+      mapStatus: {
+        status: mapDocument.status,
+        access: mapDocument.access,
+        genesis: mapDocument.genesis,
+        token: mapDocument.token,
+        password: mapDocument.password,
+      },
+      colorScheme: DefaultColorScheme,
+      sidebarPanels: ['population'],
+      appLoadingState: 'initializing',
+      shatterIds: {parents: new Set(), children: new Set()},
+    });
+  },
+  mapStatus: null,
+  setMapStatus: mapStatus => {
+    const prev = get().mapStatus || {};
+    set({mapStatus: {...prev, ...mapStatus} as StatusObject});
+  },
+  colorScheme: DefaultColorScheme,
+  setColorScheme: colorScheme => set({colorScheme}),
+  loadedMapId: '',
+  setLoadedMapId: loadedMapId => set({loadedMapId}),
+
+  // TODO: Refactor to something like this
+  // featureStates: {
+  //   locked: [],
+  //   hovered: [],
+  //   focused: [],
+  //   highlighted: []
+  // },
+  // setFeatureStates: (
+  //   features, state, action
+  // ) => {
+  //   if
+  // },
+  lockedFeatures: new Set(),
+  lockFeature: (id, lock) => {
+    const lockedFeatures = new Set(get().lockedFeatures);
+    lock ? lockedFeatures.add(id) : lockedFeatures.delete(id);
+    set({lockedFeatures});
+  },
+  lockFeatures: (featuresToLock, lock) => {
+    const lockedFeatures = new Set(get().lockedFeatures);
+    featuresToLock.forEach(id => (lock ? lockedFeatures.add(id) : lockedFeatures.delete(id)));
+    set({lockedFeatures});
+  },
+  setLockedFeatures: lockedFeatures => set({lockedFeatures}),
+  silentlyShatter: async (document_id, geoids) => {
+    const {getMapRef, mapDocument} = get();
+    const mapRef = getMapRef();
+    if (!mapRef) return;
+    set({mapLock: true});
+    const updateHash = new Date().toISOString();
+    const r = await patchShatter.mutate({
+      document_id,
+      geoids,
+      updateHash,
+    });
+    geoids.forEach(geoid => {
+      mapRef?.setFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          id: geoid,
+          sourceLayer: mapDocument?.parent_layer,
         },
-        mapLock: false,
-        setMapLock: mapLock => set({mapLock}),
-        errorNotification: {},
-        setErrorNotification: errorNotification => set({errorNotification}),
-        selectMapFeatures: features => {
-          let {
-            accumulatedGeoids,
-            activeTool,
-            mapDocument,
-            getMapRef,
-            selectedZone: _selectedZone,
-            allPainted
-          } = get();
+        {
+          broken: true,
+          zone: null,
+        }
+      );
+    });
+    set({mapLock: false, assignmentsHash: updateHash, lastUpdatedHash: updateHash});
+  },
+  silentlyHeal: async (document_id, parentsToHeal) => {
+    const {getMapRef, zoneAssignments, mapDocument, shatterMappings, allPainted} = get();
+    const mapRef = getMapRef();
+    if (!mapRef) return;
+    set({mapLock: true});
+    const updateHash = new Date().toISOString();
+    const zone = zoneAssignments.get(parentsToHeal[0])!;
+    const sourceLayer = mapDocument?.parent_layer;
+    const r = await patchUnShatter.mutate({
+      geoids: parentsToHeal,
+      zone: zoneAssignments.get(parentsToHeal[0])!,
+      document_id,
+      updateHash,
+    });
+    const children = shatterMappings[parentsToHeal[0]];
+    children?.forEach(child => {
+      // remove from allPainted
+      allPainted.delete(child);
+    });
 
-          const map = getMapRef();
-          const selectedZone = activeTool === 'eraser' ? null : _selectedZone;
-          if (!map || !mapDocument?.document_id) {
-            return;
-          }
-          // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
-          // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
-          // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
-          // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
-          const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
-          const featureStateChangesCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
-
-          if (!featureStateCache) return;
-          // PAINT
-          const popChanges: Record<number, number> = {};
-          selectedZone !== null && (popChanges[selectedZone] = 0);
-
-          features?.forEach(feature => {
-            const id = feature?.id?.toString() ?? undefined;
-            if (!id || !feature.sourceLayer) return;
-            const state = featureStateCache[feature.sourceLayer]?.[id];
-            const stateChanges = featureStateChangesCache?.[feature.sourceLayer]?.[id];
-
-            const prevAssignment = stateChanges?.zone || state?.zone || false;
-
-            const shouldSkip = accumulatedGeoids.has(id) || state?.['locked'] || prevAssignment === selectedZone || false;
-            if (shouldSkip) return;
-
-            accumulatedGeoids.add(feature.properties?.path);
-            // TODO: Tiles should have population values as numbers, not strings
-            const popValue = parseInt(feature.properties?.total_pop_20);
-            if (!isNaN(popValue)) {
-              if (prevAssignment) {
-                popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
-              }
-              if (selectedZone) {
-                popChanges[selectedZone] = (popChanges[selectedZone] || 0) + popValue;
-              }
-            }
-            allPainted.add(id);
-            map.setFeatureState(
-              {
-                source: BLOCK_SOURCE_ID,
-                id,
-                sourceLayer: feature.sourceLayer,
-              },
-              {selected: true, zone: selectedZone}
-            );
-          });
-
-          useChartStore.getState().setPaintedChanges(popChanges);
-          set({
-            isTemporalAction: false,
-            assignmentsHash: new Date().toISOString(),
-          })
+    parentsToHeal.forEach(parent => {
+      mapRef?.setFeatureState(
+        {
+          source: BLOCK_SOURCE_ID,
+          id: parent,
+          sourceLayer,
         },
-        mapViews: {isPending: true},
-        setMapViews: mapViews => set({mapViews}),
-        mapDocument: null,
-        setMapDocument: mapDocument => {
-          demographyCache.clear();
-          const {
-            mapDocument: currentMapDocument,
-            setFreshMap,
-            resetZoneAssignments,
-            upsertUserMap,
-            allPainted,
-            mapOptions
-          } = get();
-          if (currentMapDocument?.document_id === mapDocument.document_id) {
-            return;
-          }
-          const initialMapOptions = useMapStore.getInitialState().mapOptions;
-          if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
-            GeometryWorker?.clear()
-          } else {
-            GeometryWorker?.resetZones();
-          }
-          allPainted.clear();
-          lastSentAssignments.clear();
-          demographyCache.clear();
-          setFreshMap(true);
-          resetZoneAssignments();
-          useDemographyStore.getState().clear();
-          useUnassignFeaturesStore.getState().reset();
+        {
+          broken: false,
+          zone,
+        }
+      );
+    });
+    set({mapLock: false, assignmentsHash: updateHash, lastUpdatedHash: updateHash});
+  },
+  handleShatter: async (document_id, features) => {
+    if (!features.length) {
+      console.log('NO FEATURES');
+      return;
+    }
+    set({mapLock: true});
+    // set BLOCK_LAYER_ID based on features[0] to focused true
 
-          const upsertMapOnDrawSub = useMapStore.subscribe(
-            state => state.zoneAssignments,
-            za => {
-              if (useMapStore.getState().mapDocument !== mapDocument || za.size) {
-                upsertMapOnDrawSub();
-              }
-              if (useMapStore.getState().mapDocument === mapDocument && za.size) {
-                upsertUserMap({mapDocument});
-              }
-            }
-          );
-
-          set({
-            mapDocument: mapDocument,
-            mapOptions: {
-              ...initialMapOptions,
-              bounds: mapDocument.extent,
-              currentStateFp: currentMapDocument?.parent_layer === mapDocument?.parent_layer ? mapOptions.currentStateFp : undefined,
-            },
-            colorScheme: DefaultColorScheme,
-            sidebarPanels: ['population'],
-            appLoadingState: 'initializing',
-            shatterIds: {parents: new Set(), children: new Set()},
-          });
-        },
-        colorScheme: DefaultColorScheme,
-        setColorScheme: colorScheme => set({colorScheme}),
-        loadedMapId: '',
-        setLoadedMapId: loadedMapId => set({loadedMapId}),
-        // TODO: Refactor to something like this
-        // featureStates: {
-        //   locked: [],
-        //   hovered: [],
-        //   focused: [],
-        //   highlighted: []
-        // },
-        // setFeatureStates: (
-        //   features, state, action
-        // ) => {
-        //   if
-        // },
-        lockedFeatures: new Set(),
-        lockFeature: (id, lock) => {
-          const lockedFeatures = new Set(get().lockedFeatures);
-          lock ? lockedFeatures.add(id) : lockedFeatures.delete(id);
-          set({lockedFeatures});
-        },
-        lockFeatures: (featuresToLock, lock) => {
-          const lockedFeatures = new Set(get().lockedFeatures);
-          featuresToLock.forEach(id => (lock ? lockedFeatures.add(id) : lockedFeatures.delete(id)));
-          set({lockedFeatures});
-        },
-        setLockedFeatures: lockedFeatures => set({lockedFeatures}),
-        silentlyShatter: async (document_id, geoids) => {
-          const {getMapRef, mapDocument} = get()
-          const mapRef = getMapRef();
-          if (!mapRef) return;
-          set({mapLock: true})
-          const updateHash = new Date().toISOString();
-          const r = await patchShatter.mutate({
+    const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
+    const updateHash = new Date().toISOString();
+    const {shatterIds, shatterMappings, lockedFeatures} = get();
+    const isAlreadyShattered = geoids.some(id => shatterMappings.hasOwnProperty(id));
+    const shatterResult: ShatterResult = isAlreadyShattered
+      ? ({
+          parents: {geoids},
+          children: Array.from(combineSetValues(shatterMappings, geoids)).map(id => ({
+            geo_id: id,
             document_id,
-            geoids,
-            updateHash
-          });
-          geoids.forEach(geoid => {
-            mapRef?.setFeatureState({
-              source: BLOCK_SOURCE_ID,
-              id: geoid,
-              sourceLayer: mapDocument?.parent_layer,
-            }, {
-              broken: true,
-              zone: null
-            })
-          })
-          set({mapLock: false, assignmentsHash: updateHash, lastUpdatedHash: updateHash})
+            parent_path: '',
+          })),
+        } as ShatterResult)
+      : await patchShatter.mutate({
+          document_id,
+          geoids,
+          updateHash,
+        });
+
+    if (!shatterResult.children.length) {
+      const mapDocument = get().mapDocument;
+      set({
+        errorNotification: {
+          severity: 2,
+          message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
+          id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
         },
-        silentlyHeal: async (document_id, parentsToHeal) => {
-          const {getMapRef, zoneAssignments, mapDocument, shatterMappings, allPainted} = get()
-          const mapRef = getMapRef();
-          if (!mapRef) return;
-          set({mapLock: true})
-          const updateHash = new Date().toISOString();
-          const zone = zoneAssignments.get(parentsToHeal[0])!
-          const sourceLayer = mapDocument?.parent_layer;
-          const r = await patchUnShatter.mutate({
-            geoids: parentsToHeal,
-            zone: zoneAssignments.get(parentsToHeal[0])!,
-            document_id,
-            updateHash
-          });
-          const children = shatterMappings[parentsToHeal[0]];
-          children?.forEach(child => {
+      });
+      return;
+    }
+    // TODO Need to return child edges even if the parent is already shattered
+    // currently returns nothing
+    const newLockedFeatures = new Set(lockedFeatures);
+    let existingParents = new Set(shatterIds.parents);
+    let existingChildren = new Set(shatterIds.children);
+    const newParent = shatterResult.parents.geoids;
+    const newChildren = new Set(shatterResult.children.map(child => child.geo_id));
+    newChildren.forEach(child => newLockedFeatures.delete(child));
+    const zoneAssignments = new Map(get().zoneAssignments);
+    const multipleShattered = shatterResult.parents.geoids.length > 1;
+    const featureBbox = features[0].geometry && bbox(features[0].geometry);
+    const mapBbox =
+      featureBbox?.length && featureBbox?.length >= 4
+        ? (featureBbox.slice(0, 4) as MapStore['mapOptions']['bounds'])
+        : undefined;
+
+    if (!isAlreadyShattered && !multipleShattered) {
+      newParent.forEach(parent => existingParents.add(parent));
+      existingChildren = new Set([...existingChildren, ...newChildren]);
+
+      setZones(zoneAssignments, newParent[0], newChildren);
+      shatterMappings[newParent[0]] = newChildren;
+    } else if (multipleShattered) {
+      // todo handle multiple shattered case
+    } else if (isAlreadyShattered) {
+    }
+
+    set({
+      shatterIds: {
+        parents: existingParents,
+        children: existingChildren,
+      },
+      assignmentsHash: updateHash,
+      lastUpdatedHash: updateHash,
+      // TODO: Should this be true instead?
+      // Is there a way to clean up the state history during
+      // break / shatter?
+      isTemporalAction: false,
+      mapLock: false,
+      captiveIds: newChildren,
+      lockedFeatures: newLockedFeatures,
+      focusFeatures: [
+        {
+          id: features[0].id,
+          source: BLOCK_SOURCE_ID,
+          sourceLayer: get().mapDocument?.parent_layer,
+        },
+      ],
+      activeTool: 'brush',
+      zoneAssignments,
+      parentsToHeal: [...get().parentsToHeal, features?.[0]?.id?.toString() || '']
+        .filter(onlyUnique)
+        .filter(f => f.length),
+      mapOptions: {
+        ...get().mapOptions,
+        mode: 'break',
+        bounds: mapBbox,
+      },
+    });
+  },
+  parentsToHeal: [],
+  processHealParentsQueue: async (additionalIds = []) => {
+    const updateHash = new Date().toISOString();
+    const {
+      isPainting,
+      parentsToHeal: _parentsToHeal,
+      mapDocument,
+      shatterMappings,
+      zoneAssignments,
+      shatterIds,
+      mapLock,
+      lockedFeatures,
+      getMapRef,
+      allPainted,
+    } = get();
+    const idsToCheck = [..._parentsToHeal, ...additionalIds];
+    const mapRef = getMapRef();
+    if (
+      !mapRef ||
+      isPainting ||
+      mapLock ||
+      !idsToCheck.length ||
+      !mapDocument ||
+      !mapDocument.child_layer ||
+      queryClient.isMutating()
+    ) {
+      return;
+    }
+    const parentsToHeal = idsToCheck
+      .filter(parentId => shatterMappings.hasOwnProperty(parentId))
+      .map(parentId => ({
+        parentId,
+        ...checkIfSameZone(shatterMappings[parentId], zoneAssignments),
+      }))
+      .filter(f => f.shouldHeal);
+
+    if (parentsToHeal.length) {
+      set({mapLock: true});
+
+      const r = await patchUnShatter.mutate({
+        geoids: parentsToHeal.map(f => f.parentId),
+        zone: parentsToHeal[0].zone as any,
+        document_id: mapDocument?.document_id,
+        updateHash,
+      });
+      const children = parentsToHeal
+        .map(f => ({
+          parent: f.parentId,
+          children: shatterMappings[f.parentId],
+        }))
+        .forEach(entry => {
+          const {children, parent} = entry;
+          GeometryWorker?.removeGeometries(Array.from(children));
+          children.forEach(child => {
             // remove from allPainted
             allPainted.delete(child);
-          })
+          });
+        });
+      const newZoneAssignments = new Map(zoneAssignments);
+      const newShatterIds = {
+        parents: new Set(shatterIds.parents),
+        children: new Set(shatterIds.children),
+      };
+      const newLockedFeatures = new Set(lockedFeatures);
+      const childrenToRemove = parentsToHeal.map(f => shatterMappings[f.parentId]).filter(Boolean);
 
-          parentsToHeal.forEach(parent => {
-            mapRef?.setFeatureState({
+      childrenToRemove.forEach(childSet => {
+        childSet.forEach(childId => {
+          newZoneAssignments.delete(childId);
+          newShatterIds.children.delete(childId);
+          newLockedFeatures.delete(childId);
+          mapRef.setFeatureState(
+            {
+              id: childId,
               source: BLOCK_SOURCE_ID,
-              id: parent,
-              sourceLayer
-            }, {
-              broken: false,
-              zone
-            })
-          })
-          set({mapLock: false, assignmentsHash: updateHash, lastUpdatedHash: updateHash})
-        },
-        handleShatter: async (document_id, features) => {
-          if (!features.length) {
-            console.log('NO FEATURES');
-            return;
-          }
-          set({mapLock: true});
-          // set BLOCK_LAYER_ID based on features[0] to focused true
-
-          const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
-          const updateHash = new Date().toISOString();
-          const {shatterIds, shatterMappings, lockedFeatures} = get();
-          const isAlreadyShattered = geoids.some(id => shatterMappings.hasOwnProperty(id));
-          const shatterResult: ShatterResult = isAlreadyShattered
-            ? ({
-                parents: {geoids},
-                children: Array.from(combineSetValues(shatterMappings, geoids)).map(id => ({
-                  geo_id: id,
-                  document_id,
-                  parent_path: '',
-                })),
-              } as ShatterResult)
-            : await patchShatter.mutate({
-                document_id,
-                geoids,
-                updateHash
-              });
-
-          if (!shatterResult.children.length) {
-            const mapDocument = get().mapDocument;
-            set({
-              errorNotification: {
-                severity: 2,
-                message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
-                id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
-              },
-            });
-            return;
-          }
-          // TODO Need to return child edges even if the parent is already shattered
-          // currently returns nothing
-          const newLockedFeatures = new Set(lockedFeatures);
-          let existingParents = new Set(shatterIds.parents);
-          let existingChildren = new Set(shatterIds.children);
-          const newParent = shatterResult.parents.geoids;
-          const newChildren = new Set(shatterResult.children.map(child => child.geo_id));
-          newChildren.forEach(child => newLockedFeatures.delete(child));
-          const zoneAssignments = new Map(get().zoneAssignments);
-          const multipleShattered = shatterResult.parents.geoids.length > 1;
-          const featureBbox = features[0].geometry && bbox(features[0].geometry);
-          const mapBbox =
-            featureBbox?.length && featureBbox?.length >= 4
-              ? (featureBbox.slice(0, 4) as MapStore['mapOptions']['bounds'])
-              : undefined;
-
-          if (!isAlreadyShattered && !multipleShattered) {
-            newParent.forEach(parent => existingParents.add(parent));
-            existingChildren = new Set([...existingChildren, ...newChildren]);
-
-            setZones(zoneAssignments, newParent[0], newChildren);
-            shatterMappings[newParent[0]] = newChildren;
-          } else if (multipleShattered) {
-            // todo handle multiple shattered case
-          } else if (isAlreadyShattered) {
-          }
-
-          set({
-            shatterIds: {
-              parents: existingParents,
-              children: existingChildren,
+              sourceLayer: mapDocument.child_layer || '',
             },
-            assignmentsHash: updateHash,
-            lastUpdatedHash: updateHash,
-            // TODO: Should this be true instead?
-            // Is there a way to clean up the state history during
-            // break / shatter?
-            isTemporalAction: false,
-            mapLock: false,
-            captiveIds: newChildren,
-            lockedFeatures: newLockedFeatures,
-            focusFeatures: [
-              {
-                id: features[0].id,
-                source: BLOCK_SOURCE_ID,
-                sourceLayer: get().mapDocument?.parent_layer,
-              },
-            ],
-            activeTool: 'brush',
-            zoneAssignments,
-            parentsToHeal: [...get().parentsToHeal, features?.[0]?.id?.toString() || '']
-              .filter(onlyUnique)
-              .filter(f => f.length),
-            mapOptions: {
-              ...get().mapOptions,
-              mode: 'break',
-              bounds: mapBbox,
-            },
-          });
-        },
-        parentsToHeal: [],
-        processHealParentsQueue: async (additionalIds = []) => {
-          const updateHash = new Date().toISOString();
-          const {
-            isPainting,
-            parentsToHeal: _parentsToHeal,
-            mapDocument,
-            shatterMappings,
-            zoneAssignments,
-            shatterIds,
-            mapLock,
-            lockedFeatures,
-            getMapRef,
-            allPainted
-          } = get();
-          const idsToCheck = [..._parentsToHeal, ...additionalIds];
-          const mapRef = getMapRef();
-          if (
-            !mapRef ||
-            isPainting ||
-            mapLock ||
-            !idsToCheck.length ||
-            !mapDocument ||
-            !mapDocument.child_layer ||
-            queryClient.isMutating()
-          ) {
-            return;
-          }
-          const parentsToHeal = idsToCheck
-            .filter(parentId => shatterMappings.hasOwnProperty(parentId))
-            .map(parentId => ({
-              parentId,
-              ...checkIfSameZone(shatterMappings[parentId], zoneAssignments),
-            }))
-            .filter(f => f.shouldHeal);
-
-          if (parentsToHeal.length) {
-            set({mapLock: true});
-
-            const r = await patchUnShatter.mutate({
-              geoids: parentsToHeal.map(f => f.parentId),
-              zone: parentsToHeal[0].zone as any,
-              document_id: mapDocument?.document_id,
-              updateHash
-            });
-            const children = parentsToHeal
-              .map(f => ({
-                parent: f.parentId,
-                children: shatterMappings[f.parentId],
-              }))
-              .forEach(entry => {
-                const {children, parent} = entry;
-                GeometryWorker?.removeGeometries(Array.from(children));
-                children.forEach(child => {
-                  // remove from allPainted
-                  allPainted.delete(child);
-                });
-              });
-            const newZoneAssignments = new Map(zoneAssignments);
-            const newShatterIds = {
-              parents: new Set(shatterIds.parents),
-              children: new Set(shatterIds.children),
-            };
-            const newLockedFeatures = new Set(lockedFeatures);
-            const childrenToRemove = parentsToHeal
-              .map(f => shatterMappings[f.parentId])
-              .filter(Boolean);
-
-            childrenToRemove.forEach(childSet => {
-              childSet.forEach(childId => {
-                newZoneAssignments.delete(childId);
-                newShatterIds.children.delete(childId);
-                newLockedFeatures.delete(childId);
-                mapRef.setFeatureState(
-                  {
-                    id: childId,
-                    source: BLOCK_SOURCE_ID,
-                    sourceLayer: mapDocument.child_layer || '',
-                  },
-                  {
-                    zone: null,
-                  }
-                );
-              });
-            });
-
-            parentsToHeal.forEach(parent => {
-              delete shatterMappings[parent.parentId];
-              newShatterIds.parents.delete(parent.parentId);
-              newZoneAssignments.set(parent.parentId, parent.zone!);
-            });
-            set({
-              shatterIds: newShatterIds,
-              mapLock: false,
-              isTemporalAction: false,
-              shatterMappings: {...shatterMappings},
-              zoneAssignments: newZoneAssignments,
-              lockedFeatures: newLockedFeatures,
-              lastUpdatedHash: updateHash,
-              assignmentsHash: updateHash,
-              // parents may have been added while this is firing off
-              // get curernt, and filter for any that were removed by this event
-              parentsToHeal: get().parentsToHeal.filter(f => !r.geoids.includes(f)),
-            });
-          }
-        },
-        checkParentsToHeal: parentsToHeal => {
-          set({
-            parentsToHeal: [...get().parentsToHeal, ...parentsToHeal].filter(onlyUnique),
-          });
-        },
-        shatterMappings: {},
-        upsertUserMap: ({mapDocument, userMapData, userMapDocumentId}) => {
-          let userMaps = [...get().userMaps];
-          const mapViews = get().mapViews.data;
-          if (mapDocument?.document_id && mapViews) {
-            const documentIndex = userMaps.findIndex(
-              f => f.document_id === mapDocument?.document_id
-            );
-            const documentInfo = mapViews.find(
-              view => view.districtr_map_slug === mapDocument.districtr_map_slug
-            );
-            if (documentIndex !== -1) {
-              userMaps[documentIndex] = {
-                ...documentInfo,
-                ...userMaps[documentIndex],
-                ...mapDocument,
-              };
-            } else {
-              userMaps = [{...mapDocument, ...documentInfo}, ...userMaps];
+            {
+              zone: null,
             }
-          } else if (userMapDocumentId) {
-            const i = userMaps.findIndex(map => map.document_id === userMapDocumentId);
-            if (userMapData) {
-              userMaps.splice(i, 1, userMapData); // Replace the map at index i with the new data
-            } else {
-              const urlParams = new URL(window.location.href).searchParams;
-              urlParams.delete('document_id'); // Remove the document_id parameter
-              window.history.pushState(
-                {},
-                '',
-                window.location.pathname + '?' + urlParams.toString()
-              ); // Update the URL without document_id
-              userMaps.splice(i, 1);
-            }
-          }
-          set({
-            userMaps,
-          });
-        },
+          );
+        });
+      });
+
+      parentsToHeal.forEach(parent => {
+        delete shatterMappings[parent.parentId];
+        newShatterIds.parents.delete(parent.parentId);
+        newZoneAssignments.set(parent.parentId, parent.zone!);
+      });
+      set({
+        shatterIds: newShatterIds,
+        mapLock: false,
+        isTemporalAction: false,
+        shatterMappings: {...shatterMappings},
+        zoneAssignments: newZoneAssignments,
+        lockedFeatures: newLockedFeatures,
+        lastUpdatedHash: updateHash,
+        assignmentsHash: updateHash,
+        // parents may have been added while this is firing off
+        // get curernt, and filter for any that were removed by this event
+        parentsToHeal: get().parentsToHeal.filter(f => !r.geoids.includes(f)),
+      });
+    }
+  },
+  checkParentsToHeal: parentsToHeal => {
+    set({
+      parentsToHeal: [...get().parentsToHeal, ...parentsToHeal].filter(onlyUnique),
+    });
+  },
+  shatterMappings: {},
+  upsertUserMap: ({mapDocument, userMapData, userMapDocumentId}) => {
+    let userMaps = [...get().userMaps];
+    const mapViews = get().mapViews.data;
+    if (mapDocument?.document_id && mapViews) {
+      const documentIndex = userMaps.findIndex(f => f.document_id === mapDocument?.document_id);
+      const documentInfo = mapViews.find(
+        view => view.districtr_map_slug === mapDocument.districtr_map_slug
+      );
+      if (documentIndex !== -1) {
+        userMaps[documentIndex] = {
+          ...documentInfo,
+          ...userMaps[documentIndex],
+          ...mapDocument,
+        };
+      } else {
+        userMaps = [{...mapDocument, ...documentInfo}, ...userMaps];
+      }
+    } else if (userMapDocumentId) {
+      const i = userMaps.findIndex(map => map.document_id === userMapDocumentId);
+      if (userMapData) {
+        userMaps.splice(i, 1, userMapData); // Replace the map at index i with the new data
+      } else {
+        const urlParams = new URL(window.location.href).searchParams;
+        urlParams.delete('document_id'); // Remove the document_id parameter
+        window.history.pushState({}, '', window.location.pathname + '?' + urlParams.toString()); // Update the URL without document_id
+        userMaps.splice(i, 1);
+      }
+    }
+    set({
+      userMaps,
+    });
+  },
+  shatterIds: {
+    parents: new Set(),
+    children: new Set(),
+  },
+
+  handleReset: async () => {
+    const {mapDocument, getMapRef, zoneAssignments, shatterIds} = get();
+    const document_id = mapDocument?.document_id;
+
+    if (!document_id) {
+      console.log('No document ID to reset.');
+      return;
+    }
+    set({
+      mapLock: true,
+      appLoadingState: 'loading',
+    });
+    const updateHash = new Date().toISOString();
+    const resetResponse = await patchReset.mutate(document_id);
+
+    if (resetResponse.document_id === document_id) {
+      const initialState = useMapStore.getInitialState();
+      useMapStore.temporal.getState().clear();
+      GeometryWorker?.resetZones();
+      lastSentAssignments.clear();
+      resetZoneColors({
+        zoneAssignments,
+        mapRef: getMapRef(),
+        mapDocument,
+        shatterIds,
+      });
+
+      set({
+        zonePopulations: new Map(),
+        zoneAssignments: new Map(),
         shatterIds: {
           parents: new Set(),
           children: new Set(),
         },
-
-        handleReset: async () => {
-          const {mapDocument, getMapRef, zoneAssignments, shatterIds} = get();
-          const document_id = mapDocument?.document_id;
-
-          if (!document_id) {
-            console.log('No document ID to reset.');
-            return;
-          }
-          set({
-            mapLock: true,
-            appLoadingState: 'loading',
-          });
-          const updateHash = new Date().toISOString();
-          const resetResponse = await patchReset.mutate(document_id);
-
-          if (resetResponse.document_id === document_id) {
-            const initialState = useMapStore.getInitialState();
-            useMapStore.temporal.getState().clear()
-            GeometryWorker?.resetZones();
-            lastSentAssignments.clear();
-            resetZoneColors({
-              zoneAssignments,
-              mapRef: getMapRef(),
-              mapDocument,
-              shatterIds,
-            });
-
-            set({
-              zonePopulations: new Map(),
-              zoneAssignments: new Map(),
-              shatterIds: {
-                parents: new Set(),
-                children: new Set()
-              },
-              appLoadingState: 'loaded',
-              mapLock: false,
-              activeTool: 'pan',
-              colorScheme: DefaultColorScheme,
-              assignmentsHash: updateHash,
-              lastUpdatedHash: updateHash,
-            });
-          }
-        },
-        setShatterIds: (
-          existingParents,
-          existingChildren,
-          newParent,
-          newChildren,
-          multipleShattered
-        ) => {
-          const zoneAssignments = new Map(get().zoneAssignments);
-
-          if (!multipleShattered) {
-            setZones(zoneAssignments, newParent[0], newChildren[0]);
-          } else {
-            // todo handle multiple shattered case
-          }
-          newParent.forEach(parent => existingParents.add(parent));
-          // there may be a faster way to do this
-          newChildren.forEach(
-            children => (existingChildren = new Set([...existingChildren, ...children]))
-          );
-
-          set({
-            shatterIds: {
-              parents: existingParents,
-              children: existingChildren,
-            },
-            zoneAssignments,
-          });
-        },
-        focusFeatures: [],
-        mapOptions: {
-          center: [-98.5795, 39.8283],
-          zoom: 3,
-          pitch: 0,
-          bearing: 0,
-          container: '',
-          highlightBrokenDistricts: false,
-          mode: 'default',
-          lockPaintedAreas: [],
-          prominentCountyNames: true,
-          showCountyBoundaries: true,
-          showPaintedDistricts: true,
-          showZoneNumbers: true
-        },
-        setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
-        sidebarPanels: ['population'],
-        setSidebarPanels: sidebarPanels => set({sidebarPanels}),
-        toggleLockAllAreas: () => {
-          const {mapOptions, mapDocument} = get();
-          const num_districts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-          set({
-            mapOptions: {
-              ...mapOptions,
-              lockPaintedAreas: mapOptions.lockPaintedAreas.length ? [] : new Array(num_districts).fill(0).map((_, i) => i + 1),
-            },
-          });
-        },
-        setLockedZones: areas => {
-          const {mapOptions} = get();
-          set({
-            mapOptions: {
-              ...mapOptions,
-              lockPaintedAreas: areas,
-            },
-          });
-        },
+        appLoadingState: 'loaded',
+        mapLock: false,
         activeTool: 'pan',
-        setActiveTool: tool => set({activeTool: tool}),
-        spatialUnit: 'tract',
-        setSpatialUnit: unit => set({spatialUnit: unit}),
-        selectedZone: 1,
-        setSelectedZone: zone => {
-          const numDistricts = get().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-          const isPainting = get().isPainting;
-          if (zone <= numDistricts && !isPainting) {
-            set({
-              selectedZone: zone
-            })
-          }
-        },
-        zoneAssignments: new Map(),
-        assignmentsHash: '',
-        lastUpdatedHash: Date.now().toString(),
-        setAssignmentsHash: hash => set({assignmentsHash: hash}),
-        accumulatedGeoids: new Set<string>(),
-        setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
-        allPainted: new Set<string>(),
-        setZoneAssignments: (zone, geoids) => {
-          const zoneAssignments = get().zoneAssignments;
-          const newZoneAssignments = new Map(zoneAssignments);
-          geoids.forEach(geoid => {
-            newZoneAssignments.set(geoid, zone);
-          });
-          set({
-            zoneAssignments: newZoneAssignments,
-            accumulatedGeoids: new Set<string>(),
-            lastUpdatedHash: new Date().toISOString(),
-          });
-        },
-        loadZoneAssignments: assignmentsData => {
-          lastSentAssignments.clear();
-          const assignments = assignmentsData.assignments;
-          const zoneAssignments = new Map<string, number>();
-          const shatterIds = {
-            parents: new Set<string>(),
-            children: new Set<string>(),
-          };
-          const shatterMappings: MapStore['shatterMappings'] = {};
+        colorScheme: DefaultColorScheme,
+        assignmentsHash: updateHash,
+        lastUpdatedHash: updateHash,
+      });
+    }
+  },
+  setShatterIds: (existingParents, existingChildren, newParent, newChildren, multipleShattered) => {
+    const zoneAssignments = new Map(get().zoneAssignments);
 
-          assignments.forEach(assignment => {
-            zoneAssignments.set(assignment.geo_id, assignment.zone);
-            // preload last sent assignments with last fetched assignments
-            lastSentAssignments.set(assignment.geo_id, assignment.zone);
-            if (assignment.parent_path) {
-              if (!shatterMappings[assignment.parent_path]) {
-                shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
-              } else {
-                shatterMappings[assignment.parent_path].add(assignment.geo_id);
-              }
-              shatterIds.parents.add(assignment.parent_path);
-              shatterIds.children.add(assignment.geo_id);
-            }
-          });
-          set({
-            zoneAssignments,
-            shatterIds,
-            shatterMappings,
-            appLoadingState: 'loaded',
-            loadedMapId: assignmentsData.documentId,
-          });
-        },
-        zonePopulations: new Map(),
-        setZonePopulations: (zone, population) =>
-          set(state => {
-            const newZonePopulations = new Map(state.zonePopulations);
-            newZonePopulations.set(zone, population);
-            return {
-              zonePopulations: newZonePopulations,
-            };
-          }),
-        resetZoneAssignments: () => set({zoneAssignments: new Map()}),
-        brushSize: 50,
-        setBrushSize: size => set({brushSize: size}),
-        isPainting: false,
-        setIsPainting: isPainting => {
-          if (!isPainting) {
-            const {
-              setZoneAssignments,
-              accumulatedGeoids,
-              selectedZone,
-              activeTool,
-              assignmentsHash,
-              lastUpdatedHash,
-            } = get();
-            if (assignmentsHash !== lastUpdatedHash) {
-              const zone = activeTool === 'eraser' ? null : selectedZone;
-              setZoneAssignments(zone, accumulatedGeoids);
-            }
-          }
-          set({isPainting});
-        },
-        paintFunction: getFeaturesInBbox,
-        setPaintFunction: paintFunction => set({paintFunction}),
-        clearMapEdits: () =>
-          set({
-            zoneAssignments: new Map(),
-            accumulatedGeoids: new Set<string>(),
-            selectedZone: 1,
-          }),
-        freshMap: false,
-        setFreshMap: resetMap => set({freshMap: resetMap}),
-        contextMenu: null,
-        setContextMenu: contextMenu => set({contextMenu}),
-        userMaps: [],
-        setUserMaps: userMaps => set({userMaps}),
-      })
-)
+    if (!multipleShattered) {
+      setZones(zoneAssignments, newParent[0], newChildren[0]);
+    } else {
+      // todo handle multiple shattered case
+    }
+    newParent.forEach(parent => existingParents.add(parent));
+    // there may be a faster way to do this
+    newChildren.forEach(
+      children => (existingChildren = new Set([...existingChildren, ...children]))
+    );
+
+    set({
+      shatterIds: {
+        parents: existingParents,
+        children: existingChildren,
+      },
+      zoneAssignments,
+    });
+  },
+  focusFeatures: [],
+  mapOptions: {
+    center: [-98.5795, 39.8283],
+    zoom: 3,
+    pitch: 0,
+    bearing: 0,
+    container: '',
+    highlightBrokenDistricts: false,
+    mode: 'default',
+    lockPaintedAreas: [],
+    prominentCountyNames: true,
+    showCountyBoundaries: true,
+    showPaintedDistricts: true,
+    showZoneNumbers: true,
+  },
+  setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+  sidebarPanels: ['population'],
+  setSidebarPanels: sidebarPanels => set({sidebarPanels}),
+  toggleLockAllAreas: () => {
+    const {mapOptions, mapDocument} = get();
+    const num_districts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+    set({
+      mapOptions: {
+        ...mapOptions,
+        lockPaintedAreas: mapOptions.lockPaintedAreas.length
+          ? []
+          : new Array(num_districts).fill(0).map((_, i) => i + 1),
+      },
+    });
+  },
+  setLockedZones: areas => {
+    const {mapOptions} = get();
+    set({
+      mapOptions: {
+        ...mapOptions,
+        lockPaintedAreas: areas,
+      },
+    });
+  },
+  activeTool: 'pan',
+  setActiveTool: tool => set({activeTool: tool}),
+  spatialUnit: 'tract',
+  setSpatialUnit: unit => set({spatialUnit: unit}),
+  selectedZone: 1,
+  setSelectedZone: zone => {
+    const numDistricts = get().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+    const isPainting = get().isPainting;
+    if (zone <= numDistricts && !isPainting) {
+      set({
+        selectedZone: zone,
+      });
+    }
+  },
+  zoneAssignments: new Map(),
+  assignmentsHash: '',
+  lastUpdatedHash: Date.now().toString(),
+  setAssignmentsHash: hash => set({assignmentsHash: hash}),
+  accumulatedGeoids: new Set<string>(),
+  setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
+  allPainted: new Set<string>(),
+  setZoneAssignments: (zone, geoids) => {
+    const zoneAssignments = get().zoneAssignments;
+    const newZoneAssignments = new Map(zoneAssignments);
+    geoids.forEach(geoid => {
+      newZoneAssignments.set(geoid, zone);
+    });
+    set({
+      zoneAssignments: newZoneAssignments,
+      accumulatedGeoids: new Set<string>(),
+      lastUpdatedHash: new Date().toISOString(),
+    });
+  },
+  loadZoneAssignments: assignmentsData => {
+    lastSentAssignments.clear();
+    const assignments = assignmentsData.assignments;
+    const zoneAssignments = new Map<string, number>();
+    const shatterIds = {
+      parents: new Set<string>(),
+      children: new Set<string>(),
+    };
+    const shatterMappings: MapStore['shatterMappings'] = {};
+
+    assignments.forEach(assignment => {
+      zoneAssignments.set(assignment.geo_id, assignment.zone);
+      // preload last sent assignments with last fetched assignments
+      lastSentAssignments.set(assignment.geo_id, assignment.zone);
+      if (assignment.parent_path) {
+        if (!shatterMappings[assignment.parent_path]) {
+          shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
+        } else {
+          shatterMappings[assignment.parent_path].add(assignment.geo_id);
+        }
+        shatterIds.parents.add(assignment.parent_path);
+        shatterIds.children.add(assignment.geo_id);
+      }
+    });
+    set({
+      zoneAssignments,
+      shatterIds,
+      shatterMappings,
+      appLoadingState: 'loaded',
+      loadedMapId: assignmentsData.documentId,
+    });
+  },
+  zonePopulations: new Map(),
+  setZonePopulations: (zone, population) =>
+    set(state => {
+      const newZonePopulations = new Map(state.zonePopulations);
+      newZonePopulations.set(zone, population);
+      return {
+        zonePopulations: newZonePopulations,
+      };
+    }),
+  resetZoneAssignments: () => set({zoneAssignments: new Map()}),
+  brushSize: 50,
+  setBrushSize: size => set({brushSize: size}),
+  isPainting: false,
+  setIsPainting: isPainting => {
+    if (!isPainting) {
+      const {
+        setZoneAssignments,
+        accumulatedGeoids,
+        selectedZone,
+        activeTool,
+        assignmentsHash,
+        lastUpdatedHash,
+      } = get();
+      if (assignmentsHash !== lastUpdatedHash) {
+        const zone = activeTool === 'eraser' ? null : selectedZone;
+        setZoneAssignments(zone, accumulatedGeoids);
+      }
+    }
+    set({isPainting});
+  },
+  paintFunction: getFeaturesInBbox,
+  setPaintFunction: paintFunction => set({paintFunction}),
+  clearMapEdits: () =>
+    set({
+      zoneAssignments: new Map(),
+      accumulatedGeoids: new Set<string>(),
+      selectedZone: 1,
+    }),
+  freshMap: false,
+  setFreshMap: resetMap => set({freshMap: resetMap}),
+  contextMenu: null,
+  setContextMenu: contextMenu => set({contextMenu}),
+  userMaps: [],
+  setUserMaps: userMaps => set({userMaps}),
+  userID: null,
+  setUserID: () => {
+    set(state => {
+      const userID = state.userID;
+      if (userID === null) {
+        return {userID: nanoid()};
+      } else {
+        return {userID};
+      }
+    });
+  },
+  mapName: () => get().mapDocument?.map_metadata?.name || undefined,
+  mapMetadata: {
+    name: null,
+    tags: null,
+    description: null,
+    eventId: null,
+    group: null,
+    is_draft: true,
+  },
+  updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
+    set(state => {
+      const userMaps = get().userMaps;
+      const updatedMaps = userMaps.map(map => {
+        if (map.document_id === documentId) {
+          const updatedMetadata = {
+            ...map.map_metadata,
+            [key]: value,
+          };
+          return {
+            ...map,
+            map_metadata: updatedMetadata,
+          };
+        }
+        return map;
+      }) as DocumentObject[];
+      return {userMaps: updatedMaps};
+    }),
+  passwordPrompt: false,
+  setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
+  password: null,
+  setPassword: password => set({password}),
+  receivedShareToken: null,
+  setReceivedShareToken: token => set({receivedShareToken: token}),
+  shareMapMessage: null,
+  setShareMapMessage: message => set({shareMapMessage: message}),
+}));

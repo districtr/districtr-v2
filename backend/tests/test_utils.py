@@ -36,13 +36,15 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         ],
     )
 
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.begin()
     session.execute(upsert_query, {"name": GERRY_DB_TOTPOP_FIXTURE_NAME})
@@ -178,6 +180,7 @@ def document_id_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
+            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
         },
     )
     assert response.status_code == 201

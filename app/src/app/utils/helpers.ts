@@ -14,8 +14,7 @@ import {
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {demographyCache} from './demography/demographyCache';
-import {ChartStore, useChartStore} from '@/app/store/chartStore';
-import {calculateMinMaxRange} from './zone-helpers';
+import {DocumentMetadata} from './api/apiHandlers';
 
 /**
  * PaintEventHandler
@@ -217,13 +216,8 @@ export const colorZoneAssignments = (
   state: ColorZoneAssignmentsState,
   previousState?: ColorZoneAssignmentsState
 ) => {
-  const [
-    zoneAssignments,
-    mapDocument,
-    currentShatterIds,
-    appLoadingState,
-    mapRenderingState,
-  ] = state;
+  const [zoneAssignments, mapDocument, currentShatterIds, appLoadingState, mapRenderingState] =
+    state;
   const [previousZoneAssignments, prevShatterIds] = [
     previousState?.[0] || new Map(),
     previousState?.[2] || null,
@@ -239,7 +233,8 @@ export const colorZoneAssignments = (
     return;
   }
   const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
-  const featureStateChangesCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+  const featureStateChangesCache =
+    mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
   if (!featureStateCache) return;
 
   zoneAssignments.forEach((zone, id) => {
@@ -459,8 +454,7 @@ const filterFeatures = (
     } else if (mapOptions.lockPaintedAreas.length) {
       const lockedAreas = mapOptions.lockPaintedAreas;
       filterFunctions.push(
-        f =>
-          !lockedAreas.includes(zoneAssignments.get(f.id?.toString() || '') || null)
+        f => !lockedAreas.includes(zoneAssignments.get(f.id?.toString() || '') || null)
       );
     }
   }
@@ -488,4 +482,15 @@ const filterFeatures = (
   });
   parentIdsToHeal.length && checkParentsToHeal(parentIdsToHeal);
   return filteredFeatures;
+};
+
+export const handleCreateBlankMetadataObject = (): DocumentMetadata => {
+  return {
+    name: null,
+    group: null,
+    tags: null,
+    description: null,
+    is_draft: true,
+    eventId: null,
+  };
 };

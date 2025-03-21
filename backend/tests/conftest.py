@@ -15,6 +15,7 @@ from tests.constants import (
     FIXTURES_PATH,
     OGR2OGR_PG_CONNECTION_STRING,
     GERRY_DB_FIXTURE_NAME,
+    USER_ID,
 )
 from app.constants import GERRY_DB_SCHEMA
 from app.utils import create_districtr_map, create_shatterable_gerrydb_view
@@ -179,6 +180,7 @@ def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
