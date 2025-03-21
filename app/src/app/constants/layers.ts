@@ -114,7 +114,9 @@ export function getLayerFill(
 }
 
 const getDissolved = async () => {
-  const activeZones = demographyCache.populations.filter(row => row.total_pop_20 > 0).map(f => f.zone);
+  const activeZones = demographyCache.populations
+    .filter(row => row.total_pop_20 > 0)
+    .map(f => f.zone);
   const {getMapRef} = useMapStore.getState();
   const mapRef = getMapRef();
   if (!mapRef || !GeometryWorker || !activeZones?.length) return;
@@ -123,9 +125,9 @@ const getDissolved = async () => {
     [currentView.getWest(), currentView.getNorth()],
     [currentView.getEast(), currentView.getNorth()],
     {units: 'kilometers'}
-  )
+  );
   //px convert to km at current zoom
-  const bufferInKm = 50 / (mapRef.getCanvas().width / distanceAcrossCanvas); 
+  const bufferInKm = 50 / (mapRef.getCanvas().width / distanceAcrossCanvas);
   const {centroids, dissolved} = await GeometryWorker.getCentroidsFromView({
     bounds: [
       currentView.getWest(),

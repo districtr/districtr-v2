@@ -4,7 +4,8 @@ import {handleCreateBlankMetadataObject} from '../../helpers';
 import {DocumentMetadata} from '../apiHandlers';
 
 export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
-  const {mapDocument, mapStatus, upsertUserMap, setMapDocument, setShareMapMessage} = useMapStore.getState();
+  const {mapDocument, mapStatus, upsertUserMap, setMapDocument, setShareMapMessage} =
+    useMapStore.getState();
   if (mapDocument?.document_id) {
     if (mapStatus?.status === 'locked') {
       // atp doesn't matter that it's locked, even with pw; should be able to copy map
@@ -31,8 +32,10 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
           history.pushState({}, '', documentUrl.toString());
         })
         .catch(err => {
-          setShareMapMessage(`Unable to copy map. Reference: ${mapDocument?.document_id}|${mapDocument?.districtr_map_slug}`);
-        })
+          setShareMapMessage(
+            `Unable to copy map. Reference: ${mapDocument?.document_id}|${mapDocument?.districtr_map_slug}`
+          );
+        });
     } else {
       console.log('in the not locked category now');
       await metadata.mutate({

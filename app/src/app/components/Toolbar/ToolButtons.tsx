@@ -7,7 +7,6 @@ import {ActiveTool} from '@constants/types';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 
-
 export const ToolButtons: React.FC<{
   showShortcuts: boolean;
   toolbarItemsRef: React.RefObject<HTMLDivElement>;

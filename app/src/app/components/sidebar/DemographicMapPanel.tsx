@@ -1,8 +1,6 @@
 'use client';
-import { OVERLAY_OPACITY } from '@/app/constants/layers';
-import {
-  demographyVariables,
-} from '@/app/store/demographyStore';
+import {OVERLAY_OPACITY} from '@/app/constants/layers';
+import {demographyVariables} from '@/app/store/demographyStore';
 import {AllDemographyVariables, DemographyVariable} from '@/app/utils/api/summaryStats';
 import {useDemographyStore} from '@/app/store/demographyStore';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
@@ -64,7 +62,9 @@ export const DemographicMapPanel: React.FC = () => {
     const newVariable = _newVariable ?? config?.value;
     if (!newVariable) return;
     const hasPctVariable = !newVariable?.includes('total');
-    const newVariableName = (usePercent && hasPctVariable ? `${newVariable}_pct` : newVariable) as AllDemographyVariables;
+    const newVariableName = (
+      usePercent && hasPctVariable ? `${newVariable}_pct` : newVariable
+    ) as AllDemographyVariables;
     setVariable(newVariableName);
   };
 
@@ -114,15 +114,19 @@ export const DemographicMapPanel: React.FC = () => {
           </Select.Root>
           {displayVariable.toLowerCase().indexOf('total') === -1 && (
             <Text as="label" size="2">
-              <Flex gap="2" align="center" justify={"center"}>
-                <Text as="label" size="1">Count</Text>
+              <Flex gap="2" align="center" justify={'center'}>
+                <Text as="label" size="1">
+                  Count
+                </Text>
                 <Switch
                   checked={variable.includes('pct')}
                   onCheckedChange={value => {
                     handleChange(undefined, value);
                   }}
                 />
-                <Text as="label" size="1">%</Text>
+                <Text as="label" size="1">
+                  %
+                </Text>
               </Flex>
             </Text>
           )}
@@ -202,9 +206,11 @@ export const DemographicMapPanel: React.FC = () => {
           </Popover.Root>
         </Flex>
       )}
-      {demographicMapMode === 'side-by-side' && <Text size="2" align="center">
-        Gray = zero population
-      </Text>}
+      {demographicMapMode === 'side-by-side' && (
+        <Text size="2" align="center">
+          Gray = zero population
+        </Text>
+      )}
     </Flex>
   );
 };

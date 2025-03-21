@@ -16,39 +16,31 @@ const NaNfN = (_row: DemographyRow) => NaN;
  * Each function takes a `DemographyRow` object and returns a number representing the percentage
  * of a specific population group relative to the total population or total voting age population.
  * This is required for the way Arquero handles deriving columns and is somewhat fussy.
- * 
+ *
  * @param stats - An object containing boolean flags indicating the availability of certain demographic data.
- * 
+ *
  * @returns A record where keys are demographic percentage identifiers and values are functions
  *          that calculate the respective percentages.
- * 
+ *
  * If the corresponding data is not available (as indicated by the `stats` parameter), the function will return `NaN`.
  */
 export const getPctDerives = (
   stats: Record<SummaryTypes, boolean>
 ): Record<string, (row: DemographyRow) => number> => ({
   other_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['other_pop_20'] / row['total_pop_20'],
-  asian_nhpi_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['asian_nhpi_pop_20'] / row['total_pop_20'],
+  asian_nhpi_pop_20_pct: !stats.TOTPOP
+    ? NaNfN
+    : row => row['asian_nhpi_pop_20'] / row['total_pop_20'],
   amin_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['amin_pop_20'] / row['total_pop_20'],
   bpop_20_pct: !stats.TOTPOP ? NaNfN : row => row['bpop_20'] / row['total_pop_20'],
   hpop_20_pct: !stats.TOTPOP ? NaNfN : row => row['hpop_20'] / row['total_pop_20'],
   white_pop_20_pct: !stats.TOTPOP ? NaNfN : row => row['white_pop_20'] / row['total_pop_20'],
   hvap_20_pct: !stats.VAP ? NaNfN : row => row['hvap_20'] / row['total_vap_20'],
-  asian_nhpi_vap_20_pct: !stats.VAP
-    ? NaNfN
-    : row => row['asian_nhpi_vap_20'] / row['total_vap_20'],
-  amin_vap_20_pct: !stats.VAP
-    ? NaNfN
-    : row => row['amin_vap_20'] / row['total_vap_20'],
-  bvap_20_pct: !stats.VAP
-    ? NaNfN
-    : row => row['bvap_20'] / row['total_vap_20'],
-  white_vap_20_pct: !stats.VAP
-    ? NaNfN
-    : row => row['white_vap_20'] / row['total_vap_20'],
-  other_vap_20_pct: !stats.VAP
-    ? NaNfN
-    : row => row['other_vap_20'] / row['total_vap_20'],
+  asian_nhpi_vap_20_pct: !stats.VAP ? NaNfN : row => row['asian_nhpi_vap_20'] / row['total_vap_20'],
+  amin_vap_20_pct: !stats.VAP ? NaNfN : row => row['amin_vap_20'] / row['total_vap_20'],
+  bvap_20_pct: !stats.VAP ? NaNfN : row => row['bvap_20'] / row['total_vap_20'],
+  white_vap_20_pct: !stats.VAP ? NaNfN : row => row['white_vap_20'] / row['total_vap_20'],
+  other_vap_20_pct: !stats.VAP ? NaNfN : row => row['other_vap_20'] / row['total_vap_20'],
 });
 
 /**
@@ -72,7 +64,7 @@ export const getRollups = (stats: Record<SummaryTypes, boolean>) => {
       });
     }
   });
-  
+
   return rollups;
 };
 

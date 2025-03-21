@@ -172,11 +172,7 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
           </Box>
           <Box width={'25%'}>
             {/* map name */}
-            {status === 'locked' ? (
-              <Text>Name your Copy </Text>
-            ) : (
-              <Text>Map Name</Text>
-            )}
+            {status === 'locked' ? <Text>Name your Copy </Text> : <Text>Map Name</Text>}
             <TextField.Root
               placeholder={mapName ?? 'Map Name'}
               size="3"

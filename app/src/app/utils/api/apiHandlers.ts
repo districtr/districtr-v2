@@ -110,8 +110,6 @@ export interface DocumentObject extends StatusObject {
   color_scheme: string[] | null;
 }
 
-
-
 export interface DocumentMetadata {
   name: string | null;
   group: string | null;

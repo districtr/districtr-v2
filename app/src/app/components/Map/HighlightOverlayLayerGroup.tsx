@@ -9,7 +9,6 @@ import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';
 
-
 export const HighlightOverlayerLayerGroup: React.FC<{
   child?: boolean;
 }> = ({child = false}) => {

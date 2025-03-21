@@ -4,19 +4,19 @@ import {MapStore, useMapStore} from './mapStore';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import maplibregl from 'maplibre-gl';
-import * as scale from 'd3-scale'
-import { demographyCache } from '../utils/demography/demographyCache';
-import { updateDemography } from '../utils/api/queries';
-import { AllDemographyVariables, SummaryTypes } from '../utils/api/summaryStats';
+import * as scale from 'd3-scale';
+import {demographyCache} from '../utils/demography/demographyCache';
+import {updateDemography} from '../utils/api/queries';
+import {AllDemographyVariables, SummaryTypes} from '../utils/api/summaryStats';
 
-export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues
+export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
 
 export const demographyVariables: Array<{
   label: string;
   value: AllDemographyVariables;
   models: Array<SummaryTypes>;
-  colorScheme?: typeof chromatic.schemeBlues
+  colorScheme?: typeof chromatic.schemeBlues;
 }> = [
   {
     label: 'Population: Total',
@@ -139,7 +139,7 @@ export interface DemographyStore {
   /**
    * The d3 scale used for demographic data visualization.
    */
-  scale?: ReturnType<typeof scale.scaleThreshold<number,string>>;
+  scale?: ReturnType<typeof scale.scaleThreshold<number, string>>;
 
   /**
    * Sets the d3 scale used for demographic data visualization.
@@ -176,7 +176,7 @@ export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
     getMapRef: () => undefined,
     setGetMapRef: getMapRef => {
-      set({getMapRef})
+      set({getMapRef});
       const {dataHash, setVariable, variable} = get();
       const {mapDocument, shatterIds} = useMapStore.getState();
       const currentDataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
@@ -184,7 +184,7 @@ export var useDemographyStore = create(
         // set variable triggers map render/update
         getMapRef()?.on('load', () => {
           setVariable(variable);
-        })
+        });
       }
     },
     variable: 'total_pop_20',
@@ -195,14 +195,14 @@ export var useDemographyStore = create(
       set({
         scale: undefined,
         dataHash: '',
-      })
+      });
     },
     unmount: () => {
       set({
         getMapRef: () => undefined,
         scale: undefined,
         dataHash: '',
-      })
+      });
     },
     numberOfBins: 5,
     setNumberOfBins: numberOfBins => set({numberOfBins}),
@@ -217,17 +217,17 @@ export var useDemographyStore = create(
       const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
       const currentTableExists = demographyCache.table?.size;
-      const newShatterChildren: string[] = []
-      const currentShattered = Array.from(shatterIds.parents)
-      const healedParents = Array.from(prevShattered).filter(id => !currentShattered.includes(id))
+      const newShatterChildren: string[] = [];
+      const currentShattered = Array.from(shatterIds.parents);
+      const healedParents = Array.from(prevShattered).filter(id => !currentShattered.includes(id));
       // the table data ingestion dedupes and removes shattered parents
       // so this doesn't need to be *too* optimized
       shatterIds.parents.forEach(id => {
         if (!prevShattered?.has(id)) {
           newShatterChildren.push(...Array.from(shatterMappings[id]));
         }
-      })
-      let currRows = demographyCache.table?.size
+      });
+      let currRows = demographyCache.table?.size;
       if (!currRows && !newShatterChildren.length && !healedParents.length) {
         // this is a full pull of the data
         demographyCache.clear();
@@ -235,8 +235,8 @@ export var useDemographyStore = create(
       updateDemography({
         document_id: mapDocument.document_id,
         ids: currentTableExists ? [...newShatterChildren, ...healedParents] : undefined,
-        dataHash
-      })
+        dataHash,
+      });
     },
   }))
 );

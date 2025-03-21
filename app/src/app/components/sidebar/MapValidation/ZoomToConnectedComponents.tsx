@@ -5,11 +5,7 @@ import {Blockquote, Flex, IconButton, Spinner, Text, Tooltip} from '@radix-ui/th
 import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {useEffect, useState} from 'react';
-import {
-  ChevronDownIcon,
-  ChevronUpIcon,
-  CrossCircledIcon,
-} from '@radix-ui/react-icons';
+import {ChevronDownIcon, ChevronUpIcon, CrossCircledIcon} from '@radix-ui/react-icons';
 
 interface ZoomToConnectedComponentsProps {
   zone: number;
