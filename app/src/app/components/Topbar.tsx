@@ -32,7 +32,7 @@ export const Topbar: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
-  const mapStatus = useMapStatus();
+  const {statusText} = useMapStatus();
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
@@ -158,7 +158,7 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
-            {!!mapStatus && <Button
+            {!!statusText && <Button
               variant="outline"
               className="mr-2"
               disabled={!mapDocument?.document_id}
@@ -166,13 +166,13 @@ export const Topbar: React.FC = () => {
             >
               {mapDocument?.status === 'locked' ? 'Share' : 'Share'}
             </Button>}
-            {!!mapStatus && <Button
+            {!!statusText && <Button
               variant="outline"
               className="mr-2"
               disabled={!mapDocument?.document_id}
               onClick={() => setRecentMapsModalOpen(true)}
             >
-              Status{mapStatus}
+              {statusText}
             </Button>}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}

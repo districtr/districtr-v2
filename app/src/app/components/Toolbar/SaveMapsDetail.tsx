@@ -1,24 +1,11 @@
 import {useMapStore} from '@/app/store/mapStore';
-import React, {useEffect} from 'react';
-import {
-  Button,
-  Flex,
-  Text,
-  Table,
-  Dialog,
-  Box,
-  TextField,
-  Checkbox,
-  IconButton,
-  RadioCards,
-  RadioGroup,
-  TextArea,
-} from '@radix-ui/themes';
+import React, {useMemo} from 'react';
+import {Button, Flex, Text, Box, TextField, RadioGroup, TextArea} from '@radix-ui/themes';
 import {DocumentMetadata} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';
-import {metadata, document, checkoutDocument} from '@/app/utils/api/mutations';
-import {jwtDecode} from 'jwt-decode';
-const DialogContentContainer = styled(Dialog.Content);
+import {checkoutDocument} from '@/app/utils/api/mutations';
+import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
+import {useMapStatus} from '@/app/hooks/useMapStatus';
 
 const BoxContainer = styled(Box, {
   display: 'flex',
@@ -28,7 +15,6 @@ const BoxContainer = styled(Box, {
 
 export const SaveMapDetails: React.FC<{}> = ({}) => {
   const mapDocument = useMapStore(store => store.mapDocument);
-  const setMapDocument = useMapStore(store => store.setMapDocument);
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
 
@@ -58,56 +44,27 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
   const [descriptionIsSaved, setDescriptionIsSaved] = React.useState(false);
   const [shareStateIsSaved, setShareStateIsSaved] = React.useState(false);
   const [password, setPassword] = React.useState<string | null>(null);
-  const shareToken = new URLSearchParams(window.location.search).get('share');
+  const receivedShareToken = useMapStore(store => store.receivedShareToken ?? '');
+  const {frozenMessage} = useMapStatus();
+  const mapIsSaved =
+    tagsIsSaved && descriptionIsSaved && groupNameIsSaved && shareStateIsSaved && mapNameIsSaved;
 
-  const [latestMetadata, setLatestMetadata] = React.useState<DocumentMetadata | null>(null);
-
-  const frozenConditions = {
-    checkedOut:
-      'Checked Out:  Another user is actively editing this map.  You can choose to make a duplicate copy to edit, under a new PlanID, or you can wait and return to this later.',
-    lockedWithPW:
-      'Locked with Password:  Enter the password to continue editing this plan under its current ID, or you can choose to make a duplicate copy to edit under a new PlanID.',
-    viewOnly:
-      'View Only:  You can view this map, but you cannot edit it. Make a copy to duplicate the plan under a new PlanID.',
-  };
-
-  const handleCreateBlankMetadataObject = (): DocumentMetadata => {
-    return {
-      name: null,
-      group: null,
-      tags: null,
-      description: null,
-      is_draft: true,
-      eventId: null,
-    };
-  };
+  const latestMetadata = useMemo(() => {
+    const metadata = userMaps.find(
+      map => map.document_id === mapDocument?.document_id
+    )?.map_metadata;
+    return metadata ?? null;
+  }, [mapDocument?.document_id, userMaps]);
 
   const handlePasswordSubmit = () => {
-    if (mapDocument?.document_id && useMapStore.getState().receivedShareToken) {
+    if (mapDocument?.document_id && receivedShareToken.length) {
       checkoutDocument.mutate({
-        document_id: mapDocument?.document_id ?? '',
-        token: useMapStore.getState().receivedShareToken ?? '',
+        document_id: mapDocument.document_id,
+        token: receivedShareToken,
         password: password ?? '',
       });
     }
   };
-
-  const handlePasswordEntry = (pw: string) => {
-    if (pw) {
-      setPassword(pw);
-    } else {
-      setPassword(null);
-    }
-  };
-
-  useEffect(() => {
-    const metadata = userMaps.find(
-      map => map.document_id === mapDocument?.document_id
-    )?.map_metadata;
-    if (metadata) {
-      setLatestMetadata(metadata);
-    }
-  }, [mapDocument?.document_id, userMaps]);
 
   const handleChangeGroupName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
@@ -131,12 +88,7 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
   };
 
   const handleChangeIsDraft = (isDraft: boolean) => {
-    if (isDraft === true) {
-      setMapIsDraft('draft');
-    }
-    if (isDraft === false) {
-      setMapIsDraft('share');
-    }
+    setMapIsDraft(isDraft ? 'draft' : 'share');
     setShareStateIsSaved(false);
   };
 
@@ -172,52 +124,13 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
   };
 
   const handleMapSave = () => {
-    if (mapDocument?.document_id) {
-      if (mapDocument?.status === 'locked') {
-        // atp doesn't matter that it's locked, even with pw; should be able to copy map
-        // what we need is a pw entry field to open if there's a pw required in the url
-        document
-          .mutate({
-            districtr_map_slug: mapDocument?.gerrydb_table ?? '',
-            metadata: latestMetadata ?? handleCreateBlankMetadataObject(),
-            user_id: useMapStore.getState().userID,
-            copy_from_doc: mapDocument?.document_id,
-          })
-          .then(data => {
-            const updatedMetadata = latestMetadata ?? handleCreateBlankMetadataObject();
-            metadata.mutate({document_id: data.document_id, metadata: updatedMetadata});
-
-            const updatedMapDoc = {...data, map_metadata: updatedMetadata};
-
-            upsertUserMap({documentId: data.document_id, mapDocument: updatedMapDoc});
-
-            setMapDocument(updatedMapDoc);
-            const documentUrl = new URL(window.location.toString());
-            documentUrl.searchParams.delete('share'); // remove share + token from url
-            documentUrl.searchParams.set('document_id', data.document_id);
-            history.pushState({}, '', documentUrl.toString());
-          });
-      } else {
-        console.log('in the not locked category now');
-        metadata.mutate({
-          document_id: mapDocument?.document_id,
-          metadata: latestMetadata ?? handleCreateBlankMetadataObject(),
-        });
-        upsertUserMap({
-          documentId: mapDocument?.document_id,
-          mapDocument: {
-            ...mapDocument,
-            map_metadata: latestMetadata ?? handleCreateBlankMetadataObject(),
-          },
-        });
-      }
-    }
-
-    setGroupNameIsSaved(true);
-    setTagsIsSaved(true);
-    setDescriptionIsSaved(true);
-    setShareStateIsSaved(true);
-    setMapNameIsSaved(true);
+    saveMap(latestMetadata).then(() => {
+      setGroupNameIsSaved(true);
+      setTagsIsSaved(true);
+      setDescriptionIsSaved(true);
+      setShareStateIsSaved(true);
+      setMapNameIsSaved(true);
+    });
   };
 
   // if no document, return
@@ -298,7 +211,7 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
                   size="3"
                   type="password"
                   value={password ?? undefined}
-                  onChange={e => handlePasswordEntry(e.target.value)}
+                  onChange={e => setPassword(e.target.value ?? null)}
                 ></TextField.Root>
                 <Flex gap="2" py="1">
                   <Button onClick={handlePasswordSubmit}>Submit</Button>
@@ -307,15 +220,7 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
             ) : null}
           </Flex>
           <Flex gap="2" px="2">
-            {mapDocument.status === 'locked' &&
-            mapDocument.access === 'edit' &&
-            new URL(window.location.toString()).searchParams.get('share') ? (
-              <Text>{frozenConditions.lockedWithPW}</Text>
-            ) : mapDocument.status === 'locked' && mapDocument.access === 'edit' ? (
-              <Text>{frozenConditions.checkedOut}</Text>
-            ) : mapDocument.access === 'read' ? (
-              <Text>{frozenConditions.viewOnly}</Text>
-            ) : null}
+            {!!frozenMessage && <Text>{frozenMessage}</Text>}
           </Flex>
         </Flex>
 
@@ -323,20 +228,9 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
           variant="solid"
           className="flex items-center "
           onClick={handleMapSave}
-          disabled={
-            tagsIsSaved &&
-            descriptionIsSaved &&
-            groupNameIsSaved &&
-            shareStateIsSaved &&
-            mapNameIsSaved
-          }
+          disabled={mapIsSaved}
         >
-          {mapDocument.status !== 'locked' &&
-          tagsIsSaved &&
-          descriptionIsSaved &&
-          groupNameIsSaved &&
-          shareStateIsSaved &&
-          mapNameIsSaved
+          {mapDocument.status !== 'locked' && mapIsSaved
             ? 'Saved!'
             : mapDocument.status === 'locked'
               ? 'Create Copy'

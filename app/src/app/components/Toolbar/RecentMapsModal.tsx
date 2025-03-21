@@ -2,7 +2,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Table, Dialog, Box, Separator} from '@radix-ui/themes';
-import {SaveMapDetails} from './SaveMaps';
+import {SaveMapDetails} from './SaveMapsDetail';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '../../utils/api/apiHandlers';
 import {styled} from '@stitches/react';

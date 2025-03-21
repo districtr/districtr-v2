@@ -14,8 +14,7 @@ import {
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {demographyCache} from './demography/demographyCache';
-import {ChartStore, useChartStore} from '@/app/store/chartStore';
-import {calculateMinMaxRange} from './zone-helpers';
+import {DocumentMetadata} from './api/apiHandlers';
 
 /**
  * PaintEventHandler
@@ -483,4 +482,15 @@ const filterFeatures = (
   });
   parentIdsToHeal.length && checkParentsToHeal(parentIdsToHeal);
   return filteredFeatures;
+};
+
+export const handleCreateBlankMetadataObject = (): DocumentMetadata => {
+  return {
+    name: null,
+    group: null,
+    tags: null,
+    description: null,
+    is_draft: true,
+    eventId: null,
+  };
 };

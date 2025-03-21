@@ -1,21 +1,10 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {
-  Button,
-  Flex,
-  Text,
-  Table,
-  Dialog,
-  Box,
-  TextField,
-  Checkbox,
-  IconButton,
-  RadioCards,
-  Separator,
-} from '@radix-ui/themes';
-import {metadata, document, sharePlan} from '@/app/utils/api/mutations';
+import {Button, Flex, Text, Dialog, Box, TextField, IconButton, RadioCards} from '@radix-ui/themes';
 import {styled} from '@stitches/react';
+import {getShareLink} from '@/app/utils/api/apiHandlers/getShareMap';
+import {getMapCopy} from '@/app/utils/api/apiHandlers/getMapCopy';
 
 const DialogContentContainer = styled(Dialog.Content);
 
@@ -28,18 +17,16 @@ const BoxContainer = styled(Box, {
 export const ShareMapsModal: React.FC<{
   open?: boolean;
   onClose?: () => void;
-  showTrigger?: boolean;
-}> = ({open, onClose, showTrigger}) => {
+}> = ({open, onClose}) => {
   const mapDocument = useMapStore(store => store.mapDocument);
-  const gerryDBTable = mapDocument?.gerrydb_table;
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
-  const {upsertUserMap, setMapDocument} = useMapStore(store => store);
+  const {upsertUserMap} = useMapStore(store => store);
   const userMaps = useMapStore(store => store.userMaps);
   const currentMap = React.useMemo(
     () => userMaps.find(map => map.document_id === mapDocument?.document_id),
     [mapDocument?.document_id, userMaps]
   );
-  const [sharetype, setSharetype] = React.useState('read');
+  const [shareType, setShareType] = React.useState('read');
   const [linkCopied, setLinkCopied] = React.useState(false);
   const [password, setPassword] = React.useState<string | null>(currentMap?.password ?? null);
   const [passwordDisabled, setPasswordDisabled] = React.useState(false);
@@ -65,49 +52,9 @@ export const ShareMapsModal: React.FC<{
     }
   }, [mapDocument, currentMap]);
 
-  const handleCreateShareLink = async () => {
-    const payload = {
-      document_id: mapDocument?.document_id,
-      password: password ?? null,
-      access_type: sharetype,
-    };
-
-    try {
-      // get the share link
-      const token = await sharePlan.mutate(payload);
-      // copy to clipboard
-      if (token !== undefined) {
-        const shareableLink = `${window.location.origin}?share=${token.token}`;
-        navigator.clipboard.writeText(shareableLink);
-
-        if (password !== null && mapDocument?.document_id) {
-          upsertUserMap({
-            documentId: mapDocument?.document_id,
-            mapDocument: {
-              ...mapDocument,
-              password: password,
-            },
-          });
-          setIsVisible(false);
-        }
-        if (sharetype === 'edit') {
-          setPasswordDisabled(true);
-        }
-        // Set link copied state
-        setLinkCopied(true);
-        setTimeout(() => setLinkCopied(false), 2000);
-      }
-    } catch (error) {
-      console.error('Error creating share link: ', error);
-      useMapStore
-        .getState()
-        .setErrorNotification({message: 'Error creating share link', severity: 2});
-    }
-  };
-
-  const handleShareTypeChange = (value: string) => {
+  const handleshareTypeChange = (value: string) => {
     // handle share type change
-    setSharetype(value);
+    setShareType(value);
   };
 
   const handleSetPassword = () => {
@@ -123,46 +70,6 @@ export const ShareMapsModal: React.FC<{
           password: password,
         },
       });
-    }
-  };
-
-  const handlePasswordEntry = (pw: string) => {
-    if (pw) {
-      setPassword(pw);
-      return;
-    } else {
-      setPassword(null);
-    }
-  };
-
-  const handleMapCopy = (documentId: string | undefined) => {
-    if (mapDocument?.gerrydb_table) {
-      document
-        .mutate({
-          districtr_map_slug: mapDocument?.gerrydb_table ?? '',
-          metadata: mapDocument?.map_metadata,
-          user_id: useMapStore.getState().userID,
-          copy_from_doc: mapDocument?.document_id,
-        })
-        .then(data => {
-          // update in db
-          metadata.mutate({
-            document_id: data.document_id,
-            metadata: mapDocument?.map_metadata,
-          });
-          // update in usermaps
-          upsertUserMap({
-            documentId: data.document_id,
-            mapDocument: {
-              ...data,
-              map_metadata: mapDocument?.map_metadata,
-            },
-          });
-          // swap out current map with newly copied one
-          data.map_metadata = mapDocument?.map_metadata;
-          setMapDocument(data);
-          // should open the map save modal with the proper map open?
-        });
     }
   };
 
@@ -199,7 +106,7 @@ export const ShareMapsModal: React.FC<{
               </Text>
 
               <Flex gap="2" className="flex-col">
-                <RadioCards.Root onValueChange={handleShareTypeChange} value={sharetype}>
+                <RadioCards.Root onValueChange={handleshareTypeChange} value={shareType}>
                   <RadioCards.Item value="read">
                     <Flex gap="2" className="items-center" direction={'column'}>
                       <Text weight={'bold'}>Share Frozen</Text>
@@ -214,7 +121,8 @@ export const ShareMapsModal: React.FC<{
                   </RadioCards.Item>
                 </RadioCards.Root>
                 <Flex gap="2" className="flex-row items-center ">
-                  {sharetype === 'read' ? (
+                  <Text size="2">Password</Text>
+                  {shareType === 'read' ? (
                     <TextField.Root
                       disabled
                       type={isVisible ? 'text' : 'password'}
@@ -222,7 +130,7 @@ export const ShareMapsModal: React.FC<{
                       placeholder={'Password'}
                       size="2"
                       value={password ?? undefined}
-                      onChange={e => handlePasswordEntry(e.target.value)}
+                      onChange={e => setPassword(e.target.value || null)}
                       className="items-center w-1/2 invisible"
                     ></TextField.Root>
                   ) : (
@@ -233,19 +141,19 @@ export const ShareMapsModal: React.FC<{
                       placeholder={'Password'}
                       size="2"
                       value={password ?? undefined}
-                      onChange={e => handlePasswordEntry(e.target.value)}
-                      className="items-center w-1/2 "
+                      onChange={e => setPassword(e.target.value || null)}
+                      className="items-center w-1/2 flex-1"
                     ></TextField.Root>
                   )}
                   {password && !passwordDisabled ? (
-                    <IconButton
+                    <Button
                       variant="soft"
                       className="flex items-center w-1/5"
                       onClick={handleSetPassword}
                     >
                       Save
-                    </IconButton>
-                  ) : sharetype === 'edit' && ((password && passwordDisabled) || !isVisible) ? (
+                    </Button>
+                  ) : shareType === 'edit' && ((password && passwordDisabled) || !isVisible) ? (
                     <IconButton
                       variant="soft"
                       style={{width: '20%'}}
@@ -259,7 +167,15 @@ export const ShareMapsModal: React.FC<{
                 <Button
                   variant="soft"
                   className="flex items-center"
-                  onClick={handleCreateShareLink}
+                  onClick={() =>
+                    getShareLink(
+                      password ?? null,
+                      shareType,
+                      setIsVisible,
+                      setPasswordDisabled,
+                      setLinkCopied
+                    )
+                  }
                   disabled={linkCopied ?? false}
                 >
                   {linkCopied ? 'Copied!' : 'Click to Generate Link'}
@@ -274,7 +190,7 @@ export const ShareMapsModal: React.FC<{
                 onClick={() => {
                   // make a copy of the map
                   useMapStore.getState().setAppLoadingState('loading');
-                  handleMapCopy(mapDocument?.document_id);
+                  getMapCopy();
                   setDialogOpen(false);
                 }}
               >
@@ -284,7 +200,15 @@ export const ShareMapsModal: React.FC<{
               <Button
                 variant="soft"
                 className="flex items-center"
-                onClick={handleCreateShareLink}
+                onClick={() => {
+                  getShareLink(
+                    password ?? null,
+                    shareType,
+                    setIsVisible,
+                    setPasswordDisabled,
+                    setLinkCopied
+                  );
+                }}
                 disabled={linkCopied ?? false}
               >
                 {linkCopied ? 'Copied!' : 'Click to copy share link'}

@@ -1,0 +1,34 @@
+import {useMapStore} from '@/app/store/mapStore';
+import {document, metadata} from '../mutations';
+
+export const getMapCopy = () => {
+  const {mapDocument, upsertUserMap, setMapDocument} = useMapStore.getState();
+  if (mapDocument?.gerrydb_table) {
+    document
+      .mutate({
+        districtr_map_slug: mapDocument?.gerrydb_table ?? '',
+        metadata: mapDocument?.map_metadata,
+        user_id: useMapStore.getState().userID,
+        copy_from_doc: mapDocument?.document_id,
+      })
+      .then(data => {
+        // update in db
+        metadata.mutate({
+          document_id: data.document_id,
+          metadata: mapDocument?.map_metadata,
+        });
+        // update in usermaps
+        upsertUserMap({
+          documentId: data.document_id,
+          mapDocument: {
+            ...data,
+            map_metadata: mapDocument?.map_metadata,
+          },
+        });
+        // swap out current map with newly copied one
+        data.map_metadata = mapDocument?.map_metadata;
+        setMapDocument(data);
+        // should open the map save modal with the proper map open?
+      });
+  }
+};
