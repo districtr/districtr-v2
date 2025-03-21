@@ -12,5 +12,3 @@ repos:
         name: Run Prettier
         entry: bash -c "cd app && npm run prettier"
         language: system
-        # pass_filenames: false
-        # types: [javascript, typescript, json, css, scss, html]
