@@ -5,13 +5,9 @@ import {
   Button,
   Flex,
   Text,
-  Table,
   Dialog,
   Box,
   TextField,
-  Checkbox,
-  IconButton,
-  RadioCards,
 } from '@radix-ui/themes';
 import {sharedDocument} from '@/app/utils/api/mutations';
 import {jwtDecode} from 'jwt-decode';
@@ -22,6 +18,7 @@ export const PasswordPromptModal = () => {
   const shareMapMessage = useMapStore(store => store.shareMapMessage);
   const setPasswordPrompt = useMapStore(store => store.setPasswordPrompt);
   const setAppLoadingState = useMapStore(store => store.setAppLoadingState);
+  const receivedShareToken = useMapStore(store => store.receivedShareToken ?? ''); 
 
   useEffect(() => {
     setDialogOpen(passwordRequired);
@@ -32,19 +29,11 @@ export const PasswordPromptModal = () => {
     if (shareToken) {
       const decodedToken = jwtDecode(shareToken);
       sharedDocument.mutate({
-        token: useMapStore.getState().receivedShareToken ?? '',
+        token: receivedShareToken,
         password: password,
         access: (decodedToken as any).access as string,
         status: null,
       });
-    }
-  };
-
-  const handlePasswordEntry = (pw: string) => {
-    if (pw) {
-      setPassword(pw);
-    } else {
-      setPassword(null);
     }
   };
 
@@ -81,7 +70,7 @@ export const PasswordPromptModal = () => {
             size="3"
             type="password"
             value={password ?? undefined}
-            onChange={e => handlePasswordEntry(e.target.value)}
+            onChange={e => setPassword(e.target.value || null)}
           ></TextField.Root>
           <Flex gap="2" py="2">
             <Button onClick={handlePasswordSubmit}>Submit</Button>
