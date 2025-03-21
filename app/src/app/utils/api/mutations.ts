@@ -199,7 +199,6 @@ export const sharedDocument = new MutationObserver(queryClient, {
     if (!mapDocument) {
       setMapDocument(data);
     }
-    setLoadedMapId(data.document_id);
     setAppLoadingState('loaded');
     setPasswordPrompt(false);
 
