@@ -3,7 +3,6 @@ import {document, metadata} from '../mutations';
 
 export const getMapCopy = () => {
   const {mapDocument, upsertUserMap, setMapDocument} = useMapStore.getState();
-  console.log("!!!", mapDocument)
   if (mapDocument?.districtr_map_slug) {
     document
       .mutate({
@@ -13,7 +12,6 @@ export const getMapCopy = () => {
         copy_from_doc: mapDocument?.document_id,
       })
       .then(data => {
-        console.log("!!!", data)
         // update in db
         metadata.mutate({
           document_id: data.document_id,
