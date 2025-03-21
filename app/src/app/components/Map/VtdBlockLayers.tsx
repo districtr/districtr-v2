@@ -23,6 +23,7 @@ export const VtdBlockLayers: React.FC<{
   const showDemography = isDemographicMap || showDemographicMap === 'overlay';
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
+  const renderChildLayers = useMapStore(state => Boolean(state.mapDocument?.child_layer && state.shatterIds.children.size > 0));
 
   useEffect(() => {
     // clears old source before re-adding
@@ -84,17 +85,17 @@ export const VtdBlockLayers: React.FC<{
         {!isDemographicMap && (
           <>
             <ZoneLayerGroup />
-            <ZoneLayerGroup child />
+            {renderChildLayers && <ZoneLayerGroup child />}
           </>
         )}
         {!!showDemography && (
           <>
             <DemographicLayer />
-            <DemographicLayer child />
+            {renderChildLayers && <DemographicLayer child />}
           </>
         )}
         <HighlightOverlayerLayerGroup />
-        <HighlightOverlayerLayerGroup child />
+        {renderChildLayers && <HighlightOverlayerLayerGroup child />}
       </MapSource>
     </MapSource>
   );

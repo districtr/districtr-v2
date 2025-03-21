@@ -35,11 +35,11 @@ export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
  * present) and the active tool. If the active tool is
  * shatter, we only want to paint the shatterable layer.
  *
- * @param child_layer - string | undefined | null, the child layer
+ * @param child_layer - boolean, the child layer
  * @param activeTool - ActiveTool, the active tool
  * @returns string[], the layer IDs to paint
  */
-function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: ActiveTool) {
+function getLayerIdsToPaint(child_layer: boolean, activeTool: ActiveTool) {
   if (activeTool === 'shatter') {
     return [BLOCK_HOVER_LAYER_ID];
   }
@@ -69,7 +69,8 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
     }
     return;
   } else if (activeTool === 'brush' || activeTool === 'eraser') {
-    const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
+    const queryChildren = Boolean(mapStore.shatterIds.children.size && mapStore.mapDocument?.child_layer)
+    const paintLayers = getLayerIdsToPaint(queryChildren, activeTool);
     const selectedFeatures = mapStore.paintFunction(mapRef, e, mapStore.brushSize, paintLayers);
     if (sourceLayer && selectedFeatures && mapRef && mapStore) {
       // select on both the map object and the store
@@ -141,9 +142,9 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const mapStore = useMapStore.getState();
   const {mapOptions, activeTool, isPainting, mapDocument, selectMapFeatures} = mapStore;
   const sourceLayer = mapDocument?.parent_layer;
+  const queryChildren = Boolean(mapStore.shatterIds.children.size && mapStore.mapDocument?.child_layer);
   const paintLayers = getLayerIdsToPaint(
-    // Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
-    mapStore.mapDocument?.child_layer,
+    queryChildren,
     activeTool
   );
 
