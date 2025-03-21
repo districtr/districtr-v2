@@ -166,23 +166,23 @@ class TilesetBatch(Config):
             if data_dir is not None:
                 parent_tileset.gpkg = os.path.join(data_dir, parent_tileset.gpkg)
             out_parent_tiles = parent_tileset.generate_tiles(replace=replace)
-
-            if not child_tileset:
-                self.add_result(k, out_parent_tiles)
-                continue
+            self.add_result(k, out_parent_tiles)
 
             logger.info(f"Generating tiles for parent-child layer {k}")
 
             if data_dir is not None:
                 child_tileset.gpkg = os.path.join(data_dir, child_tileset.gpkg)
             out_child_tiles = child_tileset.generate_tiles(replace=replace)
+            self.add_result(k, out_child_tiles)
 
-            result = merge_tilesets(
-                parent_layer=out_parent_tiles,
-                child_layer=out_child_tiles,
-                out_name=k,
-            )
-            self.add_result(k, result)
+            if tilesets["merge"]:
+                logger.info(f"Merging parent-child layer {k}")
+                result = merge_tilesets(
+                    parent_layer=out_parent_tiles,
+                    child_layer=out_child_tiles,
+                    out_name=k,
+                )
+                self.add_result(k, result)
 
     def upload_results(self):
         logger.info("Uploading results to S3")
