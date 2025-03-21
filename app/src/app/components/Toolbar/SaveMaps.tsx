@@ -29,7 +29,6 @@ const BoxContainer = styled(Box, {
 export const SaveMapDetails: React.FC<{}> = ({}) => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const setMapDocument = useMapStore(store => store.setMapDocument);
-  const gerryDBTable = mapDocument?.gerrydb_table;
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
 
@@ -60,7 +59,6 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
   const [shareStateIsSaved, setShareStateIsSaved] = React.useState(false);
   const [password, setPassword] = React.useState<string | null>(null);
   const shareToken = new URLSearchParams(window.location.search).get('share');
-  const decodedToken = shareToken && jwtDecode(shareToken);
 
   const [latestMetadata, setLatestMetadata] = React.useState<DocumentMetadata | null>(null);
 
@@ -180,7 +178,7 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
         // what we need is a pw entry field to open if there's a pw required in the url
         document
           .mutate({
-            gerrydb_table: mapDocument?.gerrydb_table,
+            districtr_map_slug: mapDocument?.gerrydb_table ?? '',
             metadata: latestMetadata ?? handleCreateBlankMetadataObject(),
             user_id: useMapStore.getState().userID,
             copy_from_doc: mapDocument?.document_id,
@@ -222,8 +220,8 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
     setMapNameIsSaved(true);
   };
 
-  // if no gerrydb table selected return null
-  if (!gerryDBTable) {
+  // if no document, return
+  if (!mapDocument) {
     return <div></div>;
   }
 

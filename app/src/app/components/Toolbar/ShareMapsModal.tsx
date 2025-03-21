@@ -139,7 +139,7 @@ export const ShareMapsModal: React.FC<{
     if (mapDocument?.gerrydb_table) {
       document
         .mutate({
-          gerrydb_table: mapDocument?.gerrydb_table,
+          districtr_map_slug: mapDocument?.gerrydb_table ?? '',
           metadata: mapDocument?.map_metadata,
           user_id: useMapStore.getState().userID,
           copy_from_doc: mapDocument?.document_id,
@@ -172,8 +172,8 @@ export const ShareMapsModal: React.FC<{
     }
   }, [dialogOpen]);
 
-  // if no gerrydb table selected return null
-  if (!gerryDBTable) {
+  // ensure a map is loaded
+  if (!mapDocument) {
     return <div></div>;
   }
   return (
