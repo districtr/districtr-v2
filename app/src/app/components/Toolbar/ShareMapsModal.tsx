@@ -172,8 +172,8 @@ export const ShareMapsModal: React.FC<{
     }
   }, [dialogOpen]);
 
-  // if no gerrydb table selected return null
-  if (!gerryDBTable) {
+  // ensure a map is loaded
+  if (!mapDocument) {
     return <div></div>;
   }
   return (
