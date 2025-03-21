@@ -107,11 +107,15 @@ export const document = new MutationObserver(queryClient, {
     const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} =
       useMapStore.getState();
     setMapDocument(data);
-    setLoadedMapId(data.document_id);
+    if (data.genesis === 'created') {
+      setLoadedMapId(data.document_id);
+    }
     setAssignmentsHash(Date.now().toString());
     setAppLoadingState('loaded');
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.set('document_id', data.document_id);
+    // if searchParams has share, remove it
+    documentUrl.searchParams.delete('share');
     history.pushState({}, '', documentUrl.toString());
   },
 });
@@ -201,11 +205,9 @@ export const sharedDocument = new MutationObserver(queryClient, {
     }
     setAppLoadingState('loaded');
     setPasswordPrompt(false);
-
     if (data.status !== 'locked') {
       const documentUrl = new URL(window.location.toString());
       documentUrl.searchParams.delete('share'); // remove share + token from url
-
       documentUrl.searchParams.set('document_id', data.document_id);
       history.pushState({}, '', documentUrl.toString());
     }
@@ -224,7 +226,7 @@ export const checkoutDocument = new MutationObserver(queryClient, {
     setMapStatus({
       access: data.access,
       status: data.status,
-    })
+    });
     const documentUrl = new URL(window.location.toString());
     documentUrl.searchParams.delete('share'); // remove share + token from url
     documentUrl.searchParams.set('document_id', mapDocument?.document_id);
