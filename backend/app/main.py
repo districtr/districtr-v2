@@ -58,6 +58,8 @@ from app.models import (
     BBoxGeoJSONs,
     SummaryStatisticColumnLists,
 )
+from pydantic_geojson import PolygonModel
+from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from app.utils import remove_file, _cleanup_expired_locks, _remove_all_locks
 from app.exports import (
@@ -851,7 +853,7 @@ async def get_connected_component_bboxes(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"
         )
         gerrydb_name = districtr_map.child_layer
-        zone_assignments = contiguity.get_block_assignments(
+        zone_assignments = contiguity.get_block_assignments_bboxes(
             session, document_id, zones=[zone]
         )
         if len(zone_assignments) == 0:
@@ -860,6 +862,10 @@ async def get_connected_component_bboxes(
             raise HTTPException(status_code=500, detail="Multiple zones found")
         zone_assignments = zone_assignments[0]
     else:
+        # TODO: Implement before merging
+        raise NotImplementedError(
+            "connected component bboxes not implemented for single zone yet"
+        )
         gerrydb_name = districtr_map.parent_layer
         logger.info(
             f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
@@ -887,52 +893,42 @@ async def get_connected_component_bboxes(
 
     G = await _get_graph(gerrydb_name)
     subgraph = G.subgraph(nodes=zone_assignments.nodes)
+
+    if zone_assignments.node_data is None:
+        raise HTTPException(status_code=404, detail="Node data is missing")
+    # set_node_attributes(subgraph, zone_assignments.node_data)
+
     zone_connected_components = connected_components(subgraph)
 
-    geo_ids_param = bindparam(key="geo_ids", type_=ARRAY(String))
-    subgraph_ids_param = bindparam(key="subgraph_ids", type_=ARRAY(String))
-
-    sql = text(
-        f"""SELECT
-        st_asgeojson(
-            st_transform(
-                st_envelope(
-                    st_collect(
-                        geometry
-                    )
-                ), 4326
+    bboxes = []
+    for zone_connected_component in zone_connected_components:
+        minx, miny, maxx, maxy = (
+            float("inf"),
+            float("inf"),
+            float("-inf"),
+            float("-inf"),
+        )
+        for node in zone_connected_component:
+            node_data = zone_assignments.node_data[node]
+            minx = min(minx, node_data["xmin"])
+            miny = min(miny, node_data["ymin"])
+            maxx = max(maxx, node_data["xmax"])
+            maxy = max(maxy, node_data["ymax"])
+        bboxes.append(
+            PolygonModel(
+                coordinates=[
+                    [
+                        Coordinates(lon=minx, lat=miny),
+                        Coordinates(lon=maxx, lat=miny),
+                        Coordinates(lon=maxx, lat=maxy),
+                        Coordinates(lon=minx, lat=maxy),
+                        Coordinates(lon=minx, lat=miny),
+                    ]
+                ]
             )
-        )::json as bbox
-    FROM (
-        SELECT
-            i.subgraph_index,
-            g.geometry
-        FROM
-            gerrydb.{gerrydb_name} g
-        JOIN (
-            SELECT
-                unnest(:geo_ids) as geo_id,
-                unnest(:subgraph_ids) as subgraph_index
-            ) i ON g.path = i.geo_id
-    ) AS grouped_geometries
-    GROUP BY
-        subgraph_index
-    """
-    ).bindparams(geo_ids_param, subgraph_ids_param)
+        )
 
-    # TODO: Don't love all this iteration but unfortunately postgres doesn't support
-    # multidimensional arrays with different dimensions, precluding some nice ideas
-    geo_ids = []
-    subgraph_ids = []
-    for idx, component in enumerate(zone_connected_components):
-        geo_ids.extend(component)
-        subgraph_ids.extend([idx] * len(component))
-
-    results = session.execute(
-        sql, params={"geo_ids": geo_ids, "subgraph_ids": subgraph_ids}
-    ).fetchall()
-
-    return BBoxGeoJSONs(features=[r.bbox for r in results])
+    return BBoxGeoJSONs(features=bboxes)
 
 
 @app.get("/api/document/{document_id}/demography")
