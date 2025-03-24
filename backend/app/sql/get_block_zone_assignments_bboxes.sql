@@ -21,12 +21,7 @@ BEGIN
             SELECT
                 assignments.geo_id,
                 assignments.zone,
-                Box2D(
-                    ST_Transform(
-                        blocks.geometry,
-                        4326
-                    )
-                ) AS bbox
+                Box2D(blocks.geometry) AS bbox
             FROM get_block_assignments($1::UUID, $2) assignments
             LEFT JOIN gerrydb.%I blocks
             ON blocks.path = assignments.geo_id

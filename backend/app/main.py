@@ -69,6 +69,7 @@ from app.exports import (
 )
 from aiocache import Cache
 from contextlib import asynccontextmanager
+from fiona.transform import transform
 
 
 if settings.ENVIRONMENT in ("production", "qa"):
@@ -862,43 +863,65 @@ async def get_connected_component_bboxes(
             raise HTTPException(status_code=500, detail="Multiple zones found")
         zone_assignments = zone_assignments[0]
     else:
-        # TODO: Implement before merging
-        raise NotImplementedError(
-            "connected component bboxes not implemented for single zone yet"
-        )
         gerrydb_name = districtr_map.parent_layer
         logger.info(
             f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
         )
         sql = text(
-            """
+            f"""
             SELECT
-                geo_id
+                geo_id,
+                st_xmin(box2d(gpd.geometry)) AS xmin,
+                st_xmax(box2d(gpd.geometry)) AS xmax,
+                st_ymin(box2d(gpd.geometry)) AS ymin,
+                st_ymax(box2d(gpd.geometry)) AS ymax
             FROM
-                document.assignments
+                document.assignments a
+            LEFT JOIN
+                gerrydb.{gerrydb_name} gpd
+                ON a.geo_id = gpd.path
             WHERE
                 document_id = :document_id
                 AND zone = :zone"""
         )
 
-        nodes = (
-            session.execute(sql, {"document_id": document_id, "zone": zone})
-            .scalars()
-            .all()
-        )
+        results = session.execute(sql, {"document_id": document_id, "zone": zone}).all()
 
-        if not nodes or len(nodes) == 0:
+        if not results or len(results) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
-        zone_assignments = contiguity.ZoneBlockNodes(zone=zone, nodes=list(nodes))
+        nodes = [row.geo_id for row in results]
+        zone_assignments = contiguity.ZoneBlockNodes(
+            zone=zone,
+            nodes=list(nodes),
+            node_data={
+                row.geo_id: {
+                    "xmin": row.xmin,
+                    "xmax": row.xmax,
+                    "ymin": row.ymin,
+                    "ymax": row.ymax,
+                }
+                for row in results
+            },
+        )
 
     G = await _get_graph(gerrydb_name)
     subgraph = G.subgraph(nodes=zone_assignments.nodes)
 
     if zone_assignments.node_data is None:
         raise HTTPException(status_code=404, detail="Node data is missing")
-    # set_node_attributes(subgraph, zone_assignments.node_data)
 
     zone_connected_components = connected_components(subgraph)
+
+    from_srid = session.execute(
+        text(
+            """SELECT srid
+                FROM geometry_columns
+                WHERE f_table_name = :table_name
+                    AND f_table_schema = 'gerrydb'
+                LIMIT 1"""
+        ),
+        {"table_name": gerrydb_name},
+    ).scalar()
 
     bboxes = []
     for zone_connected_component in zone_connected_components:
@@ -914,15 +937,25 @@ async def get_connected_component_bboxes(
             miny = min(miny, node_data["ymin"])
             maxx = max(maxx, node_data["xmax"])
             maxy = max(maxy, node_data["ymax"])
+
+        print(minx, miny, maxx, maxy)
+
+        (_minx, _maxx), (_miny, _maxy) = transform(
+            xs=[minx, maxx],
+            ys=[miny, maxy],
+            src_crs=f"EPSG:{from_srid}",
+            dst_crs="EPSG:4326",
+        )
+
         bboxes.append(
             PolygonModel(
                 coordinates=[
                     [
-                        Coordinates(lon=minx, lat=miny),
-                        Coordinates(lon=maxx, lat=miny),
-                        Coordinates(lon=maxx, lat=maxy),
-                        Coordinates(lon=minx, lat=maxy),
-                        Coordinates(lon=minx, lat=miny),
+                        Coordinates(lon=_minx, lat=_miny),
+                        Coordinates(lon=_maxx, lat=_miny),
+                        Coordinates(lon=_maxx, lat=_maxy),
+                        Coordinates(lon=_minx, lat=_maxy),
+                        Coordinates(lon=_minx, lat=_miny),
                     ]
                 ]
             )
