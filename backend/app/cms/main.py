@@ -2,15 +2,18 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
+from sqlalchemy.sql import literal_column
 import logging
 
 from app.core.db import engine
 from app.models import (
-    CMSContent,
-    CMSContentCreate,
-    CMSContentUpdate,
-    CMSContentPublic,
+    CmsContentCreate,
+    CmsContentUpdate,
+    CMSContentPublicWithLanguages,
+    AllCMSContentPublic,
     LanguageEnum,
+    CMS_MODEL_MAP,
+    CMSContentTypesEnum,
 )
 
 router = APIRouter(prefix="/api/cms", tags=["cms"])
@@ -23,17 +26,22 @@ def get_session():
 
 
 @router.post(
-    "/content", response_model=CMSContentPublic, status_code=status.HTTP_201_CREATED
+    "/content/{type}",
+    response_model=CmsContentCreate,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_cms_content(
-    data: CMSContentCreate, session: Session = Depends(get_session)
+    type: CMSContentTypesEnum,
+    data: CmsContentCreate,
+    session: Session = Depends(get_session),
 ):
     """Create a new CMS content entry"""
     # Check if content with same slug and language already exists
+    CmsModel = CMS_MODEL_MAP[type]
     existing = session.exec(
-        select(CMSContent)
-        .where(CMSContent.slug == data.slug)
-        .where(CMSContent.language == data.language)
+        select(CmsModel)
+        .where(CmsModel.slug == data.slug)
+        .where(CmsModel.language == data.language)
     ).first()
 
     if existing:
@@ -41,16 +49,19 @@ async def create_cms_content(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Content with slug '{data.slug}' and language '{data.language}' already exists",
         )
-
-    # Create new content entry
-    content = CMSContent(
-        id=str(uuid.uuid4()),
-        slug=data.slug,
-        districtr_map_slug=data.districtr_map_slug,
-        language=data.language,
-        draft_content=data.draft_content,
-        published_content=data.published_content,
-    )
+    kwargs = {
+        "id": str(uuid.uuid4()),
+        "slug": data.slug,
+        "language": data.language,
+        "draft_content": data.draft_content,
+        "published_content": data.published_content,
+    }
+    if type == "tags":
+        kwargs["districtr_map_slug"] = data.districtr_map_slug
+        content = CmsModel(**kwargs)
+    elif type == "places":
+        kwargs["distirctr_map_slugs"] = data.distirctr_map_slugs
+        content = CmsModel(**kwargs)
 
     session.add(content)
     session.commit()
@@ -59,20 +70,60 @@ async def create_cms_content(
     return content
 
 
-@router.get("/content/{slug}", response_model=CMSContentPublic)
+@router.get(
+    "/content/{type}",
+    # response_model=list[AllCMSContentPublic]
+)
+async def list_cms_content(
+    type: CMSContentTypesEnum,
+    language: LanguageEnum = None,
+    districtr_map_slug: str = None,
+    session: Session = Depends(get_session),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, le=100),
+):
+    """List CMS content with optional filtering"""
+    CMSModel = CMS_MODEL_MAP[type]
+    query = select(CMSModel)
+
+    if language:
+        query = query.where(literal_column(CMSModel.language.name) == language)
+
+    if districtr_map_slug:
+        query = query.where(
+            literal_column(CMSModel.districtr_map_slug.name) == districtr_map_slug
+        )
+
+    query = query.offset(offset).limit(limit)
+    results = session.exec(query).all()
+
+    return results
+
+
+@router.get("/content/{type}/{slug}", response_model=CMSContentPublicWithLanguages)
 async def get_cms_content(
+    type: CMSContentTypesEnum,
     slug: str,
     language: LanguageEnum = LanguageEnum.ENGLISH,
     session: Session = Depends(get_session),
 ):
     """Get CMS content by slug and language"""
+
+    CmsModel = CMS_MODEL_MAP[type]
+
     try:
-        content = session.exec(
-            select(CMSContent)
-            .where(CMSContent.slug == slug)
-            .where(CMSContent.language == language)
-        ).one()
-        return content
+        content = session.exec(select(CmsModel).where(CmsModel.slug == slug)).all()
+        languages = [row.language for row in content]
+        preferred_language = language if language in languages else "en"
+        preferred_content = next(
+            (row for row in content if row.language == preferred_language), None
+        )
+
+        return {
+            "available_languages": languages,
+            "type": type,
+            "content": preferred_content,
+        }
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -86,38 +137,17 @@ async def get_cms_content(
         )
 
 
-@router.get("/content", response_model=list[CMSContentPublic])
-async def list_cms_content(
-    language: LanguageEnum = None,
-    districtr_map_slug: str = None,
-    session: Session = Depends(get_session),
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, le=100),
-):
-    """List CMS content with optional filtering"""
-    query = select(CMSContent)
-
-    if language:
-        query = query.where(CMSContent.language == language)
-
-    if districtr_map_slug:
-        query = query.where(CMSContent.districtr_map_slug == districtr_map_slug)
-
-    query = query.offset(offset).limit(limit)
-    results = session.exec(query).all()
-
-    return results
-
-
-@router.put("/content/{content_id}", response_model=CMSContentPublic)
+@router.put("/content/{type}/{content_id}", response_model=AllCMSContentPublic)
 async def update_cms_content(
-    content_id: str, data: CMSContentUpdate, session: Session = Depends(get_session)
+    type: CMSContentTypesEnum,
+    content_id: str,
+    data: CmsContentUpdate,
+    session: Session = Depends(get_session),
 ):
     """Update existing CMS content"""
+    CMSModel = CMS_MODEL_MAP[type]
     # Check if content exists
-    content = session.exec(
-        select(CMSContent).where(CMSContent.id == content_id)
-    ).first()
+    content = session.exec(select(CMSModel).where(CMSModel.id == content_id)).first()
 
     if not content:
         raise HTTPException(
@@ -133,10 +163,10 @@ async def update_cms_content(
         new_language = data.language or content.language
 
         conflict = session.exec(
-            select(CMSContent)
-            .where(CMSContent.slug == new_slug)
-            .where(CMSContent.language == new_language)
-            .where(CMSContent.id != content_id)
+            select(CMSModel)
+            .where(CMSModel.slug == new_slug)
+            .where(CMSModel.language == new_language)
+            .where(CMSModel.id != content_id)
         ).first()
 
         if conflict:
@@ -157,12 +187,13 @@ async def update_cms_content(
     return content
 
 
-@router.delete("/content/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_cms_content(content_id: str, session: Session = Depends(get_session)):
+@router.delete("/content/{type}/{content_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_cms_content(
+    content_id: str, type: CMSContentTypesEnum, session: Session = Depends(get_session)
+):
     """Delete CMS content by ID"""
-    content = session.exec(
-        select(CMSContent).where(CMSContent.id == content_id)
-    ).first()
+    CMSModel = CMS_MODEL_MAP[type]
+    content = session.exec(select(CMSModel).where(CMSModel.id == content_id)).first()
 
     if not content:
         raise HTTPException(
@@ -176,12 +207,13 @@ async def delete_cms_content(content_id: str, session: Session = Depends(get_ses
     return None
 
 
-@router.post("/content/{content_id}/publish", response_model=CMSContentPublic)
-async def publish_cms_content(content_id: str, session: Session = Depends(get_session)):
+@router.post("/content/{type}/{content_id}/publish", response_model=AllCMSContentPublic)
+async def publish_cms_content(
+    content_id: str, type: CMSContentTypesEnum, session: Session = Depends(get_session)
+):
     """Publish draft content"""
-    content = session.exec(
-        select(CMSContent).where(CMSContent.id == content_id)
-    ).first()
+    CMSModel = CMS_MODEL_MAP[type]
+    content = session.exec(select(CMSModel).where(CMSModel.id == content_id)).first()
 
     if not content:
         raise HTTPException(

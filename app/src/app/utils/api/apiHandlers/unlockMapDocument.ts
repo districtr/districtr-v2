@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { DocumentObject } from './types';
-import { useMapStore } from '@store/mapStore';
+import {DocumentObject} from './types';
+import {useMapStore} from '@store/mapStore';
 
 export const unlockMapDocument = async (document_id: string): Promise<DocumentObject> => {
   const userID = useMapStore.getState().userID;

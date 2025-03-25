@@ -1,9 +1,9 @@
 import axios from 'axios';
-import { Assignment, AssignmentsCreate } from './types';
+import {Assignment, AssignmentsCreate} from './types';
 
 export const patchUpdateAssignments = async ({
   assignments,
-  updateHash
+  updateHash,
 }: {
   assignments: Assignment[];
   updateHash: string;

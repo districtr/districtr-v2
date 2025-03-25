@@ -1,12 +1,12 @@
-import { NullableZone } from '@constants/types';
-import { useMapStore } from '@store/mapStore';
-import { Assignment } from './types';
+import {NullableZone} from '@constants/types';
+import {useMapStore} from '@store/mapStore';
+import {Assignment} from './types';
 
 export const lastSentAssignments = new Map<string, NullableZone>();
 
 export const FormatAssignments = () => {
   // track the geoids that have been painted, but are now not painted
-  const { allPainted, shatterIds } = useMapStore.getState();
+  const {allPainted, shatterIds} = useMapStore.getState();
   const assignmentsVisited = new Set([...allPainted]);
   const assignments: Assignment[] = [];
   const subZoneAssignments = new Map();

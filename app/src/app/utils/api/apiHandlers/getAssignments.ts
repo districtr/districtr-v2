@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { DocumentObject, GetAssignmentsResponse } from './types';
-import { useMapStore } from '@store/mapStore';
+import {DocumentObject, GetAssignmentsResponse} from './types';
+import {useMapStore} from '@store/mapStore';
 
 export const getAssignments = async (
   mapDocument: DocumentObject | null

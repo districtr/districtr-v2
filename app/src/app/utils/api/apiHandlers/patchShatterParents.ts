@@ -1,10 +1,10 @@
 import axios from 'axios';
-import { ShatterResult } from './types';
+import {ShatterResult} from './types';
 
 export const patchShatterParents = async ({
   document_id,
   geoids,
-  updateHash
+  updateHash,
 }: {
   document_id: string;
   geoids: string[];

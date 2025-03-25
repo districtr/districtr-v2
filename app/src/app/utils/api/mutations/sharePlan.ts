@@ -1,7 +1,7 @@
-import { MutationObserver } from '@tanstack/query-core';
-import { queryClient } from '../queryClient';
-import { getSharePlanLink } from '../apiHandlers/getSharePlanLink';
-import { useMapStore } from '@/app/store/mapStore';
+import {MutationObserver} from '@tanstack/query-core';
+import {queryClient} from '../queryClient';
+import {getSharePlanLink} from '../apiHandlers/getSharePlanLink';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const sharePlan = new MutationObserver(queryClient, {
   mutationFn: getSharePlanLink,

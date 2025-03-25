@@ -4,7 +4,7 @@ export const patchUnShatterParents = async ({
   document_id,
   geoids,
   zone,
-  updateHash
+  updateHash,
 }: {
   document_id: string;
   geoids: string[];

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { DocumentMetadata } from './types';
+import {DocumentMetadata} from './types';
 
 export const saveMapDocumentMetadata = async ({
   document_id,

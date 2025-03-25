@@ -1,7 +1,7 @@
 import axios from 'axios';
-import { ColorsSet } from './types';
-import { colorScheme as DefaultColorScheme } from '@constants/colors';
-import { useMapStore } from '@store/mapStore';
+import {ColorsSet} from './types';
+import {colorScheme as DefaultColorScheme} from '@constants/colors';
+import {useMapStore} from '@store/mapStore';
 
 export const saveColorScheme = async ({
   document_id,

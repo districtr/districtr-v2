@@ -1,8 +1,8 @@
-import { MutationObserver } from '@tanstack/query-core';
-import { queryClient } from '../queryClient';
-import { patchUpdateAssignments } from '../apiHandlers/patchUpdateAssignments';
+import {MutationObserver} from '@tanstack/query-core';
+import {queryClient} from '../queryClient';
+import {patchUpdateAssignments} from '../apiHandlers/patchUpdateAssignments';
 import {AssignmentsCreate} from '@utils/api/apiHandlers/types';
-import { useMapStore } from '@/app/store/mapStore';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const patchUpdates = new MutationObserver(queryClient, {
   mutationFn: patchUpdateAssignments,

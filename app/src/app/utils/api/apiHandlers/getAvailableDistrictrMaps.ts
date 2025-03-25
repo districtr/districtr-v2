@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { DistrictrMap } from './types';
+import {DistrictrMap} from './types';
 
 export const getAvailableDistrictrMaps = async (
   limit = 10,

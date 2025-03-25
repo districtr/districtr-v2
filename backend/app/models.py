@@ -368,13 +368,40 @@ class LanguageEnum(str, Enum):
     PORTUGUESE = "pt"
 
 
-class CMSContent(TimeStampMixin, SQLModel, table=True):
-    __tablename__ = "cms_content"
+class TagsCMSContent(TimeStampMixin, SQLModel, table=True):
+    __tablename__ = "tags_content"
     id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     slug: str = Field(nullable=False, index=True)
     districtr_map_slug: str | None = Field(
         sa_column=Column(
-            String, ForeignKey("districtrmap.uuid"), nullable=True, index=True
+            String,
+            ForeignKey("districtrmap.districtr_map_slug"),
+            nullable=True,
+            index=True,
+        )
+    )
+    language: LanguageEnum = Field(
+        default=LanguageEnum.ENGLISH, nullable=False, index=True
+    )
+    draft_content: Dict[str, Any] | None = Field(sa_column=Column(JSONB, nullable=True))
+    published_content: Dict[str, Any] | None = Field(
+        sa_column=Column(JSONB, nullable=True)
+    )
+    __table_args__ = (
+        UniqueConstraint("slug", "language", name="tags_slug_language_unique"),
+    )
+
+
+class PlacesCMSContent(TimeStampMixin, SQLModel, table=True):
+    __tablename__ = "places_content"
+    id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
+    slug: str = Field(nullable=False, index=True)
+    districtr_map_slug: list[str] | None = Field(
+        sa_column=Column(
+            ARRAY(String),
+            ForeignKey("districtrmap.districtr_map_slug"),
+            nullable=True,
+            index=True,
         )
     )
     language: LanguageEnum = Field(
@@ -386,19 +413,40 @@ class CMSContent(TimeStampMixin, SQLModel, table=True):
     )
 
     __table_args__ = (
-        UniqueConstraint("slug", "language", name="slug_language_unique"),
+        UniqueConstraint("slug", "language", name="places_slug_language_unique"),
     )
+
+
+class CMSContentTypesEnum(str, Enum):
+    tags = "tags"
+    places = "places"
+
+
+CMS_MODEL_MAP = {
+    CMSContentTypesEnum.tags: TagsCMSContent,
+    CMSContentTypesEnum.places: PlacesCMSContent,
+}
 
 
 class CMSContentCreate(BaseModel):
     slug: str
-    districtr_map_slug: str | None = None
     language: LanguageEnum = LanguageEnum.ENGLISH
     draft_content: Dict[str, Any] | None = None
     published_content: Dict[str, Any] | None = None
 
 
-class CMSContentUpdate(BaseModel):
+class TagsCMSContentCreate(CMSContentCreate):
+    districtr_map_slug: str | None = None
+
+
+class PlacesCMSContentCreate(CMSContentCreate):
+    districtr_map_slugs: list[str] | None = None
+
+
+CmsContentCreate = TagsCMSContentCreate | PlacesCMSContentCreate
+
+
+class TagsCMSContentUpdate(BaseModel):
     slug: str | None = None
     districtr_map_slug: str | None = None
     language: LanguageEnum | None = None
@@ -406,12 +454,34 @@ class CMSContentUpdate(BaseModel):
     published_content: Dict[str, Any] | None = None
 
 
-class CMSContentPublic(BaseModel):
+class PlacesCMSContentUpdate(TagsCMSContentUpdate):
+    districtr_map_slug: list[str] | None = None
+
+
+CmsContentUpdate = TagsCMSContentUpdate | PlacesCMSContentUpdate
+
+
+class BaseCMSContentPublic(BaseModel):
     id: UUID4
     slug: str
-    districtr_map_slug: str | None = None
     language: LanguageEnum
     draft_content: Dict[str, Any] | None = None
     published_content: Dict[str, Any] | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class TagsCMSContentPublic(BaseCMSContentPublic):
+    districtr_map_slug: str | None = None
+
+
+class PlacesCMSContentPublic(BaseCMSContentPublic):
+    districtr_map_slugs: list[str] | None = None
+
+
+AllCMSContentPublic = TagsCMSContentPublic | PlacesCMSContentPublic
+
+
+class CMSContentPublicWithLanguages(BaseModel):
+    content: AllCMSContentPublic
+    available_languages: list[LanguageEnum]

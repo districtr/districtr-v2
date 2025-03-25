@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { generateHTML } from '@tiptap/html';
+import {generateHTML} from '@tiptap/html';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextStyle from '@tiptap/extension-text-style';
@@ -27,19 +27,14 @@ const extensions = [
   Image,
 ];
 
-const RichTextPreview: React.FC<RichTextPreviewProps> = ({ 
-  content, 
-  className = '' 
-}) => {
+const RichTextPreview: React.FC<RichTextPreviewProps> = ({content, className = ''}) => {
   // Convert to HTML if it's a JSON object
-  const htmlContent = typeof content === 'string' 
-    ? content 
-    : generateHTML(content, extensions);
+  const htmlContent = typeof content === 'string' ? content : generateHTML(content, extensions);
 
   return (
-    <div 
+    <div
       className={`prose prose-sm max-w-none ${className}`}
-      dangerouslySetInnerHTML={{ __html: htmlContent }}
+      dangerouslySetInnerHTML={{__html: htmlContent}}
     />
   );
 };

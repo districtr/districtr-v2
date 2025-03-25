@@ -1,7 +1,7 @@
-import { MutationObserver } from '@tanstack/query-core';
-import { queryClient } from '../queryClient';
-import { patchShatterParents } from '../apiHandlers/patchShatterParents';
-import { useMapStore } from '@/app/store/mapStore';
+import {MutationObserver} from '@tanstack/query-core';
+import {queryClient} from '../queryClient';
+import {patchShatterParents} from '../apiHandlers/patchShatterParents';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const patchShatter = new MutationObserver(queryClient, {
   mutationFn: patchShatterParents,

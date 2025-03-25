@@ -24,7 +24,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     # Create the CMS content table
     op.create_table(
-        "cms_content",
+        "tags_content",
         sa.Column(
             "created_at",
             sa.TIMESTAMP(timezone=True),
@@ -44,18 +44,51 @@ def upgrade() -> None:
         sa.Column("draft_content", JSONB, nullable=True),
         sa.Column("published_content", JSONB, nullable=True),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("slug", "language", name="slug_language_unique"),
+        sa.UniqueConstraint("slug", "language", name="tags_slug_language_unique"),
         sa.ForeignKeyConstraint(
             ["districtr_map_slug"], ["districtrmap.districtr_map_slug"]
         ),
     )
 
     # Create indices for faster lookups
-    op.create_index("idx_cms_content_slug", "cms_content", ["slug"])
+    op.create_index("idx_tags_content_slug", "tags_content", ["slug"])
     op.create_index(
-        "idx_cms_content_districtr_map_slug", "cms_content", ["districtr_map_slug"]
+        "idx_tags_content_districtr_map_slug", "tags_content", ["districtr_map_slug"]
     )
-    op.create_index("idx_cms_content_language", "cms_content", ["language"])
+    op.create_index("idx_tags_content_language", "tags_content", ["language"])
+
+    op.create_table(
+        "places_content",
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
+        sa.Column("id", UUIDType(), nullable=False),
+        sa.Column("slug", AutoString(), nullable=False),
+        sa.Column("districtr_map_slugs", sa.ARRAY(AutoString()), nullable=True),
+        sa.Column("language", AutoString(), nullable=False, default="en"),
+        sa.Column("draft_content", JSONB, nullable=True),
+        sa.Column("published_content", JSONB, nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("slug", "language", name="places_slug_language_unique"),
+    )
+
+    # Create indices for faster lookups
+    op.create_index("idx_places_content_slug", "places_content", ["slug"])
+    op.create_index(
+        "idx_places_content_districtr_map_slug",
+        "places_content",
+        ["districtr_map_slugs"],
+    )
+    op.create_index("idx_places_content_language", "places_content", ["language"])
 
 
 def downgrade() -> None:

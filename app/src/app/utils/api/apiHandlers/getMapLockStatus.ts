@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useMapStore } from '@store/mapStore';
+import {useMapStore} from '@store/mapStore';
 
 export const getMapLockStatus = (document_id: string): Promise<string> => {
   const userID = useMapStore.getState().userID;

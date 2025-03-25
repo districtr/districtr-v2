@@ -1,8 +1,8 @@
-import { MutationObserver } from '@tanstack/query-core';
-import { queryClient } from '../queryClient';
-import { checkoutMapDocument } from '../apiHandlers/checkoutMapDocument';
-import { useMapStore } from '@/app/store/mapStore';
-import type { AxiosError } from 'axios';
+import {MutationObserver} from '@tanstack/query-core';
+import {queryClient} from '../queryClient';
+import {checkoutMapDocument} from '../apiHandlers/checkoutMapDocument';
+import {useMapStore} from '@/app/store/mapStore';
+import type {AxiosError} from 'axios';
 
 export interface AxiosErrorData {
   detail: 'Invalid password' | 'Password required';

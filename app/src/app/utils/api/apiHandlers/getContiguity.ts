@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { DocumentObject } from './types';
+import {DocumentObject} from './types';
 
 export const getContiguity = async (mapDocument: DocumentObject): Promise<any> => {
   if (mapDocument) {

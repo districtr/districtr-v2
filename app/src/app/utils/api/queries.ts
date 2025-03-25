@@ -1,10 +1,6 @@
 import {QueryObserver} from '@tanstack/react-query';
 import {queryClient} from './queryClient';
-import {
-  DistrictrMap,
-  RemoteAssignmentsResponse,
-  DocumentObject,
-} from './apiHandlers/types';
+import {DistrictrMap, RemoteAssignmentsResponse, DocumentObject} from './apiHandlers/types';
 
 import {getAvailableDistrictrMaps} from '@utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getAssignments} from '@utils/api/apiHandlers/getAssignments';

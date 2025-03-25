@@ -1,5 +1,5 @@
-import { NullableZone } from '@constants/types';
-import { SummaryTypes } from '../summaryStats';
+import {NullableZone} from '@constants/types';
+import {SummaryTypes} from '../summaryStats';
 
 export interface DocumentObject {
   document_id: string;
@@ -14,7 +14,6 @@ export interface DocumentObject {
   available_summary_stats: Array<SummaryTypes>;
   color_scheme: string[] | null;
 }
-
 
 export interface Assignment {
   document_id: string;

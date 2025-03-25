@@ -1,7 +1,7 @@
-import { MutationObserver } from '@tanstack/query-core';
-import { queryClient } from '../queryClient';
-import { createMapDocument } from '../apiHandlers/createMapDocument';
-import { useMapStore } from '@/app/store/mapStore';
+import {MutationObserver} from '@tanstack/query-core';
+import {queryClient} from '../queryClient';
+import {createMapDocument} from '../apiHandlers/createMapDocument';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const document = new MutationObserver(queryClient, {
   mutationFn: createMapDocument,
