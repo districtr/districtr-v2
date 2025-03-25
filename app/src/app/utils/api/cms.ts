@@ -55,9 +55,9 @@ export const getCMSContent = async (
   type: CmsContentTypes = 'tags'
 ): Promise<CMSContentResponseWithLanguages> => {
   try {
-    const response = await axios.get(
-      `${API_URL}/api/cms/content/${type}/${slug}?language=${language}`
-    );
+    const url = new URL(`${API_URL}/api/cms/content/${type}/${slug}`);
+    if (language) url.searchParams.append('language', language);
+    const response = await axios.get(url.toString());
     return response.data;
   } catch (error) {
     console.error('Error getting CMS content:', error);
@@ -70,13 +70,10 @@ export const listCMSContent = async (
   params: {language?: string; districtr_map_slug?: string} = {}
 ): Promise<TagsCMSContent[] | PlacesCMSContent[]> => {
   try {
-    const queryParams = new URLSearchParams();
-    if (params.language) queryParams.append('language', params.language);
-    if (params.districtr_map_slug)
-      queryParams.append('districtr_map_slug', params.districtr_map_slug);
-    const baseUrl = typeof window === 'undefined' ? process.env.NEXT_SERVER_API_URL : API_URL;
-    const url = `${baseUrl}/api/cms/content/${type}?${queryParams.toString()}`;
-    const response = await axios.get(url);
+    const url = new URL(`${API_URL}/api/cms/content/${type}`);
+    if (params.language) url.searchParams.append('language', params.language);
+    if (params.districtr_map_slug) url.searchParams.append('districtr_map_slug', params.districtr_map_slug);
+    const response = await axios.get(url.toString());
     return response.data;
   } catch (error) {
     console.error('Error listing CMS content:', error);
