@@ -18,7 +18,10 @@ interface FeatureShape {
 }
 
 
-const usePlaceMapStore = create<any>((set, get) => ({
+const usePlaceMapStore = create<{
+  data: FeatureShape[] | null;
+  getData: () => void;
+}>((set) => ({
   data: null,
   getData: async () => {
     const topology = await fetch('/data/usa-topo.json').then(r => r.json());
