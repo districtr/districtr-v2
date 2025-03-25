@@ -12,8 +12,8 @@ export default function CmsHome() {
           <div className="px-4 py-5 sm:p-6">
             <h3 className="text-lg font-medium text-gray-900">Tags</h3>
             <p className="mt-2 text-sm text-gray-500">
-              Pages for specific problems, like "Cook County Redistricting" or "Detroit School Board
-              Districts".
+              Pages for specific problems, like Cook County Redistricting or Detroit School Board
+              Districts.
             </p>
             <a
               href="/admin/cms/tags"
@@ -32,7 +32,7 @@ export default function CmsHome() {
               General pages for places, like states or counties.
             </p>
             <a
-              href="/admin/cms/tags"
+              href="/admin/cms/places"
               className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Go to Places

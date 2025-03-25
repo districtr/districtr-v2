@@ -55,7 +55,9 @@ export const getCMSContent = async (
   type: CmsContentTypes = 'tags'
 ): Promise<CMSContentResponseWithLanguages> => {
   try {
-    const response = await axios.get(`${API_URL}/api/cms/content/${type}/${slug}?language=${language}`);
+    const response = await axios.get(
+      `${API_URL}/api/cms/content/${type}/${slug}?language=${language}`
+    );
     return response.data;
   } catch (error) {
     console.error('Error getting CMS content:', error);

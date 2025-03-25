@@ -1,4 +1,5 @@
 import uuid
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
@@ -78,6 +79,7 @@ async def list_cms_content(
     type: CMSContentTypesEnum,
     language: LanguageEnum = None,
     districtr_map_slug: str = None,
+    districtr_map_slugs: List[str] = None,
     session: Session = Depends(get_session),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, le=100),
@@ -89,10 +91,14 @@ async def list_cms_content(
     if language:
         query = query.where(literal_column(CMSModel.language.name) == language)
 
-    if districtr_map_slug:
-        query = query.where(
-            literal_column(CMSModel.districtr_map_slug.name) == districtr_map_slug
-        )
+    # if districtr_map_slug:
+    #     query = query.where(
+    #         literal_column(CMSModel.districtr_map_slug.name) == districtr_map_slug
+    #     )
+    # elif districtr_map_slugs:
+    #     query = query.where(
+    #         literal_column(CMSModel.districtr_map_slugs.name) == districtr_map_slugs
+    #     )
 
     query = query.offset(offset).limit(limit)
     results = session.exec(query).all()

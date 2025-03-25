@@ -1,6 +1,6 @@
 'use client';
 
-import {useState, useEffect} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   createCMSContent,
   listCMSContent,
@@ -8,7 +8,7 @@ import {
   publishCMSContent,
   updateCMSContent,
   AllCmsContent,
-  TagsCMSContent,
+  CmsContentTypes,
 } from '@/app/utils/api/cms';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import type {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
@@ -19,21 +19,36 @@ const RichTextEditor = dynamic(() => import('@/app/components/RichTextEditor'), 
 
 const RichTextPreview = dynamic(() => import('@/app/components/RichTextPreview'), {ssr: false});
 
-export default function CMSAdminPage() {
+const baseFormData = {
+  slug: '',
+  language: 'en',
+  title: '',
+  subtitle: '',
+  body: {
+    type: 'doc',
+    content: [{type: 'paragraph', content: []}],
+  },
+};
+const tagsBaseFormData = {
+  ...baseFormData,
+  districtr_map_slug: '',
+};
+const placesBaseFormData = {
+  ...baseFormData,
+  districtr_map_slugs: [],
+};
+
+const allBaseFormData = {
+  tags: tagsBaseFormData,
+  places: placesBaseFormData,
+} as const;
+export const CMSAdminPage: React.FC<{
+  contentType: CmsContentTypes;
+}> = ({contentType}) => {
   const [content, setContent] = useState<AllCmsContent[]>([]);
   const [maps, setMaps] = useState<DistrictrMap[]>([]);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
-    slug: '',
-    districtr_map_slug: '',
-    language: 'en',
-    title: '',
-    subtitle: '',
-    body: {
-      type: 'doc',
-      content: [{type: 'paragraph', content: []}],
-    }, // Initialize with an empty paragraph for TipTap as JSON
-  });
+  const [formData, setFormData] = useState(structuredClone(allBaseFormData[contentType]));
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [previewData, setPreviewData] = useState<{title: string; body: object | string} | null>(
@@ -45,7 +60,7 @@ export default function CMSAdminPage() {
     const fetchData = async () => {
       try {
         const [contentData, mapsData] = await Promise.all([
-          listCMSContent('tags'),
+          listCMSContent(contentType),
           getAvailableDistrictrMaps(100),
         ]);
         setContent(contentData);
@@ -83,47 +98,54 @@ export default function CMSAdminPage() {
 
       if (editingContent) {
         // Update existing content
-        await updateCMSContent(editingContent.id, 'tags', {
+        const content = {
           slug: formData.slug,
-          districtr_map_slug: formData.districtr_map_slug || null,
           language: formData.language,
           draft_content: draftContent,
-        });
+        };
+        switch (contentType) {
+          case 'tags':
+            // @ts-ignore
+            content.districtr_map_slug = formData.districtr_map_slug || null;
+            break;
+          case 'places':
+            // @ts-ignore
+            content.districtr_map_slugs = formData.districtr_map_slugs || null;
+            break;
+        }
+        await updateCMSContent(editingContent.id, contentType, content);
 
         setSuccess('Content updated successfully!');
         setEditingContent(null); // Exit edit mode
       } else {
+        const content = {
+          slug: formData.slug,
+          language: formData.language,
+          draft_content: draftContent,
+          published_content: null,
+        };
+        switch (contentType) {
+          case 'tags':
+            // @ts-ignore
+            content.districtr_map_slug = formData.districtr_map_slug || null;
+            break;
+          case 'places':
+            // @ts-ignore
+            content.districtr_map_slugs = formData.districtr_map_slugs || null;
+            break;
+        }
         // Create new content
-        await createCMSContent(
-          {
-            slug: formData.slug,
-            districtr_map_slug: formData.districtr_map_slug || null,
-            language: formData.language,
-            draft_content: draftContent,
-            published_content: null,
-          },
-          'tags'
-        );
+        await createCMSContent(content, contentType);
 
         setSuccess('Content created successfully!');
       }
 
       // Refresh content list
-      const newContent = await listCMSContent('tags');
+      const newContent = await listCMSContent(contentType);
       setContent(newContent);
 
       // Reset form
-      setFormData({
-        slug: '',
-        districtr_map_slug: '',
-        language: 'en',
-        title: '',
-        subtitle: '',
-        body: {
-          type: 'doc',
-          content: [{type: 'paragraph', content: []}],
-        },
-      });
+      setFormData(structuredClone(allBaseFormData[contentType]));
     } catch (err: any) {
       console.error('Error saving content:', err);
       setError(err.response?.data?.detail || 'Failed to save content. Please try again.');
@@ -133,7 +155,7 @@ export default function CMSAdminPage() {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this content?')) {
       try {
-        await deleteCMSContent(id, 'tags');
+        await deleteCMSContent(id, contentType);
         setContent(content.filter(item => item.id !== id));
         setSuccess('Content deleted successfully!');
       } catch (err) {
@@ -156,9 +178,15 @@ export default function CMSAdminPage() {
         content: [{type: 'paragraph', content: []}],
       },
     };
-    if (true) {
-      // @ts-ignore
-      formData.districtr_map_slug = item.districtr_map_slug || '';
+    switch (contentType) {
+      case 'tags':
+        // @ts-ignore
+        formData.districtr_map_slug = item.districtr_map_slug || '';
+        break;
+      case 'places':
+        // @ts-ignore
+        formData.districtr_map_slugs = item.districtr_map_slugs || [];
+        break;
     }
     // @ts-ignore
     setFormData(formData);
@@ -170,22 +198,12 @@ export default function CMSAdminPage() {
   const cancelEdit = () => {
     setEditingContent(null);
     // Reset form
-    setFormData({
-      slug: '',
-      districtr_map_slug: '',
-      language: 'en',
-      title: '',
-      subtitle: '',
-      body: {
-        type: 'doc',
-        content: [{type: 'paragraph', content: []}],
-      },
-    });
+    setFormData(structuredClone(allBaseFormData[contentType]));
   };
 
   const handlePublish = async (id: string) => {
     try {
-      const updated = await publishCMSContent(id, 'tags');
+      const updated = await publishCMSContent(id, contentType);
       setContent(content.map(item => (item.id === id ? updated : item)));
       setSuccess('Content published successfully!');
     } catch (err) {
@@ -270,28 +288,79 @@ export default function CMSAdminPage() {
               </select>
             </div>
 
-            <div>
-              <label
-                htmlFor="districtr_map_slug"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Map (optional)
-              </label>
-              <select
-                id="districtr_map_slug"
-                name="districtr_map_slug"
-                value={formData.districtr_map_slug}
-                onChange={handleChange}
-                className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
-              >
-                <option value="">None</option>
-                {maps.map(map => (
-                  <option key={map.districtr_map_slug} value={map.districtr_map_slug}>
-                    {map.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {contentType === 'tags' && (
+              <div>
+                <label
+                  htmlFor="districtr_map_slug"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Map (optional)
+                </label>
+                <select
+                  id="districtr_map_slug"
+                  name="districtr_map_slug"
+                  // @ts-ignore
+                  value={formData.districtr_map_slug}
+                  onChange={handleChange}
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
+                >
+                  <option value="">None</option>
+                  {maps.map(map => (
+                    <option key={map.districtr_map_slug} value={map.districtr_map_slug}>
+                      {map.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {contentType === 'places' && (
+              <div>
+                <label
+                  htmlFor="districtr_map_slug"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Map (optional)
+                </label>
+                <select
+                  id="districtr_map_slug"
+                  name="districtr_map_slug"
+                  // @ts-ignore
+                  value={formData.districtr_map_slug}
+                  onChange={e => {
+                    const value = e.target.value;
+                    setFormData(prev => {
+                      // @ts-ignore
+                      if (prev.districtr_map_slugs.includes(value)) {
+                        return {
+                          ...prev,
+                          // @ts-ignore
+                          districtr_map_slugs: prev.districtr_map_slugs.filter(
+                            // @ts-ignore
+                            slug => slug !== value
+                          ),
+                        };
+                      }
+                      return {
+                        ...prev,
+                        // @ts-ignore
+                        districtr_map_slugs: [...prev.districtr_map_slugs, value],
+                      };
+                    });
+                  }}
+                  className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
+                >
+                  <option value="">None</option>
+                  {maps.map(map => (
+                    <option key={map.districtr_map_slug} value={map.districtr_map_slug}>
+                      {/* @ts-ignore */}
+                      {formData.districtr_map_slugs.includes(map.districtr_map_slug) ? '✅ ' : ''}
+                      {map.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
@@ -520,4 +589,4 @@ export default function CMSAdminPage() {
       )}
     </div>
   );
-}
+};

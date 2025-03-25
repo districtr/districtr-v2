@@ -19,7 +19,7 @@ export const Footer: React.FC = () => (
           <Text>About</Text>
         </NextLink>
         <NextLink href="/#" legacyBehavior>
-          <Text>What's new?</Text>
+          <Text>What&apois;s new?</Text>
         </NextLink>
         <NextLink href="/#" legacyBehavior>
           <Text>Contact</Text>

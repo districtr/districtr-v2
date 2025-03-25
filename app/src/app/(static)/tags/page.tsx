@@ -3,8 +3,8 @@ import {onlyUniqueProperty} from '@/app/utils/arrays';
 import {Box, Card, Flex, Heading, Link} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
-export default async function ProblemsPage() {
-  const cmsContent = await listCMSContent();
+export default async function TagsPage() {
+  const cmsContent = await listCMSContent('tags');
   const entries = cmsContent
     .filter(content => content.published_content)
     .filter(onlyUniqueProperty('slug'));
