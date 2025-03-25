@@ -94,8 +94,9 @@ jobs:
                   echo "App $app already exists. Skipping launch."
                 else
                   flyctl launch \
-                  --no-deploy --copy-config --name "$app" --flycast
+                  --no-deploy --copy-config --name "$app" --flycast --no-public-ips
                   echo "App $app launched successfully."
+                  fly ips allocate-v6 -a "$app" --private
                 fi
                 # Output app name for use in the deploy step
                 echo "api_app_name=$app" >> $GITHUB_ENV
@@ -139,7 +140,8 @@ jobs:
                   # Run the flyctl launch command
                   flyctl launch \
                   --no-deploy --copy-config --name "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
-                  --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
+                  --build-arg NEXT_PUBLIC_API_URL="" \
+                  --build-arg PRIVATE_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
                   --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com
             
                   echo "App $app launched successfully."
@@ -158,12 +160,14 @@ jobs:
                 flyctl secrets set \
                 -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
                 ENVIRONMENT="qa" \
-                NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
+                NEXT_PUBLIC_API_URL="" \
+                PRIVATE_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
                 NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com
             
                 # Deploy the app
                 flyctl deploy --config "$config" --app "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
-                --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
+                --build-arg NEXT_PUBLIC_API_URL="" \
+                --build-arg PRIVATE_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
                 --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com \
                 --strategy immediate '--ha=false' \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
