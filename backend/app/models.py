@@ -20,7 +20,7 @@ from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy.dialects.postgresql import JSONB, JSON
 from sqlalchemy import Float
 import pydantic_geojson
-from app.constants import DOCUMENT_SCHEMA
+from app.constants import DOCUMENT_SCHEMA, CMS_SCHEMA
 from enum import Enum
 
 
@@ -369,6 +369,7 @@ class LanguageEnum(str, Enum):
 
 
 class TagsCMSContent(TimeStampMixin, SQLModel, table=True):
+    metadata = MetaData(schema=CMS_SCHEMA)
     __tablename__ = "tags_content"
     id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     slug: str = Field(nullable=False, index=True)
@@ -393,6 +394,7 @@ class TagsCMSContent(TimeStampMixin, SQLModel, table=True):
 
 
 class PlacesCMSContent(TimeStampMixin, SQLModel, table=True):
+    metadata = MetaData(schema=CMS_SCHEMA)
     __tablename__ = "places_content"
     id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     slug: str = Field(nullable=False, index=True)
