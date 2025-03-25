@@ -20,7 +20,7 @@ from sqlalchemy.types import ARRAY, TEXT
 from sqlalchemy.dialects.postgresql import JSONB, JSON
 from sqlalchemy import Float
 import pydantic_geojson
-from app.constants import DOCUMENT_SCHEMA
+from app.constants import CMS_SCHEMA
 from enum import Enum
 
 
@@ -162,7 +162,7 @@ class DistrictrMapMetadata(BaseModel):
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
-    metadata = MetaData(schema=DOCUMENT_SCHEMA)
+    metadata = MetaData(schema=CMS_SCHEMA)
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
@@ -254,7 +254,7 @@ class DocumentPublic(BaseModel):
 
 
 class AssignmentsBase(SQLModel):
-    metadata = MetaData(schema=DOCUMENT_SCHEMA)
+    metadata = MetaData(schema=CMS_SCHEMA)
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     geo_id: str = Field(primary_key=True)
     zone: int | None
