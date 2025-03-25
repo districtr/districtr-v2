@@ -1,5 +1,6 @@
 import {debounce} from 'lodash';
-import {FormatAssignments, saveColorScheme} from '../utils/api/apiHandlers';
+import {saveColorScheme} from '../utils/api/apiHandlers/saveColorScheme';
+import {FormatAssignments} from '../utils/api/apiHandlers/formatAssignments';
 import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';

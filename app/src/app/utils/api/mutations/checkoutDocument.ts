@@ -1,6 +1,6 @@
 import { MutationObserver } from '@tanstack/query-core';
 import { queryClient } from '../queryClient';
-import { checkoutMapDocument } from '../apiHandlers';
+import { checkoutMapDocument } from '../apiHandlers/checkoutMapDocument';
 import { useMapStore } from '@/app/store/mapStore';
 import type { AxiosError } from 'axios';
 

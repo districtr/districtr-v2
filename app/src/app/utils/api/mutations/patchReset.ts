@@ -1,6 +1,7 @@
 import { MutationObserver } from '@tanstack/query-core';
 import { queryClient } from '../queryClient';
-import { patchUpdateReset, AssignmentsReset } from '../apiHandlers';
+import { patchUpdateReset} from '../apiHandlers/patchUpdateReset';
+import { AssignmentsReset } from '@utils/api/apiHandlers/types';
 
 export const patchReset = new MutationObserver(queryClient, {
   mutationFn: patchUpdateReset,

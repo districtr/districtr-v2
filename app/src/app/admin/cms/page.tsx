@@ -8,7 +8,8 @@ import {
   publishCMSContent,
   CMSContentResponse,
 } from '@/app/utils/api/cms';
-import {getAvailableDistrictrMaps, DistrictrMap} from '@/app/utils/api/apiHandlers';
+import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
+import type {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 
 export default function CMSAdminPage() {
   const [content, setContent] = useState<CMSContentResponse[]>([]);

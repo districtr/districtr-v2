@@ -1,6 +1,6 @@
 import { MutationObserver } from '@tanstack/query-core';
 import { queryClient } from '../queryClient';
-import { saveMapDocumentMetadata } from '../apiHandlers';
+import { saveMapDocumentMetadata } from '../apiHandlers/saveMapDocumentMetadata';
 
 export const metadata = new MutationObserver(queryClient, {
   mutationFn: saveMapDocumentMetadata,

@@ -1,6 +1,7 @@
 import { MutationObserver } from '@tanstack/query-core';
 import { queryClient } from '../queryClient';
-import { getLoadPlanFromShare, getAssignments } from '../apiHandlers';
+import { getAssignments } from '../apiHandlers/getAssignments';
+import {getLoadPlanFromShare} from '../apiHandlers/getLoadPlanFromShare';
 import { useMapStore } from '@/app/store/mapStore';
 import type { AxiosError } from 'axios';
 
