@@ -3,7 +3,8 @@ import React from 'react';
 import {AlbersUsa} from '@visx/geo';
 import stateAbbrs from './usa-abbr.json';
 import * as topojson from 'topojson-client';
-import topology from './usa-topo.json';
+import { create } from 'zustand';
+import { Text } from '@radix-ui/themes';
 
 export const background = '#FFFFFF';
 export const FILL_COLOR = '#0099cd';
@@ -16,11 +17,19 @@ interface FeatureShape {
   properties: {name: string};
 }
 
-// @ts-expect-error
-const {features: unitedStates} = topojson.feature(topology, topology.objects.states) as {
-  type: 'FeatureCollection';
-  features: FeatureShape[];
-};
+
+const usePlaceMapStore = create<any>((set, get) => ({
+  data: null,
+  getData: async () => {
+    const topology = await fetch('/data/usa-topo.json').then(r => r.json());
+    // @ts-expect-error
+    const {features: unitedStates} = topojson.feature(topology, topology.objects.states) as {
+      type: 'FeatureCollection';
+      features: FeatureShape[];
+    };
+    set({data: unitedStates});
+  }
+}));
 
 const PlaceMapSvg: React.FC<{
   width: number;
@@ -31,7 +40,11 @@ const PlaceMapSvg: React.FC<{
   const centerX = width / 2;
   const centerY = height / 2;
   const scale = (width + height) / 1.55;
-
+  const unitedStates = usePlaceMapStore(state => state.data);
+  if (!unitedStates) {
+    usePlaceMapStore.getState().getData();
+    return <Text>Loading...</Text>
+  }
   return (
     <svg width={width} height={height}>
       <AlbersUsa<FeatureShape>
