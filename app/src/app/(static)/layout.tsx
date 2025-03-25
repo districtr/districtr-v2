@@ -1,6 +1,6 @@
 import type {Metadata} from 'next';
-import { Header } from '@components/Static/Header';
-import { Footer } from '../components/Static/Footer';
+import {Header} from '@components/Static/Header';
+import {Footer} from '../components/Static/Footer';
 
 export const metadata: Metadata = {
   title: 'Districtr 2.0',
@@ -14,9 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <>
-    <Header />
-    {children}
-    <Footer />
+      <Header />
+      {children}
+      <Footer />
     </>
   );
 }

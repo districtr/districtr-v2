@@ -30,9 +30,9 @@ const Main: React.FC = () => {
           Redistricting is dividing up a jurisdiction (like a state, county, or city) into pieces
           that elect representatives. Where and how the lines are drawn influences everything from
           who has a shot at getting elected to how resources get allocated. Since the founding of
-          the U.S. as a representative democracy, we&apos;ve had the ideal that <b>districts</b> should
-          be a way to communicate very local interests to our wider governing bodies. This only
-          works if districts are built around <b>communities</b> of shared interest.
+          the U.S. as a representative democracy, we&apos;ve had the ideal that <b>districts</b>{' '}
+          should be a way to communicate very local interests to our wider governing bodies. This
+          only works if districts are built around <b>communities</b> of shared interest.
         </Text>
       </ContentSection>
       <ContentSection
@@ -58,19 +58,20 @@ const Main: React.FC = () => {
                 You can draw districts.
               </Heading>
               <Text size="5">
-                In the U.S., there&apos;s a big redistricting cycle every 10 years after new Census data
-                is released. In most states, elected representatives in the state legislature are
-                responsible for drawing the lines—including the districts for their own re-election.
-                Following the 2020 Census, many states, cities, and counties experimented with
-                collecting more public mapping input than ever before, and the Districtr team{' '}
+                In the U.S., there&apos;s a big redistricting cycle every 10 years after new Census
+                data is released. In most states, elected representatives in the state legislature
+                are responsible for drawing the lines—including the districts for their own
+                re-election. Following the 2020 Census, many states, cities, and counties
+                experimented with collecting more public mapping input than ever before, and the
+                Districtr team{' '}
                 <Link href="https://mggg.org/cois" target="_blank">
                   was there to help
                 </Link>
                 .
               </Text>
               <Text size="5" className="mt-4">
-                Now you can try your hand at redistricting! It&apos;s easy to make plans of your own and
-                share them widely with Districtr.
+                Now you can try your hand at redistricting! It&apos;s easy to make plans of your own
+                and share them widely with Districtr.
               </Text>
             </Flex>
             <Image src="/districting-plan.svg" alt="draw" width={200} height={400} />
@@ -147,19 +148,21 @@ const Main: React.FC = () => {
 
           <Text size="5">
             Districtr came about from a conversation with Lawyers for Civil Rights (LCR), the Boston
-            arm of the national Lawyers&apos; Committee for Civil Rights Under Law. LCR was describing
-            their work with community members in Lowell, MA, who were frustrated about not having a
-            voice in the city council. In those conversations, a few places kept coming up...
+            arm of the national Lawyers&apos; Committee for Civil Rights Under Law. LCR was
+            describing their work with community members in Lowell, MA, who were frustrated about
+            not having a voice in the city council. In those conversations, a few places kept coming
+            up...
           </Text>
 
           <Text size="5">
-            Like <b>Clemente Park</b>, a much-loved meeting point for the city&apos;s Asian and Latinx
-            populations, which felt unsafe at night because the city had not provided lighting...
+            Like <b>Clemente Park</b>, a much-loved meeting point for the city&apos;s Asian and
+            Latinx populations, which felt unsafe at night because the city had not provided
+            lighting...
           </Text>
 
           <Text size="5">
-            And <b>Lowell High School</b>, the city&apos;s only public high school, which serves over
-            3000 students. The city announced plans to move it from its traditional downtown
+            And <b>Lowell High School</b>, the city&apos;s only public high school, which serves
+            over 3000 students. The city announced plans to move it from its traditional downtown
             location, but without sufficient outreach to communities around the city about possible
             new sites.
           </Text>
@@ -186,9 +189,9 @@ const Main: React.FC = () => {
 
           <Text size="5">
             <b>Maps not metrics.</b> We don&apos;t think that good maps can be measured in
-            one-size-fits-all metrics, so we&apos;ve built a more lightweight mapping experience that
-            doesn&apos;t put scores front and center. You can export maps from Districtr in forms that
-            can be read in the other major redistricting software.
+            one-size-fits-all metrics, so we&apos;ve built a more lightweight mapping experience
+            that doesn&apos;t put scores front and center. You can export maps from Districtr in
+            forms that can be read in the other major redistricting software.
           </Text>
 
           <Text size="5">
@@ -202,7 +205,7 @@ const Main: React.FC = () => {
             principles, and priorities whenever possible. We also build event pages for organizers
             so they can see an overview of maps from the group at a glance.
           </Text>
-          <Heading className='text-districtrIndigo pt-6'>Still have questions?</Heading>
+          <Heading className="text-districtrIndigo pt-6">Still have questions?</Heading>
 
           <Text size="5">
             If you are interested in partnering with us or sponsoring a voting rights project, reach
@@ -214,8 +217,8 @@ const Main: React.FC = () => {
           </Text>
 
           <Text size="5">Our team aims to respond to requests for new modules within a week.</Text>
-          
-          <Heading className='text-districtrIndigo pt-6'>Development Team</Heading>
+
+          <Heading className="text-districtrIndigo pt-6">Development Team</Heading>
 
           <Text size="5">
             <b>Project Manager</b>: Liz Kopecky

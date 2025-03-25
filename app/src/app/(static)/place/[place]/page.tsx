@@ -1,7 +1,7 @@
 import {Flex, Heading, Text} from '@radix-ui/themes';
 import abbreviations from './abbreviations.json';
 import React from 'react';
-import { CreateButton } from '@/app/components/Static/Interactions/CreateButton';
+import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
 
 const PlacePage = async ({params}: {params: Promise<{place: string}>}) => {
   const {place} = await params;
