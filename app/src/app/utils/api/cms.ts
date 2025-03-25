@@ -72,7 +72,8 @@ export const listCMSContent = async (
   try {
     const url = new URL(`${API_URL}/api/cms/content/${type}`);
     if (params.language) url.searchParams.append('language', params.language);
-    if (params.districtr_map_slug) url.searchParams.append('districtr_map_slug', params.districtr_map_slug);
+    if (params.districtr_map_slug)
+      url.searchParams.append('districtr_map_slug', params.districtr_map_slug);
     const response = await axios.get(url.toString());
     return response.data;
   } catch (error) {
