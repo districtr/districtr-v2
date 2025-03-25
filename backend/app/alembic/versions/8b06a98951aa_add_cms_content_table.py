@@ -1,7 +1,7 @@
 """add_cms_content_table
 
 Revision ID: 8b06a98951aa
-Revises: 6d83465440a6
+Revises: 518ab28c5fd6
 Create Date: 2025-03-25 14:07:52.761319
 
 """
@@ -15,7 +15,7 @@ from sqlmodel.sql.sqltypes import AutoString
 
 # revision identifiers, used by Alembic.
 revision: str = '8b06a98951aa'
-down_revision: Union[str, None] = '6d83465440a6'
+down_revision: Union[str, None] = '518ab28c5fd6'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -44,7 +44,7 @@ def upgrade() -> None:
         sa.Column("published_content", JSONB, nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("slug", "language", name="slug_language_unique"),
-        sa.ForeignKeyConstraint(["districtr_map_slug"], ["districtrmap.uuid"]),
+        sa.ForeignKeyConstraint(["districtr_map_slug"], ["districtrmap.districtr_map_slug"]),
     )
     
     # Create indices for faster lookups
