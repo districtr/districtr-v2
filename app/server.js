@@ -24,7 +24,7 @@ app.prepare().then(() => {
   )
 
   server.all('*', (req, res) => {
-    const parsedUrl = parse(req.url!, true)
+    const parsedUrl = parse(req.url, true)
     return handle(req, res, parsedUrl)
   })
 
