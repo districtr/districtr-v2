@@ -26,12 +26,15 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
       {/* @ts-ignore */}
       {Boolean(cmsData.content.districtr_map_slugs) && (
         <>
-        {/* @ts-ignore */}
-          {cmsData.content.districtr_map_slugs.map((slug: string) => (
-            <CreateButton view={{
-              districtr_map_slug: slug,
-              name: slug
-            }} />
+          {/* @ts-ignore */}
+          {cmsData.content.districtr_map_slugs.map((slug: string, idx: number) => (
+            <CreateButton
+              key={idx}
+              view={{
+                districtr_map_slug: slug,
+                name: slug,
+              }}
+            />
           ))}
         </>
       )}
