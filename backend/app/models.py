@@ -169,7 +169,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
     districtr_map_slug: str = Field(
         sa_column=Column(
             Text,
-            ForeignKey("districtrmap.districtr_map_slug"),
+            ForeignKey("public.districtrmap.districtr_map_slug"),
             nullable=False,
         )
     )
@@ -376,7 +376,6 @@ class TagsCMSContent(TimeStampMixin, SQLModel, table=True):
     districtr_map_slug: str | None = Field(
         sa_column=Column(
             String,
-            ForeignKey("districtrmap.districtr_map_slug"),
             nullable=True,
             index=True,
         )
@@ -398,10 +397,9 @@ class PlacesCMSContent(TimeStampMixin, SQLModel, table=True):
     __tablename__ = "places_content"
     id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     slug: str = Field(nullable=False, index=True)
-    districtr_map_slug: list[str] | None = Field(
+    districtr_map_slugs: list[str] | None = Field(
         sa_column=Column(
             ARRAY(String),
-            ForeignKey("districtrmap.districtr_map_slug"),
             nullable=True,
             index=True,
         )
