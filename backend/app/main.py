@@ -16,6 +16,7 @@ import sentry_sdk
 from app.core.db import engine
 from app.core.config import settings
 import app.contiguity.main as contiguity
+from app.cms.main import router as cms_router
 from networkx import Graph, connected_components
 from app.models import (
     Assignments,
@@ -56,6 +57,9 @@ if settings.ENVIRONMENT in ("production", "qa"):
     )
 
 app = FastAPI()
+
+# Include the CMS router
+app.include_router(cms_router)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

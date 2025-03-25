@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any, Dict
 from pydantic import UUID4, BaseModel, ConfigDict
 from sqlmodel import (
     Field,
@@ -15,11 +15,11 @@ from sqlmodel import (
     Boolean,
 )
 from sqlalchemy.types import ARRAY, TEXT
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Float
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
 from enum import Enum
-from typing import Any
 
 
 class UUIDType(UUID):
@@ -264,3 +264,61 @@ class SummaryStatsVAP(PopulationStatsVAP):
 class SummaryStatisticColumnLists(Enum):
     TOTPOP = PopulationStatsTOTPOP.model_fields.keys()
     VAP = PopulationStatsVAP.model_fields.keys()
+
+
+class LanguageEnum(str, Enum):
+    ENGLISH = "en"
+    SPANISH = "es"
+    CHINESE = "zh"
+    VIETNAMESE = "vi"
+    HAITIAN = "ht"
+    PORTUGUESE = "pt"
+
+
+class CMSContent(TimeStampMixin, SQLModel, table=True):
+    __tablename__ = "cms_content"
+    id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
+    slug: str = Field(nullable=False, index=True)
+    districtr_map_slug: str | None = Field(
+        sa_column=Column(
+            String, ForeignKey("districtrmap.uuid"), nullable=True, index=True
+        )
+    )
+    language: LanguageEnum = Field(
+        default=LanguageEnum.ENGLISH, nullable=False, index=True
+    )
+    draft_content: Dict[str, Any] | None = Field(sa_column=Column(JSONB, nullable=True))
+    published_content: Dict[str, Any] | None = Field(
+        sa_column=Column(JSONB, nullable=True)
+    )
+
+    __table_args__ = (
+        UniqueConstraint("slug", "language", name="slug_language_unique"),
+    )
+
+
+class CMSContentCreate(BaseModel):
+    slug: str
+    districtr_map_slug: str | None = None
+    language: LanguageEnum = LanguageEnum.ENGLISH
+    draft_content: Dict[str, Any] | None = None
+    published_content: Dict[str, Any] | None = None
+
+
+class CMSContentUpdate(BaseModel):
+    slug: str | None = None
+    districtr_map_slug: str | None = None
+    language: LanguageEnum | None = None
+    draft_content: Dict[str, Any] | None = None
+    published_content: Dict[str, Any] | None = None
+
+
+class CMSContentPublic(BaseModel):
+    id: UUID4
+    slug: str
+    districtr_map_slug: str | None = None
+    language: LanguageEnum
+    draft_content: Dict[str, Any] | None = None
+    published_content: Dict[str, Any] | None = None
+    created_at: datetime
+    updated_at: datetime
