@@ -22,6 +22,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Create schema
+    op.execute("CREATE SCHEMA IF NOT EXISTS cms")
     # Create the CMS content table
     op.create_table(
         "tags_content",
@@ -48,14 +50,20 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["districtr_map_slug"], ["districtrmap.districtr_map_slug"]
         ),
+        schema="cms",
     )
 
     # Create indices for faster lookups
-    op.create_index("idx_tags_content_slug", "tags_content", ["slug"])
+    op.create_index("idx_tags_content_slug", "tags_content", ["slug"], schema="cms")
     op.create_index(
-        "idx_tags_content_districtr_map_slug", "tags_content", ["districtr_map_slug"]
+        "idx_tags_content_districtr_map_slug",
+        "tags_content",
+        ["districtr_map_slug"],
+        schema="cms",
     )
-    op.create_index("idx_tags_content_language", "tags_content", ["language"])
+    op.create_index(
+        "idx_tags_content_language", "tags_content", ["language"], schema="cms"
+    )
 
     op.create_table(
         "places_content",
@@ -79,23 +87,35 @@ def upgrade() -> None:
         sa.Column("published_content", JSONB, nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("slug", "language", name="places_slug_language_unique"),
+        schema="cms",
     )
 
     # Create indices for faster lookups
-    op.create_index("idx_places_content_slug", "places_content", ["slug"])
+    op.create_index("idx_places_content_slug", "places_content", ["slug"], schema="cms")
     op.create_index(
         "idx_places_content_districtr_map_slug",
         "places_content",
         ["districtr_map_slugs"],
+        schema="cms",
     )
-    op.create_index("idx_places_content_language", "places_content", ["language"])
+    op.create_index(
+        "idx_places_content_language", "places_content", ["language"], schema="cms"
+    )
 
 
 def downgrade() -> None:
     # Drop indexes first
-    op.drop_index("idx_cms_content_language")
-    op.drop_index("idx_cms_content_districtr_map_slug")
-    op.drop_index("idx_cms_content_slug")
+    op.drop_index("idx_tags_content_slug", "tags_content", schema="cms")
+    op.drop_index("idx_tags_content_districtr_map_slug", "tags_content", schema="cms")
+    op.drop_index("idx_tags_content_language", "tags_content", schema="cms")
+    op.drop_index("idx_places_content_slug", "places_content", schema="cms")
+    op.drop_index(
+        "idx_places_content_districtr_map_slug", "places_content", schema="cms"
+    )
+    op.drop_index("idx_places_content_language", "places_content", schema="cms")
 
     # Then drop the table
-    op.drop_table("cms_content")
+    op.drop_table("tags_content", schema="cms")
+    op.drop_table("places_content", schema="cms")
+    # Drop the schema
+    op.execute("DROP SCHEMA IF EXISTS cms")
