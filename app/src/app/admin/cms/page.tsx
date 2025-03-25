@@ -41,8 +41,6 @@ export default function CMSAdminPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [previewData, setPreviewData] = useState<{ title: string; body: object | string } | null>(null);
-  
-  console.log(formData.body)
 
   useEffect(() => {
     const fetchData = async () => {
