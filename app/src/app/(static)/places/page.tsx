@@ -6,15 +6,15 @@ import NextLink from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function TagsPage() {
-  const cmsContent = await listCMSContent('tags');
+  const cmsContent = await listCMSContent('places');
   const entries = cmsContent
     .filter(content => content.published_content)
-    .filter(onlyUniqueProperty('slug'));
+    .filter(onlyUniqueProperty('places'));
 
   return (
     <Flex direction={'column'} className="max-w-screen-xl mx-auto py-4">
       <Heading as="h1" size="6" mb="4">
-        Tags
+        Places
       </Heading>
       <Box>
         {entries.map(content => (
@@ -23,7 +23,7 @@ export default async function TagsPage() {
               {content.published_content!.title}
             </Heading>
             <NextLink href={`/tag/${content.slug}`} passHref legacyBehavior>
-              <Link>Go to tag</Link>
+              <Link>Go to places</Link>
             </NextLink>
           </Card>
         ))}
