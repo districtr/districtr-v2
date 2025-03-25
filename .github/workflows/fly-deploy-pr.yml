@@ -96,7 +96,7 @@ jobs:
                   flyctl launch \
                   --no-deploy --copy-config --name "$app" --flycast --no-public-ips
                   echo "App $app launched successfully."
-                  fly ips allocate-v6 -a "$app" --private
+                  flyctl ips allocate-v6 -a "$app" --private
                 fi
                 # Output app name for use in the deploy step
                 echo "api_app_name=$app" >> $GITHUB_ENV
