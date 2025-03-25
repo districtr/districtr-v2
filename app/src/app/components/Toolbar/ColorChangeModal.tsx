@@ -20,12 +20,15 @@ export const ColorChangeModal: React.FC<{
 
   const filteredColors = useMemo(
     () =>
-      DefaultColorScheme.filter(color => !colorScheme.slice(0, numDistricts).includes(color)).slice(0, 17),
+      DefaultColorScheme.filter(color => !colorScheme.slice(0, numDistricts).includes(color)).slice(
+        0,
+        17
+      ),
     [colorScheme, numDistricts]
   );
 
   const handleColorPick = (idx: number, color: ColorResult) => {
-    const planColors = colorScheme.slice(0, numDistricts)
+    const planColors = colorScheme.slice(0, numDistricts);
     if (planColors.includes(color.hex)) {
       // reject repeating a district color
       return;

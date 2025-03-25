@@ -31,7 +31,7 @@ export const useChartStore = create(
           changes[zone] = (changes[zone] || 0) + pop;
         });
         set({paintedChanges: changes});
-      }
+      },
     })),
     {
       ...devToolsConfig,

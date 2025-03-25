@@ -4,28 +4,32 @@ import {getZoneConnectedComponentBBoxes} from '@/app/utils/api/apiHandlers';
 import {Blockquote, Flex, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {useState, useEffect} from 'react';
+import {useEffect, useState} from 'react';
 import {ChevronDownIcon, ChevronUpIcon, CrossCircledIcon} from '@radix-ui/react-icons';
 
 interface ZoomToConnectedComponentsProps {
   zone: number;
   contiguity: number;
-  updateTrigger?: number | string | null;
+  updateTrigger: number | string | null;
+  handleUpdateParent: () => void;
 }
 
 export default function ZoomToConnectedComponents({
   zone,
   contiguity,
   updateTrigger,
+  handleUpdateParent,
 }: ZoomToConnectedComponentsProps) {
   const mapDocument = useMapStore(store => store.mapDocument);
-  const [showZoom, setShowZoom] = useState(false);
   const [selectedFeature, setSelectedFeature] = useState<number | null>(null);
-  const [numberConnectedComponents, setNumberConnectedComponents] = useState<number>(contiguity);
+  const [showZoom, setShowZoom] = useState(false);
 
-  const {data, error, isLoading, isFetched} = useQuery(
+  const {data, error, isLoading, isFetching} = useQuery(
     {
-      queryKey: [`ConnectedComponentBboxes-${zone}`, mapDocument?.document_id],
+      queryKey: [
+        `ConnectedComponentBboxes-${zone}`,
+        `${mapDocument?.document_id}-${updateTrigger}`,
+      ],
       queryFn: () => mapDocument && getZoneConnectedComponentBBoxes(mapDocument, zone),
       enabled: !!mapDocument && showZoom,
       staleTime: 0,
@@ -34,34 +38,32 @@ export default function ZoomToConnectedComponents({
     },
     queryClient
   );
-
   useEffect(() => {
-    if (data) {
-      setNumberConnectedComponents(data.features.length);
+    // Handle the case of:
+    // Get parent contiguity and contiguity > 1
+    // Draw to fix contiguity, but them click show zoom
+    if (contiguity > 1 && data?.features.length === 1) {
+      handleUpdateParent();
     }
-  }, [data]);
-
-  useEffect(() => {
-    queryClient.setQueryData([`ConnectedComponentBboxes-${zone}`, mapDocument?.document_id], null);
-    setShowZoom(false);
-  }, [updateTrigger, contiguity]);
+  }),
+    [data, contiguity];
 
   return (
     <div>
       <Flex direction="row" gap="1" justify="start" align="center">
         <CrossCircledIcon color="red" />
-        <Text color="gray">{numberConnectedComponents} connected components</Text>
+        <Text color="gray">{contiguity} connected components</Text>
         <Tooltip content="View connected components">
-          <IconButton variant="ghost" onClick={() => setShowZoom(!showZoom)}>
+          <IconButton variant="ghost" onClick={() => setShowZoom(prev => !prev)}>
             {showZoom ? <ChevronUpIcon /> : <ChevronDownIcon />}
           </IconButton>
         </Tooltip>
       </Flex>
-      {showZoom && isLoading && <Spinner />}
+      {showZoom && !data && !error && <Spinner />}
       {showZoom && error && (
         <Blockquote color="red">Error fetching connected components</Blockquote>
       )}
-      {!!(showZoom && isFetched && data) && (
+      {!!(showZoom && !isLoading && !isFetching && data) && (
         <Flex direction="column" gap="1" justify="start" align="start" py="2">
           <Text color="gray">Zoom to connected components</Text>
           <ZoomToFeature

@@ -55,7 +55,6 @@ const updateDocumentFromId = new QueryObserver<DocumentObject | null>(queryClien
 
 updateDocumentFromId.subscribe(mapDocument => {
   if (typeof window === 'undefined') return;
-
   const documentId = new URLSearchParams(window.location.search).get('document_id');
   if (mapDocument.error && documentId?.length) {
     useMapStore.getState().setErrorNotification({
@@ -98,6 +97,10 @@ const updateAssignments = (mapDocument: DocumentObject) => {
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
     const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
+    // This subscription fires again on browser tab focus, for uhh reasons
+    // If you started the map during the same session you are returning to
+    // The cached assignments data will be empty, resetting your map
+    // We need this to ensure that the map is not reset when the tab is refocused
     if (assignments.data.documentId === loadedMapId) {
       console.log(
         'Map already loaded, skipping assignment load',
@@ -169,13 +172,7 @@ fetchDemography.subscribe(demography => {
       return;
     }
 
-    demographyCache.update(
-      result.columns,
-      result.results,
-      shatterIds,
-      mapDocument,
-      dataHash
-    );
+    demographyCache.update(result.columns, result.results, shatterIds, mapDocument, dataHash);
     setDataHash(dataHash);
     setVariable(variable);
     const newIds = demography.data.results.map(row => row[0]) as string[];

@@ -1,29 +1,38 @@
 'use client';
-import React, { useEffect } from 'react';
-import {MapContextMenu} from '../../components/ContextMenu';
-import {MapComponent} from '../../components/Map/Map';
-import SidebarComponent from '../../components/sidebar/Sidebar';
+import React, {useEffect} from 'react';
+import {MapContextMenu} from '@components/ContextMenu';
+import {MapComponent} from '@components/Map/Map';
+import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
-import {queryClient} from '../../utils/api/queryClient';
-import {ErrorNotification} from '../../components/ErrorNotification';
+import {queryClient} from '@utils/api/queryClient';
+import {ErrorNotification} from '@components/ErrorNotification';
+import {useMapStore} from '@store/mapStore';
 import {Toolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@components/Topbar';
-import { Flex } from '@radix-ui/themes';
-import { useMapStore } from '../../store/mapStore';
-import { initSubs } from '../../store/subscriptions';
+import {Flex} from '@radix-ui/themes';
+import {initSubs} from '@store/subscriptions';
 
 export default function Map() {
-  const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap === 'side-by-side');
-  
+  // check if userid in local storage; if not, create one
+  const userID = useMapStore(state => state.userID);
+  const setUserID = useMapStore(state => state.setUserID);
+  const showDemographicMap = useMapStore(
+    state => state.mapOptions.showDemographicMap === 'side-by-side'
+  );
+
+  useEffect(() => {
+    !userID && setUserID();
+  }, [userID, setUserID]);
+
   useEffect(() => {
     const unsub = initSubs();
     return () => {
       console.log('unsubscribing');
       unsub();
     };
-  },[])
+  }, []);
 
   if (queryClient) {
     return (
@@ -36,7 +45,7 @@ export default function Map() {
             <Topbar />
             <Flex direction="row" height="100%">
               <MapComponent />
-              {showDemographicMap && <MapComponent isDemographicMap/>}
+              {showDemographicMap && <MapComponent isDemographicMap />}
             </Flex>
             <Toolbar />
             <MapLockShade />

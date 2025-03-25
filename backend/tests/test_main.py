@@ -1,7 +1,6 @@
 import os
 import pytest
 from sqlmodel import Session
-
 from app.main import get_session
 from app.constants import GERRY_DB_SCHEMA
 from sqlalchemy import text
@@ -11,8 +10,19 @@ from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     FIXTURES_PATH,
     GERRY_DB_FIXTURE_NAME,
+    USER_ID,
 )
-from app.utils import create_districtr_map, add_available_summary_stats_to_districtrmap
+from app.utils import (
+    create_districtr_map,
+    add_available_summary_stats_to_districtrmap,
+    hash_password,
+)
+from app.models import TokenRequest, DocumentEditStatus, DocumentShareStatus
+import jwt
+from uuid import uuid4
+from datetime import datetime, UTC, timedelta
+from app.core.config import settings
+from fastapi import Form
 
 
 def test_read_main(client):
@@ -33,7 +43,6 @@ GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 GERRY_DB_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_vap"
 GERRY_DB_ALL_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_all_stats"
-
 
 ## Test DB
 
@@ -77,6 +86,7 @@ def ks_demo_view_census_blocks_total_vap_districtrmap_fixture(
     create_districtr_map(
         session=session,
         name=f"Districtr map {GERRY_DB_TOTAL_VAP_FIXTURE_NAME}",
+        districtr_map_slug=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
         gerrydb_table_name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
         parent_layer=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
     )
@@ -122,6 +132,7 @@ def ks_demo_view_census_blocks_no_pop_districtrmap_fixture(
     create_districtr_map(
         session=session,
         name=f"Districtr map {GERRY_DB_NO_POP_FIXTURE_NAME}",
+        districtr_map_slug=GERRY_DB_NO_POP_FIXTURE_NAME,
         gerrydb_table_name=GERRY_DB_NO_POP_FIXTURE_NAME,
         parent_layer=GERRY_DB_NO_POP_FIXTURE_NAME,
     )
@@ -136,6 +147,7 @@ def districtr_map_fixtures(
         create_districtr_map(
             session=session,
             name=f"Districtr map {i}",
+            districtr_map_slug=f"districtr_map_{i}",
             gerrydb_table_name=f"districtr_map_{i}",
             parent_layer=GERRY_DB_FIXTURE_NAME,
         )
@@ -149,9 +161,11 @@ def document_total_vap_fixture(
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+            "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
+
     document_id = response.json()["document_id"]
     return document_id
 
@@ -163,7 +177,8 @@ def document_all_stats_fixture(
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": GERRY_DB_ALL_FIXTURE_NAME,
+            "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -177,7 +192,8 @@ def document_no_gerrydb_pop_fixture(
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": GERRY_DB_NO_POP_FIXTURE_NAME,
+            "districtr_map_slug": GERRY_DB_NO_POP_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -259,25 +275,37 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
-    assert response.status_code == 201
     data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
     document_id = data.get("document_id", None)
     assert document_id
     assert isinstance(uuid.UUID(document_id), uuid.UUID)
-    assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
+    assert data.get("districtr_map_slug") == GERRY_DB_FIXTURE_NAME
 
 
 def test_get_document(client, document_id):
-    response = client.get(f"/api/document/{document_id}")
+    doc_uuid = uuid.UUID(document_id)
+    payload = {
+        "user_id": USER_ID,
+        "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+    }
+
+    response = client.post(f"/api/document/{doc_uuid}", json=payload)
     assert response.status_code == 200
+
     data = response.json()
     assert data.get("document_id") == document_id
-    assert data.get("gerrydb_table") == GERRY_DB_FIXTURE_NAME
+    assert data.get("districtr_map_slug") == GERRY_DB_FIXTURE_NAME
     assert data.get("updated_at")
     assert data.get("created_at")
+    assert data.get("status") in ["locked", "unlocked", "checked_out"]
+
     # assert data.get("tiles_s3_path") is None
 
 
@@ -394,13 +422,13 @@ def test_get_document_population_totals_null_assignments(
             "updated_at": "2023-01-01T00:00:00",
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     data = response.json()
     assert data.get("assignments_upserted") == 3
     assert data.get("updated_at") is not None
     doc_uuid = str(uuid.UUID(document_id_all_stats))
     result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    assert result.status_code == 200
+    assert result.status_code == 200, result.json()
     data = result.json()
     assert data == [{"zone": 1, "total_pop": 43}]
 
@@ -429,8 +457,9 @@ def test_get_document_population_totals_no_gerrydb_pop_view(
 ):
     doc_uuid = str(uuid.UUID(assignments_document_no_gerrydb_pop_id))
     result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    assert result.status_code == 404
-    assert result.json() == {"detail": "Population column not found in GerryDB view"}
+    data = result.json()
+    assert result.status_code == 404, data
+    assert data == {"detail": "Population column not found in GerryDB view"}
 
 
 def test_list_gerydb_views(client, districtr_maps):
@@ -469,6 +498,7 @@ def districtr_map_soft_deleted_fixture(
         create_districtr_map(
             session=session,
             name=f"Districtr map {i}",
+            districtr_map_slug=f"districtr_map_{i}",
             gerrydb_table_name=f"districtr_map_{i}",
             parent_layer=GERRY_DB_FIXTURE_NAME,
             visibility=bool(
@@ -493,7 +523,7 @@ def test_list_gerydb_views_soft_deleted_map(
     stmt = text("SELECT * FROM districtrmap WHERE not visible")
     result = session.execute(stmt).one()
     assert result is not None
-    assert not result[-1]  # visible column is False
+    assert not result.visible
     assert data[0]["name"] == "Districtr map ks_demo_view_census_blocks"
 
 
@@ -530,6 +560,7 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         session=session,
         name="DistrictMap with TOTPOP view",
         parent_layer=layer,
+        districtr_map_slug=layer,
         gerrydb_table_name=layer,
     )
     summary_stats = add_available_summary_stats_to_districtrmap(
@@ -579,6 +610,7 @@ def ks_demo_view_census_blocks_summary_stats_vap(session: Session):
         session=session,
         name="DistrictMap with VAP view",
         parent_layer=layer,
+        districtr_map_slug=layer,
         gerrydb_table_name=layer,
     )
     summary_stats = add_available_summary_stats_to_districtrmap(
@@ -628,6 +660,7 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
         session=session,
         name="DistrictMap with TOTPOP AND VAP view",
         parent_layer=layer,
+        districtr_map_slug=layer,
         gerrydb_table_name=layer,
         num_districts=4,
     )
@@ -714,3 +747,189 @@ def test_change_colors_error(
         response.json()["detail"]
         == "Number of colors provided (1) does not match number of zones (4)"
     )
+
+
+def test_update_districtrmap_metadata(client, document_id):
+    metadata_payload = {
+        "name": "Test Map",
+        "tags": ["test", "map"],
+        "description": "This is a test metadata entry",
+        "event_id": "1234",
+    }
+
+    response = client.put(
+        f"/api/document/{document_id}/metadata", json=metadata_payload
+    )
+
+    assert response.status_code == 200
+
+
+def test_share_districtr_plan(client, document_id):
+    """Test sharing a document when a pw exists"""
+    share_payload = {"password": "password", "access_type": "view"}
+
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={
+            "password": share_payload["password"],
+            "access_type": share_payload["access_type"],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "token" in data
+
+    decoded_token = jwt.decode(data["token"], settings.SECRET_KEY, algorithms=["HS256"])
+    assert decoded_token["access"] == "view"
+    assert decoded_token["password_required"]
+
+    # test sharing from an existing token
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={
+            "password": share_payload["password"],
+            "access_type": share_payload["access_type"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert "token" in data
+
+
+def test_unlock_map(client, document_id):
+    # create document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+    # unlock document
+    response = client.post(
+        f"/api/document/{document_id}/unlock", json={"user_id": USER_ID}
+    )
+    assert response.status_code == 200
+
+
+def test_get_document_status(client, document_id):
+    # create document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+
+    # check doc status
+    response = client.post(
+        f"/api/document/{document_id}/status", json={"user_id": USER_ID}
+    )
+    document_status = response.json().get("status")
+
+    assert (
+        document_status == DocumentEditStatus.checked_out
+    )  # since it was made fresh by this user
+
+
+def test_document_unload(client, document_id):
+    # create document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+
+    # unload document
+    response = client.post(
+        f"/api/document/{document_id}/unload",
+        data={"user_id": Form(USER_ID)},
+    )
+
+    assert response.status_code == 200
+    assert response.json().get("status") == DocumentEditStatus.unlocked
+
+
+def test_load_plan_from_share(client, document_id):
+    # create document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+
+    # share the document
+    share_payload = {"password": "password", "access_type": "view"}
+
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={
+            "password": share_payload["password"],
+            "access_type": share_payload["access_type"],
+        },
+    )
+    decoded_token = jwt.decode(
+        response.json()["token"], settings.SECRET_KEY, algorithms=["HS256"]
+    )
+
+    # load the document
+    response = client.post(
+        "/api/share/load_plan_from_share",
+        json={
+            "user_id": USER_ID,
+            "password": "password",
+            "token": decoded_token["token"],
+            "access": DocumentShareStatus.read,
+        },
+    )
+
+    assert response.status_code == 200
+
+
+def test_document_checkout(client, document_id):
+    # create a document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+
+    # share the document
+    share_payload = {"password": "password", "access_type": "view"}
+
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={
+            "password": share_payload["password"],
+            "access_type": share_payload["access_type"],
+        },
+    )
+    decoded_token = jwt.decode(
+        response.json()["token"], settings.SECRET_KEY, algorithms=["HS256"]
+    )
+
+    # chck the document out
+    response = client.post(
+        f"/api/document/{document_id}/checkout",
+        json={
+            "user_id": USER_ID,
+            "password": "password",
+            "token": decoded_token["token"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json().get("status") == DocumentEditStatus.checked_out

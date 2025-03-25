@@ -6,6 +6,7 @@ import logging
 from urllib.parse import ParseResult
 import os
 from app.core.config import settings
+import bcrypt
 from urllib.parse import urlparse
 from pathlib import Path
 
@@ -16,9 +17,18 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
+
+
 def create_districtr_map(
     session: Session,
     name: str,
+    districtr_map_slug: str,
     parent_layer: str,
     child_layer: str | None = None,
     gerrydb_table_name: str | None = None,
@@ -32,6 +42,7 @@ def create_districtr_map(
     Args:
         session: The database session.
         name: The name of the map.
+        districtr_map_slug: The slug of the districtr map.
         parent_layer_name: The name of the parent layer.
         child_layer_name: The name of the child layer.
         gerrydb_table_name: The name of the gerrydb table.
@@ -47,6 +58,7 @@ def create_districtr_map(
     SELECT *
     FROM create_districtr_map(
         :map_name,
+        :districtr_map_slug,
         :gerrydb_table_name,
         :num_districts,
         :tiles_s3_path,
@@ -56,6 +68,7 @@ def create_districtr_map(
     )"""
     ).bindparams(
         bindparam(key="map_name", type_=String),
+        bindparam(key="districtr_map_slug", type_=String),
         bindparam(key="gerrydb_table_name", type_=String),
         bindparam(key="num_districts", type_=Integer),
         bindparam(key="tiles_s3_path", type_=String),
@@ -68,6 +81,7 @@ def create_districtr_map(
         stmt,
         {
             "map_name": name,
+            "districtr_map_slug": districtr_map_slug,
             "gerrydb_table_name": gerrydb_table_name,
             "num_districts": num_districts,
             "tiles_s3_path": tiles_s3_path,
@@ -81,7 +95,7 @@ def create_districtr_map(
 
 def update_districtrmap(
     session: Session,
-    gerrydb_table_name: str,
+    districtr_map_slug: str,
     **kwargs,
 ):
     """
@@ -89,15 +103,15 @@ def update_districtrmap(
 
     Args:
         session: The database session.
-        gerrydb_table_name: The name of the gerrydb table.
+        districtr_map_slug: The name of the gerrydb table.
         **kwargs: The fields to update.
 
     Returns:
         The updated districtr map.
     """
-    data = DistrictrMapUpdate(gerrydb_table_name=gerrydb_table_name, **kwargs)
+    data = DistrictrMapUpdate(districtr_map_slug=districtr_map_slug, **kwargs)
     update_districtrmap = data.model_dump(
-        exclude_unset=True, exclude={"gerrydb_table_name"}, exclude_none=True
+        exclude_unset=True, exclude={"districtr_map_slug"}, exclude_none=True
     )
 
     if not update_districtrmap.keys():
@@ -105,7 +119,7 @@ def update_districtrmap(
 
     stmt = (
         update(DistrictrMap)
-        .where(DistrictrMap.gerrydb_table_name == data.gerrydb_table_name)  # pyright: ignore
+        .where(DistrictrMap.districtr_map_slug == data.districtr_map_slug)  # pyright: ignore
         .values(update_districtrmap)
         .returning(DistrictrMap)
     )
@@ -216,7 +230,8 @@ def add_extent_to_districtrmap(
         raise ValueError(
             f"Districtr map with UUID {districtr_map_uuid} does not exist."
         )
-    stmt = text(f"""
+    stmt = text(
+        f"""
         DO $$
         DECLARE
             rec RECORD;
@@ -254,7 +269,8 @@ def add_extent_to_districtrmap(
             EXCEPTION WHEN undefined_table THEN
                 RAISE NOTICE 'Table % does not exist for layer %', rec.parent_layer, rec.name;
         END $$;
-        """)
+        """
+    )
     session.execute(stmt)
 
 
@@ -402,3 +418,65 @@ def remove_file(filename: str) -> None:
     except FileNotFoundError:
         logger.warning(f"File {filename} not found")
         pass
+
+
+def _cleanup_expired_locks(session: Session, hours: int) -> list[str] | None:
+    """
+    Delete expired locks from the database.
+
+    Args:
+        hours (int): The number of hours to keep locks.
+
+    Returns:
+        list[str]: A list of document IDs that had their locks deleted.
+
+    Note:
+    This feels like a DB concern and could be implemented with pg_cron.
+    Did a brief spike trying to get pg_cron set up. Definitely a bit of a hassle
+    so this will work for now.
+    """
+    stmt = text("DELETE FROM locks WHERE created_at < NOW() - INTERVAL :n_hours HOUR")
+    try:
+        stmt = text(
+            """DELETE FROM document.map_document_user_session
+            WHERE updated_at < NOW() - make_interval(hours => :n_hours)
+            RETURNING document_id"""
+        )
+
+        result = session.execute(stmt, {"n_hours": hours}).scalars()
+        locks = list(result)
+        session.commit()
+        logger.info(
+            f"Deleted {len(locks)} expired locks: [{' '.join(map(str, locks))}]"
+        )
+        return locks
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Error deleting expired locks: {e}")
+
+
+def _remove_all_locks(session: Session) -> list[str] | None:
+    """
+    Delete all locks from the database.
+
+    Args:
+        session (Session): The database session.
+
+    Returns:
+        list[str]: A list of document IDs that had their locks deleted.
+    """
+    stmt = text("DELETE FROM locks")
+    try:
+        stmt = text(
+            """DELETE FROM document.map_document_user_session
+            RETURNING document_id"""
+        )
+
+        result = session.execute(stmt).scalars()
+        locks = list(result)
+        session.commit()
+        logger.info(f"Deleted {len(locks)} locks: [{' '.join(map(str, locks))}]")
+        return locks
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Error deleting all locks: {e}")

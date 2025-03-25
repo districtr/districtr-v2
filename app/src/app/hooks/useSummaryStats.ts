@@ -1,7 +1,7 @@
 'use client';
 import {useChartStore} from '@store/chartStore';
-import { demographyCache } from '@utils/demography/demographyCache';
-import { useDemographyStore } from '../store/demographyStore';
+import {demographyCache} from '@utils/demography/demographyCache';
+import {useDemographyStore} from '../store/demographyStore';
 
 /**
  * Custom hook to retrieve summary statistics and zone statistics from the demography cache.

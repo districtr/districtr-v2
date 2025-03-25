@@ -22,7 +22,7 @@ import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/hoverFeatures';
-import { getFeatureUnderCursor } from '../helpers';
+import {getFeatureUnderCursor} from '../helpers';
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -55,17 +55,13 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
 export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
-  const {activeTool, handleShatter, selectMapFeatures, setIsPainting} =
-    mapStore;
+  const {activeTool, handleShatter, selectMapFeatures, setIsPainting} = mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   if (activeTool === 'shatter') {
     const documentId = mapStore.mapDocument?.document_id;
     const selectedFeatures = mapStore.paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
     if (documentId && e.features?.length) {
-      handleShatter(
-        documentId,
-        selectedFeatures || []
-      );
+      handleShatter(documentId, selectedFeatures || []);
     }
     return;
   } else if (activeTool === 'brush' || activeTool === 'eraser') {
@@ -175,8 +171,10 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
         {
           label: 'Total Pop',
           value:
-            selectedFeatures?.reduce((acc, curr) => acc + parseInt(curr.properties.total_pop_20), 0) ??
-            'N/A',
+            selectedFeatures?.reduce(
+              (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
+              0
+            ) ?? 'N/A',
         },
       ],
     });
@@ -257,7 +255,7 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
       tileID: e.tile.tileID.canonical,
       mapDocument,
       idProp: 'path',
-    })
+    });
   }
 };
 

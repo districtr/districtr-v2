@@ -1,5 +1,6 @@
 CREATE OR REPLACE FUNCTION create_districtr_map(
     map_name VARCHAR,
+    districtr_map_slug VARCHAR,
     gerrydb_table_name VARCHAR,
     num_districts INTEGER,
     tiles_s3_path VARCHAR,
@@ -15,6 +16,7 @@ BEGIN
         created_at,
         uuid,
         name,
+        districtr_map_slug,
         gerrydb_table_name,
         num_districts,
         tiles_s3_path,
@@ -26,6 +28,7 @@ BEGIN
         now(),
         gen_random_uuid(),
         map_name,
+        districtr_map_slug,
         gerrydb_table_name,
         num_districts,
         tiles_s3_path,

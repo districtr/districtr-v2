@@ -36,13 +36,15 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         ],
     )
 
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.begin()
     session.execute(upsert_query, {"name": GERRY_DB_TOTPOP_FIXTURE_NAME})
@@ -61,6 +63,7 @@ def test_create_districtr_map(
     _ = create_districtr_map(
         session,
         name="Simple shatterable layer",
+        districtr_map_slug="simple_geos_test",
         gerrydb_table_name="simple_geos_test",
         num_districts=10,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
@@ -76,6 +79,7 @@ def test_create_districtr_map_some_nulls(session: Session, simple_parent_geos_ge
     _ = create_districtr_map(
         session,
         name="Simple non-shatterable layer",
+        districtr_map_slug="simple_parent_geos_some_nulls",
         gerrydb_table_name="simple_parent_geos_some_nulls",
         parent_layer="simple_parent_geos",
     )
@@ -90,6 +94,7 @@ def simple_parent_geos_districtrmap_fixture(
     _ = create_districtr_map(
         session,
         name="Simple shatterable layer",
+        districtr_map_slug=gerrydb_name,
         gerrydb_table_name=gerrydb_name,
         num_districts=10,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
@@ -104,6 +109,7 @@ def simple_parent_geos_districtrmap_fixture(
 def test_update_districtr_map(session: Session, simple_parent_geos_districtrmap):
     result = update_districtrmap(
         session=session,
+        districtr_map_slug=simple_parent_geos_districtrmap,
         gerrydb_table_name=simple_parent_geos_districtrmap,
         visible=False,
     )
@@ -116,6 +122,7 @@ def test_add_extent_to_districtrmap(session: Session, simple_parent_geos_gerrydb
     inserted_districtr_map = create_districtr_map(
         session,
         name="Simple non-shatterable layer 2",
+        districtr_map_slug="simple_parent_geos_some_nulls2",
         gerrydb_table_name="simple_parent_geos_some_nulls2",
         parent_layer="simple_parent_geos",
     )
@@ -130,6 +137,7 @@ def test_add_extent_to_districtrmap_manual_bounds(
     inserted_districtr_map = create_districtr_map(
         session,
         name="Simple non-shatterable layer 2",
+        districtr_map_slug="simple_parent_geos_some_nulls2",
         gerrydb_table_name="simple_parent_geos_some_nulls2",
         parent_layer="simple_parent_geos",
     )
@@ -171,7 +179,8 @@ def document_id_fixture(
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": "simple_geos",
+            "districtr_map_slug": "simple_geos",
+            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
         },
     )
     assert response.status_code == 201

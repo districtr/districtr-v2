@@ -6,22 +6,18 @@ import {Protocol} from 'pmtiles';
 import type {MutableRefObject} from 'react';
 import React, {useEffect, useMemo, useRef} from 'react';
 import {MAP_OPTIONS} from '@constants/configuration';
-import {
-  handleWheelOrPinch,
-  mapContainerEvents,
-  mapEventHandlers,
-} from '@utils/events/mapEvents';
+import {handleWheelOrPinch, mapContainerEvents, mapEventHandlers} from '@utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '@constants/layers';
 import {useMapStore} from '@store/mapStore';
-import { useDemographyStore } from '@/app/store/demographyStore';
+import {useDemographyStore} from '@/app/store/demographyStore';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';
 import {VtdBlockLayers} from './VtdBlockLayers';
 import {MetaLayers} from './MetaLayers';
-// @ts-ignore plugin has no types 
+// @ts-ignore plugin has no types
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
-import { useMapRenderer } from '@/app/hooks/useMapRenderer';
+import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 
 export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   const getStateMapRef = useMapStore(state => state.getMapRef);
@@ -41,7 +37,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         latitude: center[1],
         longitude: center[0],
         zoom: MAP_OPTIONS.zoom,
-      }
+      };
     }
     const mainMapRef = getStateMapRef();
     if (!mainMapRef) return;
@@ -51,7 +47,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
       latitude: center.lat,
       longitude: center.lng,
       zoom,
-    }
+    };
   }, [getStateMapRef]);
 
   useEffect(() => {
@@ -83,11 +79,11 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         synced.current();
         synced.current = false;
       }
-      if (isDemographicMap){
-        useDemographyStore.getState().unmount()
+      if (isDemographicMap) {
+        useDemographyStore.getState().unmount();
         mapRef.current = null;
       }
-    }
+    };
   }, [getStateMapRef]);
 
   const fitMapToBounds = () => {
@@ -136,8 +132,8 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         maxPitch={0}
         minPitch={0}
         dragRotate={false}
-        onLoad={(e) => {
-          onLoad(e)
+        onLoad={e => {
+          onLoad(e);
           if (isDemographicMap) {
             handleSyncMaps(e.target);
             useDemographyStore.getState().setGetMapRef(() => e.target);
@@ -169,7 +165,6 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         <VtdBlockLayers isDemographicMap={isDemographicMap} />
         <MetaLayers isDemographicMap={isDemographicMap} />
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
-
       </GlMap>
     </div>
   );

@@ -1,15 +1,13 @@
-import {
-  BLOCK_SOURCE_ID,
-} from '@/app/constants/layers';
+import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
 import {useDemographyStore} from '@/app/store/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useLayoutEffect, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, useMap} from 'react-map-gl/maplibre';
-import { ZoneLayerGroup } from './ZoneLayerGroup';
-import { DemographicLayer } from './DemographicLayer';
-import { HighlightOverlayerLayerGroup } from './HighlightOverlayLayerGroup';
-import { demographyCache } from '@/app/utils/demography/demographyCache';
+import {ZoneLayerGroup} from './ZoneLayerGroup';
+import {DemographicLayer} from './DemographicLayer';
+import {HighlightOverlayerLayerGroup} from './HighlightOverlayLayerGroup';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
@@ -34,7 +32,7 @@ export const VtdBlockLayers: React.FC<{
       setClearOldSource(false);
       setMapRenderingState('loaded');
     }, 10);
-  }, [mapDocument?.tiles_s3_path]);
+  }, [mapDocument?.tiles_s3_path, mapDocument?.document_id]);
 
   const handleDemographyRender = ({numberOfBins}: {numberOfBins?: number}) => {
     const _map = mapRef.current?.getMap();

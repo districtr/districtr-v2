@@ -110,7 +110,7 @@ export class MapRenderSubscriber {
     });
 
     const isDemographic = this.mapType === 'demographic';
-  
+
     if (isDemographic) return;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
@@ -152,7 +152,7 @@ export class MapRenderSubscriber {
         this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
         break;
       case 'brush':
-        cursor = 'url(paintbrush.png) 12 12, pointer';
+        cursor = 'url(paintbrush.png) 20 20, none';
         this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
         break;
       case 'eraser':
@@ -164,9 +164,6 @@ export class MapRenderSubscriber {
         this.useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
         break;
       case 'lock':
-        cursor = 'url(lock.png) 12 12, pointer';
-        this.useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
-        break;
       default:
         cursor = '';
     }
@@ -204,12 +201,7 @@ export class MapRenderSubscriber {
     if (this.useMapStore.getState().isTemporalAction) {
       demographyCache.updatePopulations(curr[0]);
     }
-    const {
-      captiveIds,
-      shatterIds,
-      mapRenderingState,
-      mapOptions,
-    } = this.useMapStore.getState();
+    const {captiveIds, shatterIds, mapRenderingState, mapOptions} = this.useMapStore.getState();
     if (mapRenderingState !== 'loaded') return;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
@@ -279,11 +271,11 @@ export class MapRenderSubscriber {
       this.subscribeColorZones();
     }
     this.render.bind(this)();
-    console.log("Subscribed to map render subs", this.subscriptions.length);
+    console.log('Subscribed to map render subs', this.subscriptions.length);
   }
 
   unsubscribe() {
-    console.log("Unsubscribing from map render subs", this.subscriptions.length);
+    console.log('Unsubscribing from map render subs', this.subscriptions.length);
     this.subscriptions.forEach(unsub => unsub());
   }
 }

@@ -106,6 +106,7 @@ export const Contiguity = () => {
                     zone={row.zone}
                     contiguity={row.contiguity}
                     updateTrigger={lastUpdated}
+                    handleUpdateParent={update}
                   />
                 )}
               </Table.Cell>

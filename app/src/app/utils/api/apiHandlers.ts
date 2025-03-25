@@ -54,6 +54,7 @@ export const FormatAssignments = () => {
  *
  * @interface
  * @property {string} name - The name.
+ * @property {string} districtr_map_slug - The gerrydb table name.
  * @property {string} gerrydb_table_name - The gerrydb table name.
  * @property {string} parent_layer - The parent layer.
  * @property {string | null} child_layer - The child layer.
@@ -62,11 +63,20 @@ export const FormatAssignments = () => {
  */
 export interface DistrictrMap {
   name: string;
+  districtr_map_slug: string;
   gerrydb_table_name: string;
   parent_layer: string;
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
+}
+
+export interface StatusObject {
+  status: 'locked' | 'unlocked' | 'checked_out';
+  access: 'read' | 'edit';
+  genesis: 'shared' | 'copied' | 'created';
+  token?: string | null;
+  password?: string | null;
 }
 
 /**
@@ -83,9 +93,10 @@ export interface DistrictrMap {
  * @property {string} updated_at - The updated at.
  * @property {string[]} color_scheme - The colors for districts.
  */
-export interface DocumentObject {
+export interface DocumentObject extends StatusObject {
   document_id: string;
-  gerrydb_table: string;
+  districtr_map_slug: string;
+  gerrydb_table: string | null;
   parent_layer: string;
   child_layer: string | null;
   tiles_s3_path: string | null;
@@ -93,8 +104,18 @@ export interface DocumentObject {
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
+  map_metadata: DocumentMetadata;
   available_summary_stats: Array<SummaryTypes>;
   color_scheme: string[] | null;
+}
+
+export interface DocumentMetadata {
+  name: string | null;
+  group: string | null;
+  tags: string | null;
+  description: string | null;
+  eventId: string | null;
+  is_draft: boolean;
 }
 
 /**
@@ -104,38 +125,81 @@ export interface DocumentObject {
  * @property {string} gerrydb_table - The gerrydb table.
  */
 export interface DocumentCreate {
-  gerrydb_table: string;
+  districtr_map_slug: string;
+  user_id: string | null;
+  metadata?: DocumentMetadata;
+  copy_from_doc?: string;
 }
 
 export const createMapDocument: (document: DocumentCreate) => Promise<DocumentObject> = async (
   document: DocumentCreate
 ) => {
+  if (!document.user_id) return;
   return await axios
-    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
-      gerrydb_table: document.gerrydb_table,
-    })
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, document)
     .then(res => {
       return res.data;
+    })
+    .catch(err => {
+      console.error(err);
     });
 };
 
 /**
  * Get data from current document.
  * @param document_id - string, the document id
+ * @param userID - string, the user id against which to check document status
  * @returns Promise<DocumentObject>
  */
 export const getDocument: (document_id: string) => Promise<DocumentObject> = async (
   document_id: string
 ) => {
-  if (document_id) {
+  const userID = useMapStore.getState().userID;
+  if (document_id && userID) {
     return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`)
+      .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`, {
+        user_id: userID,
+      })
       .then(res => {
         return res.data;
       });
   } else {
     throw new Error('No document id found');
   }
+};
+
+/**
+ *
+ * @param mapDocument Unlock the document
+ * @returns
+ */
+
+export const unlockMapDocument: (document_id: string) => Promise<DocumentObject> = async (
+  document_id: string
+) => {
+  const userID = useMapStore.getState().userID;
+  if (document_id && userID) {
+    return await axios
+      .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/unlock`, {
+        user_id: userID,
+      })
+      .then(res => {
+        return res.data;
+      });
+  } else {
+    throw new Error('No document id found');
+  }
+};
+
+export const getMapLockStatus: (document_id: string) => Promise<string> = (document_id: string) => {
+  const userID = useMapStore.getState().userID;
+  return axios
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/status`, {
+      user_id: userID,
+    })
+    .then(res => {
+      return res.data.status;
+    });
 };
 
 export type RemoteAssignmentsResponse = {
@@ -149,9 +213,13 @@ type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | null>;
 export const getAssignments: (
   mapDocument: DocumentObject | null
 ) => GetAssignmentsResponse = async mapDocument => {
-  if (mapDocument && mapDocument.document_id === useMapStore.getState().loadedMapId) {
+  if (
+    mapDocument &&
+    mapDocument.document_id === useMapStore.getState().loadedMapId &&
+    useMapStore.getState().assignmentsHash
+  ) {
     console.log(
-      'Map already loaded, skipping assignment load',
+      'Map already loaded, skipping assignment load in handlers',
       mapDocument.document_id,
       useMapStore.getState().loadedMapId
     );
@@ -189,9 +257,7 @@ export interface ZonePopulation {
  * @param mapDocument - DocumentObject, the document object
  * @returns Promise<ZonePopulation[]>
  */
-export const getContiguity: (
-  mapDocument: DocumentObject
-) => Promise<any> = async mapDocument => {
+export const getContiguity: (mapDocument: DocumentObject) => Promise<any> = async mapDocument => {
   // const assignmentHash = `${useMapStore.getState().assignmentsHash}`;
   // if (currentHash !== assignmentHash) {
   //   // return stale data if map already changed
@@ -199,10 +265,12 @@ export const getContiguity: (
   // }
   if (mapDocument) {
     return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity`, {
-      })
+      .get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity`,
+        {}
+      )
       .then(res => {
-        return res.data
+        return res.data;
       });
   } else {
     throw new Error('No document provided');
@@ -221,10 +289,12 @@ export const getZoneConnectedComponentBBoxes: (
 ) => Promise<any> = async (mapDocument, zone) => {
   if (mapDocument) {
     return await axios
-      .get(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity/${zone}/connected_component_bboxes`, {
-      })
+      .get(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity/${zone}/connected_component_bboxes`,
+        {}
+      )
       .then(res => {
-        return res.data
+        return res.data;
       });
   } else {
     throw new Error('No document provided');
@@ -382,6 +452,117 @@ export const patchUnShatterParents: (params: {
 };
 
 /**
+ *
+ * @param document_id - string, the document id
+ * @param metadata - DocumentMetadata, the metadata to save
+ * @returns Promise
+ */
+export const saveMapDocumentMetadata = async ({
+  document_id,
+  metadata,
+  // for consistency, does it make sense to also require a user id? not convinced but
+}: {
+  document_id: string;
+  metadata: DocumentMetadata;
+}) => {
+  console.log(metadata);
+  return await axios
+    .put(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/metadata`, metadata)
+    .then(res => {
+      return res.data;
+    })
+    .catch(err => {
+      console.error(err);
+    });
+};
+
+/**
+ * Creates a share link for a document.
+ *
+ * @param document_id - string, the document_id
+ * @param password - string, the password if required
+ * @param access_type - string, the access type (read or edit)
+ * @returns Promise
+ */
+export const getSharePlanLink = async ({
+  document_id,
+  password,
+  access_type,
+}: {
+  document_id: string | undefined;
+  password: string | null;
+  access_type: string | undefined;
+}) => {
+  try {
+    const res = await axios.post(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/share`,
+      {
+        password: password ?? null,
+        access_type: access_type ?? 'read',
+      }
+    );
+    if (!res.data) {
+      throw new Error('No token returned from API');
+    }
+    return res.data;
+  } catch (err) {
+    console.error('Error in getSharePlanLink: ', err);
+    throw err;
+  }
+};
+
+/**
+ * Loads plan from share link.
+ *
+ * @param token - string, the tokenized share link
+ * @param password - string, the password if required
+ * @param access - string, the access type (set via share link)
+ * @returns Promise
+ */
+export const getLoadPlanFromShare = async ({
+  token,
+  password,
+  access,
+}: {
+  token: string;
+  password?: string | null;
+  access: string;
+}) => {
+  const res = await axios.post(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/share/load_plan_from_share`,
+    {
+      token: token,
+      user_id: useMapStore.getState().userID,
+      password: password ?? null,
+      access: access,
+    },
+    {headers: {'Content-Type': 'application/json'}}
+  );
+  return res.data; // failure is handled in mutations.ts
+};
+
+export const checkoutMapDocument = async ({
+  document_id,
+  token,
+  password,
+}: {
+  document_id: string;
+  token: string;
+  password: string;
+}) => {
+  const res = await axios.post(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/checkout`,
+    {
+      token: token,
+      password: password,
+      user_id: useMapStore.getState().userID,
+    },
+    {headers: {'Content-Type': 'application/json'}}
+  );
+  return res.data;
+};
+
+/**
  * Set colors response
  *   @interface
  *   @property {boolean} success - Confirming if the operation succeeded
@@ -391,7 +572,6 @@ export interface ColorsSet {
   success: boolean;
   document_id: string;
 }
-
 
 /**
  * Save changed colors
@@ -404,15 +584,20 @@ export const saveColorScheme: (params: {
   colors: string[];
 }) => Promise<ColorsSet> = async ({document_id, colors}) => {
   if (colors === DefaultColorScheme) {
-    return
+    return;
   }
   return await axios
-    .patch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/update_colors`,
-      colors,
-    )
+    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/update_colors`, colors)
     .then(res => {
       return res.data;
+    })
+    .catch(err => {
+      const setErrorNotification = useMapStore.getState().setErrorNotification;
+      setErrorNotification({
+        message: err.response.data.message,
+        severity: 2,
+        id: `change-colors-${document}-${colors.join('-')}`,
+      });
     });
 };
 
@@ -428,7 +613,11 @@ export const getDemography: (params: {
   document_id?: string;
   ids?: string[];
   dataHash?: string;
-}) => Promise<{columns: string[]; results: (string | number)[][]; dataHash?:string}> = async ({document_id, ids, dataHash}) => {
+}) => Promise<{columns: string[]; results: (string | number)[][]; dataHash?: string}> = async ({
+  document_id,
+  ids,
+  dataHash,
+}) => {
   if (!document_id) {
     throw new Error('No document id provided');
   }
@@ -441,5 +630,5 @@ export const getDemography: (params: {
     columns: result.columns,
     results: result.results,
     dataHash: dataHash,
-  }
+  };
 };
