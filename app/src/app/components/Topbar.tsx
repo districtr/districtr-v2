@@ -6,21 +6,22 @@ import {
   Flex,
   Heading,
   IconButton,
+  Link,
   Box,
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
 import React, {useRef} from 'react';
-import {useMapStore} from '../store/mapStore';
-import {RecentMapsModal} from './Toolbar/RecentMapsModal';
-import {ToolSettings} from './Toolbar/Settings';
+import {useMapStore} from '@store/mapStore';
+import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
+import {ToolSettings} from '@components/Toolbar/Settings';
 import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
-import {useTemporalStore} from '../store/temporalStore';
-import {document} from '../utils/api/mutations';
-import {DistrictrMap} from '../utils/api/apiHandlers';
+import {useTemporalStore} from '@store/temporalStore';
+import {document} from '@utils/api/mutations';
+import {DistrictrMap} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
-import {ShareMapsModal} from './Toolbar/ShareMapsModal';
-import {PasswordPromptModal} from './Toolbar/PasswordPromptModal';
+import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
+import {PasswordPromptModal} from '@components/Toolbar/PasswordPromptModal';
 import {useMapStatus} from '../hooks/useMapStatus';
 
 export const Topbar: React.FC = () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import {useState, useEffect} from 'react';
+import { useState, useEffect } from 'react';
 import {
   createCMSContent,
   listCMSContent,
@@ -8,8 +8,20 @@ import {
   publishCMSContent,
   CMSContentResponse,
 } from '@/app/utils/api/cms';
-import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
-import type {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
+import { getAvailableDistrictrMaps } from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
+import type { DistrictrMap } from '@/app/utils/api/apiHandlers/types';
+import dynamic from 'next/dynamic';
+
+// Use dynamic import for RichTextEditor to avoid SSR issues
+const RichTextEditor = dynamic(
+  () => import('@/app/components/RichTextEditor'),
+  { ssr: false }
+);
+
+const RichTextPreview = dynamic(
+  () => import('@/app/components/RichTextPreview'),
+  { ssr: false }
+);
 
 export default function CMSAdminPage() {
   const [content, setContent] = useState<CMSContentResponse[]>([]);
@@ -21,10 +33,16 @@ export default function CMSAdminPage() {
     language: 'en',
     title: '',
     subtitle: '',
-    body: '',
+    body: {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [] }]
+    }, // Initialize with an empty paragraph for TipTap as JSON
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [previewData, setPreviewData] = useState<{ title: string; body: object | string } | null>(null);
+  
+  console.log(formData.body)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,7 +103,10 @@ export default function CMSAdminPage() {
         language: 'en',
         title: '',
         subtitle: '',
-        body: '',
+        body: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [] }]
+        },
       });
 
       setSuccess('Content created successfully!');
@@ -229,39 +250,32 @@ export default function CMSAdminPage() {
               />
             </div>
           </div>
-
-          <div>
-            <label htmlFor="subtitle" className="block text-sm font-medium text-gray-700 mb-1">
-              Subtitle
-            </label>
-            <input
-              id="subtitle"
-              name="subtitle"
-              type="text"
-              value={formData.subtitle}
-              onChange={handleChange}
-              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
-              placeholder="Page Subtitle"
-            />
-          </div>
-
           <div>
             <label htmlFor="body" className="block text-sm font-medium text-gray-700 mb-1">
               Body Content *
             </label>
-            <textarea
-              id="body"
-              name="body"
-              rows={5}
-              required
-              value={formData.body}
-              onChange={handleChange}
-              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
-              placeholder="Page content in markdown format..."
+            <RichTextEditor
+              content={formData.body}
+              onChange={(json) => setFormData(prev => ({ ...prev, body: json }))}
+              // weird formatting, do not include a placeholder
+              placeholder=""
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Use the toolbar to format text, add links, and insert images.
+            </p>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end space-x-4">
+            <button
+              type="button"
+              onClick={() => setPreviewData({
+                title: formData.title,
+                body: formData.body
+              })}
+              className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Preview
+            </button>
             <button
               type="submit"
               className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -323,6 +337,9 @@ export default function CMSAdminPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {item.draft_content?.title || 'No title'}
+                      <span className="text-xs text-gray-400 ml-2">
+                        {item.draft_content?.body ? '(Rich content available)' : ''}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {item.language}
@@ -357,6 +374,17 @@ export default function CMSAdminPage() {
                         >
                           Delete
                         </button>
+                        {item.draft_content?.body && (
+                          <button
+                            onClick={() => setPreviewData({
+                              title: item.draft_content?.title || '',
+                              body: item.draft_content?.body || ''
+                            })}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Preview
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -366,6 +394,40 @@ export default function CMSAdminPage() {
           </div>
         )}
       </div>
+
+      {/* Preview Modal */}
+      {previewData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">{previewData.title}</h2>
+                <button 
+                  onClick={() => setPreviewData(null)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="border-t pt-4">
+                <RichTextPreview content={previewData.body} />
+              </div>
+              
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setPreviewData(null)}
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

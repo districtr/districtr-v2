@@ -4,7 +4,7 @@ import {useParentSize} from '@visx/responsive';
 import {Box, Flex, Heading} from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import PlaceMapSvg from './PlaceMapSvg';
-import { useMapStore } from '@/app/store/mapStore';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const background = '#FFFFFF';
 export const FILL_COLOR = '#0099cd';
