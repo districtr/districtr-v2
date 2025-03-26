@@ -93,7 +93,8 @@ interface CmsFormStore {
   loadData: (contentType: CmsContentTypes) => Promise<void>;
   loadMapList: () => Promise<DistrictrMap[] | undefined>;
   handleChange: <T extends keyof BaseFormData | 'districtr_map_slug' | 'districtr_map_slugs'>(
-    property: T
+    property: T,
+    multiple?: boolean
   ) => (value: any) => void;
   handleSubmit: () => Promise<void>;
   handleDelete: (id: string) => Promise<void>;
@@ -153,21 +154,40 @@ export const useCmsFormStore = create(
     },
 
     // Handle form field changes
-    handleChange: property => value => {
-      const formData = get().formData;
-      if (!formData) return;
+    handleChange:
+      (property, multiple = false) =>
+      value => {
+        const {contentType, formData: _formData} = get();
+        if (!_formData || !contentType) return;
 
-      // Create a new form data object with updated property
-      const newFormData = {
-        contentType: formData.contentType,
-        content: {
-          ...formData.content,
-          [property]: value,
-        },
-      };
-
-      set({formData: newFormData});
-    },
+        if (!multiple) {
+          // Create a new form data object with updated property
+          const newFormData = {
+            contentType: _formData.contentType,
+            content: {
+              ..._formData.content,
+              [property]: value,
+            },
+          };
+          set({formData: newFormData});
+        } else {
+          let newValue = (_formData.content[property as keyof typeof _formData.content] ??
+            []) as string[];
+          if (newValue.includes(value)) {
+            newValue = newValue.filter(v => v !== value);
+          } else {
+            newValue.push(value);
+          }
+          const newFormData = {
+            contentType: _formData.contentType,
+            content: {
+              ..._formData.content,
+              [property]: newValue,
+            },
+          };
+          set({formData: newFormData});
+        }
+      },
 
     // Submit form data (create or update)
     handleSubmit: async () => {

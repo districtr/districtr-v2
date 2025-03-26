@@ -3,6 +3,7 @@ import {useCmsFormStore} from '@/app/store/cmsFormStore';
 import {LANG_MAPPING} from '@/app/utils/language';
 import {Box, Button, Flex, Grid, Heading, Select, Text, TextField} from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
+import {CheckCircledIcon} from '@radix-ui/react-icons';
 
 const RichTextEditor = dynamic(() => import('@/app/components/RichTextEditor'), {ssr: false});
 
@@ -16,7 +17,7 @@ export const ContentEditor: React.FC = () => {
   const cancelEdit = useCmsFormStore(state => state.cancelEdit);
   const handleSubmit = useCmsFormStore(state => state.handleSubmit);
   const setPreviewData = useCmsFormStore(state => state.setPreviewData);
-  console.log('formData', formData);
+
   return (
     <Flex direction="column" gapY="4" p="6" className="bg-white shadow rounded-lg">
       <Heading as="h2" className="text-xl font-semibold">
@@ -106,47 +107,40 @@ export const ContentEditor: React.FC = () => {
         )}
 
         {contentType === 'places' && (
-          <Box>
+          <Flex direction="column">
             <Text as="label" htmlFor="districtr_map_slug">
               Map (optional)
             </Text>
             <Select.Root
               // @ts-ignore
               value={formData?.content.districtr_map_slugs}
-              onValueChange={value => {
-                // setFormData(prev => {
-                //   // @ts-ignore
-                //   if (prev.districtr_map_slugs.includes(value)) {
-                //     return {
-                //       ...prev,
-                //       // @ts-ignore
-                //       districtr_map_slugs: prev.districtr_map_slugs.filter(
-                //         // @ts-ignore
-                //         slug => slug !== value
-                //       ),
-                //     };
-                //   }
-                //   return {
-                //     ...prev,
-                //     // @ts-ignore
-                //     districtr_map_slugs: [...prev.districtr_map_slugs, value],
-                //   };
-                // });
-              }}
+              onValueChange={handleChange('districtr_map_slugs', true)}
             >
               {' '}
-              <Select.Trigger />
+              <Select.Trigger>
+                <Text>
+                  {/* @ts-ignore */}
+                  {formData.content.districtr_map_slugs?.length //@ts-ignore
+                    ? formData.content.districtr_map_slugs.length + ' maps selected'
+                    : 'Select a map'}
+                </Text>
+              </Select.Trigger>
               <Select.Content>
                 {maps.map((map, i) => (
                   <Select.Item key={i} value={map.districtr_map_slug}>
                     {/* @ts-ignore */}
-                    {formData.districtr_map_slugs?.includes(map.districtr_map_slug) ? '✅ ' : ''}
-                    {map.name}
+                    <Flex direction="row" gapX="1">
+                      {/* @ts-ignore */}
+                      {formData?.content.districtr_map_slugs?.includes(map.districtr_map_slug) ? (
+                        <CheckCircledIcon color="green" />
+                      ) : null}
+                      <Text>{map.name}</Text>
+                    </Flex>
                   </Select.Item>
                 ))}
               </Select.Content>
             </Select.Root>
-          </Box>
+          </Flex>
         )}
       </Grid>
       <Flex direction={'column'} gapY="2">

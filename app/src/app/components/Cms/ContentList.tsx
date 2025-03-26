@@ -16,7 +16,9 @@ export const ContentList: React.FC = () => {
       </Heading>
 
       {!content || content.length === 0 ? (
-        <Blockquote color="gray" className="m-6 mt-0">No content found</Blockquote>
+        <Blockquote color="gray" className="m-6 mt-0">
+          No content found
+        </Blockquote>
       ) : (
         <div className="overflow-x-auto">
           <Table.Root>
