@@ -20,7 +20,7 @@ export const PlaceMapModal: React.FC = () => {
         </Link>
       </Dialog.Trigger>
       <Dialog.Content maxWidth="80vw" className="overflow-hidden">
-        <ResponsivePlaceMap />
+        {modalOpen && <ResponsivePlaceMap />}
       </Dialog.Content>
     </Dialog.Root>
   );
