@@ -45,7 +45,7 @@ export const PlaceMapSvg: React.FC<{
                 strokeWidth={1}
                 onMouseEnter={() => onHover(entry)}
                 onMouseLeave={() => onHover(null)}
-                onClick={() => onClick(entry.abbr)}
+                onClick={() => onClick(entry.name)}
               />
             );
           })
@@ -54,5 +54,3 @@ export const PlaceMapSvg: React.FC<{
     </svg>
   );
 };
-
-

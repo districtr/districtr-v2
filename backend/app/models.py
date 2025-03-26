@@ -433,17 +433,8 @@ class CMSContentCreate(BaseModel):
     language: LanguageEnum = LanguageEnum.ENGLISH
     draft_content: Dict[str, Any] | None = None
     published_content: Dict[str, Any] | None = None
-
-
-class TagsCMSContentCreate(CMSContentCreate):
     districtr_map_slug: str | None = None
-
-
-class PlacesCMSContentCreate(CMSContentCreate):
     districtr_map_slugs: list[str] | None = None
-
-
-CmsContentCreate = TagsCMSContentCreate | PlacesCMSContentCreate
 
 
 class TagsCMSContentUpdate(BaseModel):

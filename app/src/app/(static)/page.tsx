@@ -7,7 +7,7 @@ import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
 
 const Main: React.FC = () => {
   return (
-    <Flex direction="column" className="min-h-[300vh] px-12 max-w-screen-xl mx-auto" gapY="9">
+    <Flex direction="column" className="px-12 max-w-screen-xl mx-auto" gapY="9">
       <Flex direction="column" align="center" justify="center">
         <Image src="/districtr_logo.jpg" alt="logo" width={800} height={300} />
         <Heading size="7" as="h2" className="pb-4">
@@ -126,7 +126,7 @@ const Main: React.FC = () => {
         </Flex>
       </ContentSection>
       <ContentSection title="Where would you like to start?">
-        <Box className="max-w-4xl w-full h-[50vh] mx-auto">
+        <Box className="w-full aspect-square mx-auto lg:aspect-video">
           <ResponsivePlaceMap />
         </Box>
         <Heading size="6" as="h3" className="text-right mt-4">

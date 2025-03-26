@@ -23,9 +23,13 @@ export const PlaceSelector: React.FC<{onChange: (abbr: string) => void}> = ({onC
         placeholder={!hovered?.name ? 'Choose a state to redistrict' : hovered.name}
       />
       <Select.Content>
-        {Object.values(stateAbbrs).sort((a,b) => a.name.localeCompare(b.name)).map((place: {name: string; abbr: string}, i: number) => (
-          <Select.Item value={place.abbr}>{place.name}</Select.Item>
-        ))}
+        {Object.values(stateAbbrs)
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((place: {name: string; abbr: string}, i: number) => (
+            <Select.Item value={place.name} key={i}>
+              {place.name}
+            </Select.Item>
+          ))}
       </Select.Content>
     </Select.Root>
   );
@@ -33,7 +37,8 @@ export const PlaceSelector: React.FC<{onChange: (abbr: string) => void}> = ({onC
 export const PlaceMap: React.FC<{width: number; height: number}> = ({width, height}) => {
   const setHovered = usePlaceMapStore(state => state.setHovered);
   const router = useRouter();
-  const handleRoute = (name: string) => router.push(`/place/${name}`);
+  const handleRoute = (name: string) =>
+    router.push(`/place/${name.toLowerCase().replaceAll(' ', '-')}`);
   return width < 10 ? null : (
     <Flex direction="column" align="center" justify={'center'}>
       <PlaceMapSvg width={width} height={height} onHover={setHovered} onClick={handleRoute} />

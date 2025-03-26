@@ -8,7 +8,7 @@ import logging
 
 from app.core.db import engine
 from app.models import (
-    CmsContentCreate,
+    CMSContentCreate,
     CmsContentUpdate,
     CMSContentPublicWithLanguages,
     AllCMSContentPublic,
@@ -28,17 +28,18 @@ def get_session():
 
 @router.post(
     "/content/{type}",
-    response_model=CmsContentCreate,
+    response_model=CMSContentCreate,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_cms_content(
     type: CMSContentTypesEnum,
-    data: CmsContentCreate,
+    data: CMSContentCreate,
     session: Session = Depends(get_session),
 ):
     """Create a new CMS content entry"""
     # Check if content with same slug and language already exists
     CmsModel = CMS_MODEL_MAP[type]
+    print("!!!", data)
     existing = session.exec(
         select(CmsModel)
         .where(CmsModel.slug == data.slug)
@@ -50,20 +51,8 @@ async def create_cms_content(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Content with slug '{data.slug}' and language '{data.language}' already exists",
         )
-    kwargs = {
-        "id": str(uuid.uuid4()),
-        "slug": data.slug,
-        "language": data.language,
-        "draft_content": data.draft_content,
-        "published_content": data.published_content,
-    }
-    if type == "tags":
-        kwargs["districtr_map_slug"] = data.districtr_map_slug
-        content = CmsModel(**kwargs)
-    elif type == "places":
-        kwargs["distirctr_map_slugs"] = data.distirctr_map_slugs
-        content = CmsModel(**kwargs)
 
+    content = CmsModel(id=str(uuid.uuid4()), **data.dict())
     session.add(content)
     session.commit()
     session.refresh(content)
