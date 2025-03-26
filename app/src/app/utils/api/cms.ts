@@ -1,10 +1,12 @@
 import axios from 'axios';
 import {API_URL} from './constants';
+import { LANG_MAPPING } from '../language';
 
 // Define interfaces for CMS content
 export interface CMSContentCreate {
   slug: string;
-  districtr_map_slug?: string | null;
+  districtr_map_slug?: string | undefined;
+  districtr_map_slugs?: string[] | undefined;
   language: string;
   draft_content?: Record<string, any> | null;
   published_content?: Record<string, any> | null;
@@ -13,7 +15,7 @@ export interface CMSContentCreate {
 export interface CMSContent {
   id: string;
   slug: string;
-  language: string;
+  language: keyof typeof LANG_MAPPING;
   draft_content: Record<string, any> | null;
   published_content: Record<string, any> | null;
   created_at: string;
@@ -26,7 +28,28 @@ export interface TagsCMSContent extends CMSContent {
 export interface PlacesCMSContent extends CMSContent {
   districtr_map_slugs: string[] | null;
 }
+
 export type AllCmsContent = TagsCMSContent | PlacesCMSContent;
+export type AllCmsLists =
+  | {
+      contentType: 'tags';
+      content: TagsCMSContent[];
+    }
+  | {
+      contentType: 'places';
+      content: PlacesCMSContent[];
+    };
+
+export type AllCmsEntries =
+  | {
+      contentType: 'tags';
+      content: TagsCMSContent;
+    }
+  | {
+      contentType: 'places';
+      content: PlacesCMSContent;
+    };
+
 
 export interface CMSContentResponseWithLanguages<T = TagsCMSContent | PlacesCMSContent> {
   content: T;
@@ -68,14 +91,17 @@ export const getCMSContent = async (
 export const listCMSContent = async (
   type: CmsContentTypes,
   params: {language?: string; districtr_map_slug?: string} = {}
-): Promise<TagsCMSContent[] | PlacesCMSContent[]> => {
+): Promise<AllCmsLists> => {
   try {
     const url = new URL(`${API_URL}/api/cms/content/${type}`);
     if (params.language) url.searchParams.append('language', params.language);
     if (params.districtr_map_slug)
       url.searchParams.append('districtr_map_slug', params.districtr_map_slug);
     const response = await axios.get(url.toString());
-    return response.data;
+    return {
+      contentType: type,
+      content: response.data,
+    };
   } catch (error) {
     console.error('Error listing CMS content:', error);
     throw error;

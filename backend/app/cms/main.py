@@ -234,6 +234,7 @@ async def publish_cms_content(
         )
 
     content.published_content = content.draft_content
+    content.draft_content = None
     session.add(content)
     session.commit()
     session.refresh(content)

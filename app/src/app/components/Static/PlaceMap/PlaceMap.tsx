@@ -15,7 +15,7 @@ export const colors: string[] = ['#744DCA', '#3D009C', '#9020FF', '#C630FD'];
 export const PlaceMap: React.FC<{width: number; height: number}> = ({width, height}) => {
   const [hovered, setHovered] = useState<string | null>(null);
   const mapViews = useMapStore(state => state.mapViews);
-  console.log(mapViews);
+
   const hoveredTitleCase = hovered
     ?.split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
