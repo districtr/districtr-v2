@@ -16,7 +16,7 @@ export const ContentEditor: React.FC = () => {
   const cancelEdit = useCmsFormStore(state => state.cancelEdit);
   const handleSubmit = useCmsFormStore(state => state.handleSubmit);
   const setPreviewData = useCmsFormStore(state => state.setPreviewData);
-
+  console.log('formData', formData);
   return (
     <Flex direction="column" gapY="4" p="6" className="bg-white shadow rounded-lg">
       <Heading as="h2" className="text-xl font-semibold">
@@ -140,7 +140,7 @@ export const ContentEditor: React.FC = () => {
                 {maps.map((map, i) => (
                   <Select.Item key={i} value={map.districtr_map_slug}>
                     {/* @ts-ignore */}
-                    {formData.districtr_map_slugs.includes(map.districtr_map_slug) ? '✅ ' : ''}
+                    {formData.districtr_map_slugs?.includes(map.districtr_map_slug) ? '✅ ' : ''}
                     {map.name}
                   </Select.Item>
                 ))}

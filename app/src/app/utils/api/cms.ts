@@ -1,6 +1,6 @@
 import axios from 'axios';
 import {API_URL} from './constants';
-import { LANG_MAPPING } from '../language';
+import {LANG_MAPPING} from '../language';
 
 // Define interfaces for CMS content
 export interface CMSContentCreate {
@@ -49,7 +49,6 @@ export type AllCmsEntries =
       contentType: 'places';
       content: PlacesCMSContent;
     };
-
 
 export interface CMSContentResponseWithLanguages<T = TagsCMSContent | PlacesCMSContent> {
   content: T;

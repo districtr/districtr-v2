@@ -2,12 +2,7 @@
 
 import React, {useEffect} from 'react';
 import {CmsContentTypes} from '@/app/utils/api/cms';
-import {
-  Blockquote,
-  Box,
-  Heading,
-  Flex,
-} from '@radix-ui/themes';
+import {Blockquote, Box, Heading, Flex} from '@radix-ui/themes';
 // Use dynamic import for RichTextEditor to avoid SSR issues
 import {ContentPreviewModal} from '@/app/components/Cms/ContentPreviewModal';
 import {useCmsFormStore} from '@/app/store/cmsFormStore';
