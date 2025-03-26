@@ -1,14 +1,3 @@
-// const [content, setContent] = useState<AllCmsContent[]>([]);
-// const [maps, setMaps] = useState<DistrictrMap[]>([]);
-// const [loading, setLoading] = useState(true);
-// const [formData, setFormData] = useState(structuredClone(allBaseFormData[contentType]));
-// const [error, setError] = useState('');
-// const [success, setSuccess] = useState('');
-// const [previewData, setPreviewData] = useState<{title: string; body: object | string} | null>(
-//   null
-// );
-// const [editingContent, setEditingContent] = useState<AllCmsContent | null>(null);
-
 import {create} from 'zustand';
 import {MinimalPreviewData} from '../components/Cms/types';
 import {
@@ -29,6 +18,7 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import {DistrictrMap} from '../utils/api/apiHandlers/types';
 import {getAvailableDistrictrMaps} from '../utils/api/apiHandlers/getAvailableDistrictrMaps';
 
+// Base form data interface with common fields
 interface BaseFormData {
   slug: string;
   language: keyof typeof LANG_MAPPING;
@@ -36,24 +26,35 @@ interface BaseFormData {
   subtitle: string;
   body: object;
 }
+
+// Content type specific form data interfaces
 interface TagsFormData extends BaseFormData {
   districtr_map_slug: string;
 }
+
 interface PlacesFormData extends BaseFormData {
   districtr_map_slugs: string[];
 }
+
+// Map content types to their form data types
+type ContentFormDataMap = {
+  'tags': TagsFormData;
+  'places': PlacesFormData;
+}
+
+// Union type of all possible form field types
 type AllFormFields = BaseFormData | TagsFormData | PlacesFormData;
 
-type AllFormData =
-  | {
-      contentType: 'tags';
-      content: TagsFormData;
-    }
-  | {
-      contentType: 'places';
-      content: PlacesFormData;
-    };
+// Generic form data type parameterized by content type
+type FormData<T extends CmsContentTypes> = {
+  contentType: T;
+  content: ContentFormDataMap[T];
+}
 
+// Union type of all possible form data types
+type AllFormData = FormData<'tags'> | FormData<'places'>;
+
+// Base form data with default values
 const baseFormData: BaseFormData = {
   slug: '',
   language: 'en',
@@ -64,20 +65,43 @@ const baseFormData: BaseFormData = {
     content: [{type: 'paragraph', content: []}],
   },
 };
+
+// Content type specific form data with default values
 const tagsBaseFormData: TagsFormData = {
   ...baseFormData,
   districtr_map_slug: '',
 };
+
 const placesBaseFormData: PlacesFormData = {
   ...baseFormData,
   districtr_map_slugs: [],
 };
 
-const allBaseFormData: Record<CmsContentTypes, TagsFormData | PlacesFormData> = {
+// Map content types to their base form data
+const allBaseFormData: Record<CmsContentTypes, ContentFormDataMap[CmsContentTypes]> = {
   tags: tagsBaseFormData,
   places: placesBaseFormData,
 };
 
+// Type guard functions to check form data types
+function isTagsFormData(formData: AllFormData): formData is FormData<'tags'> {
+  return formData.contentType === 'tags';
+}
+
+function isPlacesFormData(formData: AllFormData): formData is FormData<'places'> {
+  return formData.contentType === 'places';
+}
+
+// Type guard functions for content entries
+function isTagsEntry(entry: AllCmsEntries): entry is { contentType: 'tags', content: TagsCMSContent } {
+  return entry.contentType === 'tags';
+}
+
+function isPlacesEntry(entry: AllCmsEntries): entry is { contentType: 'places', content: PlacesCMSContent } {
+  return entry.contentType === 'places';
+}
+
+// Store interface with generic methods
 interface CmsFormStore {
   content: AllCmsLists | null;
   contentType: CmsContentTypes | null;
@@ -123,14 +147,18 @@ export const useCmsFormStore = create(
           listCMSContent(contentType),
           get().loadMapList(),
         ]);
+        
+        // Use type assertion with generic parameter
+        const formData: FormData<typeof contentType> = {
+          contentType,
+          content: structuredClone(allBaseFormData[contentType]),
+        };
+        
         set({
           content,
           contentType,
           maps: mapsData,
-          formData: {
-            contentType,
-            content: structuredClone(allBaseFormData[contentType]),
-          } as AllFormData,
+          formData,
         });
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -142,13 +170,16 @@ export const useCmsFormStore = create(
     handleChange: property => value => {
       const _formData = get().formData;
       if (!_formData) return;
-      const newFormData = {
+      
+      // Create a properly typed new form data object
+      const newFormData: AllFormData = {
         contentType: _formData.contentType,
         content: {
-          ..._formData?.content,
+          ..._formData.content,
           [property]: value,
-        },
-      } as AllFormData;
+        } as ContentFormDataMap[typeof _formData.contentType],
+      };
+      
       set({
         formData: newFormData,
       });
@@ -158,8 +189,10 @@ export const useCmsFormStore = create(
         error: '',
         success: '',
       });
+      
       const {formData, editingContent, contentType} = get();
       if (!formData?.content || !contentType) return;
+      
       try {
         // Create draft content object
         const draftContent = {
@@ -170,48 +203,47 @@ export const useCmsFormStore = create(
 
         if (editingContent) {
           // Update existing content
+          // Base content object with common fields
           let content: Partial<CMSContentCreate> = {
             slug: formData.content.slug,
             language: formData.content.language,
             draft_content: draftContent,
           };
 
-          switch (contentType) {
-            case 'tags':
-              content = {
-                ...content,
-                // @ts-ignore
-                districtr_map_slug: (formData.content as TagsFormData).districtr_map_slug || null,
-              };
-              break;
-            case 'places':
-              content = {
-                ...content,
-                districtr_map_slugs:
-                  (formData.content as PlacesFormData).districtr_map_slugs || null,
-              };
-              break;
+          // Add type-specific fields using type guards
+          if (isTagsFormData(formData)) {
+            content = {
+              ...content,
+              districtr_map_slug: formData.content.districtr_map_slug || null,
+            };
+          } else if (isPlacesFormData(formData)) {
+            content = {
+              ...content,
+              districtr_map_slugs: formData.content.districtr_map_slugs || null,
+            };
           }
+          
           await updateCMSContent(editingContent.content.id, contentType, content);
           set({
             success: 'Content updated successfully!',
             editingContent: null, // Exit edit mode
           });
         } else {
+          // Create new content with proper typing
           let content: CMSContentCreate = {
             slug: formData.content.slug,
             language: formData.content.language,
             draft_content: draftContent,
             published_content: null,
-            districtr_map_slug:
-              contentType === 'tags'
-                ? (formData.content as TagsFormData).districtr_map_slug
-                : undefined,
-            districtr_map_slugs:
-              contentType === 'places'
-                ? (formData.content as PlacesFormData).districtr_map_slugs
-                : undefined,
           };
+          
+          // Add type-specific fields using type guards
+          if (isTagsFormData(formData)) {
+            content.districtr_map_slug = formData.content.districtr_map_slug;
+          } else if (isPlacesFormData(formData)) {
+            content.districtr_map_slugs = formData.content.districtr_map_slugs;
+          }
+          
           // Create new content
           await createCMSContent(content, contentType);
           set({
@@ -222,12 +254,14 @@ export const useCmsFormStore = create(
         // Refresh content list
         const newContent = await listCMSContent(contentType);
 
-        // Reset form
+        // Reset form with proper typing
+        const resetFormData: FormData<typeof contentType> = {
+          contentType,
+          content: structuredClone(allBaseFormData[contentType]),
+        };
+        
         set({
-          formData: {
-            contentType,
-            content: structuredClone(allBaseFormData[contentType]),
-          } as AllFormData,
+          formData: resetFormData,
           content: newContent,
         });
       } catch (err: any) {
@@ -246,12 +280,19 @@ export const useCmsFormStore = create(
             return
           }
           await deleteCMSContent(id, contentType);
+          
+          const currentContent = get().content;
+          if (!currentContent) return;
+          
+          // Create properly typed updated content
+          const updatedContent: AllCmsLists = {
+            contentType: currentContent.contentType,
+            content: currentContent.content.filter(item => item.id !== id),
+          };
+          
           set({
             success: 'Content deleted successfully!',
-            content: {
-              ...get().content,
-              content: get().content?.content.filter(item => item.id !== id) || [],
-            } as AllCmsLists,
+            content: updatedContent,
           });
         } catch (err) {
           console.error('Error deleting content:', err);
@@ -270,13 +311,21 @@ export const useCmsFormStore = create(
           });
           return;
         }
+        
         const updated = await publishCMSContent(id, contentType);
+        
+        const currentContent = get().content;
+        if (!currentContent) return;
+        
+        // Create properly typed updated content
+        const updatedContent: AllCmsLists = {
+          contentType: currentContent.contentType,
+          content: currentContent.content.map(item => (item.id === id ? updated : item)),
+        };
+        
         set({
           success: 'Content published successfully!',
-          content: {
-            ...get().content,
-            content: get().content?.content.map(item => (item.id === id ? updated : item)) || [],
-          } as AllCmsLists,
+          content: updatedContent,
         });
       } catch (err) {
         console.error('Error publishing content:', err);
@@ -288,6 +337,7 @@ export const useCmsFormStore = create(
     handleEdit: _item => {
       const contentType = get().contentType;
       if (!contentType) return;
+      
       const item = {
         ..._item,
         draft_content: _item.draft_content ?? _item.published_content ?? null,
@@ -298,7 +348,9 @@ export const useCmsFormStore = create(
               ? 'published'
               : 'draft',
       };
-      let formData: Partial<AllFormData['content']> = {
+      
+      // Set up base form data fields
+      let formData: Partial<BaseFormData> = {
         slug: item.slug,
         language: item.language,
         title: item.draft_content?.title || '',
@@ -308,38 +360,59 @@ export const useCmsFormStore = create(
           content: [{type: 'paragraph', content: []}],
         },
       };
-      switch (contentType) {
-        case 'tags':
-          formData = {
-            ...formData,
-            // @ts-ignore
-            districtr_map_slug: item.districtr_map_slug,
-          };
-          break;
-        case 'places':
-          formData = {
-            ...formData,
-            // @ts-ignore
-            districtr_map_slugs: item.districtr_map_slugs,
-          };
-          break;
+      
+      // Create type-specific form data based on content type
+      let typedFormData: AllFormData;
+      
+      if (contentType === 'tags') {
+        // Cast item to TagsCMSContent to access type-specific fields
+        const tagsItem = item as TagsCMSContent;
+        typedFormData = {
+          contentType: 'tags',
+          content: {
+            ...formData as BaseFormData,
+            districtr_map_slug: tagsItem.districtr_map_slug || '',
+          },
+        };
+      } else if (contentType === 'places') {
+        // Cast item to PlacesCMSContent to access type-specific fields
+        const placesItem = item as PlacesCMSContent;
+        typedFormData = {
+          contentType: 'places',
+          content: {
+            ...formData as BaseFormData,
+            districtr_map_slugs: placesItem.districtr_map_slugs || [],
+          },
+        };
+      } else {
+        // This should never happen if contentType is properly typed
+        return;
       }
+      
+      // Create typed editing content
+      const editingContent: AllCmsEntries = {
+        contentType,
+        content: item as (TagsCMSContent | PlacesCMSContent),
+      };
+      
       set({
-        // @ts-ignore
-        editingContent: {contentType, content: item},
-        // @ts-ignore
-        formData: {contentType, content: formData},
+        editingContent,
+        formData: typedFormData,
       });
     },
     cancelEdit: () => {
       const contentType = get().contentType;
       if (!contentType) return;
+      
+      // Create properly typed reset form data
+      const resetFormData: FormData<typeof contentType> = {
+        contentType,
+        content: structuredClone(allBaseFormData[contentType]),
+      };
+      
       set({
         editingContent: null,
-        formData: {
-          contentType,
-          content: structuredClone(allBaseFormData[contentType]),
-        } as AllFormData,
+        formData: resetFormData,
       });
     },
   }))
