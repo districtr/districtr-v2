@@ -8,17 +8,17 @@ import {HamburgerMenuIcon} from '@radix-ui/react-icons';
 
 export const Header: React.FC = () => {
   const linkItems = [
-    <NextLink legacyBehavior href="/guide">
+    <NextLink legacyBehavior href="/guide" key={`link-items-1`}>
       <Link>GET STARTED</Link>
     </NextLink>,
-    <PlaceMapModal />,
-    <NextLink legacyBehavior href="/about">
+    <PlaceMapModal key={`link-items-2`}/>,
+    <NextLink legacyBehavior href="/about" key={`link-items-3`}>
       <Link>ABOUT</Link>
     </NextLink>,
-    <NextLink legacyBehavior href="/updates">
+    <NextLink legacyBehavior href="/updates" key={`link-items-4`}>
       <Link>WHAT&apos;S NEW?</Link>
     </NextLink>,
-    <NextLink legacyBehavior href="https://mggg.org/" target="_blank">
+    <NextLink legacyBehavior href="https://mggg.org/" target="_blank" key={`link-items-5`}>
       <Image src="/mggg.svg" alt="MGGG" width={100} height={50} className="cursor-pointer" />
     </NextLink>,
   ];
