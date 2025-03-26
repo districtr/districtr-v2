@@ -3,18 +3,11 @@
 import React, {useEffect} from 'react';
 import {CmsContentTypes} from '@/app/utils/api/cms';
 import {
-  Button,
-  TextField,
-  Select,
   Blockquote,
   Box,
   Heading,
   Flex,
-  Text,
-  Grid,
 } from '@radix-ui/themes';
-import {LANG_MAPPING} from '@/app/utils/language';
-
 // Use dynamic import for RichTextEditor to avoid SSR issues
 import {ContentPreviewModal} from '@/app/components/Cms/ContentPreviewModal';
 import {useCmsFormStore} from '@/app/store/cmsFormStore';

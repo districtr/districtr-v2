@@ -42,6 +42,12 @@ type ContentFormDataMap = {
   'places': PlacesFormData;
 }
 
+// Map content types to their CMS content types
+type ContentTypeMap = {
+  'tags': TagsCMSContent;
+  'places': PlacesCMSContent;
+}
+
 // Union type of all possible form field types
 type AllFormFields = BaseFormData | TagsFormData | PlacesFormData;
 
@@ -49,6 +55,18 @@ type AllFormFields = BaseFormData | TagsFormData | PlacesFormData;
 type FormData<T extends CmsContentTypes> = {
   contentType: T;
   content: ContentFormDataMap[T];
+}
+
+// Generic CMS list type parameterized by content type
+type CmsList<T extends CmsContentTypes> = {
+  contentType: T;
+  content: ContentTypeMap[T][];
+}
+
+// Generic CMS entry type parameterized by content type
+type CmsEntry<T extends CmsContentTypes> = {
+  contentType: T;
+  content: ContentTypeMap[T];
 }
 
 // Union type of all possible form data types
@@ -78,7 +96,9 @@ const placesBaseFormData: PlacesFormData = {
 };
 
 // Map content types to their base form data
-const allBaseFormData: Record<CmsContentTypes, ContentFormDataMap[CmsContentTypes]> = {
+const allBaseFormData: {
+  [K in CmsContentTypes]: ContentFormDataMap[K]
+} = {
   tags: tagsBaseFormData,
   places: placesBaseFormData,
 };
@@ -92,14 +112,43 @@ function isPlacesFormData(formData: AllFormData): formData is FormData<'places'>
   return formData.contentType === 'places';
 }
 
+// Type guard functions for content lists
+function isTagsList(content: AllCmsLists): content is CmsList<'tags'> {
+  return content.contentType === 'tags';
+}
+
+function isPlacesList(content: AllCmsLists): content is CmsList<'places'> {
+  return content.contentType === 'places';
+}
+
 // Type guard functions for content entries
-function isTagsEntry(entry: AllCmsEntries): entry is { contentType: 'tags', content: TagsCMSContent } {
+function isTagsEntry(entry: AllCmsEntries): entry is CmsEntry<'tags'> {
   return entry.contentType === 'tags';
 }
 
-function isPlacesEntry(entry: AllCmsEntries): entry is { contentType: 'places', content: PlacesCMSContent } {
+function isPlacesEntry(entry: AllCmsEntries): entry is CmsEntry<'places'> {
   return entry.contentType === 'places';
 }
+
+// Helper to create a properly typed form data object
+function createFormData<T extends CmsContentTypes>(
+  contentType: T,
+  content: ContentFormDataMap[T]
+): FormData<T> {
+  return { contentType, content };
+}
+
+// Generic partial state type for better typing with set()
+type PartialState<T extends CmsContentTypes | null> = {
+  content?: CmsList<Exclude<T, null>> | null;
+  contentType?: T;
+  maps?: DistrictrMap[];
+  formData?: FormData<Exclude<T, null>> | null;
+  error?: string;
+  success?: string;
+  previewData?: MinimalPreviewData;
+  editingContent?: CmsEntry<Exclude<T, null>> | null;
+};
 
 // Store interface with generic methods
 interface CmsFormStore {
@@ -121,6 +170,8 @@ interface CmsFormStore {
   handlePublish: (id: string) => Promise<void>;
   handleEdit: (item: AllCmsEntries['content']) => void;
   cancelEdit: () => void;
+  // Helper for setting state with better type safety
+  setTypedState: <T extends CmsContentTypes>(state: PartialState<T>) => void;
 }
 
 export const useCmsFormStore = create(
@@ -135,6 +186,8 @@ export const useCmsFormStore = create(
     previewData: null,
     setPreviewData: data => set({previewData: data}),
     editingContent: null,
+    // Helper for setting state with better type safety
+    setTypedState: state => set(state as Partial<CmsFormStore>),
     loadMapList: async () => {
       const existingMaps = get().maps;
       if (existingMaps.length) return existingMaps;
@@ -148,13 +201,14 @@ export const useCmsFormStore = create(
           get().loadMapList(),
         ]);
         
-        // Use type assertion with generic parameter
-        const formData: FormData<typeof contentType> = {
+        // Create properly typed form data
+        const formData = createFormData(
           contentType,
-          content: structuredClone(allBaseFormData[contentType]),
-        };
+          structuredClone(allBaseFormData[contentType])
+        );
         
-        set({
+        // Use the typed state setter
+        get().setTypedState({
           content,
           contentType,
           maps: mapsData,
@@ -168,20 +222,21 @@ export const useCmsFormStore = create(
       }
     },
     handleChange: property => value => {
-      const _formData = get().formData;
-      if (!_formData) return;
+      const formData = get().formData;
+      if (!formData) return;
+      
+      const contentType = formData.contentType;
       
       // Create a properly typed new form data object
-      const newFormData: AllFormData = {
-        contentType: _formData.contentType,
-        content: {
-          ..._formData.content,
-          [property]: value,
-        } as ContentFormDataMap[typeof _formData.contentType],
-      };
+      const newContent = {
+        ...formData.content,
+        [property]: value,
+      } as ContentFormDataMap[typeof contentType];
+      
+      const newFormData = createFormData(contentType, newContent);
       
       set({
-        formData: newFormData,
+        formData: newFormData as AllFormData,
       });
     },
     handleSubmit: async () => {
@@ -214,12 +269,12 @@ export const useCmsFormStore = create(
           if (isTagsFormData(formData)) {
             content = {
               ...content,
-              districtr_map_slug: formData.content.districtr_map_slug || null,
+              districtr_map_slug: formData.content.districtr_map_slug || undefined,
             };
           } else if (isPlacesFormData(formData)) {
             content = {
               ...content,
-              districtr_map_slugs: formData.content.districtr_map_slugs || null,
+              districtr_map_slugs: formData.content.districtr_map_slugs || undefined,
             };
           }
           
@@ -255,14 +310,16 @@ export const useCmsFormStore = create(
         const newContent = await listCMSContent(contentType);
 
         // Reset form with proper typing
-        const resetFormData: FormData<typeof contentType> = {
+        const resetFormData = createFormData(
           contentType,
-          content: structuredClone(allBaseFormData[contentType]),
-        };
+          structuredClone(allBaseFormData[contentType])
+        );
         
-        set({
+        // Use typed state setter
+        get().setTypedState({
           formData: resetFormData,
           content: newContent,
+          editingContent: null,
         });
       } catch (err: any) {
         console.error('Error saving content:', err);
@@ -285,10 +342,10 @@ export const useCmsFormStore = create(
           if (!currentContent) return;
           
           // Create properly typed updated content
-          const updatedContent: AllCmsLists = {
+          const updatedContent = {
             contentType: currentContent.contentType,
             content: currentContent.content.filter(item => item.id !== id),
-          };
+          } as AllCmsLists;
           
           set({
             success: 'Content deleted successfully!',
@@ -318,14 +375,14 @@ export const useCmsFormStore = create(
         if (!currentContent) return;
         
         // Create properly typed updated content
-        const updatedContent: AllCmsLists = {
+        const updatedContent = {
           contentType: currentContent.contentType,
           content: currentContent.content.map(item => (item.id === id ? updated : item)),
-        };
+        } as CmsList<typeof contentType>;
         
         set({
           success: 'Content published successfully!',
-          content: updatedContent,
+          content: updatedContent as AllCmsLists,
         });
       } catch (err) {
         console.error('Error publishing content:', err);
@@ -350,7 +407,7 @@ export const useCmsFormStore = create(
       };
       
       // Set up base form data fields
-      let formData: Partial<BaseFormData> = {
+      const baseFormFields: BaseFormData = {
         slug: item.slug,
         language: item.language,
         title: item.draft_content?.title || '',
@@ -361,56 +418,63 @@ export const useCmsFormStore = create(
         },
       };
       
-      // Create type-specific form data based on content type
-      let typedFormData: AllFormData;
-      
+      // Create type-specific form data and editing content based on content type
       if (contentType === 'tags') {
         // Cast item to TagsCMSContent to access type-specific fields
         const tagsItem = item as TagsCMSContent;
-        typedFormData = {
+        
+        // Create properly typed form data
+        const formData = createFormData('tags', {
+          ...baseFormFields,
+          districtr_map_slug: tagsItem.districtr_map_slug || '',
+        });
+        
+        // Create properly typed editing content
+        const editingContent: CmsEntry<'tags'> = {
           contentType: 'tags',
-          content: {
-            ...formData as BaseFormData,
-            districtr_map_slug: tagsItem.districtr_map_slug || '',
-          },
+          content: tagsItem,
         };
+        
+        // Use typed state setter
+        get().setTypedState({
+          editingContent,
+          formData,
+        });
       } else if (contentType === 'places') {
         // Cast item to PlacesCMSContent to access type-specific fields
         const placesItem = item as PlacesCMSContent;
-        typedFormData = {
+        
+        // Create properly typed form data
+        const formData = createFormData('places', {
+          ...baseFormFields,
+          districtr_map_slugs: placesItem.districtr_map_slugs || [],
+        });
+        
+        // Create properly typed editing content
+        const editingContent: CmsEntry<'places'> = {
           contentType: 'places',
-          content: {
-            ...formData as BaseFormData,
-            districtr_map_slugs: placesItem.districtr_map_slugs || [],
-          },
+          content: placesItem,
         };
-      } else {
-        // This should never happen if contentType is properly typed
-        return;
+        
+        // Use typed state setter
+        get().setTypedState({
+          editingContent,
+          formData,
+        });
       }
-      
-      // Create typed editing content
-      const editingContent: AllCmsEntries = {
-        contentType,
-        content: item as (TagsCMSContent | PlacesCMSContent),
-      };
-      
-      set({
-        editingContent,
-        formData: typedFormData,
-      });
     },
     cancelEdit: () => {
       const contentType = get().contentType;
       if (!contentType) return;
       
       // Create properly typed reset form data
-      const resetFormData: FormData<typeof contentType> = {
-        contentType,
-        content: structuredClone(allBaseFormData[contentType]),
-      };
+      const resetFormData = createFormData(
+        contentType, 
+        structuredClone(allBaseFormData[contentType])
+      );
       
-      set({
+      // Use typed state setter
+      get().setTypedState({
         editingContent: null,
         formData: resetFormData,
       });
