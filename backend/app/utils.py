@@ -9,6 +9,7 @@ from app.core.config import settings
 import bcrypt
 from urllib.parse import urlparse
 from pathlib import Path
+from app.constants import GERRY_DB_SCHEMA
 
 
 from app.models import SummaryStatisticType, UUIDType, DistrictrMap, DistrictrMapUpdate
@@ -480,3 +481,24 @@ def _remove_all_locks(session: Session) -> list[str] | None:
     except Exception as e:
         session.rollback()
         logger.error(f"Error deleting all locks: {e}")
+
+
+def create_spatial_index(
+    session: Session,
+    table_name: str,
+    schema: str = GERRY_DB_SCHEMA,
+    geometry: str = "geometry",
+    autocommit: bool = False,
+):
+    """
+    Create a spatial index on the specified table.
+
+    Args:
+        session (Session): The database session.
+        table_name (str): The name of the table to create the index on.
+    """
+    session.execute(
+        text(f"CREATE INDEX ON {GERRY_DB_SCHEMA}.{table_name} USING GIST ({geometry})"),
+    )
+    if autocommit:
+        session.commit()

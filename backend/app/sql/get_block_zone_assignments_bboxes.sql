@@ -1,5 +1,5 @@
-CREATE OR REPLACE FUNCTION get_block_assignments_geo(document_id UUID, zones INTEGER[])
-RETURNS TABLE (geo_id TEXT, zone INTEGER, geometry GEOMETRY) AS $$
+CREATE OR REPLACE FUNCTION get_block_assignments_bboxes(document_id UUID, zones INTEGER[])
+RETURNS TABLE (geo_id TEXT, zone INTEGER, bbox BOX2D) AS $$
 DECLARE
     doc_districtrmap RECORD;
     sql_query TEXT;
@@ -19,11 +19,15 @@ BEGIN
     ELSE
         sql_query := format('
             SELECT
-                assignments.*,
-                blocks.geometry
+                assignments.geo_id,
+                assignments.zone,
+                Box2D(blocks.geometry) AS bbox
             FROM get_block_assignments($1::UUID, $2) assignments
             LEFT JOIN gerrydb.%I blocks
-            ON blocks.path = assignments.geo_id
+                ON blocks.path = assignments.geo_id
+            WHERE
+                assignments.geo_id IS NOT NULL
+                AND assignments.zone = ANY($2)
         ', doc_districtrmap.child_layer);
     END IF;
 

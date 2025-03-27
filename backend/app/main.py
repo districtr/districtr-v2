@@ -58,6 +58,8 @@ from app.models import (
     BBoxGeoJSONs,
     SummaryStatisticColumnLists,
 )
+from pydantic_geojson import PolygonModel
+from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from app.utils import remove_file, _cleanup_expired_locks, _remove_all_locks
 from app.exports import (
@@ -67,6 +69,7 @@ from app.exports import (
 )
 from aiocache import Cache
 from contextlib import asynccontextmanager
+from fiona.transform import transform
 
 
 if settings.ENVIRONMENT in ("production", "qa"):
@@ -851,7 +854,7 @@ async def get_connected_component_bboxes(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"
         )
         gerrydb_name = districtr_map.child_layer
-        zone_assignments = contiguity.get_block_assignments(
+        zone_assignments = contiguity.get_block_assignments_bboxes(
             session, document_id, zones=[zone]
         )
         if len(zone_assignments) == 0:
@@ -865,74 +868,100 @@ async def get_connected_component_bboxes(
             f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
         )
         sql = text(
-            """
+            f"""
             SELECT
-                geo_id
+                geo_id,
+                st_xmin(box2d(gpd.geometry)) AS xmin,
+                st_xmax(box2d(gpd.geometry)) AS xmax,
+                st_ymin(box2d(gpd.geometry)) AS ymin,
+                st_ymax(box2d(gpd.geometry)) AS ymax
             FROM
-                document.assignments
+                document.assignments a
+            LEFT JOIN
+                gerrydb.{gerrydb_name} gpd
+                ON a.geo_id = gpd.path
             WHERE
                 document_id = :document_id
                 AND zone = :zone"""
         )
 
-        nodes = (
-            session.execute(sql, {"document_id": document_id, "zone": zone})
-            .scalars()
-            .all()
-        )
+        results = session.execute(sql, {"document_id": document_id, "zone": zone}).all()
 
-        if not nodes or len(nodes) == 0:
+        if not results or len(results) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
-        zone_assignments = contiguity.ZoneBlockNodes(zone=zone, nodes=list(nodes))
+        nodes = [row.geo_id for row in results]
+        zone_assignments = contiguity.ZoneBlockNodes(
+            zone=zone,
+            nodes=list(nodes),
+            node_data={
+                row.geo_id: {
+                    "xmin": row.xmin,
+                    "xmax": row.xmax,
+                    "ymin": row.ymin,
+                    "ymax": row.ymax,
+                }
+                for row in results
+            },
+        )
 
     G = await _get_graph(gerrydb_name)
     subgraph = G.subgraph(nodes=zone_assignments.nodes)
+
+    if zone_assignments.node_data is None:
+        raise HTTPException(status_code=404, detail="Node data is missing")
+
     zone_connected_components = connected_components(subgraph)
 
-    geo_ids_param = bindparam(key="geo_ids", type_=ARRAY(String))
-    subgraph_ids_param = bindparam(key="subgraph_ids", type_=ARRAY(String))
+    from_srid = session.execute(
+        text(
+            """SELECT srid
+                FROM geometry_columns
+                WHERE f_table_name = :table_name
+                    AND f_table_schema = 'gerrydb'
+                LIMIT 1"""
+        ),
+        {"table_name": gerrydb_name},
+    ).scalar()
 
-    sql = text(
-        f"""SELECT
-        st_asgeojson(
-            st_transform(
-                st_envelope(
-                    st_collect(
-                        geometry
-                    )
-                ), 4326
+    bboxes = []
+    for zone_connected_component in zone_connected_components:
+        minx, miny, maxx, maxy = (
+            float("inf"),
+            float("inf"),
+            float("-inf"),
+            float("-inf"),
+        )
+        for node in zone_connected_component:
+            node_data = zone_assignments.node_data[node]
+            minx = min(minx, node_data["xmin"])
+            miny = min(miny, node_data["ymin"])
+            maxx = max(maxx, node_data["xmax"])
+            maxy = max(maxy, node_data["ymax"])
+
+        print(minx, miny, maxx, maxy)
+
+        (_minx, _maxx), (_miny, _maxy) = transform(
+            xs=[minx, maxx],
+            ys=[miny, maxy],
+            src_crs=f"EPSG:{from_srid}",
+            dst_crs="EPSG:4326",
+        )
+
+        bboxes.append(
+            PolygonModel(
+                coordinates=[
+                    [
+                        Coordinates(lon=_minx, lat=_miny),
+                        Coordinates(lon=_maxx, lat=_miny),
+                        Coordinates(lon=_maxx, lat=_maxy),
+                        Coordinates(lon=_minx, lat=_maxy),
+                        Coordinates(lon=_minx, lat=_miny),
+                    ]
+                ]
             )
-        )::json as bbox
-    FROM (
-        SELECT
-            i.subgraph_index,
-            g.geometry
-        FROM
-            gerrydb.{gerrydb_name} g
-        JOIN (
-            SELECT
-                unnest(:geo_ids) as geo_id,
-                unnest(:subgraph_ids) as subgraph_index
-            ) i ON g.path = i.geo_id
-    ) AS grouped_geometries
-    GROUP BY
-        subgraph_index
-    """
-    ).bindparams(geo_ids_param, subgraph_ids_param)
+        )
 
-    # TODO: Don't love all this iteration but unfortunately postgres doesn't support
-    # multidimensional arrays with different dimensions, precluding some nice ideas
-    geo_ids = []
-    subgraph_ids = []
-    for idx, component in enumerate(zone_connected_components):
-        geo_ids.extend(component)
-        subgraph_ids.extend([idx] * len(component))
-
-    results = session.execute(
-        sql, params={"geo_ids": geo_ids, "subgraph_ids": subgraph_ids}
-    ).fetchall()
-
-    return BBoxGeoJSONs(features=[r.bbox for r in results])
+    return BBoxGeoJSONs(features=bboxes)
 
 
 @app.get("/api/document/{document_id}/demography")
