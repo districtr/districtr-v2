@@ -24,7 +24,10 @@ BEGIN
                 Box2D(blocks.geometry) AS bbox
             FROM get_block_assignments($1::UUID, $2) assignments
             LEFT JOIN gerrydb.%I blocks
-            ON blocks.path = assignments.geo_id
+                ON blocks.path = assignments.geo_id
+            WHERE
+                assignments.geo_id IS NOT NULL
+                AND assignments.zone = ANY($2)
         ', doc_districtrmap.child_layer);
     END IF;
 
