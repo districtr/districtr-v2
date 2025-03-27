@@ -50,7 +50,7 @@ async def create_cms_content(
             detail=f"Content with slug '{data.slug}' and language '{data.language}' already exists",
         )
 
-    content = CmsModel(id=str(uuid.uuid4()), **data.dict())
+    content = CmsModel(id=str(uuid.uuid4()), **data.model_dump())
     session.add(content)
     session.commit()
     session.refresh(content)
