@@ -143,10 +143,9 @@ async def publish_cms_content(
     return content
 
 
-@router.delete("/content", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/content/delete", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_cms_content(data: CMSContentDelete, session: Session = Depends(get_session)):
     """Delete CMS content by ID"""
-    logger.info("DELETING ", data)
     CMSModel = CMS_MODEL_MAP[data.content_type]
     content = session.exec(
         select(CMSModel).where(CMSModel.id == data.content_id)
@@ -222,7 +221,7 @@ async def get_cms_content(
 
         return {
             "available_languages": languages,
-            "type": type,
+            "type": content_type,
             "content": preferred_content,
         }
     except NoResultFound:

@@ -92,8 +92,8 @@ export const deleteCMSContent = async (contentId: string, type: CmsContentTypes
 
 ): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/api/cms/content`,
-      {data: {content_id: contentId, content_type: type}}
+    await axios.post(`${API_URL}/api/cms/content/delete`,
+      {content_id: contentId, content_type: type}
     );
   } catch (error) {
     console.error('Error deleting CMS content:', error);
