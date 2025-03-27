@@ -101,24 +101,18 @@ class CMSContentDelete(BaseModel):
     content_type: CMSContentTypesEnum
     content_id: UUID4
     
-class BaseCmsContentUpdate(BaseModel):
+class CmsContentUpdateFields(BaseModel):
     slug: str | None = None
     language: LanguageEnum | None = None
     draft_content: Dict[str, Any] | None = None
     published_content: Dict[str, Any] | None = None
-
-
-class TagsCMSContentUpdate(BaseCmsContentUpdate):
     districtr_map_slug: str | None = None
-
-
-class PlacesCMSContentUpdate(BaseCmsContentUpdate):
-    districtr_map_slug: list[str] | None = None
+    districtr_map_slugs: list[str] | None = None
 
 class CmsContentUpdate(BaseModel):
     content_type: CMSContentTypesEnum
     content_id: UUID4
-    updates: TagsCMSContentUpdate | PlacesCMSContentUpdate
+    updates: CmsContentUpdateFields
 
 
 class BaseCMSContentPublic(BaseModel):

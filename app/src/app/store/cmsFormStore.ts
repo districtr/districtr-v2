@@ -225,7 +225,6 @@ export const useCmsFormStore = create(
             content.updates.districtr_map_slugs =
               (formData.content as FormDataType<'places'>).districtr_map_slugs || null;
           }
-
           await updateCMSContent(content);
           set({success: 'Content updated successfully!', editingContent: null});
         } else {
