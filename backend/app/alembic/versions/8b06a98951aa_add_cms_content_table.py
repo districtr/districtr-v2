@@ -1,7 +1,7 @@
 """add_cms_content_table
 
 Revision ID: 8b06a98951aa
-Revises: 518ab28c5fd6
+Revises: b04f5bed1e48
 Create Date: 2025-03-25 14:07:52.761319
 
 """
@@ -16,7 +16,7 @@ from sqlmodel.sql.sqltypes import AutoString
 
 # revision identifiers, used by Alembic.
 revision: str = "8b06a98951aa"
-down_revision: Union[str, None] = "518ab28c5fd6"
+down_revision: Union[str, None] = "b04f5bed1e48"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
