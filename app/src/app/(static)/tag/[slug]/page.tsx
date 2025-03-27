@@ -29,7 +29,6 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         preferredLanguage={language}
         availableLanguages={cmsData.available_languages}
       />
-      <RichTextPreview content={cmsData.content.published_content.body} className="my-4" />
       {Boolean(selectedMap) && (
         <CreateButton
           view={{
@@ -37,6 +36,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
           }}
         />
       )}
+      <RichTextPreview content={cmsData.content.published_content.body} className="my-4" />
     </Flex>
   );
 }

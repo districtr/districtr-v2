@@ -85,19 +85,19 @@ const AboutTheDataBoilerplate = (
     </Text>
     <Text>
       Precincts for certain counties were not included in the shapefile provided by the
-      Demographer's Office and were digitized from maps provided by the county. Those counties are:
-      Boulder, Denver, Douglas, and El Paso. For Las Animas county, the voter file was geocoded and
-      used to identify precinct boundaries. Demographic data were aggregated from the census block
-      level and precincts were assigned to districts using{' '}
+      Demographer&apos;s Office and were digitized from maps provided by the county. Those counties
+      are: Boulder, Denver, Douglas, and El Paso. For Las Animas county, the voter file was geocoded
+      and used to identify precinct boundaries. Demographic data were aggregated from the census
+      block level and precincts were assigned to districts using{' '}
       <Link target="_blank" href="https://github.com/mggg/maup">
-        MGGG's proration software
+        MGGG&apos;s proration software
       </Link>
       .
     </Text>
     <Heading as="h3">Census Block Groups</Heading>
     <Text>
       These data were obtained from the US Census Bureau. The block group shapefiles for the Nation
-      were downloaded from the Census's{' '}
+      were downloaded from the Census&apos;s{' '}
       <Link target="_blank" href="https://www.census.gov/geo/maps-data/data/tiger-line.html">
         TIGER/Line Shapefiles
       </Link>
