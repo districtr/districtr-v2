@@ -30,7 +30,7 @@ export default async function TagsPage() {
             <Heading as="h3" size="4">
               {content.published_content!.title}
             </Heading>
-            <NextLink href={`/tag/${content.slug}`} passHref legacyBehavior>
+            <NextLink href={`/place/${content.slug}`} passHref legacyBehavior>
               <Link>Go to tag</Link>
             </NextLink>
           </Card>
