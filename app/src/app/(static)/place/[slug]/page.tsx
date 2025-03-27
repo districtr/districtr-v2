@@ -31,7 +31,8 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         preferredLanguage={language}
         availableLanguages={cmsData.available_languages}
       />
-      <RichTextPreview content={cmsData.content.published_content.body} className="my-4" />
+      <Heading as="h3">Available Plans</Heading>
+
       <Grid
         gap="2"
         columns={{
@@ -53,6 +54,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
           </>
         )}
       </Grid>
+      <RichTextPreview content={cmsData.content.published_content.body} className="my-4" />
     </Flex>
   );
 }
