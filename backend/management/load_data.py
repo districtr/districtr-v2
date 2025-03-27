@@ -9,6 +9,7 @@ from app.utils import (
     get_local_or_s3_path,
     add_extent_to_districtrmap,
     add_available_summary_stats_to_districtrmap,
+    create_spatial_index,
 )
 from app.main import get_session
 from app.core.config import settings
@@ -71,6 +72,10 @@ def import_gerrydb_view(
         logger.info("Deleted file %s", path)
 
     logger.info(f"GerryDB view {table_name} imported successfully")
+
+    logger.info("Creating index")
+    create_spatial_index(session, table_name=table_name)
+    logger.info("Index created successfully")
 
     session.commit()
 
