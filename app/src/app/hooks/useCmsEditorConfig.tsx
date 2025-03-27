@@ -7,6 +7,7 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
+import BoilerplateNode from '../components/Cms/RichTextEditor/extensions/BoilerplateNode';
 import {
   FontBoldIcon,
   FontItalicIcon,
@@ -16,6 +17,7 @@ import {
   QuoteIcon,
   StrikethroughIcon,
   UnderlineIcon,
+  InfoCircledIcon,
 } from '@radix-ui/react-icons';
 
 export const useCmsEditorConfig = (content: string | object, onChange: (json: object) => void) => {
@@ -34,6 +36,7 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
       Image.configure({
         allowBase64: true,
       }),
+      BoilerplateNode,
     ],
     content: typeof content === 'string' ? content : content,
     onUpdate: ({editor}) => {
@@ -175,6 +178,15 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         }
       },
       active: () => editor.isActive('image'),
+    },
+    {
+      title: 'Insert Boilerplate',
+      icon: InfoCircledIcon,
+      onClick: () => {
+        const customText = window.prompt('Enter custom text to appear below the boilerplate:');
+        editor.chain().focus().setBoilerplate(customText || '').run();
+      },
+      active: () => editor.isActive('boilerplateNode'),
     },
   ];
 

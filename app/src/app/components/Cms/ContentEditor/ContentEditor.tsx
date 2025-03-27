@@ -5,7 +5,7 @@ import {Box, Button, Flex, Grid, Heading, Select, Text, TextField} from '@radix-
 import dynamic from 'next/dynamic';
 import {CheckCircledIcon} from '@radix-ui/react-icons';
 
-const RichTextEditor = dynamic(() => import('@/app/components/RichTextEditor'), {ssr: false});
+const RichTextEditor = dynamic(() => import('@/app/components/Cms/RichTextEditor'), {ssr: false});
 
 export const ContentEditor: React.FC = () => {
   const contentType = useCmsFormStore(state => state.contentType);
