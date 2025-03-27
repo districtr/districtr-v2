@@ -8,15 +8,23 @@ interface RichTextEditorProps {
   content: string | object;
   onChange: (json: object) => void;
   placeholder?: string;
+  showCustomRenderers?: boolean;
 }
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({
   content,
   onChange,
   placeholder = 'Start writing...',
+  showCustomRenderers = true,
 }) => {
-  const {editor, fontButtonConfigs, headingButtonConfigs, listButtonConfigs, mediaButtonConfigs} =
-    useCmsEditorConfig(content, onChange);
+  const {
+    editor,
+    fontButtonConfigs,
+    headingButtonConfigs,
+    listButtonConfigs,
+    mediaButtonConfigs,
+    customConfigs,
+  } = useCmsEditorConfig(content, onChange);
   if (!editor) {
     return null;
   }
@@ -81,7 +89,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           ))}
         </Flex>
 
-        <Flex direction="row" gapX="3" px="2">
+        <Flex
+          direction="row"
+          gapX="3"
+          px="2"
+          className="border-r-[1px] border-gray-400"
+          align="center"
+        >
           {mediaButtonConfigs.map((Config, index) => (
             <IconButton
               key={index}
@@ -95,6 +109,22 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             </IconButton>
           ))}
         </Flex>
+        {showCustomRenderers && (
+          <Flex direction="row" gapX="3" px="2" align="center">
+            {customConfigs.map((Config, index) => (
+              <IconButton
+                key={index}
+                variant="ghost"
+                className={Config.active() ? '!bg-gray-200' : ''}
+                color="gray"
+                title={Config.title}
+                onClick={Config.onClick}
+              >
+                <Config.icon width="24" height="24" />
+              </IconButton>
+            ))}
+          </Flex>
+        )}
       </Flex>
 
       <Box p="4">

@@ -179,16 +179,19 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
       },
       active: () => editor.isActive('image'),
     },
+  ];
+
+  const customConfigs = [
     {
-      title: 'Insert Boilerplate',
+      title: 'Insert Data Explainer',
       icon: InfoCircledIcon,
       onClick: () => {
-        const customText = window.prompt('Enter custom text to appear below the boilerplate:');
-        editor.chain().focus().setBoilerplate(customText || '').run();
+        // Insert a boilerplate node with empty content that can be edited in place
+        editor.chain().focus().setBoilerplate().run();
       },
       active: () => editor.isActive('boilerplateNode'),
-    },
-  ];
+    }
+  ]
 
   return {
     editor,
@@ -196,5 +199,6 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
     listButtonConfigs,
     headingButtonConfigs,
     mediaButtonConfigs,
+    customConfigs
   };
 };

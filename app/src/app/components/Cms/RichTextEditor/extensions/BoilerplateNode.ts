@@ -8,7 +8,7 @@ declare module '@tiptap/core' {
       /**
        * Add a boilerplate section with custom content
        */
-      setBoilerplate: (customText: string) => ReturnType
+      setBoilerplate: (customContent?: object) => ReturnType
     }
   }
 }
@@ -21,12 +21,15 @@ export const BoilerplateNode = Node.create({
   isolating: true,
   addAttributes() {
     return {
-      customText: {
-        default: '',
-        parseHTML: element => element.getAttribute('data-custom-text'),
+      customContent: {
+        default: null,
+        parseHTML: element => {
+          const content = element.getAttribute('data-custom-content')
+          return content ? JSON.parse(content) : null
+        },
         renderHTML: attributes => {
           return {
-            'data-custom-text': attributes.customText,
+            'data-custom-content': attributes.customContent ? JSON.stringify(attributes.customContent) : '',
           }
         },
       },
@@ -47,10 +50,10 @@ export const BoilerplateNode = Node.create({
 
   addCommands() {
     return {
-      setBoilerplate: (customText: string) => ({ commands }) => {
+      setBoilerplate: (customContent = undefined) => ({ commands }) => {
         return commands.insertContent({
           type: this.name,
-          attrs: { customText },
+          attrs: { customContent },
         })
       },
     }

@@ -17,7 +17,7 @@ export const ContentEditor: React.FC = () => {
   const cancelEdit = useCmsFormStore(state => state.cancelEdit);
   const handleSubmit = useCmsFormStore(state => state.handleSubmit);
   const setPreviewData = useCmsFormStore(state => state.setPreviewData);
-  console.log('content type', contentType);
+  
   return (
     <Flex direction="column" gapY="4" p="6" className="bg-white shadow rounded-lg">
       <Heading as="h2" className="text-xl font-semibold">

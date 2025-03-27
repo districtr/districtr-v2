@@ -50,7 +50,23 @@ const RichTextPreview: React.FC<RichTextPreviewProps> = ({content, className = '
     
     // Replace each node with our custom component
     boilerplateNodes.forEach((node) => {
-      const customText = node.getAttribute('data-custom-text') || '';
+      // Try to get content from new attribute structure first
+      let customContent = null;
+      const contentStr = node.getAttribute('data-custom-content');
+      
+      if (contentStr) {
+        try {
+          customContent = JSON.parse(contentStr);
+        } catch (error) {
+          console.error('Error parsing boilerplate custom content:', error);
+        }
+      } else {
+        // Fallback to old attribute structure
+        const oldCustomText = node.getAttribute('data-custom-text');
+        if (oldCustomText) {
+          customContent = oldCustomText;
+        }
+      }
       
       // Create a container for our React component
       const container = document.createElement('div');
@@ -58,7 +74,7 @@ const RichTextPreview: React.FC<RichTextPreviewProps> = ({content, className = '
       
       // Render our custom component in place of the node
       const root = ReactDOM.createRoot(container);
-      root.render(<BoilerplateNodeRenderer customText={customText} />);
+      root.render(<BoilerplateNodeRenderer customContent={customContent} />);
     });
   }, [htmlContent]);
   
