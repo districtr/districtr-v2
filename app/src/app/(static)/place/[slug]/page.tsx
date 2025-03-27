@@ -12,7 +12,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   const [cmsData, maps] = await Promise.all([
     getCMSContent(slug, language, 'places'),
     getAvailableDistrictrMaps(),
-  ]);
+  ])
 
   if (!cmsData?.content?.published_content) {
     return <div>Content not found</div>;
