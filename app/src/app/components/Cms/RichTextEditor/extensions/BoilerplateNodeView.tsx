@@ -59,15 +59,15 @@ const BoilerplateNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
           Delete
         </Button>
       </Flex>
-        {editor && (
-          <Dialog.Root open={dialogOpen}>
-            <Dialog.Trigger>
-              <Button className="p-2 !cursor-pointer" onClick={() => setDialogOpen(true)}>
-                Edit Custom Content
-              </Button>
-            </Dialog.Trigger>
-            <Dialog.Content>
-              <Flex direction="column" gapY="4">
+      {editor && (
+        <Dialog.Root open={dialogOpen}>
+          <Dialog.Trigger>
+            <Button className="p-2 !cursor-pointer" onClick={() => setDialogOpen(true)}>
+              Edit Custom Content
+            </Button>
+          </Dialog.Trigger>
+          <Dialog.Content>
+            <Flex direction="column" gapY="4">
               <Heading as="h4">Editing Custom Content: About the data</Heading>
               <RichTextEditor
                 onChange={json => {
@@ -78,13 +78,13 @@ const BoilerplateNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                 showCustomRenderers={false}
               />
               <Flex direction="row" align="center" justify="end" gap="4">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      updateAttributes({customContent: editor.getJSON()});
-                      setDialogOpen(false);
-                    }}
-                    >
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    updateAttributes({customContent: editor.getJSON()});
+                    setDialogOpen(false);
+                  }}
+                >
                   Save
                 </Button>
                 <Button
@@ -96,12 +96,12 @@ const BoilerplateNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                   }}
                 >
                   Cancel edits
-                  </Button>
+                </Button>
               </Flex>
-              </Flex>
-            </Dialog.Content>
-          </Dialog.Root>
-        )}
+            </Flex>
+          </Dialog.Content>
+        </Dialog.Root>
+      )}
     </NodeViewWrapper>
   );
 };

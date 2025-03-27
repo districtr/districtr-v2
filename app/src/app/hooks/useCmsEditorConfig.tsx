@@ -190,8 +190,8 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         editor.chain().focus().setBoilerplate().run();
       },
       active: () => editor.isActive('boilerplateNode'),
-    }
-  ]
+    },
+  ];
 
   return {
     editor,
@@ -199,6 +199,6 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
     listButtonConfigs,
     headingButtonConfigs,
     mediaButtonConfigs,
-    customConfigs
+    customConfigs,
   };
 };

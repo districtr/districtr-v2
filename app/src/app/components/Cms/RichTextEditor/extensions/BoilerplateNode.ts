@@ -1,6 +1,6 @@
-import { Node, mergeAttributes } from '@tiptap/core'
-import { ReactNodeViewRenderer } from '@tiptap/react'
-import BoilerplateNodeView from './BoilerplateNodeView'
+import {Node, mergeAttributes} from '@tiptap/core';
+import {ReactNodeViewRenderer} from '@tiptap/react';
+import BoilerplateNodeView from './BoilerplateNodeView';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -8,8 +8,8 @@ declare module '@tiptap/core' {
       /**
        * Add a boilerplate section with custom content
        */
-      setBoilerplate: (customContent?: object) => ReturnType
-    }
+      setBoilerplate: (customContent?: object) => ReturnType;
+    };
   }
 }
 
@@ -24,16 +24,18 @@ export const BoilerplateNode = Node.create({
       customContent: {
         default: null,
         parseHTML: element => {
-          const content = element.getAttribute('data-custom-content')
-          return content ? JSON.parse(content) : null
+          const content = element.getAttribute('data-custom-content');
+          return content ? JSON.parse(content) : null;
         },
         renderHTML: attributes => {
           return {
-            'data-custom-content': attributes.customContent ? JSON.stringify(attributes.customContent) : '',
-          }
+            'data-custom-content': attributes.customContent
+              ? JSON.stringify(attributes.customContent)
+              : '',
+          };
         },
       },
-    }
+    };
   },
 
   parseHTML() {
@@ -41,27 +43,29 @@ export const BoilerplateNode = Node.create({
       {
         tag: 'div[data-type="boilerplate-node"]',
       },
-    ]
+    ];
   },
 
-  renderHTML({ HTMLAttributes }) {
-    return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'boilerplate-node' }), 0]
+  renderHTML({HTMLAttributes}) {
+    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'boilerplate-node'}), 0];
   },
 
   addCommands() {
     return {
-      setBoilerplate: (customContent = undefined) => ({ commands }) => {
-        return commands.insertContent({
-          type: this.name,
-          attrs: { customContent },
-        })
-      },
-    }
+      setBoilerplate:
+        (customContent = undefined) =>
+        ({commands}) => {
+          return commands.insertContent({
+            type: this.name,
+            attrs: {customContent},
+          });
+        },
+    };
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(BoilerplateNodeView)
+    return ReactNodeViewRenderer(BoilerplateNodeView);
   },
-})
+});
 
-export default BoilerplateNode
+export default BoilerplateNode;

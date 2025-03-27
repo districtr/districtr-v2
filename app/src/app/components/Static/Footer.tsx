@@ -4,12 +4,15 @@ import NextLink from 'next/link';
 
 export const Footer: React.FC = () => (
   <Box className="p-4 bg-gray-200">
-    <Flex direction={{
-      initial: "column",
-      md: "row"
-    }} 
-    gap="2"
-    justify={'between'} className="max-w-screen-xl mx-auto">
+    <Flex
+      direction={{
+        initial: 'column',
+        md: 'row',
+      }}
+      gap="2"
+      justify={'between'}
+      className="max-w-screen-xl mx-auto"
+    >
       <Flex direction="column">
         <Heading as="h3" className="text-lg font-bold">
           Districtr
