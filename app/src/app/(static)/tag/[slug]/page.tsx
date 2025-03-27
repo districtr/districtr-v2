@@ -20,9 +20,8 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   const selectedMap =
     cmsData.content.districtr_map_slug &&
     maps.find(m => m.districtr_map_slug === cmsData.content.districtr_map_slug);
-
   return (
-    <Flex direction="column" className="max-w-screen-lg mx-auto" py="4">
+    <Flex direction="column" width="100%" className="max-w-screen-lg mx-auto py-4">
       <Heading as="h1" size="6" mb="4">
         {cmsData.content.published_content.title}
       </Heading>
@@ -34,8 +33,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
       {Boolean(selectedMap) && (
         <CreateButton
           view={{
-            ...selectedMap,
-            name: 'Create Plan',
+            ...selectedMap
           }}
         />
       )}

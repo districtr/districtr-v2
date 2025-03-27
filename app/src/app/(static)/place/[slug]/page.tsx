@@ -21,39 +21,38 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   const availableMaps =
     cmsData.content.districtr_map_slugs &&
     maps.filter(m => cmsData.content.districtr_map_slugs!.includes(m.districtr_map_slug));
-    
+
   return (
     <Flex direction="column" width="100%" className="max-w-screen-lg mx-auto py-4">
-      <Flex direction="column">
-        <Heading as="h1" size="6" mb="4">
-          {cmsData.content.published_content.title}
-        </Heading>
-        <LanguagePicker
-          preferredLanguage={language}
-          availableLanguages={cmsData.available_languages}
-        />
-        <RichTextPreview content={cmsData.content.published_content.body} className="my-4" />
-        <Grid 
+      <Heading as="h1" size="6" mb="4">
+        {cmsData.content.published_content.title}
+      </Heading>
+      <LanguagePicker
+        preferredLanguage={language}
+        availableLanguages={cmsData.available_languages}
+      />
+      <RichTextPreview content={cmsData.content.published_content.body} className="my-4" />
+      <Grid
         gap="2"
         columns={{
           initial: '1',
           md: '2',
-          lg: '4'
-        }}>
-          {Boolean(availableMaps) && (
-            <>
-              {availableMaps!.map((view, i) => (
-                <CreateButton
-                  key={i}
-                  view={{
-                    ...view,
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </Grid>
-      </Flex>
+          lg: '4',
+        }}
+      >
+        {Boolean(availableMaps) && (
+          <>
+            {availableMaps!.map((view, i) => (
+              <CreateButton
+                key={i}
+                view={{
+                  ...view,
+                }}
+              />
+            ))}
+          </>
+        )}
+      </Grid>
     </Flex>
   );
 }
