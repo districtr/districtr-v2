@@ -93,14 +93,17 @@ class CMSContentCreate(BaseModel):
     districtr_map_slug: str | None = None
     districtr_map_slugs: list[str] | None = None
 
+
 class CMSContentPublish(BaseModel):
     content_type: CMSContentTypesEnum
     content_id: UUID4
 
+
 class CMSContentDelete(BaseModel):
     content_type: CMSContentTypesEnum
     content_id: UUID4
-    
+
+
 class CmsContentUpdateFields(BaseModel):
     slug: str | None = None
     language: LanguageEnum | None = None
@@ -108,6 +111,7 @@ class CmsContentUpdateFields(BaseModel):
     published_content: Dict[str, Any] | None = None
     districtr_map_slug: str | None = None
     districtr_map_slugs: list[str] | None = None
+
 
 class CmsContentUpdate(BaseModel):
     content_type: CMSContentTypesEnum

@@ -357,4 +357,3 @@ class SummaryStatsVAP(PopulationStatsVAP):
 class SummaryStatisticColumnLists(Enum):
     TOTPOP = PopulationStatsTOTPOP.model_fields.keys()
     VAP = PopulationStatsVAP.model_fields.keys()
-

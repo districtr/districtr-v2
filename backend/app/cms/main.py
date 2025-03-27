@@ -58,9 +58,10 @@ async def create_cms_content(
     return content
 
 
-@router.patch("/content", 
-            #   response_model=AllCMSContentPublic
-              )
+@router.patch(
+    "/content",
+    #   response_model=AllCMSContentPublic
+)
 async def update_cms_content(
     data: CmsContentUpdate,
     session: Session = Depends(get_session),
@@ -77,7 +78,7 @@ async def update_cms_content(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Content with ID '{data.content_id}' not found",
         )
-    
+
     # If updating slug or language, check for conflicts
     if (data.updates.slug and data.updates.slug != content.slug) or (
         data.updates.language and data.updates.language != content.language
@@ -110,12 +111,13 @@ async def update_cms_content(
     return content
 
 
-@router.post("/content/publish", 
-            #  response_model=AllCMSContentPublic
-             )
+@router.post(
+    "/content/publish",
+    #  response_model=AllCMSContentPublic
+)
 async def publish_cms_content(
-
-    data: CMSContentPublish ,session: Session = Depends(get_session)):
+    data: CMSContentPublish, session: Session = Depends(get_session)
+):
     """Publish draft content"""
     CMSModel = CMS_MODEL_MAP[data.content_type]
     content = session.exec(
@@ -144,7 +146,9 @@ async def publish_cms_content(
 
 
 @router.post("/content/delete", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_cms_content(data: CMSContentDelete, session: Session = Depends(get_session)):
+async def delete_cms_content(
+    data: CMSContentDelete, session: Session = Depends(get_session)
+):
     """Delete CMS content by ID"""
     CMSModel = CMS_MODEL_MAP[data.content_type]
     content = session.exec(

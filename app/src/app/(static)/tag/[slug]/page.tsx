@@ -33,7 +33,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
       {Boolean(selectedMap) && (
         <CreateButton
           view={{
-            ...selectedMap
+            ...selectedMap,
           }}
         />
       )}

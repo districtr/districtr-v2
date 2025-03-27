@@ -1,6 +1,6 @@
 import axios from 'axios';
 import {DistrictrMap} from './types';
-import { API_URL } from '../constants';
+import {API_URL} from '../constants';
 
 export const getAvailableDistrictrMaps = async (
   limit = 10,

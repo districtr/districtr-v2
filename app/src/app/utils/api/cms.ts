@@ -59,15 +59,16 @@ export type AllCmsEntries =
 
 export type CmsContentTypes = 'tags' | 'places';
 interface CmsContentTypesEnum {
-  tags: TagsCMSContent
-  places: PlacesCMSContent
+  tags: TagsCMSContent;
+  places: PlacesCMSContent;
 }
 
-export interface CMSContentResponseWithLanguages<T extends keyof CmsContentTypesEnum = CmsContentTypes> {
+export interface CMSContentResponseWithLanguages<
+  T extends keyof CmsContentTypesEnum = CmsContentTypes,
+> {
   content: CmsContentTypesEnum[T];
   available_languages: string[];
 }
-
 
 // API functions for CMS operations
 export const createCMSContent = async (
@@ -94,13 +95,12 @@ export const updateCMSContent = async (
   }
 };
 
-export const deleteCMSContent = async (contentId: string, type: CmsContentTypes
-
-): Promise<void> => {
+export const deleteCMSContent = async (contentId: string, type: CmsContentTypes): Promise<void> => {
   try {
-    await axios.post(`${API_URL}/api/cms/content/delete`,
-      {content_id: contentId, content_type: type}
-    );
+    await axios.post(`${API_URL}/api/cms/content/delete`, {
+      content_id: contentId,
+      content_type: type,
+    });
   } catch (error) {
     console.error('Error deleting CMS content:', error);
     throw error;
@@ -112,9 +112,10 @@ export const publishCMSContent = async (
   type: CmsContentTypes
 ): Promise<TagsCMSContent | PlacesCMSContent> => {
   try {
-    const response = await axios.post(`${API_URL}/api/cms/content/publish`,
-      {content_id: contentId, content_type: type}
-    );
+    const response = await axios.post(`${API_URL}/api/cms/content/publish`, {
+      content_id: contentId,
+      content_type: type,
+    });
     return response.data;
   } catch (error) {
     console.error('Error publishing CMS content:', error);

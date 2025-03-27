@@ -214,7 +214,7 @@ export const useCmsFormStore = create(
               slug: formData.content.slug,
               language: formData.content.language,
               draft_content: draftContent,
-            }
+            },
           };
 
           // Add type-specific fields based on content type
