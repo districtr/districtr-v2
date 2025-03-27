@@ -57,12 +57,17 @@ export type AllCmsEntries =
       content: PlacesCMSContent;
     };
 
-export interface CMSContentResponseWithLanguages<T = TagsCMSContent | PlacesCMSContent> {
-  content: T;
+export type CmsContentTypes = 'tags' | 'places';
+interface CmsContentTypesEnum {
+  tags: TagsCMSContent
+  places: PlacesCMSContent
+}
+
+export interface CMSContentResponseWithLanguages<T extends keyof CmsContentTypesEnum = CmsContentTypes> {
+  content: CmsContentTypesEnum[T];
   available_languages: string[];
 }
 
-export type CmsContentTypes = 'tags' | 'places';
 
 // API functions for CMS operations
 export const createCMSContent = async (
@@ -117,11 +122,11 @@ export const publishCMSContent = async (
   }
 };
 
-export const getCMSContent = async (
+export const getCMSContent = async <T extends CmsContentTypes>(
   slug: string,
   language: string = 'en',
-  type: CmsContentTypes = 'tags'
-): Promise<CMSContentResponseWithLanguages> => {
+  type: T
+): Promise<CMSContentResponseWithLanguages<T>> => {
   try {
     const url = new URL(`${API_URL}/api/cms/content/${type}/slug/${slug}`);
     if (language) url.searchParams.append('language', language);
