@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Any, Dict
+from typing import Optional, Any
 from pydantic import UUID4, BaseModel, ConfigDict
 from sqlmodel import (
     Field,
@@ -17,10 +17,10 @@ from sqlmodel import (
     Text,
 )
 from sqlalchemy.types import ARRAY, TEXT
-from sqlalchemy.dialects.postgresql import JSONB, JSON
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import Float
 import pydantic_geojson
-from app.constants import DOCUMENT_SCHEMA, CMS_SCHEMA
+from app.constants import DOCUMENT_SCHEMA
 from enum import Enum
 
 
@@ -357,122 +357,3 @@ class SummaryStatsVAP(PopulationStatsVAP):
 class SummaryStatisticColumnLists(Enum):
     TOTPOP = PopulationStatsTOTPOP.model_fields.keys()
     VAP = PopulationStatsVAP.model_fields.keys()
-
-
-class LanguageEnum(str, Enum):
-    ENGLISH = "en"
-    SPANISH = "es"
-    CHINESE = "zh"
-    VIETNAMESE = "vi"
-    HAITIAN = "ht"
-    PORTUGUESE = "pt"
-
-
-class TagsCMSContent(TimeStampMixin, SQLModel, table=True):
-    metadata = MetaData(schema=CMS_SCHEMA)
-    __tablename__ = "tags_content"
-    id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
-    slug: str = Field(nullable=False, index=True)
-    districtr_map_slug: str | None = Field(
-        sa_column=Column(
-            String,
-            nullable=True,
-            index=True,
-        )
-    )
-    language: LanguageEnum = Field(
-        default=LanguageEnum.ENGLISH, nullable=False, index=True
-    )
-    draft_content: Dict[str, Any] | None = Field(sa_column=Column(JSONB, nullable=True))
-    published_content: Dict[str, Any] | None = Field(
-        sa_column=Column(JSONB, nullable=True)
-    )
-    __table_args__ = (
-        UniqueConstraint("slug", "language", name="tags_slug_language_unique"),
-    )
-
-
-class PlacesCMSContent(TimeStampMixin, SQLModel, table=True):
-    metadata = MetaData(schema=CMS_SCHEMA)
-    __tablename__ = "places_content"
-    id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
-    slug: str = Field(nullable=False, index=True)
-    districtr_map_slugs: list[str] | None = Field(
-        sa_column=Column(
-            ARRAY(String),
-            nullable=True,
-            index=True,
-        )
-    )
-    language: LanguageEnum = Field(
-        default=LanguageEnum.ENGLISH, nullable=False, index=True
-    )
-    draft_content: Dict[str, Any] | None = Field(sa_column=Column(JSONB, nullable=True))
-    published_content: Dict[str, Any] | None = Field(
-        sa_column=Column(JSONB, nullable=True)
-    )
-
-    __table_args__ = (
-        UniqueConstraint("slug", "language", name="places_slug_language_unique"),
-    )
-
-
-class CMSContentTypesEnum(str, Enum):
-    tags = "tags"
-    places = "places"
-
-
-CMS_MODEL_MAP = {
-    CMSContentTypesEnum.tags: TagsCMSContent,
-    CMSContentTypesEnum.places: PlacesCMSContent,
-}
-
-
-class CMSContentCreate(BaseModel):
-    slug: str
-    language: LanguageEnum = LanguageEnum.ENGLISH
-    draft_content: Dict[str, Any] | None = None
-    published_content: Dict[str, Any] | None = None
-    districtr_map_slug: str | None = None
-    districtr_map_slugs: list[str] | None = None
-
-
-class TagsCMSContentUpdate(BaseModel):
-    slug: str | None = None
-    districtr_map_slug: str | None = None
-    language: LanguageEnum | None = None
-    draft_content: Dict[str, Any] | None = None
-    published_content: Dict[str, Any] | None = None
-
-
-class PlacesCMSContentUpdate(TagsCMSContentUpdate):
-    districtr_map_slug: list[str] | None = None
-
-
-CmsContentUpdate = TagsCMSContentUpdate | PlacesCMSContentUpdate
-
-
-class BaseCMSContentPublic(BaseModel):
-    id: UUID4
-    slug: str
-    language: LanguageEnum
-    draft_content: Dict[str, Any] | None = None
-    published_content: Dict[str, Any] | None = None
-    created_at: datetime
-    updated_at: datetime
-
-
-class TagsCMSContentPublic(BaseCMSContentPublic):
-    districtr_map_slug: str | None = None
-
-
-class PlacesCMSContentPublic(BaseCMSContentPublic):
-    districtr_map_slugs: list[str] | None = None
-
-
-AllCMSContentPublic = TagsCMSContentPublic | PlacesCMSContentPublic
-
-
-class CMSContentPublicWithLanguages(BaseModel):
-    content: AllCMSContentPublic
-    available_languages: list[LanguageEnum]

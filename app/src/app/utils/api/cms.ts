@@ -5,11 +5,17 @@ import {LANG_MAPPING} from '../language';
 // Define interfaces for CMS content
 export interface CMSContentCreate {
   slug: string;
+  content_type: 'tags' | 'places';
   districtr_map_slug?: string | undefined;
   districtr_map_slugs?: string[] | undefined;
   language: string;
   draft_content?: Record<string, any> | null;
   published_content?: Record<string, any> | null;
+}
+
+export interface CMSContentUpdate extends Partial<CMSContentCreate> {
+  content_type: 'tags' | 'places';
+  content_id: string;
 }
 
 export interface CMSContent {
@@ -59,14 +65,53 @@ export type CmsContentTypes = 'tags' | 'places';
 
 // API functions for CMS operations
 export const createCMSContent = async (
-  content: CMSContentCreate,
-  type: CmsContentTypes
+  content: CMSContentCreate
 ): Promise<TagsCMSContent | PlacesCMSContent> => {
   try {
-    const response = await axios.post(`${API_URL}/api/cms/content/${type}`, content);
+    const response = await axios.post(`${API_URL}/api/cms/content`, content);
     return response.data;
   } catch (error) {
     console.error('Error creating CMS content:', error);
+    throw error;
+  }
+};
+
+export const updateCMSContent = async (
+  updates: CMSContentUpdate
+): Promise<TagsCMSContent | PlacesCMSContent> => {
+  try {
+    const response = await axios.patch(`${API_URL}/api/cms/content`, updates);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating CMS content:', error);
+    throw error;
+  }
+};
+
+export const deleteCMSContent = async (contentId: string, type: CmsContentTypes
+
+): Promise<void> => {
+  try {
+    await axios.delete(`${API_URL}/api/cms/content`,
+      {data: {content_id: contentId, content_type: type}}
+    );
+  } catch (error) {
+    console.error('Error deleting CMS content:', error);
+    throw error;
+  }
+};
+
+export const publishCMSContent = async (
+  contentId: string,
+  type: CmsContentTypes
+): Promise<TagsCMSContent | PlacesCMSContent> => {
+  try {
+    const response = await axios.post(`${API_URL}/api/cms/content/publish`,
+      {content_id: contentId, content_type: type}
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error publishing CMS content:', error);
     throw error;
   }
 };
@@ -77,7 +122,7 @@ export const getCMSContent = async (
   type: CmsContentTypes = 'tags'
 ): Promise<CMSContentResponseWithLanguages> => {
   try {
-    const url = new URL(`${API_URL}/api/cms/content/${type}/${slug}`);
+    const url = new URL(`${API_URL}/api/cms/content/${type}/slug/${slug}`);
     if (language) url.searchParams.append('language', language);
     const response = await axios.get(url.toString());
     return response.data;
@@ -92,7 +137,7 @@ export const listCMSContent = async (
   params: {language?: string; districtr_map_slug?: string} = {}
 ): Promise<AllCmsLists> => {
   try {
-    const url = new URL(`${API_URL}/api/cms/content/${type}`);
+    const url = new URL(`${API_URL}/api/cms/content/${type}/list`);
     if (params.language) url.searchParams.append('language', params.language);
     if (params.districtr_map_slug)
       url.searchParams.append('districtr_map_slug', params.districtr_map_slug);
@@ -103,42 +148,6 @@ export const listCMSContent = async (
     };
   } catch (error) {
     console.error('Error listing CMS content:', error);
-    throw error;
-  }
-};
-
-export const updateCMSContent = async (
-  contentId: string,
-  type: CmsContentTypes,
-  updates: Partial<CMSContentCreate>
-): Promise<TagsCMSContent | PlacesCMSContent> => {
-  try {
-    const response = await axios.put(`${API_URL}/api/cms/content/${type}/${contentId}`, updates);
-    return response.data;
-  } catch (error) {
-    console.error('Error updating CMS content:', error);
-    throw error;
-  }
-};
-
-export const deleteCMSContent = async (contentId: string, type: CmsContentTypes): Promise<void> => {
-  try {
-    await axios.delete(`${API_URL}/api/cms/content/${type}/${contentId}`);
-  } catch (error) {
-    console.error('Error deleting CMS content:', error);
-    throw error;
-  }
-};
-
-export const publishCMSContent = async (
-  contentId: string,
-  type: CmsContentTypes
-): Promise<TagsCMSContent | PlacesCMSContent> => {
-  try {
-    const response = await axios.post(`${API_URL}/api/cms/content/${type}/${contentId}/publish`);
-    return response.data;
-  } catch (error) {
-    console.error('Error publishing CMS content:', error);
     throw error;
   }
 };

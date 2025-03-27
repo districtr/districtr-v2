@@ -11,7 +11,7 @@ export const Header: React.FC = () => {
     <NextLink legacyBehavior href="/guide" key={`link-items-1`}>
       <Link>GET STARTED</Link>
     </NextLink>,
-    <PlaceMapModal key={`link-items-2`}/>,
+    <PlaceMapModal key={`link-items-2`} />,
     <NextLink legacyBehavior href="/about" key={`link-items-3`}>
       <Link>ABOUT</Link>
     </NextLink>,

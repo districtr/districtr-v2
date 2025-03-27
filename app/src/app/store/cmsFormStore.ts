@@ -12,6 +12,7 @@ import {
   CMSContentCreate,
   deleteCMSContent,
   publishCMSContent,
+  CMSContentUpdate,
 } from '../utils/api/cms';
 import {LANG_MAPPING} from '../utils/language';
 import {subscribeWithSelector} from 'zustand/middleware';
@@ -206,7 +207,9 @@ export const useCmsFormStore = create(
 
         if (editingContent) {
           // Updating existing content
-          let content: Partial<CMSContentCreate> = {
+          let content: CMSContentUpdate = {
+            content_type: contentType,
+            content_id: editingContent.content.id,
             slug: formData.content.slug,
             language: formData.content.language,
             draft_content: draftContent,
@@ -221,11 +224,12 @@ export const useCmsFormStore = create(
               (formData.content as FormDataType<'places'>).districtr_map_slugs || null;
           }
 
-          await updateCMSContent(editingContent.content.id, contentType, content);
+          await updateCMSContent(content);
           set({success: 'Content updated successfully!', editingContent: null});
         } else {
           // Creating new content
           let content: CMSContentCreate = {
+            content_type: contentType,
             slug: formData.content.slug,
             language: formData.content.language,
             draft_content: draftContent,
@@ -243,7 +247,7 @@ export const useCmsFormStore = create(
             ).districtr_map_slugs;
           }
 
-          await createCMSContent(content, contentType);
+          await createCMSContent(content);
           set({success: 'Content created successfully!'});
         }
 
