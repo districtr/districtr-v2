@@ -498,10 +498,7 @@ def create_spatial_index(
         table_name (str): The name of the table to create the index on.
     """
     session.execute(
-        text(
-            f"CREATE INDEX ON {GERRY_DB_SCHEMA}.{table_name} USING GIST (:geometry_column)"
-        ),
-        {"geometry_column": geometry},
+        text(f"CREATE INDEX ON {GERRY_DB_SCHEMA}.{table_name} USING GIST ({geometry})"),
     )
     if autocommit:
         session.commit()

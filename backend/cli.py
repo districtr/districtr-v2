@@ -14,6 +14,7 @@ from app.utils import (
     get_local_or_s3_path,
     create_spatial_index as _create_spatial_index,
 )
+from app.constants import GERRY_DB_SCHEMA
 from app.contiguity.main import write_graph, graph_from_gpkg, GraphFileFormat
 from functools import wraps
 from contextlib import contextmanager
@@ -386,8 +387,10 @@ def batch_create_districtr_maps(
 
 
 @cli.command("create-spatial-index")
-@click.option("--table-name", "-t", help="Table name", required=True)
-@click.option("--schema", "-s", help="Schema name", required=False)
+@click.option("--table-name", "-t", help="Table name", required=True, multiple=True)
+@click.option(
+    "--schema", "-s", help="Schema name", required=False, default=GERRY_DB_SCHEMA
+)
 @click.option(
     "--geometry-column",
     "-g",
@@ -397,16 +400,17 @@ def batch_create_districtr_maps(
 )
 @with_session
 def create_spatial_index(
-    session: Session, table_name: str, schema: str, geometry_column: str
+    session: Session, table_name: list[str], schema: str, geometry_column: str
 ):
-    _create_spatial_index(
-        session=session,
-        table_name=table_name,
-        schema=schema,
-        geometry=geometry_column,
-        autocommit=True,
-    )
-    logger.info("Created spatial index successfully.")
+    for table in table_name:
+        _create_spatial_index(
+            session=session,
+            table_name=table,
+            schema=schema,
+            geometry=geometry_column,
+            autocommit=True,
+        )
+        logger.info(f"Created spatial index successfully for table {table}.")
 
 
 if __name__ == "__main__":
