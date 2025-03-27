@@ -3,7 +3,7 @@ import NextLink from 'next/link';
 
 export default function GuidePage() {
   return (
-    <Flex className="w-full min-h-[100vh] max-w-screen-lg mx-auto" direction="column" gapY="4">
+    <Flex direction="column" gapY="4">
       <Heading as="h1" my="4">
         About Districtr
       </Heading>

@@ -10,7 +10,6 @@ import Image from '@tiptap/extension-image';
 import {
   FontBoldIcon,
   FontItalicIcon,
-  HeadingIcon,
   ImageIcon,
   Link2Icon,
   ListBulletIcon,
@@ -18,7 +17,6 @@ import {
   StrikethroughIcon,
   UnderlineIcon,
 } from '@radix-ui/react-icons';
-import {Flex} from '@radix-ui/themes';
 
 export const useCmsEditorConfig = (content: string | object, onChange: (json: object) => void) => {
   const editor = useEditor({

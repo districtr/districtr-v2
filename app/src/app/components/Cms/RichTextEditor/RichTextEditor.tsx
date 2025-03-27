@@ -1,8 +1,7 @@
 'use client';
 import React from 'react';
-import {EditorContent, BubbleMenu} from '@tiptap/react';
+import {EditorContent} from '@tiptap/react';
 import {Box, Flex, Button, IconButton, Text} from '@radix-ui/themes';
-import {FontBoldIcon} from '@radix-ui/react-icons';
 import {useCmsEditorConfig} from '@/app/hooks/useCmsEditorConfig';
 
 interface RichTextEditorProps {
