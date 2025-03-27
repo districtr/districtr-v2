@@ -33,17 +33,6 @@ def upgrade() -> None:
             sql = f.read()
         op.execute(sa.text(sql))
 
-    get_gerrydb_tables = sa.text(
-        "SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE table_schema = 'gerrydb'"
-    )
-    conn = op.get_bind()
-    gerrydb_tables = conn.execute(get_gerrydb_tables).scalars().all()
-
-    for table_name in gerrydb_tables:
-        op.execute(
-            sa.text(f"CREATE INDEX ON gerrydb.{table_name} USING GIST (geometry)")
-        )
-
 
 def downgrade() -> None:
     op.execute(
