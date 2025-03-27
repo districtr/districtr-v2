@@ -9,7 +9,7 @@ export default async function TagsPage() {
   const cmsContent = await listCMSContent('places');
   const entries = cmsContent.content
     .filter(content => content.published_content)
-    .filter(onlyUniqueProperty('places'))
+    .filter(onlyUniqueProperty('slug'))
     .sort((a, b) => a.published_content!.title.localeCompare(b.published_content!.title));
 
   return (
