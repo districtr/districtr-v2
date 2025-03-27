@@ -6,6 +6,7 @@ from app.cms.models import (
     CMSContentTypesEnum,
     LanguageEnum,
 )
+from app.constants import CMS_SCHEMA
 from sqlalchemy.exc import NoResultFound
 
 
@@ -74,8 +75,8 @@ def test_update_cms_content(client, mock_session):
     # Create a mock content object for the session to return
     mock_content = MagicMock()
     mock_content.id = str(uuid.uuid4())
-    mock_content.slug = "test-slug"
-    mock_content.language = LanguageEnum.ENGLISH
+    mock_content.updates.slug = "test-slug"
+    mock_content.updates.language = LanguageEnum.ENGLISH
     
     # Set up the mock session to return our mock content
     mock_session.exec.return_value.first.return_value = mock_content
@@ -83,7 +84,9 @@ def test_update_cms_content(client, mock_session):
     update_data = {
         "content_type": CMSContentTypesEnum.tags.value,
         "content_id": mock_content.id,
-        "draft_content": {"title": "Updated Content", "description": "Updated description"}
+        "updates": {
+            "draft_content": {"title": "Updated Content", "description": "Updated description"}
+        }
     }
     
     response = client.patch(
@@ -107,7 +110,9 @@ def test_update_cms_content_not_found(client, mock_session):
     update_data = {
         "content_type": CMSContentTypesEnum.tags.value,
         "content_id": fake_id,
-        "draft_content": {"title": "Updated Content", "description": "Updated description"}
+        "updates": {
+            "draft_content": {"title": "Updated Content", "description": "Updated description"}
+        }
     }
     
     response = client.patch(
@@ -133,8 +138,10 @@ def test_update_cms_content_slug_conflict(client, mock_session):
     update_data = {
         "content_type": CMSContentTypesEnum.tags.value,
         "content_id": mock_content.id,
-        "slug": "conflicting-slug",
-        "language": LanguageEnum.ENGLISH.value
+        "updates": {
+            "slug": "conflicting-slug",
+            "language": LanguageEnum.ENGLISH.value
+        }
     }
     
     response = client.patch(

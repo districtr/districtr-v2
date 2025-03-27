@@ -13,9 +13,10 @@ export interface CMSContentCreate {
   published_content?: Record<string, any> | null;
 }
 
-export interface CMSContentUpdate extends Partial<CMSContentCreate> {
+export interface CMSContentUpdate {
   content_type: 'tags' | 'places';
   content_id: string;
+  updates: Partial<CMSContentCreate>;
 }
 
 export interface CMSContent {

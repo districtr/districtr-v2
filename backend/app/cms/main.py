@@ -77,13 +77,13 @@ async def update_cms_content(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Content with ID '{data.content_id}' not found",
         )
-
+    
     # If updating slug or language, check for conflicts
-    if (data.slug and data.slug != content.slug) or (
-        data.language and data.language != content.language
+    if (data.updates.slug and data.updates.slug != content.slug) or (
+        data.updates.language and data.updates.language != content.language
     ):
-        new_slug = data.slug or content.slug
-        new_language = data.language or content.language
+        new_slug = data.updates.slug or content.slug
+        new_language = data.updates.language or content.language
 
         conflict = session.exec(
             select(CMSModel)
@@ -99,7 +99,7 @@ async def update_cms_content(
             )
 
     # Update content
-    update_data = data.model_dump(exclude_unset=True)
+    update_data = data.updates.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(content, key, value)
 

@@ -102,8 +102,6 @@ class CMSContentDelete(BaseModel):
     content_id: UUID4
     
 class BaseCmsContentUpdate(BaseModel):
-    content_type: CMSContentTypesEnum
-    content_id: UUID4
     slug: str | None = None
     language: LanguageEnum | None = None
     draft_content: Dict[str, Any] | None = None
@@ -117,8 +115,10 @@ class TagsCMSContentUpdate(BaseCmsContentUpdate):
 class PlacesCMSContentUpdate(BaseCmsContentUpdate):
     districtr_map_slug: list[str] | None = None
 
-
-CmsContentUpdate = TagsCMSContentUpdate | PlacesCMSContentUpdate
+class CmsContentUpdate(BaseModel):
+    content_type: CMSContentTypesEnum
+    content_id: UUID4
+    updates: TagsCMSContentUpdate | PlacesCMSContentUpdate
 
 
 class BaseCMSContentPublic(BaseModel):

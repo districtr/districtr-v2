@@ -210,17 +210,19 @@ export const useCmsFormStore = create(
           let content: CMSContentUpdate = {
             content_type: contentType,
             content_id: editingContent.content.id,
-            slug: formData.content.slug,
-            language: formData.content.language,
-            draft_content: draftContent,
+            updates: {
+              slug: formData.content.slug,
+              language: formData.content.language,
+              draft_content: draftContent,
+            }
           };
 
           // Add type-specific fields based on content type
           if (isContentType(contentType, 'tags')) {
-            content.districtr_map_slug =
+            content.updates.districtr_map_slug =
               (formData.content as FormDataType<'tags'>).districtr_map_slug || undefined;
           } else if (isContentType(contentType, 'places')) {
-            content.districtr_map_slugs =
+            content.updates.districtr_map_slugs =
               (formData.content as FormDataType<'places'>).districtr_map_slugs || null;
           }
 
