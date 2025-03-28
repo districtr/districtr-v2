@@ -7,7 +7,7 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import BoilerplateNode from '../components/Cms/RichTextEditor/extensions/BoilerplateNode';
+import BoilerplateNode from '../components/Cms/RichTextEditor/extensions/Boierplate/BoilerplateNode';
 import {
   FontBoldIcon,
   FontItalicIcon,

@@ -1,5 +1,5 @@
 import {LanguagePicker} from '@/app/components/LanguagePicker/LanguagePicker';
-import RichTextPreview from '@/app/components/RichTextPreview';
+import RichTextRenderer from '@/app/components/RichTextRenderer/RichTextRenderer';
 import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getCMSContent} from '@/app/utils/api/cms';
@@ -12,7 +12,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   const [cmsData, maps] = await Promise.all([
     getCMSContent(slug, language, 'places'),
     getAvailableDistrictrMaps(),
-  ])
+  ]);
 
   if (!cmsData?.content?.published_content) {
     return <div>Content not found</div>;
@@ -54,7 +54,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
           </>
         )}
       </Grid>
-      <RichTextPreview content={cmsData.content.published_content.body} className="my-4" />
+      <RichTextRenderer content={cmsData.content.published_content.body} className="my-4" />
     </Flex>
   );
 }

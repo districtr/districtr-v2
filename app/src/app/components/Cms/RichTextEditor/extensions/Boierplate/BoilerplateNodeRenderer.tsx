@@ -6,7 +6,7 @@ import Underline from '@tiptap/extension-underline';
 import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
-import {boilerplateContent} from '../Cms/RichTextEditor/extensions/BoilerplateContent';
+import { boilerplateContent } from './BoilerplateContent';
 
 interface BoilerplateNodeRendererProps {
   customContent?: object;

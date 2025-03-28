@@ -63,9 +63,12 @@ export const BoilerplateNode = Node.create({
     };
   },
 
-  addNodeView() {
-    return ReactNodeViewRenderer(BoilerplateNodeView);
-  },
+  addNodeView: // for serverside rendering, don't render the node. DOM replacement is handled in RichTextView
+    typeof window === 'undefined'
+      ? undefined
+      : () => {
+          return ReactNodeViewRenderer(BoilerplateNodeView);
+        },
 });
 
 export default BoilerplateNode;

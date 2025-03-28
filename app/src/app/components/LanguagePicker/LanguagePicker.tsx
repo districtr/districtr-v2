@@ -18,7 +18,7 @@ export const LanguagePicker: React.FC<{
   }
 
   return (
-    <Flex direction={'row'} gapX="1">
+    <Flex direction={'row'} gapX="1" pb="2">
       {availableLanguages.map(language => (
         <Button
           key={language}

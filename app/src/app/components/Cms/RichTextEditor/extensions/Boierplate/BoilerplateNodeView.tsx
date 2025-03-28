@@ -1,6 +1,6 @@
 'use client';
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
-import {EditorContent, useEditor} from '@tiptap/react';
+import {useEditor} from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextStyle from '@tiptap/extension-text-style';
@@ -8,8 +8,7 @@ import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import React, {useEffect} from 'react';
 import {Box, Button, Dialog, Flex, Heading, Text} from '@radix-ui/themes';
-import {boilerplateContent} from './BoilerplateContent';
-import RichTextEditor from '../RichTextEditor';
+import RichTextEditor from '../../RichTextEditor';
 
 const BoilerplateNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   // Use a nested editor for the custom content
