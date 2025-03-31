@@ -13,7 +13,7 @@ export const useLayerFilter = (child: boolean) => {
         ? ['match', ['get', 'path'], cleanIds, true, false]
         : // nothing will ever match "__never__"
           ['==', ['get', 'path'], '__never__'];
-    return child ? filterBase : (['!', filterBase]);
+    return child ? filterBase : ['!', filterBase];
   }, [shatterIds, child]);
 
   return layerFilter as FilterSpecification;

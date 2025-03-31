@@ -7,7 +7,7 @@ import {
   LABELS_BREAK_LAYER_ID,
   OVERLAY_OPACITY,
 } from '@/app/constants/layers';
-import { useLayerFilter } from '@/app/hooks/useLayerFilter';
+import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';
 import {Layer} from 'react-map-gl/maplibre';
 

@@ -10,11 +10,10 @@ import {
   LABELS_BREAK_LAYER_ID,
   ZONE_ASSIGNMENT_STYLE,
 } from '@/app/constants/layers';
-import { useLayerFilter } from '@/app/hooks/useLayerFilter';
+import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';
-
 
 export const ZoneLayerGroup: React.FC<{
   child?: boolean;
@@ -30,12 +29,7 @@ export const ZoneLayerGroup: React.FC<{
   const lineWidth = child ? 1 : 2;
 
   const layerOpacity = useMemo(
-    () =>
-      getLayerFill(
-        captiveIds,
-        child,
-        isOverlayed
-      ),
+    () => getLayerFill(captiveIds, child, isOverlayed),
     [captiveIds, child, isOverlayed]
   );
 

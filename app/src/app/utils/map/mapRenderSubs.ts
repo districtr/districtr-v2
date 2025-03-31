@@ -119,11 +119,7 @@ export class MapRenderSubscriber {
         this.mapRef.setPaintProperty(
           layerId,
           'fill-opacity',
-          getLayerFill(
-            captiveIds.size ? captiveIds : undefined,
-            !isParent,
-            isDemographic
-          )
+          getLayerFill(captiveIds.size ? captiveIds : undefined, !isParent, isDemographic)
         );
       }
     });
