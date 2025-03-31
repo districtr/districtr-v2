@@ -10,40 +10,33 @@ import {
   LABELS_BREAK_LAYER_ID,
   ZONE_ASSIGNMENT_STYLE,
 } from '@/app/constants/layers';
+import { useLayerFilter } from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';
-import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';
+
 
 export const ZoneLayerGroup: React.FC<{
   child?: boolean;
 }> = ({child = false}) => {
   const colorScheme = useMapStore(state => state.colorScheme);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const shatterIds = useMapStore(state => state.shatterIds);
   const captiveIds = useMapStore(state => state.captiveIds);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   const highlightUnassigned = useMapStore(state => state.mapOptions.higlightUnassigned);
   const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
   const isOverlayed = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
-  const layerFilter = useMemo(() => {
-    const ids = child ? shatterIds.children : shatterIds.parents;
-    const cleanIds = Boolean(ids) ? Array.from(ids) : [];
-    const filterBase: FilterSpecification = ['in', ['get', 'path'], ['literal', cleanIds]];
-    return child ? filterBase : (['!', filterBase] as FilterSpecification);
-  }, [shatterIds, child]);
-
+  const layerFilter = useLayerFilter(child);
   const lineWidth = child ? 1 : 2;
 
   const layerOpacity = useMemo(
     () =>
       getLayerFill(
         captiveIds,
-        child ? shatterIds.children : shatterIds.parents,
         child,
         isOverlayed
       ),
-    [captiveIds, shatterIds, child, isOverlayed]
+    [captiveIds, child, isOverlayed]
   );
 
   if (!id || !mapDocument) return null;

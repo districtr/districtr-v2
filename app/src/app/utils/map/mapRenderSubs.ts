@@ -121,7 +121,6 @@ export class MapRenderSubscriber {
           'fill-opacity',
           getLayerFill(
             captiveIds.size ? captiveIds : undefined,
-            isParent ? shatterIds.parents : undefined,
             !isParent,
             isDemographic
           )
@@ -213,7 +212,6 @@ export class MapRenderSubscriber {
           'fill-opacity',
           getLayerFill(
             captiveIds.size ? captiveIds : undefined,
-            isParent ? shatterIds.parents : undefined,
             !isParent,
             mapOptions.showDemographicMap === 'overlay'
           )
