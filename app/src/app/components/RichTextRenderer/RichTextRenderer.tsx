@@ -8,7 +8,7 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import BoilerplateNode from '../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNode';
 import parse from 'html-react-parser';
-import { domNodeReplacers } from './CustomRenderers/DomNodeRenderers';
+import {domNodeReplacers} from './CustomRenderers/DomNodeRenderers';
 
 interface RichTextRendererProps {
   content: string | object;
@@ -33,14 +33,10 @@ const RichTextRenderer: React.FC<RichTextRendererProps> = ({content, className =
   const htmlContent = typeof content === 'string' ? content : generateHTML(content, extensions);
 
   const reactContent = parse(htmlContent, {
-    replace: domNodeReplacers
+    replace: domNodeReplacers,
   });
 
-  return (
-    <div className={`prose prose-sm max-w-none ${className}`}>
-      {reactContent}
-    </div>
-  );
+  return <div className={`prose prose-sm max-w-none ${className}`}>{reactContent}</div>;
 };
 
 export default RichTextRenderer;

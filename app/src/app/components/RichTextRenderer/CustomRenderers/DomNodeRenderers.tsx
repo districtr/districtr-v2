@@ -1,5 +1,5 @@
-import { DOMNode } from "html-react-parser";
-import BoilerplateNodeRenderer from "../../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNodeRenderer";
+import {DOMNode} from 'html-react-parser';
+import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNodeRenderer';
 
 export const domNodeReplacers = (domNode: DOMNode) => {
   if (domNode.type === 'tag' && domNode.attribs?.['data-type']?.length) {
@@ -10,4 +10,4 @@ export const domNodeReplacers = (domNode: DOMNode) => {
         return <BoilerplateNodeRenderer customContent={customContent} />;
     }
   }
-}
+};

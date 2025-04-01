@@ -2,7 +2,10 @@ import {Box, Button, Dialog, Flex, Heading} from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
 import {useCmsFormStore} from '@/app/store/cmsFormStore';
 
-const RichTextPreview = dynamic(() => import('@/app/components/RichTextRenderer/RichTextRenderer'), {ssr: false});
+const RichTextPreview = dynamic(
+  () => import('@/app/components/RichTextRenderer/RichTextRenderer'),
+  {ssr: false}
+);
 
 export const ContentPreviewModal: React.FC<{}> = () => {
   const previewData = useCmsFormStore(state => state.previewData);

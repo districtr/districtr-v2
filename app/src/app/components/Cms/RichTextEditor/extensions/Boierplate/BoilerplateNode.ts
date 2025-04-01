@@ -63,7 +63,8 @@ export const BoilerplateNode = Node.create({
     };
   },
 
-  addNodeView: // for serverside rendering, don't render the node. DOM replacement is handled in RichTextView
+  // for serverside rendering, don't render the node. DOM replacement is handled in RichTextView
+  addNodeView:
     typeof window === 'undefined'
       ? undefined
       : () => {
