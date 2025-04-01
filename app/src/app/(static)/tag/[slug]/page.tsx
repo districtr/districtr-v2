@@ -12,14 +12,19 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   const [cmsData, maps] = await Promise.all([
     getCMSContent(slug, language, 'tags'),
     getAvailableDistrictrMaps(),
-  ]);
+  ]).catch(() => [null, null]);
 
-  if (!cmsData?.content?.published_content) {
-    return <div>Content not found</div>;
+  if (!cmsData?.content?.published_content || !maps) {
+    return (
+      <Flex className="size-full" justify="center" align="center">
+        <Heading>Content not found</Heading>
+      </Flex>
+    );
   }
   const selectedMap =
     cmsData.content.districtr_map_slug &&
     maps.find(m => m.districtr_map_slug === cmsData.content.districtr_map_slug);
+
   return (
     <Flex direction="column" width="100%" className="max-w-screen-lg mx-auto py-4">
       <Heading as="h1" size="6" mb="4">

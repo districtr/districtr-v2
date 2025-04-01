@@ -12,10 +12,14 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   const [cmsData, maps] = await Promise.all([
     getCMSContent(slug, language, 'places'),
     getAvailableDistrictrMaps(),
-  ]);
+  ]).catch(() => [null, null]);
 
-  if (!cmsData?.content?.published_content) {
-    return <div>Content not found</div>;
+  if (!cmsData?.content?.published_content || !maps) {
+    return (
+      <Flex className="size-full" justify="center" align="center">
+        <Heading>Content not found</Heading>
+      </Flex>
+    );
   }
 
   const availableMaps =

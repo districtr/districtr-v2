@@ -13,7 +13,7 @@ export default async function TagsPage() {
     .sort((a, b) => a.published_content!.title.localeCompare(b.published_content!.title));
 
   return (
-    <Flex direction={'column'} className="max-w-screen-xl mx-auto py-4">
+    <Flex direction={'column'} className="max-w-screen-xl mx-auto p-4">
       <Heading as="h1" size="6" mb="4">
         Places
       </Heading>
