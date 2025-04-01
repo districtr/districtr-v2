@@ -140,6 +140,12 @@ class PlacesCMSContentPublic(BaseCMSContentPublic):
 AllCMSContentPublic = TagsCMSContentPublic | PlacesCMSContentPublic
 
 
+class AllCmsFields(BaseCMSContentPublic):
+    districtr_map_slug: str | None = None
+    districtr_map_slugs: list[str] | None = None
+
+
 class CMSContentPublicWithLanguages(BaseModel):
-    content: AllCMSContentPublic
+    content: AllCmsFields
     available_languages: list[LanguageEnum]
+    type: CMSContentTypesEnum

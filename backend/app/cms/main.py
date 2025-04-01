@@ -14,6 +14,8 @@ from app.cms.models import (
     LanguageEnum,
     CMS_MODEL_MAP,
     CMSContentTypesEnum,
+    CMSContentPublicWithLanguages,
+    AllCMSContentPublic,
 )
 
 router = APIRouter(prefix="/api/cms", tags=["cms"])
@@ -27,7 +29,7 @@ def get_session():
 
 @router.post(
     "/content",
-    # response_model=CMSContentCreate,
+    response_model=AllCMSContentPublic,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_cms_content(
@@ -58,10 +60,7 @@ async def create_cms_content(
     return content
 
 
-@router.patch(
-    "/content",
-    #   response_model=AllCMSContentPublic
-)
+@router.patch("/content", response_model=AllCMSContentPublic)
 async def update_cms_content(
     data: CmsContentUpdate,
     session: Session = Depends(get_session),
@@ -111,10 +110,7 @@ async def update_cms_content(
     return content
 
 
-@router.post(
-    "/content/publish",
-    #  response_model=AllCMSContentPublic
-)
+@router.post("/content/publish", response_model=AllCMSContentPublic)
 async def publish_cms_content(
     data: CMSContentPublish, session: Session = Depends(get_session)
 ):
@@ -167,15 +163,10 @@ async def delete_cms_content(
     return None
 
 
-@router.get(
-    "/content/{content_type}/list",
-    # response_model=list[AllCMSContentPublic]
-)
+@router.get("/content/{content_type}/list", response_model=list[AllCMSContentPublic])
 async def list_cms_content(
     content_type: CMSContentTypesEnum,
     language: LanguageEnum = None,
-    # districtr_map_slug: str = None,
-    # districtr_map_slugs: List[str] = None,
     session: Session = Depends(get_session),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, le=100),
@@ -187,15 +178,6 @@ async def list_cms_content(
     if language:
         query = query.where(literal_column(CMSModel.language.name) == language)
 
-    # if districtr_map_slug:
-    #     query = query.where(
-    #         literal_column(CMSModel.districtr_map_slug.name) == districtr_map_slug
-    #     )
-    # elif districtr_map_slugs:
-    #     query = query.where(
-    #         literal_column(CMSModel.districtr_map_slugs.name) == districtr_map_slugs
-    #     )
-
     query = query.offset(offset).limit(limit)
     results = session.exec(query).all()
 
@@ -203,8 +185,7 @@ async def list_cms_content(
 
 
 @router.get(
-    "/content/{content_type}/slug/{slug}"
-    # response_model=CMSContentPublicWithLanguages
+    "/content/{content_type}/slug/{slug}", response_model=CMSContentPublicWithLanguages
 )
 async def get_cms_content(
     content_type: CMSContentTypesEnum,
