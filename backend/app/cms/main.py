@@ -187,7 +187,8 @@ async def list_cms_content(
 
 
 @router.get(
-    "/content/{content_type}/slug/{slug}", response_model=CMSContentPublicWithLanguages
+    "/content/{content_type}/slug/{slug}",
+    #  response_model=CMSContentPublicWithLanguages
 )
 async def get_cms_content(
     content_type: CMSContentTypesEnum,
@@ -198,27 +199,20 @@ async def get_cms_content(
     """Get CMS content by slug and language"""
     CmsModel = CMS_MODEL_MAP[content_type]
 
-    try:
-        content = session.exec(select(CmsModel).where(CmsModel.slug == slug)).all()
-        languages = [row.language for row in content]
-        preferred_language = language if language in languages else "en"
-        preferred_content = next(
-            (row for row in content if row.language == preferred_language), None
-        )
-
-        return {
-            "available_languages": languages,
-            "type": content_type,
-            "content": preferred_content,
-        }
-    except NoResultFound:
+    content = session.exec(select(CmsModel).where(CmsModel.slug == slug)).all()
+    languages = [row.language for row in content]
+    preferred_language = language if language in languages else "en"
+    preferred_content = next(
+        (row for row in content if row.language == preferred_language), None
+    )
+    if not preferred_content:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Content with slug '{slug}' and language '{language}' not found",
         )
-    except MultipleResultsFound:
-        # This shouldn't happen due to unique constraint, but just in case
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Multiple content entries found for slug '{slug}' and language '{language}'",
-        )
+
+    return {
+        "available_languages": languages,
+        "type": content_type,
+        "content": preferred_content,
+    }

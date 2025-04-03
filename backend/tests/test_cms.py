@@ -1,13 +1,72 @@
+import os
 import pytest
 import uuid
 from app.cms.models import (
     CMSContentTypesEnum,
     LanguageEnum,
 )
+from app.constants import GERRY_DB_SCHEMA
+from sqlmodel import Session
+from sqlalchemy import text
+import subprocess
+from tests.constants import (
+    OGR2OGR_PG_CONNECTION_STRING,
+    FIXTURES_PATH,
+)
+from app.utils import (
+    create_districtr_map,
+)
 
+GERRY_DB_TOTAL_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_total_vap"
+
+
+@pytest.fixture(name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME)
+def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
+    layer = GERRY_DB_TOTAL_VAP_FIXTURE_NAME
+    subprocess.run(
+        args=[
+            "ogr2ogr",
+            "-f",
+            "PostgreSQL",
+            OGR2OGR_PG_CONNECTION_STRING,
+            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            "-lco",
+            "OVERWRITE=yes",
+            "-lco",
+            "GEOMETRY_NAME=geometry",
+            "-nln",
+            f"{GERRY_DB_SCHEMA}.{layer}",  # Forced that the layer is imported into the gerrydb schema
+        ],
+    )
+
+
+@pytest.fixture(name="ks_demo_view_census_total_vap_blocks_districtrmap")
+def ks_demo_view_census_blocks_total_vap_districtrmap_fixture(
+    session: Session, ks_demo_view_census_blocks_total_vap: None
+):
+    upsert_query = text(
+        """
+        INSERT INTO gerrydbtable (uuid, name, updated_at)
+        VALUES (gen_random_uuid(), :name, now())
+        ON CONFLICT (name)
+        DO UPDATE SET
+            updated_at = now()
+    """
+    )
+
+    session.begin()
+    session.execute(upsert_query, {"name": GERRY_DB_TOTAL_VAP_FIXTURE_NAME})
+    create_districtr_map(
+        session=session,
+        name=f"Districtr map {GERRY_DB_TOTAL_VAP_FIXTURE_NAME}",
+        districtr_map_slug=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        gerrydb_table_name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        parent_layer=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+    )
+    session.commit()
 
 @pytest.fixture(name="tags_cms_content_id")
-def mock_tags_cms_content(client):
+def mock_tags_cms_content(client, ks_demo_view_census_total_vap_blocks_districtrmap):
     responses = [
         client.post(
             "/api/cms/content",
@@ -29,7 +88,7 @@ def mock_tags_cms_content(client):
                     },
                 },
                 "published_content": None,
-                "districtr_map_slug": "co_districtr_view",
+                "districtr_map_slug": "ks_demo_view_census_blocks_total_vap",
             },
         ),
         client.post(
@@ -52,7 +111,7 @@ def mock_tags_cms_content(client):
                     },
                 },
                 "published_content": None,
-                "districtr_map_slug": "co_districtr_view",
+                "districtr_map_slug": "ks_demo_view_census_blocks_total_vap",
             },
         ),
         client.post(
@@ -75,7 +134,7 @@ def mock_tags_cms_content(client):
                     },
                 },
                 "published_content": None,
-                "districtr_map_slug": "co_districtr_view",
+                "districtr_map_slug": "ks_demo_view_census_blocks_total_vap",
             },
         ),
         client.post(
@@ -98,14 +157,14 @@ def mock_tags_cms_content(client):
                     },
                 },
                 "published_content": None,
-                "districtr_map_slug": "co_districtr_view",
+                "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
             },
         ),
     ]
-    return [response["id"] for response in responses]
+    return [response.json()["id"] for response in responses]
 
 
-def test_create_cms_content(client):
+def test_create_cms_content(client, ks_demo_view_census_total_vap_blocks_districtrmap):
     """Test creating a new CMS content entry"""
     # Mock the session.exec() result for checking existing content
     response = client.post(
@@ -128,7 +187,7 @@ def test_create_cms_content(client):
                 },
             },
             "published_content": None,
-            "districtr_map_slug": "co_districtr_view",
+            "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
         },
     )
     # Check that the response is correct
@@ -137,7 +196,7 @@ def test_create_cms_content(client):
     assert response.json()["message"] == "Content created successfully"
 
 
-def test_create_cms_content_conflict(client, tags_cms_content_id):
+def test_create_cms_content_conflict(client, tags_cms_content_id, ks_demo_view_census_total_vap_blocks_districtrmap):
     """Test creating a CMS content entry with the same slug and language"""
     content_data = {
         "content_type": CMSContentTypesEnum.tags.value,
@@ -152,7 +211,7 @@ def test_create_cms_content_conflict(client, tags_cms_content_id):
     }
     response = client.post("/api/cms/content", json=content_data)
     assert response.status_code == 409
-    assert "already exists" in response.json()["detail"]
+    assert "already exists" in response.json()['detail']
 
 
 def test_update_cms_content(client, tags_cms_content_id):
@@ -199,13 +258,21 @@ def test_update_cms_content_not_found(client, tags_cms_content_id):
     assert "not found" in response.json()["detail"]
 
 
-def test_update_cms_content_slug_conflict(client, tags_cms_content_id):
+def test_update_cms_content_slug_conflict(client, tags_cms_content_id, ks_demo_view_census_total_vap_blocks_districtrmap):
     """Test updating a CMS content entry with a slug that conflicts with another entry"""
+    client.post(
+        "/api/cms/content",
+        json={
+            "content_type": CMSContentTypesEnum.tags.value,
+            "slug": "test-tags-conflict",
+            "language": LanguageEnum.ENGLISH.value,
+        },
+    )
 
     update_data = {
         "content_type": CMSContentTypesEnum.tags.value,
         "content_id": tags_cms_content_id[0],
-        "updates": {"slug": "test-tags", "language": LanguageEnum.ENGLISH.value},
+        "updates": {"slug": "test-tags-conflict", "language": LanguageEnum.ENGLISH.value},
     }
     response = client.patch("/api/cms/content", json=update_data)
     assert response.status_code == 409
@@ -224,7 +291,7 @@ def test_publish_cms_content(client, tags_cms_content_id):
     assert response.status_code == 200
 
 
-def test_publish_cms_content_no_draft(client):
+def test_publish_cms_content_no_draft(client, ks_demo_view_census_total_vap_blocks_districtrmap):
     """Test publishing when there's no draft content"""
     content_no_draft = client.post(
         "/api/cms/content",
@@ -234,10 +301,9 @@ def test_publish_cms_content_no_draft(client):
             "language": LanguageEnum.ENGLISH.value,
             "draft_content": None,
             "published_content": {"title": "Published Content"},
-            "districtr_map_slug": "co_districtr_view",
+            "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
         },
     )
-    print("!!!", content_no_draft.json())
     response = client.post(
         "/api/cms/content/publish",
         json={
@@ -250,7 +316,7 @@ def test_publish_cms_content_no_draft(client):
     assert "No draft content to publish" in response.json()["detail"]
 
 
-def test_publish_cms_content_not_found(client):
+def test_publish_cms_content_not_found(client, ks_demo_view_census_total_vap_blocks_districtrmap):
     """Test publishing a non-existent CMS content entry"""
     # Set up the mock session to return None, simulating content not found
     fake_id = str(uuid.uuid4())
