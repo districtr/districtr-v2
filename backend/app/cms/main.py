@@ -5,7 +5,7 @@ from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from datetime import datetime
 import logging
 
-from app.core.db import engine
+from app.core.db import get_session
 from app.cms.models import (
     CMSContentCreate,
     CmsContentUpdate,
@@ -21,11 +21,6 @@ from app.cms.models import (
 
 router = APIRouter(prefix="/api/cms", tags=["cms"])
 logger = logging.getLogger(__name__)
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
 
 
 @router.post(

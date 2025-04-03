@@ -7,7 +7,7 @@ from app.cms.models import (
 
 
 @pytest.fixture(name="tags_cms_content_id")
-def mock_tags_cms_content(client, session):
+def mock_tags_cms_content(client):
     responses = [
         client.post(
             "/api/cms/content",

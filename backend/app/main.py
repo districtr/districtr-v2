@@ -27,13 +27,13 @@ from sqlmodel import ARRAY, INT
 from datetime import datetime, UTC, timedelta
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
-from app.core.db import engine
+from app.core.db import get_session
 from app.core.config import settings
 from app.utils import hash_password, verify_password
 import jwt
 from uuid import uuid4
 import app.contiguity.main as contiguity
-from app.cms.main import router as cms_router
+import app.cms.main as cms
 from networkx import Graph, connected_components
 from app.models import (
     Assignments,
@@ -99,7 +99,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Include the CMS router
-app.include_router(cms_router)
+app.include_router(cms.router)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -117,11 +117,6 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
 
 
 def update_timestamp(
