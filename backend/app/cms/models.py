@@ -140,6 +140,11 @@ class PlacesCMSContentPublic(BaseCMSContentPublic):
 AllCMSContentPublic = TagsCMSContentPublic | PlacesCMSContentPublic
 
 
+class ContentUpdateResponse(BaseModel):
+    id: UUID4
+    message: str
+
+
 class AllCmsFields(BaseCMSContentPublic):
     districtr_map_slug: str | None = None
     districtr_map_slugs: list[str] | None = None

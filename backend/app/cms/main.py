@@ -2,7 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
-from sqlalchemy.sql import literal_column
+from datetime import datetime
 import logging
 
 from app.core.db import engine
@@ -16,6 +16,7 @@ from app.cms.models import (
     CMSContentTypesEnum,
     CMSContentPublicWithLanguages,
     AllCMSContentPublic,
+    ContentUpdateResponse,
 )
 
 router = APIRouter(prefix="/api/cms", tags=["cms"])
@@ -29,7 +30,7 @@ def get_session():
 
 @router.post(
     "/content",
-    response_model=AllCMSContentPublic,
+    response_model=ContentUpdateResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_cms_content(
@@ -51,16 +52,24 @@ async def create_cms_content(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Content with slug '{data.slug}' and language '{data.language}' already exists",
         )
-
-    content = CmsModel(id=str(uuid.uuid4()), **data.model_dump())
+    timestamp = datetime.now()
+    content = CmsModel(
+        id=str(uuid.uuid4()),
+        created_at=timestamp,
+        updated_at=timestamp,
+        **data.model_dump(),
+    )
     session.add(content)
     session.commit()
     session.refresh(content)
 
-    return content
+    return {
+        "id": content.id,
+        "message": "Content created successfully",
+    }
 
 
-@router.patch("/content", response_model=AllCMSContentPublic)
+@router.patch("/content", response_model=ContentUpdateResponse)
 async def update_cms_content(
     data: CmsContentUpdate,
     session: Session = Depends(get_session),
@@ -107,10 +116,10 @@ async def update_cms_content(
     session.commit()
     session.refresh(content)
 
-    return content
+    return {"id": content.id, "message": "Content updated successfully"}
 
 
-@router.post("/content/publish", response_model=AllCMSContentPublic)
+@router.post("/content/publish", response_model=ContentUpdateResponse)
 async def publish_cms_content(
     data: CMSContentPublish, session: Session = Depends(get_session)
 ):
@@ -138,7 +147,7 @@ async def publish_cms_content(
     session.commit()
     session.refresh(content)
 
-    return content
+    return {"id": content.id, "message": "Content published successfully"}
 
 
 @router.post("/content/delete", status_code=status.HTTP_204_NO_CONTENT)
@@ -174,13 +183,11 @@ async def list_cms_content(
     """List CMS content with optional filtering"""
     CMSModel = CMS_MODEL_MAP[content_type]
     query = select(CMSModel)
-
     if language:
-        query = query.where(literal_column(CMSModel.language.name) == language)
-
+        logger.info(f"Filtering by language: {language}")
+        query = query.where(CMSModel.language == language)
     query = query.offset(offset).limit(limit)
     results = session.exec(query).all()
-
     return results
 
 
