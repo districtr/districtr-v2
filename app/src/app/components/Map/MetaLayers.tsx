@@ -50,6 +50,7 @@ const PopulationTextLayer = () => {
           'text-size': 18,
           'text-anchor': 'center',
           'text-offset': [0, 0],
+          'text-allow-overlap': true,
         }}
         paint={{
           'text-color': '#000',
@@ -95,7 +96,7 @@ const ZoneNumbersLayer = () => {
       addZoneMetaLayers();
       updateTimeout.current = setTimeout(() => {
         updateTimeout.current = null;
-      }, 100);
+      }, 50);
     }
   };
 
