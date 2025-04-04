@@ -13,7 +13,6 @@ from utils import merge_tilesets
 from constants import (
     DEFAULT_GERRYDB_COLUMNS,
     S3_BASEMAPS_PREFIX,
-    TIGER_COUNTY_URL,
     S3_TIGER_PREFIX,
 )
 
@@ -126,19 +125,27 @@ def batch_create_tilesets(
         tileset_batch.upload_results()
 
 
-@cli.command()
+@cli.command('create-census-tiles')
 @click.option("--replace", is_flag=True, help="Replace existing files", default=False)
+@click.option("--data-url", type=str, help="File path to zipped shapefile from the US Census", default=False)
 @click.option("--upload", is_flag=True, help="Upload files to S3", default=False)
-def create_county_tiles(replace: bool = False, upload: bool = False):
-    logger.info("Creating county tiles")
-    if replace or not os.path.exists(
-        settings.OUT_SCRATCH / "tl_{TIGER_YEAR}_us_county.zip"
-    ):
-        logger.info(f"Downloading county shapefile from {TIGER_COUNTY_URL}")
-        download_and_unzip_zipfile(TIGER_COUNTY_URL, settings.OUT_SCRATCH)
+@click.option("--geoid-col", type=str, help="Column name for the GEOID", default="GEOID")
+@click.option("--name-col", type=str, help="Column name for the NAME", default="NAME")
+def create_census_tiles(replace: bool = False, upload: bool = False, data_url = None, geoid_col: str = "GEOID", name_col: str = "NAME") -> None:
+    logger.info("Creating census tiles")
 
-    logger.info("Creating county FGB")
-    file_name = urlparse(TIGER_COUNTY_URL).path.split("/")[-1].split(".")[0]
+    if data_url is None:
+        raise ValueError("data_url must be provided")
+
+    file_name = urlparse(data_url).path.split("/")[-1].split(".")[0]
+    
+    if replace or not os.path.exists(
+        settings.OUT_SCRATCH / f"{file_name}.zip"
+    ):
+        logger.info(f"Downloading census shapefile from {data_url}")
+        download_and_unzip_zipfile(data_url, settings.OUT_SCRATCH)
+
+    logger.info("Creating census FGB")
     fgb = settings.OUT_SCRATCH / f"{file_name}.fgb"
 
     if replace or not fgb.exists():
@@ -160,7 +167,7 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
 
     key = f"{S3_BASEMAPS_PREFIX}/{S3_TIGER_PREFIX}/{file_name}.fgb"
 
-    logger.info("Creating county tiles")
+    logger.info("Creating census tiles")
     tiles = settings.OUT_SCRATCH / f"{file_name}.pmtiles"
     if replace or not tiles.exists():
         run(
@@ -181,7 +188,7 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
             check=True,
         )
 
-    logger.info("Creating county label centroids")
+    logger.info("Creating census label centroids")
     label_fgb = settings.OUT_SCRATCH / f"{file_name}_label.fgb"
     if replace or not label_fgb.exists():
         duckdb.execute(
@@ -189,8 +196,8 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
             INSTALL SPATIAL; LOAD spatial;
             COPY (
                 SELECT
-                    GEOID,
-                    NAME,
+                    {geoid_col},
+                    {name_col},
                     ST_Centroid(geom) as geometry,
                 FROM st_read('{fgb}')
             ) TO '{label_fgb}'
@@ -198,7 +205,7 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
             """
         )
 
-    logger.info("Creating county label tiles")
+    logger.info("Creating label tiles")
     label_tiles = settings.OUT_SCRATCH / f"{file_name}_label.pmtiles"
     if replace or not label_tiles.exists():
         run(
