@@ -65,6 +65,7 @@ def ks_demo_view_census_blocks_total_vap_districtrmap_fixture(
     )
     session.commit()
 
+
 @pytest.fixture(name="tags_cms_content_id")
 def mock_tags_cms_content(client, ks_demo_view_census_total_vap_blocks_districtrmap):
     responses = [
@@ -196,7 +197,71 @@ def test_create_cms_content(client, ks_demo_view_census_total_vap_blocks_distric
     assert response.json()["message"] == "Content created successfully"
 
 
-def test_create_cms_content_conflict(client, tags_cms_content_id, ks_demo_view_census_total_vap_blocks_districtrmap):
+def test_create_cms_content_invalid_slug_empty(
+    client, ks_demo_view_census_total_vap_blocks_districtrmap
+):
+    """Test creating a new CMS content entry"""
+    # Mock the session.exec() result for checking existing content
+    response = client.post(
+        "/api/cms/content",
+        json={
+            "content_type": "tags",
+            "slug": "",  # Empty slug
+            "language": "en",
+            "draft_content": {
+                "title": "test",
+                "subtitle": "",
+                "body": {
+                    "type": "doc",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": "test"}],
+                        }
+                    ],
+                },
+            },
+            "published_content": None,
+            "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_create_cms_content_invalid_special_characters_slug(
+    client, ks_demo_view_census_total_vap_blocks_districtrmap
+):
+    """Test creating a new CMS content entry"""
+    # Mock the session.exec() result for checking existing content
+    response = client.post(
+        "/api/cms/content",
+        json={
+            "content_type": "tags",
+            "slug": "invalid/slug$$$:)_",  # Invalid slug with special characters
+            "language": "en",
+            "draft_content": {
+                "title": "test",
+                "subtitle": "",
+                "body": {
+                    "type": "doc",
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": "test"}],
+                        }
+                    ],
+                },
+            },
+            "published_content": None,
+            "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_create_cms_content_conflict(
+    client, tags_cms_content_id, ks_demo_view_census_total_vap_blocks_districtrmap
+):
     """Test creating a CMS content entry with the same slug and language"""
     content_data = {
         "content_type": CMSContentTypesEnum.tags.value,
@@ -211,7 +276,7 @@ def test_create_cms_content_conflict(client, tags_cms_content_id, ks_demo_view_c
     }
     response = client.post("/api/cms/content", json=content_data)
     assert response.status_code == 409
-    assert "already exists" in response.json()['detail']
+    assert "already exists" in response.json()["detail"]
 
 
 def test_update_cms_content(client, tags_cms_content_id):
@@ -258,7 +323,9 @@ def test_update_cms_content_not_found(client, tags_cms_content_id):
     assert "not found" in response.json()["detail"]
 
 
-def test_update_cms_content_slug_conflict(client, tags_cms_content_id, ks_demo_view_census_total_vap_blocks_districtrmap):
+def test_update_cms_content_slug_conflict(
+    client, tags_cms_content_id, ks_demo_view_census_total_vap_blocks_districtrmap
+):
     """Test updating a CMS content entry with a slug that conflicts with another entry"""
     client.post(
         "/api/cms/content",
@@ -272,7 +339,10 @@ def test_update_cms_content_slug_conflict(client, tags_cms_content_id, ks_demo_v
     update_data = {
         "content_type": CMSContentTypesEnum.tags.value,
         "content_id": tags_cms_content_id[0],
-        "updates": {"slug": "test-tags-conflict", "language": LanguageEnum.ENGLISH.value},
+        "updates": {
+            "slug": "test-tags-conflict",
+            "language": LanguageEnum.ENGLISH.value,
+        },
     }
     response = client.patch("/api/cms/content", json=update_data)
     assert response.status_code == 409
@@ -291,7 +361,9 @@ def test_publish_cms_content(client, tags_cms_content_id):
     assert response.status_code == 200
 
 
-def test_publish_cms_content_no_draft(client, ks_demo_view_census_total_vap_blocks_districtrmap):
+def test_publish_cms_content_no_draft(
+    client, ks_demo_view_census_total_vap_blocks_districtrmap
+):
     """Test publishing when there's no draft content"""
     content_no_draft = client.post(
         "/api/cms/content",
@@ -316,7 +388,9 @@ def test_publish_cms_content_no_draft(client, ks_demo_view_census_total_vap_bloc
     assert "No draft content to publish" in response.json()["detail"]
 
 
-def test_publish_cms_content_not_found(client, ks_demo_view_census_total_vap_blocks_districtrmap):
+def test_publish_cms_content_not_found(
+    client, ks_demo_view_census_total_vap_blocks_districtrmap
+):
     """Test publishing a non-existent CMS content entry"""
     # Set up the mock session to return None, simulating content not found
     fake_id = str(uuid.uuid4())

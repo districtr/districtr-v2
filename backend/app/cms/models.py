@@ -1,6 +1,7 @@
+import re
 from datetime import datetime
 from typing import Any, Dict
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4, BaseModel, field_validator
 from sqlmodel import (
     Field,
     SQLModel,
@@ -92,6 +93,14 @@ class CMSContentCreate(BaseModel):
     published_content: Dict[str, Any] | None = None
     districtr_map_slug: str | None = None
     districtr_map_slugs: list[str] | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug(cls, value):
+        pattern = r"^[a-z0-9-]+$"
+        if not re.match(pattern, value):
+            raise ValueError("Invalid slug")
+        return value
 
 
 class CMSContentPublish(BaseModel):
