@@ -1,23 +1,24 @@
-import uuid
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Security
 from sqlmodel import Session, select
-from sqlalchemy.exc import MultipleResultsFound, NoResultFound
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.sql import func as db_func
 from datetime import datetime
 import logging
-
+from typing import Annotated
+from psycopg.errors import UniqueViolation
+from app.core.security import auth, TokenScope
 from app.core.db import get_session
 from app.cms.models import (
     CMSContentCreate,
-    CmsContentUpdate,
-    CMSContentPublish,
-    CMSContentDelete,
     LanguageEnum,
+    CmsContentUpdate,
     CMS_MODEL_MAP,
     CMSContentTypesEnum,
-    CMSContentPublicWithLanguages,
     AllCMSContentPublic,
     ContentUpdateResponse,
+    CmsContent,
 )
+from app.cms.utils import content_update, content_delete
 
 router = APIRouter(prefix="/api/cms", tags=["cms"])
 logger = logging.getLogger(__name__)
@@ -31,32 +32,28 @@ logger = logging.getLogger(__name__)
 async def create_cms_content(
     data: CMSContentCreate,
     session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
 ):
     """Create a new CMS content entry"""
-    # Check if content with same slug and language already exists
-    CmsModel = CMS_MODEL_MAP[data.content_type]
+    CmsModel: CmsContent = CMS_MODEL_MAP[data.content_type]
 
-    existing = session.exec(
-        select(CmsModel)
-        .where(CmsModel.slug == data.slug)
-        .where(CmsModel.language == data.language)
-    ).first()
-
-    if existing:
+    try:
+        timestamp = datetime.now()
+        content = CmsModel(
+            id=db_func.gen_random_uuid(),
+            created_at=timestamp,
+            updated_at=timestamp,
+            author=auth_result["sub"],
+            **data.model_dump(),
+        )
+        session.add(content)
+        session.commit()
+        session.refresh(content)
+    except (IntegrityError, UniqueViolation):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Content with slug '{data.slug}' and language '{data.language}' already exists",
         )
-    timestamp = datetime.now()
-    content = CmsModel(
-        id=str(uuid.uuid4()),
-        created_at=timestamp,
-        updated_at=timestamp,
-        **data.model_dump(),
-    )
-    session.add(content)
-    session.commit()
-    session.refresh(content)
 
     return {
         "id": content.id,
@@ -67,69 +64,31 @@ async def create_cms_content(
 @router.patch("/content", response_model=ContentUpdateResponse)
 async def update_cms_content(
     data: CmsContentUpdate,
+    content: Annotated[CmsContent, Depends(content_update)],
     session: Session = Depends(get_session),
 ):
     """Update existing CMS content"""
-    CMSModel = CMS_MODEL_MAP[data.content_type]
-    # Check if content exists
-    content = session.exec(
-        select(CMSModel).where(CMSModel.id == data.content_id)
-    ).first()
-
-    if not content:
+    try:
+        update_data = data.updates.model_dump(exclude_unset=True)
+        content.sqlmodel_update(update_data)
+        session.add(content)
+        session.commit()
+        session.refresh(content)
+    except IntegrityError:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Content with ID '{data.content_id}' not found",
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Content with slug '{data.updates.slug}' and language '{data.updates.language}' already exists",
         )
-
-    # If updating slug or language, check for conflicts
-    if (data.updates.slug and data.updates.slug != content.slug) or (
-        data.updates.language and data.updates.language != content.language
-    ):
-        new_slug = data.updates.slug or content.slug
-        new_language = data.updates.language or content.language
-
-        conflict = session.exec(
-            select(CMSModel)
-            .where(CMSModel.slug == new_slug)
-            .where(CMSModel.language == new_language)
-            .where(CMSModel.id != data.content_id)
-        ).first()
-
-        if conflict:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Content with slug '{new_slug}' and language '{new_language}' already exists",
-            )
-
-    # Update content
-    update_data = data.updates.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(content, key, value)
-
-    session.add(content)
-    session.commit()
-    session.refresh(content)
 
     return {"id": content.id, "message": "Content updated successfully"}
 
 
 @router.post("/content/publish", response_model=ContentUpdateResponse)
 async def publish_cms_content(
-    data: CMSContentPublish, session: Session = Depends(get_session)
+    content: Annotated[CmsContent, Depends(content_update)],
+    session: Session = Depends(get_session),
 ):
     """Publish draft content"""
-    CMSModel = CMS_MODEL_MAP[data.content_type]
-    content = session.exec(
-        select(CMSModel).where(CMSModel.id == data.content_id)
-    ).first()
-
-    if not content:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Content with ID '{data.content_id}' not found",
-        )
-
     if not content.draft_content:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -147,20 +106,10 @@ async def publish_cms_content(
 
 @router.post("/content/delete", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_cms_content(
-    data: CMSContentDelete, session: Session = Depends(get_session)
+    content: Annotated[CmsContent, Depends(content_delete)],
+    session: Session = Depends(get_session),
 ):
     """Delete CMS content by ID"""
-    CMSModel = CMS_MODEL_MAP[data.content_type]
-    content = session.exec(
-        select(CMSModel).where(CMSModel.id == data.content_id)
-    ).first()
-
-    if not content:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Content with ID '{data.content_id}' not found",
-        )
-
     session.delete(content)
     session.commit()
 
@@ -188,7 +137,6 @@ async def list_cms_content(
 
 @router.get(
     "/content/{content_type}/slug/{slug}",
-    #  response_model=CMSContentPublicWithLanguages
 )
 async def get_cms_content(
     content_type: CMSContentTypesEnum,

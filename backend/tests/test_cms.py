@@ -275,7 +275,7 @@ def test_create_cms_content_conflict(
         "districtr_map_slug": "test-map",
     }
     response = client.post("/api/cms/content", json=content_data)
-    assert response.status_code == 409
+    assert response.status_code == 409, response.json()
     assert "already exists" in response.json()["detail"]
 
 

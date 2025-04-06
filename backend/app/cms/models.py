@@ -45,6 +45,7 @@ class TagsCMSContent(TimeStampMixin, SQLModel, table=True):
             index=True,
         )
     )
+    author: str | None = Field(sa_column=Column(String, nullable=True))
     __table_args__ = (
         UniqueConstraint("slug", "language", name="tags_slug_language_unique"),
     )
@@ -69,6 +70,7 @@ class PlacesCMSContent(TimeStampMixin, SQLModel, table=True):
             index=True,
         )
     )
+    author: str | None = Field(sa_column=Column(String, nullable=True))
     __table_args__ = (
         UniqueConstraint("slug", "language", name="places_slug_language_unique"),
     )
@@ -83,6 +85,9 @@ CMS_MODEL_MAP = {
     CMSContentTypesEnum.tags: TagsCMSContent,
     CMSContentTypesEnum.places: PlacesCMSContent,
 }
+
+
+CmsContent = PlacesCMSContent | TagsCMSContent
 
 
 class CMSContentCreate(BaseModel):
@@ -163,3 +168,6 @@ class CMSContentPublicWithLanguages(BaseModel):
     content: AllCmsFields
     available_languages: list[LanguageEnum]
     type: CMSContentTypesEnum
+
+
+CmsContentCRUD = CmsContentUpdate | CMSContentPublish | CMSContentDelete
