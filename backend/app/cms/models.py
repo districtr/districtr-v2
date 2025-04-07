@@ -25,7 +25,14 @@ class LanguageEnum(str, Enum):
     HAITIAN = "ht"
     PORTUGUESE = "pt"
 
-
+LANGUAGE_MAP = {
+    "en": "English",
+    "es": "Spanish",
+    "zh": "Chinese",
+    "vi": "Vietnamese",
+    "ht": "Haitian",
+    "pt": "Portuguese",
+}
 class TagsCMSContent(TimeStampMixin, SQLModel, table=True):
     __tablename__ = "tags_content"
     metadata = MetaData(schema=CMS_SCHEMA)

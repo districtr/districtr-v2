@@ -1,7 +1,6 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
-from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from datetime import datetime
 import logging
 
@@ -14,9 +13,9 @@ from app.cms.models import (
     LanguageEnum,
     CMS_MODEL_MAP,
     CMSContentTypesEnum,
-    CMSContentPublicWithLanguages,
     AllCMSContentPublic,
     ContentUpdateResponse,
+    LANGUAGE_MAP
 )
 
 router = APIRouter(prefix="/api/cms", tags=["cms"])
@@ -45,7 +44,7 @@ async def create_cms_content(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Content with slug '{data.slug}' and language '{data.language}' already exists",
+            detail=f"Content with slug '{data.slug}' and language '{LANGUAGE_MAP[data.language.value]}' already exists",
         )
     timestamp = datetime.now()
     content = CmsModel(
