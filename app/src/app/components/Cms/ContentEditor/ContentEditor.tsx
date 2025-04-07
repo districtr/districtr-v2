@@ -59,6 +59,7 @@ export const ContentEditor: React.FC = () => {
             value={formData?.content.slug}
             onChange={e => handleChange('slug')(e.target.value)}
             placeholder="texas-districts"
+            disabled={!!editingContent}
           />
         </Flex>
 
