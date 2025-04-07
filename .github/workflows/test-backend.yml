@@ -61,3 +61,7 @@ jobs:
           POSTGRES_DB: postgres
           POSTGRES_SERVER: postgres
           POSTGRES_PORT: 5432
+          AUTH0_DOMAIN: my-tenant.us.auth0.com
+          AUTH0_API_AUDIENCE: http://localhost:8000/
+          AUTH0_ISSUER: https://my-tenant.us.auth0.com
+          AUTH0_ALGORITHMS: RS256

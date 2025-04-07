@@ -17,6 +17,7 @@ from app.cms.models import (
     AllCMSContentPublic,
     ContentUpdateResponse,
     CmsContent,
+    LANGUAGE_MAP,
 )
 from app.cms.utils import content_update, content_delete
 
@@ -52,7 +53,7 @@ async def create_cms_content(
     except (IntegrityError, UniqueViolation):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Content with slug '{data.slug}' and language '{data.language}' already exists",
+            detail=f"Content with slug '{data.slug}' and language '{LANGUAGE_MAP[data.language.value]}' already exists",
         )
 
     return {
