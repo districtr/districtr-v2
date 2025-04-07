@@ -14,13 +14,13 @@ export const VtdBlockLayers: React.FC<{
 }> = ({isDemographicMap}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
-  const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap);
+  const activeLayers = useMapStore(state => state.mapOptions.activeLayers);
   const demographicVariable = useDemographyStore(state => state.variable);
   const setScale = useDemographyStore(state => state.setScale);
   const demographyDataHash = useDemographyStore(state => state.dataHash);
   const shatterIds = useMapStore(state => state.shatterIds);
   const [clearOldSource, setClearOldSource] = useState(false);
-  const showDemography = isDemographicMap || showDemographicMap === 'overlay';
+  const showDemography = isDemographicMap || activeLayers['demography-overlay'];
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
 

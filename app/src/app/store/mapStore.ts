@@ -218,8 +218,9 @@ export interface MapStore {
    */
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
+  toggleLayer: (layer: keyof MapStore['mapOptions']['activeLayers']) => void;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
-  sidebarPanels: Array<'layers' | 'population' | 'evaluation' | 'demography' | 'mapValidation'>;
+  sidebarPanels: Array<'layers' | 'population' | 'evaluation' | 'demography' | 'mapValidation' | 'overlays'>;
   setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
   activeTool: ActiveTool;
@@ -880,10 +881,25 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     highlightBrokenDistricts: false,
     mode: 'default',
     lockPaintedAreas: [],
-    prominentCountyNames: true,
-    showCountyBoundaries: true,
-    showPaintedDistricts: true,
-    showZoneNumbers: true,
+    activeLayers: {
+      'county-boundaries': true,
+      'prominent-counties': true,
+      'painted-districts': true,
+      'zone-numbers': true,
+    },
+  },
+  toggleLayer: layer => {
+    const {mapOptions} = get();
+    const activeLayers = mapOptions.activeLayers;
+    set({
+      mapOptions: {
+        ...mapOptions,
+        activeLayers: {
+          ...activeLayers,
+          [layer]: !activeLayers[layer],
+        },
+      },
+    });
   },
   setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
   sidebarPanels: ['population'],

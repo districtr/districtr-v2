@@ -176,7 +176,9 @@ fetchDemography.subscribe(demography => {
     setDataHash(dataHash);
     setVariable(variable);
     const newIds = demography.data.results.map(row => row[0]) as string[];
-    let mapRef = mapOptions.showDemographicMap === 'overlay' ? getMainMapRef() : getDemogMapRef();
+    let mapRef = mapOptions['activeLayers']['demography-overlay']
+      ? getMainMapRef()
+      : getDemogMapRef();
     if (mapRef && newIds.length) {
       demographyCache.paintDemography({
         variable,

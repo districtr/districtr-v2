@@ -125,23 +125,34 @@ def batch_create_tilesets(
         tileset_batch.upload_results()
 
 
-@cli.command('create-census-tiles')
+@cli.command("create-census-tiles")
 @click.option("--replace", is_flag=True, help="Replace existing files", default=False)
-@click.option("--data-url", type=str, help="File path to zipped shapefile from the US Census", default=False)
+@click.option(
+    "--data-url",
+    type=str,
+    help="File path to zipped shapefile from the US Census",
+    default=False,
+)
 @click.option("--upload", is_flag=True, help="Upload files to S3", default=False)
-@click.option("--geoid-col", type=str, help="Column name for the GEOID", default="GEOID")
+@click.option(
+    "--geoid-col", type=str, help="Column name for the GEOID", default="GEOID"
+)
 @click.option("--name-col", type=str, help="Column name for the NAME", default="NAME")
-def create_census_tiles(replace: bool = False, upload: bool = False, data_url = None, geoid_col: str = "GEOID", name_col: str = "NAME") -> None:
+def create_census_tiles(
+    replace: bool = False,
+    upload: bool = False,
+    data_url=None,
+    geoid_col: str = "GEOID",
+    name_col: str = "NAME",
+) -> None:
     logger.info("Creating census tiles")
 
     if data_url is None:
         raise ValueError("data_url must be provided")
 
     file_name = urlparse(data_url).path.split("/")[-1].split(".")[0]
-    
-    if replace or not os.path.exists(
-        settings.OUT_SCRATCH / f"{file_name}.zip"
-    ):
+
+    if replace or not os.path.exists(settings.OUT_SCRATCH / f"{file_name}.zip"):
         logger.info(f"Downloading census shapefile from {data_url}")
         download_and_unzip_zipfile(data_url, settings.OUT_SCRATCH)
 

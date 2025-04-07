@@ -34,7 +34,10 @@ export const initSubs = () => {
       const mapRef = getMapRef();
       if (!mapRef) return;
       const {mapDocument, mapOptions} = useMapStore.getState();
-      if (mapOptions.showDemographicMap) {
+      if (
+        mapOptions['activeLayers']['demography-overlay'] ||
+        mapOptions['activeLayers']['demography-side-by-side']
+      ) {
         useDemographyStore.getState().updateData(mapDocument);
       }
     }

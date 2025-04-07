@@ -437,9 +437,10 @@ class DemographyCache {
     const quantiles = this.calculateQuantiles(variable, numberOfBins);
     const dataSoureExists = mapRef.getSource(BLOCK_SOURCE_ID);
     if (!mapRef || !mapDocument || !dataSoureExists || !quantiles) return;
-    const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
-    const defaultColor =
-      mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
+    const activeLayers = useMapStore.getState().mapOptions.activeLayers;
+    const defaultColor = activeLayers['demography-side-by-side']
+      ? DEFAULT_COLOR_SCHEME
+      : DEFAULT_COLOR_SCHEME_GRAY;
     const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
     const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
     let colorscheme = defaultColor[Math.max(3, actualBinsLength)];

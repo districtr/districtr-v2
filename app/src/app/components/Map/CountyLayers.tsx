@@ -54,19 +54,21 @@ export const CountyLayers = () => {
             ],
           }}
           layout={{
-            visibility: mapOptions.showCountyBoundaries ? 'visible' : 'none',
+            visibility: mapOptions.activeLayers['county-boundaries'] ? 'visible' : 'none',
           }}
           filter={countyFilter}
         />
         <Layer
           id="counties_labels"
-          beforeId={mapOptions.prominentCountyNames ? undefined : 'counties_boundary'}
+          beforeId={mapOptions.activeLayers['prominent-counties'] ? undefined : 'counties_boundary'}
           type="symbol"
           source-layer="tl_2023_us_county_label"
           minzoom={6}
           layout={{
             'text-field': ['get', 'NAME'],
-            'text-font': mapOptions.prominentCountyNames ? ['Barlow Bold'] : ['Barlow Regular'],
+            'text-font': mapOptions.activeLayers['prominent-counties']
+              ? ['Barlow Bold']
+              : ['Barlow Regular'],
             'text-size': ['interpolate', ['linear'], ['zoom'], 5, 8, 8, 12, 12, 16],
             'text-transform': 'uppercase',
             'text-letter-spacing': 0.1,

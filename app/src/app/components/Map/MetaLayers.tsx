@@ -19,7 +19,7 @@ const PopulationTextLayer = () => {
   const [pointFeatureCollection, setPointFeatureCollection] =
     useState<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
   const showBlockPopulationNumbers = useMapStore(
-    state => state.mapOptions.showBlockPopulationNumbers
+    state => state.mapOptions.activeLayers['block-population-numbers']
   );
 
   useEffect(() => {
@@ -63,7 +63,7 @@ const PopulationTextLayer = () => {
 };
 
 const ZoneNumbersLayer = () => {
-  const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
+  const showZoneNumbers = useMapStore.getState().mapOptions.activeLayers['zone-numbers'];
   const zoneAssignments = useMapStore(state => state.zoneAssignments);
   const colorScheme = useMapStore(state => state.colorScheme);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
@@ -75,11 +75,11 @@ const ZoneNumbersLayer = () => {
   const mapRenderingState = useMapStore(state => state.mapRenderingState);
   const appLoadingState = useMapStore(state => state.appLoadingState);
   const shouldHide = useMapStore(
-    state => state.mapOptions.showBlockPopulationNumbers && state.focusFeatures.length
+    state => state.mapOptions.activeLayers['block-population-numbers'] && state.focusFeatures.length
   );
 
   const addZoneMetaLayers = async () => {
-    const showZoneNumbers = useMapStore.getState().mapOptions.showZoneNumbers;
+    const showZoneNumbers = useMapStore.getState().mapOptions.activeLayers['zone-numbers'];
     const id = `${mapDocumentId}`;
     if (showZoneNumbers) {
       const geoms = await getDissolved();

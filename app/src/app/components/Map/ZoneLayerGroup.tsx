@@ -23,9 +23,10 @@ export const ZoneLayerGroup: React.FC<{
   const shatterIds = useMapStore(state => state.shatterIds);
   const captiveIds = useMapStore(state => state.captiveIds);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
-  const highlightUnassigned = useMapStore(state => state.mapOptions.higlightUnassigned);
-  const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
-  const isOverlayed = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+  const activeLayers = useMapStore(state => state.mapOptions.activeLayers);
+  const highlightUnassigned = activeLayers['highlight-unassigned'];
+  const showPaintedDistricts = activeLayers['painted-districts'];
+  const isOverlayed = activeLayers['demography-overlay'];
   const layerFilter = useMemo(() => {
     const ids = child ? shatterIds.children : shatterIds.parents;
     const cleanIds = Boolean(ids) ? Array.from(ids) : [];

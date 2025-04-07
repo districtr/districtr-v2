@@ -6,19 +6,26 @@ import {TemporalState} from 'zundo';
 import {MapStore} from './mapStore';
 
 export type DistrictrMapOptions = {
-  highlightBrokenDistricts?: boolean;
-  higlightUnassigned?: boolean;
   lockPaintedAreas: Array<NullableZone>;
   mode: 'default' | 'break';
-  showZoneNumbers?: boolean;
   paintByCounty?: boolean;
   currentStateFp?: string;
   showPopulationTooltip?: boolean;
-  prominentCountyNames?: boolean;
-  showCountyBoundaries?: boolean;
-  showBlockPopulationNumbers?: boolean;
-  showDemographicMap?: undefined | 'side-by-side' | 'overlay';
-  showPaintedDistricts?: boolean;
+  activeLayers: Partial<
+    Record<
+      | 'zone-numbers'
+      | 'painted-districts'
+      | 'county-boundaries'
+      | 'prominent-counties'
+      | 'block-population-numbers'
+      | 'urban-areas'
+      | 'demography-side-by-side'
+      | 'demography-overlay'
+      | 'highlight-broken'
+      | 'highlight-unassigned',
+      boolean
+    >
+  >;
 };
 
 export type DistrictrChartOptions = {

@@ -19,7 +19,7 @@ export default function Map() {
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
   const showDemographicMap = useMapStore(
-    state => state.mapOptions.showDemographicMap === 'side-by-side'
+    state => state.mapOptions.activeLayers['demography-side-by-side']
   );
 
   useEffect(() => {

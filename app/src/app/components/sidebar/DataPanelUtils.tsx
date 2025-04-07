@@ -3,6 +3,7 @@ import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {MapStore} from '@/app/store/mapStore';
 import {DemographicMapPanel} from './DemographicMapPanel';
 import {MapValidation} from './MapValidation/MapValidation';
+import { OverlaysMapPanel } from './OverlaysMapPanel';
 
 export interface DataPanelSpec {
   title: MapStore['sidebarPanels'][number];
@@ -35,5 +36,10 @@ export const defaultPanels: DataPanelSpec[] = [
     title: 'mapValidation',
     label: 'Map Validation',
     content: <MapValidation />,
+  },
+  {
+    title: 'overlays',
+    label: 'Overlays',
+    content: <OverlaysMapPanel />,
   },
 ];

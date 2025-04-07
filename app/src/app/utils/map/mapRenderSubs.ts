@@ -90,7 +90,7 @@ export class MapRenderSubscriber {
         state => [
           state.shatterIds,
           state.mapRenderingState,
-          state.mapOptions.highlightBrokenDistricts,
+          state.mapOptions.activeLayers['highlight-broken'],
         ],
         this.renderShatter.bind(this),
         {equalityFn: shallowCompareArray}
@@ -215,7 +215,7 @@ export class MapRenderSubscriber {
             captiveIds.size ? captiveIds : undefined,
             isParent ? shatterIds.parents : undefined,
             !isParent,
-            mapOptions.showDemographicMap === 'overlay'
+            mapOptions.activeLayers['demography-overlay']
           )
         );
       }
@@ -231,7 +231,7 @@ export class MapRenderSubscriber {
           state.appLoadingState,
           state.mapRenderingState,
           state.mapOptions.lockPaintedAreas,
-          state.mapOptions.showZoneNumbers,
+          state.mapOptions.activeLayers['zone-numbers'],
         ],
         this.renderColorZones.bind(this),
         {equalityFn: shallowCompareArray}
@@ -245,7 +245,7 @@ export class MapRenderSubscriber {
     this.renderShatter([
       mapState.shatterIds,
       mapState.mapRenderingState,
-      mapState.mapOptions.highlightBrokenDistricts,
+      mapState.mapOptions.activeLayers['highlight-broken'],
     ]);
     this.renderCursor(mapState.activeTool);
     this.renderHover(hoverState.hoverFeatures);
@@ -258,7 +258,7 @@ export class MapRenderSubscriber {
         mapState.appLoadingState,
         mapState.mapRenderingState,
         mapState.mapOptions.lockPaintedAreas,
-        mapState.mapOptions.showZoneNumbers,
+        mapState.mapOptions.activeLayers['zone-numbers'],
       ]);
     }
   }

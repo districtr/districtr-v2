@@ -35,11 +35,13 @@ export const ToolSettings: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const parentsAreBroken = useMapStore(state => state.shatterIds.parents.size);
   const mapOptions = useMapStore(state => state.mapOptions);
+  const activeLayers = useMapStore(state => state.mapOptions.activeLayers);
   const setMapOptions = useMapStore(state => state.setMapOptions);
   const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
   const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
+  const toggleLayer = useMapStore(state => state.toggleLayer);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
@@ -50,20 +52,18 @@ export const ToolSettings: React.FC = () => {
           defaultValue={[]}
           name="districts"
           value={[
-            mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
-            mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
-            mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-            mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
+            activeLayers['painted-districts'] ? 'showPaintedDistricts' : '',
+            activeLayers['highlight-unassigned'] ? 'higlightUnassigned' : '',
+            mapOptions.showPopulationTooltip ? 'showPopulationTooltip' : '',
+            activeLayers['block-population-numbers'] ? 'showBlockPopulationNumbers' : '',
             mapOptions.lockPaintedAreas.length ===
             (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
               ? 'lockAll'
               : '',
-            mapOptions.showDemographicMap === 'side-by-side' ? 'showDemographicMap' : '',
-            mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
-            mapOptions.showZoneNumbers === true ? 'showZoneNumbers' : '',
-            parentsAreBroken && mapOptions.highlightBrokenDistricts === true
-              ? 'highlightBrokenDistricts'
-              : '',
+            activeLayers['demography-side-by-side'] ? 'showDemographicMap' : '',
+            activeLayers['county-boundaries'] ? 'showCountyBoundaries' : '',
+            activeLayers['zone-numbers'] ? 'showZoneNumbers' : '',
+            parentsAreBroken && activeLayers['highlight-broken'] ? 'highlightBrokenDistricts' : '',
           ]}
         >
           <Heading as="h3" weight="bold" size="3">
@@ -81,53 +81,30 @@ export const ToolSettings: React.FC = () => {
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="showBlockPopulationNumbers"
-            onClick={() =>
-              setMapOptions({
-                showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
-              })
-            }
+            onClick={() => toggleLayer('block-population-numbers')}
           >
             Show total population labels on blocks
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="showPaintedDistricts"
-            onClick={() =>
-              setMapOptions({
-                showPaintedDistricts: !mapOptions.showPaintedDistricts,
-              })
-            }
+            onClick={() => toggleLayer('painted-districts')}
             disabled={mapDocument === null}
           >
             Show painted districts
           </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="showZoneNumbers"
-            onClick={() =>
-              setMapOptions({
-                showZoneNumbers: !mapOptions.showZoneNumbers,
-              })
-            }
-          >
+          <CheckboxGroup.Item value="showZoneNumbers" onClick={() => toggleLayer('zone-numbers')}>
             Show numbering for painted districts
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="higlightUnassigned"
-            onClick={() =>
-              setMapOptions({
-                higlightUnassigned: !mapOptions.higlightUnassigned,
-              })
-            }
+            onClick={() => toggleLayer('highlight-unassigned')}
           >
             Highlight unassigned areas
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="highlightBrokenDistricts"
             disabled={!parentsAreBroken}
-            onClick={() =>
-              setMapOptions({
-                highlightBrokenDistricts: !mapOptions.highlightBrokenDistricts,
-              })
-            }
+            onClick={() => toggleLayer('highlight-broken')}
           >
             Highlight broken precincts
           </CheckboxGroup.Item>
@@ -141,27 +118,19 @@ export const ToolSettings: React.FC = () => {
         <CheckboxGroup.Root
           name="contextualLayers"
           value={[
-            mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
-            mapOptions.prominentCountyNames === true ? 'prominentCountyNames' : '',
+            activeLayers['county-boundaries'] ? 'showCountyBoundaries' : '',
+            activeLayers['prominent-counties'] === true ? 'prominentCountyNames' : '',
           ]}
         >
           <CheckboxGroup.Item
             value="showCountyBoundaries"
-            onClick={() =>
-              setMapOptions({
-                showCountyBoundaries: !mapOptions.showCountyBoundaries,
-              })
-            }
+            onClick={() => toggleLayer('county-boundaries')}
           >
             Show county boundaries
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="prominentCountyNames"
-            onClick={() =>
-              setMapOptions({
-                prominentCountyNames: !mapOptions.prominentCountyNames,
-              })
-            }
+            onClick={() => toggleLayer('prominent-counties')}
           >
             Emphasize county names
           </CheckboxGroup.Item>

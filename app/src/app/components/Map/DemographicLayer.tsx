@@ -19,7 +19,7 @@ export const DemographicLayer: React.FC<{
   const shatterIds = useMapStore(state => state.shatterIds);
   const captiveIds = useMapStore(state => state.captiveIds);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
-  const isOverlay = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+  const isOverlay = useMapStore(state => state.mapOptions.activeLayers['demography-overlay']);
   const lineWidth = child ? 1 : 2;
 
   const layerFilter = useMemo(() => {

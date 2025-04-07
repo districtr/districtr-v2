@@ -18,7 +18,7 @@ import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React from 'react';
 const mapOptions: Array<{
   label: string;
-  value: MapStore['mapOptions']['showDemographicMap'];
+  value: keyof MapStore['mapOptions']['activeLayers'] | undefined;
   icon?: React.ReactNode;
 }> = [
   {
@@ -27,20 +27,21 @@ const mapOptions: Array<{
   },
   {
     label: 'Comparison',
-    value: 'side-by-side',
+    value: 'demography-side-by-side',
     icon: <ViewVerticalIcon />,
   },
   {
     label: 'Overlay',
-    value: 'overlay',
+    value: 'demography-overlay',
     icon: <ShadowInnerIcon />,
   },
 ];
 export const DemographicMapPanel: React.FC = () => {
-  const demographicMapMode = useMapStore(state => state.mapOptions.showDemographicMap);
+  const activeLayers = useMapStore(state => state.mapOptions.activeLayers);
+  const demographicMapMode = activeLayers['demography-overlay'] ? 'overlay' : 'side-by-side';
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapOptions = useMapStore(state => state.setMapOptions);
-  const isOverlay = demographicMapMode === 'overlay';
+  const isOverlay = activeLayers['demography-overlay'];
 
   const variable = useDemographyStore(state => state.variable);
   const setVariable = useDemographyStore(state => state.setVariable);
@@ -77,12 +78,7 @@ export const DemographicMapPanel: React.FC = () => {
   }
   return (
     <Flex direction="column">
-      <Tabs.Root
-        value={demographicMapMode}
-        onValueChange={value =>
-          setMapOptions({showDemographicMap: value as MapStore['mapOptions']['showDemographicMap']})
-        }
-      >
+      <Tabs.Root value={demographicMapMode} onValueChange={value => {}}>
         <Tabs.List>
           {mapOptions.map((option, i) => (
             <Tabs.Trigger key={i} value={option.value as string}>
