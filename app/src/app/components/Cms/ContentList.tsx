@@ -8,7 +8,7 @@ export const ContentList: React.FC = () => {
   const handleEdit = useCmsFormStore(state => state.handleEdit);
   const handleDelete = useCmsFormStore(state => state.handleDelete);
   const setPreviewData = useCmsFormStore(state => state.setPreviewData);
-
+  const sortedContent = content?.sort((a, b) => a?.created_at?.localeCompare(b?.created_at)) || [];
   return (
     <Flex className="bg-white shadow rounded-lg" direction="column" gapY="4">
       <Heading as="h2" className="text-xl font-semibold border-b p-6">
@@ -30,7 +30,7 @@ export const ContentList: React.FC = () => {
               <Table.RowHeaderCell>Actions</Table.RowHeaderCell>
             </Table.Header>
             <Table.Body>
-              {content.map(item => (
+              {sortedContent.map(item => (
                 <Table.Row key={item.id}>
                   <Table.Cell>{item.slug}</Table.Cell>
                   <Table.Cell>
