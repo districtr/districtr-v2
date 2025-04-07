@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {useCmsFormStore} from '@/app/store/cmsFormStore';
 import {LANG_MAPPING} from '@/app/utils/language';
 import {Box, Button, Flex, Grid, Heading, Select, Text, TextField} from '@radix-ui/themes';
@@ -17,7 +17,24 @@ export const ContentEditor: React.FC = () => {
   const cancelEdit = useCmsFormStore(state => state.cancelEdit);
   const handleSubmit = useCmsFormStore(state => state.handleSubmit);
   const setPreviewData = useCmsFormStore(state => state.setPreviewData);
+  const [contentHasChanged, setContentHasChanged] = useState(false);
 
+  useEffect(() => {
+    if (!editingContent && formData?.content.slug && formData?.content.language && formData?.content.title) {
+      setContentHasChanged(true);
+    } else if (editingContent) {
+      const currentEditContent = editingContent.content.draft_content || editingContent.content.published_content;
+      if (!currentEditContent) {
+        setContentHasChanged(false);
+      } else {
+        const contentChanged = JSON.stringify({title: currentEditContent.title, body: currentEditContent.body}) !== JSON.stringify({title: formData?.content.title, body: formData?.content.body});
+        setContentHasChanged(contentChanged);
+      }
+    } else {
+      setContentHasChanged(false);
+    }
+  }, [editingContent, formData]);
+  
   return (
     <Flex direction="column" gapY="4" p="6" className="bg-white shadow rounded-lg">
       <Heading as="h2" className="text-xl font-semibold">
@@ -159,7 +176,7 @@ export const ContentEditor: React.FC = () => {
 
       <Flex direction="row" gapX="4" justify={'end'}>
         {editingContent && (
-          <Button variant="outline" onClick={cancelEdit}>
+          <Button variant="outline" onClick={cancelEdit} disabled={!contentHasChanged}>
             Cancel Edit
           </Button>
         )}
@@ -174,7 +191,7 @@ export const ContentEditor: React.FC = () => {
         >
           Preview
         </Button>
-        <Button onClick={handleSubmit}>
+        <Button onClick={handleSubmit} disabled={!contentHasChanged}>
           {editingContent ? 'Update Content' : 'Create Content'}
         </Button>
       </Flex>
