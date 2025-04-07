@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, {useEffect} from 'react';
 import {MapContextMenu} from '../components/ContextMenu';
 import {MapComponent} from '../components/Map/Map';
 import SidebarComponent from '../components/sidebar/Sidebar';
@@ -18,13 +18,21 @@ import { useToolbarStore } from '../store/toolbarStore';
 export default function Map() {
   const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap === 'side-by-side');
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
+  // check if userid in local storage; if not, create one
+  const userID = useMapStore(state => state.userID);
+  const setUserID = useMapStore(state => state.setUserID);
+
+  useEffect(() => {
+    !userID && setUserID();
+  }, [userID, setUserID]);
+
   useEffect(() => {
     const unsub = initSubs();
     return () => {
       console.log('unsubscribing');
       unsub();
     };
-  },[])
+  }, []);
 
   if (queryClient) {
     return (
@@ -37,7 +45,7 @@ export default function Map() {
             <Topbar />
             <Flex direction="row" height="100%">
               <MapComponent />
-              {showDemographicMap && <MapComponent isDemographicMap/>}
+              {showDemographicMap && <MapComponent isDemographicMap />}
             </Flex>
             {toolbarLocation === 'map' && <DraggableToolbar />}
             <MapLockShade />

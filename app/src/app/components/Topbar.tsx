@@ -19,13 +19,21 @@ import {useTemporalStore} from '../store/temporalStore';
 import {document} from '../utils/api/mutations';
 import {DistrictrMap} from '../utils/api/apiHandlers';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
+import {ShareMapsModal} from './Toolbar/ShareMapsModal';
+import {PasswordPromptModal} from './Toolbar/PasswordPromptModal';
+import {useMapStatus} from '../hooks/useMapStatus';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
+  const [shareMapsModal, setShareMapsModal] = React.useState(false);
+  const [saveMapsModal, setSaveMapsModal] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
+  const status = useMapStore(state => state.mapStatus?.status);
+  const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
+  const {statusText} = useMapStatus();
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
@@ -36,7 +44,10 @@ export const Topbar: React.FC = () => {
       return;
     }
     clear();
-    document.mutate({districtr_map_slug: selectedMap.districtr_map_slug});
+    document.mutate({
+      districtr_map_slug: selectedMap.districtr_map_slug,
+      user_id: userID,
+    });
   };
 
   return (
@@ -129,7 +140,7 @@ export const Topbar: React.FC = () => {
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
               <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
-                View Recent Maps
+                Recent Maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
                 <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
@@ -148,9 +159,26 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
-            <Button variant="outline" className="mr-2" disabled>
-              Share
-            </Button>
+            {!!statusText && (
+              <Button
+                variant="outline"
+                className="mr-2"
+                disabled={!mapDocument?.document_id}
+                onClick={() => setShareMapsModal(true)}
+              >
+                {status === 'locked' ? 'Share' : 'Share'}
+              </Button>
+            )}
+            {!!statusText && (
+              <Button
+                variant="outline"
+                className="mr-2"
+                disabled={!mapDocument?.document_id}
+                onClick={() => setRecentMapsModalOpen(true)}
+              >
+                {statusText}
+              </Button>
+            )}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               onClick={() => setSettingsOpen(prev => !prev)}
@@ -167,6 +195,8 @@ export const Topbar: React.FC = () => {
         <MobileDataTabs />
       </Flex>
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
+      <ShareMapsModal open={shareMapsModal} onClose={() => setShareMapsModal(false)} />
+      <PasswordPromptModal />
     </>
   );
 };

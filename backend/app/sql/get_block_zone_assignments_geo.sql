@@ -27,6 +27,6 @@ BEGIN
         ', doc_districtrmap.child_layer);
     END IF;
 
-    RETURN QUERY EXECUTE sql_query USING $1;
+    RETURN QUERY EXECUTE sql_query USING $1, $2;
 END;
 $$ LANGUAGE plpgsql;

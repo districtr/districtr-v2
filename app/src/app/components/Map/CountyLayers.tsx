@@ -1,6 +1,6 @@
 'use client';
 import {useMapStore} from '@/app/store/mapStore';
-import { FilterSpecification } from 'maplibre-gl';
+import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 

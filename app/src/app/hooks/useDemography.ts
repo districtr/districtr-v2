@@ -2,10 +2,10 @@
 import {useMapStore} from '@store/mapStore';
 import {useChartStore} from '@store/chartStore';
 import {useMemo} from 'react';
-import { demographyCache } from '@utils/demography/demographyCache';
-import { SummaryRecord } from '../utils/demography/types';
-import { useDemographyStore } from '../store/demographyStore';
-import { FALLBACK_NUM_DISTRICTS } from '../constants/layers';
+import {demographyCache} from '@utils/demography/demographyCache';
+import {SummaryRecord} from '../utils/demography/types';
+import {useDemographyStore} from '../store/demographyStore';
+import {FALLBACK_NUM_DISTRICTS} from '../constants/layers';
 
 /**
  * Custom hook to retrieve and process demography data.
@@ -26,7 +26,9 @@ export const useDemography = (includeUnassigned?: boolean) => {
   const demogHash = useDemographyStore(state => state.dataHash);
   const chartHash = useChartStore(state => state.dataUpdateHash);
   const paintedChanges = useChartStore(state => state.paintedChanges);
-  const numDistricts = useMapStore(state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
+  const numDistricts = useMapStore(
+    state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
+  );
   const mapDocument = useMapStore(state => state.mapDocument);
 
   // TODO: Could be refactored in the main demographyCache class
@@ -54,5 +56,5 @@ export const useDemography = (includeUnassigned?: boolean) => {
 
   return {
     populationData,
-  }
+  };
 };

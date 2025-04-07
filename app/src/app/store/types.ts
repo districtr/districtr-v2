@@ -1,6 +1,6 @@
 import {PersistOptions} from 'zustand/middleware';
 import {NullableZone} from '../constants/types';
-import { AxiosError, AxiosResponse } from 'axios';
+import {AxiosError, AxiosResponse} from 'axios';
 import {StoreApi, UseBoundStore} from 'zustand';
 import {TemporalState} from 'zundo';
 import {MapStore} from './mapStore';
@@ -10,7 +10,7 @@ export type DistrictrMapOptions = {
   higlightUnassigned?: boolean;
   lockPaintedAreas: Array<NullableZone>;
   mode: 'default' | 'break';
-  showZoneNumbers?: boolean
+  showZoneNumbers?: boolean;
   paintByCounty?: boolean;
   currentStateFp?: string;
   showPopulationTooltip?: boolean;
@@ -30,10 +30,12 @@ export type DistrictrChartOptions = {
   popShowTopBottomDeviation: boolean;
 };
 
-interface APIErrorResponse extends AxiosResponse {detail: string}
+interface APIErrorResponse extends AxiosResponse {
+  detail: string;
+}
 
 export interface APIError extends AxiosError {
-  response: APIErrorResponse
+  response: APIErrorResponse;
 }
 
 export type StateWithMiddleware<T extends any> = UseBoundStore<

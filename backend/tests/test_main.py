@@ -1,7 +1,6 @@
 import os
 import pytest
 from sqlmodel import Session
-
 from app.main import get_session
 from app.constants import GERRY_DB_SCHEMA
 from sqlalchemy import text
@@ -11,8 +10,16 @@ from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     FIXTURES_PATH,
     GERRY_DB_FIXTURE_NAME,
+    USER_ID,
 )
-from app.utils import create_districtr_map, add_available_summary_stats_to_districtrmap
+from app.utils import (
+    create_districtr_map,
+    add_available_summary_stats_to_districtrmap,
+)
+from app.models import DocumentEditStatus, DocumentShareStatus
+import jwt
+from app.core.config import settings
+from fastapi import Form
 
 
 def test_read_main(client):
@@ -33,7 +40,6 @@ GERRY_DB_NO_POP_FIXTURE_NAME = "ks_demo_view_census_blocks_no_pop"
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 GERRY_DB_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_vap"
 GERRY_DB_ALL_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats_all_stats"
-
 
 ## Test DB
 
@@ -153,8 +159,10 @@ def document_total_vap_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
+
     document_id = response.json()["document_id"]
     return document_id
 
@@ -167,6 +175,7 @@ def document_all_stats_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -181,6 +190,7 @@ def document_no_gerrydb_pop_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_NO_POP_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -263,6 +273,7 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     data = response.json()
@@ -276,13 +287,22 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
 
 
 def test_get_document(client, document_id):
-    response = client.get(f"/api/document/{document_id}")
+    doc_uuid = uuid.UUID(document_id)
+    payload = {
+        "user_id": USER_ID,
+        "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+    }
+
+    response = client.post(f"/api/document/{doc_uuid}", json=payload)
     assert response.status_code == 200
+
     data = response.json()
     assert data.get("document_id") == document_id
     assert data.get("districtr_map_slug") == GERRY_DB_FIXTURE_NAME
     assert data.get("updated_at")
     assert data.get("created_at")
+    assert data.get("status") in ["locked", "unlocked", "checked_out"]
+
     # assert data.get("tiles_s3_path") is None
 
 
@@ -724,3 +744,189 @@ def test_change_colors_error(
         response.json()["detail"]
         == "Number of colors provided (1) does not match number of zones (4)"
     )
+
+
+def test_update_districtrmap_metadata(client, document_id):
+    metadata_payload = {
+        "name": "Test Map",
+        "tags": ["test", "map"],
+        "description": "This is a test metadata entry",
+        "event_id": "1234",
+    }
+
+    response = client.put(
+        f"/api/document/{document_id}/metadata", json=metadata_payload
+    )
+
+    assert response.status_code == 200
+
+
+def test_share_districtr_plan(client, document_id):
+    """Test sharing a document when a pw exists"""
+    share_payload = {"password": "password", "access_type": "view"}
+
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={
+            "password": share_payload["password"],
+            "access_type": share_payload["access_type"],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "token" in data
+
+    decoded_token = jwt.decode(data["token"], settings.SECRET_KEY, algorithms=["HS256"])
+    assert decoded_token["access"] == "view"
+    assert decoded_token["password_required"]
+
+    # test sharing from an existing token
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={
+            "password": share_payload["password"],
+            "access_type": share_payload["access_type"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert "token" in data
+
+
+def test_unlock_map(client, document_id):
+    # create document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+    # unlock document
+    response = client.post(
+        f"/api/document/{document_id}/unlock", json={"user_id": USER_ID}
+    )
+    assert response.status_code == 200
+
+
+def test_get_document_status(client, document_id):
+    # create document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+
+    # check doc status
+    response = client.post(
+        f"/api/document/{document_id}/status", json={"user_id": USER_ID}
+    )
+    document_status = response.json().get("status")
+
+    assert (
+        document_status == DocumentEditStatus.checked_out
+    )  # since it was made fresh by this user
+
+
+def test_document_unload(client, document_id):
+    # create document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+
+    # unload document
+    response = client.post(
+        f"/api/document/{document_id}/unload",
+        data={"user_id": Form(USER_ID)},
+    )
+
+    assert response.status_code == 200
+    assert response.json().get("status") == DocumentEditStatus.unlocked
+
+
+def test_load_plan_from_share(client, document_id):
+    # create document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+
+    # share the document
+    share_payload = {"password": "password", "access_type": "view"}
+
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={
+            "password": share_payload["password"],
+            "access_type": share_payload["access_type"],
+        },
+    )
+    decoded_token = jwt.decode(
+        response.json()["token"], settings.SECRET_KEY, algorithms=["HS256"]
+    )
+
+    # load the document
+    response = client.post(
+        "/api/share/load_plan_from_share",
+        json={
+            "user_id": USER_ID,
+            "password": "password",
+            "token": decoded_token["token"],
+            "access": DocumentShareStatus.read,
+        },
+    )
+
+    assert response.status_code == 200
+
+
+def test_document_checkout(client, document_id):
+    # create a document
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document_id = response.json().get("document_id")
+
+    # share the document
+    share_payload = {"password": "password", "access_type": "view"}
+
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={
+            "password": share_payload["password"],
+            "access_type": share_payload["access_type"],
+        },
+    )
+    decoded_token = jwt.decode(
+        response.json()["token"], settings.SECRET_KEY, algorithms=["HS256"]
+    )
+
+    # chck the document out
+    response = client.post(
+        f"/api/document/{document_id}/checkout",
+        json={
+            "user_id": USER_ID,
+            "password": "password",
+            "token": decoded_token["token"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json().get("status") == DocumentEditStatus.checked_out

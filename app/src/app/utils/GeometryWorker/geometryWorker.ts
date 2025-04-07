@@ -56,10 +56,13 @@ const GeometryWorker: GeometryWorkerClass = {
     };
   },
   updateZones(entries) {
-    this.zoneAssignments = entries.reduce((acc, [id, zone]) => {
-      acc[id] = zone as number;
-      return acc;
-    }, {} as Record<string, number>);
+    this.zoneAssignments = entries.reduce(
+      (acc, [id, zone]) => {
+        acc[id] = zone as number;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
   },
   handleShatterHeal({parents, children}) {
     const toAdd = [
@@ -194,7 +197,7 @@ const GeometryWorker: GeometryWorkerClass = {
         return {
           type: 'Feature',
           properties: {
-            zone
+            zone,
           },
           geometry,
         } as GeoJSON.Feature<GeoJSON.Point>;
@@ -281,13 +284,13 @@ const GeometryWorker: GeometryWorkerClass = {
       const zoneChanged = currentZone !== +zone && activeZones.includes(currentZone);
       // if this geo was erased or change the zone, do not re-use it
       if (currentZone === null || zoneChanged) {
-        return
-      };
+        return;
+      }
       // check if within current view
       const geoIsWithinView = booleanWithin(previousCentroid, bboxGeom);
       if (!geoIsWithinView) {
-        return
-      };
+        return;
+      }
       try {
         // check if it intersects with any other centroid given the new view
         const intersectsAny = centroids.features.some(pointFeature => {
@@ -295,8 +298,8 @@ const GeometryWorker: GeometryWorkerClass = {
           return distanceBetween < minimumDistance;
         });
         if (intersectsAny) {
-          return
-        };
+          return;
+        }
         centroids.features.push(previousCentroid);
         visitedZones.add(+zone);
       } catch (e) {}
@@ -309,7 +312,7 @@ const GeometryWorker: GeometryWorkerClass = {
       const key = keys[i];
       const f = this.activeGeometries[key];
       const zone = this.zoneAssignments[key];
-      const zoneExists = zone !== null && zone !== undefined
+      const zoneExists = zone !== null && zone !== undefined;
       const zoneIsNeeded = !visitedZones.has(zone) && activeZones.includes(zone);
       const zoneGeoIsPolygon = f.geometry.type == 'Polygon';
       if (!zoneExists || !zoneIsNeeded || !zoneGeoIsPolygon) continue;
@@ -340,7 +343,7 @@ const GeometryWorker: GeometryWorkerClass = {
       dissolved,
     };
   },
-  getCentroidsFromView({bounds, activeZones, strategy='non-colliding-centroids', minBuffer}) {
+  getCentroidsFromView({bounds, activeZones, strategy = 'non-colliding-centroids', minBuffer}) {
     switch (strategy) {
       case 'center-of-mass':
         return this.getCentersOfMass(bounds, activeZones);

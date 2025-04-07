@@ -15,6 +15,7 @@ from tests.constants import (
     FIXTURES_PATH,
     OGR2OGR_PG_CONNECTION_STRING,
     GERRY_DB_FIXTURE_NAME,
+    USER_ID,
 )
 from app.constants import GERRY_DB_SCHEMA
 from app.utils import create_districtr_map, create_shatterable_gerrydb_view
@@ -179,6 +180,7 @@ def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -410,6 +412,23 @@ def ks_ellis_shatterable_districtr_map(
         tiles_s3_path="tilesets/ks_ellis_shatterable_layer.pmtiles",
         parent_layer="ks_ellis_county_vtd",
         child_layer="ks_ellis_county_block",
+    )
+    session.commit()
+    return inserted_districtr_map
+
+
+@pytest.fixture
+def ks_ellis_parent_layer_only_districtr_map(
+    session: Session, ks_ellis_county_block_gerrydb
+):
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="ks_ellis parent geos only layer",
+        districtr_map_slug="ks_ellis_county_block",
+        gerrydb_table_name="ks_ellis_county_block",
+        num_districts=2,
+        tiles_s3_path="tilesets/ks_ellis_shatterable_layer.pmtiles",
+        parent_layer="ks_ellis_county_block",
     )
     session.commit()
     return inserted_districtr_map

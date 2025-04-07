@@ -6,7 +6,7 @@ import {blackA} from '@radix-ui/colors';
 import {useMapStore} from '@/app/store/mapStore';
 import {extendColorArray} from '@/app/utils/colors';
 import {NullableZone} from '@/app/constants/types';
-import { FALLBACK_NUM_DISTRICTS } from '@/app/constants/layers';
+import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 
 type ColorPickerProps<T extends boolean = false> = T extends true
   ? {

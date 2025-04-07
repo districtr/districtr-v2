@@ -22,7 +22,7 @@ export var useHoverStore = create(
       setHoverFeatures: _features => {
         const hoverFeatures = _features
           ? _features.map(f => ({
-            source: f.source,
+              source: f.source,
               sourceLayer: f.sourceLayer,
               id: f.id,
             }))
@@ -34,7 +34,7 @@ export var useHoverStore = create(
 
     {
       ...devToolsConfig,
-      name: "Districtr Hover Feature Store"
+      name: 'Districtr Hover Feature Store',
     }
   )
   // TODO: Zustand is releasing a major version bump and we have breaking issues

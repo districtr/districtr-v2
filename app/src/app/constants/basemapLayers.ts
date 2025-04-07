@@ -1239,5 +1239,5 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     paint: {
       'text-color': '#b8b8b8',
     },
-  }
+  },
 ];

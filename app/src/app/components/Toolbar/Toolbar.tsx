@@ -132,6 +132,41 @@ export const DraggableToolbar = () => {
 
   useLayoutEffect(handleContainerResize, [rotation, toolbarSize]);
 
+  useEffect(() => {
+    // add a listener for option or alt key press and release
+    const handleKeyPress = (event: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      const mapIsLocked = useMapStore.getState().mapStatus?.status === 'locked';
+      // if active element is an input, don't do anything
+      if (
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        mapIsLocked
+      )
+        return;
+      // if alt, showShortcuts
+      if (event.altKey) {
+        setShowShortcuts(true);
+      } else {
+        setShowShortcuts(false);
+      }
+
+      const tool = activeTools.find(f => f.hotKeyAccessor(event));
+      if (tool) {
+        event.preventDefault();
+        tool.onClick ? tool.onClick() : setActiveTool(tool.mode);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+    document.addEventListener('keyup', handleKeyPress);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, []);
+
   if (!activeTool) return null;
 
   return (

@@ -12,7 +12,7 @@ export const BASEMAP_STYLE: StyleSpecification = {
       attribution:
         '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
       url: `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/basemaps/20240325.pmtiles`,
-    }
+    },
   },
   layers: BASEMAP_LAYERS,
   glyphs: `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/fonts/{fontstack}/{range}.pbf`,
