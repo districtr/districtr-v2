@@ -311,17 +311,8 @@ export const useCmsFormStore = create(
           return;
         }
 
-        const updated = await publishCMSContent(id, contentType);
-
-        const currentContent = get().content;
-        if (!currentContent) return;
-
-        // Update content list with the published item
-        const updatedContent = {
-          contentType: currentContent.contentType,
-          content: currentContent.content.map(item => (item.id === id ? updated : item)),
-        } as AllCmsLists;
-
+        await publishCMSContent(id, contentType);
+        const updatedContent = await listCMSContent(contentType);
         set({
           success: 'Content published successfully!',
           content: updatedContent,
