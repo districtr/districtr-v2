@@ -14,7 +14,7 @@ import {
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {demographyCache} from './demography/demographyCache';
-import {DocumentMetadata} from './api/apiHandlers';
+import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 
 /**
  * PaintEventHandler

@@ -119,12 +119,7 @@ export class MapRenderSubscriber {
         this.mapRef.setPaintProperty(
           layerId,
           'fill-opacity',
-          getLayerFill(
-            captiveIds.size ? captiveIds : undefined,
-            isParent ? shatterIds.parents : undefined,
-            !isParent,
-            isDemographic
-          )
+          getLayerFill(captiveIds.size ? captiveIds : undefined, !isParent, isDemographic)
         );
       }
     });
@@ -213,7 +208,6 @@ export class MapRenderSubscriber {
           'fill-opacity',
           getLayerFill(
             captiveIds.size ? captiveIds : undefined,
-            isParent ? shatterIds.parents : undefined,
             !isParent,
             mapOptions.showDemographicMap === 'overlay'
           )

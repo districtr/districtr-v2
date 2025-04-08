@@ -1,6 +1,6 @@
 import ZoomToFeature from './ZoomToFeature';
 import {useMapStore} from '@/app/store/mapStore';
-import {getZoneConnectedComponentBBoxes} from '@/app/utils/api/apiHandlers';
+import {getZoneConnectedComponentBBoxes} from '@/app/utils/api/apiHandlers/getZoneConnectedComponentBBoxes';
 import {Blockquote, Flex, IconButton, Spinner, Text, Tooltip} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';

@@ -10,7 +10,7 @@ import {
   TextArea,
   Blockquote,
 } from '@radix-ui/themes';
-import {DocumentMetadata} from '../../utils/api/apiHandlers';
+import type {DocumentMetadata} from '../../utils/api/apiHandlers/types';
 import {styled} from '@stitches/react';
 import {checkoutDocument} from '@/app/utils/api/mutations';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';

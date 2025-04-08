@@ -1,19 +1,19 @@
 'use client';
 import React, {useEffect} from 'react';
-import {MapContextMenu} from '../components/ContextMenu';
-import {MapComponent} from '../components/Map/Map';
-import SidebarComponent from '../components/sidebar/Sidebar';
+import {MapContextMenu} from '@components/ContextMenu';
+import {MapComponent} from '@components/Map/Map';
+import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
-import {queryClient} from '../utils/api/queryClient';
-import {ErrorNotification} from '../components/ErrorNotification';
+import {queryClient} from '@utils/api/queryClient';
+import {ErrorNotification} from '@components/ErrorNotifi  cation';
 import {DraggableToolbar, Toolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@components/Topbar';
-import { Flex } from '@radix-ui/themes';
-import { useMapStore } from '../store/mapStore';
-import { initSubs } from '../store/subscriptions';
-import { useToolbarStore } from '../store/toolbarStore';
+import {Flex} from '@radix-ui/themes';
+import {useMapStore} from '@store/mapStore';
+import {initSubs} from '@store/subscriptions';
+import { useToolbarStore } from '@/app/store/toolbarStore';
 
 export default function Map() {
   const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap === 'side-by-side');

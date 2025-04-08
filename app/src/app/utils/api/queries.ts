@@ -1,14 +1,11 @@
 import {QueryObserver} from '@tanstack/react-query';
 import {queryClient} from './queryClient';
-import {
-  DistrictrMap,
-  getAvailableDistrictrMaps,
-  DocumentObject,
-  getAssignments,
-  getDocument,
-  RemoteAssignmentsResponse,
-  getDemography,
-} from './apiHandlers';
+import {DistrictrMap, RemoteAssignmentsResponse, DocumentObject} from './apiHandlers/types';
+
+import {getAvailableDistrictrMaps} from '@utils/api/apiHandlers/getAvailableDistrictrMaps';
+import {getAssignments} from '@utils/api/apiHandlers/getAssignments';
+import {getDocument} from '@utils/api/apiHandlers/getDocument';
+import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
 import {demographyCache} from '../demography/demographyCache';
 import {useDemographyStore} from '@/app/store/demographyStore';
