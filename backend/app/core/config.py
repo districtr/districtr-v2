@@ -136,6 +136,13 @@ class Settings(BaseSettings):
             **kwargs,
         )
 
+    # Auth0
+
+    AUTH0_DOMAIN: str
+    AUTH0_API_AUDIENCE: str
+    AUTH0_ISSUER: str
+    AUTH0_ALGORITHMS: str
+
 
 @lru_cache()
 def get_settings():
