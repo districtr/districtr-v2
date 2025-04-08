@@ -1,7 +1,7 @@
 'use client';
 import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
-import {DocumentObject} from '../api/apiHandlers';
+import {DocumentObject} from '../api/apiHandlers/types';
 import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../../constants/layers';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';

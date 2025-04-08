@@ -1,6 +1,7 @@
 import os
 import pytest
-from app.main import app, get_session
+from app.main import app
+from app.core.db import get_session
 from fastapi.testclient import TestClient
 from sqlalchemy.event import listens_for
 from sqlmodel import create_engine, Session

@@ -4,7 +4,7 @@ import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Table, Dialog, Box, Separator} from '@radix-ui/themes';
 import {SaveMapDetails} from './SaveMapsDetail';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
-import {DocumentObject} from '../../utils/api/apiHandlers';
+import {DocumentObject} from '@utils/api/apiHandlers/types';
 import {styled} from '@stitches/react';
 import {useTemporalStore} from '@/app/store/temporalStore';
 

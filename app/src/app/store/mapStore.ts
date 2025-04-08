@@ -7,12 +7,12 @@ import {Zone, GDBPath} from '@constants/types';
 import {
   DistrictrMap,
   DocumentObject,
-  lastSentAssignments,
   RemoteAssignmentsResponse,
   ShatterResult,
   DocumentMetadata,
   StatusObject,
-} from '@utils/api/apiHandlers';
+} from '@utils/api/apiHandlers/types';
+import {lastSentAssignments} from '@utils/api/apiHandlers/formatAssignments';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';

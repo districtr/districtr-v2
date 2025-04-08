@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 from pydantic import UUID4, BaseModel, ConfigDict
 from sqlmodel import (
     Field,
@@ -22,7 +22,6 @@ from sqlalchemy import Float
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
 from enum import Enum
-from typing import Any
 
 
 class UUIDType(UUID):
@@ -170,7 +169,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
     districtr_map_slug: str = Field(
         sa_column=Column(
             Text,
-            ForeignKey("districtrmap.districtr_map_slug"),
+            ForeignKey("public.districtrmap.districtr_map_slug"),
             nullable=False,
         )
     )

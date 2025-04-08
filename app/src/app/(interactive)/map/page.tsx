@@ -1,18 +1,18 @@
 'use client';
 import React, {useEffect} from 'react';
-import {MapContextMenu} from '../components/ContextMenu';
-import {MapComponent} from '../components/Map/Map';
-import SidebarComponent from '../components/sidebar/Sidebar';
+import {MapContextMenu} from '@components/ContextMenu';
+import {MapComponent} from '@components/Map/Map';
+import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
-import {queryClient} from '../utils/api/queryClient';
-import {ErrorNotification} from '../components/ErrorNotification';
-import {useMapStore} from '../store/mapStore';
+import {queryClient} from '@utils/api/queryClient';
+import {ErrorNotification} from '@components/ErrorNotification';
+import {useMapStore} from '@store/mapStore';
 import {Toolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@components/Topbar';
 import {Flex} from '@radix-ui/themes';
-import {initSubs} from '../store/subscriptions';
+import {initSubs} from '@store/subscriptions';
 
 export default function Map() {
   // check if userid in local storage; if not, create one

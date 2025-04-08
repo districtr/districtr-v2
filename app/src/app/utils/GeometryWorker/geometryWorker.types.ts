@@ -1,5 +1,5 @@
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
-import {DocumentObject} from '../api/apiHandlers';
+import {DocumentObject} from '../api/apiHandlers/types';
 
 export type CentroidReturn = {
   dissolved: GeoJSON.FeatureCollection;

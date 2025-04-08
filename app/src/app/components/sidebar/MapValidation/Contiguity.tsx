@@ -1,5 +1,5 @@
 import {useMapStore} from '@/app/store/mapStore';
-import {getContiguity} from '@/app/utils/api/apiHandlers';
+import {getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
 import {Blockquote, Box, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';

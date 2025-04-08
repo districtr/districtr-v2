@@ -1,7 +1,7 @@
 import os
 import pytest
 from sqlmodel import Session
-from app.main import get_session
+from app.core.db import get_session
 from app.constants import GERRY_DB_SCHEMA
 from sqlalchemy import text
 import subprocess

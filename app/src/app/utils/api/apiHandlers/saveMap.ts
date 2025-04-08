@@ -1,7 +1,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {document, metadata} from '../mutations';
 import {handleCreateBlankMetadataObject} from '../../helpers';
-import {DocumentMetadata} from '../apiHandlers';
+import {DocumentMetadata} from '../apiHandlers/types';
 
 export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
   const {mapDocument, mapStatus, upsertUserMap, setMapDocument, setShareMapMessage} =
