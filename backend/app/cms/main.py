@@ -120,7 +120,7 @@ async def delete_cms_content(
 @router.get("/content/{content_type}/list", response_model=list[AllCMSContentPublic])
 async def list_cms_content(
     content_type: CMSContentTypesEnum,
-    language: LanguageEnum = None,
+    language: LanguageEnum | None = None,
     session: Session = Depends(get_session),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, le=100),
@@ -128,7 +128,7 @@ async def list_cms_content(
     """List CMS content with optional filtering"""
     CMSModel = CMS_MODEL_MAP[content_type]
     query = select(CMSModel)
-    if language:
+    if language is not None:
         logger.info(f"Filtering by language: {language}")
         query = query.where(CMSModel.language == language)
     query = query.offset(offset).limit(limit)

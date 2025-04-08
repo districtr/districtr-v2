@@ -65,7 +65,6 @@ export const LAYER_LINE_WIDTHS = {
 
 export function getLayerFill(
   captiveIds?: Set<string>,
-  shatterIds?: Set<string>,
   child?: boolean,
   isDemographic?: boolean
 ): DataDrivenPropertyValueSpecification<number> {
@@ -99,13 +98,6 @@ export function getLayerFill(
       'case',
       ['!', ['in', ['get', 'path'], ['literal', Array.from(captiveIds)]]],
       baseOpacity - 0.25,
-      innerFillSpec,
-    ] as DataDrivenPropertyValueSpecification<number>;
-  } else if (shatterIds?.size && !child) {
-    return [
-      'case',
-      ['in', ['get', 'path'], ['literal', Array.from(shatterIds)]],
-      0,
       innerFillSpec,
     ] as DataDrivenPropertyValueSpecification<number>;
   } else {
