@@ -18,12 +18,13 @@ export const ToolButtons: React.FC<{
   const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
   const {rotation: userRotation, customizeToolbar, toolbarSize} = useToolbarStore(state => state);
   const activeTools = useActiveTools();
-  const rotation = customizeToolbar && !isMobile && toolbarLocation === 'map' ? userRotation : 'horizontal';
+  const rotation =
+    customizeToolbar && !isMobile && toolbarLocation === 'map' ? userRotation : 'horizontal';
 
   return (
     <Flex
-      justify={toolbarLocation === 'map' ? "center" : 'start'}
-      align={toolbarLocation === 'map' ? "center" : 'start'}
+      justify={toolbarLocation === 'map' ? 'center' : 'start'}
+      align={toolbarLocation === 'map' ? 'center' : 'start'}
       ref={toolbarItemsRef}
       direction={rotation === 'horizontal' ? 'row' : 'column'}
       className={`${toolbarLocation === 'map' ? 'shadow-md overflow-hidden bg-white' : ''}`}

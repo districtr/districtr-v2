@@ -37,8 +37,7 @@ export const useToolbarStore = create(
       setXY: (_x, _y, rectify) => {
         const {maxX, maxY} = get().maxXY;
         if (maxX && _x > maxX) {
-
-          return
+          return;
         }
         const x = rectify ? Math.min(Math.max(_x, -14), maxX || Math.pow(2, 16)) : _x;
         const y = rectify ? Math.min(Math.max(_y, 26), maxY || Math.pow(2, 16)) : _y;

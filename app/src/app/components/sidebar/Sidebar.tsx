@@ -76,7 +76,9 @@ export default function SidebarComponent() {
       </div>
       <Flex direction="column" gap="3" className="size-full">
         {toolbarLocation === 'sidebar' && (
-          <Box className={`my-1 flex-none ${activeTool !== 'pan' && 'border-b-[1px] border-gray-500'} overflow-x-auto overflow-y-hidden`}>
+          <Box
+            className={`my-1 flex-none ${activeTool !== 'pan' && 'border-b-[1px] border-gray-500'} overflow-x-auto overflow-y-hidden`}
+          >
             <Toolbar />
           </Box>
         )}

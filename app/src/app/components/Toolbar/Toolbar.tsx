@@ -229,7 +229,7 @@ export const DraggableToolbar = () => {
             <IconButton
               id="rotate"
               onClick={() => {
-                setToolbarLocation('sidebar')
+                setToolbarLocation('sidebar');
               }}
               className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
               variant="ghost"

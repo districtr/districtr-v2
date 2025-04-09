@@ -15,7 +15,7 @@ from app.cms.models import (
     CMSContentTypesEnum,
     AllCMSContentPublic,
     ContentUpdateResponse,
-    LANGUAGE_MAP
+    LANGUAGE_MAP,
 )
 
 router = APIRouter(prefix="/api/cms", tags=["cms"])

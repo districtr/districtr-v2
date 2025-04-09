@@ -13,10 +13,12 @@ import {Topbar} from '@components/Topbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
-import { useToolbarStore } from '@/app/store/toolbarStore';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
 export default function Map() {
-  const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap === 'side-by-side');
+  const showDemographicMap = useMapStore(
+    state => state.mapOptions.showDemographicMap === 'side-by-side'
+  );
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
