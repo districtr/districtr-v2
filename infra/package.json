@@ -1,0 +1,15 @@
+{
+    "name": "districtr-data-infra",
+    "main": "index.ts",
+    "devDependencies": {
+        "@types/node": "^18.19.86"
+    },
+    "scripts": {
+        "pulumi:up": "pulumi up"
+    },
+    "dependencies": {
+        "@pulumi/aws": "^6.76.0",
+        "@pulumi/awsx": "^2.21.1",
+        "@pulumi/pulumi": "^3.162.0"
+    }
+}
