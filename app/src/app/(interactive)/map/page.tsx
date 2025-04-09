@@ -5,7 +5,7 @@ import {MapComponent} from '@components/Map/Map';
 import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {ErrorNotification} from '@components/ErrorNotifi  cation';
+import {ErrorNotification} from '@components/ErrorNotification';
 import {DraggableToolbar, Toolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';

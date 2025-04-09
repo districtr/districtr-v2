@@ -53,27 +53,25 @@ export function BrushSizeSelector() {
   }, []);
 
   return (
-    <Flex direction="row" gap="2" maxWidth="300px" mb="3" align="center">
-      <Heading as="h4" size="2" weight="regular" style={{whiteSpace: 'nowrap'}}>
-        Brush Size
-      </Heading>
-      <IconButton variant="ghost" onClick={() => handlePlusMinus(-10)}>
-        <MinusIcon />
-      </IconButton>
-      <Slider
-        defaultValue={[brushSize]}
-        size="2"
-        value={[brushSize]}
-        onValueChange={handleChangeEnd}
-        min={BRUSH_MIN_SIZE}
-        max={BRUSH_MAX_SIZE}
-      />
-      <IconButton variant="ghost" onClick={() => handlePlusMinus(10)}>
-        <PlusIcon />
-      </IconButton>
-      <Text size="2" as="span" color="gray">
-        {brushSize}
-      </Text>
+    <Flex direction="row" width={"100%"}>
+      <Flex direction="column" width="100%" gap="1">
+        <Text size="1">
+          Brush Size
+        </Text>
+        <Flex direction="row" gapX="2" mb="3" align="center" width="100%">
+          <Slider
+            defaultValue={[brushSize]}
+            size="2"
+            value={[brushSize]}
+            onValueChange={handleChangeEnd}
+            min={BRUSH_MIN_SIZE}
+            max={BRUSH_MAX_SIZE}
+          />
+          <Text size="1" as="span" color="gray">
+            {brushSize}
+          </Text>
+        </Flex>
+      </Flex>
     </Flex>
   );
 }

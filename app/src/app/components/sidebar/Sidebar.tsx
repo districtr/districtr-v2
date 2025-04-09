@@ -5,13 +5,10 @@ import {Box, Flex, IconButton} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import Draggable from 'react-draggable';
 import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
-import {useToolbarStore} from '@/app/store/toolbarStore';
-import {Toolbar} from '../Toolbar/Toolbar';
+import {ToolbarInSidebar} from './ToolbarInSidebar';
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
-  const toolbarLocation = useToolbarStore(store => store.toolbarLocation);
-  const activeTool = useMapStore(store => store.activeTool);
   const [width, setWidth] = React.useState(
     typeof window !== 'undefined' ? window.innerWidth * 0.35 : 350
   );
@@ -75,13 +72,7 @@ export default function SidebarComponent() {
         </Draggable>
       </div>
       <Flex direction="column" gap="3" className="size-full">
-        {toolbarLocation === 'sidebar' && (
-          <Box
-            className={`my-1 flex-none ${activeTool !== 'pan' && 'border-b-[1px] border-gray-500'} overflow-x-auto overflow-y-hidden`}
-          >
-            <Toolbar />
-          </Box>
-        )}
+        <ToolbarInSidebar />
         <Box className="size-full overflow-y-auto flex-grow-1">
           <Flex direction="column" gap="3" className="w-full">
             <Box
