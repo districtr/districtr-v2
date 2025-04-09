@@ -6,6 +6,8 @@ import {NullableZone} from '@/app/constants/types';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {ColorRadioGroup} from './ColorRadioGroup';
 import {ColorDropdown} from './ColorDropdown';
+import { ColorMultiDropdown } from './ColorMultiDropdown';
+import { ColorCheckbox } from './ColorCheckbox';
 
 export type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
@@ -86,40 +88,27 @@ export const ColorPicker = <T extends boolean>({
   }, []);
 
   if (multiple) {
-    return (
-      <div>
-        <CheckboxGroupRoot
-          defaultValue={defaultValue.map(i => colorScheme[i])}
-          value={value?.map(i => colorScheme[i]) || []}
-          onValueChange={values => {
-            const indices = values.map(f => colorScheme.indexOf(f));
-            onValueChange(indices, values);
-          }}
-          style={{
-            justifyContent: 'flex-start',
-          }}
-        >
-          <Flex direction="row" wrap="wrap">
-            {!!mapDocument &&
-              colorScheme.slice(0, numDistricts).map((color, i) => (
-                <Flex direction="column" align="center" key={i}>
-                  <CheckboxGroupItem
-                    key={i}
-                    disabled={disabledValues?.includes(i)}
-                    // @ts-ignore Correct behavior, global CSS variables need to be extended
-                    style={{'--accent-indicator': color}}
-                    value={color}
-                  >
-                    {/* <RadioGroupIndicator /> */}
-                  </CheckboxGroupItem>
-                  <Text size="1">{i + 1}</Text>
-                </Flex>
-              ))}
-          </Flex>
-        </CheckboxGroupRoot>
-      </div>
-    );
-  }
+    if (mapDocument?.num_districts! > 10) {
+      return <ColorMultiDropdown
+      colorScheme={colorScheme}
+      mapDocument={mapDocument}
+      onValueChange={onValueChange}
+      value={value ?? []}
+      defaultValue={defaultValue}
+      disabledValues={disabledValues}
+      />
+    } else {
+      return <ColorCheckbox
+        colorScheme={colorScheme}
+        mapDocument={mapDocument}
+        onValueChange={onValueChange}
+        value={value ?? []}
+        defaultValue={[]}
+        disabledValues={disabledValues}
+        />
+    }
+  } 
+
   if (mapDocument?.num_districts! > 10) {
     return (
       <ColorDropdown

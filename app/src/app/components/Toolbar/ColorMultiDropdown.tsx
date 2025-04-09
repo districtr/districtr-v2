@@ -2,36 +2,35 @@ import {MapStore} from '@/app/store/mapStore';
 import {Box, Flex, RadioGroup, Select, Text} from '@radix-ui/themes';
 import React from 'react';
 import {ColorPickerProps} from './ColorPicker';
+import { CheckIcon } from '@radix-ui/react-icons';
 
-export const ColorDropdown: React.FC<{
+export const ColorMultiDropdown: React.FC<{
   colorScheme: MapStore['colorScheme'];
   mapDocument: MapStore['mapDocument'];
-  onValueChange: ColorPickerProps['onValueChange'];
-  value: ColorPickerProps['value'];
-  defaultValue: ColorPickerProps['defaultValue'];
+  onValueChange: (value: number[], colors: string[]) => void;
+  value: number[];
+  defaultValue: ColorPickerProps['defaultValue'][];
   disabledValues: ColorPickerProps['disabledValues'];
 }> = ({colorScheme, mapDocument, onValueChange, defaultValue, value, disabledValues}) => {
   if (!mapDocument?.num_districts) return null;
   const numDistricts = mapDocument.num_districts;
   return (
     <Flex direction="row" gapX="3" align="center"> 
-      <Text size="1">District</Text>
       <Select.Root
-        onValueChange={value => {
-          const index = colorScheme.indexOf(value);
-          if (index !== -1) onValueChange(index, value);
+        value={undefined}
+        defaultValue='-1'
+        onValueChange={newValue => {
+          const indexOfNewValue = colorScheme.indexOf(newValue);
+          if (value.includes(indexOfNewValue)) {
+            onValueChange(value.filter(v => v !== indexOfNewValue), []);
+          } else {
+            onValueChange([...value, indexOfNewValue], []);
+          }
         }}
-        value={value !== undefined ? colorScheme[value] : undefined}
       >
         <Select.Trigger variant="ghost">
           <Flex direction={'row'} gapX="2">
-            <Box
-              style={{backgroundColor: colorScheme[value || defaultValue]}}
-              width={'1rem'}
-              height={'1rem'}
-              className="rounded-lg"
-            />
-            <Text size="1">{(value || defaultValue) + 1}</Text>
+            Select Districts
           </Flex>
         </Select.Trigger>
         <Select.Content>
@@ -43,7 +42,9 @@ export const ColorDropdown: React.FC<{
                   width={'1rem'}
                   height={'1rem'}
                   className="rounded-lg"
-                />
+                >
+                  {value?.includes(i) ? <CheckIcon fontSize={'1'} /> : null}
+                </Box>
                 <Text size="1">{i + 1}</Text>
               </Flex>
             </Select.Item>
