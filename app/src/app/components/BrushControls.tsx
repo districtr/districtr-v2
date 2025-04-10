@@ -9,7 +9,7 @@ export const BrushControls = () => {
   return (
     <Flex direction="column" gapY="2" justify="between" wrap="wrap">
       <Flex direction="row" gapX="4" wrap="wrap">
-        <Box className="flex-grow" style={{ flexGrow: 1 }}>
+        <Box className="flex-grow" style={{flexGrow: 1}}>
           <BrushSizeSelector />
         </Box>
         <Box minWidth="75px">

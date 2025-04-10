@@ -21,13 +21,7 @@ export type ToolbarState = {
   toolbarLocation: 'map' | 'sidebar';
   setToolbarLocation: (location: 'map' | 'sidebar') => void;
 };
-const [
-  MIN_X,
-  MIN_Y
-] = [
-  -14,
-  26
-]
+const [MIN_X, MIN_Y] = [-14, 26];
 export const useToolbarStore = create(
   persist<ToolbarState>(
     (set, get) => ({

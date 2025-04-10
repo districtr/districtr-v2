@@ -29,7 +29,7 @@ export const ToolButtons: React.FC<{
       direction={rotation === 'horizontal' ? 'row' : 'column'}
       className={`${toolbarLocation === 'map' ? 'shadow-md overflow-hidden bg-white' : ''}`}
       width="100%"
-      wrap={isSidebar ? "wrap" : "nowrap"}
+      wrap={isSidebar ? 'wrap' : 'nowrap'}
     >
       {activeTools.map((tool, i) => {
         const IconComponent = tool.icon;
