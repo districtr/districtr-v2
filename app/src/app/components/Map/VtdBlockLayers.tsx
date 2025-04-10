@@ -76,7 +76,6 @@ export const VtdBlockLayers: React.FC<{
     mapDocument,
   ]);
   if (!mapDocument || clearOldSource) return null;
-  console.log(`pmtiles://${process.env.NEXT_PUBLIC_CDN_VTDBLOCKS}/${mapDocument.tiles_s3_path}`);
 
   return (
     <>
