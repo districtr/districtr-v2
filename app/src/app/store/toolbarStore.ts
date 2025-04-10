@@ -21,7 +21,13 @@ export type ToolbarState = {
   toolbarLocation: 'map' | 'sidebar';
   setToolbarLocation: (location: 'map' | 'sidebar') => void;
 };
-
+const [
+  MIN_X,
+  MIN_Y
+] = [
+  -14,
+  26
+]
 export const useToolbarStore = create(
   persist<ToolbarState>(
     (set, get) => ({
@@ -39,8 +45,8 @@ export const useToolbarStore = create(
         if (maxX && _x > maxX) {
           return;
         }
-        const x = rectify ? Math.min(Math.max(_x, -14), maxX || Math.pow(2, 16)) : _x;
-        const y = rectify ? Math.min(Math.max(_y, 26), maxY || Math.pow(2, 16)) : _y;
+        const x = rectify ? Math.min(Math.max(_x, MIN_X), maxX || Math.pow(2, 16)) : _x;
+        const y = rectify ? Math.min(Math.max(_y, MIN_Y), maxY || Math.pow(2, 16)) : _y;
         set({
           x,
           y,
@@ -57,8 +63,8 @@ export const useToolbarStore = create(
       setMaxXY: (maxX, maxY) => {
         set({
           maxXY: {maxX, maxY},
-          x: Math.max(Math.min(get().x || 0, maxX), 0),
-          y: Math.max(Math.min(get().y || 0, maxY), 0),
+          x: Math.max(Math.min(get().x || MIN_X, maxX), 0),
+          y: Math.max(Math.min(get().y || MIN_Y, maxY), 0),
         });
       },
       toolbarSize: 40,
