@@ -20,7 +20,7 @@ export const ToolButtons: React.FC<{
   const activeTools = useActiveTools();
   const rotation =
     customizeToolbar && !isMobile && toolbarLocation === 'map' ? userRotation : 'horizontal';
-
+  const isSidebar = toolbarLocation === 'sidebar';
   return (
     <Flex
       justify={toolbarLocation === 'map' ? 'center' : 'start'}
@@ -29,6 +29,7 @@ export const ToolButtons: React.FC<{
       direction={rotation === 'horizontal' ? 'row' : 'column'}
       className={`${toolbarLocation === 'map' ? 'shadow-md overflow-hidden bg-white' : ''}`}
       width="100%"
+      wrap={isSidebar ? "wrap" : "nowrap"}
     >
       {activeTools.map((tool, i) => {
         const IconComponent = tool.icon;
@@ -38,14 +39,14 @@ export const ToolButtons: React.FC<{
               <Tooltip.Trigger
                 asChild
                 style={{
-                  flexGrow: isMobile ? 1 : undefined,
+                  flexGrow: isMobile || isSidebar ? 1 : undefined,
                 }}
               >
                 <IconButton
                   key={`${tool.mode}-flex`}
                   className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
                     i === activeTools.length - 1 ? 'rounded-r-lg' : ''
-                  }
+                  } ${toolbarLocation === 'map' ? '' : 'flex-grow'}
                   `}
                   onMouseEnter={() => setActiveTooltip(tool.mode)}
                   onMouseLeave={() => setActiveTooltip(null)}

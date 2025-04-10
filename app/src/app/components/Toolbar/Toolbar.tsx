@@ -1,5 +1,5 @@
 'use client';
-import {Box, Flex, IconButton} from '@radix-ui/themes';
+import {Box, Flex, IconButton, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {MoveIcon, PinRightIcon, RotateCounterClockwiseIcon} from '@radix-ui/react-icons';
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
@@ -166,45 +166,51 @@ export const DraggableToolbar = () => {
             id="icon-button-group"
             className={`absolute left-4 top-[-10px]`}
             direction={'row'}
-            gap="2"
+            gap="3"
           >
-            <IconButton
-              id="handle"
-              className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
-              variant="ghost"
-              style={{
-                background: 'rgba(255,255,255,0.8)',
-                cursor: 'move',
-              }}
-            >
-              <MoveIcon fontSize={'12'} />
-            </IconButton>
-            <IconButton
-              id="rotate"
-              onClick={() => setRotation(rotation === 'horizontal' ? 'vertical' : 'horizontal')}
-              className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
-              variant="ghost"
-              style={{
-                background: 'rgba(255,255,255,0.8)',
-                cursor: 'rotate',
-              }}
-            >
-              <RotateCounterClockwiseIcon fontSize={'12'} />
-            </IconButton>
-            <IconButton
-              id="rotate"
-              onClick={() => {
-                setToolbarLocation('sidebar');
-              }}
-              className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
-              variant="ghost"
-              style={{
-                background: 'rgba(255,255,255,0.8)',
-                cursor: 'rotate',
-              }}
-            >
-              <PinRightIcon fontSize={'12'} />
-            </IconButton>
+            <Tooltip content="Move the toolbar">
+              <IconButton
+                id="handle"
+                className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+                variant="ghost"
+                style={{
+                  background: 'rgba(255,255,255,0.8)',
+                  cursor: 'move',
+                }}
+              >
+                <MoveIcon fontSize={'12'} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip content="Rotate the toolbar">
+              <IconButton
+                id="rotate"
+                onClick={() => setRotation(rotation === 'horizontal' ? 'vertical' : 'horizontal')}
+                className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+                variant="ghost"
+                style={{
+                  background: 'rgba(255,255,255,0.8)',
+                  cursor: 'rotate',
+                }}
+              >
+                <RotateCounterClockwiseIcon fontSize={'12'} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip content="Move the toolbar to the sidebar">
+              <IconButton
+                id="rotate"
+                onClick={() => {
+                  setToolbarLocation('sidebar');
+                }}
+                className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+                variant="ghost"
+                style={{
+                  background: 'rgba(255,255,255,0.8)',
+                  cursor: 'rotate',
+                }}
+              >
+                <PinRightIcon fontSize={'12'} />
+              </IconButton>
+            </Tooltip>
           </Flex>
         )}
       </div>

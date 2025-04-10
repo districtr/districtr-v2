@@ -104,7 +104,7 @@ export const PopulationPanel = () => {
         </ParentSize>
       </Flex>
       {!!idealPopulation && (
-        <Flex direction={'row'} justify={'between'} align={'start'}>
+        <Flex direction={'row'} justify={'between'} align={'start'} wrap="wrap">
           <Flex direction="column" gapX="2" minWidth={'10rem'}>
             <Text>Ideal Population</Text>
             <Text weight={'bold'} className="mb-2">

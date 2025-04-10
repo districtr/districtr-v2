@@ -15,7 +15,7 @@ export const ToolbarInSidebar = () => {
 
   return (
     <Box
-      className={`my-1 flex-none ${activeTool !== 'pan' && 'border-b-[1px] border-gray-500'} overflow-x-auto overflow-y-hidden`}
+      className={`my-1 flex-none ${activeTool !== 'pan' && 'border-b-[1px] border-gray-300'} overflow-x-auto overflow-y-hidden`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >

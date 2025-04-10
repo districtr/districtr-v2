@@ -7,9 +7,9 @@ export const BrushControls = () => {
   const activeTool = useMapStore(state => state.activeTool);
 
   return (
-    <div className="gap-0 flex flex-col justify-around min-w-60">
-      <Flex direction="row" gapX="4">
-        <Box width="100%">
+    <Flex direction="column" gapY="2" justify="between" wrap="wrap">
+      <Flex direction="row" gapX="4" wrap="wrap">
+        <Box className="flex-grow" style={{ flexGrow: 1 }}>
           <BrushSizeSelector />
         </Box>
         <Box minWidth="75px">
@@ -21,6 +21,6 @@ export const BrushControls = () => {
           <ZonePicker />
         </div>
       ) : null}
-    </div>
+    </Flex>
   );
 };
