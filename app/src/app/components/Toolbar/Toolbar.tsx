@@ -159,6 +159,7 @@ export const DraggableToolbar = () => {
         }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        ref={toolbarItemsRef}
       >
         <Toolbar />
         {hovered && customizeToolbar && (
