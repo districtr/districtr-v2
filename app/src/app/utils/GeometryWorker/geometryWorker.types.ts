@@ -84,7 +84,7 @@ export type GeometryWorkerClass = {
   getCentersOfMass: (
     bounds: [number, number, number, number],
     activeZones: number[]
-  ) => CentroidReturn;
+  ) => Promise<CentroidReturn>;
   /**
    * Strategy for finding centroids choosing random centroids that do not intersect with each other
    * @param bounds number[] the view bounds
@@ -97,7 +97,7 @@ export type GeometryWorkerClass = {
     bounds: [number, number, number, number],
     activeZones: number[],
     minBuffer?: number
-  ) => CentroidReturn;
+  ) => Promise<CentroidReturn>;
   /**
    * Parses geometries within a specified view and returns their centroids.
    * @param minLon - The minimum longitude of the view.
@@ -111,7 +111,7 @@ export type GeometryWorkerClass = {
     activeZones: number[];
     strategy: 'center-of-mass' | 'non-colliding-centroids';
     minBuffer?: number;
-  }) => CentroidReturn;
+  }) => Promise<CentroidReturn>;
   getPropertiesCentroids: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
   /**
    * Retrieves a collection of geometries without a zone assignment.
