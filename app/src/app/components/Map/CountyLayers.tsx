@@ -20,7 +20,7 @@ export const CountyLayers = () => {
       <Source
         id="counties"
         type="vector"
-        url={`pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles`}
+        url={`pmtiles://${process.env.NEXT_PUBLIC_CDN_BASEMAP}/basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles`}
       >
         <Layer
           id="counties_fill"

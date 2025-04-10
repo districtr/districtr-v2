@@ -17,7 +17,7 @@ export const usePlaceMapStore = create<{
   data: null,
   getData: async () => {
     const topology = await fetch(
-      `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/sprites/usa-topo.json`
+      `${process.env.NEXT_PUBLIC_CDN_BOUNDARIES}/sprites/usa-topo.json`
     ).then(r => r.json());
     // @ts-expect-error
     const {features: unitedStates} = topojson.feature(topology, topology.objects.states) as {

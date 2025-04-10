@@ -11,12 +11,12 @@ export const BASEMAP_STYLE: StyleSpecification = {
       type: 'vector',
       attribution:
         '<a href="https://github.com/protomaps/basemaps">Protomaps</a> © <a href="https://openstreetmap.org">OpenStreetMap</a>',
-      url: `pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/basemaps/20240325.pmtiles`,
+      url: `pmtiles://${process.env.NEXT_PUBLIC_CDN_BOUNDARIES}/basemaps/20240325.pmtiles`,
     },
   },
   layers: BASEMAP_LAYERS,
-  glyphs: `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/fonts/{fontstack}/{range}.pbf`,
-  sprite: `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/sprites/white`,
+  glyphs: `${process.env.NEXT_PUBLIC_CDN_BOUNDARIES}/fonts/{fontstack}/{range}.pbf`,
+  sprite: `${process.env.NEXT_PUBLIC_CDN_BOUNDARIES}/sprites/white`,
 };
 
 export const MAP_OPTIONS: MapOptions = {
