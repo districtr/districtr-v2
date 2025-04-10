@@ -14,7 +14,7 @@ export const ColorDropdown: React.FC<{
   if (!mapDocument?.num_districts) return null;
   const numDistricts = mapDocument.num_districts;
   return (
-    <Flex direction="row" gapX="3" align="center"> 
+    <Flex direction="row" gapX="3" align="center">
       <Text size="1">District</Text>
       <Select.Root
         onValueChange={value => {

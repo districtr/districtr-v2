@@ -24,7 +24,12 @@ export default function PaintByCounty() {
     <Text as="label" size="1">
       <Flex gap="1" direction="column">
         County Brush
-        <Switch size="1" checked={paintByCounty} defaultChecked={false} onClick={handleToggle} />{' '}
+        <Switch
+          size="1"
+          checked={paintByCounty}
+          defaultChecked={false}
+          onClick={handleToggle}
+        />{' '}
       </Flex>
     </Text>
   );

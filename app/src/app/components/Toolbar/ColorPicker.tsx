@@ -6,8 +6,8 @@ import {NullableZone} from '@/app/constants/types';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {ColorRadioGroup} from './ColorRadioGroup';
 import {ColorDropdown} from './ColorDropdown';
-import { ColorMultiDropdown } from './ColorMultiDropdown';
-import { ColorCheckbox } from './ColorCheckbox';
+import {ColorMultiDropdown} from './ColorMultiDropdown';
+import {ColorCheckbox} from './ColorCheckbox';
 
 export type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
@@ -89,25 +89,29 @@ export const ColorPicker = <T extends boolean>({
 
   if (multiple) {
     if (mapDocument?.num_districts! > 10) {
-      return <ColorMultiDropdown
-      colorScheme={colorScheme}
-      mapDocument={mapDocument}
-      onValueChange={onValueChange}
-      value={value ?? []}
-      defaultValue={defaultValue}
-      disabledValues={disabledValues}
-      />
-    } else {
-      return <ColorCheckbox
-        colorScheme={colorScheme}
-        mapDocument={mapDocument}
-        onValueChange={onValueChange}
-        value={value ?? []}
-        defaultValue={[]}
-        disabledValues={disabledValues}
+      return (
+        <ColorMultiDropdown
+          colorScheme={colorScheme}
+          mapDocument={mapDocument}
+          onValueChange={onValueChange}
+          value={value ?? []}
+          defaultValue={defaultValue}
+          disabledValues={disabledValues}
         />
+      );
+    } else {
+      return (
+        <ColorCheckbox
+          colorScheme={colorScheme}
+          mapDocument={mapDocument}
+          onValueChange={onValueChange}
+          value={value ?? []}
+          defaultValue={[]}
+          disabledValues={disabledValues}
+        />
+      );
     }
-  } 
+  }
 
   if (mapDocument?.num_districts! > 10) {
     return (

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {Box, Button, Flex, Text} from '@radix-ui/themes';
 import {PinLeftIcon} from '@radix-ui/react-icons';
 import {useToolbarStore} from '@/app/store/toolbarStore';
@@ -19,7 +19,11 @@ export const ToolbarInSidebar = () => {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Button variant="ghost" onClick={() => setToolbarLocation('map')} className={`${hovered ? '' : '!opacity-0'}`}>
+      <Button
+        variant="ghost"
+        onClick={() => setToolbarLocation('map')}
+        className={`${hovered ? '' : '!opacity-0'}`}
+      >
         <Flex direction={'row'} align="center" gapX="2" p="1">
           <PinLeftIcon fontSize={'1'} />
           <Text size="1">Return toolbar to map area</Text>

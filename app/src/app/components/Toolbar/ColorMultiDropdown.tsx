@@ -2,7 +2,7 @@ import {MapStore} from '@/app/store/mapStore';
 import {Box, Flex, RadioGroup, Select, Text} from '@radix-ui/themes';
 import React from 'react';
 import {ColorPickerProps} from './ColorPicker';
-import { CheckIcon } from '@radix-ui/react-icons';
+import {CheckIcon} from '@radix-ui/react-icons';
 
 export const ColorMultiDropdown: React.FC<{
   colorScheme: MapStore['colorScheme'];
@@ -15,14 +15,17 @@ export const ColorMultiDropdown: React.FC<{
   if (!mapDocument?.num_districts) return null;
   const numDistricts = mapDocument.num_districts;
   return (
-    <Flex direction="row" gapX="3" align="center"> 
+    <Flex direction="row" gapX="3" align="center">
       <Select.Root
         value={undefined}
-        defaultValue='-1'
+        defaultValue="-1"
         onValueChange={newValue => {
           const indexOfNewValue = colorScheme.indexOf(newValue);
           if (value.includes(indexOfNewValue)) {
-            onValueChange(value.filter(v => v !== indexOfNewValue), []);
+            onValueChange(
+              value.filter(v => v !== indexOfNewValue),
+              []
+            );
           } else {
             onValueChange([...value, indexOfNewValue], []);
           }
