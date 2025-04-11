@@ -38,7 +38,7 @@ const computeCenterOfMass = async (
   const ctx = canvas.getContext('2d', {willReadFrequently: true});
 
   // Calculate bounds for rendering
-  const [minX, minY, maxX, maxY] = bounds
+  const [minX, minY, maxX, maxY] = bounds;
   const scaleX = width / (maxX - minX);
   const scaleY = height / (maxY - minY);
   if (!ctx) return null;
@@ -74,9 +74,7 @@ const computeCenterOfMass = async (
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
-      if (
-        imageData[i] === 255
-      ) {
+      if (imageData[i] === 255) {
         sumX += x;
         sumY += y;
         count++;
@@ -91,7 +89,7 @@ const computeCenterOfMass = async (
   let centerY = sumY / count;
 
   const idx = (Math.floor(centerY) * width + Math.floor(centerX)) * 4;
-  const isValidCenter = imageData[idx] === 255
+  const isValidCenter = imageData[idx] === 255;
 
   // Fallback: choose a random pixel inside the district
   if (!isValidCenter) {
@@ -103,7 +101,7 @@ const computeCenterOfMass = async (
   const lng = minX + centerX / scaleX;
   const lat = maxY - centerY / scaleY;
 
-  return [lng, lat]
+  return [lng, lat];
 };
 
 const GeometryWorker: GeometryWorkerClass = {
@@ -289,7 +287,7 @@ const GeometryWorker: GeometryWorkerClass = {
     });
     const centers = await Promise.all(
       Object.entries(clippedFeatures).map(async ([_zone, features]) => {
-        const zone = +_zone
+        const zone = +_zone;
         const center = await computeCenterOfMass(
           {
             type: 'FeatureCollection',
@@ -299,13 +297,13 @@ const GeometryWorker: GeometryWorkerClass = {
         );
         if (!center) return null;
         return {
-            type: 'Feature',
-            properties: {zone},
-            geometry: {
-              type: 'Point',
-              coordinates: center,
-            },
-          } as GeoJSON.Feature<GeoJSON.Point>
+          type: 'Feature',
+          properties: {zone},
+          geometry: {
+            type: 'Point',
+            coordinates: center,
+          },
+        } as GeoJSON.Feature<GeoJSON.Point>;
       })
     );
 
