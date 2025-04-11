@@ -156,6 +156,7 @@ const ZoneNumbersLayer = () => {
           'text-size': 18,
           'text-anchor': 'center',
           'text-offset': [0, 0],
+          'text-allow-overlap': true,
         }}
         paint={{
           'text-color': '#000',
@@ -173,6 +174,7 @@ const ZoneNumbersLayer = () => {
           visibility: shouldHide ? 'none' : 'visible',
           'icon-image': 'lock',
           'icon-size': 1,
+          'icon-allow-overlap': true,
         }}
         filter={
           // get zone not in lockedAreas
