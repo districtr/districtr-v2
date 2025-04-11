@@ -128,7 +128,7 @@ const getDissolved = async () => {
       currentView.getNorth(),
     ],
     activeZones,
-    strategy: 'non-colliding-centroids',
+    strategy: 'center-of-mass',
     minBuffer: bufferInKm,
   });
   return {centroids, dissolved};
