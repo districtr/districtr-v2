@@ -234,59 +234,6 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     });
   },
-  dissolveGeometry(features) {
-    let dissolved: GeoJSON.FeatureCollection = dissolve(
-      {
-        type: 'FeatureCollection',
-        features: features.filter(
-          // TODO: Turf dissolve is limted to only polygons. This is fine enough for label placement
-          // but in the future we may want to do something better (eg. multipart to singlepart)
-          f => f.geometry.type === 'Polygon'
-        ) as GeoJSON.Feature<GeoJSON.Polygon>[],
-      },
-      {
-        propertyName: 'zone',
-      }
-    );
-    let largestDissolvedFeatures: Record<number, {feature: GeoJSON.Feature; area: number}> = {};
-    dissolved.features.forEach(feature => {
-      const zone = this.zoneAssignments[feature.properties?.path];
-      if (!zone) return;
-      const featureArea = area(feature);
-      // TODO: This makes sense for now given that we are not enforcing contiguity on zones,
-      // but could likely be refactored later when that rule is enforced.
-      if (!largestDissolvedFeatures[zone] || featureArea > largestDissolvedFeatures[zone].area) {
-        largestDissolvedFeatures[zone] = {
-          area: featureArea,
-          feature,
-        };
-      }
-    });
-    const cleanDissolvedFeatures = Object.values(largestDissolvedFeatures).map(f => f.feature);
-    const centroids: GeoJSON.FeatureCollection<GeoJSON.Point> = {
-      type: 'FeatureCollection',
-      features: cleanDissolvedFeatures.map(f => {
-        const center = centerOfMass(f);
-        const zone = this.zoneAssignments[f.properties?.path];
-        const geometry =
-          pointsWithinPolygon(center, f as any).features.length === 1
-            ? center.geometry
-            : pointOnFeature(f).geometry;
-
-        return {
-          type: 'Feature',
-          properties: {
-            zone,
-          },
-          geometry,
-        } as GeoJSON.Feature<GeoJSON.Point>;
-      }),
-    };
-    return {
-      centroids,
-      dissolved,
-    };
-  },
   getCentroidBoilerplate(bounds) {
     const [minLon, minLat, maxLon, maxLat] = bounds;
     const visitedZones = new Set<number>();

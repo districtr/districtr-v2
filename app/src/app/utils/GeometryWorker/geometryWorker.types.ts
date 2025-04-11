@@ -56,13 +56,6 @@ export type GeometryWorkerClass = {
   clear: () => void;
   resetZones: () => void;
   /**
-   * Parses geometries and returns their centroids.
-   * @param features - The features to parse.
-   * @returns The centroids and dissolved outlines of the parsed features.
-   */
-  dissolveGeometry: (features: MinGeoJSONFeature[]) => CentroidReturn;
-
-  /**
    * Convenience method for DRY of getCentroidsFromView
    * @param bounds number[] the view bounds
    * @returns CentroidReturn
