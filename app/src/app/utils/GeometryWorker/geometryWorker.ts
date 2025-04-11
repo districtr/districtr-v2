@@ -16,10 +16,6 @@ import {getCoords} from '@turf/invariant';
 
 const CENTROID_BUFFER_KM = 10;
 
-function featureIdToColor(id: number) {
-  return [(id >> 16) & 0xff, (id >> 8) & 0xff, id & 0xff];
-}
-
 const explodeMultiPolygonToPolygons = (
   feature: GeoJSON.MultiPolygon
 ): Array<GeoJSON.Feature<GeoJSON.Polygon>> => {
@@ -34,20 +30,22 @@ const explodeMultiPolygonToPolygons = (
 
 const computeCenterOfMass = async (
   geojson: GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
-  districtId: number,
-  width = 256,
-  height = 256
+  bounds: [number, number, number, number],
+  width = 128,
+  height = 128
 ) => {
-  const color = featureIdToColor(districtId);
   const canvas = new OffscreenCanvas(width, height);
   const ctx = canvas.getContext('2d', {willReadFrequently: true});
 
   // Calculate bounds for rendering
-  const [minX, minY, maxX, maxY] = geojson.bbox || bbox(geojson);
+  const [minX, minY, maxX, maxY] = bounds
   const scaleX = width / (maxX - minX);
   const scaleY = height / (maxY - minY);
   if (!ctx) return null;
-  ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = `rgb(255,0,0)`;
+  ctx.strokeStyle = `rgb(255,0,0)`;
+  ctx.lineWidth = 1;
 
   for (const feature of geojson.features) {
     const geom = feature.geometry;
@@ -65,6 +63,7 @@ const computeCenterOfMass = async (
       });
       ctx.closePath();
       ctx.fill();
+      ctx.stroke();
     }
   }
   const imageData = ctx.getImageData(0, 0, width, height).data;
@@ -72,15 +71,11 @@ const computeCenterOfMass = async (
     sumY = 0,
     count = 0;
   const validPixels = [];
-
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4;
       if (
-        imageData[i] === color[0] &&
-        imageData[i + 1] === color[1] &&
-        imageData[i + 2] === color[2] &&
-        imageData[i + 3] === 255
+        imageData[i] === 255
       ) {
         sumX += x;
         sumY += y;
@@ -96,11 +91,7 @@ const computeCenterOfMass = async (
   let centerY = sumY / count;
 
   const idx = (Math.floor(centerY) * width + Math.floor(centerX)) * 4;
-  const isValidCenter =
-    imageData[idx] === color[0] &&
-    imageData[idx + 1] === color[1] &&
-    imageData[idx + 2] === color[2] &&
-    imageData[idx + 3] === 255;
+  const isValidCenter = imageData[idx] === 255
 
   // Fallback: choose a random pixel inside the district
   if (!isValidCenter) {
@@ -112,7 +103,7 @@ const computeCenterOfMass = async (
   const lng = minX + centerX / scaleX;
   const lat = maxY - centerY / scaleY;
 
-  return [lng, lat];
+  return [lng, lat]
 };
 
 const GeometryWorker: GeometryWorkerClass = {
@@ -357,18 +348,17 @@ const GeometryWorker: GeometryWorkerClass = {
             type: 'FeatureCollection',
             features: features as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[],
           },
-          zone
+          bounds
         );
-        return center
-          ? ({
-              type: 'Feature',
-              properties: {zone},
-              geometry: {
-                type: 'Point',
-                coordinates: center,
-              },
-            } as GeoJSON.Feature<GeoJSON.Point>)
-          : null;
+        if (!center) return null;
+        return {
+            type: 'Feature',
+            properties: {zone},
+            geometry: {
+              type: 'Point',
+              coordinates: center,
+            },
+          } as GeoJSON.Feature<GeoJSON.Point>
       })
     );
 
@@ -377,7 +367,6 @@ const GeometryWorker: GeometryWorkerClass = {
         centroids.features.push(c);
       }
     });
-    const t1 = performance.now();
     return {
       centroids,
       dissolved,
