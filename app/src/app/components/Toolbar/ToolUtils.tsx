@@ -84,7 +84,7 @@ export const useActiveTools = () => {
     },
     {
       hotKeyLabel: `${metaKey} + Shift + Z`,
-      mode: 'undo',
+      mode: 'redo',
       disabled: futureStates.length === 0,
       label: 'Redo',
       icon: ResetIcon,
