@@ -123,11 +123,6 @@ class CMSContentPublish(BaseModel):
     content_id: UUID4
 
 
-class CMSContentDelete(BaseModel):
-    content_type: CMSContentTypesEnum
-    content_id: UUID4
-
-
 class CmsContentUpdateFields(BaseModel):
     slug: str | None = None
     language: LanguageEnum | None = None
@@ -180,4 +175,4 @@ class CMSContentPublicWithLanguages(BaseModel):
     type: CMSContentTypesEnum
 
 
-CmsContentCRUD = CmsContentUpdate | CMSContentPublish | CMSContentDelete
+CmsContentCRUD = CmsContentUpdate | CMSContentPublish

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Security
 from sqlmodel import Session, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.sql import func as db_func
 from datetime import datetime
 import logging
@@ -19,7 +19,7 @@ from app.cms.models import (
     CmsContent,
     LANGUAGE_MAP,
 )
-from app.cms.utils import content_update, content_delete
+from app.cms.utils import content_update
 
 router = APIRouter(prefix="/api/cms", tags=["cms"])
 logger = logging.getLogger(__name__)
@@ -105,12 +105,29 @@ async def publish_cms_content(
     return {"id": content.id, "message": "Content published successfully"}
 
 
-@router.post("/content/delete", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/content/{content_type}/{content_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_cms_content(
-    content: Annotated[CmsContent, Depends(content_delete)],
+    content_type: CMSContentTypesEnum,
+    content_id: str,
     session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.delete_content]),
 ):
     """Delete CMS content by ID"""
+    CMSContent = CMS_MODEL_MAP[content_type]
+
+    stmt = select(CMSContent).where(
+        CMSContent.id == content_id, CMSContent.author == auth_result["sub"]
+    )
+    try:
+        content = session.execute(stmt).scalar_one()
+    except NoResultFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Content not found",
+        )
+
     session.delete(content)
     session.commit()
 
@@ -124,13 +141,45 @@ async def list_cms_content(
     session: Session = Depends(get_session),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, le=100),
+    author: str | None = Query(default=None),
 ):
     """List CMS content with optional filtering"""
     CMSModel = CMS_MODEL_MAP[content_type]
     query = select(CMSModel)
+
     if language is not None:
         logger.info(f"Filtering by language: {language}")
         query = query.where(CMSModel.language == language)
+
+    if author is not None:
+        logger.info("filtering by author")
+        query = query.where(CMSModel.auth == author)
+
+    query = query.offset(offset).limit(limit)
+    results = session.exec(query).all()
+    return results
+
+
+@router.get(
+    "/content/{content_type}/list/authored", response_model=list[AllCMSContentPublic]
+)
+async def list_author_cms_content(
+    content_type: CMSContentTypesEnum,
+    language: LanguageEnum | None = None,
+    session: Session = Depends(get_session),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, le=100),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.read_content]),
+):
+    """List CMS content with optional filtering"""
+    CMSModel = CMS_MODEL_MAP[content_type]
+    author = auth_result["sub"]
+    query = select(CMSModel).where(CMSModel.author == author)
+
+    if language is not None:
+        logger.info(f"Filtering by language: {language}")
+        query = query.where(CMSModel.language == language)
+
     query = query.offset(offset).limit(limit)
     results = session.exec(query).all()
     return results

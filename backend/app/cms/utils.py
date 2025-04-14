@@ -52,5 +52,5 @@ def get_content_factory(
     return _get_content_func
 
 
+content_read = get_content_factory(scopes=[TokenScope.read_content])
 content_update = get_content_factory(scopes=[TokenScope.update_content])
-content_delete = get_content_factory(scopes=[TokenScope.delete_content])
