@@ -1,5 +1,5 @@
 'use client';
-import type {LngLatBoundsLike, MapLayerEventType} from 'maplibre-gl';
+import type {MapLayerEventType} from 'maplibre-gl';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import {Protocol} from 'pmtiles';
@@ -87,16 +87,9 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
   }, [getStateMapRef]);
 
   const fitMapToBounds = () => {
-    const cleanAlaska = (bounds: LngLatBoundsLike): LngLatBoundsLike => {
-      if (bounds[2] > 0) {
-        bounds[2] = -129.9;
-      }
-      return bounds;
-    };
-
     if (mapRef.current && mapOptions.bounds && !isDemographicMap) {
       if (mapOptions.bounds) {
-        mapRef.current.fitBounds(cleanAlaska(mapOptions.bounds), {
+        mapRef.current.fitBounds(mapOptions.bounds, {
           padding: 20,
         });
       }

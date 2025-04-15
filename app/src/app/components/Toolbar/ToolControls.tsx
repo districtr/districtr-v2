@@ -16,6 +16,9 @@ const ToolControlsConfig: Record<
   undo: {
     Component: () => <React.Fragment />,
   },
+  redo: {
+    Component: () => <React.Fragment />,
+  },
   brush: {
     Component: BrushControls,
   },
