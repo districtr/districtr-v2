@@ -1,11 +1,8 @@
 import {expose} from 'comlink';
-import {area} from '@turf/area';
 import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
 import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import bboxClip from '@turf/bbox-clip';
-import pointOnFeature from '@turf/point-on-feature';
-import pointsWithinPolygon from '@turf/points-within-polygon';
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import bbox from '@turf/bbox';
 import {VectorTile} from '@mapbox/vector-tile';
@@ -26,82 +23,6 @@ const explodeMultiPolygonToPolygons = (
       coordinates: coords,
     },
   })) as Array<GeoJSON.Feature<GeoJSON.Polygon>>;
-};
-
-const computeCenterOfMass = async (
-  geojson: GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
-  bounds: [number, number, number, number],
-  width = 128,
-  height = 128
-) => {
-  const canvas = new OffscreenCanvas(width, height);
-  const ctx = canvas.getContext('2d', {willReadFrequently: true});
-
-  // Calculate bounds for rendering
-  const [minX, minY, maxX, maxY] = bounds;
-  const scaleX = width / (maxX - minX);
-  const scaleY = height / (maxY - minY);
-  if (!ctx) return null;
-  ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = `rgb(255,0,0)`;
-  ctx.strokeStyle = `rgb(255,0,0)`;
-  ctx.lineWidth = 1;
-
-  for (const feature of geojson.features) {
-    const geom = feature.geometry;
-    const coords = getCoords(feature);
-    const polygons: GeoJSON.Polygon['coordinates'] =
-      geom.type === 'MultiPolygon' ? coords.flat() : coords;
-
-    for (const ring of polygons) {
-      ctx.beginPath();
-      ring.forEach(([x, y], i) => {
-        const px = (x - minX) * scaleX;
-        const py = height - (y - minY) * scaleY; // Invert Y
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      });
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    }
-  }
-  const imageData = ctx.getImageData(0, 0, width, height).data;
-  let sumX = 0,
-    sumY = 0,
-    count = 0;
-  const validPixels = [];
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      if (imageData[i] === 255) {
-        sumX += x;
-        sumY += y;
-        count++;
-        validPixels.push({x, y});
-      }
-    }
-  }
-
-  if (count === 0) return null;
-
-  let centerX = sumX / count;
-  let centerY = sumY / count;
-
-  const idx = (Math.floor(centerY) * width + Math.floor(centerX)) * 4;
-  const isValidCenter = imageData[idx] === 255;
-
-  // Fallback: choose a random pixel inside the district
-  if (!isValidCenter) {
-    const fallback = validPixels[Math.floor(Math.random() * validPixels.length)];
-    centerX = fallback.x;
-    centerY = fallback.y;
-  }
-
-  const lng = minX + centerX / scaleX;
-  const lat = maxY - centerY / scaleY;
-
-  return [lng, lat];
 };
 
 const GeometryWorker: GeometryWorkerClass = {
@@ -262,6 +183,81 @@ const GeometryWorker: GeometryWorkerClass = {
       bboxGeom,
     };
   },
+  async computeCenterOfMass(
+    geojson,
+    bounds,
+    width = 256,
+    height = 256
+  ){
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d', {willReadFrequently: true});
+  
+    // Calculate bounds for rendering
+    const [minX, minY, maxX, maxY] = bounds;
+    const scaleX = width / (maxX - minX);
+    const scaleY = height / (maxY - minY);
+    if (!ctx) return null;
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = `rgb(255,0,0)`;
+    ctx.strokeStyle = `rgb(255,0,0)`;
+    ctx.lineWidth = 1;
+  
+    for (const feature of geojson.features) {
+      const geom = feature.geometry;
+      const coords = getCoords(feature);
+      const polygons: GeoJSON.Polygon['coordinates'] =
+        geom.type === 'MultiPolygon' ? coords.flat() : coords;
+  
+      for (const ring of polygons) {
+        ctx.beginPath();
+        ring.forEach(([x, y], i) => {
+          const px = (x - minX) * scaleX;
+          const py = height - (y - minY) * scaleY; // Invert Y
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    const imageData = ctx.getImageData(0, 0, width, height).data;
+    let sumX = 0,
+      sumY = 0,
+      count = 0;
+    const validPixels = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        if (imageData[i] === 255) {
+          sumX += x;
+          sumY += y;
+          count++;
+          validPixels.push({x, y});
+        }
+      }
+    }
+  
+    if (count === 0) return null;
+  
+    let centerX = sumX / count;
+    let centerY = sumY / count;
+  
+    const idx = (Math.floor(centerY) * width + Math.floor(centerX)) * 4;
+    const isValidCenter = imageData[idx] === 255;
+  
+    // Fallback: choose a random pixel inside the district
+    if (!isValidCenter) {
+      const fallback = validPixels[Math.floor(Math.random() * validPixels.length)];
+      centerX = fallback.x;
+      centerY = fallback.y;
+    }
+  
+    const lng = minX + centerX / scaleX;
+    const lat = maxY - centerY / scaleY;
+  
+    return [lng, lat];
+  },  
   async getCentersOfMass(bounds, activeZones) {
     const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
     if (!activeZones.length) {
@@ -288,7 +284,7 @@ const GeometryWorker: GeometryWorkerClass = {
     const centers = await Promise.all(
       Object.entries(clippedFeatures).map(async ([_zone, features]) => {
         const zone = +_zone;
-        const center = await computeCenterOfMass(
+        const center = await this.computeCenterOfMass(
           {
             type: 'FeatureCollection',
             features: features as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[],

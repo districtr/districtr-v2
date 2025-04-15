@@ -68,6 +68,21 @@ export type GeometryWorkerClass = {
     bboxGeom: GeoJSON.Polygon;
   };
   /**
+   * Calculate the center of mass for a set of polygons
+   * 
+   * @param geojson Set of polygons to calculate the center of mass for
+   * @param bounds Bounds of the view
+   * @param width Width of the subcanvas to render the polygons on. A higher number will result in a more accurate center of mass.
+   * @param height Height of the subcanvas to render the polygons on. A higher number will result in a more accurate center of mass.
+   * @returns [lng, lat] of the center of mass
+   */
+  computeCenterOfMass: (
+    geojson: GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+    bounds: [number, number, number, number],
+    width?: number,
+    height?: number
+  ) => Promise<[number, number] | null>;
+  /**
    * Strategy for finding centroids by dissolving the zone geometries and finding the center of mass.
    * @param bounds number[] the view bounds
    * @param activeZones list of current drawn zones
