@@ -5,10 +5,11 @@ import {FROZEN_CONDITIONS, STATUS_TEXT} from '../constants/notifications';
 export const useMapStatus = () => {
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const mapStatus = useMapStore(state => state.mapStatus);
+  const mapMetadata = useMapStore(state => state.userMaps.find(map => map.document_id === document_id)?.map_metadata)
+  
   const status = mapStatus?.status;
   const access = mapStatus?.access;
 
-  const mapMetadata = useMapStore(state => state.mapMetadata);
   const statusText = useMemo(() => {
     if (!document_id) return null;
     if (status === 'locked' || access === 'read') return STATUS_TEXT.frozen;
