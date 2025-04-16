@@ -15,7 +15,6 @@ con.sql(
 df_long['parent_path'] = df_long['parent_path'].fillna('parent')
 # Use groupby to efficiently compute min and max indices
 grouped = df_long.groupby("parent_path").apply(lambda x: int(x.index.max()) - int(x.index.min()))
-length_list = '|'.join([str(v) for v in list(grouped.values)])
 con.execute("SET threads=1;")
 con.sql(
     f"""
