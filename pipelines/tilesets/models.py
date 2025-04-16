@@ -7,10 +7,10 @@ from subprocess import run
 from urllib.parse import urlparse
 from typing import Iterable, TypeVar, Type
 
-from settings import settings
+from core.settings import settings
 from files import download_file_from_s3
 from utils import merge_tilesets
-from constants import S3_TILESETS_PREFIX
+from core.constants import S3_TILESETS_PREFIX
 from pathlib import Path
 
 logger = logging.getLogger(__name__)

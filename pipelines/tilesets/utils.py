@@ -3,7 +3,7 @@ import logging
 from subprocess import run
 from urllib.parse import urlparse
 
-from settings import settings
+from core.settings import settings
 from files import download_file_from_s3
 
 
