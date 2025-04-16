@@ -6,10 +6,10 @@ import logging
 from urllib.parse import urlparse
 from subprocess import run
 from typing import Iterable
-from files import download_and_unzip_zipfile, exists_in_s3
+from tilesets.files import download_and_unzip_zipfile, exists_in_s3
 from core.settings import settings
-from models import GerryDBTileset, TilesetBatch
-from utils import merge_tilesets
+from tilesets.models import GerryDBTileset, TilesetBatch
+from tilesets.utils import merge_tilesets
 from core.constants import (
     DEFAULT_GERRYDB_COLUMNS,
     S3_BASEMAPS_PREFIX,

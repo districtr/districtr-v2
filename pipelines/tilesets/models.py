@@ -8,8 +8,8 @@ from urllib.parse import urlparse
 from typing import Iterable, TypeVar, Type
 
 from core.settings import settings
-from files import download_file_from_s3
-from utils import merge_tilesets
+from tilesets.files import download_file_from_s3
+from tilesets.utils import merge_tilesets
 from core.constants import S3_TILESETS_PREFIX
 from pathlib import Path
 
@@ -91,7 +91,7 @@ class GerryDBTileset(BaseModel):
         fbg_path = f"{settings.OUT_SCRATCH}/{self.layer_name}.fgb"
 
         Path(fbg_path).parent.mkdir(parents=True, exist_ok=True)
-
+        logger.info(f"FILEPATH {path}")
         logger.info("Creating flatgeobuf...")
         if os.path.exists(fbg_path) and not replace:
             logger.info("File already exists. Skipping creation.")

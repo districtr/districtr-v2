@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # Volumes
 
-    OUT_SCRATCH: Path = Path(__file__).parent / "scratch"
+    OUT_SCRATCH: Path = Path(__file__).parent.parent / "scratch"
 
     # R2
 
