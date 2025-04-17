@@ -228,7 +228,9 @@ const GeometryWorker: GeometryWorkerClass = {
     const validPixels = [];
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
+        // Each pixel takes 4 int array values (R, G, B, A), so we multiply by 4.
         const i = (y * width + x) * 4;
+        // Check if the red channel is 255 as a shorthand to see if painted
         if (imageData[i] === 255) {
           sumX += x;
           sumY += y;
