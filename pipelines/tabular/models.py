@@ -49,7 +49,9 @@ class TabularBatch(Config):
       logger.info(f"Transformed data to long format.")
       return full_df
 
-  def output_parquet(self, df: pd.DataFrame, out_path: str) -> None:
+  def output_parquet(self, df: pd.DataFrame | None, out_path: str) -> None:
+    if df is None:
+      return
     grouped = df.groupby("parent_path").apply(lambda x: int(x.index.max()) - int(x.index.min()))
     con = duckdb.connect(database=":memory:")
     con.sql(
@@ -103,7 +105,7 @@ class TabularBatch(Config):
     logger.info("Uploading results to S3")
     if not s3_client:
         raise ValueError("Failed to get S3 client")
-    for _, dataset in self._results.items():
-        out_path = dataset['out_path']
-        s3_client.upload_file(settings.OUT_SCRATCH / out_path, settings.S3_BUCKET, f"{S3_TABULAR_PREFIX}/{out_path}")
-        logger.info(f"Uploaded {out_path}")
+    for dataset in self.datasets.values():
+      out_path = dataset.out_path
+      s3_client.upload_file(settings.OUT_SCRATCH / out_path, settings.S3_BUCKET, f"{S3_TABULAR_PREFIX}/{out_path}")
+      logger.info(f"Uploaded {out_path}")
