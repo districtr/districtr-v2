@@ -16,7 +16,7 @@ import {Blockquote, Box, Flex, IconButton, Popover, Switch, Tabs, Text} from '@r
 import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React from 'react';
-import { demographyCache } from '@/app/utils/demography/demographyCache';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
 const mapOptions: Array<{
   label: string;
   value: MapStore['mapOptions']['showDemographicMap'];
@@ -49,12 +49,17 @@ export const DemographicMapPanel: React.FC = () => {
   const scale = useDemographyStore(state => state.scale);
   const numberOfbins = useDemographyStore(state => state.numberOfBins);
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
-  const availableVariables = demographyVariables.filter(f => demographyCache.availableColumns.includes(f.value));
+  const availableVariables = demographyVariables.filter(f =>
+    demographyCache.availableColumns.includes(f.value)
+  );
   const displayVariable = variable.replace('_pct', '');
   const config = availableVariables.find(f => f.value === displayVariable);
   const colors = scale?.range() || [];
 
-  const handleChange = (_newVariable?: PossibleColumnsOfSummaryStatConfig[number], _usePercent?: boolean) => {
+  const handleChange = (
+    _newVariable?: PossibleColumnsOfSummaryStatConfig[number],
+    _usePercent?: boolean
+  ) => {
     const usePercent = _usePercent ?? (variable.includes('pct') || variable.includes('total'));
     const newVariable = _newVariable ?? config?.value;
     if (!newVariable) return;

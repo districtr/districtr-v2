@@ -5,7 +5,7 @@ import {useMemo} from 'react';
 import {demographyCache} from '@utils/demography/demographyCache';
 import {useDemographyStore} from '../store/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '../constants/layers';
-import { SummaryRecord } from '../utils/api/summaryStats';
+import {SummaryRecord} from '../utils/api/summaryStats';
 
 /**
  * Custom hook to retrieve and process demography data.

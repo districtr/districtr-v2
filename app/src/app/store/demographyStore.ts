@@ -6,7 +6,7 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import maplibregl from 'maplibre-gl';
 import * as scale from 'd3-scale';
 import {updateDemography} from '../utils/api/queries';
-import { PossibleColumnsOfSummaryStatConfig } from '../utils/api/summaryStats';
+import {PossibleColumnsOfSummaryStatConfig} from '../utils/api/summaryStats';
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
 
@@ -147,9 +147,7 @@ export interface DemographyStore {
    * @param mapDocument - The map document from the main map.
    * @returns A promise that resolves when the data update is complete.
    */
-  updateData: (
-    mapDocument: MapStore['mapDocument'],
-  ) => Promise<void>;
+  updateData: (mapDocument: MapStore['mapDocument']) => Promise<void>;
 }
 
 export var useDemographyStore = create(
@@ -188,7 +186,7 @@ export var useDemographyStore = create(
     setNumberOfBins: numberOfBins => set({numberOfBins}),
     dataHash: '',
     setDataHash: dataHash => set({dataHash}),
-    updateData: async (mapDocument) => {
+    updateData: async mapDocument => {
       const {dataHash: currDataHash} = get();
       const {shatterIds} = useMapStore.getState();
       if (!mapDocument) return;

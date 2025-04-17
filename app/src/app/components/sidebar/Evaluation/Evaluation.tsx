@@ -4,7 +4,7 @@ import {Blockquote, Box, Button, CheckboxGroup, Heading, Table, Tabs} from '@rad
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
-import { SummaryStatConfig, summaryStatsConfig } from '@/app/utils/api/summaryStats';
+import {SummaryStatConfig, summaryStatsConfig} from '@/app/utils/api/summaryStats';
 import {
   numberFormats,
   summaryStatLabels,
@@ -57,7 +57,10 @@ const Evaluation: React.FC = () => {
 
   return (
     <Box width={'100%'}>
-      <Tabs.Root value={summaryType} onValueChange={value => setSummaryType(value as keyof SummaryStatConfig)}>
+      <Tabs.Root
+        value={summaryType}
+        onValueChange={value => setSummaryType(value as keyof SummaryStatConfig)}
+      >
         <Tabs.List>
           {availableSummaries.map(({value, label}) => (
             <Tabs.Trigger key={value} value={value}>
@@ -108,11 +111,12 @@ const Evaluation: React.FC = () => {
               <Table.ColumnHeaderCell className="py-2 px-4 text-left font-semibold">
                 Zone
               </Table.ColumnHeaderCell>
-              {!!columnConfig && columnConfig.map((f, i) => (
-                <Table.ColumnHeaderCell className="py-2 px-4 text-right font-semibold" key={i}>
-                  {f.label}
-                </Table.ColumnHeaderCell>
-              ))}
+              {!!columnConfig &&
+                columnConfig.map((f, i) => (
+                  <Table.ColumnHeaderCell className="py-2 px-4 text-right font-semibold" key={i}>
+                    {f.label}
+                  </Table.ColumnHeaderCell>
+                ))}
             </Table.Row>
           </Table.Header>
           <Table.Body>
@@ -132,38 +136,41 @@ const Evaluation: React.FC = () => {
                       ></span>
                       {zoneName}
                     </Table.Cell>
-                    {!!columnConfig && columnConfig.map((f, i) => {
-                      const column = (
-                        evalMode === 'count' ? f.column : `${f.column}_pct`
-                      ) as keyof typeof row;
-                      const value = row[column];
-                      const colorValue =
-                        value === undefined
-                          ? undefined
-                          : evalMode === 'count'
-                            ? // @ts-ignore
-                              value / maxValues[column]
-                            : value;
-                      const backgroundColor =
-                        value === undefined || colorValue === undefined
-                          ? undefined
-                          : colorBg && !isUnassigned
-                            ? interpolateGreys(colorValue as number)
-                                .replace('rgb', 'rgba')
-                                .replace(')', ',0.5)')
-                            : 'initial';
-                      return (
-                        <Table.Cell
-                          className="py-2 px-4 text-right"
-                          style={{
-                            backgroundColor,
-                          }}
-                          key={i}
-                        >
-                          {value === undefined ? '--' : formatNumber(value as number, numberFormat)}
-                        </Table.Cell>
-                      );
-                    })}
+                    {!!columnConfig &&
+                      columnConfig.map((f, i) => {
+                        const column = (
+                          evalMode === 'count' ? f.column : `${f.column}_pct`
+                        ) as keyof typeof row;
+                        const value = row[column];
+                        const colorValue =
+                          value === undefined
+                            ? undefined
+                            : evalMode === 'count'
+                              ? // @ts-ignore
+                                value / maxValues[column]
+                              : value;
+                        const backgroundColor =
+                          value === undefined || colorValue === undefined
+                            ? undefined
+                            : colorBg && !isUnassigned
+                              ? interpolateGreys(colorValue as number)
+                                  .replace('rgb', 'rgba')
+                                  .replace(')', ',0.5)')
+                              : 'initial';
+                        return (
+                          <Table.Cell
+                            className="py-2 px-4 text-right"
+                            style={{
+                              backgroundColor,
+                            }}
+                            key={i}
+                          >
+                            {value === undefined
+                              ? '--'
+                              : formatNumber(value as number, numberFormat)}
+                          </Table.Cell>
+                        );
+                      })}
                   </Table.Row>
                 );
               })}

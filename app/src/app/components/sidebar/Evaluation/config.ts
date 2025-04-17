@@ -1,12 +1,12 @@
 import {NumberFormats} from '@/app/utils/numbers';
-import {
-  SummaryStatConfig,
-} from '@/app/utils/api/summaryStats';
+import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
 
 export type EvalModes = 'share' | 'count' | 'totpop';
 type ColumnConfiguration<T extends string> = Array<{label: string; column: T}>;
 
-export const TOTPOPColumnConfig: ColumnConfiguration<SummaryStatConfig['TOTPOP']['possibleColumns'][number]> = [
+export const TOTPOPColumnConfig: ColumnConfiguration<
+  SummaryStatConfig['TOTPOP']['possibleColumns'][number]
+> = [
   {
     label: 'Black',
     column: 'bpop_20',
@@ -33,7 +33,9 @@ export const TOTPOPColumnConfig: ColumnConfiguration<SummaryStatConfig['TOTPOP']
   },
 ];
 
-export const VAPColumnConfig: ColumnConfiguration<SummaryStatConfig['VAP']['possibleColumns'][number]> = [
+export const VAPColumnConfig: ColumnConfiguration<
+  SummaryStatConfig['VAP']['possibleColumns'][number]
+> = [
   {column: 'bvap_20', label: 'Black'},
   {column: 'hvap_20', label: 'Hispanic'},
   {column: 'amin_vap_20', label: 'AMIN'},
@@ -42,10 +44,15 @@ export const VAPColumnConfig: ColumnConfiguration<SummaryStatConfig['VAP']['poss
   {column: 'other_vap_20', label: 'Other'},
 ];
 
-export const columnConfigs: Partial<Record<keyof SummaryStatConfig, ColumnConfiguration<SummaryStatConfig[keyof SummaryStatConfig]['possibleColumns'][number]>>> = {
+export const columnConfigs: Partial<
+  Record<
+    keyof SummaryStatConfig,
+    ColumnConfiguration<SummaryStatConfig[keyof SummaryStatConfig]['possibleColumns'][number]>
+  >
+> = {
   TOTPOP: TOTPOPColumnConfig,
   VAP: VAPColumnConfig,
-}
+};
 
 export const modeButtonConfig: Array<{label: string; value: EvalModes}> = [
   {

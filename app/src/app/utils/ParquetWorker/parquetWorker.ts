@@ -1,12 +1,12 @@
 import {expose} from 'comlink';
-import {
-  ColumnarTableData,
-  ExtendedFileMetaData,
-  ParquetWorkerClass,
-} from './parquetWorker.types';
+import {ColumnarTableData, ExtendedFileMetaData, ParquetWorkerClass} from './parquetWorker.types';
 import {compressors} from 'hyparquet-compressors';
 import {parquetRead, byteLengthFromUrl, asyncBufferFromUrl, parquetMetadataAsync} from 'hyparquet';
-import {DemographyRow, PossibleColumnsOfSummaryStatConfig, SummaryRecord} from '../api/summaryStats';
+import {
+  DemographyRow,
+  PossibleColumnsOfSummaryStatConfig,
+  SummaryRecord,
+} from '../api/summaryStats';
 
 const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
@@ -58,7 +58,7 @@ const ParquetWorker: ParquetWorkerClass = {
                 path,
                 sourceLayer:
                   path === 'parent' ? mapDocument.parent_layer! : mapDocument.child_layer!,
-              }
+              };
             }
             wideDataDict[path][column_name as keyof SummaryRecord] = value;
           }
@@ -74,7 +74,9 @@ const ParquetWorker: ParquetWorkerClass = {
     Object.values(wideDataDict).forEach((row, i) => {
       if (i === 0) {
         Object.keys(row).forEach(key => {
-          columnarData[key as PossibleColumnsOfSummaryStatConfig[number]] = [row[key as keyof SummaryRecord] as number];
+          columnarData[key as PossibleColumnsOfSummaryStatConfig[number]] = [
+            row[key as keyof SummaryRecord] as number,
+          ];
         });
       }
       Object.entries(row).forEach(([k, v]) => {

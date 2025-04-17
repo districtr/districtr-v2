@@ -42,7 +42,7 @@ export const summaryStatsConfig = {
       'pres_20_rep',
       'pres_20_dem',
       'pres_16_rep',
-      'pres_16_dem'
+      'pres_16_dem',
     ],
     sumColumn: 'total_vap_20',
   },
@@ -54,13 +54,15 @@ export const summaryStatsConfig = {
  * @param config - The config to add the _pct suffix to
  * @returns A new config with both original columns and columns with _pct suffix
  */
-const withPct = <T extends typeof summaryStatsConfig>(config: T): {
+const withPct = <T extends typeof summaryStatsConfig>(
+  config: T
+): {
   [K in keyof T]: {
     possibleColumns: Array<
-      | Extract<T[K], { possibleColumns: readonly string[] }>['possibleColumns'][number]
-      | `${Extract<T[K], { possibleColumns: readonly string[] }>['possibleColumns'][number]}_pct`
+      | Extract<T[K], {possibleColumns: readonly string[]}>['possibleColumns'][number]
+      | `${Extract<T[K], {possibleColumns: readonly string[]}>['possibleColumns'][number]}_pct`
     >;
-    sumColumn: Extract<T[K], { sumColumn: string }>['sumColumn'];
+    sumColumn: Extract<T[K], {sumColumn: string}>['sumColumn'];
   };
 } => {
   return Object.fromEntries(
@@ -77,21 +79,24 @@ const withPct = <T extends typeof summaryStatsConfig>(config: T): {
   ) as any;
 };
 export const summaryStatsWithPctConfig = withPct(summaryStatsConfig);
-export const possibleRollups = Object.values(summaryStatsConfig).flatMap(stat => stat.possibleColumns.map(col => ({
-  total: stat.sumColumn,
-  col,
-})));
+export const possibleRollups = Object.values(summaryStatsConfig).flatMap(stat =>
+  stat.possibleColumns.map(col => ({
+    total: stat.sumColumn,
+    col,
+  }))
+);
 
 // DERIVED TYPES
 export type SummaryStatConfig = typeof summaryStatsConfig;
 export type KeyOfSummaryStatConfig = keyof SummaryStatConfig;
-export type PossibleColumnsOfSummaryStatConfig = SummaryStatConfig[KeyOfSummaryStatConfig]['possibleColumns'];
+export type PossibleColumnsOfSummaryStatConfig =
+  SummaryStatConfig[KeyOfSummaryStatConfig]['possibleColumns'];
 export type DemographyRow = {
   [key in PossibleColumnsOfSummaryStatConfig[number]]: number;
-}
+};
 export type MaxValues = {
   [key in PossibleColumnsOfSummaryStatConfig[number]]: number;
-}
+};
 export type TableRow = DemographyRow & {path: string; sourceLayer: string};
 export type SummaryRecord = TableRow & {zone: number};
 export type SummaryTable = Array<SummaryRecord>;
@@ -103,4 +108,4 @@ export type TabularDataWithPercent<T extends SummaryStatConfig[keyof SummaryStat
   [K in T['possibleColumns'][number] as `${K}_pct`]: number;
 } & {
   [K in T['possibleColumns'][number]]: number;
-}
+};

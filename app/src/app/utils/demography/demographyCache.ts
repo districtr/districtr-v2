@@ -11,17 +11,17 @@ import {
   PossibleColumnsOfSummaryStatConfig,
   SummaryRecord,
   SummaryStatConfig,
- summaryStatsConfig,
- summaryStatsWithPctConfig,
- SummaryTable,
- TableRow,
- TabularDataWithPercent
+  summaryStatsConfig,
+  summaryStatsWithPctConfig,
+  SummaryTable,
+  TableRow,
+  TabularDataWithPercent,
 } from '../api/summaryStats';
 import {getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
 import {DEFAULT_COLOR_SCHEME, DEFAULT_COLOR_SCHEME_GRAY} from '@/app/store/demographyStore';
 import {NullableZone} from '@/app/constants/types';
-import { ColumnarTableData } from '../ParquetWorker/parquetWorker.types';
+import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 /**
  * Class to organize queries on current demographic data
  */
@@ -59,8 +59,8 @@ class DemographyCache {
    * Available summary statistics / derived values.
    */
   summaryStats: {
-    TOTPOP?: typeof summaryStatsWithPctConfig['TOTPOP'];
-    VAP?: typeof summaryStatsWithPctConfig['VAP'];
+    TOTPOP?: (typeof summaryStatsWithPctConfig)['TOTPOP'];
+    VAP?: (typeof summaryStatsWithPctConfig)['VAP'];
     idealpop?: number;
     totalPopulation?: number;
     unassigned?: number;
@@ -97,7 +97,7 @@ class DemographyCache {
     this.calculateSummaryStats();
     this.hash = hash;
   }
-  
+
   /**
    * Updates the zone table with new zone assignments.
    *
@@ -179,7 +179,7 @@ class DemographyCache {
         ok: false,
       };
     }
-    const joinedTable = this.table.join_full(this.zoneTable, ['path', 'path'])
+    const joinedTable = this.table.join_full(this.zoneTable, ['path', 'path']);
     const missingPopulations = joinedTable.filter(
       escape(
         (row: TableRow & {zone: NullableZone}) =>
@@ -193,7 +193,7 @@ class DemographyCache {
         ok: false,
       };
     }
-    const columns = this.table.columnNames() 
+    const columns = this.table.columnNames();
     // if any tot
     const populationsTable = joinedTable
       .groupby('zone')
@@ -239,7 +239,7 @@ class DemographyCache {
   calculateSummaryStats(): void {
     if (!this.table) return;
     const t0 = performance.now();
-    const columns = this.table.columnNames()
+    const columns = this.table.columnNames();
     this.table = this.table.derive(getPctDerives(columns));
     const summaries = this.table.rollup(getRollups(columns, 'sum')).objects()[0] as SummaryRecord;
     const mapDocument = useMapStore.getState().mapDocument;

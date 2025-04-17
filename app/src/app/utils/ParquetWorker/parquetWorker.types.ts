@@ -1,6 +1,6 @@
 import {DocumentObject} from '../api/apiHandlers/types';
 import {AsyncBuffer, FileMetaData} from 'hyparquet';
-import { PossibleColumnsOfSummaryStatConfig } from '../api/summaryStats';
+import {PossibleColumnsOfSummaryStatConfig} from '../api/summaryStats';
 
 type DistrictrView = string;
 export interface ExtendedFileMetaData extends FileMetaData {

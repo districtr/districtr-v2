@@ -9,8 +9,8 @@ import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
 import {demographyCache} from '../demography/demographyCache';
 import {useDemographyStore} from '@/app/store/demographyStore';
-import { PossibleColumnsOfSummaryStatConfig } from './summaryStats';
-import { ColumnarTableData } from '../ParquetWorker/parquetWorker.types';
+import {PossibleColumnsOfSummaryStatConfig} from './summaryStats';
+import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -145,8 +145,8 @@ export const updateDemography = ({
   fetchDemography.setOptions({
     queryFn: async () => {
       return await getDemography({
-        mapDocument, 
-        brokenIds
+        mapDocument,
+        brokenIds,
       });
     },
     queryKey: ['demography', performance.now()],

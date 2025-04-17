@@ -1,10 +1,6 @@
 'use client';
 import {op, escape} from 'arquero';
-import {
-  possibleRollups,
-  DemographyRow,
-} from '../api/summaryStats';
-
+import {possibleRollups, DemographyRow} from '../api/summaryStats';
 
 /**
  * Generates a record of functions that calculate the percentage of various demographic populations.
@@ -19,13 +15,13 @@ import {
  *
  * If the corresponding data is not available (as indicated by the `stats` parameter), the function will return `NaN`.
  */
-export const getPctDerives = (
-  columns: string[]
-) => {
+export const getPctDerives = (columns: string[]) => {
   const derives: Record<string, object> = {};
   possibleRollups.forEach(rollup => {
     if (columns.includes(rollup.col)) {
-      derives[rollup.col + '_pct'] = escape((row: DemographyRow) => row[rollup.col] / row[rollup.total]);
+      derives[rollup.col + '_pct'] = escape(
+        (row: DemographyRow) => row[rollup.col] / row[rollup.total]
+      );
     }
   });
   return derives;

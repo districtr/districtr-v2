@@ -1,7 +1,7 @@
 import {DocumentObject} from './types';
 import ParquetWorker from '../../ParquetWorker';
-import { ColumnarTableData } from '../../ParquetWorker/parquetWorker.types';
-import { PossibleColumnsOfSummaryStatConfig } from '../summaryStats';
+import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
+import {PossibleColumnsOfSummaryStatConfig} from '../summaryStats';
 
 export const getDemography = async ({
   mapDocument,
@@ -9,7 +9,10 @@ export const getDemography = async ({
 }: {
   mapDocument?: DocumentObject;
   brokenIds?: string[];
-}): Promise<{columns: PossibleColumnsOfSummaryStatConfig[number][]; results: ColumnarTableData}> => {
+}): Promise<{
+  columns: PossibleColumnsOfSummaryStatConfig[number][];
+  results: ColumnarTableData;
+}> => {
   if (!mapDocument) {
     throw new Error('No document id provided');
   }
