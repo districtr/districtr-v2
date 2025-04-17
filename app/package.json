@@ -12,6 +12,7 @@
     "ts:watch": "yarn ts --watch"
   },
   "dependencies": {
+    "@auth0/nextjs-auth0": "^4.4.2",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
     "@mapbox/mapbox-gl-sync-move": "^0.3.1",

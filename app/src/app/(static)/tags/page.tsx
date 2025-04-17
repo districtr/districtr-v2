@@ -7,10 +7,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function TagsPage() {
   const cmsContent = await listCMSContent('tags');
-  const entries = cmsContent.content
-    .filter(content => content.published_content)
+  const entries = cmsContent
+    ?.filter(content => content.published_content)
     .filter(onlyUniqueProperty('slug'))
     .sort((a, b) => a.published_content!.title.localeCompare(b.published_content!.title));
+
+  if (!entries) return null;
 
   return (
     <Flex direction={'column'} className="max-w-screen-lg mx-auto p-4">

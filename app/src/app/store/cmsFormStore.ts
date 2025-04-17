@@ -4,7 +4,7 @@ import {
   AllCmsLists,
   AllCmsEntries,
   CmsContentTypes,
-  listCMSContent,
+  listAuthoredCMSContent,
   PlacesCMSContent,
   TagsCMSContent,
   createCMSContent,
@@ -18,6 +18,7 @@ import {LANG_MAPPING} from '../utils/language';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {DistrictrMap} from '../utils/api/apiHandlers/types';
 import {getAvailableDistrictrMaps} from '../utils/api/apiHandlers/getAvailableDistrictrMaps';
+import {ClientSession} from '@/app/lib/auth0';
 
 // Base form data interface with common fields
 interface BaseFormData {
@@ -102,6 +103,10 @@ interface CmsFormStore {
   handlePublish: (id: string) => Promise<void>;
   handleEdit: (item: AllCmsEntries['content']) => void;
   cancelEdit: () => void;
+
+  // Auth
+  session: ClientSession | null;
+  setSession: (session: CmsFormStore['session']) => void;
 }
 
 export const useCmsFormStore = create(
@@ -130,11 +135,18 @@ export const useCmsFormStore = create(
     // Load content for a specific type
     loadData: async contentType => {
       console.log('Loading...');
+      const {session} = get();
+      if (!session) {
+        return;
+      }
+
       try {
         const [content, mapsData] = await Promise.all([
-          listCMSContent(contentType),
+          listAuthoredCMSContent(contentType, {}, session),
           get().loadMapList(),
         ]);
+
+        console.log('updatedContent', content);
 
         // Create typed form data from defaults
         const formData = createTypedFormData(
@@ -150,7 +162,7 @@ export const useCmsFormStore = create(
         });
       } catch (err) {
         console.error('Error fetching data:', err);
-        set({error: 'Failed to load data. Please try again.'});
+        set({error: `Failed to load data. Please try again. ${err}`});
       }
     },
 
@@ -204,7 +216,11 @@ export const useCmsFormStore = create(
           subtitle: formData.content.subtitle,
           body: formData.content.body,
         };
-
+        const {session} = get();
+        if (!session) {
+          set({error: 'Failed to authenticate.'});
+          return;
+        }
         if (editingContent) {
           // Updating existing content
           let content: CMSContentUpdate = {
@@ -225,7 +241,7 @@ export const useCmsFormStore = create(
             content.updates.districtr_map_slugs =
               (formData.content as FormDataType<'places'>).districtr_map_slugs || null;
           }
-          await updateCMSContent(content);
+          await updateCMSContent({body: content, session});
           set({success: 'Content updated successfully!', editingContent: null});
         } else {
           // Creating new content
@@ -247,13 +263,13 @@ export const useCmsFormStore = create(
               formData.content as FormDataType<'places'>
             ).districtr_map_slugs;
           }
-
-          await createCMSContent(content);
+          await createCMSContent({body: content, session});
           set({success: 'Content created successfully!'});
         }
 
         // Refresh content list and reset form
-        const newContent = await listCMSContent(contentType);
+        const newContent = await listAuthoredCMSContent(contentType, {}, session);
+        console.log('newContent', newContent);
         const resetFormData = createTypedFormData(
           contentType,
           structuredClone(defaultFormData[contentType])
@@ -273,24 +289,29 @@ export const useCmsFormStore = create(
     // Delete content
     handleDelete: async id => {
       if (!confirm('Are you sure you want to delete this content?')) return;
+      const {session, contentType} = get();
+
+      if (!session) {
+        set({error: 'Failed to delete content. Please try again.'});
+        return;
+      }
 
       try {
-        const contentType = get().contentType;
         if (!contentType) {
           set({error: 'Failed to delete content. Please try again.'});
           return;
         }
 
-        await deleteCMSContent(id, contentType);
+        await deleteCMSContent({
+          body: {content_id: id, content_type: contentType},
+          session: session,
+        });
 
         const currentContent = get().content;
         if (!currentContent) return;
 
         // Update content list without the deleted item
-        const updatedContent = {
-          contentType: currentContent.contentType,
-          content: currentContent.content.filter(item => item.id !== id),
-        } as AllCmsLists;
+        const updatedContent = currentContent.filter(item => item.id !== id);
 
         set({
           success: 'Content deleted successfully!',
@@ -304,15 +325,25 @@ export const useCmsFormStore = create(
 
     // Publish content
     handlePublish: async id => {
+      const {session, contentType} = get();
+
+      if (!session) {
+        set({error: 'Failed to authenticate. Please try again.'});
+        return;
+      }
+
       try {
-        const contentType = get().contentType;
         if (!contentType) {
           set({error: 'Failed to publish content. Please try again.'});
           return;
         }
 
-        await publishCMSContent(id, contentType);
-        const updatedContent = await listCMSContent(contentType);
+        await publishCMSContent({
+          body: {content_id: id, content_type: contentType},
+          session: session,
+        });
+        const updatedContent = await listAuthoredCMSContent(contentType, {}, session);
+        console.log('updatedContent', updatedContent);
         set({
           success: 'Content published successfully!',
           content: updatedContent,
@@ -392,5 +423,9 @@ export const useCmsFormStore = create(
         formData: createTypedFormData(contentType, structuredClone(defaultFormData[contentType])),
       });
     },
+
+    // Auth
+    session: null,
+    setSession: session => set({session}),
   }))
 );
