@@ -6,4 +6,22 @@ Most Input datasets come from the gerrydb project.
 
 Structure:
 
+- `core`: Shared configuration and models
+- `configs`: YAML configs for batch scripts
 - `tilesets`: CLI for creating tilesets consumed by Districtr v2.
+- `tabular`: Demography and other tabular data handling
+
+## Quickstart
+
+Using docker:
+
+```sh
+docker-compose run pipelines sh
+```
+
+From within the `pipelines` service, run commands:
+
+```sh
+python tilesets create-gerrydb-tileset ...
+python tabular build-parquet ...
+```

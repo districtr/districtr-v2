@@ -64,5 +64,16 @@ services:
       - ./:/app
     command: sh -c "pip install pre-commit && pre-commit run --all-files"
 
+  pipelines:
+    build:
+      context: ./pipelines
+      dockerfile: Dockerfile.dev
+    command: sh -c "pip install -e ."
+    volumes:
+      - ./pipelines:/pipelines
+      - ./data:/data
+    env_file:
+      - ./pipelines/.env
+
 volumes:
   __postgres_data:
