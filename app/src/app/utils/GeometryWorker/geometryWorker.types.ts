@@ -69,7 +69,7 @@ export type GeometryWorkerClass = {
   };
   /**
    * Calculate the center of mass for a set of polygons
-   * 
+   *
    * @param geojson Set of polygons to calculate the center of mass for
    * @param bounds Bounds of the view
    * @param width Width of the subcanvas to render the polygons on. A higher number will result in a more accurate center of mass.

@@ -143,9 +143,12 @@ const ZoneNumbersLayer = () => {
             'interpolate',
             ['linear'],
             ['zoom'],
-            5, 10,   // At zoom level 5, radius is 10 (increased from 8)
-            10, 15,  // At zoom level 10, radius is 15 (increased from 12)
-            15, 18   // At zoom level 15 and above, radius is 18 (increased from 15)
+            5,
+            10, // At zoom level 5, radius is 10 (increased from 8)
+            10,
+            15, // At zoom level 10, radius is 15 (increased from 12)
+            15,
+            18, // At zoom level 15 and above, radius is 18 (increased from 15)
           ],
           'circle-opacity': 0.8,
           'circle-stroke-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
@@ -153,8 +156,10 @@ const ZoneNumbersLayer = () => {
             'interpolate',
             ['linear'],
             ['zoom'],
-            5, 1.5,  // At zoom level 5, stroke width is 1.5 (increased from 1)
-            15, 2.5  // At zoom level 15 and above, stroke width is 2.5 (increased from 2)
+            5,
+            1.5, // At zoom level 5, stroke width is 1.5 (increased from 1)
+            15,
+            2.5, // At zoom level 15 and above, stroke width is 2.5 (increased from 2)
           ],
         }}
       ></Layer>
@@ -170,9 +175,12 @@ const ZoneNumbersLayer = () => {
             'interpolate',
             ['linear'],
             ['zoom'],
-            5, 12,   // At zoom level 5, text size is 12 (increased from 10)
-            10, 16,  // At zoom level 10, text size is 16 (increased from 14)
-            15, 20   // At zoom level 15 and above, text size is 20 (increased from 18)
+            5,
+            12, // At zoom level 5, text size is 12 (increased from 10)
+            10,
+            16, // At zoom level 10, text size is 16 (increased from 14)
+            15,
+            20, // At zoom level 15 and above, text size is 20 (increased from 18)
           ],
           'text-anchor': 'center',
           'text-offset': [0, 0],
@@ -197,9 +205,12 @@ const ZoneNumbersLayer = () => {
             'interpolate',
             ['linear'],
             ['zoom'],
-            5, 0.8,   // At zoom level 5, icon size is 0.8 (increased from 0.6)
-            10, 1.0,  // At zoom level 10, icon size is 1.0 (increased from 0.8)
-            15, 1.2   // At zoom level 15 and above, icon size is 1.2 (increased from 1)
+            5,
+            0.8, // At zoom level 5, icon size is 0.8 (increased from 0.6)
+            10,
+            1.0, // At zoom level 10, icon size is 1.0 (increased from 0.8)
+            15,
+            1.2, // At zoom level 15 and above, icon size is 1.2 (increased from 1)
           ],
           'icon-allow-overlap': true,
         }}
