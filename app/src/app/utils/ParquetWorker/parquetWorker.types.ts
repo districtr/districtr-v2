@@ -35,7 +35,7 @@ export type ParquetWorkerClass = {
   getDemography: (
     mapDocument: DocumentObject,
     brokenIds?: string[]
-  ) => Promise<{columns: PossibleColumnsOfSummaryStatConfig[]; results: ColumnarTableData}>;
+  ) => Promise<{columns: PossibleColumnsOfSummaryStatConfig[number][]; results: ColumnarTableData}>;
   getRowSet: (view: DocumentObject, id: string, ignoreIds?: string[]) => Promise<ColumnarTableData>;
   getMetaData: (slug: DistrictrView) => Promise<MetaInfo>;
 };

@@ -74,18 +74,17 @@ const ParquetWorker: ParquetWorkerClass = {
     Object.values(wideDataDict).forEach((row, i) => {
       if (i === 0) {
         Object.keys(row).forEach(key => {
-          columnarData[key as PossibleColumnsOfSummaryStatConfig[number]] = [row[key as PossibleColumnsOfSummaryStatConfig[number]]];
+          columnarData[key as PossibleColumnsOfSummaryStatConfig[number]] = [row[key as keyof SummaryRecord] as number];
         });
       }
       Object.entries(row).forEach(([k, v]) => {
-        columnarData[k as PossibleColumnsOfSummaryStatConfig[number]]!.push(v);
+        columnarData[k as PossibleColumnsOfSummaryStatConfig[number]]!.push(v as number);
       });
     });
     return columnarData as ColumnarTableData;
   },
   async getDemography(mapDocument, brokenIds) {
     const meta = await this.getMetaData(mapDocument.districtr_map_slug);
-    console.log("!!!",meta)
     const columns = meta.metadata.columns as PossibleColumnsOfSummaryStatConfig[number][];
     const data = await Promise.all([
       this.getRowSet(mapDocument, 'parent', brokenIds),
@@ -99,7 +98,6 @@ const ParquetWorker: ParquetWorkerClass = {
         results[k].push(...v);
       });
     });
-    console.log('!!! results', results);
     return {columns, results};
   },
 };
