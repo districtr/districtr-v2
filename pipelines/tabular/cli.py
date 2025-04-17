@@ -1,9 +1,7 @@
 import click
 import logging
 from core.settings import settings
-from core.constants import (
-    S3_TABULAR_PREFIX
-)
+from core.constants import S3_TABULAR_PREFIX
 from tabular.models import TabularBatch
 
 logging.basicConfig(level=logging.INFO)
@@ -41,24 +39,30 @@ def build_parquet(
     """
     df = TabularBatch.merge_and_melt_df(parent_layer, child_layer, out_path, replace)
     if df is not None:
-      TabularBatch.output_parquet(df, out_path)
+        TabularBatch.output_parquet(df, out_path)
     else:
-      logger.info(f"File already exists. Skipping creation.")
- 
+        logger.info("File already exists. Skipping creation.")
+
     if upload:
         logger.info(f"Uploading {out_path} to S3.")
         s3_client = settings.get_s3_client()
-        s3_client.upload_file(settings.OUT_SCRATCH / out_path, settings.S3_BUCKET, f"{S3_TABULAR_PREFIX}/{out_path}")
+        s3_client.upload_file(
+            settings.OUT_SCRATCH / out_path,
+            settings.S3_BUCKET,
+            f"{S3_TABULAR_PREFIX}/{out_path}",
+        )
+
 
 @cli.command("batch-build-parquet")
 @click.option("--config-path", help="Path to the config file", required=True)
+@click.option("--data_dir", help="Path to the data directory", required=True)
 @click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
 @click.option("--upload", "-u", help="Upload to S3", is_flag=True)
-def batch_build_parquet(config_path: str, replace: bool, upload: bool) -> None:
+def batch_build_parquet(config_path: str, data_dir: str, replace: bool, upload: bool) -> None:
     """
     Build a parquet file from a config file.
     """
     tabular_batch = TabularBatch.from_file(file_path=config_path)
-    tabular_batch.create_all(replace=replace)
+    tabular_batch.create_all(replace=replace, data_dir=data_dir)
     if upload:
         tabular_batch.upload_all()

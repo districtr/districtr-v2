@@ -1,17 +1,11 @@
 from core.models import Config
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel
 import os
 import logging
-from subprocess import run
-from urllib.parse import urlparse
-from typing import Iterable
-from core.models import Config
 from core.settings import settings
-from pathlib import Path
 import pandas as pd
 import geopandas as gpd
 import duckdb
-from core.settings import settings
 from core.constants import (
     S3_TABULAR_PREFIX
 )
@@ -20,88 +14,96 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-class TabularConfig():
-    parent_gpkg: str
-    child_gpkg: str
-    out_path: str
+class TabularConfig(BaseModel):
+  parent_gpkg: str
+  child_gpkg: str
+  out_path: str
 
 class TabularBatch(Config):
   datasets: dict[str, TabularConfig]
   _results: dict[str, str] = {}
 
   def merge_and_melt_df(self, parent_layer: str, child_layer: str, out_path: str, replace: bool = False) -> pd.DataFrame | None:
-      if not replace and os.path.exists(settings.OUT_SCRATCH / out_path):
-        logger.info(f"File already exists. Skipping creation.")
-        return None
-      else:
-        logger.info(f"Building tabular parquet from {parent_layer} and {child_layer}.")
+    if not replace and os.path.exists(settings.OUT_SCRATCH / out_path):
+      logger.info(f"File already exists. Skipping creation.")
+      return None
+    else:
+      logger.info(f"Building tabular parquet from {parent_layer} and {child_layer}.")
 
-        parent_gdf = gpd.read_file(parent_layer)
-        logger.info(f"Read parent layer :: {len(parent_gdf)} rows")
-        child_gdf = gpd.read_file(child_layer)
-        logger.info(f"Read child layer :: {len(child_gdf)} rows")
-        # sjoin to find parent
-        parents_min = parent_gdf[['geometry','path']].rename(columns={'path':'parent_path'})
-        child_gdf = gpd.sjoin(child_gdf, parents_min, how='left', predicate='within')
-        logger.info(f"Joined child layer with parent layer :: {len(child_gdf)} rows")
-        parent_gdf['parent_path'] = 'parent'
-        # drop geometry
-        parent_gdf = parent_gdf.drop(columns=['geometry'])
-        child_gdf = child_gdf.drop(columns=['geometry'])
-        full_df = pd.concat([parent_gdf, child_gdf], ignore_index=True)
-        full_df = full_df.melt(id_vars=['path', 'parent_path'], var_name='column_name', value_name='value')\
-          .sort_values(['parent_path', 'path', 'column_name']).reset_index()
-        full_df.to_parquet(settings.OUT_SCRATCH / out_path.replace('.parquet', '_temp_long.parquet'))
-        logger.info(f"Transformed data to long format.")
-        return full_df
+      parent_gdf = gpd.read_file(parent_layer)
+      logger.info(f"Read parent layer :: {len(parent_gdf)} rows")
+      child_gdf = gpd.read_file(child_layer)
+      logger.info(f"Read child layer :: {len(child_gdf)} rows")
+      # sjoin to find parent
+      parents_min = parent_gdf[['geometry','path']].rename(columns={'path':'parent_path'})
+      child_gdf = gpd.sjoin(child_gdf, parents_min, how='left', predicate='within')
+      logger.info(f"Joined child layer with parent layer :: {len(child_gdf)} rows")
+      parent_gdf['parent_path'] = 'parent'
+      # drop geometry
+      parent_gdf = parent_gdf.drop(columns=['geometry'])
+      child_gdf = child_gdf.drop(columns=['geometry'])
+      full_df = pd.concat([parent_gdf, child_gdf], ignore_index=True)
+      full_df = full_df.melt(id_vars=['path', 'parent_path'], var_name='column_name', value_name='value')\
+        .sort_values(['parent_path', 'path', 'column_name']).reset_index()
+      full_df.to_parquet(settings.OUT_SCRATCH / out_path.replace('.parquet', '_temp_long.parquet'))
+      logger.info(f"Transformed data to long format.")
+      return full_df
 
   def output_parquet(self, df: pd.DataFrame, out_path: str) -> None:
-      grouped = df.groupby("parent_path").apply(lambda x: int(x.index.max()) - int(x.index.min()))
-      con = duckdb.connect(database=":memory:")
-      con.sql(
-          f"""
-          CREATE TABLE data AS SELECT * FROM read_parquet('{settings.OUT_SCRATCH / out_path.replace('.parquet', '_temp_long.parquet')}')
-          """
+    grouped = df.groupby("parent_path").apply(lambda x: int(x.index.max()) - int(x.index.min()))
+    con = duckdb.connect(database=":memory:")
+    con.sql(
+      f"""
+      CREATE TABLE data AS SELECT * FROM read_parquet('{settings.OUT_SCRATCH / out_path.replace('.parquet', '_temp_long.parquet')}')
+      """
+    )
+    logger.info(f"Outputting data to {out_path}.")
+    con.execute("SET threads=1;")
+    con.sql(
+      f"""
+      COPY (
+          SELECT
+              path,
+              column_name,
+              value
+          FROM data
       )
-      logger.info(f"Outputting data to {out_path}.")
-      con.execute("SET threads=1;")
-      con.sql(
-        f"""
-        COPY (
-            SELECT
-                path,
-                column_name,
-                value
-            FROM data
-        )
-        TO '{settings.OUT_SCRATCH / out_path}'
-        (
-            FORMAT 'parquet',
-            COMPRESSION 'zstd',
-            COMPRESSION_LEVEL 12,
-            OVERWRITE_OR_IGNORE true,
-            KV_METADATA {{
-              column_list: {[f'"{entry}"' for entry in full_df['column_name'].unique().tolist()]},
-              length_list: {list(grouped.values)}
-            }}
-        );
-        """
-      )
-      logger.info(f"Output {out_path} to {settings.OUT_SCRATCH / out_path}.")
-      con.close()
+      TO '{settings.OUT_SCRATCH / out_path}'
+      (
+          FORMAT 'parquet',
+          COMPRESSION 'zstd',
+          COMPRESSION_LEVEL 12,
+          OVERWRITE_OR_IGNORE true,
+          KV_METADATA {{
+            column_list: {[f'"{entry}"' for entry in df['column_name'].unique().tolist()]},
+            length_list: {list(grouped.values)}
+          }}
+      );
+      """
+    )
+    logger.info(f"Output {out_path} to {settings.OUT_SCRATCH / out_path}.")
+    con.close()
         
-  def create_all(self, replace: bool = False):
-      for _, dataset in self.datasets.items():
-          (parent_layer, child_layer, out_path) = dataset
-          df = self.merge_and_melt_df(parent_layer, child_layer, out_path, replace)
-          self.output_parquet(df, out_path)
+  def create_all(self, replace: bool = False, data_dir: str | None = None):
+    for dataset in self.datasets.values():
+      parent_layer = dataset.parent_gpkg
+      child_layer = dataset.child_gpkg
+      out_path = dataset.out_path
+
+      logger.info(f"Creating tabular parquet from {parent_layer} and {child_layer}.")
+      logger.info(f"Data dir: {data_dir}")  
+      if data_dir is not None:
+        parent_layer = os.path.join(data_dir, parent_layer)
+        child_layer = os.path.join(data_dir, child_layer)
+      df = self.merge_and_melt_df(parent_layer, child_layer, out_path, replace)
+      self.output_parquet(df, out_path)
 
   def upload_all(self):
-        s3_client = settings.get_s3_client()
-        logger.info("Uploading results to S3")
-        if not s3_client:
-            raise ValueError("Failed to get S3 client")
-        for _, dataset in self._results.items():
-            out_path = dataset['out_path']
-            s3_client.upload_file(settings.OUT_SCRATCH / out_path, settings.S3_BUCKET, f"{S3_TABULAR_PREFIX}/{out_path}")
-            logger.info(f"Uploaded {out_path}")
+    s3_client = settings.get_s3_client()
+    logger.info("Uploading results to S3")
+    if not s3_client:
+        raise ValueError("Failed to get S3 client")
+    for _, dataset in self._results.items():
+        out_path = dataset['out_path']
+        s3_client.upload_file(settings.OUT_SCRATCH / out_path, settings.S3_BUCKET, f"{S3_TABULAR_PREFIX}/{out_path}")
+        logger.info(f"Uploaded {out_path}")

@@ -6,9 +6,11 @@ from typing import Type, TypeVar
 
 T = TypeVar("T")
 
+
 def get_filetype(file_path: str) -> str:
     _, ext = os.path.splitext(file_path)
     return ext.lower()
+
 
 class Config(BaseModel):
     name: str

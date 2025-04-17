@@ -1,1 +1,1 @@
-"""Pipelines package for data processing and tileset generation.""" 
+"""Pipelines package for data processing and tileset generation."""

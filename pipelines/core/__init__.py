@@ -1,1 +1,1 @@
-"""Core package for the pipelines module.""" 
+"""Core package for the pipelines module."""
