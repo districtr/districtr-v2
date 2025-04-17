@@ -268,7 +268,7 @@ const GeometryWorker: GeometryWorkerClass = {
 
     return [lng, lat];
   },
-  async getCentersOfMass(bounds, activeZones) {
+  async getCentersOfMass(bounds, activeZones, canvasWidth, canvasHeight) {
     const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
     if (!activeZones.length) {
       return {
@@ -299,7 +299,9 @@ const GeometryWorker: GeometryWorkerClass = {
             type: 'FeatureCollection',
             features: features as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[],
           },
-          bounds
+          bounds,
+          canvasWidth,
+          canvasHeight
         );
         if (!center) return null;
         return {
@@ -405,10 +407,12 @@ const GeometryWorker: GeometryWorkerClass = {
     activeZones,
     strategy = 'non-colliding-centroids',
     minBuffer,
+    canvasWidth = 256,
+    canvasHeight = 256,
   }) {
     switch (strategy) {
       case 'center-of-mass':
-        return await this.getCentersOfMass(bounds, activeZones);
+        return await this.getCentersOfMass(bounds, activeZones, canvasWidth, canvasHeight);
       case 'non-colliding-centroids':
         return await this.getNonCollidingRandomCentroids(bounds, activeZones, minBuffer);
       default:

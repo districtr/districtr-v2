@@ -91,7 +91,9 @@ export type GeometryWorkerClass = {
    */
   getCentersOfMass: (
     bounds: [number, number, number, number],
-    activeZones: number[]
+    activeZones: number[],
+    canvasWidth?: number,
+    canvasHeight?: number
   ) => Promise<CentroidReturn>;
   /**
    * Strategy for finding centroids choosing random centroids that do not intersect with each other
@@ -119,6 +121,8 @@ export type GeometryWorkerClass = {
     activeZones: number[];
     strategy: 'center-of-mass' | 'non-colliding-centroids';
     minBuffer?: number;
+    canvasWidth?: number;
+    canvasHeight?: number;
   }) => Promise<CentroidReturn>;
   getPropertiesCentroids: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
   /**
