@@ -1,6 +1,5 @@
 import {getQueriesResultsSubs} from '../utils/api/queries';
 import {getSearchParamsObserver} from '../utils/api/queryParamsListener';
-import {demographyCache} from '../utils/demography/demographyCache';
 import {shallowCompareArray} from '../utils/helpers';
 import {useDemographyStore} from './demographyStore';
 import {getMapEditSubs} from './mapEditSubs';
@@ -16,13 +15,9 @@ export const initSubs = () => {
     [MapStore['mapDocument'], MapStore['shatterIds'], MapStore['appLoadingState']]
   >(
     state => [state.mapDocument, state.shatterIds, state.appLoadingState],
-    ([mapDocument, shatterIds, appLoadingState], [_prevMapDoc, prevShatterIds]) => {
+    ([mapDocument, _, appLoadingState]) => {
       if (appLoadingState === 'loaded') {
-        const healedChildren = Array.from(prevShatterIds.children).filter(
-          id => !shatterIds.children.has(id)
-        );
-        demographyCache.exclude(healedChildren);
-        useDemographyStore.getState().updateData(mapDocument, prevShatterIds.parents);
+        useDemographyStore.getState().updateData(mapDocument);
       }
     },
     {equalityFn: shallowCompareArray}

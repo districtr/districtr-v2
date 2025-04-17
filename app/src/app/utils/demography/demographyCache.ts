@@ -1,25 +1,27 @@
 'use client';
 import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
-import {DocumentObject} from '../api/apiHandlers/types';
 import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../../constants/layers';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
 import {useChartStore} from '../../store/chartStore';
 import {
-  AllDemographyVariables,
-  TOTPOPTotPopSummaryStats,
-  TOTPOPZoneSummaryStats,
-  VAPVapPopSummaryStats,
-  VAPZoneSummaryStats,
-  SummaryStatKeys,
-  SummaryTypes,
+  DemographyRow,
+  MaxValues,
+  PossibleColumnsOfSummaryStatConfig,
+  SummaryRecord,
+  SummaryStatConfig,
+ summaryStatsConfig,
+ summaryStatsWithPctConfig,
+ SummaryTable,
+ TableRow,
+ TabularDataWithPercent
 } from '../api/summaryStats';
-import {getMaxRollups, getPctDerives, getRollups} from './arquero';
-import {TableRow, MaxValues, SummaryRecord, SummaryTable} from './types';
+import {getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
 import {DEFAULT_COLOR_SCHEME, DEFAULT_COLOR_SCHEME_GRAY} from '@/app/store/demographyStore';
 import {NullableZone} from '@/app/constants/types';
+import { ColumnarTableData } from '../ParquetWorker/parquetWorker.types';
 /**
  * Class to organize queries on current demographic data
  */
@@ -51,12 +53,14 @@ class DemographyCache {
    */
   id_col: string = 'path';
 
+  availableColumns: PossibleColumnsOfSummaryStatConfig[] = [];
+
   /**
    * Available summary statistics / derived values.
    */
   summaryStats: {
-    TOTPOP?: TOTPOPTotPopSummaryStats;
-    VAP?: VAPVapPopSummaryStats;
+    TOTPOP?: typeof summaryStatsWithPctConfig['TOTPOP'];
+    VAP?: typeof summaryStatsWithPctConfig['VAP'];
     idealpop?: number;
     totalPopulation?: number;
     unassigned?: number;
@@ -70,86 +74,30 @@ class DemographyCache {
     paintedZones?: number;
   } = {};
 
-  idsToExclude: Set<string> = new Set();
-
   colorScale?: ReturnType<typeof scale.scaleThreshold<number, string>>;
-
-  /**
-   * Rotates the given columns and data rows from an 2D array into an arquero object.
-   * Arquero expects an object with columnar arrays to make a table
-   *
-   * @param columns - The columns to rotate.
-   * @param dataRows - The data rows to rotate.
-   * @param childIds - The set of child IDs.
-   * @param mapDocument - The map document object.
-   * @returns The rotated data as an object.
-   */
-  rotate(
-    columns: Array<string>,
-    dataRows: Array<Array<string | number>>,
-    childIds: Set<string>,
-    mapDocument: DocumentObject
-  ): Record<string, any> {
-    const output: Record<string, any> = {};
-    for (let i = 0; i < columns.length; i++) {
-      const column = columns[i];
-      output[column] = dataRows.map(row => row[i]);
-    }
-    output.sourceLayer = dataRows.map(row =>
-      childIds.has(row[0].toString()) ? mapDocument.child_layer : mapDocument.parent_layer
-    );
-    return output;
-  }
-
   /**
    * Updates this class with new data from the backend.
    *
    * @param columns - The columns to update.
    * @param dataRows - The data rows to update.
-   * @param childIds - The set of child IDs.
    * @param mapDocument - The map document object.
    * @param hash - The hash representing the new state.
    */
   update(
-    columns: Array<string>,
-    dataRows: Array<Array<string | number>>,
-    shatterIds: {parents: Set<string>; children: Set<string>},
-    mapDocument: DocumentObject,
+    columns: PossibleColumnsOfSummaryStatConfig[],
+    data: ColumnarTableData,
     hash: string
   ): void {
     if (hash === this.hash) return;
-    const newColumnarData = this.rotate(columns, dataRows, shatterIds.children, mapDocument);
-    const newTable = table(newColumnarData);
-    if (!this.table) {
-      this.table = table(this.filterShattered(newTable, shatterIds, mapDocument));
-    } else {
-      this.table = table(
-        this.filterShattered(this.table.concat(newTable).dedupe('path'), shatterIds, mapDocument)
-      );
-    }
+    this.table = table(data);
+    this.availableColumns = columns;
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
     this.calculateSummaryStats();
     this.hash = hash;
-    this.idsToExclude.clear();
   }
-  filterShattered(
-    table: ColumnTable,
-    shatterIds: {parents: Set<string>; children: Set<string>},
-    mapDocument: DocumentObject
-  ) {
-    // not shatterable
-    if (!mapDocument.child_layer) return table;
-    return table.filter(
-      escape(
-        (row: TableRow) =>
-          row.path &&
-          ((row.sourceLayer === mapDocument.parent_layer && !shatterIds.parents.has(row.path)) ||
-            (row.sourceLayer === mapDocument.child_layer && shatterIds.children.has(row.path)))
-      )
-    );
-  }
+  
   /**
    * Updates the zone table with new zone assignments.
    *
@@ -178,16 +126,8 @@ class DemographyCache {
     this.populations = [];
     this.summaryStats = {};
     this.hash = '';
-    this.idsToExclude.clear();
     this.colorScale = undefined;
     this.zoneStats = {};
-  }
-  /**
-   * Add IDS to exlude on next update
-   * @param idsToExclude
-   */
-  exclude(idsToExclude: string[]): void {
-    this.idsToExclude = new Set([...this.idsToExclude, ...idsToExclude]);
   }
   /**
    * Gets the filtered data for a given ID.
@@ -220,26 +160,6 @@ class DemographyCache {
   }
 
   /**
-   * Gets the available summaries object.
-   *
-   * @returns The available summaries object.
-   */
-  getAvailableSummariesObject(): Record<SummaryTypes, boolean> {
-    const mapDocument = useMapStore.getState().mapDocument;
-    if (!mapDocument?.available_summary_stats) {
-      return {} as Record<SummaryTypes, boolean>;
-    }
-
-    return mapDocument.available_summary_stats.reduce(
-      (acc, stat) => {
-        acc[stat] = true;
-        return acc;
-      },
-      {} as Record<SummaryTypes, boolean>
-    );
-  }
-
-  /**
    * Calculates the populations based on zone assignments.
    *
    * @param zoneAssignments - The zone assignments to use for calculation.
@@ -253,23 +173,13 @@ class DemographyCache {
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
     }
-    const availableStats = this.getAvailableSummariesObject();
-    if (!this.table || !this.zoneTable || !Object.keys(availableStats).length) {
+
+    if (!this.table || !this.zoneTable) {
       return {
         ok: false,
       };
     }
-    const {mapDocument, shatterIds} = useMapStore.getState();
-    if (mapDocument === null) {
-      console.error('No map document');
-    }
-
-    const joinedTable = this.filterShattered(
-      this.table.join_full(this.zoneTable, ['path', 'path']).dedupe('path'),
-      shatterIds,
-      mapDocument!
-    );
-
+    const joinedTable = this.table.join_full(this.zoneTable, ['path', 'path'])
     const missingPopulations = joinedTable.filter(
       escape(
         (row: TableRow & {zone: NullableZone}) =>
@@ -283,14 +193,15 @@ class DemographyCache {
         ok: false,
       };
     }
+    const columns = this.table.columnNames() 
     // if any tot
     const populationsTable = joinedTable
       .groupby('zone')
-      .rollup(getRollups(availableStats))
-      .derive(getPctDerives(availableStats));
+      .rollup(getRollups(columns, 'sum'))
+      .derive(getPctDerives(columns));
 
     const maxRollups = populationsTable
-      .rollup(getMaxRollups(availableStats))
+      .rollup(getRollups(columns, 'max'))
       .objects()[0] as MaxValues;
 
     if (maxRollups) {
@@ -328,18 +239,16 @@ class DemographyCache {
   calculateSummaryStats(): void {
     if (!this.table) return;
     const t0 = performance.now();
-    const availableStats = this.getAvailableSummariesObject();
-    this.table = this.table.derive(getPctDerives(availableStats));
-    const summaries = this.table.rollup(getRollups(availableStats)).objects()[0] as SummaryRecord;
+    const columns = this.table.columnNames()
+    this.table = this.table.derive(getPctDerives(columns));
+    const summaries = this.table.rollup(getRollups(columns, 'sum')).objects()[0] as SummaryRecord;
     const mapDocument = useMapStore.getState().mapDocument;
 
-    Object.keys(availableStats).forEach(key => {
-      const summaryStats: Partial<TOTPOPZoneSummaryStats & VAPZoneSummaryStats> = {};
-      const statKeys = SummaryStatKeys[key as SummaryTypes];
-      if (!statKeys) return;
-      statKeys.forEach(stat => (summaryStats[stat] = summaries[stat]));
-      this.summaryStats[key as SummaryTypes] = summaryStats as TOTPOPTotPopSummaryStats &
-        VAPVapPopSummaryStats;
+    Object.entries(summaryStatsConfig).forEach(([key, config]) => {
+      const summaryStats: Partial<DemographyRow> = {};
+      config['possibleColumns'].forEach(col => (summaryStats[col] = summaries[col]));
+      // @ts-ignore
+      this.summaryStats[key] = summaryStats as SummaryRecord;
     });
 
     this.summaryStats.totalPopulation = summaries.total_pop_20;
@@ -384,7 +293,7 @@ class DemographyCache {
     mapRef,
     ids,
   }: {
-    variable: AllDemographyVariables;
+    variable: PossibleColumnsOfSummaryStatConfig;
     mapRef: maplibregl.Map;
     ids?: string[];
   }) {
@@ -433,7 +342,7 @@ class DemographyCache {
     numberOfBins,
     paintMap,
   }: {
-    variable: AllDemographyVariables;
+    variable: PossibleColumnsOfSummaryStatConfig;
     mapRef: maplibregl.Map;
     mapDocument: MapStore['mapDocument'];
     numberOfBins: number;

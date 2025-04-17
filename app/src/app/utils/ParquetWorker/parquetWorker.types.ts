@@ -1,16 +1,30 @@
-import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import {DocumentObject} from '../api/apiHandlers/types';
-import { FileMetaData } from 'hyparquet';
+import {AsyncBuffer, FileMetaData} from 'hyparquet';
+import { PossibleColumnsOfSummaryStatConfig } from '../api/summaryStats';
 
 type DistrictrView = string;
+export interface ExtendedFileMetaData extends FileMetaData {
+  rows: Record<string, [number, number]>;
+  columns: string[];
+}
+type MetaInfo = {
+  metadata: ExtendedFileMetaData;
+  url: string;
+  byteLength: number;
+  file: AsyncBuffer;
+};
+export type ColumnarTableData = {
+  path: string[];
+  sourceLayer: string[];
+} & {
+  [K in PossibleColumnsOfSummaryStatConfig[number]]?: number[];
+};
 
 /**
  * Represents a class that handles parquet operations.
  */
 export type ParquetWorkerClass = {
-  _metadataCache: Record<DistrictrView, FileMetaData>;
-  _dataCache: Record<DistrictrView, Record<string, (number[] | string[])[]>>;
-  _rowIndices: Record<DistrictrView, Record<string, [number, number]>>;
+  _metaCache: Record<DistrictrView, MetaInfo>;
 
   /**
    * Get the demography for a given map document and broken ids.
@@ -21,19 +35,7 @@ export type ParquetWorkerClass = {
   getDemography: (
     mapDocument: DocumentObject,
     brokenIds?: string[]
-  ) => Promise<FileMetaData>;
-
-  getMetaData: (
-    slug: DistrictrView
-  ) => Promise<object>;
-
-  getBrokenDemography: (
-    mapDocument: DocumentObject,
-    brokenIds?: string[]
-  ) => Promise<{columns: string[]; results: (string | number)[][]; dataHash?: string}>;
-
-  formatOutput: (
-    mapDocument: DocumentObject,
-    brokenIds?: string[]
-  ) => Promise<{columns: string[]; results: (string | number)[][]; dataHash?: string}>;
+  ) => Promise<{columns: PossibleColumnsOfSummaryStatConfig[]; results: ColumnarTableData}>;
+  getRowSet: (view: DocumentObject, id: string, ignoreIds?: string[]) => Promise<ColumnarTableData>;
+  getMetaData: (slug: DistrictrView) => Promise<MetaInfo>;
 };

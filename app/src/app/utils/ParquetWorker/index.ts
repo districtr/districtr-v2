@@ -16,9 +16,7 @@ import {ParquetWorkerClass} from './parquetWorker.types';
  * - If `Worker` is not available (e.g., in a non-browser environment), `worker` is set to `null`.
  */
 const worker =
-  typeof Worker !== 'undefined'
-    ? new Worker(new URL('./parquetWorker.ts', import.meta.url))
-    : null;
+  typeof Worker !== 'undefined' ? new Worker(new URL('./parquetWorker.ts', import.meta.url)) : null;
 
 const ParquetWorker = worker ? wrap<ParquetWorkerClass>(worker) : null;
 

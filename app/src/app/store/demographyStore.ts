@@ -5,89 +5,72 @@ import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import maplibregl from 'maplibre-gl';
 import * as scale from 'd3-scale';
-import {demographyCache} from '../utils/demography/demographyCache';
 import {updateDemography} from '../utils/api/queries';
-import {AllDemographyVariables, SummaryTypes} from '../utils/api/summaryStats';
-import ParquetWorker from '../utils/ParquetWorker';
+import { PossibleColumnsOfSummaryStatConfig } from '../utils/api/summaryStats';
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
-window.ParquetWorker = ParquetWorker;
+
 export const demographyVariables: Array<{
   label: string;
-  value: AllDemographyVariables;
-  models: Array<SummaryTypes>;
+  value: PossibleColumnsOfSummaryStatConfig[number];
   colorScheme?: typeof chromatic.schemeBlues;
 }> = [
   {
     label: 'Population: Total',
     value: 'total_pop_20',
-    models: ['TOTPOP'],
     colorScheme: chromatic.schemeBuGn,
   },
   {
     label: 'Population: Black',
     value: 'bpop_20',
-    models: ['TOTPOP'],
   },
   {
     label: 'Population: Hispanic',
     value: 'hpop_20',
-    models: ['TOTPOP'],
   },
   {
     label: 'Population: Asian',
     value: 'asian_nhpi_pop_20',
-    models: ['TOTPOP'],
   },
   {
     label: 'Population: AMIN',
     value: 'amin_pop_20',
-    models: ['TOTPOP'],
   },
   {
     label: 'Population: White',
     value: 'white_pop_20',
-    models: ['TOTPOP'],
   },
   {
     label: 'Population: Other',
     value: 'other_pop_20',
-    models: ['TOTPOP'],
   },
   {
     label: 'Voting Population: Total',
     value: 'total_vap_20',
-    models: ['VAP'],
   },
   {
     label: 'Voting Population: Black',
     value: 'bvap_20',
-    models: ['VAP'],
   },
   {
     label: 'Voting Population: Hispanic',
     value: 'hvap_20',
-    models: ['VAP'],
   },
   {
     label: 'Voting Population: Asian',
     value: 'asian_nhpi_vap_20',
-    models: ['VAP'],
   },
   {
     label: 'Voting Population: AMIN',
     value: 'amin_vap_20',
-    models: ['VAP'],
   },
   {
     label: 'Voting Population: White',
     value: 'white_vap_20',
-    models: ['VAP'],
   },
   {
     label: 'Voting Population: Other',
     value: 'other_vap_20',
-    models: ['VAP'],
   },
 ] as const;
 
@@ -121,13 +104,13 @@ export interface DemographyStore {
   /**
    * The variable for the demographic map.
    */
-  variable: AllDemographyVariables;
+  variable: PossibleColumnsOfSummaryStatConfig[number];
 
   /**
    * Sets the variable representing for the demographic map.
    * @param variable - The demographic variable to set - one of AllDemographicVariables.
    */
-  setVariable: (variable: AllDemographyVariables) => void;
+  setVariable: (variable: DemographyStore['variable']) => void;
 
   /**
    * The hash representing the most recent update of demographic data.
@@ -160,15 +143,12 @@ export interface DemographyStore {
   clear: () => void;
 
   /**
-   * Updates the demographic data based on the provided map document and optional previous shatter IDs.
-   * When provided with shatterIds, it will only fetch data based on recently healed or newly shattered children.
+   * Updates the demographic data based on the provided map document.
    * @param mapDocument - The map document from the main map.
-   * @param previousShatterIds - Optional previous shatter IDs for reference.
    * @returns A promise that resolves when the data update is complete.
    */
   updateData: (
     mapDocument: MapStore['mapDocument'],
-    previousShatterIds?: MapStore['shatterIds']['parents']
   ) => Promise<void>;
 }
 
@@ -208,36 +188,18 @@ export var useDemographyStore = create(
     setNumberOfBins: numberOfBins => set({numberOfBins}),
     dataHash: '',
     setDataHash: dataHash => set({dataHash}),
-    updateData: async (mapDocument, prevParentShatterIds) => {
+    updateData: async (mapDocument) => {
       const {dataHash: currDataHash} = get();
-      const {shatterMappings, shatterIds} = useMapStore.getState();
-      const prevShattered = prevParentShatterIds ?? new Set();
+      const {shatterIds} = useMapStore.getState();
       if (!mapDocument) return;
       // based on current map state
       const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
       if (currDataHash === dataHash) return;
-      const currentTableExists = demographyCache.table?.size;
-      const newShatterChildren: string[] = [];
-      const currentShattered = Array.from(shatterIds.parents);
-      const healedParents = Array.from(prevShattered).filter(id => !currentShattered.includes(id));
-      // the table data ingestion dedupes and removes shattered parents
-      // so this doesn't need to be *too* optimized
-      shatterIds.parents.forEach(id => {
-        if (!prevShattered?.has(id)) {
-          newShatterChildren.push(...Array.from(shatterMappings[id]));
-        }
-      });
-      let currRows = demographyCache.table?.size;
-      if (!currRows && !newShatterChildren.length && !healedParents.length) {
-        // this is a full pull of the data
-        demographyCache.clear();
-      }
       updateDemography({
-        document_id: mapDocument.document_id,
-        ids: currentTableExists ? [...newShatterChildren, ...healedParents] : undefined,
+        mapDocument,
+        brokenIds: Array.from(shatterIds.parents),
         dataHash,
       });
     },
   }))
 );
-

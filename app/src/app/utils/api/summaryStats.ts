@@ -1,103 +1,106 @@
-export type SummaryTypes = 'TOTPOP' | 'VAP';
-
-/**
- * TOTPOPZoneSummaryStats
- *
- * @interface
- * @property {number} total_pop_20 - The total population.
- */
-export interface TOTPOPZoneSummaryStats {
-  white_pop_20: number;
-  other_pop_20: number;
-  amin_pop_20: number;
-  asian_nhpi_pop_20: number;
-  hpop_20: number;
-  bpop_20: number;
-  total_pop_20: number;
-}
-
-export type TOTPOPTotPopSummaryStats = Omit<TOTPOPZoneSummaryStats, 'zone'>;
-
-export const TOTPOPZoneSummaryStatsKeys: Array<keyof TOTPOPZoneSummaryStats> = [
-  'white_pop_20',
-  'other_pop_20',
-  'amin_pop_20',
-  'asian_nhpi_pop_20',
-  'hpop_20',
-  'bpop_20',
-] as const;
-
-export type CleanedTOTPOPZoneSummaryStats = WithPercentColumns<
-  TOTPOPZoneSummaryStats,
-  Exclude<(typeof TOTPOPZoneSummaryStatsKeys)[number], 'total_pop_20'>
->;
-
-export interface VAPZoneSummaryStats {
-  white_vap_20: number;
-  other_vap_20: number;
-  amin_vap_20: number;
-  asian_nhpi_vap_20: number;
-  hvap_20: number;
-  bvap_20: number;
-  total_vap_20: number;
-}
-
-export type VAPVapPopSummaryStats = Omit<VAPZoneSummaryStats, 'zone'>;
-
-export const VAPZoneSummaryStatsKeys: Array<keyof VAPZoneSummaryStats> = [
-  'white_vap_20',
-  'other_vap_20',
-  'amin_vap_20',
-  'asian_nhpi_vap_20',
-  'hvap_20',
-  'bvap_20',
-] as const;
-
-/**
- * VAPZoneSummaryStats
- *
- * @interface
- * @property {number} zone - The zone.
- * @property {number} total_vap_20 - The total population.
- */
-
-export type CleanedVAPZoneSummaryStats = WithPercentColumns<
-  VAPZoneSummaryStats,
-  Exclude<(typeof VAPZoneSummaryStatsKeys)[number], 'total_vap_20'>
->;
-
-export const SummaryStatKeys = {
-  TOTPOP: TOTPOPZoneSummaryStatsKeys,
-  VAP: VAPZoneSummaryStatsKeys,
+export const summaryStatsConfig = {
+  TOTPOP: {
+    possibleColumns: [
+      'amin_pop_20',
+      'asian_nhpi_pop_20',
+      'bpop_20',
+      'hpop_20',
+      'white_pop_20',
+      'other_pop_20',
+      'total_pop_20',
+    ],
+    sumColumn: 'total_pop_20',
+  },
+  VAP: {
+    possibleColumns: [
+      'white_vap_20',
+      'other_vap_20',
+      'amin_vap_20',
+      'asian_nhpi_vap_20',
+      'hvap_20',
+      'bvap_20',
+      'total_vap_20',
+    ],
+    sumColumn: 'total_vap_20',
+  },
+  VOTERHISTORY: {
+    possibleColumns: [
+      'ag_22_rep',
+      'ag_22_dem',
+      'ag_18_rep',
+      'ag_18_dem',
+      'gov_22_rep',
+      'gov_22_dem',
+      'gov_18_rep',
+      'gov_18_dem',
+      'sen_22_rep',
+      'sen_22_dem',
+      'sen_18_rep',
+      'sen_18_dem',
+      'sen_16_rep',
+      'sen_16_dem',
+      'pres_20_rep',
+      'pres_20_dem',
+      'pres_16_rep',
+      'pres_16_dem'
+    ],
+    sumColumn: 'total_vap_20',
+  },
 } as const;
 
-export const TotalColumnKeys = {
-  TOTPOP: 'total_pop_20',
-  VAP: 'total_vap_20',
-} as const;
-export const TotalColumnKeysArray = Object.values(TotalColumnKeys);
-
-export type TotalColumnVariables = (typeof TotalColumnKeys)[keyof typeof TotalColumnKeys];
-
-export type DemographyVariable =
-  | (typeof TOTPOPZoneSummaryStatsKeys)[number]
-  | (typeof VAPZoneSummaryStatsKeys)[number]
-  | TotalColumnVariables;
-
-export type AllDemographyVariables =
-  | DemographyVariable
-  | keyof CleanedTOTPOPZoneSummaryStats
-  | keyof CleanedVAPZoneSummaryStats;
-
-// GENERICS
-export type WithPercentColumns<
-  TBase extends Record<string, any>,
-  TPercentCols extends string,
-> = TBase & {
-  [K in TPercentCols as `${K}_pct`]: number;
+/**
+ * Adds a _pct suffix to all possibleColumns and returns a new config with the same keys
+ * Also includes the original columns without the _pct suffix
+ * @param config - The config to add the _pct suffix to
+ * @returns A new config with both original columns and columns with _pct suffix
+ */
+const withPct = <T extends typeof summaryStatsConfig>(config: T): {
+  [K in keyof T]: {
+    possibleColumns: Array<
+      | Extract<T[K], { possibleColumns: readonly string[] }>['possibleColumns'][number]
+      | `${Extract<T[K], { possibleColumns: readonly string[] }>['possibleColumns'][number]}_pct`
+    >;
+    sumColumn: Extract<T[K], { sumColumn: string }>['sumColumn'];
+  };
+} => {
+  return Object.fromEntries(
+    Object.entries(config).map(([key, value]) => [
+      key,
+      {
+        ...value,
+        possibleColumns: [
+          ...value.possibleColumns,
+          ...value.possibleColumns.map(col => `${col}_pct`),
+        ],
+      },
+    ])
+  ) as any;
 };
+export const summaryStatsWithPctConfig = withPct(summaryStatsConfig);
+export const possibleRollups = Object.values(summaryStatsConfig).flatMap(stat => stat.possibleColumns.map(col => ({
+  total: stat.sumColumn,
+  col,
+})));
 
-export interface SummaryStatsResult<T extends object> {
-  summary_stat: string;
-  results: T;
+// DERIVED TYPES
+export type SummaryStatConfig = typeof summaryStatsConfig;
+export type KeyOfSummaryStatConfig = keyof SummaryStatConfig;
+export type PossibleColumnsOfSummaryStatConfig = SummaryStatConfig[KeyOfSummaryStatConfig]['possibleColumns'];
+export type DemographyRow = {
+  [key in PossibleColumnsOfSummaryStatConfig[number]]: number;
+}
+export type MaxValues = {
+  [key in PossibleColumnsOfSummaryStatConfig[number]]: number;
+}
+export type TableRow = DemographyRow & {path: string; sourceLayer: string};
+export type SummaryRecord = TableRow & {zone: number};
+export type SummaryTable = Array<SummaryRecord>;
+
+/**
+ * A shape of data including the columns in possibleColumns with a _pct suffix
+ */
+export type TabularDataWithPercent<T extends SummaryStatConfig[keyof SummaryStatConfig]> = {
+  [K in T['possibleColumns'][number] as `${K}_pct`]: number;
+} & {
+  [K in T['possibleColumns'][number]]: number;
 }

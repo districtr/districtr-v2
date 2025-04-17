@@ -9,6 +9,8 @@ import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
 import {demographyCache} from '../demography/demographyCache';
 import {useDemographyStore} from '@/app/store/demographyStore';
+import { PossibleColumnsOfSummaryStatConfig } from './summaryStats';
+import { ColumnarTableData } from '../ParquetWorker/parquetWorker.types';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -113,38 +115,39 @@ fetchAssignments.subscribe(assignments => {
 });
 
 const fetchDemography = new QueryObserver<null | {
-  columns: string[];
-  results: (string | number)[][];
-  dataHash: string;
+  columns: PossibleColumnsOfSummaryStatConfig[];
+  results: ColumnarTableData;
 }>(queryClient, {
   queryKey: ['demography'],
   queryFn: async () => {
-    const result = await getDemography({
-      document_id: useMapStore.getState().mapDocument?.document_id,
+    const state = useMapStore.getState();
+    const mapDocument = state.mapDocument;
+    if (!mapDocument) {
+      throw new Error('No map document found');
+    }
+    const brokenIds = Array.from(state.shatterIds.parents);
+    return await getDemography({
+      mapDocument,
+      brokenIds,
     });
-    return {
-      ...result,
-      dataHash: result.dataHash || '',
-    };
   },
 });
 
 export const updateDemography = ({
-  document_id,
-  ids,
+  mapDocument,
+  brokenIds,
   dataHash,
 }: {
-  document_id: string;
-  ids?: string[];
+  mapDocument: DocumentObject;
+  brokenIds?: string[];
   dataHash: string;
 }) => {
   fetchDemography.setOptions({
     queryFn: async () => {
-      const result = await getDemography({document_id, ids, dataHash});
-      return {
-        ...result,
-        dataHash: result.dataHash || '',
-      };
+      return await getDemography({
+        mapDocument, 
+        brokenIds
+      });
     },
     queryKey: ['demography', performance.now()],
   });
@@ -161,26 +164,19 @@ fetchDemography.subscribe(demography => {
     const {shatterIds, mapDocument, getMapRef: getMainMapRef, mapOptions} = useMapStore.getState();
     const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
     const result = demography.data;
-
     if (!mapDocument || !result) return;
-
-    if (dataHash !== result.dataHash) {
-      console.log('Data hash mismatch, skipping update', dataHash, result.dataHash);
-      return;
-    }
-
-    demographyCache.update(result.columns, result.results, shatterIds, mapDocument, dataHash);
+    demographyCache.update(result.columns, result.results, dataHash);
     setDataHash(dataHash);
     setVariable(variable);
-    const newIds = demography.data.results.map(row => row[0]) as string[];
-    let mapRef = mapOptions.showDemographicMap === 'overlay' ? getMainMapRef() : getDemogMapRef();
-    if (mapRef && newIds.length) {
-      demographyCache.paintDemography({
-        variable,
-        mapRef,
-        ids: newIds,
-      });
-    }
+    // const newIds = demography.data.results.map(row => row[0]) as string[];
+    // let mapRef = mapOptions.showDemographicMap === 'overlay' ? getMainMapRef() : getDemogMapRef();
+    // if (mapRef && newIds.length) {
+    //   demographyCache.paintDemography({
+    //     variable,
+    //     mapRef,
+    //     ids: newIds,
+    //   });
+    // }
   }
 });
 
