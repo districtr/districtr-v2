@@ -21,6 +21,8 @@ import {useMapRenderer} from '@/app/hooks/useMapRenderer';
 
 export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   const getStateMapRef = useMapStore(state => state.getMapRef);
+
+  console.log('!!!', process.env.NEXT_PUBLIC_API_URL);
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore(state => state.mapLock);
   const setMapRef = useMapStore(state => state.setMapRef);

@@ -8,10 +8,10 @@ import * as scale from 'd3-scale';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {updateDemography} from '../utils/api/queries';
 import {AllDemographyVariables, SummaryTypes} from '../utils/api/summaryStats';
-
+import ParquetWorker from '../utils/ParquetWorker';
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
-
+window.ParquetWorker = ParquetWorker;
 export const demographyVariables: Array<{
   label: string;
   value: AllDemographyVariables;
@@ -240,3 +240,4 @@ export var useDemographyStore = create(
     },
   }))
 );
+

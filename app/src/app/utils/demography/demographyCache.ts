@@ -248,6 +248,7 @@ class DemographyCache {
   calculatePopulations(
     zoneAssignments?: MapStore['zoneAssignments']
   ): {ok: true; table: SummaryTable} | {ok: false} {
+    const t0 = performance.now();
     const numZones = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
@@ -313,6 +314,8 @@ class DemographyCache {
     this.zoneStats.range = this.zoneStats.maxPopulation - this.zoneStats.minPopulation;
     this.summaryStats.unassigned = this.populations.find(f => !f.zone)?.total_pop_20 ?? 0;
     this.zoneStats.paintedZones = popNumbers.filter(pop => pop > 0).length;
+    const t1 = performance.now();
+    console.log(`calculatePopulations took ${t1 - t0} milliseconds`);
     return {
       ok: true,
       table: this.populations,
@@ -324,6 +327,7 @@ class DemographyCache {
    */
   calculateSummaryStats(): void {
     if (!this.table) return;
+    const t0 = performance.now();
     const availableStats = this.getAvailableSummariesObject();
     this.table = this.table.derive(getPctDerives(availableStats));
     const summaries = this.table.rollup(getRollups(availableStats)).objects()[0] as SummaryRecord;
@@ -343,6 +347,8 @@ class DemographyCache {
       summaries.total_pop_20 / (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
 
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
+    const t1 = performance.now();
+    console.log(`calculateSummaryStats took ${t1 - t0} milliseconds`);
   }
 
   /**
