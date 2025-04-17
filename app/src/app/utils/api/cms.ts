@@ -42,7 +42,10 @@ export interface PlacesCMSContent extends CMSContent {
 }
 
 export type AllCmsContent = TagsCMSContent | PlacesCMSContent;
-export type AllCmsLists = TagsCMSContent[] | PlacesCMSContent[];
+export type AllCmsLists =
+  | TagsCMSContent[]
+  | PlacesCMSContent[]
+  | (TagsCMSContent | PlacesCMSContent)[];
 
 export type AllCmsEntries =
   | {
