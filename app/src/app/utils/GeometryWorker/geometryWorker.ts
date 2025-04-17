@@ -183,16 +183,11 @@ const GeometryWorker: GeometryWorkerClass = {
       bboxGeom,
     };
   },
-  async computeCenterOfMass(
-    geojson,
-    bounds,
-    width = 256,
-    height = 256
-  ){
+  async computeCenterOfMass(geojson, bounds, width = 256, height = 256) {
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext('2d', {willReadFrequently: true});
     if (!ctx) return null;
-  
+
     // Calculate bounds for rendering
     const [minX, minY, maxX, maxY] = bounds;
     const scaleX = width / (maxX - minX);
@@ -201,13 +196,13 @@ const GeometryWorker: GeometryWorkerClass = {
     ctx.fillStyle = `rgb(255,0,0)`;
     ctx.strokeStyle = `rgb(255,0,0)`;
     ctx.lineWidth = 1;
-  
+
     for (const feature of geojson.features) {
       const geom = feature.geometry;
       const coords = getCoords(feature);
       const polygons: GeoJSON.Polygon['coordinates'] =
         geom.type === 'MultiPolygon' ? coords.flat() : coords;
-  
+
       for (const ring of polygons) {
         ctx.beginPath();
         ring.forEach(([x, y], i) => {
@@ -239,27 +234,40 @@ const GeometryWorker: GeometryWorkerClass = {
         }
       }
     }
-  
+
     if (count === 0) return null;
-  
+
     let centerX = sumX / count;
     let centerY = sumY / count;
-  
+
     const idx = (Math.floor(centerY) * width + Math.floor(centerX)) * 4;
     const isValidCenter = imageData[idx] === 255;
-  
-    // Fallback: choose a random pixel inside the district
+
+    // Fallback: choose a pixel inside the district
     if (!isValidCenter) {
-      const fallback = validPixels[Math.floor(Math.random() * validPixels.length)];
+      // Start with the media
+      let fallbackIdx = Math.floor(validPixels.length / 2);
+      // Check the pixels up to 10 right and left
+      // if something works, break
+      for (let offset = 4; offset < 40; offset += 4) {
+        if (validPixels[fallbackIdx + offset]) {
+          fallbackIdx += offset;
+          break;
+        } else if (validPixels[fallbackIdx - offset]) {
+          fallbackIdx -= offset;
+          break;
+        }
+      }
+      const fallback = validPixels[fallbackIdx];
       centerX = fallback.x;
       centerY = fallback.y;
     }
-  
+
     const lng = minX + centerX / scaleX;
     const lat = maxY - centerY / scaleY;
-  
+
     return [lng, lat];
-  },  
+  },
   async getCentersOfMass(bounds, activeZones) {
     const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
     if (!activeZones.length) {
