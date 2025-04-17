@@ -25,7 +25,7 @@ def cli():
     required=True,
 )
 @click.option("--out-path", "-o", help="Path to the output parquet file", required=True)
-@click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
+@click.option("--replace", "-f", help="Replace files if they exist", is_flag=True)
 @click.option("--upload", "-u", help="Upload to S3", is_flag=True)
 def build_parquet(
     parent_layer: str,
@@ -58,7 +58,9 @@ def build_parquet(
 @click.option("--data_dir", help="Path to the data directory", required=True)
 @click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
 @click.option("--upload", "-u", help="Upload to S3", is_flag=True)
-def batch_build_parquet(config_path: str, data_dir: str, replace: bool, upload: bool) -> None:
+def batch_build_parquet(
+    config_path: str, data_dir: str, replace: bool, upload: bool
+) -> None:
     """
     Build a parquet file from a config file.
     """
