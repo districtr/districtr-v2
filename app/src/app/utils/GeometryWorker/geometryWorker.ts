@@ -191,12 +191,12 @@ const GeometryWorker: GeometryWorkerClass = {
   ){
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext('2d', {willReadFrequently: true});
+    if (!ctx) return null;
   
     // Calculate bounds for rendering
     const [minX, minY, maxX, maxY] = bounds;
     const scaleX = width / (maxX - minX);
     const scaleY = height / (maxY - minY);
-    if (!ctx) return null;
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = `rgb(255,0,0)`;
     ctx.strokeStyle = `rgb(255,0,0)`;
