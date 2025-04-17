@@ -3,9 +3,9 @@ import {useMapStore} from '@store/mapStore';
 import {useChartStore} from '@store/chartStore';
 import {useMemo} from 'react';
 import {demographyCache} from '@utils/demography/demographyCache';
-import {SummaryRecord} from '../utils/demography/types';
 import {useDemographyStore} from '../store/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '../constants/layers';
+import { SummaryRecord } from '../utils/api/summaryStats';
 
 /**
  * Custom hook to retrieve and process demography data.

@@ -1,5 +1,4 @@
-import {NullableZone} from '@constants/types';
-import {SummaryTypes} from '../summaryStats';
+import {SummaryStatConfig} from '../summaryStats';
 
 export interface DocumentObject {
   document_id: string;
@@ -11,7 +10,7 @@ export interface DocumentObject {
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
-  available_summary_stats: Array<SummaryTypes>;
+  available_summary_stats: Array<keyof SummaryStatConfig>;
   color_scheme: string[] | null;
 }
 
@@ -70,7 +69,7 @@ export interface DocumentObject extends StatusObject {
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
-  available_summary_stats: Array<SummaryTypes>;
+  available_summary_stats: Array<keyof SummaryStatConfig>;
   color_scheme: string[] | null;
 }
 

@@ -115,7 +115,7 @@ fetchAssignments.subscribe(assignments => {
 });
 
 const fetchDemography = new QueryObserver<null | {
-  columns: PossibleColumnsOfSummaryStatConfig[];
+  columns: PossibleColumnsOfSummaryStatConfig[number][];
   results: ColumnarTableData;
 }>(queryClient, {
   queryKey: ['demography'],

@@ -1,7 +1,7 @@
 'use client';
 import {OVERLAY_OPACITY} from '@/app/constants/layers';
 import {demographyVariables} from '@/app/store/demographyStore';
-import {AllDemographyVariables, DemographyVariable} from '@/app/utils/api/summaryStats';
+import {PossibleColumnsOfSummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useDemographyStore} from '@/app/store/demographyStore';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {formatNumber} from '@/app/utils/numbers';
@@ -16,6 +16,7 @@ import {Blockquote, Box, Flex, IconButton, Popover, Switch, Tabs, Text} from '@r
 import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React from 'react';
+import { demographyCache } from '@/app/utils/demography/demographyCache';
 const mapOptions: Array<{
   label: string;
   value: MapStore['mapOptions']['showDemographicMap'];
@@ -48,23 +49,19 @@ export const DemographicMapPanel: React.FC = () => {
   const scale = useDemographyStore(state => state.scale);
   const numberOfbins = useDemographyStore(state => state.numberOfBins);
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
-  const availableVariables = !mapDocument?.available_summary_stats?.length
-    ? []
-    : demographyVariables.filter(f =>
-        f.models.some(m => mapDocument.available_summary_stats.includes(m))
-      );
+  const availableVariables = demographyVariables.filter(f => demographyCache.availableColumns.includes(f.value));
   const displayVariable = variable.replace('_pct', '');
   const config = availableVariables.find(f => f.value === displayVariable);
   const colors = scale?.range() || [];
 
-  const handleChange = (_newVariable?: DemographyVariable, _usePercent?: boolean) => {
+  const handleChange = (_newVariable?: PossibleColumnsOfSummaryStatConfig[number], _usePercent?: boolean) => {
     const usePercent = _usePercent ?? (variable.includes('pct') || variable.includes('total'));
     const newVariable = _newVariable ?? config?.value;
     if (!newVariable) return;
     const hasPctVariable = !newVariable?.includes('total');
     const newVariableName = (
       usePercent && hasPctVariable ? `${newVariable}_pct` : newVariable
-    ) as AllDemographyVariables;
+    ) as PossibleColumnsOfSummaryStatConfig[number];
     setVariable(newVariableName);
   };
 
@@ -100,7 +97,7 @@ export const DemographicMapPanel: React.FC = () => {
           <Select.Root
             value={displayVariable}
             onValueChange={value => {
-              handleChange(value as DemographyVariable);
+              handleChange(value as PossibleColumnsOfSummaryStatConfig[number]);
             }}
           >
             <Select.Trigger />

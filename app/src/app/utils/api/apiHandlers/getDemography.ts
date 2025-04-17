@@ -9,7 +9,7 @@ export const getDemography = async ({
 }: {
   mapDocument?: DocumentObject;
   brokenIds?: string[];
-}): Promise<{columns: PossibleColumnsOfSummaryStatConfig[]; results: ColumnarTableData}> => {
+}): Promise<{columns: PossibleColumnsOfSummaryStatConfig[number][]; results: ColumnarTableData}> => {
   if (!mapDocument) {
     throw new Error('No document id provided');
   }
@@ -17,7 +17,6 @@ export const getDemography = async ({
     throw new Error('ParquetWorker not found');
   }
   const demographyData = await ParquetWorker.getDemography(mapDocument, brokenIds);
-  console.log('!!!', demographyData);
   return {
     columns: demographyData.columns,
     results: demographyData.results,

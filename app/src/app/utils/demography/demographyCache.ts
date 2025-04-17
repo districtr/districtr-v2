@@ -53,7 +53,7 @@ class DemographyCache {
    */
   id_col: string = 'path';
 
-  availableColumns: PossibleColumnsOfSummaryStatConfig[] = [];
+  availableColumns: PossibleColumnsOfSummaryStatConfig[number][] = [];
 
   /**
    * Available summary statistics / derived values.
@@ -84,7 +84,7 @@ class DemographyCache {
    * @param hash - The hash representing the new state.
    */
   update(
-    columns: PossibleColumnsOfSummaryStatConfig[],
+    columns: PossibleColumnsOfSummaryStatConfig[number][],
     data: ColumnarTableData,
     hash: string
   ): void {
@@ -293,7 +293,7 @@ class DemographyCache {
     mapRef,
     ids,
   }: {
-    variable: PossibleColumnsOfSummaryStatConfig;
+    variable: PossibleColumnsOfSummaryStatConfig[number];
     mapRef: maplibregl.Map;
     ids?: string[];
   }) {
@@ -342,7 +342,7 @@ class DemographyCache {
     numberOfBins,
     paintMap,
   }: {
-    variable: PossibleColumnsOfSummaryStatConfig;
+    variable: PossibleColumnsOfSummaryStatConfig[number];
     mapRef: maplibregl.Map;
     mapDocument: MapStore['mapDocument'];
     numberOfBins: number;
