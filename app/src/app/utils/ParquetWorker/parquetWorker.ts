@@ -3,8 +3,7 @@ import {ColumnarTableData, ExtendedFileMetaData, ParquetWorkerClass} from './par
 import {compressors} from 'hyparquet-compressors';
 import {parquetRead, byteLengthFromUrl, asyncBufferFromUrl, parquetMetadataAsync} from 'hyparquet';
 import {
-  DemographyRow,
-  PossibleColumnsOfSummaryStatConfig,
+  AllTabularColumns,
   SummaryRecord,
 } from '../api/summaryStats';
 
@@ -35,13 +34,14 @@ const ParquetWorker: ParquetWorkerClass = {
     };
     return this._metaCache[view];
   },
-  async getRowSet(mapDocument, id, ignoreIds) {
+
+  async getRowRange(mapDocument, range, ignoreIds) {
     if (!mapDocument) {
       throw new Error('No map document provided');
     }
     const view = mapDocument.districtr_map_slug;
     const meta = await this.getMetaData(view);
-    const [rowStart, rowEnd] = meta.metadata.rows[id];
+    const [rowStart, rowEnd] = range;
     const ignoreIdsSet = new Set(ignoreIds);
     const wideDataDict: Record<string, Partial<SummaryRecord>> = {};
     await parquetRead({
@@ -74,24 +74,57 @@ const ParquetWorker: ParquetWorkerClass = {
     Object.values(wideDataDict).forEach((row, i) => {
       if (i === 0) {
         Object.keys(row).forEach(key => {
-          columnarData[key as PossibleColumnsOfSummaryStatConfig[number]] = [
+          columnarData[key as AllTabularColumns[number]] = [
             row[key as keyof SummaryRecord] as number,
           ];
         });
       }
       Object.entries(row).forEach(([k, v]) => {
-        columnarData[k as PossibleColumnsOfSummaryStatConfig[number]]!.push(v as number);
+        columnarData[k as AllTabularColumns[number]]!.push(v as number);
       });
     });
     return columnarData as ColumnarTableData;
   },
+  async getRowSet(mapDocument, id, ignoreIds) {
+    if (!mapDocument) {
+      throw new Error('No map document provided');
+    }
+    const meta = await this.getMetaData(mapDocument.districtr_map_slug);
+    const range = meta.metadata.rows[id];
+    return this.getRowRange(mapDocument, range, ignoreIds);
+  },
+  mergeRanges(ranges) {
+      // First, normalize each range so start <= end
+      const normalized = ranges.map(([a, b]) => [Math.min(a, b), Math.max(a, b)] as [number, number]);
+    
+      // Sort by the start of each range
+      normalized.sort((a, b) => a[0] - b[0]);
+    
+      const merged: [number, number][] = [];
+    
+      for (const [start, end] of normalized) {
+        if (merged.length === 0) {
+          merged.push([start, end]);
+          continue;
+        }
+    
+        const last = merged[merged.length - 1];
+        if (start <= last[1] + 1) {
+          // Extend the previous range
+          last[1] = Math.max(last[1], end);
+        } else {
+          // Start a new range
+          merged.push([start, end]);
+        }
+      }
+    
+      return merged;
+  },
   async getDemography(mapDocument, brokenIds) {
     const meta = await this.getMetaData(mapDocument.districtr_map_slug);
-    const columns = meta.metadata.columns as PossibleColumnsOfSummaryStatConfig[number][];
-    const data = await Promise.all([
-      this.getRowSet(mapDocument, 'parent', brokenIds),
-      ...(brokenIds?.map(id => this.getRowSet(mapDocument, id)) ?? []),
-    ]);
+    const promises = this.mergeRanges(['parent', ...(brokenIds||[])].map(id => meta.metadata.rows[id]))
+      .map(range => this.getRowRange(mapDocument, range, brokenIds));
+    const data = await Promise.all(promises);
 
     const results = data[0];
     data.slice(1).forEach(entry => {
@@ -100,7 +133,7 @@ const ParquetWorker: ParquetWorkerClass = {
         results[k].push(...v);
       });
     });
-    return {columns, results};
+    return {columns: meta.metadata.columns, results};
   },
 };
 
