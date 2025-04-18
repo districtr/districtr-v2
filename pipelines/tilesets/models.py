@@ -53,7 +53,6 @@ class GerryDBTileset(BaseModel):
         fbg_path = f"{settings.OUT_SCRATCH}/{self.layer_name}.fgb"
 
         Path(fbg_path).parent.mkdir(parents=True, exist_ok=True)
-        logger.info(f"FILEPATH {path}")
         logger.info("Creating flatgeobuf...")
         if os.path.exists(fbg_path) and not replace:
             logger.info("File already exists. Skipping creation.")
