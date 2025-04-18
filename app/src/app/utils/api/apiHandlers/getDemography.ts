@@ -1,7 +1,7 @@
 import {DocumentObject} from './types';
 import ParquetWorker from '../../ParquetWorker';
 import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
-import {PossibleColumnsOfSummaryStatConfig} from '../summaryStats';
+import {AllTabularColumns} from '../summaryStats';
 
 export const getDemography = async ({
   mapDocument,
@@ -10,7 +10,7 @@ export const getDemography = async ({
   mapDocument?: DocumentObject;
   brokenIds?: string[];
 }): Promise<{
-  columns: PossibleColumnsOfSummaryStatConfig[number][];
+  columns: AllTabularColumns[number][];
   results: ColumnarTableData;
 }> => {
   if (!mapDocument) {

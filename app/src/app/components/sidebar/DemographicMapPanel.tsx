@@ -1,7 +1,7 @@
 'use client';
 import {OVERLAY_OPACITY} from '@/app/constants/layers';
 import {demographyVariables} from '@/app/store/demographyStore';
-import {PossibleColumnsOfSummaryStatConfig} from '@/app/utils/api/summaryStats';
+import {AllTabularColumns} from '@/app/utils/api/summaryStats';
 import {useDemographyStore} from '@/app/store/demographyStore';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {formatNumber} from '@/app/utils/numbers';
@@ -57,7 +57,7 @@ export const DemographicMapPanel: React.FC = () => {
   const colors = scale?.range() || [];
 
   const handleChange = (
-    _newVariable?: PossibleColumnsOfSummaryStatConfig[number],
+    _newVariable?: AllTabularColumns[number],
     _usePercent?: boolean
   ) => {
     const usePercent = _usePercent ?? (variable.includes('pct') || variable.includes('total'));
@@ -66,7 +66,7 @@ export const DemographicMapPanel: React.FC = () => {
     const hasPctVariable = !newVariable?.includes('total');
     const newVariableName = (
       usePercent && hasPctVariable ? `${newVariable}_pct` : newVariable
-    ) as PossibleColumnsOfSummaryStatConfig[number];
+    ) as AllTabularColumns[number];
     setVariable(newVariableName);
   };
 
@@ -102,7 +102,7 @@ export const DemographicMapPanel: React.FC = () => {
           <Select.Root
             value={displayVariable}
             onValueChange={value => {
-              handleChange(value as PossibleColumnsOfSummaryStatConfig[number]);
+              handleChange(value as AllTabularColumns[number]);
             }}
           >
             <Select.Trigger />

@@ -6,13 +6,13 @@ import {subscribeWithSelector} from 'zustand/middleware';
 import maplibregl from 'maplibre-gl';
 import * as scale from 'd3-scale';
 import {updateDemography} from '../utils/api/queries';
-import {PossibleColumnsOfSummaryStatConfig} from '../utils/api/summaryStats';
+import {AllTabularColumns} from '../utils/api/summaryStats';
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
 
 export const demographyVariables: Array<{
   label: string;
-  value: PossibleColumnsOfSummaryStatConfig[number];
+  value: AllTabularColumns[number];
   colorScheme?: typeof chromatic.schemeBlues;
 }> = [
   {
@@ -104,7 +104,7 @@ export interface DemographyStore {
   /**
    * The variable for the demographic map.
    */
-  variable: PossibleColumnsOfSummaryStatConfig[number];
+  variable: AllTabularColumns[number];
 
   /**
    * Sets the variable representing for the demographic map.

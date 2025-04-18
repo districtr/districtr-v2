@@ -9,7 +9,7 @@ import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
 import {demographyCache} from '../demography/demographyCache';
 import {useDemographyStore} from '@/app/store/demographyStore';
-import {PossibleColumnsOfSummaryStatConfig} from './summaryStats';
+import {AllTabularColumns} from './summaryStats';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 
 const INITIAL_VIEW_LIMIT = 30;
@@ -115,7 +115,7 @@ fetchAssignments.subscribe(assignments => {
 });
 
 const fetchDemography = new QueryObserver<null | {
-  columns: PossibleColumnsOfSummaryStatConfig[number][];
+  columns: AllTabularColumns[number][];
   results: ColumnarTableData;
 }>(queryClient, {
   queryKey: ['demography'],

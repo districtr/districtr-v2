@@ -8,7 +8,7 @@ import {useChartStore} from '../../store/chartStore';
 import {
   DemographyRow,
   MaxValues,
-  PossibleColumnsOfSummaryStatConfig,
+  AllTabularColumns,
   SummaryRecord,
   SummaryStatConfig,
   summaryStatsConfig,
@@ -53,7 +53,7 @@ class DemographyCache {
    */
   id_col: string = 'path';
 
-  availableColumns: PossibleColumnsOfSummaryStatConfig[number][] = [];
+  availableColumns: AllTabularColumns[number][] = [];
 
   /**
    * Available summary statistics / derived values.
@@ -84,7 +84,7 @@ class DemographyCache {
    * @param hash - The hash representing the new state.
    */
   update(
-    columns: PossibleColumnsOfSummaryStatConfig[number][],
+    columns: AllTabularColumns[number][],
     data: ColumnarTableData,
     hash: string
   ): void {
@@ -293,7 +293,7 @@ class DemographyCache {
     mapRef,
     ids,
   }: {
-    variable: PossibleColumnsOfSummaryStatConfig[number];
+    variable: AllTabularColumns[number];
     mapRef: maplibregl.Map;
     ids?: string[];
   }) {
@@ -342,7 +342,7 @@ class DemographyCache {
     numberOfBins,
     paintMap,
   }: {
-    variable: PossibleColumnsOfSummaryStatConfig[number];
+    variable: AllTabularColumns[number];
     mapRef: maplibregl.Map;
     mapDocument: MapStore['mapDocument'];
     numberOfBins: number;

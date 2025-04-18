@@ -89,13 +89,13 @@ export const possibleRollups = Object.values(summaryStatsConfig).flatMap(stat =>
 // DERIVED TYPES
 export type SummaryStatConfig = typeof summaryStatsConfig;
 export type KeyOfSummaryStatConfig = keyof SummaryStatConfig;
-export type PossibleColumnsOfSummaryStatConfig =
+export type AllTabularColumns =
   SummaryStatConfig[KeyOfSummaryStatConfig]['possibleColumns'];
 export type DemographyRow = {
-  [key in PossibleColumnsOfSummaryStatConfig[number]]: number;
+  [key in AllTabularColumns[number]]: number;
 };
 export type MaxValues = {
-  [key in PossibleColumnsOfSummaryStatConfig[number]]: number;
+  [key in AllTabularColumns[number]]: number;
 };
 export type TableRow = DemographyRow & {path: string; sourceLayer: string};
 export type SummaryRecord = TableRow & {zone: number};
