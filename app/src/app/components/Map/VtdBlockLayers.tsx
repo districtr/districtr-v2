@@ -76,7 +76,7 @@ export const VtdBlockLayers: React.FC<{
     demographyDataHash,
     shatterIds,
     mapDocument,
-    demographicVariant
+    demographicVariant,
   ]);
 
   if (!mapDocument || clearOldSource) return null;

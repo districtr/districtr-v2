@@ -2,10 +2,7 @@ import {expose} from 'comlink';
 import {ColumnarTableData, ExtendedFileMetaData, ParquetWorkerClass} from './parquetWorker.types';
 import {compressors} from 'hyparquet-compressors';
 import {parquetRead, byteLengthFromUrl, asyncBufferFromUrl, parquetMetadataAsync} from 'hyparquet';
-import {
-  AllTabularColumns,
-  SummaryRecord,
-} from '../api/summaryStats';
+import {AllTabularColumns, SummaryRecord} from '../api/summaryStats';
 
 const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
@@ -56,8 +53,8 @@ const ParquetWorker: ParquetWorkerClass = {
               wideDataDict[path] = {
                 // @ts-ignore intermediate format type issue :/
                 path,
-                sourceLayer: // if the first row is 0, then it's the parent layer, otherwise it is any child layer
-                  range[0] === 0 ? mapDocument.parent_layer! : mapDocument.child_layer!,
+                // if the first row is 0, then it's the parent layer, otherwise it is any child layer
+                sourceLayer: range[0] === 0 ? mapDocument.parent_layer! : mapDocument.child_layer!,
               };
             }
             wideDataDict[path][column_name as keyof SummaryRecord] = value;
@@ -94,36 +91,37 @@ const ParquetWorker: ParquetWorkerClass = {
     return this.getRowRange(mapDocument, range, ignoreIds);
   },
   mergeRanges(ranges) {
-      // First, normalize each range so start <= end
-      const normalized = ranges.map(([a, b]) => [Math.min(a, b), Math.max(a, b)] as [number, number]);
-    
-      // Sort by the start of each range
-      normalized.sort((a, b) => a[0] - b[0]);
-    
-      const merged: [number, number][] = [];
-    
-      for (const [start, end] of normalized) {
-        if (merged.length === 0) {
-          merged.push([start, end]);
-          continue;
-        }
-    
-        const last = merged[merged.length - 1];
-        if (start <= last[1] + 1) {
-          // Extend the previous range
-          last[1] = Math.max(last[1], end);
-        } else {
-          // Start a new range
-          merged.push([start, end]);
-        }
+    // First, normalize each range so start <= end
+    const normalized = ranges.map(([a, b]) => [Math.min(a, b), Math.max(a, b)] as [number, number]);
+
+    // Sort by the start of each range
+    normalized.sort((a, b) => a[0] - b[0]);
+
+    const merged: [number, number][] = [];
+
+    for (const [start, end] of normalized) {
+      if (merged.length === 0) {
+        merged.push([start, end]);
+        continue;
       }
-    
-      return merged;
+
+      const last = merged[merged.length - 1];
+      if (start <= last[1] + 1) {
+        // Extend the previous range
+        last[1] = Math.max(last[1], end);
+      } else {
+        // Start a new range
+        merged.push([start, end]);
+      }
+    }
+
+    return merged;
   },
   async getDemography(mapDocument, brokenIds) {
     const meta = await this.getMetaData(mapDocument.districtr_map_slug);
-    const promises = this.mergeRanges(['parent', ...(brokenIds||[])].map(id => meta.metadata.rows[id]))
-      .map(range => this.getRowRange(mapDocument, range, brokenIds));
+    const promises = this.mergeRanges(
+      ['parent', ...(brokenIds || [])].map(id => meta.metadata.rows[id])
+    ).map(range => this.getRowRange(mapDocument, range, brokenIds));
     const data = await Promise.all(promises);
 
     const results = data[0];

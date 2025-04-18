@@ -3,7 +3,7 @@ import {MapStore, useMapStore} from '../mapStore';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {updateDemography} from '../../utils/api/queries';
-import { DemographyStore } from './types';
+import {DemographyStore} from './types';
 
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({

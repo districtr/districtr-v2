@@ -55,12 +55,10 @@ export const DemographicMapPanel: React.FC = () => {
   );
   const config = availableVariables.find(f => f.value === variable);
   const canBePercent = config?.variants?.includes('percent');
-  const labelFormat = canBePercent && variant === 'percent' ? 'percent' : 'compact'
+  const labelFormat = canBePercent && variant === 'percent' ? 'percent' : 'compact';
   const colors = scale?.range() || [];
 
-  const handleChangeVariable = (
-    newVariable: AllTabularColumns[number],
-  ) => {
+  const handleChangeVariable = (newVariable: AllTabularColumns[number]) => {
     setVariable(newVariable);
   };
 
@@ -97,10 +95,7 @@ export const DemographicMapPanel: React.FC = () => {
       <Flex direction="column" pt="2">
         <Text>Map Variable</Text>
         <Flex direction="row" gapX="3" align="center" py="2">
-          <Select.Root
-            value={variable}
-            onValueChange={handleChangeVariable}
-          >
+          <Select.Root value={variable} onValueChange={handleChangeVariable}>
             <Select.Trigger />
             <Select.Content>
               {availableVariables.map(f => (
@@ -116,10 +111,7 @@ export const DemographicMapPanel: React.FC = () => {
                 <Text as="label" size="1">
                   Count
                 </Text>
-                <Switch
-                  checked={variant === 'percent'}
-                  onCheckedChange={handleChangePercent}
-                />
+                <Switch checked={variant === 'percent'} onCheckedChange={handleChangePercent} />
                 <Text as="label" size="1">
                   %
                 </Text>
@@ -128,13 +120,11 @@ export const DemographicMapPanel: React.FC = () => {
           )}
         </Flex>
       </Flex>
-      {(scale && 'invertExtent' in scale) ? (
+      {scale && 'invertExtent' in scale ? (
         <Flex direction={'row'} justify="center" gapX="2">
           <LegendThreshold
             scale={scale}
-            labelFormat={label =>
-              formatNumber(label as number, labelFormat)
-            }
+            labelFormat={label => formatNumber(label as number, labelFormat)}
             className="w-full"
           >
             {labels => {
@@ -162,10 +152,7 @@ export const DemographicMapPanel: React.FC = () => {
                   >
                     {labels.slice(1).map((label, i) => (
                       <LegendLabel align="center" key={`legend-label-text-${i}`}>
-                        {formatNumber(
-                          label.datum as number,
-                          labelFormat
-                        )}
+                        {formatNumber(label.datum as number, labelFormat)}
                       </LegendLabel>
                     ))}
                   </Flex>
@@ -203,14 +190,15 @@ export const DemographicMapPanel: React.FC = () => {
         </Flex>
       ) : scale && config?.fixedScale && config.customLegendLabels ? (
         <Flex direction={'column'} justify="center" gapX="2" width="100%">
-          <LinearGradient colors={config.fixedScale.domain().map(d => config.fixedScale!(d))} 
+          <LinearGradient
+            colors={config.fixedScale.domain().map(d => config.fixedScale!(d))}
             numTicks={config.customLegendLabels.length}
-            />
-            <Flex direction={'row'} width="100%" justify="between">
-              {config.customLegendLabels.map((label, i) => (
-                <Text key={`legend-label-${i}`}>{label}</Text>
-              ))}
-            </Flex>
+          />
+          <Flex direction={'row'} width="100%" justify="between">
+            {config.customLegendLabels.map((label, i) => (
+              <Text key={`legend-label-${i}`}>{label}</Text>
+            ))}
+          </Flex>
         </Flex>
       ) : null}
       {demographicMapMode === 'side-by-side' && (
@@ -228,18 +216,29 @@ const LinearGradient: React.FC<{
 }> = ({colors, numTicks}) => {
   return (
     <Box width="100%" height="1rem" position="relative" px="2">
-
-    <Box width="100%" height="100%" position="absolute" top="0" left="0"
-      style={{
-        background: `linear-gradient(to right, ${colors.join(',')})`,
-      }}
+      <Box
+        width="100%"
+        height="100%"
+        position="absolute"
+        top="0"
+        left="0"
+        style={{
+          background: `linear-gradient(to right, ${colors.join(',')})`,
+        }}
       />
-      <Flex direction="row" width="100%" height="100%" position="absolute" top="0" left="0" justify="between">
+      <Flex
+        direction="row"
+        width="100%"
+        height="100%"
+        position="absolute"
+        top="0"
+        left="0"
+        justify="between"
+      >
         {Array.from({length: numTicks}).map((_, i) => (
-          <Box key={`legend-bar-${i}`} height="100%" className="border-r border-black"
-          />
+          <Box key={`legend-bar-${i}`} height="100%" className="border-r border-black" />
         ))}
       </Flex>
     </Box>
-  )
-}
+  );
+};

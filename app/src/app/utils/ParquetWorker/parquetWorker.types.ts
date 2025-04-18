@@ -43,7 +43,11 @@ export type ParquetWorkerClass = {
    * @param ignoreIds - IDs to ignore/exclude from the data. Mostly for broken parents.
    * @returns Promise<ColumnarTableData> ready for Arquero.table
    */
-  getRowRange: (view: DocumentObject, range: [number, number], ignoreIds?: string[]) => Promise<ColumnarTableData>;
+  getRowRange: (
+    view: DocumentObject,
+    range: [number, number],
+    ignoreIds?: string[]
+  ) => Promise<ColumnarTableData>;
   /**
    * Convenience method for getRowRange. Needs id instead of range and looks up the range in the metadata.
    * @param view - Districtr map DocumentObject

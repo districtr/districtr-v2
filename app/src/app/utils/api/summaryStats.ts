@@ -43,7 +43,7 @@ export const summaryStatsConfig = {
       'pres_20_dem',
       'pres_16_rep',
       'pres_16_dem',
-    ]
+    ],
   },
 } as const;
 
@@ -79,19 +79,20 @@ const withPct = <T extends typeof summaryStatsConfig>(
 };
 
 export const summaryStatsWithPctConfig = withPct(summaryStatsConfig);
-export const possibleRollups = Object.values(summaryStatsConfig).filter(stat => 'sumColumn' in stat).flatMap(stat =>
-  stat.possibleColumns.map(col => ({
-    // @ts-ignore
-    total: stat.sumColumn,
-    col,
-  }))
-);
+export const possibleRollups = Object.values(summaryStatsConfig)
+  .filter(stat => 'sumColumn' in stat)
+  .flatMap(stat =>
+    stat.possibleColumns.map(col => ({
+      // @ts-ignore
+      total: stat.sumColumn,
+      col,
+    }))
+  );
 
 // DERIVED TYPES
 export type SummaryStatConfig = typeof summaryStatsConfig;
 export type KeyOfSummaryStatConfig = keyof SummaryStatConfig;
-export type AllTabularColumns =
-  SummaryStatConfig[KeyOfSummaryStatConfig]['possibleColumns'];
+export type AllTabularColumns = SummaryStatConfig[KeyOfSummaryStatConfig]['possibleColumns'];
 export type DemographyRow = {
   [key in AllTabularColumns[number]]: number;
 };

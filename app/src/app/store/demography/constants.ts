@@ -2,7 +2,7 @@
 import * as chromatic from 'd3-scale-chromatic';
 import {AllTabularColumns, DemographyRow} from '@utils/api/summaryStats';
 import {scaleLinear} from '@visx/scale';
-import { AnyD3Scale } from './types';
+import {AnyD3Scale} from './types';
 
 export const DEFAULT_COLOR_SCHEME = chromatic.schemeBlues;
 export const DEFAULT_COLOR_SCHEME_GRAY = chromatic.schemeGreys;
@@ -21,16 +21,16 @@ export const ALL_VOTER_COLUMNS = {
   'Senate 2016': ['sen_16_dem', 'sen_16_rep'],
   'Presidential 2020': ['pres_20_dem', 'pres_20_rep'],
   'Presidential 2016': ['pres_16_dem', 'pres_16_rep'],
-} as const
+} as const;
 
 export const demographyVariables: Array<{
   label: string;
   value: AllTabularColumns[number];
   colorScheme?: typeof chromatic.schemeBlues;
   expression?: (row: DemographyRow) => number;
-  fixedScale?: AnyD3Scale
-  variants?: Array<'percent' | 'raw'>
-  customLegendLabels?: Array<string>
+  fixedScale?: AnyD3Scale;
+  variants?: Array<'percent' | 'raw'>;
+  customLegendLabels?: Array<string>;
 }> = [
   {
     label: 'Population: Total',
@@ -108,6 +108,6 @@ export const demographyVariables: Array<{
     customLegendLabels: ['+100 (R)', 'Even', '+100 (D)'],
     expression: (row: DemographyRow) => {
       return row[value[0]] / (row[value[1]] + row[value[0]]);
-    }
-  }))
+    },
+  })),
 ] as const;
