@@ -4,7 +4,6 @@ import './globals.css';
 import {Theme} from '@radix-ui/themes';
 import '@radix-ui/themes/styles.css';
 import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
-import {isArray} from 'lodash';
 
 const inter = Inter({subsets: ['latin']});
 
@@ -23,7 +22,7 @@ const DISTRICTR_LOGO = [
 export async function generateMetadata({searchParams}: MetadataProps): Promise<Metadata> {
   const resolvedParams = await searchParams;
   const document_id = resolvedParams?.document_id ?? '';
-  const singularDocumentId = isArray(document_id) ? document_id[0] : document_id;
+  const singularDocumentId = Array.isArray(document_id) ? document_id[0] : document_id;
   if (!singularDocumentId) {
     return {
       title: 'Districtr 2.0',
