@@ -8,7 +8,7 @@ import {getDocument} from '@utils/api/apiHandlers/getDocument';
 import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
 import {demographyCache} from '../demography/demographyCache';
-import {useDemographyStore} from '@/app/store/demographyStore';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {AllTabularColumns} from './summaryStats';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 

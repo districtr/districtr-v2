@@ -43,8 +43,7 @@ export const summaryStatsConfig = {
       'pres_20_dem',
       'pres_16_rep',
       'pres_16_dem',
-    ],
-    sumColumn: 'total_vap_20',
+    ]
   },
 } as const;
 
@@ -79,7 +78,7 @@ const withPct = <T extends typeof summaryStatsConfig>(
   ) as any;
 };
 export const summaryStatsWithPctConfig = withPct(summaryStatsConfig);
-export const possibleRollups = Object.values(summaryStatsConfig).flatMap(stat =>
+export const possibleRollups = Object.values(summaryStatsConfig).filter(stat => 'sumColumn' in stat).flatMap(stat =>
   stat.possibleColumns.map(col => ({
     total: stat.sumColumn,
     col,

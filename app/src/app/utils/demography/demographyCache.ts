@@ -19,7 +19,8 @@ import {
 } from '../api/summaryStats';
 import {getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
-import {DEFAULT_COLOR_SCHEME, DEFAULT_COLOR_SCHEME_GRAY} from '@/app/store/demographyStore';
+import { type AnyD3Scale } from '@/app/store/demography/types';
+import {DEFAULT_COLOR_SCHEME, DEFAULT_COLOR_SCHEME_GRAY, demographyVariables} from '@/app/store/demography/constants';
 import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 /**
@@ -74,7 +75,7 @@ class DemographyCache {
     paintedZones?: number;
   } = {};
 
-  colorScale?: ReturnType<typeof scale.scaleThreshold<number, string>>;
+  colorScale?: AnyD3Scale
   /**
    * Updates this class with new data from the backend.
    *
@@ -264,21 +265,25 @@ class DemographyCache {
    * Helper to manage the arqueo quantile function.
    */
   calculateQuantiles(
-    variable: string,
+    config: typeof demographyVariables[number],
+    variableName: AllTabularColumns[number],
     numberOfBins: number
   ): {quantilesObject: {[q: string]: number}; quantilesList: number[]} | null {
     if (!this.table) return null;
+    const derives = {
+      quantileVariable: config.expression ? escape(config.expression) : escape((row: DemographyRow) => row[variableName as keyof DemographyRow]),
+    }
     const rollups = new Array(numberOfBins + 1)
       .fill(0)
       .map((f, i) => (i === 0 ? i : Math.round((1 / numberOfBins) * i * 100) / 100))
       .reduce(
         (acc, curr, i) => {
-          acc[`q${curr * 100}`] = op.quantile(variable, curr);
+          acc[`q${curr * 100}`] = op.quantile('quantileVariable', curr);
           return acc;
         },
         {} as {[key: string]: ReturnType<typeof op.quantile>}
       );
-    const quantilesObject = this.table.rollup(rollups).objects()[0] as {[q: string]: number};
+    const quantilesObject = this.table.derive(derives).rollup(rollups).objects()[0] as {[q: string]: number};
     const quantilesList = Object.values(quantilesObject)
       .sort((a, b) => a - b)
       .slice(1, -1);
@@ -289,23 +294,28 @@ class DemographyCache {
   }
 
   paintDemography({
-    variable,
+    config,
+    variableName,
     mapRef,
     ids,
   }: {
-    variable: AllTabularColumns[number];
+    config: typeof demographyVariables[number];
+    variableName: AllTabularColumns[number];
     mapRef: maplibregl.Map;
     ids?: string[];
   }) {
     if (!this.table || !this.colorScale) return;
     const colorScale = this.colorScale!;
-    let rows = this.table.select('path', 'sourceLayer', variable);
+    const derives = {
+      color: config.expression ? escape(config.expression) : escape((row: DemographyRow) => row[variableName]),
+    }
+    let rows = this.table.derive(derives).select('path', 'sourceLayer', 'color');
     if (ids) {
       rows = rows.filter(escape((row: TableRow) => ids.includes(row.path)));
     }
-    (rows.objects() as TableRow[]).forEach(row => {
+    (rows.objects() as Array<TableRow & {color: number}>).forEach(row => {
       const id = row.path;
-      const value = row[variable as keyof typeof row];
+      const value = row['color'];
       if (!id || isNaN(+value)) return;
       const color = colorScale(+value);
 
@@ -337,40 +347,56 @@ class DemographyCache {
    */
   calculateDemographyColorScale({
     variable,
+    variant,
     mapRef,
     mapDocument,
     numberOfBins,
     paintMap,
   }: {
     variable: AllTabularColumns[number];
+    variant: 'percent' | 'raw';
     mapRef: maplibregl.Map;
     mapDocument: MapStore['mapDocument'];
     numberOfBins: number;
     paintMap?: boolean;
   }) {
-    if (!this.table) return;
-    const quantiles = this.calculateQuantiles(variable, numberOfBins);
-    const dataSoureExists = mapRef.getSource(BLOCK_SOURCE_ID);
-    if (!mapRef || !mapDocument || !dataSoureExists || !quantiles) return;
-    const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
-    const defaultColor =
+    const t0 = performance.now();
+    const dataSoureExists = mapRef?.getSource(BLOCK_SOURCE_ID);
+    const config = demographyVariables.find(v => v.value === variable)
+    
+    if (!this.table || !dataSoureExists) return;
+    if (!config) return;
+    const variableName = (variant === 'percent' && config.variants?.includes('percent') ? `${config.value}_pct` : config.value) as AllTabularColumns[number];
+    if (config.fixedScale) {
+      this.colorScale = config.fixedScale
+    } else {
+      const quantiles = this.calculateQuantiles(config, variableName, numberOfBins);
+      if (!quantiles) return;
+      const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
+      const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
+      
+      const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
+      const defaultColor =
       mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
-    const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
-    const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
-    let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
-    if (actualBinsLength < 3) {
-      colorscheme = colorscheme.slice(0, actualBinsLength);
+      let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
+      
+      if (actualBinsLength < 3) {
+        colorscheme = colorscheme.slice(0, actualBinsLength);
+      }
+      this.colorScale = scale
+        .scaleThreshold<number, string>()
+        .domain(uniqueQuantiles)
+        .range(colorscheme);
     }
-    this.colorScale = scale
-      .scaleThreshold<number, string>()
-      .domain(uniqueQuantiles)
-      .range(colorscheme);
     if (paintMap) {
       this.paintDemography({
-        variable,
+        config,
+        variableName,
         mapRef,
       });
     }
+    const t1 = performance.now();
+    console.log(`calculateDemographyColorScale took ${t1 - t0} milliseconds`);
     return this.colorScale;
   }
 

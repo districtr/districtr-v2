@@ -36,7 +36,7 @@ import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {demographyCache} from '../utils/demography/demographyCache';
-import {useDemographyStore} from './demographyStore';
+import {useDemographyStore} from './demography/demographyStore';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
