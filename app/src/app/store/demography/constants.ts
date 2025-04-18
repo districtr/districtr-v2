@@ -11,6 +11,18 @@ export const PARTISAN_SCALE = scaleLinear()
   .domain(Array.from({length: 11}, (_, i) => i / 10))
   .range(chromatic.schemeRdBu[11]) as AnyD3Scale;
 
+export const ALL_VOTER_COLUMNS = {
+  'Attorney General 2022': ['ag_22_dem', 'ag_22_rep'],
+  'Attorney General 2018': ['ag_18_dem', 'ag_18_rep'],
+  'Governor 2022': ['gov_22_dem', 'gov_22_rep'],
+  'Governor 2018': ['gov_18_dem', 'gov_18_rep'],
+  'Senate 2022': ['sen_22_dem', 'sen_22_rep'],
+  'Senate 2018': ['sen_18_dem', 'sen_18_rep'],
+  'Senate 2016': ['sen_16_dem', 'sen_16_rep'],
+  'Presidential 2020': ['pres_20_dem', 'pres_20_rep'],
+  'Presidential 2016': ['pres_16_dem', 'pres_16_rep'],
+} as const
+
 export const demographyVariables: Array<{
   label: string;
   value: AllTabularColumns[number];
@@ -89,13 +101,13 @@ export const demographyVariables: Array<{
     value: 'other_vap_20',
     variants: ['percent', 'raw'],
   },
-  {
-    label: 'Partisan Lean: 2020 Presidential',
-    value: 'pres_20_rep',
-    expression: (row: DemographyRow) => {
-      return row.pres_20_dem / (row.pres_20_rep + row.pres_20_dem);
-    },
+  ...Object.entries(ALL_VOTER_COLUMNS).map(([label, value]) => ({
+    label: `Election: ${label}`,
+    value: value[0],
     fixedScale: PARTISAN_SCALE,
-    customLegendLabels: ['+100 (R)', 'Even', '+100 (D)']
-  },
+    customLegendLabels: ['+100 (R)', 'Even', '+100 (D)'],
+    expression: (row: DemographyRow) => {
+      return row[value[0]] / (row[value[1]] + row[value[0]]);
+    }
+  }))
 ] as const;
