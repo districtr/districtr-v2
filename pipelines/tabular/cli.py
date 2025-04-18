@@ -55,7 +55,7 @@ def build_parquet(
 
 @cli.command("batch-build-parquet")
 @click.option("--config-path", help="Path to the config file", required=True)
-@click.option("--data_dir", help="Path to the data directory", required=True)
+@click.option("--data-dir", help="Path to the data directory", required=True)
 @click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
 @click.option("--upload", "-u", help="Upload to S3", is_flag=True)
 def batch_build_parquet(
