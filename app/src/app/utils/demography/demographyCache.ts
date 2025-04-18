@@ -315,9 +315,12 @@ class DemographyCache {
     }
     (rows.objects() as Array<TableRow & {color: number}>).forEach(row => {
       const id = row.path;
+      if (!id) return;
       const value = row['color'];
-      if (!id || isNaN(+value)) return;
-      const color = colorScale(+value);
+      let color = '#CCCCCC';
+      if (!isNaN(+value)){
+        color = colorScale(+value)
+      }
 
       mapRef.setFeatureState(
         {
