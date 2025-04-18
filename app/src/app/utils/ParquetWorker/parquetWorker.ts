@@ -24,7 +24,7 @@ const ParquetWorker: ParquetWorkerClass = {
         ?.value?.replaceAll("'", '"') ?? '{}'
     );
     metadata['columns'] = JSON.parse(
-      metadata['key_value_metadata']?.find(f => f.key === 'coplumn_list')?.value ?? '[]'
+      metadata['key_value_metadata']?.find(f => f.key === 'column_list')?.value ?? '[]'
     );
     this._metaCache[view] = {
       metadata,
@@ -56,8 +56,8 @@ const ParquetWorker: ParquetWorkerClass = {
               wideDataDict[path] = {
                 // @ts-ignore intermediate format type issue :/
                 path,
-                sourceLayer:
-                  path === 'parent' ? mapDocument.parent_layer! : mapDocument.child_layer!,
+                sourceLayer: // if the first row is 0, then it's the parent layer, otherwise it is any child layer
+                  range[0] === 0 ? mapDocument.parent_layer! : mapDocument.child_layer!,
               };
             }
             wideDataDict[path][column_name as keyof SummaryRecord] = value;
