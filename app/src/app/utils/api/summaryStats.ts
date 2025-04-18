@@ -61,7 +61,7 @@ const withPct = <T extends typeof summaryStatsConfig>(
       | Extract<T[K], {possibleColumns: readonly string[]}>['possibleColumns'][number]
       | `${Extract<T[K], {possibleColumns: readonly string[]}>['possibleColumns'][number]}_pct`
     >;
-    sumColumn: Extract<T[K], {sumColumn: string}>['sumColumn'];
+    sumColumn?: Extract<T[K], {sumColumn?: string}>['sumColumn'];
   };
 } => {
   return Object.fromEntries(
@@ -77,9 +77,11 @@ const withPct = <T extends typeof summaryStatsConfig>(
     ])
   ) as any;
 };
+
 export const summaryStatsWithPctConfig = withPct(summaryStatsConfig);
 export const possibleRollups = Object.values(summaryStatsConfig).filter(stat => 'sumColumn' in stat).flatMap(stat =>
   stat.possibleColumns.map(col => ({
+    // @ts-ignore
     total: stat.sumColumn,
     col,
   }))

@@ -20,6 +20,7 @@ export const getPctDerives = (columns: string[]) => {
   possibleRollups.forEach(rollup => {
     if (columns.includes(rollup.col)) {
       derives[rollup.col + '_pct'] = escape(
+        // @ts-ignore these are correct but fail at build time
         (row: DemographyRow) => row[rollup.col] / row[rollup.total]
       );
     }
@@ -39,6 +40,7 @@ export const getRollups = (columns: string[], type: 'sum' | 'max' = 'sum') => {
   const rollups: Record<string, ReturnType<typeof op.sum>> = {};
   possibleRollups.forEach(rollup => {
     if (columns.includes(rollup.col)) {
+      // @ts-ignore  these are correct but fail at build time
       rollups[rollup.col] = op[type](rollup.col);
     }
   });
