@@ -169,7 +169,6 @@ class DemographyCache {
   calculatePopulations(
     zoneAssignments?: MapStore['zoneAssignments']
   ): {ok: true; table: SummaryTable} | {ok: false} {
-    const t0 = performance.now();
     const numZones = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
@@ -226,8 +225,6 @@ class DemographyCache {
     this.zoneStats.range = this.zoneStats.maxPopulation - this.zoneStats.minPopulation;
     this.summaryStats.unassigned = this.populations.find(f => !f.zone)?.total_pop_20 ?? 0;
     this.zoneStats.paintedZones = popNumbers.filter(pop => pop > 0).length;
-    const t1 = performance.now();
-    console.log(`calculatePopulations took ${t1 - t0} milliseconds`);
     return {
       ok: true,
       table: this.populations,
@@ -239,7 +236,6 @@ class DemographyCache {
    */
   calculateSummaryStats(): void {
     if (!this.table) return;
-    const t0 = performance.now();
     const columns = this.table.columnNames();
     this.table = this.table.derive(getPctDerives(columns));
     const summaries = this.table.rollup(getRollups(columns, 'sum')).objects()[0] as SummaryRecord;
@@ -257,8 +253,6 @@ class DemographyCache {
       summaries.total_pop_20 / (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
 
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
-    const t1 = performance.now();
-    console.log(`calculateSummaryStats took ${t1 - t0} milliseconds`);
   }
 
   /**
@@ -363,7 +357,6 @@ class DemographyCache {
     numberOfBins: number;
     paintMap?: boolean;
   }) {
-    const t0 = performance.now();
     const dataSoureExists = mapRef?.getSource(BLOCK_SOURCE_ID);
     const config = demographyVariables.find(v => v.value === variable)
     
@@ -398,8 +391,6 @@ class DemographyCache {
         mapRef,
       });
     }
-    const t1 = performance.now();
-    console.log(`calculateDemographyColorScale took ${t1 - t0} milliseconds`);
     return this.colorScale;
   }
 
