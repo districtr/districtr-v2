@@ -56,13 +56,6 @@ export type GeometryWorkerClass = {
   clear: () => void;
   resetZones: () => void;
   /**
-   * Parses geometries and returns their centroids.
-   * @param features - The features to parse.
-   * @returns The centroids and dissolved outlines of the parsed features.
-   */
-  dissolveGeometry: (features: MinGeoJSONFeature[]) => CentroidReturn;
-
-  /**
    * Convenience method for DRY of getCentroidsFromView
    * @param bounds number[] the view bounds
    * @returns CentroidReturn
@@ -75,6 +68,21 @@ export type GeometryWorkerClass = {
     bboxGeom: GeoJSON.Polygon;
   };
   /**
+   * Calculate the center of mass for a set of polygons
+   *
+   * @param geojson Set of polygons to calculate the center of mass for
+   * @param bounds Bounds of the view
+   * @param width Width of the subcanvas to render the polygons on. A higher number will result in a more accurate center of mass.
+   * @param height Height of the subcanvas to render the polygons on. A higher number will result in a more accurate center of mass.
+   * @returns [lng, lat] of the center of mass
+   */
+  computeCenterOfMass: (
+    geojson: GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+    bounds: [number, number, number, number],
+    width?: number,
+    height?: number
+  ) => Promise<[number, number] | null>;
+  /**
    * Strategy for finding centroids by dissolving the zone geometries and finding the center of mass.
    * @param bounds number[] the view bounds
    * @param activeZones list of current drawn zones
@@ -83,8 +91,10 @@ export type GeometryWorkerClass = {
    */
   getCentersOfMass: (
     bounds: [number, number, number, number],
-    activeZones: number[]
-  ) => CentroidReturn;
+    activeZones: number[],
+    canvasWidth?: number,
+    canvasHeight?: number
+  ) => Promise<CentroidReturn>;
   /**
    * Strategy for finding centroids choosing random centroids that do not intersect with each other
    * @param bounds number[] the view bounds
@@ -97,7 +107,7 @@ export type GeometryWorkerClass = {
     bounds: [number, number, number, number],
     activeZones: number[],
     minBuffer?: number
-  ) => CentroidReturn;
+  ) => Promise<CentroidReturn>;
   /**
    * Parses geometries within a specified view and returns their centroids.
    * @param minLon - The minimum longitude of the view.
@@ -111,7 +121,9 @@ export type GeometryWorkerClass = {
     activeZones: number[];
     strategy: 'center-of-mass' | 'non-colliding-centroids';
     minBuffer?: number;
-  }) => CentroidReturn;
+    canvasWidth?: number;
+    canvasHeight?: number;
+  }) => Promise<CentroidReturn>;
   getPropertiesCentroids: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
   /**
    * Retrieves a collection of geometries without a zone assignment.
