@@ -155,28 +155,13 @@ export const updateDemography = ({
 
 fetchDemography.subscribe(demography => {
   if (demography.data) {
-    const {
-      setDataHash,
-      variable,
-      setVariable,
-      getMapRef: getDemogMapRef,
-    } = useDemographyStore.getState();
-    const {shatterIds, mapDocument, getMapRef: getMainMapRef, mapOptions} = useMapStore.getState();
+    const {setDataHash} = useDemographyStore.getState();
+    const {shatterIds, mapDocument} = useMapStore.getState();
     const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
     const result = demography.data;
     if (!mapDocument || !result) return;
     demographyCache.update(result.columns, result.results, dataHash);
     setDataHash(dataHash);
-    setVariable(variable);
-    // const newIds = demography.data.results.map(row => row[0]) as string[];
-    // let mapRef = mapOptions.showDemographicMap === 'overlay' ? getMainMapRef() : getDemogMapRef();
-    // if (mapRef && newIds.length) {
-    //   demographyCache.paintDemography({
-    //     variable,
-    //     mapRef,
-    //     ids: newIds,
-    //   });
-    // }
   }
 });
 

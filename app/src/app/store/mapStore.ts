@@ -997,7 +997,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         assignmentsHash,
         lastUpdatedHash,
       } = get();
-      if (assignmentsHash !== lastUpdatedHash) {
+      if (assignmentsHash !== lastUpdatedHash && accumulatedGeoids.size > 0) {
         const zone = activeTool === 'eraser' ? null : selectedZone;
         setZoneAssignments(zone, accumulatedGeoids);
       }
