@@ -89,7 +89,7 @@ export const Contiguity = () => {
                     style={{
                       width: '15px',
                       height: '15px',
-                      backgroundColor: colorScheme[(row.zone % colorScheme.length) - 1],
+                      backgroundColor: colorScheme[(row.zone - 1) % colorScheme.length],
                       borderRadius: '4px',
                     }}
                   />
