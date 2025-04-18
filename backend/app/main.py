@@ -8,6 +8,7 @@ from fastapi import (
     Body,
     Form,
 )
+from fastapi.responses import RedirectResponse, StreamingResponse
 from typing import Annotated
 import botocore.exceptions
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
@@ -29,6 +30,7 @@ import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import get_session
 from app.core.config import settings
+from app.thumbnails import fetch_thumbnail, generate_thumbnail
 from app.utils import hash_password, verify_password
 import jwt
 from uuid import uuid4
@@ -1082,6 +1084,29 @@ async def get_projects(
         .limit(limit)
     ).all()
     return gerrydb_views
+
+@app.get("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
+async def get_thumbnail(
+    *,
+    document_id: str,
+    session: Session = Depends(get_session),
+):
+    try:
+        img_io = fetch_thumbnail(session, document_id)
+        img_io.seek(0)
+        return StreamingResponse(content=img_io, media_type="image/png")
+    except:
+        return RedirectResponse(url="/home-megaphone.png")
+
+
+@app.put("/api/document/{document_id}/put_thumbnail", status_code=status.HTTP_200_OK)
+async def put_thumbnail(
+    *,
+    document_id: str,
+    session: Session = Depends(get_session),
+):
+    generate_thumbnail(session, document_id)
+    return {}
 
 
 @app.post("/api/document/{document_id}/share")
