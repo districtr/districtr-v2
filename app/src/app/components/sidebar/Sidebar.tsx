@@ -1,10 +1,19 @@
 'use client';
 import React from 'react';
 import DataPanels from './DataPanels';
-import {Box, Flex, IconButton} from '@radix-ui/themes';
+import {Box, Flex, IconButton, ScrollArea} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import Draggable from 'react-draggable';
 import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
+import {ToolbarInSidebar} from './ToolbarInSidebar';
+import {styled} from '@stitches/react';
+
+const StyledScrollArea = styled(ScrollArea, {
+  maxWidth: '100%',
+  '& div': {
+    maxWidth: '100%',
+  },
+});
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
@@ -70,21 +79,27 @@ export default function SidebarComponent() {
           </IconButton>
         </Draggable>
       </div>
-      <Box className="size-full overflow-y-auto">
-        <Flex direction="column" gap="3">
-          <Box
-            display={{
-              initial: 'none',
-              md: 'inline',
-            }}
-            style={{
-              opacity: document_id ? 1 : 0.25,
-            }}
-          >
-            <DataPanels />
-          </Box>
-        </Flex>
-      </Box>
+      <Flex direction="column" gap="3" className="size-full">
+        <ToolbarInSidebar />
+        <StyledScrollArea
+          className="size-full overflow-y-auto flex-grow-1 max-w-full"
+          scrollbars="vertical"
+        >
+          <Flex direction="column" gap="3" className="w-full">
+            <Box
+              display={{
+                initial: 'none',
+                md: 'inline',
+              }}
+              style={{
+                opacity: document_id ? 1 : 0.25,
+              }}
+            >
+              <DataPanels />
+            </Box>
+          </Flex>
+        </StyledScrollArea>
+      </Flex>
     </div>
   );
 }

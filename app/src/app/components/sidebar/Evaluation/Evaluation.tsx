@@ -68,7 +68,7 @@ const Evaluation: React.FC = () => {
           ))}
         </Tabs.List>
       </Tabs.Root>
-      <Flex align="center" gap="3" my="2">
+      <Flex align="center" gap="3" my="2" wrap="wrap">
         {modeButtonConfig.map((mode, i) => (
           <Button
             key={i}
