@@ -1,8 +1,8 @@
 from os import environ
-from settings import settings
+from core.settings import settings
 
 S3_BASEMAPS_PREFIX = "basemaps"
-
+S3_TABULAR_PREFIX = "tabular"
 # County TIGER layers
 
 S3_TILESETS_PREFIX = "tilesets"

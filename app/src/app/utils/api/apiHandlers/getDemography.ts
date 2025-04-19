@@ -1,25 +1,27 @@
-import axios from 'axios';
+import {DocumentObject} from './types';
+import ParquetWorker from '../../ParquetWorker';
+import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
+import {AllTabularColumns} from '../summaryStats';
 
 export const getDemography = async ({
-  document_id,
-  ids,
-  dataHash,
+  mapDocument,
+  brokenIds,
 }: {
-  document_id?: string;
-  ids?: string[];
-  dataHash?: string;
-}): Promise<{columns: string[]; results: (string | number)[][]; dataHash?: string}> => {
-  if (!document_id) {
+  mapDocument?: DocumentObject;
+  brokenIds?: string[];
+}): Promise<{
+  columns: AllTabularColumns[number][];
+  results: ColumnarTableData;
+}> => {
+  if (!mapDocument) {
     throw new Error('No document id provided');
   }
-  const fetchUrl = new URL(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/demography`
-  );
-  ids?.forEach(id => fetchUrl.searchParams.append('ids', id));
-  const result = await axios.get(fetchUrl.toString()).then(res => res.data);
+  if (!ParquetWorker) {
+    throw new Error('ParquetWorker not found');
+  }
+  const demographyData = await ParquetWorker.getDemography(mapDocument, brokenIds);
   return {
-    columns: result.columns,
-    results: result.results,
-    dataHash: dataHash,
+    columns: demographyData.columns,
+    results: demographyData.results,
   };
 };

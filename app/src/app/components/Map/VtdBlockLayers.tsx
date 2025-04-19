@@ -1,5 +1,5 @@
 import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
-import {useDemographyStore} from '@/app/store/demographyStore';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useLayoutEffect, useState} from 'react';
 import {useEffect} from 'react';
@@ -16,6 +16,7 @@ export const VtdBlockLayers: React.FC<{
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
   const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap);
   const demographicVariable = useDemographyStore(state => state.variable);
+  const demographicVariant = useDemographyStore(state => state.variant);
   const setScale = useDemographyStore(state => state.setScale);
   const demographyDataHash = useDemographyStore(state => state.dataHash);
   const shatterIds = useMapStore(state => state.shatterIds);
@@ -40,6 +41,7 @@ export const VtdBlockLayers: React.FC<{
       const updateFn = () => {
         const mapScale = demographyCache.calculateDemographyColorScale({
           variable: demographicVariable,
+          variant: demographicVariant,
           mapRef: _map,
           mapDocument,
           numberOfBins: numberOfBins || 5,
@@ -74,6 +76,7 @@ export const VtdBlockLayers: React.FC<{
     demographyDataHash,
     shatterIds,
     mapDocument,
+    demographicVariant,
   ]);
 
   if (!mapDocument || clearOldSource) return null;

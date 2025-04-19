@@ -3,8 +3,8 @@ import logging
 from subprocess import run
 from urllib.parse import urlparse
 
-from settings import settings
-from files import download_file_from_s3
+from core.settings import settings
+from tilesets.files import download_file_from_s3
 
 
 LOGGER = logging.getLogger(__name__)

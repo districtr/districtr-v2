@@ -3,7 +3,7 @@ import zipfile
 from urllib.request import urlretrieve
 from urllib.parse import urlparse, ParseResult
 from pathlib import Path
-from settings import settings
+from core.settings import settings
 
 import logging
 
