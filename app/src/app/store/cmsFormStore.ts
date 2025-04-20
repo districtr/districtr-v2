@@ -136,6 +136,8 @@ export const useCmsFormStore = create(
     loadData: async contentType => {
       console.log('Loading...');
       const {session} = get();
+      console.log('session', session);
+
       if (!session) {
         return;
       }
