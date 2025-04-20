@@ -1,17 +1,15 @@
 import {expose} from 'comlink';
-import {area} from '@turf/area';
 import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
 import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
 import bboxClip from '@turf/bbox-clip';
-import pointOnFeature from '@turf/point-on-feature';
-import pointsWithinPolygon from '@turf/points-within-polygon';
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import bbox from '@turf/bbox';
 import {VectorTile} from '@mapbox/vector-tile';
 import Protobuf from 'pbf';
 import booleanWithin from '@turf/boolean-within';
 import distance from '@turf/distance';
+import {getCoords} from '@turf/invariant';
 
 const CENTROID_BUFFER_KM = 10;
 
@@ -155,59 +153,6 @@ const GeometryWorker: GeometryWorkerClass = {
       }
     });
   },
-  dissolveGeometry(features) {
-    let dissolved: GeoJSON.FeatureCollection = dissolve(
-      {
-        type: 'FeatureCollection',
-        features: features.filter(
-          // TODO: Turf dissolve is limted to only polygons. This is fine enough for label placement
-          // but in the future we may want to do something better (eg. multipart to singlepart)
-          f => f.geometry.type === 'Polygon'
-        ) as GeoJSON.Feature<GeoJSON.Polygon>[],
-      },
-      {
-        propertyName: 'zone',
-      }
-    );
-    let largestDissolvedFeatures: Record<number, {feature: GeoJSON.Feature; area: number}> = {};
-    dissolved.features.forEach(feature => {
-      const zone = this.zoneAssignments[feature.properties?.id];
-      if (!zone) return;
-      const featureArea = area(feature);
-      // TODO: This makes sense for now given that we are not enforcing contiguity on zones,
-      // but could likely be refactored later when that rule is enforced.
-      if (!largestDissolvedFeatures[zone] || featureArea > largestDissolvedFeatures[zone].area) {
-        largestDissolvedFeatures[zone] = {
-          area: featureArea,
-          feature,
-        };
-      }
-    });
-    const cleanDissolvedFeatures = Object.values(largestDissolvedFeatures).map(f => f.feature);
-    const centroids: GeoJSON.FeatureCollection<GeoJSON.Point> = {
-      type: 'FeatureCollection',
-      features: cleanDissolvedFeatures.map(f => {
-        const center = centerOfMass(f);
-        const zone = this.zoneAssignments[f.properties?.id];
-        const geometry =
-          pointsWithinPolygon(center, f as any).features.length === 1
-            ? center.geometry
-            : pointOnFeature(f).geometry;
-
-        return {
-          type: 'Feature',
-          properties: {
-            zone,
-          },
-          geometry,
-        } as GeoJSON.Feature<GeoJSON.Point>;
-      }),
-    };
-    return {
-      centroids,
-      dissolved,
-    };
-  },
   getCentroidBoilerplate(bounds) {
     const [minLon, minLat, maxLon, maxLat] = bounds;
     const visitedZones = new Set<number>();
@@ -238,7 +183,92 @@ const GeometryWorker: GeometryWorkerClass = {
       bboxGeom,
     };
   },
-  getCentersOfMass(bounds, activeZones) {
+  async computeCenterOfMass(geojson, bounds, width = 256, height = 256) {
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d', {willReadFrequently: true});
+    if (!ctx) return null;
+
+    // Calculate bounds for rendering
+    const [minX, minY, maxX, maxY] = bounds;
+    const scaleX = width / (maxX - minX);
+    const scaleY = height / (maxY - minY);
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = `rgb(255,0,0)`;
+    ctx.strokeStyle = `rgb(255,0,0)`;
+    ctx.lineWidth = 1;
+
+    for (const feature of geojson.features) {
+      const geom = feature.geometry;
+      const coords = getCoords(feature);
+      const polygons: GeoJSON.Polygon['coordinates'] =
+        geom.type === 'MultiPolygon' ? coords.flat() : coords;
+
+      for (const ring of polygons) {
+        ctx.beginPath();
+        ring.forEach(([x, y], i) => {
+          const px = (x - minX) * scaleX;
+          const py = height - (y - minY) * scaleY; // Invert Y
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    const imageData = ctx.getImageData(0, 0, width, height).data;
+    let sumX = 0,
+      sumY = 0,
+      count = 0;
+    const validPixels = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // Each pixel takes 4 int array values (R, G, B, A), so we multiply by 4.
+        const i = (y * width + x) * 4;
+        // Check if the red channel is 255 as a shorthand to see if painted
+        if (imageData[i] === 255) {
+          sumX += x;
+          sumY += y;
+          count++;
+          validPixels.push({x, y});
+        }
+      }
+    }
+
+    if (count === 0) return null;
+
+    let centerX = sumX / count;
+    let centerY = sumY / count;
+
+    const idx = (Math.floor(centerY) * width + Math.floor(centerX)) * 4;
+    const isValidCenter = imageData[idx] === 255;
+
+    // Fallback: choose a pixel inside the district
+    if (!isValidCenter) {
+      // Start with the media
+      let fallbackIdx = Math.floor(validPixels.length / 2);
+      // Check the pixels up to 10 right and left
+      // if something works, break
+      for (let offset = 4; offset < 40; offset += 4) {
+        if (validPixels[fallbackIdx + offset]) {
+          fallbackIdx += offset;
+          break;
+        } else if (validPixels[fallbackIdx - offset]) {
+          fallbackIdx -= offset;
+          break;
+        }
+      }
+      const fallback = validPixels[fallbackIdx];
+      centerX = fallback.x;
+      centerY = fallback.y;
+    }
+
+    const lng = minX + centerX / scaleX;
+    const lat = maxY - centerY / scaleY;
+
+    return [lng, lat];
+  },
+  async getCentersOfMass(bounds, activeZones, canvasWidth, canvasHeight) {
     const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
     if (!activeZones.length) {
       return {
@@ -246,27 +276,56 @@ const GeometryWorker: GeometryWorkerClass = {
         dissolved,
       };
     }
-    const clippedFeatures: GeoJSON.Feature[] = [];
-    this.getGeos().features.forEach(f => {
-      const zone = this.zoneAssignments[f.properties?.id];
+    const clippedFeatures: Record<number, GeoJSON.Feature[]> = {};
+    this.getGeos().features.forEach((f, i) => {
+      const zone = this.zoneAssignments[f.properties?.path];
       if (zone === null || zone === undefined) return;
       const clipped = bboxClip(f.geometry as GeoJSON.Polygon, bounds);
       if (clipped.geometry?.coordinates.length) {
-        clippedFeatures.push({
+        if (!clippedFeatures[zone]) {
+          clippedFeatures[zone] = [];
+        }
+        clippedFeatures[zone].push({
           ...f,
           geometry: clipped.geometry,
         });
       }
     });
-    const results = this.dissolveGeometry(clippedFeatures as MapGeoJSONFeature[]);
-    centroids.features = results.centroids.features as GeoJSON.Feature<GeoJSON.Point>[];
-    dissolved.features = results.dissolved.features;
+    const centers = await Promise.all(
+      Object.entries(clippedFeatures).map(async ([_zone, features]) => {
+        const zone = +_zone;
+        const center = await this.computeCenterOfMass(
+          {
+            type: 'FeatureCollection',
+            features: features as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[],
+          },
+          bounds,
+          canvasWidth,
+          canvasHeight
+        );
+        if (!center) return null;
+        return {
+          type: 'Feature',
+          properties: {zone},
+          geometry: {
+            type: 'Point',
+            coordinates: center,
+          },
+        } as GeoJSON.Feature<GeoJSON.Point>;
+      })
+    );
+
+    centers.forEach(c => {
+      if (c) {
+        centroids.features.push(c);
+      }
+    });
     return {
       centroids,
       dissolved,
     };
   },
-  getNonCollidingRandomCentroids(bounds, activeZones, minBuffer) {
+  async getNonCollidingRandomCentroids(bounds, activeZones, minBuffer) {
     const {centroids, dissolved, visitedZones, bboxGeom} = this.getCentroidBoilerplate(bounds);
     if (!activeZones.length) {
       return {
@@ -343,14 +402,21 @@ const GeometryWorker: GeometryWorkerClass = {
       dissolved,
     };
   },
-  getCentroidsFromView({bounds, activeZones, strategy = 'non-colliding-centroids', minBuffer}) {
+  async getCentroidsFromView({
+    bounds,
+    activeZones,
+    strategy = 'non-colliding-centroids',
+    minBuffer,
+    canvasWidth = 256,
+    canvasHeight = 256,
+  }) {
     switch (strategy) {
       case 'center-of-mass':
-        return this.getCentersOfMass(bounds, activeZones);
+        return await this.getCentersOfMass(bounds, activeZones, canvasWidth, canvasHeight);
       case 'non-colliding-centroids':
-        return this.getNonCollidingRandomCentroids(bounds, activeZones, minBuffer);
+        return await this.getNonCollidingRandomCentroids(bounds, activeZones, minBuffer);
       default:
-        return this.getNonCollidingRandomCentroids(bounds, activeZones);
+        return await this.getNonCollidingRandomCentroids(bounds, activeZones);
     }
   },
   getPropertiesCentroids(ids) {

@@ -1,4 +1,4 @@
-import {Box, Text, Checkbox, Flex} from '@radix-ui/themes';
+import {Box, Text, Checkbox, Flex, Switch} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {getFeaturesInBbox, getFeaturesIntersectingCounties} from '../../utils/helpers';
 
@@ -21,13 +21,16 @@ export default function PaintByCounty() {
   };
 
   return (
-    <Box pb="3">
-      <Text as="label" size="2">
-        <Flex gap="2">
-          <Checkbox checked={paintByCounty} defaultChecked={false} onClick={handleToggle} />
-          Paint by County
-        </Flex>
-      </Text>
-    </Box>
+    <Text as="label" size="1">
+      <Flex gap="1" direction="column">
+        County Brush
+        <Switch
+          size="1"
+          checked={paintByCounty}
+          defaultChecked={false}
+          onClick={handleToggle}
+        />{' '}
+      </Flex>
+    </Text>
   );
 }

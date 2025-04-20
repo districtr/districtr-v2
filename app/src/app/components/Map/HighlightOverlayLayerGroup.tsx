@@ -4,7 +4,7 @@ import {
   BLOCK_SOURCE_ID,
   LABELS_BREAK_LAYER_ID,
 } from '@/app/constants/layers';
-import { useLayerFilter } from '@/app/hooks/useLayerFilter';
+import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
@@ -16,7 +16,7 @@ export const HighlightOverlayerLayerGroup: React.FC<{
   const mapDocument = useMapStore(state => state.mapDocument);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   const isOverlay = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
-  const layerFilter = useLayerFilter(child)
+  const layerFilter = useLayerFilter(child);
   const fillOpacity = isOverlay ? 0.3 : 0.1;
 
   if (!id || !mapDocument) return null;

@@ -65,6 +65,8 @@ def import_gerrydb_view(
         logger.error("ogr2ogr failed. Got %s", result)
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
+    # Commit before trying to build index
+    session.commit()
     logger.info(f"GerryDB view {table_name} imported successfully")
 
     if rm:
@@ -296,6 +298,8 @@ def load_sample_data(
         )
 
         if view.child_layer is not None:
+            # Commit districtr views
+            session.commit()
             _create_parent_child_edges(session=session, districtr_map_uuid=str(u))
 
         session.commit()
