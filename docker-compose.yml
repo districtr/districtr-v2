@@ -70,7 +70,7 @@ services:
       dockerfile: Dockerfile.dev
     command: sh -c "pip install -e ."
     volumes:
-      - ./pipelines:/pipelines
+      - ./pipelines:/app
       - ./data:/data
     env_file:
       - ./pipelines/.env
