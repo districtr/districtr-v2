@@ -5,7 +5,7 @@ from app.utils import (
     create_shatterable_gerrydb_view,
     create_parent_child_edges,
     add_extent_to_districtrmap,
-    update_districtrmap
+    update_districtrmap,
 )
 from sqlmodel import Session
 import subprocess

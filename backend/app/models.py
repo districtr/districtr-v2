@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional, Any
-from pydantic import UUID4, BaseModel, ConfigDict
+from typing import Optional
+from pydantic import UUID4, BaseModel
 from sqlmodel import (
     Field,
     ForeignKey,
@@ -16,7 +16,7 @@ from sqlmodel import (
     Integer,
     Text,
 )
-from sqlalchemy.types import ARRAY, TEXT
+from sqlalchemy.types import ARRAY
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import Float
 import pydantic_geojson
@@ -61,6 +61,7 @@ class TimeStampMixin(SQLModel):
         default=None,
     )
 
+
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
@@ -100,6 +101,7 @@ class DistrictrMapPublic(BaseModel):
     num_districts: int | None = None
     visible: bool = True
 
+
 class DistrictrMapUpdate(BaseModel):
     districtr_map_slug: str
     gerrydb_table_name: str | None
@@ -109,6 +111,7 @@ class DistrictrMapUpdate(BaseModel):
     tiles_s3_path: str | None = None
     num_districts: int | None = None
     visible: bool | None = None
+
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))

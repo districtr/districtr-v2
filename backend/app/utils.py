@@ -274,6 +274,7 @@ def add_extent_to_districtrmap(
     )
     session.execute(stmt)
 
+
 def download_file_from_s3(
     s3, url: ParseResult, out_path: str | None = None, replace=False
 ) -> str:

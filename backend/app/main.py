@@ -56,7 +56,7 @@ from app.models import (
     ShatterResult,
     TokenRequest,
     DocumentShareStatus,
-    BBoxGeoJSONs
+    BBoxGeoJSONs,
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
@@ -958,6 +958,7 @@ async def get_connected_component_bboxes(
         )
 
     return BBoxGeoJSONs(features=bboxes)
+
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(

@@ -12,9 +12,7 @@ from tests.constants import (
     GERRY_DB_FIXTURE_NAME,
     USER_ID,
 )
-from app.utils import (
-    create_districtr_map
-)
+from app.utils import create_districtr_map
 from app.models import DocumentEditStatus, DocumentShareStatus
 import jwt
 from app.core.config import settings
@@ -391,6 +389,7 @@ def test_patch_reset_assignments(client, document_id):
     assert assignments.status_code == 200
     assert len(assignments.json()) == 0
 
+
 def test_list_gerydb_views(client, districtr_maps):
     response = client.get("/api/gerrydb/views")
     assert response.status_code == 200
@@ -585,6 +584,7 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
     if result.returncode != 0:
         print(f"ogr2ogr failed. Got {result}")
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
+
 
 def test_change_colors(
     client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
