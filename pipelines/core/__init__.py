@@ -1,1 +1,1 @@
-"""Core package for the pipelines module."""
+"""Shared settings and helpers"""
