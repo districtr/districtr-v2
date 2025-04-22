@@ -3,12 +3,8 @@ import {AsyncBuffer, FileMetaData} from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
 
 type DistrictrView = string;
-export interface ExtendedFileMetaData extends FileMetaData {
-  rows: Record<string, [number, number]>;
-  columns: AllTabularColumns[number][];
-}
 type MetaInfo = {
-  metadata: ExtendedFileMetaData;
+  metadata: FileMetaData;
   url: string;
   byteLength: number;
   file: AsyncBuffer;
@@ -25,7 +21,7 @@ export type ColumnarTableData = {
  */
 export type ParquetWorkerClass = {
   _metaCache: Record<DistrictrView, MetaInfo>;
-
+  _idRgCache: Record<string, [number, number]>;
   /**
    * Get the demography for a given map document and broken ids.
    * @param mapDocument - The map document.
@@ -36,6 +32,13 @@ export type ParquetWorkerClass = {
     mapDocument: DocumentObject,
     brokenIds?: string[]
   ) => Promise<{columns: AllTabularColumns[number][]; results: ColumnarTableData}>;
+  /**
+   * Get the row groups for a given id.
+   * @param meta - The metadata.
+   * @param id - The id.
+   * @returns The row groups.
+   */
+  getRowGroupsFromId: (meta: MetaInfo, id: string) => [number, number];
   /**
    * Get the data for a given range of rows
    * @param view - Districtr map DocumentObject

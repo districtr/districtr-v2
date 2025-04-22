@@ -1,11 +1,12 @@
 import {expose} from 'comlink';
-import {ColumnarTableData, ExtendedFileMetaData, ParquetWorkerClass} from './parquetWorker.types';
+import {ColumnarTableData, ParquetWorkerClass} from './parquetWorker.types';
 import {compressors} from 'hyparquet-compressors';
 import {parquetRead, byteLengthFromUrl, asyncBufferFromUrl, parquetMetadataAsync} from 'hyparquet';
 import {AllTabularColumns, SummaryRecord} from '../api/summaryStats';
 
 const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
+  _idRgCache: {},
 
   async getMetaData(view) {
     if (this._metaCache[view]) {
@@ -14,15 +15,7 @@ const ParquetWorker: ParquetWorkerClass = {
     const url = `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/tabular/${view}.parquet`;
     const byteLength = await byteLengthFromUrl(url).then(Number);
     const file = await asyncBufferFromUrl({url, byteLength});
-    let metadata = (await parquetMetadataAsync(file)) as ExtendedFileMetaData;
-    metadata['rows'] = JSON.parse(
-      metadata['key_value_metadata']
-        ?.find(f => f.key === 'length_list')
-        ?.value?.replaceAll("'", '"') ?? '{}'
-    );
-    metadata['columns'] = JSON.parse(
-      metadata['key_value_metadata']?.find(f => f.key === 'column_list')?.value ?? '[]'
-    );
+    let metadata = await parquetMetadataAsync(file);
     this._metaCache[view] = {
       metadata,
       url,
@@ -31,30 +24,59 @@ const ParquetWorker: ParquetWorkerClass = {
     };
     return this._metaCache[view];
   },
-
-  async getRowRange(mapDocument, range, ignoreIds) {
+  getRowGroupsFromId(meta, id) {
+    const rowGroups = [];
+    if (!meta.metadata.row_groups.length) {
+      throw new Error('No row groups found');
+    }
+    const parent_path_col_index = meta.metadata.row_groups[0].columns.findIndex(f =>
+      f.meta_data?.path_in_schema.includes('parent_path')
+    );
+    const rg_length = Number(meta.metadata.row_groups[0].num_rows);
+    if (parent_path_col_index === -1) {
+      throw new Error('No parent path column found');
+    }
+    for (let i = 0; i < meta.metadata.row_groups.length; i++) {
+      const rg = meta.metadata.row_groups[i];
+      const {min, max} = rg.columns[parent_path_col_index].meta_data?.statistics || {};
+      if (min === undefined || max === undefined) {
+        throw new Error('No statistics found');
+      }
+      if (min <= id && max >= id) {
+        rowGroups.push(i);
+      }
+      if (max > id) {
+        break;
+      }
+    }
+    const rgRanges = rowGroups.map(i => [i * rg_length, (i + 1) * rg_length]).flat();
+    const rowRange: [number, number] = [rgRanges[0], rgRanges[rgRanges.length - 1]];
+    return rowRange;
+  },
+  async getRowRange(mapDocument, range, brokenIds) {
     if (!mapDocument) {
       throw new Error('No map document provided');
     }
     const view = mapDocument.districtr_map_slug;
     const meta = await this.getMetaData(view);
     const [rowStart, rowEnd] = range;
-    const ignoreIdsSet = new Set(ignoreIds);
+    const brokenIdsSet = new Set(brokenIds);
     const wideDataDict: Record<string, Partial<SummaryRecord>> = {};
     await parquetRead({
       ...meta,
       compressors,
       onComplete: data => {
-        for (const [path, column_name, value] of data) {
-          if (ignoreIdsSet.has(path)) {
+        for (const [parent_path, path, column_name, value] of data) {
+          const isParent = parent_path === '__parent';
+          const idInSet = isParent ? brokenIdsSet.has(path) : brokenIdsSet.has(parent_path);
+          if ((isParent && idInSet) || (!isParent && !idInSet)) {
             continue;
           } else {
             if (!wideDataDict[path]) {
               wideDataDict[path] = {
-                // @ts-ignore intermediate format type issue :/
                 path,
                 // if the first row is 0, then it's the parent layer, otherwise it is any child layer
-                sourceLayer: range[0] === 0 ? mapDocument.parent_layer! : mapDocument.child_layer!,
+                sourceLayer: isParent ? mapDocument.parent_layer! : mapDocument.child_layer!,
               };
             }
             wideDataDict[path][column_name as keyof SummaryRecord] = value;
@@ -87,8 +109,7 @@ const ParquetWorker: ParquetWorkerClass = {
       throw new Error('No map document provided');
     }
     const meta = await this.getMetaData(mapDocument.districtr_map_slug);
-    const range = meta.metadata.rows[id];
-    return this.getRowRange(mapDocument, range, ignoreIds);
+    return this.getRowRange(mapDocument, this.getRowGroupsFromId(meta, id), ignoreIds);
   },
   mergeRanges(ranges) {
     // First, normalize each range so start <= end
@@ -120,7 +141,7 @@ const ParquetWorker: ParquetWorkerClass = {
   async getDemography(mapDocument, brokenIds) {
     const meta = await this.getMetaData(mapDocument.districtr_map_slug);
     const promises = this.mergeRanges(
-      ['parent', ...(brokenIds || [])].map(id => meta.metadata.rows[id])
+      ['__parent', ...(brokenIds || [])].map(id => this.getRowGroupsFromId(meta, id))
     ).map(range => this.getRowRange(mapDocument, range, brokenIds));
     const data = await Promise.all(promises);
 
@@ -131,7 +152,8 @@ const ParquetWorker: ParquetWorkerClass = {
         results[k].push(...v);
       });
     });
-    return {columns: meta.metadata.columns, results};
+
+    return {columns: Object.keys(results) as AllTabularColumns[number][], results};
   },
 };
 

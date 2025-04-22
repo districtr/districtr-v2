@@ -6,7 +6,6 @@ from core.settings import settings
 import pandas as pd
 import geopandas as gpd
 import duckdb
-import json
 from core.constants import S3_TABULAR_PREFIX
 
 logger = logging.getLogger(__name__)
@@ -53,7 +52,7 @@ class TabularBatch(Config):
             logger.info(
                 f"Joined child layer with parent layer :: {len(child_gdf)} rows"
             )
-            parent_gdf["parent_path"] = "parent"
+            parent_gdf["parent_path"] = "__parent"
             # drop geometry
             parent_gdf = parent_gdf.drop(columns=["geometry"])
             child_gdf = child_gdf.drop(columns=["geometry"])
@@ -78,14 +77,6 @@ class TabularBatch(Config):
     def output_parquet(cls, df: pd.DataFrame | None, out_path: str) -> None:
         if df is None:
             return
-        grouped = json.dumps(
-            df.groupby("parent_path")
-            .apply(lambda x: [int(x.index.min()), int(x.index.max())])
-            .to_dict()
-        )
-        # replace ' with "
-        grouped = grouped.replace("'", '"')
-
         con = duckdb.connect(database=":memory:")
         con.sql(
             f"""
@@ -98,6 +89,7 @@ class TabularBatch(Config):
             f"""
               COPY (
                   SELECT
+                      parent_path,
                       path,
                       column_name,
                       value
@@ -109,10 +101,7 @@ class TabularBatch(Config):
                   COMPRESSION 'zstd',
                   COMPRESSION_LEVEL 12,
                   OVERWRITE_OR_IGNORE true,
-                  KV_METADATA {{
-                    column_list: {[f'"{entry}"' for entry in df['column_name'].unique().tolist()]},
-                    length_list: {grouped}
-                  }}
+                  ROW_GROUP_SIZE 10_000
               );
             """
         )
