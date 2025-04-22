@@ -14,7 +14,7 @@ requires-python = ">=3.9"
 dependencies = []
 
 [tool.setuptools]
-packages = ["core", "tilesets", "tabular"]
+packages = ["core", "tilesets", "tabular", "cli"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.yml", "*.json"] 

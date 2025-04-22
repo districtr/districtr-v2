@@ -1,8 +1,6 @@
 """
-Main module to run the tilesets package from the command line.
-Example usage: python -m tilesets [command] [options]
+Main entry point for the tabular module.
 """
-
 from tabular.cli import cli
 
 if __name__ == "__main__":

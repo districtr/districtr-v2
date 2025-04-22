@@ -3,17 +3,17 @@ import logging
 from core.settings import settings
 from core.constants import S3_TABULAR_PREFIX
 from tabular.models import TabularBatch
+from core.cli import cli
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-@click.group()
-def cli():
+@cli.group()
+def tabular() -> None:
+    """Tabular analysis commands."""
     pass
 
-
-@cli.command("build-parquet")
+@tabular.command("build-parquet")
 @click.option(
     "--parent-layer",
     help="Path to the parent layer to load. Can be an S3 URI",
@@ -53,7 +53,7 @@ def build_parquet(
         )
 
 
-@cli.command("batch-build-parquet")
+@tabular.command("batch-build-parquet")
 @click.option("--config-path", help="Path to the config file", required=True)
 @click.option("--data-dir", help="Path to the data directory", required=True)
 @click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
