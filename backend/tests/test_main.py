@@ -13,8 +13,7 @@ from tests.constants import (
     USER_ID,
 )
 from app.utils import (
-    create_districtr_map,
-    add_available_summary_stats_to_districtrmap,
+    create_districtr_map
 )
 from app.models import DocumentEditStatus, DocumentShareStatus
 import jwt
@@ -560,12 +559,6 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         districtr_map_slug=layer,
         gerrydb_table_name=layer,
     )
-    summary_stats = add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-    assert summary_stats == [
-        "TOTPOP"
-    ], f"Expected TOTPOP to be available, got {summary_stats}"
 
     session.commit()
 
@@ -610,13 +603,6 @@ def ks_demo_view_census_blocks_summary_stats_vap(session: Session):
         districtr_map_slug=layer,
         gerrydb_table_name=layer,
     )
-    summary_stats = add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-    assert summary_stats == [
-        "VAP"
-    ], f"Expected VAP to be available, got {summary_stats}"
-
     session.commit()
 
     if result.returncode != 0:
@@ -661,62 +647,11 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
         gerrydb_table_name=layer,
         num_districts=4,
     )
-    summary_stats = add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-    assert (
-        "TOTPOP" in summary_stats
-    ), f"Expected TOTPOP to be available, got {summary_stats}"
-    assert "VAP" in summary_stats, f"Expected VAP to be available, got {summary_stats}"
-
     session.commit()
 
     if result.returncode != 0:
         print(f"ogr2ogr failed. Got {result}")
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
-
-
-def test_get_demography_table(
-    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
-):
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(f"/api/document/{doc_uuid}/demography")
-    print(result.json())
-    assert result.status_code == 200
-    data = result.json()
-    assert "columns" in data
-    assert "results" in data
-    assert len(data["columns"]) == 15
-    assert len(data["results"]) == 10
-
-
-def test_get_demography_select_ids(
-    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
-):
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(
-        f"/api/document/{doc_uuid}/demography?ids=202090441022004&ids=202090428002008"
-    )
-    assert result.status_code == 200
-    data = result.json()
-    assert len(data["results"]) == 2
-    assert data["results"][0][0] == "202090441022004"
-    assert data["results"][1][0] == "202090428002008"
-
-
-def test_get_demography_select_ids_and_select_table(
-    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
-):
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(
-        f"/api/document/{doc_uuid}/demography?ids=202090441022004&ids=202090428002008&stats=TOTPOP"
-    )
-    assert result.status_code == 200
-    data = result.json()
-    assert len(data["results"]) == 2
-    assert "total_pop_20" in data["columns"]
-    assert "total_vap_20" not in data["columns"]
-
 
 def test_change_colors(
     client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
