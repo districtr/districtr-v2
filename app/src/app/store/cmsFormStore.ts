@@ -304,10 +304,11 @@ export const useCmsFormStore = create(
           return;
         }
 
-        await deleteCMSContent({
+        let result = await deleteCMSContent({
           body: {content_id: id, content_type: contentType},
           session: session,
         });
+        console.log(result);
 
         const currentContent = get().content;
         if (!currentContent) return;

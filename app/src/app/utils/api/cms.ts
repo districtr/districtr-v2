@@ -2,7 +2,6 @@ import {LANG_MAPPING} from '../language';
 import {get, patch, post, del} from './factory';
 import {ClientSession} from '@/app/lib/auth0';
 
-// Define interfaces for CMS content
 export interface CMSContentCreate {
   slug: string;
   content_type: 'tags' | 'places';
@@ -73,15 +72,20 @@ export interface CMSContentResponseWithLanguages<
 export const createCMSContent = post<CMSContentCreate, Promise<TagsCMSContent | PlacesCMSContent>>(
   'cms/content'
 );
+
 export const updateCMSContent = patch<CMSContentUpdate, Promise<TagsCMSContent | PlacesCMSContent>>(
   'cms/content'
 );
-export const deleteCMSContent = del<CMSContentId, Promise<TagsCMSContent | PlacesCMSContent>>(
-  'cms/content'
-);
+
 export const publishCMSContent = post<CMSContentId, Promise<TagsCMSContent | PlacesCMSContent>>(
   'cms/content/publish'
 );
+
+export const deleteCMSContent = async (type: CmsContentTypes, id: string) => {
+  const url = `cms/content/${type}/${id}`;
+  const deleteContent = del(url);
+  return await deleteContent({});
+};
 
 export const getCMSContent = async <T extends CmsContentTypes>(
   slug: string,
@@ -99,9 +103,6 @@ export const listCMSContent = async (
 ): Promise<AllCmsLists | null> => {
   const url = `cms/content/${type}/list`;
   console.log('URL', url);
-  // if (params.language) url.searchParams.append('language', params.language);
-  // if (params.districtr_map_slug)
-  //   url.searchParams.append('districtr_map_slug', params.districtr_map_slug);
   const listContent = get<Promise<AllCmsLists>>(url.toString());
   return await listContent({});
 };
@@ -112,9 +113,6 @@ export const listAuthoredCMSContent = async (
   session: ClientSession
 ): Promise<AllCmsLists | null> => {
   const url = `cms/content/${type}/list/authored`;
-  // if (params.language) url.searchParams.append('language', params.language);
-  // if (params.districtr_map_slug)
-  //   url.searchParams.append('districtr_map_slug', params.districtr_map_slug);
   const listContent = get<Promise<AllCmsLists>>(url.toString());
   return await listContent({body: {}, session});
 };
