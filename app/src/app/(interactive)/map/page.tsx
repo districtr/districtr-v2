@@ -1,60 +1,43 @@
-'use client';
-import React, {useEffect} from 'react';
-import {MapContextMenu} from '@components/ContextMenu';
-import {MapComponent} from '@components/Map/Map';
-import SidebarComponent from '@components/sidebar/Sidebar';
-import {QueryClientProvider} from '@tanstack/react-query';
-import {queryClient} from '@utils/api/queryClient';
-import {ErrorNotification} from '@components/ErrorNotification';
-import {useMapStore} from '@store/mapStore';
-import {Toolbar} from '@components/Toolbar/Toolbar';
-import {MapTooltip} from '@components/MapTooltip';
-import {MapLockShade} from '@components/MapLockShade';
-import {Topbar} from '@components/Topbar';
-import {Flex} from '@radix-ui/themes';
-import {initSubs} from '@store/subscriptions';
+import React from 'react';
+import type {Metadata} from 'next';
+import MapPageComponent from './component';
+import {getDocument} from '@utils/api/apiHandlers/getDocument';
+import {type DocumentObject} from '@utils/api/apiHandlers/types';
+
+type MetadataProps = {
+  searchParams: Promise<{document_id?: string | string[] | undefined}>;
+};
+
+const DISTRICTR_LOGO = [
+  {
+    url: 'https://districtr-v2-frontend.fly.dev/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
+    width: 1136,
+    height: 423,
+  },
+];
+
+export async function generateMetadata({searchParams}: MetadataProps): Promise<Metadata> {
+  const resolvedParams = await searchParams;
+  const document_id = resolvedParams?.document_id ?? '';
+  const singularDocumentId = Array.isArray(document_id) ? document_id[0] : document_id;
+  let mapDocument: DocumentObject | null = null;
+  if (singularDocumentId) {
+    mapDocument = await getDocument(singularDocumentId);
+  }
+  const districtCount = mapDocument?.num_districts ? `${mapDocument.num_districts} districts` : '';
+  return {
+    title: 'Districtr 2.0',
+    openGraph: {
+      title: districtCount
+        ? `${districtCount} - ${mapDocument?.map_metadata?.name ?? 'Shared Map'}`
+        : (mapDocument?.map_metadata?.name ?? 'Get Started'),
+      description: mapDocument?.map_metadata?.description ?? 'Create districting maps',
+      siteName: 'Districtr 2.0',
+      images: DISTRICTR_LOGO,
+    },
+  };
+}
 
 export default function Map() {
-  // check if userid in local storage; if not, create one
-  const userID = useMapStore(state => state.userID);
-  const setUserID = useMapStore(state => state.setUserID);
-  const showDemographicMap = useMapStore(
-    state => state.mapOptions.showDemographicMap === 'side-by-side'
-  );
-
-  useEffect(() => {
-    !userID && setUserID();
-  }, [userID, setUserID]);
-
-  useEffect(() => {
-    const unsub = initSubs();
-    return () => {
-      console.log('unsubscribing');
-      unsub();
-    };
-  }, []);
-
-  if (queryClient) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
-          <SidebarComponent />
-          <div
-            className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}
-          >
-            <Topbar />
-            <Flex direction="row" height="100%">
-              <MapComponent />
-              {showDemographicMap && <MapComponent isDemographicMap />}
-            </Flex>
-            <Toolbar />
-            <MapLockShade />
-            <MapTooltip />
-          </div>
-          <MapContextMenu />
-          <ErrorNotification />
-        </div>
-      </QueryClientProvider>
-    );
-  }
+  return <MapPageComponent />;
 }

@@ -1,13 +1,12 @@
 import axios from 'axios';
+import {API_URL} from '@utils/api/constants';
 import {DocumentObject} from './types';
-import {useMapStore} from '@store/mapStore';
 
 export const getDocument = async (document_id: string): Promise<DocumentObject> => {
-  const userID = useMapStore.getState().userID;
-  if (document_id && userID) {
+  if (document_id) {
     return await axios
-      .post(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`, {
-        user_id: userID,
+      .post(`${API_URL}/api/document/${document_id}`, {
+        user_id: '',
       })
       .then(res => {
         return res.data;
