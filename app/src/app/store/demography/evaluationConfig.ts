@@ -39,6 +39,30 @@ export const VAPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['VAP']> 
   {column: 'other_vap_20', label: 'Other'},
 ];
 
+export const VoterColumnConfig: EvalColumnConfiguration<SummaryStatConfig['VOTERHISTORY']> = [
+  {column: 'pres_20_rep', label: '2020 Pres (R)'},
+  {column: 'pres_20_dem', label: '2020 Pres (D)'},
+  {column: 'pres_16_rep', label: '2016 Pres (R)'},
+  {column: 'pres_16_dem', label: '2016 Pres (D)'},
+  
+  {column: 'gov_22_rep', label: '2022 Gov (R)'},
+  {column: 'gov_22_dem', label: '2022 Gov (D)'},
+  {column: 'gov_18_rep', label: '2018 Gov (R)'},
+  {column: 'gov_18_dem', label: '2018 Gov (D)'},
+
+  {column: 'sen_22_rep', label: '2022 Sen (R)'},
+  {column: 'sen_22_dem', label: '2022 Sen (D)'},
+  {column: 'sen_18_rep', label: '2018 Sen (R)'},
+  {column: 'sen_18_dem', label: '2018 Sen (D)'},
+  {column: 'sen_16_rep', label: '2016 Sen (R)'},
+  {column: 'sen_16_dem', label: '2016 Sen (D)'},
+
+  {column: 'ag_22_rep', label: '2022 AG (R)'},
+  {column: 'ag_22_dem', label: '2022 AG (D)'},
+  {column: 'ag_18_rep', label: '2018 AG (R)'},
+  {column: 'ag_18_dem', label: '2018 AG (D)'},
+];
+
 export const evalColumnConfigs: Partial<
   Record<
     keyof typeof summaryStatsConfig,
@@ -47,6 +71,7 @@ export const evalColumnConfigs: Partial<
 > = {
   TOTPOP: TOTPOPColumnConfig,
   VAP: VAPColumnConfig,
+  VOTERHISTORY: VoterColumnConfig,
 };
 
 export const modeButtonConfig: Array<{label: string; value: EvalModes}> = [
@@ -57,7 +82,7 @@ export const modeButtonConfig: Array<{label: string; value: EvalModes}> = [
   {
     label: 'Population by Count',
     value: 'count',
-  },
+  }
 ];
 
 export const numberFormats: Record<EvalModes, NumberFormats> = {
@@ -77,5 +102,9 @@ export const summaryStatLabels: Array<{
   {
     value: 'TOTPOP',
     label: 'Total population',
+  },
+  {
+    value: 'VOTERHISTORY',
+    label: 'Voter history',
   },
 ];

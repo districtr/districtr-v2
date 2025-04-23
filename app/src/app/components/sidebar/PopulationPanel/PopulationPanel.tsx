@@ -8,14 +8,14 @@ import {useMapStore} from '@store/mapStore';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
-import {useDemography} from '@/app/hooks/useDemography';
+import {useZonePopulations} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
 export const PopulationPanel = () => {
-  const {populationData,demoIsLoaded} = useDemography();
+  const {populationData,demoIsLoaded} = useZonePopulations();
   const {summaryStats, zoneStats} = useSummaryStats();
   const idealPopulation = summaryStats?.idealpop;
   const unassigned = summaryStats.unassigned;

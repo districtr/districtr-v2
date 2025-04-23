@@ -5,7 +5,6 @@ import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
 import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
-import {useDemography} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import { EvalModes, modeButtonConfig, numberFormats, summaryStatLabels } from '@/app/store/demography/evaluationConfig';
 import { useDemographyStore } from '@/app/store/demography/demographyStore';
@@ -14,9 +13,7 @@ const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
-  const {populationData, demoIsLoaded} = useDemography(showUnassigned);
-  console.log('!!!', populationData)
-  const {summaryStats, zoneStats} = useSummaryStats();
+  const {zoneStats, demoIsLoaded, zoneData} = useSummaryStats();
   const maxValues = zoneStats?.maxValues;
   const numberFormat = numberFormats[evalMode];
   const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
@@ -33,9 +30,6 @@ const Evaluation: React.FC = () => {
     }
   }, [availableSummaries]);
   const columnConfig = summaryType ? availableSummaries[summaryType] : [];
-
-  // const summaryStatKeys = summaryType ? summaryStatsConfig[summaryType] : [];
-  // const totalColumn = 'sumColumn' in summaryStatKeys ? summaryStatKeys.sumColumn : undefined;
   if (!demoIsLoaded) {
     return <Flex dir='column' justify='center' align='center' p='4'>
       <Spinner />
@@ -44,7 +38,7 @@ const Evaluation: React.FC = () => {
       </Text>
     </Flex>;
   }
-  if (!populationData || !maxValues || !availableColumnSets.length) {
+  if (!zoneData || !maxValues || !availableColumnSets.length) {
     return (
       <Blockquote color="crimson">
         <Text>Summary statistics are not available for this map.</Text>
@@ -85,8 +79,6 @@ const Evaluation: React.FC = () => {
           orientation="horizontal"
           name="evaluation-options"
           value={[
-            // showAverages ? 'averages' : '',
-            // showStdDev ? 'stddev' : '',
             colorBg ? 'colorBg' : '',
             showUnassigned ? 'unassigned' : '',
           ]}
@@ -117,7 +109,7 @@ const Evaluation: React.FC = () => {
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {populationData
+            {zoneData
               .sort((a, b) => (a.zone || 0) - (b.zone || 0))
               .map((row, i) => {
                 const isUnassigned = row.zone === undefined;

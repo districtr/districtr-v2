@@ -22,7 +22,7 @@ import {SummaryRecord} from '../utils/api/summaryStats';
  * - Applies any painted changes to the population data.
  * - Sorts the population data by zone.
  */
-export const useDemography = (includeUnassigned?: boolean) => {
+export const useZonePopulations = (includeUnassigned?: boolean) => {
   const demogHash = useDemographyStore(state => state.dataHash);
   const chartHash = useChartStore(state => state.dataUpdateHash);
   const paintedChanges = useChartStore(state => state.paintedChanges);
