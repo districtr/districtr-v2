@@ -3,9 +3,7 @@ import {EvalColumnConfiguration, SummaryStatConfig} from '@/app/utils/api/summar
 
 export type EvalModes = 'share' | 'count' | 'totpop';
 
-export const TOTPOPColumnConfig: EvalColumnConfiguration<
-  SummaryStatConfig['TOTPOP']
-> = [
+export const TOTPOPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['TOTPOP']> = [
   {
     label: 'Black',
     column: 'bpop_20',
@@ -32,9 +30,7 @@ export const TOTPOPColumnConfig: EvalColumnConfiguration<
   },
 ];
 
-export const VAPColumnConfig: EvalColumnConfiguration<
-  SummaryStatConfig['VAP']
-> = [
+export const VAPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['VAP']> = [
   {column: 'bvap_20', label: 'Black'},
   {column: 'hvap_20', label: 'Hispanic'},
   {column: 'amin_vap_20', label: 'AMIN'},

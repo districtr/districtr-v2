@@ -1,7 +1,7 @@
 import React from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
-import { SummaryRecord } from '@/app/utils/api/summaryStats';
+import {SummaryRecord} from '@/app/utils/api/summaryStats';
 
 export const PopulationLabels: React.FC<{
   xScale: (value: number) => number;
