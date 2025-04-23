@@ -1,6 +1,34 @@
-export const summaryStatsConfig = {
+import {AnyD3Scale} from '@visx/scale';
+import * as chromatic from 'd3-scale-chromatic';
+export interface ColumnSet {
+  /**
+   * All possible columns appearing in the set
+   */
+  columns: Array<string>;
+  /**
+   * Optionally, the denominator column for the set
+   */
+  sumColumn?: string;
+}
+
+export type EvalColumnConfiguration<T extends ColumnSet> = Array<{
+  label: string;
+  column: T['columns'][number];
+}>;
+
+export type MapColumnConfiguration<T extends ColumnSet> = Array<{
+  label: string;
+  value: T['columns'][number];
+  colorScheme?: typeof chromatic.schemeBlues;
+  expression?: (row: DemographyRow) => number;
+  fixedScale?: AnyD3Scale;
+  variants?: Array<'percent' | 'raw'>;
+  customLegendLabels?: Array<string>;
+}>;
+
+export const summaryStatsConfig: Record<string, ColumnSet> = {
   TOTPOP: {
-    possibleColumns: [
+    columns: [
       'amin_pop_20',
       'asian_nhpi_pop_20',
       'bpop_20',
@@ -12,7 +40,7 @@ export const summaryStatsConfig = {
     sumColumn: 'total_pop_20',
   },
   VAP: {
-    possibleColumns: [
+    columns: [
       'white_vap_20',
       'other_vap_20',
       'amin_vap_20',
@@ -24,7 +52,7 @@ export const summaryStatsConfig = {
     sumColumn: 'total_vap_20',
   },
   VOTERHISTORY: {
-    possibleColumns: [
+    columns: [
       'ag_22_rep',
       'ag_22_dem',
       'ag_18_rep',
@@ -47,8 +75,22 @@ export const summaryStatsConfig = {
   },
 } as const;
 
+export const ALL_VOTER_COLUMN_GROUPINGS: Record<string, ColumnSet> = {
+  'Attorney General 2022': {
+    columns: ['ag_22_dem', 'ag_22_rep'],
+  },
+  'Attorney General 2018': {columns: ['ag_18_dem', 'ag_18_rep']},
+  'Governor 2022': {columns: ['gov_22_dem', 'gov_22_rep']},
+  'Governor 2018': {columns: ['gov_18_dem', 'gov_18_rep']},
+  'Senate 2022': {columns: ['sen_22_dem', 'sen_22_rep']},
+  'Senate 2018': {columns: ['sen_18_dem', 'sen_18_rep']},
+  'Senate 2016': {columns: ['sen_16_dem', 'sen_16_rep']},
+  'Presidential 2020': {columns: ['pres_20_dem', 'pres_20_rep']},
+  'Presidential 2016': {columns: ['pres_16_dem', 'pres_16_rep']},
+} as const;
+
 /**
- * Adds a _pct suffix to all possibleColumns and returns a new config with the same keys
+ * Adds a _pct suffix to all columns and returns a new config with the same keys
  * Also includes the original columns without the _pct suffix
  * @param config - The config to add the _pct suffix to
  * @returns A new config with both original columns and columns with _pct suffix
@@ -57,9 +99,9 @@ const withPct = <T extends typeof summaryStatsConfig>(
   config: T
 ): {
   [K in keyof T]: {
-    possibleColumns: Array<
-      | Extract<T[K], {possibleColumns: readonly string[]}>['possibleColumns'][number]
-      | `${Extract<T[K], {possibleColumns: readonly string[]}>['possibleColumns'][number]}_pct`
+    columns: Array<
+      | Extract<T[K], {columns: readonly string[]}>['columns'][number]
+      | `${Extract<T[K], {columns: readonly string[]}>['columns'][number]}_pct`
     >;
     sumColumn?: Extract<T[K], {sumColumn?: string}>['sumColumn'];
   };
@@ -69,10 +111,7 @@ const withPct = <T extends typeof summaryStatsConfig>(
       key,
       {
         ...value,
-        possibleColumns: [
-          ...value.possibleColumns,
-          ...value.possibleColumns.map(col => `${col}_pct`),
-        ],
+        columns: [...value.columns, ...value.columns.map(col => `${col}_pct`)],
       },
     ])
   ) as any;
@@ -82,7 +121,7 @@ export const summaryStatsWithPctConfig = withPct(summaryStatsConfig);
 export const possibleRollups = Object.values(summaryStatsConfig)
   .filter(stat => 'sumColumn' in stat)
   .flatMap(stat =>
-    stat.possibleColumns.map(col => ({
+    stat.columns.map(col => ({
       // @ts-ignore
       total: stat.sumColumn,
       col,
@@ -92,7 +131,7 @@ export const possibleRollups = Object.values(summaryStatsConfig)
 // DERIVED TYPES
 export type SummaryStatConfig = typeof summaryStatsConfig;
 export type KeyOfSummaryStatConfig = keyof SummaryStatConfig;
-export type AllTabularColumns = SummaryStatConfig[KeyOfSummaryStatConfig]['possibleColumns'];
+export type AllTabularColumns = SummaryStatConfig[KeyOfSummaryStatConfig]['columns'];
 export type DemographyRow = {
   [key in AllTabularColumns[number]]: number;
 };
@@ -104,10 +143,10 @@ export type SummaryRecord = TableRow & {zone: number};
 export type SummaryTable = Array<SummaryRecord>;
 
 /**
- * A shape of data including the columns in possibleColumns with a _pct suffix
+ * A shape of data including the columns in columns with a _pct suffix
  */
 export type TabularDataWithPercent<T extends SummaryStatConfig[keyof SummaryStatConfig]> = {
-  [K in T['possibleColumns'][number] as `${K}_pct`]: number;
+  [K in T['columns'][number] as `${K}_pct`]: number;
 } & {
-  [K in T['possibleColumns'][number]]: number;
+  [K in T['columns'][number]]: number;
 };

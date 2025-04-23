@@ -74,10 +74,10 @@ const ParquetWorker: ParquetWorkerClass = {
           } else {
             if (!wideDataDict[path]) {
               wideDataDict[path] = {
-                path,
+                path: path,
                 // if the first row is 0, then it's the parent layer, otherwise it is any child layer
                 sourceLayer: isParent ? mapDocument.parent_layer! : mapDocument.child_layer!,
-              };
+              } as Partial<SummaryRecord>;
             }
             wideDataDict[path][column_name as keyof SummaryRecord] = value;
           }

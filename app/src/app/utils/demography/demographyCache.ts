@@ -243,7 +243,7 @@ class DemographyCache {
 
     Object.entries(summaryStatsConfig).forEach(([key, config]) => {
       const summaryStats: Partial<DemographyRow> = {};
-      config['possibleColumns'].forEach(col => (summaryStats[col] = summaries[col]));
+      config['columns'].forEach(col => (summaryStats[col] = summaries[col]));
       // @ts-ignore
       this.summaryStats[key] = summaryStats as SummaryRecord;
     });
@@ -374,7 +374,7 @@ class DemographyCache {
         : config.value
     ) as AllTabularColumns[number];
     if (config.fixedScale) {
-      this.colorScale = config.fixedScale;
+      this.colorScale = config.fixedScale as AnyD3Scale;
     } else {
       const quantiles = this.calculateQuantiles(config, variableName, numberOfBins);
       if (!quantiles) return;

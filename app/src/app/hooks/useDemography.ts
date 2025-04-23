@@ -40,7 +40,7 @@ export const useDemography = (includeUnassigned?: boolean) => {
     if (zonesPresent.length < numDistricts) {
       for (let i = 1; i <= numDistricts; i++) {
         if (!zonesPresent.includes(i)) {
-          cleanedData.push({zone: i, total_pop_20: 0} as SummaryRecord);
+          cleanedData.push({zone: i, total_pop_20: 0} as unknown as SummaryRecord);
         }
       }
     }

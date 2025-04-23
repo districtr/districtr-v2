@@ -1,6 +1,11 @@
 'use client';
 import * as chromatic from 'd3-scale-chromatic';
-import {AllTabularColumns, DemographyRow} from '@utils/api/summaryStats';
+import {
+  ALL_VOTER_COLUMN_GROUPINGS,
+  DemographyRow,
+  MapColumnConfiguration,
+  SummaryStatConfig,
+} from '@utils/api/summaryStats';
 import {scaleLinear} from '@visx/scale';
 import {AnyD3Scale} from './types';
 
@@ -11,27 +16,11 @@ export const PARTISAN_SCALE = scaleLinear()
   .domain(Array.from({length: 11}, (_, i) => i / 10))
   .range(chromatic.schemeRdBu[11]) as AnyD3Scale;
 
-export const ALL_VOTER_COLUMNS = {
-  'Attorney General 2022': ['ag_22_dem', 'ag_22_rep'],
-  'Attorney General 2018': ['ag_18_dem', 'ag_18_rep'],
-  'Governor 2022': ['gov_22_dem', 'gov_22_rep'],
-  'Governor 2018': ['gov_18_dem', 'gov_18_rep'],
-  'Senate 2022': ['sen_22_dem', 'sen_22_rep'],
-  'Senate 2018': ['sen_18_dem', 'sen_18_rep'],
-  'Senate 2016': ['sen_16_dem', 'sen_16_rep'],
-  'Presidential 2020': ['pres_20_dem', 'pres_20_rep'],
-  'Presidential 2016': ['pres_16_dem', 'pres_16_rep'],
-} as const;
-
-export const demographyVariables: Array<{
-  label: string;
-  value: AllTabularColumns[number];
-  colorScheme?: typeof chromatic.schemeBlues;
-  expression?: (row: DemographyRow) => number;
-  fixedScale?: AnyD3Scale;
-  variants?: Array<'percent' | 'raw'>;
-  customLegendLabels?: Array<string>;
-}> = [
+// type up some abstractions / api layer stuff
+// tabular configuration
+export const demographyVariables: MapColumnConfiguration<
+  SummaryStatConfig['TOTPOP'] | SummaryStatConfig['VAP'] | SummaryStatConfig['VOTERHISTORY']
+> = [
   {
     label: 'Population: Total',
     value: 'total_pop_20',
@@ -101,13 +90,14 @@ export const demographyVariables: Array<{
     value: 'other_vap_20',
     variants: ['percent', 'raw'],
   },
-  ...Object.entries(ALL_VOTER_COLUMNS).map(([label, value]) => ({
+  ...Object.entries(ALL_VOTER_COLUMN_GROUPINGS).map(([label, {columns}]) => ({
     label: `Election: ${label}`,
-    value: value[0],
+    value: columns[0],
     fixedScale: PARTISAN_SCALE,
     customLegendLabels: ['+100 (R)', 'Even', '+100 (D)'],
+    // Current voter history data has two columns always, dem and rep
     expression: (row: DemographyRow) => {
-      return row[value[0]] / (row[value[1]] + row[value[0]]);
+      return row[columns[0]] / (row[columns[1]] + row[columns[0]]);
     },
   })),
 ] as const;

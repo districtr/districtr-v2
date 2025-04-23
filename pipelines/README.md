@@ -6,6 +6,7 @@ Most Input datasets come from the gerrydb project.
 
 Structure:
 
+
 - `core`: Shared configuration and models
 - `tilesets`: CLI for creating tilesets consumed by Districtr v2.
 - `tabular`: Demography and other tabular data handling
