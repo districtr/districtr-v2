@@ -17,6 +17,7 @@ import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendLinear, LegendThreshold} from '@visx/legend';
 import React from 'react';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
+
 const mapOptions: Array<{
   label: string;
   value: MapStore['mapOptions']['showDemographicMap'];
@@ -37,6 +38,7 @@ const mapOptions: Array<{
     icon: <ShadowInnerIcon />,
   },
 ];
+
 export const DemographicMapPanel: React.FC = () => {
   const demographicMapMode = useMapStore(state => state.mapOptions.showDemographicMap);
   const setMapOptions = useMapStore(state => state.setMapOptions);
@@ -50,9 +52,7 @@ export const DemographicMapPanel: React.FC = () => {
   const scale = useDemographyStore(state => state.scale);
   const numberOfbins = useDemographyStore(state => state.numberOfBins);
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
-  const availableVariables = demographyVariables.filter(f =>
-    demographyCache.availableColumns.includes(f.value)
-  );
+  const availableVariables = useDemographyStore(state => state.availableColumnSets.map);
   const config = availableVariables.find(f => f.value === variable);
   const canBePercent = config?.variants?.includes('percent');
   const labelFormat = canBePercent && variant === 'percent' ? 'percent' : 'compact';

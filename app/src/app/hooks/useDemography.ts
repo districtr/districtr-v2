@@ -30,7 +30,7 @@ export const useDemography = (includeUnassigned?: boolean) => {
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
   const mapDocument = useMapStore(state => state.mapDocument);
-
+  const demoIsLoaded = mapDocument?.document_id && demogHash.includes(mapDocument.document_id)
   // TODO: Could be refactored in the main demographyCache class
   const populationData = useMemo(() => {
     let cleanedData = structuredClone(demographyCache.populations).filter(row =>
@@ -53,8 +53,9 @@ export const useDemography = (includeUnassigned?: boolean) => {
 
     return cleanedData.sort((a, b) => a.zone - b.zone);
   }, [chartHash, demogHash, paintedChanges, includeUnassigned, mapDocument]);
-
+  
   return {
     populationData,
+    demoIsLoaded
   };
 };

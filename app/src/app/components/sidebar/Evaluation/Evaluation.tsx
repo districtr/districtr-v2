@@ -1,53 +1,50 @@
 import React, {useEffect, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
-import {Blockquote, Box, Button, CheckboxGroup, Heading, Table, Tabs} from '@radix-ui/themes';
+import {Blockquote, Box, Button, CheckboxGroup, Heading, Spinner, Table, Tabs} from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
-import {SummaryStatConfig, summaryStatsConfig} from '@/app/utils/api/summaryStats';
-import {
-  numberFormats,
-  summaryStatLabels,
-  EvalModes,
-  columnConfigs,
-  modeButtonConfig,
-} from './config';
+import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useDemography} from '@/app/hooks/useDemography';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
+import { EvalModes, modeButtonConfig, numberFormats, summaryStatLabels } from '@/app/store/demography/evaluationConfig';
+import { useDemographyStore } from '@/app/store/demography/demographyStore';
 
 const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
-  const {populationData} = useDemography(showUnassigned);
+  const {populationData, demoIsLoaded} = useDemography(showUnassigned);
+  console.log('!!!', populationData)
   const {summaryStats, zoneStats} = useSummaryStats();
   const maxValues = zoneStats?.maxValues;
   const numberFormat = numberFormats[evalMode];
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const availableSummaries = summaryStatLabels.filter(f =>
-    mapDocument?.available_summary_stats?.includes(f.value)
-  );
-  const assignmentsHash = useMapStore(state => state.assignmentsHash);
+  const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
+  const availableColumnSets = Object.keys(availableSummaries) as Array<keyof SummaryStatConfig>;
   const colorScheme = useMapStore(state => state.colorScheme);
   const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
-    (mapDocument?.available_summary_stats?.includes('VAP')
-      ? 'VAP'
-      : mapDocument?.available_summary_stats?.[0]) as keyof SummaryStatConfig
-  );
-  const totals = summaryStats?.[summaryType as keyof typeof summaryStats];
+    !availableColumnSets.length ? undefined : availableColumnSets.includes("VAP") ? 'VAP' : availableColumnSets[0]);
 
   useEffect(() => {
-    const hasCurrent = summaryType && mapDocument?.available_summary_stats?.includes(summaryType);
+    if (!availableColumnSets.length) return;
+    const hasCurrent = summaryType && availableSummaries[summaryType];
     if (!hasCurrent) {
-      setSummaryType(mapDocument?.available_summary_stats?.[0] as keyof SummaryStatConfig);
+      setSummaryType(availableColumnSets.includes("VAP") ? "VAP" : availableColumnSets[0]);
     }
-  }, [mapDocument?.available_summary_stats]);
+  }, [availableSummaries]);
+  const columnConfig = summaryType ? availableSummaries[summaryType] : [];
 
-  const summaryStatKeys = summaryType ? summaryStatsConfig[summaryType] : [];
-  const columnConfig = summaryType ? columnConfigs[summaryType] : [];
-  const totalColumn = 'sumColumn' in summaryStatKeys ? summaryStatKeys.sumColumn : undefined;
-
-  if (!populationData || !maxValues || (mapDocument && !mapDocument.available_summary_stats)) {
+  // const summaryStatKeys = summaryType ? summaryStatsConfig[summaryType] : [];
+  // const totalColumn = 'sumColumn' in summaryStatKeys ? summaryStatKeys.sumColumn : undefined;
+  if (!demoIsLoaded) {
+    return <Flex dir='column' justify='center' align='center' p='4'>
+      <Spinner />
+      <Text size="2" className="ml-2">
+        Loading evaluation data...
+      </Text>
+    </Flex>;
+  }
+  if (!populationData || !maxValues || !availableColumnSets.length) {
     return (
       <Blockquote color="crimson">
         <Text>Summary statistics are not available for this map.</Text>
@@ -62,7 +59,7 @@ const Evaluation: React.FC = () => {
         onValueChange={value => setSummaryType(value as keyof SummaryStatConfig)}
       >
         <Tabs.List>
-          {availableSummaries.map(({value, label}) => (
+          {summaryStatLabels.filter(f=> availableColumnSets.includes(f.value)).map(({value, label}) => (
             <Tabs.Trigger key={value} value={value}>
               <Heading as="h3" size="3">
                 {label}

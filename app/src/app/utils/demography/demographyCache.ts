@@ -17,7 +17,7 @@ import {
   TableRow,
   TabularDataWithPercent,
 } from '../api/summaryStats';
-import {getPctDerives, getRollups} from './arquero';
+import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
 import {type AnyD3Scale} from '@/app/store/demography/types';
 import {
@@ -90,8 +90,8 @@ class DemographyCache {
    */
   update(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
     if (hash === this.hash) return;
-    this.table = table(data);
     this.availableColumns = columns;
+    this.table = table(data).derive(getColumnDerives(columns));
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;

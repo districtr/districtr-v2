@@ -9,8 +9,10 @@ import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
 import {demographyCache} from '../demography/demographyCache';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
-import {AllTabularColumns} from './summaryStats';
+import {AllEvaluationConfigs, AllMapConfigs, AllTabularColumns} from './summaryStats';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
+import { evalColumnConfigs } from '@/app/store/demography/evaluationConfig';
+import { demographyVariables } from '@/app/store/demography/constants';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -155,13 +157,28 @@ export const updateDemography = ({
 
 fetchDemography.subscribe(demography => {
   if (demography.data) {
-    const {setDataHash} = useDemographyStore.getState();
+    const {setDataHash, setAvailableColumnSets} = useDemographyStore.getState();
     const {shatterIds, mapDocument} = useMapStore.getState();
     const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
     const result = demography.data;
     if (!mapDocument || !result) return;
     demographyCache.update(result.columns, result.results, dataHash);
+    const availableColumns = demographyCache.availableColumns
+    const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
+      Object.entries(evalColumnConfigs).map(([columnsetKey, config]) => [
+        columnsetKey,
+        config.filter(entry => availableColumns.includes(entry.column)),
+      ]).filter(([, config]) => config.length > 0)
+    )
+    const availableMapSets: AllMapConfigs = demographyVariables.filter(f =>
+      availableColumns.includes(f.value)
+    );
     setDataHash(dataHash);
+    setAvailableColumnSets({
+      evaluation: availableEvalSets,
+      map: availableMapSets,
+    });
+
   }
 });
 

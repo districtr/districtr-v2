@@ -1,5 +1,5 @@
 import {NumberFormats} from '@/app/utils/numbers';
-import {EvalColumnConfiguration, SummaryStatConfig} from '@/app/utils/api/summaryStats';
+import {EvalColumnConfiguration, SummaryStatConfig, summaryStatsConfig} from '@/app/utils/api/summaryStats';
 
 export type EvalModes = 'share' | 'count' | 'totpop';
 
@@ -39,9 +39,9 @@ export const VAPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['VAP']> 
   {column: 'other_vap_20', label: 'Other'},
 ];
 
-export const columnConfigs: Partial<
+export const evalColumnConfigs: Partial<
   Record<
-    keyof SummaryStatConfig,
+    keyof typeof summaryStatsConfig,
     EvalColumnConfiguration<SummaryStatConfig[keyof SummaryStatConfig]>
   >
 > = {

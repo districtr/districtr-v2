@@ -1,4 +1,4 @@
-import {type AllTabularColumns} from '@/app/utils/api/summaryStats';
+import {AllEvaluationConfigs, AllMapConfigs, EvalColumnConfiguration, summaryStatsConfig, type AllTabularColumns} from '@/app/utils/api/summaryStats';
 import {type ScaleLinear, type ScaleThreshold} from 'd3-scale';
 import {type MapStore} from '../mapStore';
 
@@ -44,6 +44,11 @@ export interface DemographyStore {
 
   variant: 'percent' | 'raw';
   setVariant: (variant: DemographyStore['variant']) => void;
+  availableColumnSets: {
+    evaluation: Record<string, AllEvaluationConfigs>;
+    map: AllMapConfigs;
+  };
+  setAvailableColumnSets: (columnSets: Partial<DemographyStore['availableColumnSets']>) => void;
   /**
    * The hash representing the most recent update of demographic data.
    * This is important because it triggers updates on otherwise non-tracked/non-reactive data.

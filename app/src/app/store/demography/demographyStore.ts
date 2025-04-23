@@ -25,6 +25,18 @@ export var useDemographyStore = create(
     variant: 'percent',
     setVariable: variable => set({variable}),
     setVariant: variant => set({variant}),
+    availableColumnSets: {
+      evaluation: {},
+      map: [],
+    },
+    setAvailableColumnSets: availableColumnSets => {
+      set({
+        availableColumnSets: {
+          ...get().availableColumnSets,
+          ...availableColumnSets,
+        },
+      });
+    },
     scale: undefined,
     setScale: scale => set({scale}),
     clear: () => {
