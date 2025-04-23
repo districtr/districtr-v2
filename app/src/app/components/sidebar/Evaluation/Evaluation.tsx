@@ -1,13 +1,27 @@
 import React, {useEffect, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
-import {Blockquote, Box, Button, CheckboxGroup, Heading, Spinner, Table, Tabs} from '@radix-ui/themes';
+import {
+  Blockquote,
+  Box,
+  Button,
+  CheckboxGroup,
+  Heading,
+  Spinner,
+  Table,
+  Tabs,
+} from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
 import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useSummaryStats} from '@/app/hooks/useSummaryStats';
-import { EvalModes, modeButtonConfig, numberFormats, summaryStatLabels } from '@/app/store/demography/evaluationConfig';
-import { useDemographyStore } from '@/app/store/demography/demographyStore';
+import {
+  EvalModes,
+  modeButtonConfig,
+  numberFormats,
+  summaryStatLabels,
+} from '@/app/store/demography/evaluationConfig';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
 
 const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
@@ -20,23 +34,30 @@ const Evaluation: React.FC = () => {
   const availableColumnSets = Object.keys(availableSummaries) as Array<keyof SummaryStatConfig>;
   const colorScheme = useMapStore(state => state.colorScheme);
   const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
-    !availableColumnSets.length ? undefined : availableColumnSets.includes("VAP") ? 'VAP' : availableColumnSets[0]);
+    !availableColumnSets.length
+      ? undefined
+      : availableColumnSets.includes('VAP')
+        ? 'VAP'
+        : availableColumnSets[0]
+  );
 
   useEffect(() => {
     if (!availableColumnSets.length) return;
     const hasCurrent = summaryType && availableSummaries[summaryType];
     if (!hasCurrent) {
-      setSummaryType(availableColumnSets.includes("VAP") ? "VAP" : availableColumnSets[0]);
+      setSummaryType(availableColumnSets.includes('VAP') ? 'VAP' : availableColumnSets[0]);
     }
   }, [availableSummaries]);
   const columnConfig = summaryType ? availableSummaries[summaryType] : [];
   if (!demoIsLoaded) {
-    return <Flex dir='column' justify='center' align='center' p='4'>
-      <Spinner />
-      <Text size="2" className="ml-2">
-        Loading evaluation data...
-      </Text>
-    </Flex>;
+    return (
+      <Flex dir="column" justify="center" align="center" p="4">
+        <Spinner />
+        <Text size="2" className="ml-2">
+          Loading evaluation data...
+        </Text>
+      </Flex>
+    );
   }
   if (!zoneData || !maxValues || !availableColumnSets.length) {
     return (
@@ -53,13 +74,15 @@ const Evaluation: React.FC = () => {
         onValueChange={value => setSummaryType(value as keyof SummaryStatConfig)}
       >
         <Tabs.List>
-          {summaryStatLabels.filter(f=> availableColumnSets.includes(f.value)).map(({value, label}) => (
-            <Tabs.Trigger key={value} value={value}>
-              <Heading as="h3" size="3">
-                {label}
-              </Heading>
-            </Tabs.Trigger>
-          ))}
+          {summaryStatLabels
+            .filter(f => availableColumnSets.includes(f.value))
+            .map(({value, label}) => (
+              <Tabs.Trigger key={value} value={value}>
+                <Heading as="h3" size="3">
+                  {label}
+                </Heading>
+              </Tabs.Trigger>
+            ))}
         </Tabs.List>
       </Tabs.Root>
       <Flex align="center" gap="3" my="2">
@@ -78,10 +101,7 @@ const Evaluation: React.FC = () => {
           defaultValue={[]}
           orientation="horizontal"
           name="evaluation-options"
-          value={[
-            colorBg ? 'colorBg' : '',
-            showUnassigned ? 'unassigned' : '',
-          ]}
+          value={[colorBg ? 'colorBg' : '', showUnassigned ? 'unassigned' : '']}
         >
           <CheckboxGroup.Item value="unassigned" onClick={() => setShowUnassigned(v => !v)}>
             Show Unassigned Population

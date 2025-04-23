@@ -15,7 +15,7 @@ import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 const maxNumberOrderedBars = 40; // max number of zones to consider while keeping blank spaces for missing zones
 
 export const PopulationPanel = () => {
-  const {populationData,demoIsLoaded} = useZonePopulations();
+  const {populationData, demoIsLoaded} = useZonePopulations();
   const {summaryStats, zoneStats} = useSummaryStats();
   const idealPopulation = summaryStats?.idealpop;
   const unassigned = summaryStats.unassigned;
@@ -47,12 +47,14 @@ export const PopulationPanel = () => {
     );
   }
   if (!demoIsLoaded) {
-    return <Flex dir='column' justify='center' align='center' p='4'>
-      <Spinner />
-      <Text size="2" className="ml-2">
-        Loading population data...
-      </Text>
-    </Flex>;
+    return (
+      <Flex dir="column" justify="center" align="center" p="4">
+        <Spinner />
+        <Text size="2" className="ml-2">
+          Loading population data...
+        </Text>
+      </Flex>
+    );
   }
   return (
     <Flex gap="0" direction="column">

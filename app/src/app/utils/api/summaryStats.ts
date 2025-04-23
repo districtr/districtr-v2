@@ -41,42 +41,48 @@ export const ALL_VOTER_COLUMN_GROUPINGS = {
 } as const;
 
 export const derivedColumnsConfig = {
-  VOTERHISTORY: Object.values(ALL_VOTER_COLUMN_GROUPINGS).reduce((acc, curr) => {
+  VOTERHISTORY: Object.values(ALL_VOTER_COLUMN_GROUPINGS).reduce(
+    (acc, curr) => {
       return [
         ...acc,
         {
-          label: curr.columns[0].replace("_dem", "_lean"),
+          label: curr.columns[0].replace('_dem', '_lean'),
           column: curr.columns[0],
-          expression: (row) => row[curr.columns[0]] - row[curr.columns[1]],
+          expression: row => row[curr.columns[0]] - row[curr.columns[1]],
         },
         {
-          label: curr.columns[0].replace("_dem", "_total"),
+          label: curr.columns[0].replace('_dem', '_total'),
           column: curr.columns[0],
-          expression: (row) => row[curr.columns[0]] + row[curr.columns[1]],
+          expression: row => row[curr.columns[0]] + row[curr.columns[1]],
         },
       ];
-    }, [] as {label: string; column: string; expression: (row: DemographyRow) => number}[])
-}
+    },
+    [] as {label: string; column: string; expression: (row: DemographyRow) => number}[]
+  ),
+};
 
 export const derivedRollups = {
-  VOTERHISTORY: Object.values(ALL_VOTER_COLUMN_GROUPINGS).reduce((acc, curr) => {
-    return [
-      ...acc,
-      {
-        total: curr.columns[0].replace("_dem", "_total"),
-        col: curr.columns[0].replace("_dem", "_total"),
-      },
-      {
-        total: curr.columns[0].replace("_dem", "_total"),
-        col: curr.columns[0],
-      },
-      {
-        total: curr.columns[0].replace("_dem", "_total"),
-        col: curr.columns[1],
-      }
-    ]
-  }, [] as {total: string; col: string}[])
-}
+  VOTERHISTORY: Object.values(ALL_VOTER_COLUMN_GROUPINGS).reduce(
+    (acc, curr) => {
+      return [
+        ...acc,
+        {
+          total: curr.columns[0].replace('_dem', '_total'),
+          col: curr.columns[0].replace('_dem', '_total'),
+        },
+        {
+          total: curr.columns[0].replace('_dem', '_total'),
+          col: curr.columns[0],
+        },
+        {
+          total: curr.columns[0].replace('_dem', '_total'),
+          col: curr.columns[1],
+        },
+      ];
+    },
+    [] as {total: string; col: string}[]
+  ),
+};
 
 export const summaryStatsConfig = {
   TOTPOP: {
@@ -123,8 +129,8 @@ export const summaryStatsConfig = {
       'pres_20_dem',
       'pres_16_rep',
       'pres_16_dem',
-    ]
-  }
+    ],
+  },
 } as const;
 
 export const possibleRollups = [
@@ -136,10 +142,10 @@ export const possibleRollups = [
         col,
       }))
     ),
-  ...Object.values(derivedRollups).flat()
-]
+  ...Object.values(derivedRollups).flat(),
+];
 
-export const possibleDerivedColumns = Object.values(derivedColumnsConfig).flat()
+export const possibleDerivedColumns = Object.values(derivedColumnsConfig).flat();
 
 // DERIVED TYPES
 export type SummaryStatConfig = typeof summaryStatsConfig;
@@ -148,9 +154,7 @@ export type AllTabularColumns = SummaryStatConfig[KeyOfSummaryStatConfig]['colum
 export type AllEvaluationConfigs = EvalColumnConfiguration<
   SummaryStatConfig[KeyOfSummaryStatConfig]
 >;
-export type AllMapConfigs = MapColumnConfiguration<
-  SummaryStatConfig[KeyOfSummaryStatConfig]
->;
+export type AllMapConfigs = MapColumnConfiguration<SummaryStatConfig[KeyOfSummaryStatConfig]>;
 export type DemographyRow = {
   [key in AllTabularColumns[number]]: number;
 };
@@ -169,8 +173,6 @@ export type TabularDataWithPercent<T extends SummaryStatConfig[keyof SummaryStat
 } & {
   [K in T['columns'][number]]: number;
 };
-
-
 
 /**
  * Adds a _pct suffix to all columns and returns a new config with the same keys

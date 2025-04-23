@@ -1,5 +1,9 @@
 import {NumberFormats} from '@/app/utils/numbers';
-import {EvalColumnConfiguration, SummaryStatConfig, summaryStatsConfig} from '@/app/utils/api/summaryStats';
+import {
+  EvalColumnConfiguration,
+  SummaryStatConfig,
+  summaryStatsConfig,
+} from '@/app/utils/api/summaryStats';
 
 export type EvalModes = 'share' | 'count' | 'totpop';
 
@@ -44,7 +48,7 @@ export const VoterColumnConfig: EvalColumnConfiguration<SummaryStatConfig['VOTER
   {column: 'pres_20_dem', label: '2020 Pres (D)'},
   {column: 'pres_16_rep', label: '2016 Pres (R)'},
   {column: 'pres_16_dem', label: '2016 Pres (D)'},
-  
+
   {column: 'gov_22_rep', label: '2022 Gov (R)'},
   {column: 'gov_22_dem', label: '2022 Gov (D)'},
   {column: 'gov_18_rep', label: '2018 Gov (R)'},
@@ -82,7 +86,7 @@ export const modeButtonConfig: Array<{label: string; value: EvalModes}> = [
   {
     label: 'Population by Count',
     value: 'count',
-  }
+  },
 ];
 
 export const numberFormats: Record<EvalModes, NumberFormats> = {
