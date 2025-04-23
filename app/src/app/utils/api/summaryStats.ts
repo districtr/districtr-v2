@@ -138,6 +138,7 @@ export const possibleRollups = [
     .filter(stat => 'sumColumn' in stat)
     .flatMap(stat =>
       stat.columns.map(col => ({
+        // @ts-ignore this is correct but on build fails
         total: stat.sumColumn,
         col,
       }))
