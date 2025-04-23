@@ -6,21 +6,23 @@ import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {ErrorNotification} from '@components/ErrorNotification';
-import {useMapStore} from '@store/mapStore';
-import {Toolbar} from '@components/Toolbar/Toolbar';
+import {DraggableToolbar, Toolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@components/Topbar';
 import {Flex} from '@radix-ui/themes';
+import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
+import {useToolbarStore} from '@/app/store/toolbarStore';
 
 export default function Map() {
-  // check if userid in local storage; if not, create one
-  const userID = useMapStore(state => state.userID);
-  const setUserID = useMapStore(state => state.setUserID);
   const showDemographicMap = useMapStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
+  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
+  // check if userid in local storage; if not, create one
+  const userID = useMapStore(state => state.userID);
+  const setUserID = useMapStore(state => state.setUserID);
 
   useEffect(() => {
     !userID && setUserID();
@@ -47,7 +49,7 @@ export default function Map() {
               <MapComponent />
               {showDemographicMap && <MapComponent isDemographicMap />}
             </Flex>
-            <Toolbar />
+            {toolbarLocation === 'map' && <DraggableToolbar />}
             <MapLockShade />
             <MapTooltip />
           </div>

@@ -5,7 +5,6 @@ import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {useEffect, useMemo, useState} from 'react';
 import {CheckCircledIcon, DashIcon} from '@radix-ui/react-icons';
-import {colorScheme} from '@/app/constants/colors';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {isAxiosError} from 'axios';
 import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDisplay';
@@ -13,6 +12,7 @@ import ZoomToConnectedComponents from './ZoomToConnectedComponents';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
+  const colorScheme = useMapStore(store => store.colorScheme);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const {data, error, isLoading, isFetched, refetch} = useQuery(
     {
@@ -89,7 +89,7 @@ export const Contiguity = () => {
                     style={{
                       width: '15px',
                       height: '15px',
-                      backgroundColor: colorScheme[(row.zone % colorScheme.length) - 1],
+                      backgroundColor: colorScheme[(row.zone - 1) % colorScheme.length],
                       borderRadius: '4px',
                     }}
                   />
