@@ -127,36 +127,6 @@ export const summaryStatsConfig = {
   }
 } as const;
 
-
-// /**
-//  * Adds a _pct suffix to all columns and returns a new config with the same keys
-//  * Also includes the original columns without the _pct suffix
-//  * @param config - The config to add the _pct suffix to
-//  * @returns A new config with both original columns and columns with _pct suffix
-//  */
-// const withPct = <T extends typeof summaryStatsConfig>(
-//   config: T
-// ): {
-//   [K in keyof T]: {
-//     columns: Array<
-//       | Extract<T[K], {columns: readonly string[]}>['columns'][number]
-//       | `${Extract<T[K], {columns: readonly string[]}>['columns'][number]}_pct`
-//     >;
-//     sumColumn?: Extract<T[K], {sumColumn?: string}>['sumColumn'];
-//   };
-// } => {
-//   return Object.fromEntries(
-//     Object.entries(config).map(([key, value]) => [
-//       key,
-//       {
-//         ...value,
-//         columns: [...value.columns, ...value.columns.map(col => `${col}_pct`)],
-//       },
-//     ])
-//   ) as any;
-// };
-// export const summaryStatsWithPctConfig = withPct(summaryStatsConfig);
-
 export const possibleRollups = [
   ...Object.values(summaryStatsConfig)
     .filter(stat => 'sumColumn' in stat)
@@ -199,3 +169,34 @@ export type TabularDataWithPercent<T extends SummaryStatConfig[keyof SummaryStat
 } & {
   [K in T['columns'][number]]: number;
 };
+
+
+
+/**
+ * Adds a _pct suffix to all columns and returns a new config with the same keys
+ * Also includes the original columns without the _pct suffix
+ * @param config - The config to add the _pct suffix to
+ * @returns A new config with both original columns and columns with _pct suffix
+ */
+const withPct = <T extends typeof summaryStatsConfig>(
+  config: T
+): {
+  [K in keyof T]: {
+    columns: Array<
+      | Extract<T[K], {columns: readonly string[]}>['columns'][number]
+      | `${Extract<T[K], {columns: readonly string[]}>['columns'][number]}_pct`
+    >;
+    sumColumn?: Extract<T[K], {sumColumn?: string}>['sumColumn'];
+  };
+} => {
+  return Object.fromEntries(
+    Object.entries(config).map(([key, value]) => [
+      key,
+      {
+        ...value,
+        columns: [...value.columns, ...value.columns.map(col => `${col}_pct`)],
+      },
+    ])
+  ) as any;
+};
+export const summaryStatsWithPctConfig = withPct(summaryStatsConfig);

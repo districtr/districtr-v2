@@ -27,7 +27,7 @@ export var useDemographyStore = create(
     setVariant: variant => set({variant}),
     availableColumnSets: {
       evaluation: {},
-      map: [],
+      map: {}
     },
     setAvailableColumnSets: availableColumnSets => {
       set({

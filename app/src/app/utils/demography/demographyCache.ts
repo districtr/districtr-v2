@@ -10,20 +10,20 @@ import {
   MaxValues,
   AllTabularColumns,
   SummaryRecord,
-  SummaryStatConfig,
   summaryStatsConfig,
   summaryStatsWithPctConfig,
   SummaryTable,
   TableRow,
   TabularDataWithPercent,
+  AllMapConfigs,
 } from '../api/summaryStats';
 import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
 import {type AnyD3Scale} from '@/app/store/demography/types';
 import {
+  choroplethMapVariables,
   DEFAULT_COLOR_SCHEME,
   DEFAULT_COLOR_SCHEME_GRAY,
-  demographyVariables,
 } from '@/app/store/demography/constants';
 import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
@@ -259,7 +259,7 @@ class DemographyCache {
    * Helper to manage the arqueo quantile function.
    */
   calculateQuantiles(
-    config: (typeof demographyVariables)[number],
+    config: AllMapConfigs[number],
     variableName: AllTabularColumns[number],
     numberOfBins: number
   ): {quantilesObject: {[q: string]: number}; quantilesList: number[]} | null {
@@ -297,7 +297,7 @@ class DemographyCache {
     mapRef,
     ids,
   }: {
-    config: (typeof demographyVariables)[number];
+    config: AllMapConfigs[number];
     variableName: AllTabularColumns[number];
     mapRef: maplibregl.Map;
     ids?: string[];
@@ -364,7 +364,7 @@ class DemographyCache {
     paintMap?: boolean;
   }) {
     const dataSoureExists = mapRef?.getSource(BLOCK_SOURCE_ID);
-    const config = demographyVariables.find(v => v.value === variable);
+    const config = Object.values(choroplethMapVariables).flat().find(v => v.value === variable);
 
     if (!this.table || !dataSoureExists) return;
     if (!config) return;

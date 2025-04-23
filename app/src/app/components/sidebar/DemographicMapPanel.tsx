@@ -2,7 +2,6 @@
 import {OVERLAY_OPACITY} from '@/app/constants/layers';
 import {AllTabularColumns} from '@/app/utils/api/summaryStats';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
-import {demographyVariables} from '@/app/store/demography/constants';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {
@@ -12,11 +11,23 @@ import {
   ShadowInnerIcon,
   ViewVerticalIcon,
 } from '@radix-ui/react-icons';
-import {Blockquote, Box, Flex, IconButton, Popover, Switch, Tabs, Text} from '@radix-ui/themes';
+import {
+  Blockquote,
+  Box,
+  Button,
+  Flex,
+  Heading,
+  IconButton,
+  Popover,
+  Switch,
+  Tabs,
+  Text,
+} from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
-import {LegendLabel, LegendLinear, LegendThreshold} from '@visx/legend';
-import React from 'react';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {LegendLabel, LegendThreshold} from '@visx/legend';
+import React, {useEffect, useState} from 'react';
+import {choroplethMapVariables} from '@/app/store/demography/constants';
+import {summaryStatLabels} from '@/app/store/demography/evaluationConfig';
 
 const mapOptions: Array<{
   label: string;
@@ -52,8 +63,24 @@ export const DemographicMapPanel: React.FC = () => {
   const scale = useDemographyStore(state => state.scale);
   const numberOfbins = useDemographyStore(state => state.numberOfBins);
   const setNumberOfBins = useDemographyStore(state => state.setNumberOfBins);
-  const availableVariables = useDemographyStore(state => state.availableColumnSets.map);
-  const config = availableVariables.find(f => f.value === variable);
+  const availableMapVariables = useDemographyStore(state => state.availableColumnSets.map);
+  const [columnGroup, setColumnGroup] = useState<keyof typeof choroplethMapVariables>('TOTPOP');
+  const currentVariableList = availableMapVariables[columnGroup] ?? [];
+  const config = availableMapVariables[columnGroup]?.find(f => f.value === variable);
+
+  useEffect(() => {
+    if (!Object.keys(availableMapVariables).length) {
+      return;
+    }
+    if (!availableMapVariables[columnGroup]) {
+      const firstKey = Object.keys(availableMapVariables)[0] as keyof typeof choroplethMapVariables;
+      setColumnGroup(firstKey);
+      setVariable(availableMapVariables[firstKey][0].value);
+    } else {
+      setVariable(availableMapVariables[columnGroup][0].value);
+    }
+  }, [availableMapVariables, columnGroup]);
+
   const canBePercent = config?.variants?.includes('percent');
   const labelFormat = canBePercent && variant === 'percent' ? 'percent' : 'compact';
   const colors = scale?.range() || [];
@@ -66,7 +93,7 @@ export const DemographicMapPanel: React.FC = () => {
     setVariant(usePercent ? 'percent' : 'raw');
   };
 
-  if (!availableVariables.length) {
+  if (!Object.keys(availableMapVariables).length) {
     return (
       <Blockquote color="crimson">
         <Text>Demographic data are not available for this map. </Text>
@@ -75,136 +102,149 @@ export const DemographicMapPanel: React.FC = () => {
   }
   return (
     <Flex direction="column">
-      <Tabs.Root
-        value={demographicMapMode}
-        onValueChange={value =>
-          setMapOptions({showDemographicMap: value as MapStore['mapOptions']['showDemographicMap']})
-        }
-      >
-        <Tabs.List>
-          {mapOptions.map((option, i) => (
-            <Tabs.Trigger key={i} value={option.value as string}>
-              <Flex direction="row" gapX="2" align="center">
-                {!!option.icon && option.icon}
-                {option.label}
-              </Flex>
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-      </Tabs.Root>
-      <Flex direction="column" pt="2">
-        <Text>Map Variable</Text>
-        <Flex direction="row" gapX="3" align="center" py="2">
-          <Select.Root value={variable} onValueChange={handleChangeVariable}>
-            <Select.Trigger />
-            <Select.Content>
-              {availableVariables.map(f => (
-                <Select.Item key={f.value} value={f.value}>
-                  {f.label}
-                </Select.Item>
-              ))}
-            </Select.Content>
-          </Select.Root>
-          {canBePercent && (
-            <Text as="label" size="2">
-              <Flex gap="2" align="center" justify={'center'}>
-                <Text as="label" size="1">
-                  Count
+      <Flex direction="row" gapX="3" align="center" className=" rounded-md">
+        {mapOptions.map((option, i) => (
+          <Button
+            key={i}
+            variant={demographicMapMode === option.value ? 'solid' : 'outline'}
+            onClick={() => setMapOptions({showDemographicMap: option.value})}
+          >
+            {!!option.icon && option.icon}
+            {option.label}
+          </Button>
+        ))}
+      </Flex>
+      {demographicMapMode !== undefined && (
+        <>
+          <Flex direction="column" pt="2">
+            <Text>Map Variable</Text>
+            <Tabs.Root
+              value={columnGroup}
+              onValueChange={value => setColumnGroup(value as keyof typeof choroplethMapVariables)}
+            >
+              <Tabs.List>
+                {summaryStatLabels.map(f => (
+                  <Tabs.Trigger key={f.value} value={f.value}>
+                    <Heading as="h3" size="3">
+                      {f.label}
+                    </Heading>
+                  </Tabs.Trigger>
+                ))}
+              </Tabs.List>
+            </Tabs.Root>
+            <Flex direction="row" gapX="3" align="center" py="2">
+              <Select.Root value={variable} onValueChange={handleChangeVariable}>
+                <Select.Trigger />
+                <Select.Content>
+                  {currentVariableList.map(f => (
+                    <Select.Item key={f.value} value={f.value}>
+                      {f.label}
+                    </Select.Item>
+                  ))}
+                </Select.Content>
+              </Select.Root>
+              {canBePercent && (
+                <Text as="label" size="2">
+                  <Flex gap="2" align="center" justify={'center'}>
+                    <Text as="label" size="1">
+                      Count
+                    </Text>
+                    <Switch checked={variant === 'percent'} onCheckedChange={handleChangePercent} />
+                    <Text as="label" size="1">
+                      %
+                    </Text>
+                  </Flex>
                 </Text>
-                <Switch checked={variant === 'percent'} onCheckedChange={handleChangePercent} />
-                <Text as="label" size="1">
-                  %
-                </Text>
+              )}
+            </Flex>
+          </Flex>
+          {scale && 'invertExtent' in scale ? (
+            <Flex direction={'row'} justify="center" gapX="2">
+              <LegendThreshold
+                scale={scale}
+                labelFormat={label => formatNumber(label as number, labelFormat)}
+                className="w-full"
+              >
+                {labels => {
+                  return (
+                    <Flex direction={'column'} width="100%">
+                      <Flex direction="row" width="100%">
+                        {labels.map((label, i) => (
+                          <Box
+                            width={'100%'}
+                            style={{
+                              display: 'inline-block',
+                              height: '1rem',
+                              backgroundColor: colors[i] as string,
+                              opacity: isOverlay ? OVERLAY_OPACITY : 0.9,
+                            }}
+                            key={`legend-bar-${i}`}
+                          ></Box>
+                        ))}
+                      </Flex>
+
+                      <Flex
+                        direction="row"
+                        width={`${100 - 100 / colors.length / 2}%`}
+                        style={{paddingLeft: `${100 / colors.length / 2}%`}}
+                      >
+                        {labels.slice(1).map((label, i) => (
+                          <LegendLabel align="center" key={`legend-label-text-${i}`}>
+                            {formatNumber(label.datum as number, labelFormat)}
+                          </LegendLabel>
+                        ))}
+                      </Flex>
+                    </Flex>
+                  );
+                }}
+              </LegendThreshold>
+              <Popover.Root>
+                <Popover.Trigger>
+                  <GearIcon />
+                </Popover.Trigger>
+                <Popover.Content>
+                  <Flex direction={'column'} gapY="2">
+                    <Text size="2">Choropleth Map Settings</Text>
+                    <Flex direction="row" gapX="3">
+                      <Text>Max number of bins: {numberOfbins}</Text>
+                      <IconButton
+                        variant="ghost"
+                        onClick={() => setNumberOfBins(numberOfbins - 1)}
+                        disabled={numberOfbins < 4}
+                      >
+                        <MinusIcon />
+                      </IconButton>
+                      <IconButton
+                        variant="ghost"
+                        onClick={() => setNumberOfBins(numberOfbins + 1)}
+                        disabled={numberOfbins > 8}
+                      >
+                        <PlusIcon />
+                      </IconButton>
+                    </Flex>
+                  </Flex>
+                </Popover.Content>
+              </Popover.Root>
+            </Flex>
+          ) : scale && config?.fixedScale && config.customLegendLabels ? (
+            <Flex direction={'column'} justify="center" gapX="2" width="100%">
+              <LinearGradient
+                colors={config.fixedScale.domain().map(d => config.fixedScale!(d))}
+                numTicks={config.customLegendLabels.length}
+              />
+              <Flex direction={'row'} width="100%" justify="between">
+                {config.customLegendLabels.map((label, i) => (
+                  <Text key={`legend-label-${i}`}>{label}</Text>
+                ))}
               </Flex>
+            </Flex>
+          ) : null}
+          {demographicMapMode === 'side-by-side' && (
+            <Text size="2" align="center">
+              Gray = zero population
             </Text>
           )}
-        </Flex>
-      </Flex>
-      {scale && 'invertExtent' in scale ? (
-        <Flex direction={'row'} justify="center" gapX="2">
-          <LegendThreshold
-            scale={scale}
-            labelFormat={label => formatNumber(label as number, labelFormat)}
-            className="w-full"
-          >
-            {labels => {
-              return (
-                <Flex direction={'column'} width="100%">
-                  <Flex direction="row" width="100%">
-                    {labels.map((label, i) => (
-                      <Box
-                        width={'100%'}
-                        style={{
-                          display: 'inline-block',
-                          height: '1rem',
-                          backgroundColor: colors[i] as string,
-                          opacity: isOverlay ? OVERLAY_OPACITY : 0.9,
-                        }}
-                        key={`legend-bar-${i}`}
-                      ></Box>
-                    ))}
-                  </Flex>
-
-                  <Flex
-                    direction="row"
-                    width={`${100 - 100 / colors.length / 2}%`}
-                    style={{paddingLeft: `${100 / colors.length / 2}%`}}
-                  >
-                    {labels.slice(1).map((label, i) => (
-                      <LegendLabel align="center" key={`legend-label-text-${i}`}>
-                        {formatNumber(label.datum as number, labelFormat)}
-                      </LegendLabel>
-                    ))}
-                  </Flex>
-                </Flex>
-              );
-            }}
-          </LegendThreshold>
-          <Popover.Root>
-            <Popover.Trigger>
-              <GearIcon />
-            </Popover.Trigger>
-            <Popover.Content>
-              <Flex direction={'column'} gapY="2">
-                <Text size="2">Choropleth Map Settings</Text>
-                <Flex direction="row" gapX="3">
-                  <Text>Max number of bins: {numberOfbins}</Text>
-                  <IconButton
-                    variant="ghost"
-                    onClick={() => setNumberOfBins(numberOfbins - 1)}
-                    disabled={numberOfbins < 4}
-                  >
-                    <MinusIcon />
-                  </IconButton>
-                  <IconButton
-                    variant="ghost"
-                    onClick={() => setNumberOfBins(numberOfbins + 1)}
-                    disabled={numberOfbins > 8}
-                  >
-                    <PlusIcon />
-                  </IconButton>
-                </Flex>
-              </Flex>
-            </Popover.Content>
-          </Popover.Root>
-        </Flex>
-      ) : scale && config?.fixedScale && config.customLegendLabels ? (
-        <Flex direction={'column'} justify="center" gapX="2" width="100%">
-          <LinearGradient
-            colors={config.fixedScale.domain().map(d => config.fixedScale!(d))}
-            numTicks={config.customLegendLabels.length}
-          />
-          <Flex direction={'row'} width="100%" justify="between">
-            {config.customLegendLabels.map((label, i) => (
-              <Text key={`legend-label-${i}`}>{label}</Text>
-            ))}
-          </Flex>
-        </Flex>
-      ) : null}
-      {demographicMapMode === 'side-by-side' && (
-        <Text size="2" align="center">
-          Gray = zero population
-        </Text>
+        </>
       )}
     </Flex>
   );

@@ -46,7 +46,7 @@ export interface DemographyStore {
   setVariant: (variant: DemographyStore['variant']) => void;
   availableColumnSets: {
     evaluation: Record<string, AllEvaluationConfigs>;
-    map: AllMapConfigs;
+    map: Record<string, AllMapConfigs>;
   };
   setAvailableColumnSets: (columnSets: Partial<DemographyStore['availableColumnSets']>) => void;
   /**

@@ -12,7 +12,7 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {AllEvaluationConfigs, AllMapConfigs, AllTabularColumns} from './summaryStats';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import { evalColumnConfigs } from '@/app/store/demography/evaluationConfig';
-import { demographyVariables } from '@/app/store/demography/constants';
+import { choroplethMapVariables } from '@/app/store/demography/constants';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -163,16 +163,19 @@ fetchDemography.subscribe(demography => {
     const result = demography.data;
     if (!mapDocument || !result) return;
     demographyCache.update(result.columns, result.results, dataHash);
-    const availableColumns = demographyCache.availableColumns
+    const availableColumns = demographyCache?.table?.columnNames() ?? [];
     const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
       Object.entries(evalColumnConfigs).map(([columnsetKey, config]) => [
         columnsetKey,
         config.filter(entry => availableColumns.includes(entry.column)),
       ]).filter(([, config]) => config.length > 0)
     )
-    const availableMapSets: AllMapConfigs = demographyVariables.filter(f =>
-      availableColumns.includes(f.value)
-    );
+    const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
+      Object.entries(choroplethMapVariables).map(([columnsetKey, config]) => [
+        columnsetKey,
+        config.filter(entry => availableColumns.includes(entry.value)),
+      ]).filter(([, config]) => config.length > 0)
+    )
     setDataHash(dataHash);
     setAvailableColumnSets({
       evaluation: availableEvalSets,
