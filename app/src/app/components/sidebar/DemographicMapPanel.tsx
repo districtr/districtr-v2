@@ -1,5 +1,4 @@
 'use client';
-import {OVERLAY_OPACITY} from '@/app/constants/layers';
 import {AllTabularColumns} from '@/app/utils/api/summaryStats';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
@@ -28,8 +27,9 @@ import {LegendLabel, LegendThreshold} from '@visx/legend';
 import React, {useEffect, useState} from 'react';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
 import {summaryStatLabels} from '@/app/store/demography/evaluationConfig';
+import {OVERLAY_OPACITY} from '@/app/constants/layers';
 
-const mapOptions: Array<{
+const mapDisplayModes: Array<{
   label: string;
   value: MapStore['mapOptions']['showDemographicMap'];
   icon?: React.ReactNode;
@@ -50,9 +50,27 @@ const mapOptions: Array<{
   },
 ];
 
+const getOpacityStates = (mapOptions: MapStore['mapOptions'], setMapOptions: MapStore['setMapOptions']) => [
+    {
+      selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity > 0,
+      label: 'Overlay',
+      onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: OVERLAY_OPACITY}),
+    },
+    {
+      selected: !mapOptions.showPaintedDistricts,
+      label: 'Show Thematic Map',
+      onClick: () => setMapOptions({showPaintedDistricts: false, overlayOpacity: 1}),
+    },
+    {
+      selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity === 0,
+      label: 'Show Districts',
+      onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: 0}),
+    },
+  ];
 export const DemographicMapPanel: React.FC = () => {
   const demographicMapMode = useMapStore(state => state.mapOptions.showDemographicMap);
   const setMapOptions = useMapStore(state => state.setMapOptions);
+  const mapOptions = useMapStore(state => state.mapOptions);
   const isOverlay = demographicMapMode === 'overlay';
 
   const variable = useDemographyStore(state => state.variable);
@@ -93,6 +111,36 @@ export const DemographicMapPanel: React.FC = () => {
     setVariant(usePercent ? 'percent' : 'raw');
   };
 
+
+  useEffect(() => {
+    // add a listener for option or alt key press and release
+    const handleKeyPress = (event: KeyboardEvent) => {
+      const {mapOptions, setMapOptions} = useMapStore.getState();
+      const isOverlayMode = mapOptions.showDemographicMap === 'overlay';
+      const activeElement = document.activeElement;
+      // if active element is an input, don't do anything
+      if (!isOverlayMode || activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+        return;
+      // if command/control held down, don't do anything
+      if (event.metaKey || event.ctrlKey) return;
+      // if key is digit, set selected zone to that digit
+      let value = event.key;
+      // if x, set showDemographicMap to undefined
+      const opacityStates = getOpacityStates(mapOptions, setMapOptions);
+      if (value === 'x') {
+        const currentState = opacityStates.findIndex(f => f.selected);
+        const nextState = (currentState + 1) % opacityStates.length;
+        opacityStates[nextState].onClick();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyPress);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, []);
+
   if (!Object.keys(availableMapVariables).length) {
     return (
       <Blockquote color="crimson">
@@ -103,7 +151,7 @@ export const DemographicMapPanel: React.FC = () => {
   return (
     <Flex direction="column">
       <Flex direction="row" gapX="3" align="center" className=" rounded-md">
-        {mapOptions.map((option, i) => (
+        {mapDisplayModes.map((option, i) => (
           <Button
             key={i}
             variant={demographicMapMode === option.value ? 'solid' : 'outline'}
@@ -158,6 +206,21 @@ export const DemographicMapPanel: React.FC = () => {
               )}
             </Flex>
           </Flex>
+
+          {demographicMapMode === 'overlay' && (
+            <Flex direction="row" gapX="0" align="center" py="2">
+              {getOpacityStates(mapOptions, setMapOptions).map((option, i) => (
+                <Button
+                  key={i}
+                  className="!rounded-none mr-[-2px]"
+                  variant={option.selected ? 'solid' : 'outline'}
+                  onClick={option.onClick}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </Flex>
+          )}
           {scale && 'invertExtent' in scale ? (
             <Flex direction={'row'} justify="center" gapX="2">
               <LegendThreshold
@@ -176,7 +239,7 @@ export const DemographicMapPanel: React.FC = () => {
                               display: 'inline-block',
                               height: '1rem',
                               backgroundColor: colors[i] as string,
-                              opacity: isOverlay ? OVERLAY_OPACITY : 0.9,
+                              opacity: isOverlay ? mapOptions.overlayOpacity : 0.9,
                             }}
                             key={`legend-bar-${i}`}
                           ></Box>
