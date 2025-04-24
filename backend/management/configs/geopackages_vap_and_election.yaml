@@ -1,159 +1,180 @@
 gerrydb_views:
-  - gpkg: ak_block_all_vap_elec.gpkg
-    table_name: ak_block_all_vap_elec
-    layer: ak_block_all_vap_elec_graph
-  - gpkg: ak_vtd_all_vap_elec.gpkg
-    table_name: ak_vtd_all_vap_elec
-    layer: ak_vtd_all_vap_elec_graph
-  - gpkg: co_block_all_vap_elec.gpkg
-    table_name: co_block_all_vap_elec
-    layer: co_block_all_vap_elec_graph
-  - gpkg: co_vtd_all_vap_elec.gpkg
-    table_name: co_vtd_all_vap_elec
-    layer: co_vtd_all_vap_elec_graph
-  - gpkg: fl_block_all_vap_elec.gpkg
-    table_name: fl_block_all_vap_elec
-    layer: fl_block_all_vap_elec_graph
-  - gpkg: fl_vtd_all_vap_elec.gpkg
-    table_name: fl_vtd_all_vap_elec
-    layer: fl_vtd_all_vap_elec_graph
-  - gpkg: ks_block_all_vap_elec.gpkg
-    table_name: ks_block_all_vap_elec
-    layer: ks_block_all_vap_elec_graph
-  - gpkg: ks_vtd_all_vap_elec.gpkg
-    table_name: ks_vtd_all_vap_elec
-    layer: ks_vtd_all_vap_elec_graph
-  - gpkg: ma_block_all_vap_elec.gpkg
-    table_name: ma_block_all_vap_elec
-    layer: ma_block_all_vap_elec_graph
-  - gpkg: ma_vtd_all_vap_elec.gpkg
-    table_name: ma_vtd_all_vap_elec
-    layer: ma_vtd_all_vap_elec_graph
-  - gpkg: mt_block_all_vap_elec.gpkg
-    table_name: mt_block_all_vap_elec
-    layer: mt_block_all_vap_elec_graph
-  - gpkg: mt_vtd_all_vap_elec.gpkg
-    table_name: mt_vtd_all_vap_elec
-    layer: mt_vtd_all_vap_elec_graph
-  - gpkg: nc_block_all_vap_elec.gpkg
-    table_name: nc_block_all_vap_elec
-    layer: nc_block_all_vap_elec_graph
-  - gpkg: nc_vtd_all_vap_elec.gpkg
-    table_name: nc_vtd_all_vap_elec
-    layer: nc_vtd_all_vap_elec_graph
-  - gpkg: pa_block_all_vap_elec.gpkg
-    table_name: pa_block_all_vap_elec
-    layer: pa_block_all_vap_elec_graph
-  - gpkg: pa_vtd_all_vap_elec.gpkg
-    table_name: pa_vtd_all_vap_elec
-    layer: pa_vtd_all_vap_elec_graph
-  - gpkg: tx_block_all_vap_elec.gpkg
-    table_name: tx_block_all_vap_elec
-    layer: tx_block_all_vap_elec_graph
-  - gpkg: tx_vtd_all_vap_elec.gpkg
-    table_name: tx_vtd_all_vap_elec
-    layer: tx_vtd_all_vap_elec_graph
-  - gpkg: wa_block_all_vap_elec.gpkg
-    table_name: wa_block_all_vap_elec
-    layer: wa_block_all_vap_elec_graph
-  - gpkg: wa_vtd_all_vap_elec.gpkg
-    table_name: wa_vtd_all_vap_elec
-    layer: wa_vtd_all_vap_elec_graph
+  - gpkg: ak_block_districtr_view.gpkg
+    table_name: ak_block_districtr_view
+    layer: ak_block_districtr_view
+  - gpkg: ak_vtd_districtr_view.gpkg
+    table_name: ak_vtd_districtr_view
+    layer: ak_vtd_districtr_view
+  - gpkg: co_block_districtr_view.gpkg
+    table_name: co_block_districtr_view
+    layer: co_block_districtr_view
+  - gpkg: co_vtd_districtr_view.gpkg
+    table_name: co_vtd_districtr_view
+    layer: co_vtd_districtr_view
+  - gpkg: fl_block_districtr_view.gpkg
+    table_name: fl_block_districtr_view
+    layer: fl_block_districtr_view
+  - gpkg: fl_vtd_districtr_view.gpkg
+    table_name: fl_vtd_districtr_view
+    layer: fl_vtd_districtr_view
+  - gpkg: ks_block_districtr_view.gpkg
+    table_name: ks_block_districtr_view
+    layer: ks_block_districtr_view
+  - gpkg: ks_vtd_districtr_view.gpkg
+    table_name: ks_vtd_districtr_view
+    layer: ks_vtd_districtr_view
+  - gpkg: ma_block_districtr_view.gpkg
+    table_name: ma_block_districtr_view
+    layer: ma_block_districtr_view
+  - gpkg: ma_vtd_districtr_view.gpkg
+    table_name: ma_vtd_districtr_view
+    layer: ma_vtd_districtr_view
+  - gpkg: mt_block_districtr_view.gpkg
+    table_name: mt_block_districtr_view
+    layer: mt_block_districtr_view
+  - gpkg: mt_vtd_districtr_view.gpkg
+    table_name: mt_vtd_districtr_view
+    layer: mt_vtd_districtr_view
+  - gpkg: nc_block_districtr_view.gpkg
+    table_name: nc_block_districtr_view
+    layer: nc_block_districtr_view
+  - gpkg: nc_vtd_districtr_view.gpkg
+    table_name: nc_vtd_districtr_view
+    layer: nc_vtd_districtr_view
+  - gpkg: pa_block_districtr_view.gpkg
+    table_name: pa_block_districtr_view
+    layer: pa_block_districtr_view
+  - gpkg: pa_vtd_districtr_view.gpkg
+    table_name: pa_vtd_districtr_view
+    layer: pa_vtd_districtr_view
+  - gpkg: tx_block_districtr_view.gpkg
+    table_name: tx_block_districtr_view
+    layer: tx_block_districtr_view
+  - gpkg: tx_vtd_districtr_view.gpkg
+    table_name: tx_vtd_districtr_view
+    layer: tx_vtd_districtr_view
+  - gpkg: wa_block_districtr_view.gpkg
+    table_name: wa_block_districtr_view
+    layer: wa_block_districtr_view
+  - gpkg: wa_vtd_districtr_view.gpkg
+    table_name: wa_vtd_districtr_view
+    layer: wa_vtd_districtr_view
 shatterable_views:
-  - gerrydb_table_name: ak_all_vap_elec
-    parent_layer: ak_vtd_all_vap_elec
-    child_layer: ak_block_all_vap_elec
-  - gerrydb_table_name: co_all_vap_elec
-    parent_layer: co_vtd_all_vap_elec
-    child_layer: co_block_all_vap_elec
-  - gerrydb_table_name: fl_all_vap_elec
-    parent_layer: fl_vtd_all_vap_elec
-    child_layer: fl_block_all_vap_elec
-  - gerrydb_table_name: ks_all_vap_elec
-    parent_layer: ks_vtd_all_vap_elec
-    child_layer: ks_block_all_vap_elec
-  - gerrydb_table_name: ma_all_vap_elec
-    parent_layer: ma_vtd_all_vap_elec
-    child_layer: ma_block_all_vap_elec
-  - gerrydb_table_name: mt_all_vap_elec
-    parent_layer: mt_vtd_all_vap_elec
-    child_layer: mt_block_all_vap_elec
-  - gerrydb_table_name: nc_all_vap_elec
-    parent_layer: nc_vtd_all_vap_elec
-    child_layer: nc_block_all_vap_elec
-  - gerrydb_table_name: pa_all_vap_elec
-    parent_layer: pa_vtd_all_vap_elec
-    child_layer: pa_block_all_vap_elec
-  - gerrydb_table_name: tx_all_vap_elec
-    parent_layer: tx_vtd_all_vap_elec
-    child_layer: tx_block_all_vap_elec
-  - gerrydb_table_name: wa_all_vap_elec
-    parent_layer: wa_vtd_all_vap_elec
-    child_layer: wa_block_all_vap_elec
+  - gerrydb_table_name: ak_districtr_view
+    districtr_map_slug: ak_districtr_view
+    parent_layer: ak_vtd_districtr_view
+    child_layer: ak_block_districtr_view
+  - gerrydb_table_name: co_districtr_view
+    districtr_map_slug: co_districtr_view
+    parent_layer: co_vtd_districtr_view
+    child_layer: co_block_districtr_view
+  - gerrydb_table_name: fl_districtr_view
+    districtr_map_slug: fl_districtr_view
+    parent_layer: fl_vtd_districtr_view
+    child_layer: fl_block_districtr_view
+  - gerrydb_table_name: ks_districtr_view
+    districtr_map_slug: ks_districtr_view
+    parent_layer: ks_vtd_districtr_view
+    child_layer: ks_block_districtr_view
+  - gerrydb_table_name: ma_districtr_view
+    districtr_map_slug: ma_districtr_view
+    parent_layer: ma_vtd_districtr_view
+    child_layer: ma_block_districtr_view
+  - gerrydb_table_name: mt_districtr_view
+    districtr_map_slug: mt_districtr_view
+    parent_layer: mt_vtd_districtr_view
+    child_layer: mt_block_districtr_view
+  - gerrydb_table_name: nc_districtr_view
+    districtr_map_slug: nc_districtr_view
+    parent_layer: nc_vtd_districtr_view
+    child_layer: nc_block_districtr_view
+  - gerrydb_table_name: pa_districtr_view
+    districtr_map_slug: pa_districtr_view
+    parent_layer: pa_vtd_districtr_view
+    child_layer: pa_block_districtr_view
+  - gerrydb_table_name: tx_districtr_view
+    districtr_map_slug: tx_districtr_view
+    parent_layer: tx_vtd_districtr_view
+    child_layer: tx_block_districtr_view
+  - gerrydb_table_name: wa_districtr_view
+    districtr_map_slug: wa_districtr_view
+    parent_layer: wa_vtd_districtr_view
+    child_layer: wa_block_districtr_view
 districtr_maps:
   - name: Alaska State Senate (20)
     num_districts: 20
-    gerrydb_table_name: ak_all_vap_elec
-    parent_layer: ak_vtd_all_vap_elec
-    child_layer: ak_block_all_vap_elec
-    tiles_s3_path: tilesets/ak_all_vap_elec.pmtiles
+    gerrydb_table_name: ak_districtr_view
+    districtr_map_slug: ak_districtr_view
+    parent_layer: ak_vtd_districtr_view
+    child_layer: ak_block_districtr_view
+    tiles_s3_path: tilesets/ak_districtr_view.pmtiles
   - name: Colorado Congressional (8)
     num_districts: 8
-    gerrydb_table_name: co_all_vap_elec
-    parent_layer: co_vtd_all_vap_elec
-    child_layer: co_block_all_vap_elec
-    tiles_s3_path: tilesets/co_all_vap_elec.pmtiles
+    gerrydb_table_name: co_districtr_view
+    districtr_map_slug: co_districtr_view
+    parent_layer: co_vtd_districtr_view
+    child_layer: co_block_districtr_view
+    tiles_s3_path: tilesets/co_districtr_view.pmtiles
   - name: Florida Congressional (28)
     num_districts: 28
-    gerrydb_table_name: fl_all_vap_elec
-    parent_layer: fl_vtd_all_vap_elec
-    child_layer: fl_block_all_vap_elec
-    tiles_s3_path: tilesets/fl_all_vap_elec.pmtiles
+    gerrydb_table_name: fl_districtr_view
+    districtr_map_slug: fl_districtr_view
+    parent_layer: fl_vtd_districtr_view
+    child_layer: fl_block_districtr_view
+    tiles_s3_path: tilesets/fl_districtr_view.pmtiles
   - name: Kansas Congressional (4)
     num_districts: 4
-    gerrydb_table_name: ks_all_vap_elec
-    parent_layer: ks_vtd_all_vap_elec
-    child_layer: ks_block_all_vap_elec
-    tiles_s3_path: tilesets/ks_all_vap_elec.pmtiles
+    gerrydb_table_name: ks_districtr_view
+    districtr_map_slug: ks_districtr_view
+    parent_layer: ks_vtd_districtr_view
+    child_layer: ks_block_districtr_view
+    tiles_s3_path: tilesets/ks_districtr_view.pmtiles
   - name: Kansas State Senate (40)
     num_districts: 40
-    gerrydb_table_name: ks_all_vap_elec
-    parent_layer: ks_vtd_all_vap_elec
-    child_layer: ks_block_all_vap_elec
-    tiles_s3_path: tilesets/ks_all_vap_elec.pmtiles
+    gerrydb_table_name: ks_districtr_view
+    districtr_map_slug: ks_districtr_view
+    parent_layer: ks_vtd_districtr_view
+    child_layer: ks_block_districtr_view
+    tiles_s3_path: tilesets/ks_districtr_view.pmtiles
   - name: Massachusetts Congressional (9)
     num_districts: 9
-    gerrydb_table_name: ma_all_vap_elec
-    parent_layer: ma_vtd_all_vap_elec
-    child_layer: ma_block_all_vap_elec
-    tiles_s3_path: tilesets/ma_all_vap_elec.pmtiles
+    gerrydb_table_name: ma_districtr_view
+    districtr_map_slug: ma_districtr_view
+    parent_layer: ma_vtd_districtr_view
+    child_layer: ma_block_districtr_view
+    tiles_s3_path: tilesets/ma_districtr_view.pmtiles
   - name: Montana Congressional (2)
     num_districts: 2
-    gerrydb_table_name: mt_all_vap_elec
-    parent_layer: mt_vtd_all_vap_elec
-    child_layer: mt_block_all_vap_elec
-    tiles_s3_path: tilesets/mt_all_vap_elec.pmtiles
+    gerrydb_table_name: mt_districtr_view
+    districtr_map_slug: mt_districtr_view
+    parent_layer: mt_vtd_districtr_view
+    child_layer: mt_block_districtr_view
+    tiles_s3_path: tilesets/mt_districtr_view.pmtiles
   - name: North Carolina Congressional (14)
     num_districts: 14
-    gerrydb_table_name: nc_all_vap_elec
-    parent_layer: nc_vtd_all_vap_elec
-    child_layer: nc_block_all_vap_elec
-    tiles_s3_path: tilesets/nc_all_vap_elec.pmtiles
+    gerrydb_table_name: nc_districtr_view
+    districtr_map_slug: nc_districtr_view
+    parent_layer: nc_vtd_districtr_view
+    child_layer: nc_block_districtr_view
+    tiles_s3_path: tilesets/nc_districtr_view.pmtiles
   - name: Pennsylvania Congressional (17)
     num_districts: 17
-    gerrydb_table_name: pa_all_vap_elec
-    parent_layer: pa_vtd_all_vap_elec
-    child_layer: pa_block_all_vap_elec
-    tiles_s3_path: tilesets/pa_all_vap_elec.pmtiles
+    gerrydb_table_name: pa_districtr_view
+    districtr_map_slug: pa_districtr_view
+    parent_layer: pa_vtd_districtr_view
+    child_layer: pa_block_districtr_view
+    tiles_s3_path: tilesets/pa_districtr_view.pmtiles
   - name: Texas Congressional (38)
     num_districts: 38
-    gerrydb_table_name: tx_all_vap_elec
-    parent_layer: tx_vtd_all_vap_elec
-    child_layer: tx_block_all_vap_elec
-    tiles_s3_path: tilesets/tx_all_vap_elec.pmtiles
+    gerrydb_table_name: tx_districtr_view
+    districtr_map_slug: tx_districtr_view
+    parent_layer: tx_vtd_districtr_view
+    child_layer: tx_block_districtr_view
+    tiles_s3_path: tilesets/tx_districtr_view.pmtiles
   - name: Washington Congressional (10)
     num_districts: 10
-    gerrydb_table_name: wa_all_vap_elec
-    parent_layer: wa_vtd_all_vap_elec
-    child_layer: wa_block_all_vap_elec
-    tiles_s3_path: tilesets/wa_all_vap_elec.pmtiles
+    gerrydb_table_name: wa_districtr_view
+    districtr_map_slug: wa_districtr_view
+    parent_layer: wa_vtd_districtr_view
+    child_layer: wa_block_districtr_view
+    tiles_s3_path: tilesets/wa_districtr_view.pmtiles

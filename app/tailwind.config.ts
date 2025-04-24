@@ -16,8 +16,13 @@ const config: Config = {
         'full-minus-sidebar': 'calc(100% - var(--sidebar-width))',
         sidebar: 'var(--sidebar-width)',
       },
+      colors: {
+        districtrBlue: '#0099cd',
+        districtrDarkBlue: '#006b9c',
+        districtrIndigo: 'rgba(0, 0, 139)'
+      }
     },
   },
-  plugins: [],
+  plugins: [require('@tailwindcss/typography')],
 };
 export default config;

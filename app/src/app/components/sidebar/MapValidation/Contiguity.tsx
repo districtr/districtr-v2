@@ -1,36 +1,45 @@
 import {useMapStore} from '@/app/store/mapStore';
-import {getContiguity} from '@/app/utils/api/apiHandlers';
-import {Blockquote, Box, Button, Flex, Table, Text} from '@radix-ui/themes';
+import {getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
+import {Blockquote, Box, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {useMemo, useState} from 'react';
-import {CheckCircledIcon, CrossCircledIcon, DashIcon} from '@radix-ui/react-icons';
-import {colorScheme} from '@/app/constants/colors';
+import {useEffect, useMemo, useState} from 'react';
+import {CheckCircledIcon, DashIcon} from '@radix-ui/react-icons';
+import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
+import {isAxiosError} from 'axios';
+import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDisplay';
+import ZoomToConnectedComponents from './ZoomToConnectedComponents';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
-  const [lastUpdated, setLastUpdated] = useState<string|null>(null);
-  const {data, error, isLoading, refetch} = useQuery(
+  const colorScheme = useMapStore(store => store.colorScheme);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const {data, error, isLoading, isFetched, refetch} = useQuery(
     {
       queryKey: ['Contiguity', mapDocument?.document_id],
       queryFn: () => mapDocument && getContiguity(mapDocument),
       enabled: !!mapDocument,
       staleTime: 0,
+      retry: false,
       placeholderData: previousData => previousData,
     },
     queryClient
   );
 
-  const update = () => {
-    refetch();
+  const update = async () => {
+    setLastUpdated(null);
+    await refetch();
     setLastUpdated(new Date().toLocaleString());
-  }
+  };
+
+  useEffect(() => {
+    setLastUpdated(new Date().toLocaleString());
+  }, [isFetched]);
 
   const tableData = useMemo(() => {
-    console.log('Updating contiguity', data);
     if (!data) return [];
     const cleanData: any = [];
-    const numDistricts = mapDocument?.num_districts ?? 4;
+    const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     for (let i = 1; i < numDistricts + 1; i++) {
       if (i in data) {
         cleanData.push({
@@ -46,11 +55,17 @@ export const Contiguity = () => {
     }
     return cleanData;
   }, [data]);
+
   if (isLoading) {
     return <div>Loading...</div>;
   }
-  if (error || data?.detail) {
-    return <Blockquote color="red">Error: {error?.message || data?.detail}</Blockquote>;
+
+  if (error) {
+    if (isAxiosError(error)) {
+      return <Blockquote color="red">{error.response?.data?.detail || error.message}</Blockquote>;
+    } else {
+      return <Blockquote color="red">{error.message}</Blockquote>;
+    }
   }
 
   return (
@@ -74,7 +89,7 @@ export const Contiguity = () => {
                     style={{
                       width: '15px',
                       height: '15px',
-                      backgroundColor: colorScheme[(row.zone % colorScheme.length) - 1],
+                      backgroundColor: colorScheme[(row.zone - 1) % colorScheme.length],
                       borderRadius: '4px',
                     }}
                   />
@@ -87,10 +102,12 @@ export const Contiguity = () => {
                 ) : row.contiguity == 1 ? (
                   <CheckCircledIcon color="green" />
                 ) : (
-                  <Flex direction="row" gap="1">
-                    <CrossCircledIcon color="red" />
-                    <Text color="gray">{row.contiguity} connected components</Text>
-                  </Flex>
+                  <ZoomToConnectedComponents
+                    zone={row.zone}
+                    contiguity={row.contiguity}
+                    updateTrigger={lastUpdated}
+                    handleUpdateParent={update}
+                  />
                 )}
               </Table.Cell>
             </Table.Row>
@@ -98,8 +115,8 @@ export const Contiguity = () => {
         </Table.Body>
       </Table.Root>
       <Flex direction="row" gapX="4" pt="4" align="center">
-        <Button onClick={update}>Refresh</Button>
-        {!!lastUpdated && <Text>{lastUpdated}</Text>}
+        <RefreshButton onClick={update} />
+        <TimestampDisplay timestamp={lastUpdated} />
       </Flex>
     </Box>
   );

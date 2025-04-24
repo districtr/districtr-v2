@@ -8,3 +8,4 @@ SQL_DIR = Path(__file__).resolve().parent / "sql"
 # DO NOT CHANGE THIS CONSTANT
 GERRY_DB_SCHEMA = "gerrydb"
 DOCUMENT_SCHEMA = "document"
+CMS_SCHEMA = "cms"

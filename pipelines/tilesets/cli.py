@@ -37,6 +37,12 @@ def cli():
     help="Path or URL to GeoPackage file. If URL, must be s3 URI",
     required=True,
 )
+@click.option(
+    "--new-layer-name",
+    "-nln",
+    help="Name of the new layer in the GeoPackage file",
+    required=False,
+)
 @click.option("--replace", "-f", help="Replace files they exist", is_flag=True)
 @click.option(
     "--column",
@@ -46,13 +52,24 @@ def cli():
     default=DEFAULT_GERRYDB_COLUMNS,
 )
 def create_gerrydb_tileset(
-    layer: str, gpkg: str, replace: bool, column: Iterable[str]
+    layer: str,
+    gpkg: str,
+    new_layer_name: str | None,
+    replace: bool,
+    column: Iterable[str],
 ) -> None:
     """
     Create a tileset from a GeoPackage file. Does not upload the tileset to S3. Use the s3 cli for that.
     """
-    tileset = GerryDBTileset(layer_name=layer, gpkg=gpkg, columns=column)
-    tileset.generate_tiles(replace=replace)
+    if new_layer_name is None:
+        new_layer_name = layer
+
+    tileset = GerryDBTileset(
+        layer_name=layer, new_layer_name=new_layer_name, gpkg=gpkg, columns=column
+    )
+    tileset_path = tileset.generate_tiles(replace=replace)
+
+    logger.info(f"Tileset created at {tileset_path}")
 
 
 @cli.command("merge-gerrydb-tilesets")
@@ -99,6 +116,9 @@ def batch_create_tilesets(
     """
     Batch create tilesets from a config file. Does not upload the tileset to S3. Use the s3 cli for that.
     """
+    if not os.path.exists(settings.OUT_SCRATCH):
+        os.makedirs(settings.OUT_SCRATCH)
+
     tileset_batch = TilesetBatch.from_file(file_path=config_path)
     tileset_batch.create_all(replace=replace, data_dir=data_dir)
 

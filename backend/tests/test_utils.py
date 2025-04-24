@@ -16,12 +16,12 @@ from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
 
 
-GERRY_DB_P1_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
+GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 
 
-@pytest.fixture(name=GERRY_DB_P1_FIXTURE_NAME)
+@pytest.fixture(name=GERRY_DB_TOTPOP_FIXTURE_NAME)
 def ks_demo_view_census_blocks_summary_stats(session: Session):
-    layer = GERRY_DB_P1_FIXTURE_NAME
+    layer = GERRY_DB_TOTPOP_FIXTURE_NAME
     result = subprocess.run(
         args=[
             "ogr2ogr",
@@ -36,16 +36,18 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         ],
     )
 
-    upsert_query = text("""
+    upsert_query = text(
+        """
         INSERT INTO gerrydbtable (uuid, name, updated_at)
         VALUES (gen_random_uuid(), :name, now())
         ON CONFLICT (name)
         DO UPDATE SET
             updated_at = now()
-    """)
+    """
+    )
 
     session.begin()
-    session.execute(upsert_query, {"name": GERRY_DB_P1_FIXTURE_NAME})
+    session.execute(upsert_query, {"name": GERRY_DB_TOTPOP_FIXTURE_NAME})
 
     if result.returncode != 0:
         print(f"ogr2ogr failed. Got {result}")
@@ -61,6 +63,7 @@ def test_create_districtr_map(
     _ = create_districtr_map(
         session,
         name="Simple shatterable layer",
+        districtr_map_slug="simple_geos_test",
         gerrydb_table_name="simple_geos_test",
         num_districts=10,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
@@ -76,6 +79,7 @@ def test_create_districtr_map_some_nulls(session: Session, simple_parent_geos_ge
     _ = create_districtr_map(
         session,
         name="Simple non-shatterable layer",
+        districtr_map_slug="simple_parent_geos_some_nulls",
         gerrydb_table_name="simple_parent_geos_some_nulls",
         parent_layer="simple_parent_geos",
     )
@@ -90,6 +94,7 @@ def simple_parent_geos_districtrmap_fixture(
     _ = create_districtr_map(
         session,
         name="Simple shatterable layer",
+        districtr_map_slug=gerrydb_name,
         gerrydb_table_name=gerrydb_name,
         num_districts=10,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
@@ -104,6 +109,7 @@ def simple_parent_geos_districtrmap_fixture(
 def test_update_districtr_map(session: Session, simple_parent_geos_districtrmap):
     result = update_districtrmap(
         session=session,
+        districtr_map_slug=simple_parent_geos_districtrmap,
         gerrydb_table_name=simple_parent_geos_districtrmap,
         visible=False,
     )
@@ -116,6 +122,7 @@ def test_add_extent_to_districtrmap(session: Session, simple_parent_geos_gerrydb
     inserted_districtr_map = create_districtr_map(
         session,
         name="Simple non-shatterable layer 2",
+        districtr_map_slug="simple_parent_geos_some_nulls2",
         gerrydb_table_name="simple_parent_geos_some_nulls2",
         parent_layer="simple_parent_geos",
     )
@@ -130,6 +137,7 @@ def test_add_extent_to_districtrmap_manual_bounds(
     inserted_districtr_map = create_districtr_map(
         session,
         name="Simple non-shatterable layer 2",
+        districtr_map_slug="simple_parent_geos_some_nulls2",
         gerrydb_table_name="simple_parent_geos_some_nulls2",
         parent_layer="simple_parent_geos",
     )
@@ -171,7 +179,8 @@ def document_id_fixture(
     response = client.post(
         "/api/create_document",
         json={
-            "gerrydb_table": "simple_geos",
+            "districtr_map_slug": "simple_geos",
+            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
         },
     )
     assert response.status_code == 201
@@ -204,13 +213,13 @@ def test_shattering(client, session: Session, document_id):
 def test_get_available_summary_stats(
     session: Session, ks_demo_view_census_blocks_summary_stats
 ):
-    result = get_available_summary_stats(session, GERRY_DB_P1_FIXTURE_NAME)
+    result = get_available_summary_stats(session, GERRY_DB_TOTPOP_FIXTURE_NAME)
     assert len(result) == 1
     (summary_stats_available,) = result
     assert summary_stats_available
     assert len(summary_stats_available) == 1
     (summary_stat,) = summary_stats_available
-    assert summary_stat == "P1"
+    assert summary_stat == "TOTPOP"
 
 
 def test_unshatter_process(client, document_id):

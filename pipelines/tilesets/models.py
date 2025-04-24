@@ -11,6 +11,7 @@ from settings import settings
 from files import download_file_from_s3
 from utils import merge_tilesets
 from constants import S3_TILESETS_PREFIX
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -59,7 +60,7 @@ class GerryDBTileset(BaseModel):
     columns: Iterable[str] = [
         "path",
         "geography",
-        "total_pop",
+        "total_pop_20",
     ]
 
     @computed_field
@@ -88,6 +89,9 @@ class GerryDBTileset(BaseModel):
             path = download_file_from_s3(s3, url, replace)
 
         fbg_path = f"{settings.OUT_SCRATCH}/{self.layer_name}.fgb"
+
+        Path(fbg_path).parent.mkdir(parents=True, exist_ok=True)
+
         logger.info("Creating flatgeobuf...")
         if os.path.exists(fbg_path) and not replace:
             logger.info("File already exists. Skipping creation.")

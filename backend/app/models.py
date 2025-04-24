@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 from pydantic import UUID4, BaseModel, ConfigDict
 from sqlmodel import (
     Field,
@@ -13,20 +13,33 @@ from sqlmodel import (
     MetaData,
     String,
     Boolean,
+    Integer,
+    Text,
 )
 from sqlalchemy.types import ARRAY, TEXT
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import Float
-from pydantic_geojson.multi_polygon import MultiPolygonModel
-from pydantic_geojson.polygon import PolygonModel
+import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
 from enum import Enum
-from typing import Any
 
 
 class UUIDType(UUID):
     def __init__(self, *args, **kwargs):
         kwargs["as_uuid"] = False
         super().__init__(*args, **kwargs)
+
+
+class DocumentShareStatus(str, Enum):
+    read = "read"
+    edit = "edit"
+
+
+class TokenRequest(BaseModel):
+    token: str
+    password: str | None = None
+    user_id: str | None = None
+    access: DocumentShareStatus = DocumentShareStatus.read
 
 
 class TimeStampMixin(SQLModel):
@@ -50,21 +63,21 @@ class TimeStampMixin(SQLModel):
 
 
 class SummaryStatisticType(Enum):
-    P1 = "Population by Race"
-    P2 = "Hispanic or Latino, and Not Hispanic or Latino by Race"
-    P3 = "Voting Age Population by Race"
-    P4 = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+    TOTPOP = "Population by Race"
+    VAP = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
+    VHISTORY = "Voting History"
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
+    districtr_map_slug: str = Field(nullable=False, unique=True)
     # This is intentionally not a foreign key on `GerryDBTable` because in some cases
     # this may be the GerryDBTable but in others the pop table may be a materialized
     # view of two GerryDBTables in the case of shatterable maps.
     # We'll want to enforce the constraint tha the gerrydb_table_name is either in
     # GerrydbTable.name or a materialized view of two GerryDBTables some other way.
-    gerrydb_table_name: str | None = Field(nullable=True, unique=True)
+    gerrydb_table_name: str | None = Field(nullable=True)
     # Null means default number of districts? Should we have a sensible default?
     num_districts: int | None = Field(nullable=True, default=None)
     tiles_s3_path: str | None = Field(nullable=True)
@@ -89,7 +102,8 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
 
 class DistrictrMapPublic(BaseModel):
     name: str
-    gerrydb_table_name: str
+    districtr_map_slug: str
+    gerrydb_table_name: str | None = None
     parent_layer: str
     child_layer: str | None = None
     tiles_s3_path: str | None = None
@@ -99,7 +113,8 @@ class DistrictrMapPublic(BaseModel):
 
 
 class DistrictrMapUpdate(BaseModel):
-    gerrydb_table_name: str
+    districtr_map_slug: str
+    gerrydb_table_name: str | None
     name: str | None = None
     parent_layer: str | None = None
     child_layer: str | None = None
@@ -137,20 +152,89 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
+class DistrictrMapMetadata(BaseModel):
+    name: Optional[str] | None = None
+    group: Optional[str] | None = None
+    tags: Optional[list[str]] | None = None
+    description: Optional[str] | None = None
+    event_id: Optional[str] | None = None
+    is_draft: bool = True
+
+
 class Document(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
+    districtr_map_slug: str = Field(
+        sa_column=Column(
+            Text,
+            ForeignKey("public.districtrmap.districtr_map_slug"),
+            nullable=False,
+        )
+    )
     gerrydb_table: str | None = Field(nullable=True)
+    color_scheme: list[str] | None = Field(
+        sa_column=Column(ARRAY(String), nullable=True)
+    )
+    map_metadata: DistrictrMapMetadata | None = Field(
+        sa_column=Column(JSON, nullable=True)
+    )
 
 
 class DocumentCreate(BaseModel):
-    gerrydb_table: str | None
+    districtr_map_slug: str | None
+    user_id: str | None
+    metadata: Optional[DistrictrMapMetadata] | None = None
+    copy_from_doc: Optional[str] | None = None  # document_id to copy from
+
+
+class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
+    """
+    Tracks the user session for a given document
+    """
+
+    __tablename__ = "map_document_user_session"
+    session_id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True)
+    )
+    user_id: str = Field(sa_column=Column(String, nullable=False))
+
+
+class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
+    """
+    Manages sharing of plans between users.
+
+    Deliberately no user id for now, so that a user could theoretically re-access a plan from another machine.
+    """
+
+    __tablename__ = "map_document_token"
+    token_id: str = Field(
+        UUIDType,
+        primary_key=True,
+    )
+    password_hash: str = Field(
+        sa_column=Column(String, nullable=True)  # optional password
+    )
+    expiration_date: datetime = Field(
+        sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
+    )
+
+
+class DocumentEditStatus(str, Enum):
+    locked = "locked"
+    unlocked = "unlocked"
+    checked_out = "checked_out"
+
+
+class DocumentGenesis(str, Enum):
+    created = "created"
+    shared = "shared"
 
 
 class DocumentPublic(BaseModel):
     document_id: UUID4
+    districtr_map_slug: str | None
     gerrydb_table: str | None
     parent_layer: str
     child_layer: str | None
@@ -160,6 +244,13 @@ class DocumentPublic(BaseModel):
     updated_at: datetime
     extent: list[float] | None = None
     available_summary_stats: list[str] | None = None
+    map_metadata: DistrictrMapMetadata | None
+    status: DocumentEditStatus = (
+        DocumentEditStatus.unlocked
+    )  # locked, unlocked, checked_out
+    genesis: str | None = None
+    access: DocumentShareStatus = DocumentShareStatus.edit
+    color_scheme: list[str] | None = None
 
 
 class AssignmentsBase(SQLModel):
@@ -202,18 +293,30 @@ class GEOIDSResponse(GEOIDS):
     updated_at: datetime
 
 
+class UserID(BaseModel):
+    user_id: str
+
+
 class AssignedGEOIDS(GEOIDS):
     zone: int | None
 
 
-class UnassignedBboxGeoJSONs(BaseModel):
-    features: list[MultiPolygonModel | PolygonModel]
+class BBoxGeoJSONs(BaseModel):
+    features: list[
+        pydantic_geojson.feature.FeatureModel
+        | pydantic_geojson.multi_polygon.MultiPolygonModel
+        | pydantic_geojson.polygon.PolygonModel
+    ]
 
 
 class ShatterResult(BaseModel):
     parents: GEOIDS
     children: list[Assignments]
     updated_at: datetime
+
+
+class ColorsSetResult(BaseModel):
+    colors: list[str]
 
 
 class ZonePopulation(BaseModel):
@@ -226,32 +329,36 @@ class SummaryStats(BaseModel):
     results: list[Any]
 
 
-class PopulationStatsP1(BaseModel):
+class PopulationStatsTOTPOP(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    other_pop: int
-    asian_pop: int
-    amin_pop: int
-    nhpi_pop: int
-    black_pop: int
-    white_pop: int
-    two_or_more_races_pop: int
+    other_pop_20: int
+    amin_pop_20: int
+    asian_nhpi_pop_20: int
+    bpop_20: int
+    hpop_20: int
+    white_pop_20: int
+    total_pop_20: int
 
 
-class SummaryStatsP1(PopulationStatsP1):
+class SummaryStatsTOTPOP(PopulationStatsTOTPOP):
     zone: int
 
 
-class PopulationStatsP4(BaseModel):
+class PopulationStatsVAP(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    hispanic_vap: int
-    non_hispanic_asian_vap: int
-    non_hispanic_amin_vap: int
-    non_hispanic_nhpi_vap: int
-    non_hispanic_black_vap: int
-    non_hispanic_white_vap: int
-    non_hispanic_other_vap: int
-    non_hispanic_two_or_more_races_vap: int
+    white_vap_20: int
+    other_vap_20: int
+    amin_vap_20: int
+    asian_nhpi_vap_20: int
+    hvap_20: int
+    bvap_20: int
+    total_vap_20: int
 
 
-class SummaryStatsP4(PopulationStatsP4):
+class SummaryStatsVAP(PopulationStatsVAP):
     zone: int
+
+
+class SummaryStatisticColumnLists(Enum):
+    TOTPOP = PopulationStatsTOTPOP.model_fields.keys()
+    VAP = PopulationStatsVAP.model_fields.keys()

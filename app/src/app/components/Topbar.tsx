@@ -6,39 +6,48 @@ import {
   Flex,
   Heading,
   IconButton,
+  Link,
   Box,
   Tooltip,
   Tabs,
   Dialog,
 } from '@radix-ui/themes';
 import React, {useRef} from 'react';
-import {useMapStore} from '../store/mapStore';
-import {RecentMapsModal} from './Toolbar/RecentMapsModal';
-import {ToolSettings} from './Toolbar/Settings';
-import {ArrowLeftIcon, Cross2Icon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
-import {useTemporalStore} from '../store/temporalStore';
-import {document} from '../utils/api/mutations';
-import {DistrictrMap} from '../utils/api/apiHandlers';
+import {useMapStore} from '@store/mapStore';
+import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
+import {ToolSettings} from '@components/Toolbar/Settings';
+import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
+import {useTemporalStore} from '@store/temporalStore';
+import {document} from '@utils/api/mutations';
+import {DistrictrMap} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
-import {Uploader} from './Uploader/Uploader';
+import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
+import {PasswordPromptModal} from '@components/Toolbar/PasswordPromptModal';
+import {useMapStatus} from '../hooks/useMapStatus';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
-  const [modalOpen, setModalOpen] = React.useState<string | false>(false);
+  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | 'share' | null>(null);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
+  const status = useMapStore(state => state.mapStatus?.status);
+  const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
+  const {statusText} = useMapStatus();
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
-    if (selectedMap.gerrydb_table_name === mapDocument?.gerrydb_table) {
+    if (selectedMap.districtr_map_slug === mapDocument?.districtr_map_slug) {
       console.log('No document or same document');
       return;
     }
     clear();
-    document.mutate({gerrydb_table: selectedMap.gerrydb_table_name});
+    document.mutate({
+      districtr_map_slug: selectedMap.districtr_map_slug,
+      user_id: userID,
+    });
   };
 
   return (
@@ -68,6 +77,9 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
               <DropdownMenu.Sub>
+                <DropdownMenu.Item>
+                  <Link href="/">Home</Link>
+                </DropdownMenu.Item>
                 <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
                   <DropdownMenu.SubTrigger>Select Map</DropdownMenu.SubTrigger>
                 </Tooltip>
@@ -153,9 +165,26 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
-            <Button variant="outline" className="mr-2" disabled>
-              Share
-            </Button>
+            {!!statusText && (
+              <Button
+                variant="outline"
+                className="mr-2"
+                disabled={!mapDocument?.document_id}
+                onClick={() => setShareMapsModal(true)}
+              >
+                {status === 'locked' ? 'Share' : 'Share'}
+              </Button>
+            )}
+            {!!statusText && (
+              <Button
+                variant="outline"
+                className="mr-2"
+                disabled={!mapDocument?.document_id}
+                onClick={() => setRecentMapsModalOpen(true)}
+              >
+                {statusText}
+              </Button>
+            )}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               onClick={() => setSettingsOpen(prev => !prev)}
@@ -171,28 +200,9 @@ export const Topbar: React.FC = () => {
         </Flex>
         <MobileDataTabs />
       </Flex>
-      <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(false)} />
-
-      <Dialog.Root
-        open={modalOpen === 'upload'}
-        onOpenChange={isOpen => (isOpen ? setModalOpen('upload') : setModalOpen(false))}
-      >
-        <Dialog.Content className="max-w-[50vw]">
-          <Flex align="center" className="mb-4">
-            <Dialog.Title className="m-0 text-xl font-bold flex-1">
-              Upload Block Assignments
-            </Dialog.Title>
-
-            <Dialog.Close
-              className="rounded-full size-[24px] hover:bg-red-100 p-1"
-              aria-label="Close"
-            >
-              <Cross2Icon />
-            </Dialog.Close>
-          </Flex>
-          <Uploader redirect={true} onFinish={() => setModalOpen(false)} />
-        </Dialog.Content>
-      </Dialog.Root>
+      <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(null)} />
+      <ShareMapsModal open={modalOpen === 'share'} onClose={() => setModalOpen(null)} />
+      <PasswordPromptModal />
     </>
   );
 };

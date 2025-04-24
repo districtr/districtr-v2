@@ -1,5 +1,4 @@
 import {MapStore, useMapStore} from '@/app/store/mapStore';
-import {colorScheme} from '@/app/constants/colors';
 import React, {useCallback, useState} from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
@@ -8,12 +7,11 @@ import {scaleLinear} from '@visx/scale';
 import {AxisBottom} from '@visx/axis';
 import {useChartStore} from '@/app/store/chartStore';
 import {PopulationLabels} from './PopulationLabels';
-import {PopulationCustomTooltip} from './PopulationTooltip';
 
 export const PopulationChart: React.FC<{
   width: number;
   height: number;
-  data: Array<{zone: number; total_pop: number}>;
+  data: Array<{zone: number; total_pop_20: number}>;
   margins?: {left: number; right: number; top: number; bottom: number};
   idealPopulation?: number;
 }> = ({
@@ -24,6 +22,7 @@ export const PopulationChart: React.FC<{
   margins = {left: 5, right: 20, top: 20, bottom: 80},
 }) => {
   const chartOptions = useChartStore(state => state.chartOptions);
+  const colorScheme = useMapStore(state => state.colorScheme);
 
   const {
     popBarScaleToCurrent: scaleToCurrent,
@@ -36,11 +35,11 @@ export const PopulationChart: React.FC<{
     width - margins.left - margins.right,
     height - margins.top - margins.bottom,
   ];
-  const maxPop = Math.max(...data.map(r => r.total_pop));
+  const maxPop = Math.max(...data.map(r => r.total_pop_20));
   const xMaxValue = scaleToCurrent
     ? maxPop * 1.05
-    : Math.max((idealPopulation || 0) * 1.3, ...data.map(r => r.total_pop * 1.2));
-  const xMinValue = scaleToCurrent ? Math.min(...data.map(r => r.total_pop)) : 0;
+    : Math.max((idealPopulation || 0) * 1.3, ...data.map(r => r.total_pop_20 * 1.2));
+  const xMinValue = scaleToCurrent ? Math.min(...data.map(r => r.total_pop_20)) : 0;
 
   const xScale = useCallback(
     scaleLinear<number>({
@@ -114,27 +113,13 @@ export const PopulationChart: React.FC<{
         )}
         {data.map((entry, index) => (
           <React.Fragment key={`pop-bar-group-${index}`}>
-            {entry.total_pop > 0 && (
+            {entry.total_pop_20 > 0 && (
               <>
-                {hoveredIndex === index && (
-                  <Bar
-                    key={`bg-bar-${entry.zone}`}
-                    x={0}
-                    y={yScale(index)}
-                    width={xMax + margins.right}
-                    height={barHeight + 6}
-                    fill={colorScheme[entry.zone - 1]}
-                    fillOpacity={0.3}
-                    style={{
-                      pointerEvents: 'none',
-                    }}
-                  />
-                )}
                 <Bar
                   key={`bar-${entry.zone}`}
                   x={0}
                   y={yScale(index) + 5}
-                  width={entry.total_pop > 0 ? xScale(entry.total_pop) : 0}
+                  width={entry.total_pop_20 > 0 ? xScale(entry.total_pop_20) : 0}
                   height={barHeight}
                   fill={colorScheme[entry.zone - 1]}
                   fillOpacity={0.9}
@@ -155,7 +140,7 @@ export const PopulationChart: React.FC<{
                 />
               </>
             )}
-            {entry.total_pop > 0 && (
+            {entry.total_pop_20 > 0 && (
               <PopulationLabels
                 {...{
                   xScale,
@@ -185,16 +170,6 @@ export const PopulationChart: React.FC<{
           }}
           tickFormat={v => formatNumber(v as number, 'compact')}
         />
-
-        {hoveredIndex !== null && (
-          <PopulationCustomTooltip
-            y={yScale(hoveredIndex) + 5}
-            index={hoveredIndex}
-            pop={data[hoveredIndex].total_pop}
-            idealPopulation={idealPopulation}
-            maxPop={maxPop}
-          />
-        )}
       </Group>
     </svg>
   );

@@ -77,3 +77,4 @@ temp/*
 pipelines/build_client_rects/output/*
 data/**/*
 backend/.env.docker
+!pre-commit/Dockerfile.dev

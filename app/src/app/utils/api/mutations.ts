@@ -1,119 +1,15 @@
-import {MutationObserver} from '@tanstack/query-core';
-import {queryClient} from './queryClient';
-import {
-  AssignmentsCreate,
-  AssignmentsReset,
-  createMapDocument,
-  patchShatterParents,
-  patchUnShatterParents,
-  patchUpdateAssignments,
-  patchUpdateReset,
-  populationAbortController,
-} from '@/app/utils/api/apiHandlers';
-import {useMapStore} from '@/app/store/mapStore';
-import {mapMetrics} from './queries';
-import {useChartStore} from '@/app/store/chartStore';
+// Export the AxiosErrorData type
+export interface AxiosErrorData {
+  detail: 'Invalid password' | 'Password required';
+}
 
-export const patchShatter = new MutationObserver(queryClient, {
-  mutationFn: patchShatterParents,
-  onMutate: ({document_id, geoids}) => {
-    useMapStore.getState().setMapLock(true);
-    console.log(
-      `Shattering parents for ${geoids} in document ${document_id}...`,
-      `Locked at `,
-      performance.now()
-    );
-  },
-  onError: error => {
-    console.log('Error updating assignments: ', error);
-  },
-  onSuccess: data => {
-    console.log(`Successfully shattered parents into ${data.children.length} children`);
-    return data;
-  },
-});
-
-export const patchUnShatter = new MutationObserver(queryClient, {
-  mutationFn: patchUnShatterParents,
-  onMutate: ({document_id, geoids}) => {
-    useMapStore.getState().setMapLock(true);
-    console.log(
-      `Unshattering parents ${geoids} in document ${document_id}...`,
-      `Locked at `,
-      performance.now()
-    );
-  },
-  onError: error => {
-    console.log('Error updating assignments: ', error);
-  },
-  onSuccess: data => {
-    console.log(`Successfully un-shattered parents ${data.geoids.join(', ')} from children`);
-    return data;
-  },
-});
-
-export const patchUpdates = new MutationObserver(queryClient, {
-  mutationFn: patchUpdateAssignments,
-  onMutate: () => {
-    console.log('Updating assignments');
-    populationAbortController?.abort();
-
-    const {zoneAssignments, shatterIds, shatterMappings, mapDocument, lastUpdatedHash} =
-      useMapStore.getState();
-    if (!mapDocument) return;
-  },
-  onError: error => {
-    console.log('Error updating assignments: ', error);
-  },
-  onSuccess: (data: AssignmentsCreate) => {
-    console.log(`Successfully upserted ${data.assignments_upserted} assignments`);
-    const {isPainting} = useMapStore.getState();
-    const {mapMetrics: _mapMetrics} = useChartStore.getState();
-    if (!isPainting || !_mapMetrics?.data) {
-      mapMetrics.refetch();
-    }
-    // remove trailing shattered features
-    // This needs to happen AFTER the updates are done
-    const {processHealParentsQueue, mapOptions, parentsToHeal} = useMapStore.getState();
-    if (mapOptions.mode === 'default' && parentsToHeal.length) {
-      processHealParentsQueue();
-    }
-  },
-});
-
-export const patchReset = new MutationObserver(queryClient, {
-  mutationFn: patchUpdateReset,
-  onMutate: () => {
-    console.log('Reseting map');
-  },
-  onError: error => {
-    console.log('Error reseting map: ', error);
-  },
-  onSuccess: (data: AssignmentsReset) => {
-    console.log(`Successfully reset ${data.document_id}`);
-    mapMetrics.refetch();
-  },
-});
-
-export const document = new MutationObserver(queryClient, {
-  mutationFn: createMapDocument,
-  onMutate: () => {
-    console.log('Creating document');
-    useMapStore.getState().setAppLoadingState('loading');
-    useMapStore.getState().resetZoneAssignments();
-  },
-  onError: error => {
-    console.error('Error creating map document: ', error);
-  },
-  onSuccess: data => {
-    const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} =
-      useMapStore.getState();
-    setMapDocument(data);
-    setLoadedMapId(data.document_id);
-    setAssignmentsHash(Date.now().toString());
-    setAppLoadingState('loaded');
-    const documentUrl = new URL(window.location.toString());
-    documentUrl.searchParams.set('document_id', data.document_id);
-    history.pushState({}, '', documentUrl.toString());
-  },
-});
+// Export all mutation observers
+export {patchShatter} from './mutations/patchShatter';
+export {patchUnShatter} from './mutations/patchUnShatter';
+export {patchUpdates} from './mutations/patchUpdates';
+export {patchReset} from './mutations/patchReset';
+export {document} from './mutations/document';
+export {metadata} from './mutations/metadata';
+export {sharePlan} from './mutations/sharePlan';
+export {sharedDocument} from './mutations/sharedDocument';
+export {checkoutDocument} from './mutations/checkoutDocument';

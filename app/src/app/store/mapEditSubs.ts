@@ -1,11 +1,12 @@
 import {debounce} from 'lodash';
-import {FormatAssignments} from '../utils/api/apiHandlers';
+import {saveColorScheme} from '../utils/api/apiHandlers/saveColorScheme';
+import {FormatAssignments} from '../utils/api/apiHandlers/formatAssignments';
 import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import {updateAssignments} from '../utils/api/queries';
 import GeometryWorker from '../utils/GeometryWorker';
-import { idCache } from './idCache';
+import {demographyCache} from '../utils/demography/demographyCache';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
@@ -39,12 +40,14 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   >(
     state => [state.zoneAssignments, state.appLoadingState],
     ([zoneAssignments, appLoadingState], [_, previousAppLoadingState]) => {
-      if (
-        previousAppLoadingState !== 'loaded' ||
-        appLoadingState === 'blurred' ||
-        !allowSendZoneUpdates
-      )
-        return;
+      if (appLoadingState === 'blurred' || !allowSendZoneUpdates) return;
+      // Update GeometryWorker on first render
+      const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
+      GeometryWorker?.updateZones(zoneEntries);
+      // Update caches / workers
+      demographyCache.updatePopulations(zoneAssignments);
+      // If previously not loaded, this is the initial render
+      if (previousAppLoadingState !== 'loaded') return;
       const {getMapRef} = useMapStore.getState();
       debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
     },
@@ -69,14 +72,13 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
 
   const updateGeometryWorkerState = useMapStore.subscribe(
     state => state.shatterIds,
-    (curr) => {
+    curr => {
       GeometryWorker?.handleShatterHeal({
         parents: Array.from(curr.parents),
         children: Array.from(curr.children),
-      })
-      idCache.handleShatterHeal(Array.from(curr.parents), Array.from(curr.children));
+      });
     }
-  )
+  );
 
   const lockMapOnShatterIdChange = useMapStore.subscribe<
     [MapStore['shatterIds']['parents'], MapStore['appLoadingState']]
@@ -128,6 +130,23 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
       }
     }
   );
+  const _addColorSchemeSub = useMapStore.subscribe<MapStore['colorScheme']>(
+    state => state.colorScheme,
+    colorScheme => {
+      const {mapDocument} = useMapStore.getState();
+      if (mapDocument) {
+        saveColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
+      }
+    },
+    {equalityFn: shallowCompareArray}
+  );
 
-  return [sendZoneUpdatesOnUpdate, fetchAssignmentsSub, healAfterEdits, lockMapOnShatterIdChange, updateGeometryWorkerState];
+  return [
+    sendZoneUpdatesOnUpdate,
+    fetchAssignmentsSub,
+    healAfterEdits,
+    lockMapOnShatterIdChange,
+    updateGeometryWorkerState,
+    _addColorSchemeSub,
+  ];
 };

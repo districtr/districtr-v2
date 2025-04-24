@@ -1,8 +1,8 @@
-import Evaluation from '@components/sidebar/Evaluation';
+import Evaluation from '@/app/components/sidebar/Evaluation/Evaluation';
 import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {MapStore} from '@/app/store/mapStore';
-import { Contiguity } from './MapValidation/Contiguity';
-import { MapValidation } from './MapValidation/MapValidation';
+import {DemographicMapPanel} from './DemographicMapPanel';
+import {MapValidation} from './MapValidation/MapValidation';
 
 export interface DataPanelSpec {
   title: MapStore['sidebarPanels'][number];
@@ -27,8 +27,13 @@ export const defaultPanels: DataPanelSpec[] = [
     content: <Evaluation />,
   },
   {
+    title: 'demography',
+    label: 'Demographic Map',
+    content: <DemographicMapPanel />,
+  },
+  {
     title: 'mapValidation',
     label: 'Map Validation',
-    content: <MapValidation />
-  }
+    content: <MapValidation />,
+  },
 ];

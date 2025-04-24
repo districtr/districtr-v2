@@ -1,5 +1,5 @@
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
-import { DocumentObject } from '../api/apiHandlers';
+import {DocumentObject} from '../api/apiHandlers/types';
 
 export type CentroidReturn = {
   dissolved: GeoJSON.FeatureCollection;
@@ -10,7 +10,7 @@ export type MinGeoJSONFeature = Pick<
   'type' | 'geometry' | 'properties' | 'sourceLayer'
 > & {
   zoom?: number;
-}
+};
 /**
  * Represents a class that handles geometry operations.
  */
@@ -24,17 +24,15 @@ export type GeometryWorkerClass = {
   shatterIds: {
     parents: string[];
     children: string[];
-  },
+  };
+  zoneAssignments: Record<string, number>;
   previousCentroids: Record<number, GeoJSON.Feature<GeoJSON.Point>>;
   /**
    * Updates the zone assignments of the geometries.
    * @param entries - An array of [id, zone] pairs to update.
    */
-  updateProps: (entries: Array<[string, unknown]>, iters?: number) => void;
-  handleShatterHeal: (data: {
-    parents: string[];
-    children: string[];
-  }) => void;
+  updateZones: (entries: Array<[string, unknown]>) => void;
+  handleShatterHeal: (data: {parents: string[]; children: string[]}) => void;
   /**
    * Loads geometries from an array of features or a string.
    * @param features - The features to load. These should be formatted as a minimal version of the Maplibre MapGeoJSON Feature type or stringified version thereof.
@@ -43,9 +41,9 @@ export type GeometryWorkerClass = {
   loadGeometry: (features: MinGeoJSONFeature[] | string, idProp: string) => void;
   loadTileData: (data: {
     tileData: Uint8Array;
-    tileID: {x: number, y: number, z: number};
-    mapDocument: DocumentObject,
-    idProp: string
+    tileID: {x: number; y: number; z: number};
+    mapDocument: DocumentObject;
+    idProp: string;
   }) => Array<MinGeoJSONFeature>;
   /**
    * Removes geometries from the collection.
@@ -58,12 +56,58 @@ export type GeometryWorkerClass = {
   clear: () => void;
   resetZones: () => void;
   /**
-   * Parses geometries and returns their centroids.
-   * @param features - The features to parse.
-   * @returns The centroids and dissolved outlines of the parsed features.
+   * Convenience method for DRY of getCentroidsFromView
+   * @param bounds number[] the view bounds
+   * @returns CentroidReturn
+   * @see getCentroidsFromView
    */
-  dissolveGeometry: (features: MinGeoJSONFeature[]) => CentroidReturn;
-
+  getCentroidBoilerplate: (bounds: [number, number, number, number]) => {
+    centroids: GeoJSON.FeatureCollection<GeoJSON.Point>;
+    dissolved: GeoJSON.FeatureCollection;
+    visitedZones: Set<number>;
+    bboxGeom: GeoJSON.Polygon;
+  };
+  /**
+   * Calculate the center of mass for a set of polygons
+   *
+   * @param geojson Set of polygons to calculate the center of mass for
+   * @param bounds Bounds of the view
+   * @param width Width of the subcanvas to render the polygons on. A higher number will result in a more accurate center of mass.
+   * @param height Height of the subcanvas to render the polygons on. A higher number will result in a more accurate center of mass.
+   * @returns [lng, lat] of the center of mass
+   */
+  computeCenterOfMass: (
+    geojson: GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+    bounds: [number, number, number, number],
+    width?: number,
+    height?: number
+  ) => Promise<[number, number] | null>;
+  /**
+   * Strategy for finding centroids by dissolving the zone geometries and finding the center of mass.
+   * @param bounds number[] the view bounds
+   * @param activeZones list of current drawn zones
+   * @returns CentroidReturn
+   * @see getCentroidsFromView
+   */
+  getCentersOfMass: (
+    bounds: [number, number, number, number],
+    activeZones: number[],
+    canvasWidth?: number,
+    canvasHeight?: number
+  ) => Promise<CentroidReturn>;
+  /**
+   * Strategy for finding centroids choosing random centroids that do not intersect with each other
+   * @param bounds number[] the view bounds
+   * @param activeZones list of current drawn zones
+   * @param minBuffer number minimum buffer distance between centroids in pixels
+   * @returns CentroidReturn
+   * @see getCentroidsFromView
+   */
+  getNonCollidingRandomCentroids: (
+    bounds: [number, number, number, number],
+    activeZones: number[],
+    minBuffer?: number
+  ) => Promise<CentroidReturn>;
   /**
    * Parses geometries within a specified view and returns their centroids.
    * @param minLon - The minimum longitude of the view.
@@ -73,17 +117,19 @@ export type GeometryWorkerClass = {
    * @returns The centroids and dissolved outlines of the parsed features within the view.
    */
   getCentroidsFromView: (props: {
-    bounds: [number, number, number, number],
-    activeZones: number[],
-    fast?: boolean
-  }) => CentroidReturn;
+    bounds: [number, number, number, number];
+    activeZones: number[];
+    strategy: 'center-of-mass' | 'non-colliding-centroids';
+    minBuffer?: number;
+    canvasWidth?: number;
+    canvasHeight?: number;
+  }) => Promise<CentroidReturn>;
   getPropertiesCentroids: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
   /**
    * Retrieves a collection of geometries without a zone assignment.
    * @returns The collection of unassigned geometries.
    */
   getUnassignedGeometries: (
-    useRemote?: boolean,
     documentId?: string,
     exclude_ids?: string[]
   ) => Promise<{

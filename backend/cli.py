@@ -12,7 +12,9 @@ from app.utils import (
     add_available_summary_stats_to_districtrmap as _add_available_summary_stats_to_districtrmap,
     update_districtrmap as _update_districtrmap,
     get_local_or_s3_path,
+    create_spatial_index as _create_spatial_index,
 )
+from app.constants import GERRY_DB_SCHEMA
 from app.contiguity.main import write_graph, graph_from_gpkg, GraphFileFormat
 from functools import wraps
 from contextlib import contextmanager
@@ -84,16 +86,16 @@ def import_gerrydb_view(
 
 
 @cli.command("create-parent-child-edges")
-@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
+@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=True)
 @with_session
-def create_parent_child_edges(session: Session, districtr_map: str):
+def create_parent_child_edges(session: Session, districtr_map_slug: str):
     logger.info("Creating parent-child edges...")
 
     stmt = text(
-        "SELECT uuid FROM districtrmap WHERE gerrydb_table_name = :districtrmap_name"
+        "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
     )
     (districtr_map_uuid,) = session.execute(
-        stmt, params={"districtrmap_name": districtr_map}
+        stmt, params={"districtr_map_slug": districtr_map_slug}
     ).one()
     logger.info(f"Found districtmap uuid: {districtr_map_uuid}")
 
@@ -125,6 +127,7 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
 @cli.command("create-districtr-map")
 @click.option("--name", help="Name of the districtr map", required=True)
 @click.option("--parent-layer-name", help="Parent gerrydb layer name", required=True)
+@click.option("--districtr-map-slug", help="Slug of the districtr map", required=True)
 @click.option("--child-layer-name", help="Child gerrydb layer name", required=False)
 @click.option("--gerrydb-table-name", help="Name of the GerryDB table", required=True)
 @click.option("--num-districts", help="Number of districts", required=False)
@@ -145,8 +148,9 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
 def create_districtr_map(
     session: Session,
     name: str,
-    parent_layer: str,
-    child_layer: str | None,
+    parent_layer_name: str,
+    districtr_map_slug: str,
+    child_layer_name: str | None,
     gerrydb_table_name: str,
     num_districts: int | None,
     tiles_s3_path: str | None,
@@ -157,8 +161,9 @@ def create_districtr_map(
     districtr_map_uuid = _create_districtr_map(
         session=session,
         name=name,
-        parent_layer=parent_layer,
-        child_layer=child_layer,
+        parent_layer=parent_layer_name,
+        child_layer=child_layer_name,
+        districtr_map_slug=districtr_map_slug,
         gerrydb_table_name=gerrydb_table_name,
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
@@ -211,7 +216,8 @@ def create_districtr_map(
 @with_session
 def update_districtr_map(
     session: Session,
-    gerrydb_table_name: str,
+    districtr_map_slug: str,
+    gerrydb_table_name: str | None,
     name: str | None,
     parent_layer_name: str | None,
     child_layer_name: str | None,
@@ -228,6 +234,7 @@ def update_districtr_map(
 
     result = _update_districtrmap(
         session=session,
+        districtr_map_slug=districtr_map_slug,
         gerrydb_table_name=gerrydb_table_name,
         name=name,
         parent_layer=parent_layer_name,
@@ -299,7 +306,7 @@ def create_shatterable_gerrydb_view(
 
 
 @cli.command("add-extent-to-districtr-map")
-@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
+@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=True)
 @click.option(
     "--bounds",
     "-b",
@@ -311,15 +318,15 @@ def create_shatterable_gerrydb_view(
 )
 @with_session
 def add_extent_to_districtr_map(
-    session: Session, districtr_map: str, bounds: list[float] | None = None
+    session: Session, districtr_map_slug: str, bounds: list[float] | None = None
 ):
     logger.info(f"User provided bounds: {bounds}")
 
     stmt = text(
-        "SELECT uuid FROM districtrmap WHERE gerrydb_table_name = :districtrmap_name"
+        "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
     )
     (districtr_map_uuid,) = session.execute(
-        stmt, params={"districtrmap_name": districtr_map}
+        stmt, params={"districtr_map_slug": districtr_map_slug}
     ).one()
     print(f"Found districtmap uuid: {districtr_map_uuid}")
 
@@ -330,14 +337,16 @@ def add_extent_to_districtr_map(
 
 
 @cli.command("add-available-summary-stats-to-districtr-map")
-@click.option("--districtr-map", "-d", help="Districtr map name", required=True)
+@click.option("--districtr-map-slug", "-d", help="Districtr map name", required=True)
 @with_session
-def add_available_summary_stats_to_districtr_map(session: Session, districtr_map: str):
+def add_available_summary_stats_to_districtr_map(
+    session: Session, districtr_map_slug: str
+):
     stmt = text(
-        "SELECT uuid FROM districtrmap WHERE gerrydb_table_name = :districtrmap_name"
+        "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
     )
     (districtr_map_uuid,) = session.execute(
-        stmt, params={"districtrmap_name": districtr_map}
+        stmt, params={"districtr_map_slug": districtr_map_slug}
     ).one()
     print(f"Found districtmap uuid: {districtr_map_uuid}")
 
@@ -375,6 +384,33 @@ def batch_create_districtr_maps(
     )
 
     logger.info("Successfully loaded new data")
+
+
+@cli.command("create-spatial-index")
+@click.option("--table-name", "-t", help="Table name", required=True, multiple=True)
+@click.option(
+    "--schema", "-s", help="Schema name", required=False, default=GERRY_DB_SCHEMA
+)
+@click.option(
+    "--geometry-column",
+    "-g",
+    help="Geometry column name",
+    required=False,
+    default="geometry",
+)
+@with_session
+def create_spatial_index(
+    session: Session, table_name: list[str], schema: str, geometry_column: str
+):
+    for table in table_name:
+        _create_spatial_index(
+            session=session,
+            table_name=table,
+            schema=schema,
+            geometry=geometry_column,
+            autocommit=True,
+        )
+        logger.info(f"Created spatial index successfully for table {table}.")
 
 
 if __name__ == "__main__":
