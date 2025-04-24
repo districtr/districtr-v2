@@ -14,7 +14,7 @@ import {
   Button,
   Spinner,
 } from '@radix-ui/themes';
-import {DistrictrMap} from '@/app/utils/api/apiHandlers';
+import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 
 export const Uploader: React.FC<{
   newTab?: boolean;
@@ -172,6 +172,7 @@ export const Uploader: React.FC<{
         >
           <Spinner />
           <Heading size="2">Processing file...</Heading>
+          <Heading size="1">(Please don't close this page or refresh)</Heading>
         </Flex>
       )}
     </Flex>
