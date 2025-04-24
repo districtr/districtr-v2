@@ -172,7 +172,7 @@ export const Uploader: React.FC<{
         >
           <Spinner />
           <Heading size="2">Processing file...</Heading>
-          <Heading size="1">(Please don't close this page or refresh)</Heading>
+          <Heading size="1">(Please don&apos;t close this page or refresh)</Heading>
         </Flex>
       )}
     </Flex>
