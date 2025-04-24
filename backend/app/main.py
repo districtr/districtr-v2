@@ -494,8 +494,6 @@ async def update_colors(
     session.commit()
     return ColorsSetResult(colors=colors)
 
-from time import time
-
 @app.patch("/api/upload_assignments")
 async def upload_assignments(
     data: AssignmentsBulkUpload, session: Session = Depends(get_session)
@@ -506,7 +504,6 @@ async def upload_assignments(
     This endpoint creates a new document and loads a batch of assignments from CSV data.
     It performs data validation and consolidates uniform VTDs from their blocks for shatterable maps.
     """
-    t0 = time()
     try:
         d = data.model_dump()
         csv_rows = d["assignments"]
@@ -533,8 +530,6 @@ async def upload_assignments(
             ),
             {"gerrydb_table": gerrydb_table},
         ).scalar()
-        t1 = time()
-        logger.info(f"Time to check if table exists: {t1 - t0}")
 
         if not table_exists:
             raise HTTPException(
@@ -549,8 +544,6 @@ async def upload_assignments(
                 {"gerrydb_table": gerrydb_table},
             )
             document_id = results.one()[0]
-            t2 = time()
-            logger.info(f"Time to create document: {t2 - t1}")
         except Exception as e:
             logger.error(f"Error creating document: {str(e)}")
             raise HTTPException(
@@ -580,8 +573,6 @@ async def upload_assignments(
                         detail=f"Missing geo_id at row {i+1}",
                     )
                 # Zone can be empty/null
-            t3 = time()
-            logger.info(f"Time to validate records: {t3 - t2}")
             # Bulk insert records
             cursor = session.connection().connection.cursor()
             with cursor.copy(
@@ -603,8 +594,6 @@ async def upload_assignments(
                                 status_code=status.HTTP_400_BAD_REQUEST,
                                 detail=f"Invalid zone value for geo_id {record[0]}: '{record[1]}' is not an integer",
                             )
-            t4 = time()
-            logger.info(f"Time to bulk insert records: {t4 - t3}")
         except HTTPException:
             # Re-raise HTTP exceptions
             raise
@@ -675,8 +664,6 @@ async def upload_assignments(
                     HAVING COUNT(DISTINCT COALESCE(zone, -1)) = 1
                     """)
                 )
-                t5 = time()
-                logger.info(f"Time to get parent paths: {t5 - t4}")
 
                 # Re-import VTDs that are fully uniform zone
                 vtds = []
@@ -687,8 +674,6 @@ async def upload_assignments(
                         vtd, zone = row
                         vtds.append(vtd)
                         copy.write_row([vtd, zone])
-                t6 = time()
-                logger.info(f"Time to copy vtds: {t6 - t5}")
                 # Only run this cleanup if we found uniform VTDs
                 if vtds:
                     # Clean up blocks which are now in uniform VTDs
@@ -702,8 +687,6 @@ async def upload_assignments(
                         """),
                         {"vtds": vtds},
                     )
-                    t7 = time()
-                    logger.info(f"Time to delete vtds: {t7 - t6}")
 
                 # For non-shatterable maps, we don't need additional validation
                 # as the geo_ids should match the gerrydb table directly
@@ -717,8 +700,6 @@ async def upload_assignments(
                 """),
                 {"document_id": document_id},
             )
-            t8 = time()
-            logger.info(f"Time to insert assignments: {t8 - t7}")
 
             # Clean up temp objects
             session.execute(text(f"DROP TABLE IF EXISTS {temp_table_name}"))
@@ -732,8 +713,6 @@ async def upload_assignments(
                 ),
                 {"document_id": document_id},
             ).scalar()
-            t9 = time()
-            logger.info(f"Time to count assignments: {t9 - t8}")
 
             return {"document_id": document_id, "assignments_count": count}
 
