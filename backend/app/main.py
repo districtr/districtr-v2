@@ -494,6 +494,7 @@ async def update_colors(
     session.commit()
     return ColorsSetResult(colors=colors)
 
+from time import time
 
 @app.patch("/api/upload_assignments")
 async def upload_assignments(
@@ -501,41 +502,46 @@ async def upload_assignments(
 ):
     """
     Bulk upload assignments from CSV data
-    
+
     This endpoint creates a new document and loads a batch of assignments from CSV data.
     It performs data validation and consolidates uniform VTDs from their blocks for shatterable maps.
     """
+    t0 = time()
     try:
         d = data.model_dump()
         csv_rows = d["assignments"]
-        
+
         # Validate input data
         if not csv_rows:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No assignment data provided"
+                detail="No assignment data provided",
             )
-        
+
         # Check maximum size to prevent DoS
         if len(csv_rows) > 1000000:  # Example limit of 1 million records
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Upload size exceeds maximum allowed limit (1,000,000 records)"
+                detail="Upload size exceeds maximum allowed limit (1,000,000 records)",
             )
-            
+
         # Validate gerrydb_table exists
         gerrydb_table = d["gerrydb_table_name"]
         table_exists = session.execute(
-            text("SELECT EXISTS(SELECT 1 FROM districtrmap WHERE gerrydb_table_name = :gerrydb_table)"),
-            {"gerrydb_table": gerrydb_table}
+            text(
+                "SELECT EXISTS(SELECT 1 FROM districtrmap WHERE gerrydb_table_name = :gerrydb_table)"
+            ),
+            {"gerrydb_table": gerrydb_table},
         ).scalar()
-        
+        t1 = time()
+        logger.info(f"Time to check if table exists: {t1 - t0}")
+
         if not table_exists:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"GerryDB table '{gerrydb_table}' does not exist"
+                detail=f"GerryDB table '{gerrydb_table}' does not exist",
             )
-        
+
         # Create document within transaction scope
         try:
             results = session.execute(
@@ -543,37 +549,44 @@ async def upload_assignments(
                 {"gerrydb_table": gerrydb_table},
             )
             document_id = results.one()[0]
+            t2 = time()
+            logger.info(f"Time to create document: {t2 - t1}")
         except Exception as e:
             logger.error(f"Error creating document: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create document"
+                detail="Failed to create document",
             )
 
         # Process assignments CSV via temp table with unique name to avoid race conditions
         try:
             # Create a unique temporary table name using UUID to avoid conflicts between concurrent requests
             temp_table_name = f"temploader_{uuid4().hex}"
-            
-            session.execute(text(f"CREATE TEMP TABLE {temp_table_name} (geo_id TEXT, zone INT)"))
-            
+
+            session.execute(
+                text(f"CREATE TEMP TABLE {temp_table_name} (geo_id TEXT, zone INT)")
+            )
+
             # Basic data format validation before insertion
             for i, record in enumerate(csv_rows):
                 if len(record) != 2:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Invalid record format at row {i+1}: expected [geo_id, zone]"
+                        detail=f"Invalid record format at row {i+1}: expected [geo_id, zone]",
                     )
                 if not record[0]:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Missing geo_id at row {i+1}"
+                        detail=f"Missing geo_id at row {i+1}",
                     )
                 # Zone can be empty/null
-            
+            t3 = time()
+            logger.info(f"Time to validate records: {t3 - t2}")
             # Bulk insert records
             cursor = session.connection().connection.cursor()
-            with cursor.copy(f"COPY {temp_table_name} (geo_id, zone) FROM STDIN") as copy:
+            with cursor.copy(
+                f"COPY {temp_table_name} (geo_id, zone) FROM STDIN"
+            ) as copy:
                 for record in csv_rows:
                     if not record[1] or record[1] == "":
                         copy.write_row([record[0], None])
@@ -583,11 +596,15 @@ async def upload_assignments(
                             copy.write_row([record[0], zone_val])
                         except ValueError:
                             # Make sure to drop the temp table if we exit early
-                            session.execute(text(f"DROP TABLE IF EXISTS {temp_table_name}"))
+                            session.execute(
+                                text(f"DROP TABLE IF EXISTS {temp_table_name}")
+                            )
                             raise HTTPException(
                                 status_code=status.HTTP_400_BAD_REQUEST,
-                                detail=f"Invalid zone value for geo_id {record[0]}: '{record[1]}' is not an integer"
+                                detail=f"Invalid zone value for geo_id {record[0]}: '{record[1]}' is not an integer",
                             )
+            t4 = time()
+            logger.info(f"Time to bulk insert records: {t4 - t3}")
         except HTTPException:
             # Re-raise HTTP exceptions
             raise
@@ -598,7 +615,7 @@ async def upload_assignments(
             session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to process CSV data: {str(e)}"
+                detail=f"Failed to process CSV data: {str(e)}",
             )
 
         # Consolidate VTDs from blocks for shatterable maps
@@ -618,12 +635,12 @@ async def upload_assignments(
             if table_name is not None:  # shattered map
                 table_name = str(table_name[0]).replace('"', "")
                 parent_child_table = f'"parentchildedges_{table_name}"'
-                
+
                 # Validate uploaded data matches the gerrydb table
                 # Sampling a few records is more efficient than checking every record
                 sample_size = min(100, len(csv_rows))
                 sample_geo_ids = [csv_rows[i][0] for i in range(sample_size)]
-                
+
                 results = session.execute(
                     text(f"""
                     SELECT COUNT(*) FROM {parent_child_table}
@@ -632,20 +649,24 @@ async def upload_assignments(
                     {"geo_ids": sample_geo_ids},
                 )
                 match_count = results.scalar()
-                
+
                 if match_count == 0:
                     # Clean up before raising exception
                     session.execute(text(f"DROP TABLE IF EXISTS {temp_table_name}"))
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Assignment Geo IDs do not match any parent or child Geo IDs in the shatterable map"
+                        detail="Assignment Geo IDs do not match any parent or child Geo IDs in the shatterable map",
                     )
 
                 # Find parents which are fully one zone
                 # Using a temp index can improve performance for large datasets
                 index_name = f"{temp_table_name}_geo_id_idx"
-                session.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {temp_table_name} (geo_id)"))
-                
+                session.execute(
+                    text(
+                        f"CREATE INDEX IF NOT EXISTS {index_name} ON {temp_table_name} (geo_id)"
+                    )
+                )
+
                 results = session.execute(
                     text(f"""
                     SELECT parent_path, MIN(zone) FROM {parent_child_table}
@@ -654,15 +675,20 @@ async def upload_assignments(
                     HAVING COUNT(DISTINCT COALESCE(zone, -1)) = 1
                     """)
                 )
+                t5 = time()
+                logger.info(f"Time to get parent paths: {t5 - t4}")
 
                 # Re-import VTDs that are fully uniform zone
                 vtds = []
-                with cursor.copy(f"COPY {temp_table_name} (geo_id, zone) FROM STDIN") as copy:
+                with cursor.copy(
+                    f"COPY {temp_table_name} (geo_id, zone) FROM STDIN"
+                ) as copy:
                     for row in results:
                         vtd, zone = row
                         vtds.append(vtd)
                         copy.write_row([vtd, zone])
-
+                t6 = time()
+                logger.info(f"Time to copy vtds: {t6 - t5}")
                 # Only run this cleanup if we found uniform VTDs
                 if vtds:
                     # Clean up blocks which are now in uniform VTDs
@@ -676,7 +702,9 @@ async def upload_assignments(
                         """),
                         {"vtds": vtds},
                     )
-                    
+                    t7 = time()
+                    logger.info(f"Time to delete vtds: {t7 - t6}")
+
                 # For non-shatterable maps, we don't need additional validation
                 # as the geo_ids should match the gerrydb table directly
 
@@ -689,23 +717,26 @@ async def upload_assignments(
                 """),
                 {"document_id": document_id},
             )
-            
+            t8 = time()
+            logger.info(f"Time to insert assignments: {t8 - t7}")
+
             # Clean up temp objects
             session.execute(text(f"DROP TABLE IF EXISTS {temp_table_name}"))
-            
+
             session.commit()
-            
+
             # Count how many assignments were actually created
             count = session.execute(
-                text("SELECT COUNT(*) FROM document.assignments WHERE document_id = :document_id"),
-                {"document_id": document_id}
+                text(
+                    "SELECT COUNT(*) FROM document.assignments WHERE document_id = :document_id"
+                ),
+                {"document_id": document_id},
             ).scalar()
-            
-            return {
-                "document_id": document_id,
-                "assignments_count": count
-            }
-            
+            t9 = time()
+            logger.info(f"Time to count assignments: {t9 - t8}")
+
+            return {"document_id": document_id, "assignments_count": count}
+
         except HTTPException:
             # Re-raise HTTP exceptions, but make sure to clean up
             session.execute(text(f"DROP TABLE IF EXISTS {temp_table_name}"))
@@ -717,18 +748,18 @@ async def upload_assignments(
             session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to process assignments: {str(e)}"
+                detail=f"Failed to process assignments: {str(e)}",
             )
-            
+
     except Exception as e:
         logger.error(f"Unexpected error in upload_assignments: {str(e)}")
-        # For the outermost exception handler, we don't need to specifically clean up 
+        # For the outermost exception handler, we don't need to specifically clean up
         # the temp table as it's handled in the inner exception blocks
         if not isinstance(e, HTTPException):
             session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"An unexpected error occurred: {str(e)}"
+                detail=f"An unexpected error occurred: {str(e)}",
             )
         raise
 
@@ -1306,7 +1337,9 @@ async def update_districtrmap_metadata(
         )
 
 
-@app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
+@app.get("/api/gerrydb/views", 
+        #  response_model=list[DistrictrMapPublic]
+         )
 async def get_projects(
     *,
     session: Session = Depends(get_session),
