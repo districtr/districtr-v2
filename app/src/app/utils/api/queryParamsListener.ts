@@ -51,14 +51,41 @@ export const getSearchParamsObserver = () => {
 
   // listener for url changes
   let previousDocumentID = '';
+  let previousRowNumber = '';
+  let previousPathname = window.location.pathname;
+  
   const observer = new MutationObserver(() => {
-    const documentId = new URLSearchParams(window.location.search).get('document_id');
-    const shareToken = new URLSearchParams(window.location.search).get('share');
+    const currentPathname = window.location.pathname;
+    const searchParams = new URLSearchParams(window.location.search);
+    const documentId = searchParams.get('document_id');
+    const queryRowNumber = searchParams.get('row_number');
+    const shareToken = searchParams.get('share');
 
-    if (documentId && documentId !== previousDocumentID) {
+    // Check if the URL is a map route with ID parameter
+    const mapRouteMatch = currentPathname.match(/^\/map\/(\d+)$/);
+    const routeRowId = mapRouteMatch ? mapRouteMatch[1] : null;
+    
+    // If the pathname has changed and it's a map route with ID
+    if (currentPathname !== previousPathname && routeRowId) {
+      previousPathname = currentPathname;
+      previousRowNumber = routeRowId;
+      previousDocumentID = ''; // Reset document_id tracking when using row_number
+      updateGetDocumentFromId(undefined, routeRowId);
+    }
+    // Handle document_id (backward compatibility)
+    else if (documentId && documentId !== previousDocumentID) {
       previousDocumentID = documentId;
+      previousRowNumber = ''; // Reset row number tracking when using document_id
       updateGetDocumentFromId(documentId);
     }
+    // Handle query param row_number (backward compatibility)
+    else if (queryRowNumber && queryRowNumber !== previousRowNumber) {
+      previousRowNumber = queryRowNumber;
+      previousDocumentID = ''; // Reset document_id tracking when using row_number
+      updateGetDocumentFromId(undefined, queryRowNumber);
+    }
+    
+    // Handle share token
     if (shareToken && !useMapStore.getState().receivedShareToken) {
       const decodedToken = jwtDecode(shareToken);
 

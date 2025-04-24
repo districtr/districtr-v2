@@ -38,9 +38,17 @@ export const RecentMapsModal: React.FC<{
   const handleMapDocument = (data: DocumentObject) => {
     setMapDocument(data);
     clear();
-    const urlParams = new URLSearchParams(searchParams.toString());
-    urlParams.set('document_id', data.document_id);
-    router.push(pathname + '?' + urlParams.toString());
+    
+    // Use row number (id) if available, otherwise fallback to document_id for backwards compatibility
+    if (data.id) {
+      // Navigate to the new route pattern
+      router.push(`/map/${data.id}`);
+    } else {
+      // Fallback to the query param approach for backward compatibility
+      const urlParams = new URLSearchParams();
+      urlParams.set('document_id', data.document_id);
+      router.push(`/map?${urlParams.toString()}`);
+    }
 
     // open the correct accordion item
     setOpenItem(data.document_id);

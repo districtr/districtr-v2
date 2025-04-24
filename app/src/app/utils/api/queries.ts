@@ -33,12 +33,15 @@ const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
   });
 };
 
-const getDocumentFunction = (documentId?: string) => {
+const getDocumentFunction = (documentId?: string, rowNumber?: string) => {
   return async () => {
     const currentId = useMapStore.getState().mapDocument?.document_id;
-    if (documentId && documentId !== currentId) {
+    if ((documentId && documentId !== currentId) || rowNumber) {
       useMapStore.getState().setAppLoadingState('loading');
-      return await getDocument(documentId);
+      return await getDocument({ 
+        document_id: documentId, 
+        row_number: rowNumber 
+      });
     } else {
       return null;
     }
@@ -52,16 +55,21 @@ const updateDocumentFromId = new QueryObserver<DocumentObject | null>(queryClien
 
 updateDocumentFromId.subscribe(mapDocument => {
   if (typeof window === 'undefined') return;
-  const documentId = new URLSearchParams(window.location.search).get('document_id');
-  if (mapDocument.error && documentId?.length) {
+  const searchParams = new URLSearchParams(window.location.search);
+  const documentId = searchParams.get('document_id');
+  const rowNumber = searchParams.get('row_number');
+  const identifier = documentId || rowNumber;
+  
+  if (mapDocument.error && identifier?.length) {
     useMapStore.getState().setErrorNotification({
       severity: 2,
       id: 'map-document-not-found',
-      message: `The requested map id "${documentId}" could not be found. Please make sure the URL is correct or select a different geography.`,
+      message: `The requested map could not be found. Please make sure the URL is correct or select a different geography.`,
     });
-    // remove current document_id on search params
+    // remove current identifiers from search params
     const url = new URL(window.location.href);
     url.searchParams.delete('document_id');
+    url.searchParams.delete('row_number');
     window.history.replaceState({}, document.title, url.toString());
   }
   if (mapDocument.data && mapDocument.data.document_id !== useMapStore.getState().loadedMapId) {
@@ -72,10 +80,11 @@ updateDocumentFromId.subscribe(mapDocument => {
   }
 });
 
-const updateGetDocumentFromId = (documentId: string) => {
+const updateGetDocumentFromId = (documentId?: string, rowNumber?: string) => {
+  const identifier = documentId || rowNumber;
   updateDocumentFromId.setOptions({
-    queryKey: ['mapDocument', documentId],
-    queryFn: getDocumentFunction(documentId),
+    queryKey: ['mapDocument', identifier],
+    queryFn: getDocumentFunction(documentId, rowNumber),
   });
 };
 

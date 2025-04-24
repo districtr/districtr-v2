@@ -8,7 +8,11 @@ import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 const inter = Inter({subsets: ['latin']});
 
 type MetadataProps = {
-  searchParams: Promise<{document_id?: string | string[] | undefined}>;
+  params: { id?: string };
+  searchParams: Promise<{
+    document_id?: string | string[] | undefined;
+    row_number?: string | string[] | undefined;
+  }>;
 };
 
 const DISTRICTR_LOGO = [
@@ -19,11 +23,18 @@ const DISTRICTR_LOGO = [
   },
 ];
 
-export async function generateMetadata({searchParams}: MetadataProps): Promise<Metadata> {
+export async function generateMetadata({params, searchParams}: MetadataProps): Promise<Metadata> {
   const resolvedParams = await searchParams;
   const document_id = resolvedParams?.document_id ?? '';
+  const query_row_number = resolvedParams?.row_number ?? '';
+  
+  // Get row ID from route params if available
+  const route_row_id = params?.id;
+  
   const singularDocumentId = Array.isArray(document_id) ? document_id[0] : document_id;
-  if (!singularDocumentId) {
+  const singularRowNumber = route_row_id || (Array.isArray(query_row_number) ? query_row_number[0] : query_row_number);
+  
+  if (!singularDocumentId && !singularRowNumber) {
     return {
       title: 'Districtr 2.0',
       description: 'Create districting maps',
@@ -36,7 +47,10 @@ export async function generateMetadata({searchParams}: MetadataProps): Promise<M
     };
   }
 
-  const mapDocument = await getDocument(singularDocumentId);
+  const mapDocument = await getDocument({
+    document_id: singularDocumentId,
+    row_number: singularRowNumber,
+  });
   const districtCount = mapDocument?.num_districts ? `${mapDocument.num_districts} districts` : '';
   return {
     title: 'Districtr 2.0',

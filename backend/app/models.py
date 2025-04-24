@@ -163,8 +163,11 @@ class DistrictrMapMetadata(BaseModel):
 
 class Document(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
+    serial_id: int = Field(
+        sa_column=Column(Integer, primary_key=True, autoincrement=True)
+    )
     document_id: str | None = Field(
-        sa_column=Column(UUIDType, unique=True, primary_key=True)
+        sa_column=Column(UUIDType, unique=True, nullable=False)
     )
     districtr_map_slug: str = Field(
         sa_column=Column(
@@ -233,6 +236,7 @@ class DocumentGenesis(str, Enum):
 
 
 class DocumentPublic(BaseModel):
+    id: int | None = None
     document_id: UUID4
     districtr_map_slug: str | None
     gerrydb_table: str | None
