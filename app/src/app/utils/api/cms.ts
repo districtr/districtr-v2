@@ -81,8 +81,14 @@ export const publishCMSContent = post<CMSContentId, Promise<TagsCMSContent | Pla
   'cms/content/publish'
 );
 
-export const deleteCMSContent = async (type: CmsContentTypes, id: string) => {
-  const url = `cms/content/${type}/${id}`;
+export const deleteCMSContent = async ({
+  body: {content_id, content_type},
+  session
+}: {
+  body: {content_id: string; content_type: CmsContentTypes};
+  session: ClientSession;
+}) => {
+  const url = `cms/content/${content_type}/${content_id}`;
   const deleteContent = del(url);
   return await deleteContent({});
 };
