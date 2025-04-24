@@ -38,9 +38,9 @@ const getDocumentFunction = (documentId?: string, rowNumber?: string) => {
     const currentId = useMapStore.getState().mapDocument?.document_id;
     if ((documentId && documentId !== currentId) || rowNumber) {
       useMapStore.getState().setAppLoadingState('loading');
-      return await getDocument({ 
-        document_id: documentId, 
-        row_number: rowNumber 
+      return await getDocument({
+        document_id: documentId,
+        row_number: rowNumber,
       });
     } else {
       return null;
@@ -59,7 +59,7 @@ updateDocumentFromId.subscribe(mapDocument => {
   const documentId = searchParams.get('document_id');
   const rowNumber = searchParams.get('row_number');
   const identifier = documentId || rowNumber;
-  
+
   if (mapDocument.error && identifier?.length) {
     useMapStore.getState().setErrorNotification({
       severity: 2,

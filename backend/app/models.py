@@ -236,7 +236,7 @@ class DocumentGenesis(str, Enum):
 
 
 class DocumentPublic(BaseModel):
-    id: int | None = None
+    serial_id: int | None = None
     document_id: UUID4
     districtr_map_slug: str | None
     gerrydb_table: str | None

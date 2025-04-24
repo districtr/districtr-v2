@@ -8,7 +8,7 @@ import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 const inter = Inter({subsets: ['latin']});
 
 type MetadataProps = {
-  params: { id?: string };
+  params: {id?: string};
   searchParams: Promise<{
     document_id?: string | string[] | undefined;
     row_number?: string | string[] | undefined;
@@ -27,13 +27,14 @@ export async function generateMetadata({params, searchParams}: MetadataProps): P
   const resolvedParams = await searchParams;
   const document_id = resolvedParams?.document_id ?? '';
   const query_row_number = resolvedParams?.row_number ?? '';
-  
+
   // Get row ID from route params if available
   const route_row_id = params?.id;
-  
+
   const singularDocumentId = Array.isArray(document_id) ? document_id[0] : document_id;
-  const singularRowNumber = route_row_id || (Array.isArray(query_row_number) ? query_row_number[0] : query_row_number);
-  
+  const singularRowNumber =
+    route_row_id || (Array.isArray(query_row_number) ? query_row_number[0] : query_row_number);
+
   if (!singularDocumentId && !singularRowNumber) {
     return {
       title: 'Districtr 2.0',

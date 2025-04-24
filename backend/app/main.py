@@ -216,11 +216,16 @@ async def create_document(
 ):
     # try:
     results = session.execute(
-        text("SELECT create_document(:districtr_map_slug);"),
+        text(
+            "SELECT document_id, serial_id FROM create_document(:districtr_map_slug);"
+        ),
         {"districtr_map_slug": data.districtr_map_slug},
     )
+    logger.info(f"results: {results}")
     plan_genesis = "created"
-    document_id = results.one()[0]  # should be only one row, one column of results
+    result_row = results.one()  # should be only one row with document_id and serial_id
+    document_id = result_row.document_id
+    serial_id = result_row.serial_id
 
     lock_status = check_map_lock(
         document_id, data.user_id, session
@@ -290,6 +295,7 @@ async def create_document(
     doc = session.exec(
         stmt,
     ).one()  # again if we've got more than one, we have problems.
+    logger.info(f"doc: {doc}")
     if not doc.map_uuid:
         session.rollback()
         raise HTTPException(
@@ -301,6 +307,12 @@ async def create_document(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Document creation failed - no doc id",
+        )
+    if not doc.serial_id:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document creation failed - no serial id",
         )
     if not doc.parent_layer:
         session.rollback()
@@ -539,19 +551,19 @@ async def get_document(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Either document_id or row_id must be provided",
         )
-        
+
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="user_id must be provided",
         )
-        
+
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database session is required",
         )
-        
+
     # If we have document_id, proceed with existing logic
     if document_id is not None:
         # TODO: Rather than being a separate query, this should be part of the main query
@@ -561,39 +573,36 @@ async def get_document(
             else lock_status
         )
 
-        stmt = (
-            select(
-                Document.serial_id,
-                Document.document_id,
-                Document.created_at,
-                Document.districtr_map_slug,
-                Document.gerrydb_table,
-                Document.updated_at,
-                Document.color_scheme,
-                DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
-                DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
-                DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
-                DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
-                DistrictrMap.extent.label("extent"),  # pyright: ignore
-                DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
-                # get metadata as a json object
-                Document.map_metadata.label("map_metadata"),  # pyright: ignore
-                coalesce(
-                    "shared" if shared else "created",
-                ).label("genesis"),
-                coalesce(
-                    check_lock_status,  # locked, unlocked, checked_out
-                ).label("status"),
-                coalesce(
-                    access_type,
-                ).label("access"),  # read or edit
-                # add access - read or edit
-            )  # pyright: ignore
-            .join(
-                DistrictrMap,
-                Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
-                isouter=True,
-            )
+        stmt = select(
+            Document.serial_id,
+            Document.document_id,
+            Document.created_at,
+            Document.districtr_map_slug,
+            Document.gerrydb_table,
+            Document.updated_at,
+            Document.color_scheme,
+            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
+            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
+            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            DistrictrMap.extent.label("extent"),  # pyright: ignore
+            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            # get metadata as a json object
+            Document.map_metadata.label("map_metadata"),  # pyright: ignore
+            coalesce(
+                "shared" if shared else "created",
+            ).label("genesis"),
+            coalesce(
+                check_lock_status,  # locked, unlocked, checked_out
+            ).label("status"),
+            coalesce(
+                access_type,
+            ).label("access"),  # read or edit
+            # add access - read or edit
+        ).join(  # pyright: ignore
+            DistrictrMap,
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+            isouter=True,
         )
         if row_id is not None:
             # select based on row number
@@ -605,22 +614,22 @@ async def get_document(
         # Get the document id by row number first
         doc_stmt = select(Document.document_id).where(Document.serial_id == row_id)
         doc_id_result = session.exec(doc_stmt).first()
-        
+
         if not doc_id_result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Document not found with row_id: {row_id}",
             )
-            
+
         document_id = doc_id_result
-        
+
         # Now use the document_id to check lock status
         check_lock_status = (
             check_map_lock(document_id, user_id, session)
             if not lock_status == DocumentEditStatus.locked
             else lock_status
         )
-        
+
         stmt = (
             select(
                 Document.serial_id,
@@ -656,7 +665,7 @@ async def get_document(
                 isouter=True,
             )
         )
-        
+
     result = session.exec(stmt)
 
     try:
@@ -680,7 +689,10 @@ async def get_document_object(
     session: Session = Depends(get_session),
     status_code=status.HTTP_200_OK,
 ):
-    return await get_document(document_id=document_id, user_id=data.user_id, session=session)
+    return await get_document(
+        document_id=document_id, user_id=data.user_id, session=session
+    )
+
 
 @app.post("/api/document/row/{row_id}", response_model=DocumentPublic)
 async def get_document_by_row(
@@ -691,6 +703,7 @@ async def get_document_by_row(
 ):
     return await get_document(row_id=row_id, user_id=data.user_id, session=session)
 
+
 @app.get("/api/document/row/{row_id}/document_id", response_model=str)
 async def get_document_id_by_row(
     row_id: int,
@@ -699,14 +712,15 @@ async def get_document_id_by_row(
     """Get document_id by row ID - useful for backward compatibility lookups"""
     doc_stmt = select(Document.document_id).where(Document.serial_id == row_id)
     doc_id_result = session.exec(doc_stmt).first()
-    
+
     if not doc_id_result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Document not found with row_id: {row_id}",
         )
-    
+
     return doc_id_result
+
 
 @app.get("/api/document/{document_id}/row", response_model=int)
 async def get_row_id_by_document_id(
@@ -716,13 +730,13 @@ async def get_row_id_by_document_id(
     """Get row ID by document_id - useful for backward compatibility lookups"""
     row_stmt = select(Document.serial_id).where(Document.document_id == document_id)
     row_id_result = session.exec(row_stmt).first()
-    
+
     if not row_id_result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Document not found with document_id: {document_id}",
         )
-    
+
     return row_id_result
 
 

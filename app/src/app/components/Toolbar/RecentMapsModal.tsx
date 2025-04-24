@@ -38,11 +38,11 @@ export const RecentMapsModal: React.FC<{
   const handleMapDocument = (data: DocumentObject) => {
     setMapDocument(data);
     clear();
-    
+
     // Use row number (id) if available, otherwise fallback to document_id for backwards compatibility
-    if (data.id) {
+    if (data.serial_id) {
       // Navigate to the new route pattern
-      router.push(`/map/${data.id}`);
+      router.push(`/map/${data.serial_id}`);
     } else {
       // Fallback to the query param approach for backward compatibility
       const urlParams = new URLSearchParams();

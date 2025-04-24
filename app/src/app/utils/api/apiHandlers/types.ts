@@ -46,7 +46,7 @@ export interface DocumentMetadata {
 
 export interface DocumentObject extends StatusObject {
   document_id: string;
-  id?: number;  // Row number from the database
+  serial_id?: number; // Row number from the database
   districtr_map_slug: string;
   gerrydb_table: string;
   parent_layer: string;

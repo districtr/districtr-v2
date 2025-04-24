@@ -21,9 +21,10 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>}> = ({view}) =>
         districtr_map_slug: view.districtr_map_slug,
         user_id: userID,
       }).then(data => {
+        console.log(data);
         // Use the row number for navigation with the new route pattern
-        if (data.id) {
-          router.push(`/map/${data.id}`);
+        if (data.serial_id) {
+          router.push(`/map/${data.serial_id}`);
         } else {
           // Fallback to the old method for backward compatibility
           router.push(`/map?document_id=${data.document_id}`);

@@ -19,12 +19,12 @@ import {updateGetDocumentFromId} from '@/app/utils/api/queries';
 interface MapPageProps {
   params: {
     id: string;
-  }
+  };
 }
 
-export default function Map({ params }: MapPageProps) {
+export default function Map({params}: MapPageProps) {
   const rowId = params.id;
-  
+
   const showDemographicMap = useMapStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
@@ -39,12 +39,12 @@ export default function Map({ params }: MapPageProps) {
 
   useEffect(() => {
     const unsub = initSubs();
-    
+
     // Initialize the document based on route parameter ID
     if (rowId) {
       updateGetDocumentFromId(undefined, rowId);
     }
-    
+
     return () => {
       console.log('unsubscribing');
       unsub();

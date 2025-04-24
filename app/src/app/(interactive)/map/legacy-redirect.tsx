@@ -8,13 +8,13 @@ export default function LegacyRedirect() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   useEffect(() => {
     const fetchAndRedirect = async () => {
       try {
         const documentId = searchParams.get('document_id');
         const rowNumber = searchParams.get('row_number');
-        
+
         if (rowNumber) {
           // If row_number is specified, redirect to new route format
           router.replace(`/map/${rowNumber}`);
@@ -24,7 +24,7 @@ export default function LegacyRedirect() {
             const response = await axios.get(
               `${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/row`
             );
-            
+
             const rowId = response.data;
             if (rowId) {
               router.replace(`/map/${rowId}`);
@@ -45,10 +45,10 @@ export default function LegacyRedirect() {
         setIsLoading(false);
       }
     };
-    
+
     fetchAndRedirect();
   }, [router, searchParams]);
-  
+
   return (
     <div className="h-screen w-screen flex flex-col items-center justify-center">
       {isLoading ? (

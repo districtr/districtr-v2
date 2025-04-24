@@ -53,7 +53,7 @@ export const getSearchParamsObserver = () => {
   let previousDocumentID = '';
   let previousRowNumber = '';
   let previousPathname = window.location.pathname;
-  
+
   const observer = new MutationObserver(() => {
     const currentPathname = window.location.pathname;
     const searchParams = new URLSearchParams(window.location.search);
@@ -64,7 +64,7 @@ export const getSearchParamsObserver = () => {
     // Check if the URL is a map route with ID parameter
     const mapRouteMatch = currentPathname.match(/^\/map\/(\d+)$/);
     const routeRowId = mapRouteMatch ? mapRouteMatch[1] : null;
-    
+
     // If the pathname has changed and it's a map route with ID
     if (currentPathname !== previousPathname && routeRowId) {
       previousPathname = currentPathname;
@@ -84,7 +84,7 @@ export const getSearchParamsObserver = () => {
       previousDocumentID = ''; // Reset document_id tracking when using row_number
       updateGetDocumentFromId(undefined, queryRowNumber);
     }
-    
+
     // Handle share token
     if (shareToken && !useMapStore.getState().receivedShareToken) {
       const decodedToken = jwtDecode(shareToken);

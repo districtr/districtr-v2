@@ -21,10 +21,9 @@ export const document = new MutationObserver(queryClient, {
     }
     setAssignmentsHash(Date.now().toString());
     setAppLoadingState('loaded');
-    const documentUrl = new URL(window.location.toString());
-    documentUrl.searchParams.set('document_id', data.document_id);
-    // if searchParams has share, remove it
-    documentUrl.searchParams.delete('share');
+
+    const documentUrl = new URL(window.location.origin);
+    documentUrl.pathname = documentUrl.pathname.split('/').slice(0, -1).join('/') + '/map' + `/${data.serial_id}`;
     history.pushState({}, '', documentUrl.toString());
   },
 });

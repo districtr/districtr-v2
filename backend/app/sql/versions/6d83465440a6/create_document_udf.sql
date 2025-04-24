@@ -1,3 +1,4 @@
+DROP FUNCTION IF EXISTS create_document;
 CREATE OR REPLACE FUNCTION create_document(gerrydb_table_name text)
     RETURNS uuid
 AS $$
