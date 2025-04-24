@@ -24,7 +24,7 @@ export const getShareLink = async (
     const token = await sharePlan.mutate(payload);
     // copy to clipboard
     if (token !== undefined) {
-      const shareableLink = `${window.location.origin}?share=${token.token}`;
+      const shareableLink = `${window.location.href}?share=${token.token}`;
       navigator.clipboard.writeText(shareableLink);
 
       if (password !== null && mapDocument?.document_id) {

@@ -23,7 +23,8 @@ export const document = new MutationObserver(queryClient, {
     setAppLoadingState('loaded');
 
     const documentUrl = new URL(window.location.origin);
-    documentUrl.pathname = documentUrl.pathname.split('/').slice(0, -1).join('/') + '/map' + `/${data.serial_id}`;
+    documentUrl.pathname =
+      documentUrl.pathname.split('/').slice(0, -1).join('/') + '/map' + `/${data.serial_id}`;
     history.pushState({}, '', documentUrl.toString());
   },
 });
