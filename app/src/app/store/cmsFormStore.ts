@@ -134,6 +134,7 @@ export const useCmsFormStore = create(
 
     // Load content for a specific type
     loadData: async contentType => {
+      set({contentType});
       console.log('Loading...');
       const {session} = get();
       console.log('session', session);
