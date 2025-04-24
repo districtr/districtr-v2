@@ -15,10 +15,11 @@ export const CMSAdminPage: React.FC<{
   const error = useCmsFormStore(state => state.error);
   const success = useCmsFormStore(state => state.success);
   const loadData = useCmsFormStore(state => state.loadData);
+  const session = useCmsFormStore(state => state.session);
 
   useEffect(() => {
     loadData(contentType);
-  }, [contentType]);
+  }, [contentType, session]);
 
   return (
     <Flex direction="column" gapY="4">
