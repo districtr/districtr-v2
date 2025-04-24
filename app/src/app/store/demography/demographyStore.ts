@@ -49,7 +49,6 @@ export var useDemographyStore = create(
       set({
         getMapRef: () => undefined,
         scale: undefined,
-        dataHash: '',
       });
     },
     numberOfBins: 5,
