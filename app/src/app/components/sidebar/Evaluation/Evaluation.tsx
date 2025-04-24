@@ -27,7 +27,7 @@ const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
-  const {zoneStats, demoIsLoaded, zoneData} = useSummaryStats();
+  const {zoneStats, demoIsLoaded, zoneData} = useSummaryStats(showUnassigned);
   const maxValues = zoneStats?.maxValues;
   const numberFormat = numberFormats[evalMode];
   const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
@@ -174,7 +174,7 @@ const Evaluation: React.FC = () => {
                             }}
                             key={i}
                           >
-                            {value === undefined
+                            {value === undefined || Number.isNaN(value)
                               ? '--'
                               : formatNumber(value as number, numberFormat)}
                           </Table.Cell>
