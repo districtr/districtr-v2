@@ -24,6 +24,7 @@ import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
 import {PasswordPromptModal} from '@components/Toolbar/PasswordPromptModal';
 import {useMapStatus} from '../hooks/useMapStatus';
+import {UploaderModal} from './Toolbar/UploaderModal';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -170,7 +171,7 @@ export const Topbar: React.FC = () => {
                 variant="outline"
                 className="mr-2"
                 disabled={!mapDocument?.document_id}
-                onClick={() => setShareMapsModal(true)}
+                onClick={() => setModalOpen('share')}
               >
                 {status === 'locked' ? 'Share' : 'Share'}
               </Button>
@@ -180,7 +181,7 @@ export const Topbar: React.FC = () => {
                 variant="outline"
                 className="mr-2"
                 disabled={!mapDocument?.document_id}
-                onClick={() => setRecentMapsModalOpen(true)}
+                onClick={() => setModalOpen('recents')}
               >
                 {statusText}
               </Button>
@@ -202,6 +203,7 @@ export const Topbar: React.FC = () => {
       </Flex>
       <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(null)} />
       <ShareMapsModal open={modalOpen === 'share'} onClose={() => setModalOpen(null)} />
+      <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>
   );

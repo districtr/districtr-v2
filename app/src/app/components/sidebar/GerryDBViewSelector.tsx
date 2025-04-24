@@ -1,7 +1,7 @@
-import React, {useState} from 'react';
+import React from 'react';
 import {Flex, Select, Text} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
-import {DistrictrMap} from '@/app/utils/api/apiHandlers';
+import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 
 export const GerryDBViewSelector: React.FC<{
   onChange: (map: DistrictrMap) => void;

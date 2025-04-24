@@ -1,13 +1,9 @@
 'use client';
 import React from 'react';
 import Papa from 'papaparse';
-import {
-  Assignment,
-  createMapDocument,
-  DistrictrMap,
-  uploadAssignments,
-} from '@/app/utils/api/apiHandlers';
-import {useMapStore} from '@/app/store/mapStore';
+import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
+import { uploadAssignments } from './apiHandlers/uploadAssignments';
+import { useMapStore } from '@/app/store/mapStore';
 
 const ROWS_PER_BATCH = 20000000000;
 const ROWS_TO_TEST = 200;
@@ -197,8 +193,7 @@ export const processFile = ({
     GEOID: number;
   };
 }) => {
-  const mapState = useMapStore.getState();
-  const setErrorNotification = mapState.setErrorNotification;
+  const {setErrorNotification} = useMapStore.getState();
   if (!file) {
     setErrorNotification({
       message: 'No file selected',
@@ -216,7 +211,9 @@ export const processFile = ({
 
   Papa.parse(file, {
     complete: async results => {
-      const validation = config ? {ok: true, colIndices: config} : validateRows(results.data as Array<Array<string>>, districtrMap);
+      const validation = config
+        ? {ok: true, colIndices: config}
+        : validateRows(results.data as Array<Array<string>>, districtrMap);
       if (!validation.ok || !validation.colIndices) {
         setError(validation);
         return validation;
