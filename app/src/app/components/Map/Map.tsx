@@ -159,7 +159,6 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         onMoveEnd={mapEventHandlers.onMoveEnd}
         onData={mapEventHandlers.onData as any}
         interactiveLayerIds={INTERACTIVE_LAYERS}
-        reuseMaps
       >
         <CountyLayers />
         <VtdBlockLayers isDemographicMap={isDemographicMap} />
