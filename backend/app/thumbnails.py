@@ -5,7 +5,7 @@ import math
 import matplotlib.pyplot as plt
 from sqlalchemy import text
 from sqlmodel import Session
-from app.core.config import settings, Environment
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -59,40 +59,51 @@ DISTRICT_COLORS = [
 def thumbnail_exists(document_id: str) -> bool:
     s3 = settings.get_s3_client()
     assert s3, "S3 client is not available"
-    object_information = s3.head_object(Bucket=f"s3://{THUMBNAIL_BUCKET}/thumbnails", Key=document_id)
+    object_information = s3.head_object(
+        Bucket=THUMBNAIL_BUCKET, Key=f"thumbnails/{document_id}",
+    )
     return object_information["ResponseMetadata"]["HTTPStatusCode"] == 200
 
 
 # receives the current session and requested document_id
 # returns io stream of generated image
 def generate_thumbnail(session: Session, document_id: str) -> io.BytesIO:
-    stmt = text(
-        "SELECT gerrydb_table, color_scheme FROM document.document WHERE document_id = :document_id"
-    )
+    stmt = text("""
+        SELECT color_scheme, parent_layer, child_layer
+        FROM document.document doc
+        JOIN districtrmap ON districtrmap.districtr_map_slug = doc.districtr_map_slug
+        WHERE document_id = :document_id
+    """)
     results = session.execute(stmt, {"document_id": document_id})
-    gerrydb_table, color_scheme = results.one()
+    color_scheme, parent_layer, child_layer = results.one()
 
     if color_scheme is None or len(color_scheme) == 0:
         color_scheme = DISTRICT_COLORS
+
     def coloration(row):
-        if (row['zone'] is None or math.isnan(row['zone'])):
+        if row["zone"] is None or math.isnan(row["zone"]):
             return "#CCCCCC"
         else:
-            return color_scheme[int(row['zone']) % len(color_scheme)]
+            return color_scheme[int(row["zone"]) % len(color_scheme)]
 
-    sql = f"""SELECT ST_Union(geometry) AS geom, zone
-    FROM gerrydb.{gerrydb_table} geos
-    LEFT JOIN "document.assignments_{document_id}" assigned ON geos.path = assigned.geo_id
-    GROUP BY zone
+    sql = f"""
+    (SELECT geometry AS geom, zone
+    FROM gerrydb.{parent_layer} geos
+    LEFT JOIN "document.assignments_{document_id}" assigned ON geos.path = assigned.geo_id)
+    UNION
+    (SELECT geometry AS geom, zone
+    FROM "document.assignments_{document_id}" assigned
+    INNER JOIN gerrydb.{child_layer} blocks ON blocks.path = assigned.geo_id
+    WHERE zone IS NOT NULL)
     """
     conn = conn = session.connection().connection
     df = geopandas.read_postgis(sql, conn).to_crs(epsg=3857)
 
-    df['color'] = df.apply(lambda row: coloration(row), axis=1)
-    geoplt = df.plot(figsize=(2.8, 2.8), color=df['color'])
+    df["color"] = df.apply(lambda row: coloration(row), axis=1)
+    geoplt = df.plot(figsize=(2.8, 2.8), color=df["color"])
     geoplt.set_axis_off()
     pic_IObytes = io.BytesIO()
-    geoplt.figure.savefig(pic_IObytes, format='png')
+    geoplt.figure.savefig(pic_IObytes, format="png")
     plt.close(geoplt.figure)
     pic_IObytes.seek(0)
 
@@ -104,7 +115,7 @@ def generate_thumbnail(session: Session, document_id: str) -> io.BytesIO:
             Bucket=THUMBNAIL_BUCKET,
             Key=f"thumbnails/{document_id}",
             Body=pic_IObytes,
-            ContentType="image/png"
+            ContentType="image/png",
         )
     except:
         logger.info("Could not upload thumbnail")
@@ -117,7 +128,7 @@ def fetch_thumbnail(session: Session, document_id: str) -> io.BytesIO:
     if thumbnail_exists(document_id):
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
-        s3_object = s3.get_object(Bucket=THUMBNAIL_BUCKET, Key=document_id)
+        s3_object = s3.get_object(Bucket=THUMBNAIL_BUCKET, Key=f"thumbnails/{document_id}")
         return s3_object["Body"]
     else:
         return generate_thumbnail(session, document_id)

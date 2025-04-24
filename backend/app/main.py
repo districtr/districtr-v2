@@ -1093,7 +1093,6 @@ async def get_thumbnail(
 ):
     try:
         img_io = fetch_thumbnail(session, document_id)
-        img_io.seek(0)
         return StreamingResponse(content=img_io, media_type="image/png")
     except:
         return RedirectResponse(url="/home-megaphone.png")
