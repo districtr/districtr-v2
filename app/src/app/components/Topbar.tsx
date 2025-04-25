@@ -1,6 +1,7 @@
 'use client';
 import {
   Button,
+  Badge,
   Text,
   DropdownMenu,
   Flex,
@@ -174,14 +175,9 @@ export const Topbar: React.FC = () => {
               </Button>
             )}
             {!!statusText && (
-              <Button
-                variant="outline"
-                className="mr-2"
-                disabled={!mapDocument?.document_id}
-                onClick={() => setRecentMapsModalOpen(true)}
-              >
+              <Badge color="blue" size={'3'}>
                 {statusText}
-              </Button>
+              </Badge>
             )}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
