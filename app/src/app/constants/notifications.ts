@@ -10,5 +10,6 @@ export const FROZEN_CONDITIONS = {
 export const STATUS_TEXT = {
   frozen: 'Status: Frozen',
   progress: 'Status: In Progress',
+  scratch: 'Scratch Work Only',
   ready: 'Status: Ready to Share',
 } as const;
