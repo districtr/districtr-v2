@@ -17,6 +17,7 @@ import {styled} from '@stitches/react';
 import {checkoutDocument} from '@/app/utils/api/mutations';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
 import {useMapStatus} from '@/app/hooks/useMapStatus';
+import {set} from 'lodash';
 
 const BoxContainer = styled(Box, {
   display: 'flex',
@@ -44,11 +45,6 @@ export const SaveMapModal: React.FC<{
   const status = useMapStore(store => store.mapStatus?.status);
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
-  const [mapName, setMapName] = React.useState<string | null>(null);
-  const [groupName, setGroupName] = React.useState<string | null>(null);
-  const [mapDescription, setMapDescription] = React.useState<string | null>(null);
-  const [mapIsDraft, setMapIsDraft] = React.useState<string | null>(null);
-  const [mapTags, setTags] = React.useState<string | null>(null);
   const [mapNameIsSaved, setMapNameIsSaved] = React.useState(false);
   const [groupNameIsSaved, setGroupNameIsSaved] = React.useState(false);
   const [tagsIsSaved, setTagsIsSaved] = React.useState(false);
@@ -61,12 +57,14 @@ export const SaveMapModal: React.FC<{
   const mapIsSaved =
     tagsIsSaved && descriptionIsSaved && groupNameIsSaved && shareStateIsSaved && mapNameIsSaved;
 
-  const latestMetadata = useMemo(() => {
-    const metadata = userMaps.find(
-      map => map.document_id === mapDocument?.document_id
-    )?.map_metadata;
-    return metadata ?? null;
-  }, [mapDocument?.document_id, userMaps]);
+  const [mapFormState, setMapFormState] = React.useState<DocumentMetadata>({
+    name: null,
+    group: null,
+    description: null,
+    draft_status: 'scratch',
+    tags: null,
+    eventId: null,
+  });
 
   useEffect(() => {
     if (!mapDocument) return;
@@ -75,11 +73,14 @@ export const SaveMapModal: React.FC<{
       userMaps.find(map => map.document_id === mapDocument.document_id)?.map_metadata ??
       mapDocument.map_metadata;
 
-    setMapName(metadata?.name ?? null);
-    setGroupName(metadata?.group ?? null);
-    setMapDescription(metadata?.description ?? null);
-    setMapIsDraft(metadata?.draft_status ?? null);
-    setTags(metadata?.tags ?? null);
+    setMapFormState({
+      name: metadata?.name ?? null,
+      group: metadata?.group ?? null,
+      description: metadata?.description ?? null,
+      draft_status: metadata?.draft_status ?? 'scratch',
+      tags: metadata?.tags ?? null,
+      eventId: metadata?.eventId ?? null,
+    });
   }, [mapDocument, userMaps]);
 
   const handlePasswordSubmit = async () => {
@@ -96,33 +97,37 @@ export const SaveMapModal: React.FC<{
 
   const handleChangeGroupName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
-    if (name !== groupName && name !== null) {
+    if (name !== mapFormState.group && name !== null) {
       setGroupNameIsSaved(false);
-      setGroupName(name);
+      setMapFormState(prev => ({...prev, group: name}));
     }
   };
 
   const handleChangeTag = (tag: string | null) => {
-    if (tag && mapTags && !mapTags.includes(tag)) {
+    if (tag && mapFormState.tags && !mapFormState.tags.includes(tag)) {
+      setMapFormState(prev => ({...prev, tags: tag}));
       setTagsIsSaved(false);
     }
   };
 
   const handleChangeDescription = (description: string | null) => {
-    if (description !== mapDescription && description !== null) {
-      setMapDescription(description);
+    if (description !== mapFormState.description && description !== null) {
+      setMapFormState(prev => ({...prev, description: description}));
       setDescriptionIsSaved(false);
     }
   };
 
   const handleChangeIsDraft = (isDraft: string) => {
-    setMapIsDraft(isDraft);
+    setMapFormState(prev => ({
+      ...prev,
+      draft_status: (isDraft as 'scratch' | 'in_progress' | 'ready_to_share') || 'scratch',
+    }));
     setShareStateIsSaved(false);
   };
 
   const handleChangeMapName = (name: string | null) => {
-    if (name !== mapName && name !== null) {
-      setMapName(name);
+    if (name !== mapFormState.name && name !== null) {
+      setMapFormState(prev => ({...prev, name: name}));
       setMapNameIsSaved(false);
     }
   };
@@ -144,7 +149,7 @@ export const SaveMapModal: React.FC<{
       mapDocument: {
         ...mapDocument,
         map_metadata: {
-          ...(latestMetadata ?? mapDocument.map_metadata),
+          ...mapDocument.map_metadata,
           [key]: value ?? null,
         },
       },
@@ -153,7 +158,7 @@ export const SaveMapModal: React.FC<{
 
   const handleMapSave = () => {
     // TODO: confirm this is the most ergonomic way to save / store interstitial data
-    saveMap(latestMetadata).then(() => {
+    saveMap(mapFormState).then(() => {
       setGroupNameIsSaved(true);
       setTagsIsSaved(true);
       setDescriptionIsSaved(true);
@@ -199,9 +204,11 @@ export const SaveMapModal: React.FC<{
               <Text weight={'medium'}> Status </Text>
               <Flex gap="2">
                 <RadioGroup.Root
-                  value={mapIsDraft ?? 'scratch'}
-                  onValueChange={value => {
-                    handleMetadataChange('draft_status', value);
+                  value={mapFormState.draft_status ?? 'scratch'}
+                  onValueChange={e => {
+                    console.log('draft status', e);
+                    setMapFormState(prev => ({...prev, draft_status: e}));
+                    setShareStateIsSaved(false);
                   }}
                 >
                   <RadioGroup.Item value="scratch">Scratch Work Only</RadioGroup.Item>
@@ -214,27 +221,36 @@ export const SaveMapModal: React.FC<{
               {/* map name */}
               {status === 'locked' ? <Text>Name your Copy </Text> : <Text>Map Name</Text>}
               <TextField.Root
-                placeholder={mapName ?? 'Map Name'}
+                placeholder={mapFormState.name ?? 'Map Name'}
                 size="3"
-                value={mapName ?? undefined}
-                onChange={e => handleMetadataChange('name', e.target.value)}
+                value={mapFormState.name ?? undefined}
+                onChange={e => {
+                  setMapFormState(prev => ({...prev, name: e.target.value}));
+                  setMapNameIsSaved(false);
+                }}
               ></TextField.Root>
               {/* group name */}
               <Text>Group Name</Text>
               <TextField.Root
-                placeholder={groupName ?? 'Group Name'}
+                placeholder={mapFormState.group ?? 'Group Name'}
                 size="3"
-                value={groupName ?? undefined}
-                onChange={e => handleMetadataChange('group', e.target.value)}
+                value={mapFormState.group ?? undefined}
+                onChange={e => {
+                  setMapFormState(prev => ({...prev, group: e.target.value}));
+                  setGroupNameIsSaved(false);
+                }}
               ></TextField.Root>
               {/* tags */}
               <Text>Tags</Text>
               <TextField.Root
                 placeholder={'Tags'}
                 size="3"
-                value={mapTags ?? ''}
+                value={mapFormState.tags ?? ''}
                 disabled
-                onChange={e => handleMetadataChange('tags', e.target.value)}
+                onChange={e => {
+                  setMapFormState(prev => ({...prev, tags: e.target.value}));
+                  setTagsIsSaved(false);
+                }}
               ></TextField.Root>
             </Box>
             <Box width={'50%'} maxHeight={'80%'} overflowY={'auto'}>
@@ -243,8 +259,11 @@ export const SaveMapModal: React.FC<{
               <TextArea
                 placeholder={'Comments'}
                 size="3"
-                value={mapDescription ?? undefined}
-                onChange={e => handleMetadataChange('description', e.target.value)}
+                value={mapFormState.description ?? undefined}
+                onChange={e => {
+                  setMapFormState(prev => ({...prev, description: e.target.value}));
+                  setDescriptionIsSaved(false);
+                }}
               ></TextArea>
             </Box>
           </Flex>
