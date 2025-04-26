@@ -12,7 +12,7 @@ import {
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
-import React, {useEffect, useMemo, useRef} from 'react';
+import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ToolSettings} from '@components/Toolbar/Settings';
