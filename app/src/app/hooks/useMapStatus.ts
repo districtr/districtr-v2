@@ -8,7 +8,11 @@ export const useMapStatus = () => {
   const status = mapStatus?.status;
   const access = mapStatus?.access;
 
-  const mapMetadata = useMapStore(state => state.mapMetadata);
+  const mapMetadata = useMapStore(
+    state =>
+      state.userMaps.find(userMap => userMap.document_id === state.mapDocument?.document_id)
+        ?.map_metadata || null
+  );
   const statusText = useMemo(() => {
     console.log('useMapStatus', {status, access, document_id, mapMetadata});
     if (!document_id) return null;

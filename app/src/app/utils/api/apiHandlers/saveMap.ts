@@ -6,7 +6,6 @@ import {DocumentMetadata} from '../apiHandlers/types';
 export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
   const {mapDocument, mapStatus, upsertUserMap, setMapDocument, setShareMapMessage} =
     useMapStore.getState();
-  console.log('saveMap', {latestMetadata, mapDocument, mapStatus});
   if (mapDocument?.document_id) {
     if (mapStatus?.status === 'locked') {
       // atp doesn't matter that it's locked, even with pw; should be able to copy map
@@ -25,7 +24,6 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
           const updatedMapDoc = {...data, map_metadata: updatedMetadata};
 
           upsertUserMap({documentId: data.document_id, mapDocument: updatedMapDoc});
-          console.log('updatedMapDoc: ', updatedMapDoc);
           setMapDocument(updatedMapDoc);
           const documentUrl = new URL(window.location.toString());
           documentUrl.searchParams.delete('share'); // remove share + token from url
