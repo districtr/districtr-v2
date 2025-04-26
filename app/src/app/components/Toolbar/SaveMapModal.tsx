@@ -17,7 +17,6 @@ import {styled} from '@stitches/react';
 import {checkoutDocument} from '@/app/utils/api/mutations';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
 import {useMapStatus} from '@/app/hooks/useMapStatus';
-import {set} from 'lodash';
 
 const BoxContainer = styled(Box, {
   display: 'flex',

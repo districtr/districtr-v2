@@ -205,7 +205,11 @@ export const Topbar: React.FC = () => {
               </Button>
             )}
             {!!statusText && (
-              <Badge color="blue" size={'3'}>
+              <Badge
+                color={statusText === 'Status: Ready to Share' ? 'green' : 'blue'}
+                size={'3'}
+                variant={statusText === 'Scratch Work Only' ? 'outline' : 'surface'}
+              >
                 {statusText}
               </Badge>
             )}
