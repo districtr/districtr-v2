@@ -12,7 +12,12 @@ export const useMapStatus = () => {
   const statusText = useMemo(() => {
     if (!document_id) return null;
     if (status === 'locked' || access === 'read') return STATUS_TEXT.frozen;
-    if (!mapMetadata || mapMetadata.is_draft) return STATUS_TEXT.progress;
+    if (
+      !mapMetadata ||
+      mapMetadata.draft_status === 'in_progress' ||
+      mapMetadata.draft_status === 'scratch'
+    )
+      return STATUS_TEXT.progress;
     return STATUS_TEXT.ready;
   }, [status, access, document_id, mapMetadata]);
 
