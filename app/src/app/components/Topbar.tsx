@@ -40,7 +40,11 @@ export const Topbar: React.FC = () => {
   const {statusText} = useMapStatus();
 
   const mapName = useMapStore(
-    state => state.mapDocument?.map_metadata?.name ?? state.mapDocument?.districtr_map_slug ?? ''
+    state =>
+      state.userMaps.find(userMap => userMap.document_id === state.mapDocument?.document_id)
+        ?.map_metadata?.name ??
+      state.mapDocument?.map_metadata?.name ??
+      ''
   );
 
   const clear = useTemporalStore(store => store.clear);
