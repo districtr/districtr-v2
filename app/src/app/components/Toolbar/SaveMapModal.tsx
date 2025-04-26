@@ -205,8 +205,7 @@ export const SaveMapModal: React.FC<{
               <Flex gap="2">
                 <RadioGroup.Root
                   value={mapFormState.draft_status ?? 'scratch'}
-                  onValueChange={e => {
-                    console.log('draft status', e);
+                  onValueChange={(e: 'scratch' | 'in_progress' | 'ready_to_share') => {
                     setMapFormState(prev => ({...prev, draft_status: e}));
                     setShareStateIsSaved(false);
                   }}
