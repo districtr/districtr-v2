@@ -1036,7 +1036,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     description: null,
     eventId: null,
     group: null,
-    draft_status: 'scratch',
+    draft_status: null,
   },
   updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
     set(state => {

@@ -39,12 +39,9 @@ export const Topbar: React.FC = () => {
   const mapViews = useMapStore(state => state.mapViews);
   const {statusText} = useMapStatus();
 
-  const mapName = useMemo(() => {
-    if (mapDocument?.map_metadata?.name) {
-      return mapDocument.map_metadata.name;
-    }
-    return mapDocument?.districtr_map_slug || '';
-  }, [mapDocument]);
+  const mapName = useMapStore(
+    state => state.mapDocument?.map_metadata?.name ?? state.mapDocument?.districtr_map_slug ?? ''
+  );
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
