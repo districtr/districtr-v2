@@ -44,7 +44,7 @@ export const Topbar: React.FC = () => {
       return mapDocument.map_metadata.name;
     }
     return mapDocument?.districtr_map_slug || '';
-  }, [mapDocument, mapDocument?.map_metadata?.name]);
+  }, [mapDocument]);
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
