@@ -2,14 +2,13 @@ import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Table, Dialog, Box, Separator} from '@radix-ui/themes';
-import {SaveMapDetails} from './SaveMapsDetail';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '@utils/api/apiHandlers/types';
 import {styled} from '@stitches/react';
 import {useTemporalStore} from '@/app/store/temporalStore';
 
 const DialogContentContainer = styled(Dialog.Content, {
-  maxWidth: '75vw',
+  maxWidth: '60vw',
   maxHeight: 'calc(100vh-2rem)',
 });
 
@@ -80,7 +79,7 @@ export const RecentMapsModal: React.FC<{
           </Button>
         </Dialog.Trigger>
       )}
-      <DialogContentContainer className="max-w-[50vw]">
+      <DialogContentContainer className="md:w-[50vw]">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
 
@@ -91,16 +90,6 @@ export const RecentMapsModal: React.FC<{
             <Cross2Icon />
           </Dialog.Close>
         </Flex>
-
-        {/* info for active map */}
-        <Flex className="w-full justify-between" direction={'column'}>
-          <Text weight={'bold'} className="my-4">
-            Active Map
-          </Text>
-
-          {mapDocument && <SaveMapDetails />}
-        </Flex>
-
         <Separator size={'4'} className="my-4" />
         {/* table of non-active maps */}
         <Box className="max-h-[50vh] overflow-y-auto">
