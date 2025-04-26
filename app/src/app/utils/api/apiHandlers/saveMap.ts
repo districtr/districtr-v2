@@ -24,7 +24,7 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
           const updatedMapDoc = {...data, map_metadata: updatedMetadata};
 
           upsertUserMap({documentId: data.document_id, mapDocument: updatedMapDoc});
-
+          console.log('updatedMapDoc: ', updatedMapDoc);
           setMapDocument(updatedMapDoc);
           const documentUrl = new URL(window.location.toString());
           documentUrl.searchParams.delete('share'); // remove share + token from url
@@ -37,7 +37,6 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
           );
         });
     } else {
-      console.log('in the not locked category now');
       await metadata.mutate({
         document_id: mapDocument?.document_id,
         metadata: latestMetadata ?? handleCreateBlankMetadataObject(),

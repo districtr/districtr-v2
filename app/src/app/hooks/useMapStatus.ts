@@ -10,6 +10,7 @@ export const useMapStatus = () => {
 
   const mapMetadata = useMapStore(state => state.mapMetadata);
   const statusText = useMemo(() => {
+    console.log('useMapStatus', {status, access, document_id, mapMetadata});
     if (!document_id) return null;
     if (status === 'locked' || access === 'read') return STATUS_TEXT.frozen;
     if (!mapMetadata || mapMetadata.draft_status === 'in_progress') return STATUS_TEXT.progress;
