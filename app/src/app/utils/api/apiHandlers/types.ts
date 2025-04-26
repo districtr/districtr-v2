@@ -41,7 +41,7 @@ export interface DocumentMetadata {
   tags: string | null;
   description: string | null;
   eventId: string | null;
-  is_draft: boolean;
+  draft_status: 'scratch' | 'in_progress' | 'ready_to_share';
 }
 
 export interface DocumentObject extends StatusObject {

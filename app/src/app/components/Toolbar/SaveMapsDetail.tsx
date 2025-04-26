@@ -41,11 +41,7 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
     currentMapMetadata?.description
   );
   const [mapIsDraft, setMapIsDraft] = React.useState<string | undefined | null>(
-    currentMapMetadata?.is_draft === true
-      ? 'draft'
-      : currentMapMetadata?.is_draft === false
-        ? 'share'
-        : 'draft'
+    currentMapMetadata?.draft_status
   );
   const [mapTags, setTags] = React.useState<string | undefined | null>(currentMapMetadata?.tags);
   const [mapNameIsSaved, setMapNameIsSaved] = React.useState(false);
@@ -100,8 +96,8 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
     }
   };
 
-  const handleChangeIsDraft = (isDraft: boolean) => {
-    setMapIsDraft(isDraft ? 'draft' : 'share');
+  const handleChangeIsDraft = (isDraft: string) => {
+    setMapIsDraft(isDraft);
     setShareStateIsSaved(false);
   };
 
@@ -120,7 +116,7 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
       group: handleChangeGroupName,
       tags: handleChangeTag,
       description: handleChangeDescription,
-      is_draft: handleChangeIsDraft,
+      draft_status: handleChangeIsDraft,
     };
 
     handlers[key]?.(value);
@@ -160,13 +156,14 @@ export const SaveMapDetails: React.FC<{}> = ({}) => {
             <Text weight={'medium'}> Status </Text>
             <Flex gap="2">
               <RadioGroup.Root
-                value={mapIsDraft ?? undefined}
+                value={mapIsDraft ?? 'scratch'}
                 onValueChange={value => {
-                  handleMetadataChange('is_draft', value === 'draft');
+                  handleMetadataChange('draft_status', value);
                 }}
               >
-                <RadioGroup.Item value="share">Ready to Share</RadioGroup.Item>
-                <RadioGroup.Item value="draft">In Progress (Draft)</RadioGroup.Item>
+                <RadioGroup.Item value="scratch">Scratch Work Only</RadioGroup.Item>
+                <RadioGroup.Item value="in_progress">In Progress (Draft)</RadioGroup.Item>
+                <RadioGroup.Item value="ready_to_share">Ready to Share</RadioGroup.Item>
               </RadioGroup.Root>
             </Flex>
           </Box>
