@@ -80,22 +80,6 @@ export const SaveMapModal: React.FC<{
       tags: metadata?.tags ?? null,
       eventId: metadata?.eventId ?? null,
     });
-    // upsert user map with the current metadata
-    // upsertUserMap({
-    //   documentId: mapDocument.document_id,
-    //   mapDocument: {
-    //     ...mapDocument,
-    //     map_metadata: {
-    //       ...mapDocument.map_metadata,
-    //       name: metadata?.name ?? null,
-    //       group: metadata?.group ?? null,
-    //       description: metadata?.description ?? null,
-    //       draft_status: metadata?.draft_status ?? 'scratch',
-    //       tags: metadata?.tags ?? null,
-    //       eventId: metadata?.eventId ?? null,
-    //     },
-    //   },
-    // });
   }, [mapDocument, userMaps]);
 
   const handlePasswordSubmit = async () => {
