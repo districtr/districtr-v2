@@ -12,7 +12,7 @@ import {
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
-import React, {useRef} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ToolSettings} from '@components/Toolbar/Settings';
@@ -32,11 +32,18 @@ export const Topbar: React.FC = () => {
   const [shareMapsModal, setShareMapsModal] = React.useState(false);
   const [saveMapsModal, setSaveMapsModal] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [mapName, setMapName] = React.useState('');
   const mapDocument = useMapStore(state => state.mapDocument);
   const status = useMapStore(state => state.mapStatus?.status);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
   const {statusText} = useMapStatus();
+
+  useEffect(() => {
+    if (mapDocument?.map_metadata?.name) {
+      setMapName(mapDocument.map_metadata.name);
+    }
+  }, [mapDocument?.map_metadata?.name]);
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
@@ -167,7 +174,7 @@ export const Topbar: React.FC = () => {
           <Flex direction="row" align="center" gapX="2">
             {/*map name */}
             <Text size="3" className="text-black-500">
-              {mapDocument?.map_metadata?.name || ''}
+              {mapName || ''}
             </Text>
             {/*source table name */}
             <Text size="3" className="text-gray-500">
