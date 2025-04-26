@@ -164,6 +164,16 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
+            {/*map name */}
+            <Text size="3" className="text-black-500">
+              {mapDocument?.map_metadata?.name || ''}
+            </Text>
+            {/*source table name */}
+            <Text size="3" className="text-gray-500">
+              {mapDocument?.gerrydb_table || ''}
+            </Text>
+          </Flex>
+          <Flex direction="row" align="center" gapX="2">
             {!!statusText && (
               <Button
                 variant="outline"
