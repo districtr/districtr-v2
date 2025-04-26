@@ -13,7 +13,7 @@ services:
       - ./backend/.env.docker # Ensure the env file is also from the backend folder
     environment:
       GPKG_DATA_DIR: sample_data
-      LOAD_DATA: False
+      LOAD_DATA: true
     depends_on:
       db:
         condition: service_healthy

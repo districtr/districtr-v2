@@ -23,6 +23,7 @@ import {DistrictrMap} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
 import {PasswordPromptModal} from '@components/Toolbar/PasswordPromptModal';
+import {SaveMapModal} from '@/app/components/Toolbar/SaveMapModal';
 import {useMapStatus} from '../hooks/useMapStatus';
 
 export const Topbar: React.FC = () => {
@@ -179,6 +180,16 @@ export const Topbar: React.FC = () => {
                 variant="outline"
                 className="mr-2"
                 disabled={!mapDocument?.document_id}
+                onClick={() => setSaveMapsModal(true)}
+              >
+                Save / Status
+              </Button>
+            )}
+            {!!statusText && (
+              <Button
+                variant="outline"
+                className="mr-2"
+                disabled={!mapDocument?.document_id}
                 onClick={() => setShareMapsModal(true)}
               >
                 {status === 'locked' ? 'Share' : 'Share'}
@@ -206,6 +217,7 @@ export const Topbar: React.FC = () => {
       </Flex>
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
       <ShareMapsModal open={shareMapsModal} onClose={() => setShareMapsModal(false)} />
+      <SaveMapModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} />
       <PasswordPromptModal />
     </>
   );

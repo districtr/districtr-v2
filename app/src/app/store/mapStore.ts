@@ -276,7 +276,7 @@ export interface MapStore {
     description?: any,
     group?: any,
     eventId?: any,
-    is_draft?: boolean
+    draft_status?: any
   ) => void;
   // SHARE MAP
   passwordPrompt: boolean;
@@ -1036,7 +1036,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     description: null,
     eventId: null,
     group: null,
-    is_draft: true,
+    draft_status: 'scratch',
   },
   updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
     set(state => {

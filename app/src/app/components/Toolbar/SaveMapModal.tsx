@@ -152,6 +152,7 @@ export const SaveMapModal: React.FC<{
   };
 
   const handleMapSave = () => {
+    // TODO: confirm this is the most ergonomic way to save / store interstitial data
     saveMap(latestMetadata).then(() => {
       setGroupNameIsSaved(true);
       setTagsIsSaved(true);
@@ -165,7 +166,7 @@ export const SaveMapModal: React.FC<{
   if (!mapDocument) {
     return <div></div>;
   }
-  console.log(mapDocument, mapName, mapIsDraft);
+
   return (
     <Dialog.Root
       open={dialogOpen}
@@ -182,9 +183,7 @@ export const SaveMapModal: React.FC<{
       )}
       <DialogContentContainer className="sm:w-[75vw] md:w-[60vw]">
         <Flex align="center" className="mb-4">
-          <Dialog.Title className="m-0 text-xl font-bold flex-1">
-            Save or Update Map Details
-          </Dialog.Title>
+          <Dialog.Title className="m-0 text-xl font-bold flex-1">Save Map Details</Dialog.Title>
 
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
