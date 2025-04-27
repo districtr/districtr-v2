@@ -300,8 +300,3 @@ class ShatterResult(BaseModel):
 
 class ColorsSetResult(BaseModel):
     colors: list[str]
-
-
-class ZonePopulation(BaseModel):
-    zone: int
-    total_pop: int

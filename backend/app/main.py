@@ -13,10 +13,6 @@ import botocore.exceptions
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
-from sqlalchemy.exc import (
-    ProgrammingError,
-    InternalError,
-)
 from sqlmodel import Session, String, select, true
 from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
@@ -50,7 +46,6 @@ from app.models import (
     GEOIDSResponse,
     AssignedGEOIDS,
     UUIDType,
-    ZonePopulation,
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
@@ -652,37 +647,6 @@ async def get_document_status(
         session.commit()
 
         return {"status": DocumentEditStatus.checked_out}
-
-
-@app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
-async def get_total_population(
-    document: Annotated[Document, Depends(_get_document)],
-    session: Session = Depends(get_session),
-):
-    stmt = text(
-        "SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL"
-    )
-    try:
-        result = session.execute(stmt, {"document_id": document.document_id})
-        return [
-            ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()
-        ]
-    except (ProgrammingError, InternalError) as e:
-        logger.error(e)
-        error_text = str(e)
-        if (
-            f"Table name not found for document_id: {document.document_id}"
-            in error_text
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document.document_id} not found",
-            )
-        elif "Population column not found for gerrydbview" in error_text:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Population column not found in GerryDB view",
-            )
 
 
 @app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
