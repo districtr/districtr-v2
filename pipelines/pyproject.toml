@@ -6,15 +6,13 @@ build-backend = "setuptools.build_meta"
 name = "districtr-pipelines"
 version = "0.1.0"
 description = "Pipelines for Districtr data processing and tileset generation"
-authors = [
-    {name = "Districtr Team"}
-]
+authors = [{ name = "Districtr Team" }]
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []
 
 [tool.setuptools]
-packages = ["core", "tilesets", "tabular", "cli"]
+packages = ["core", "tilesets", "tabular"]
 
 [tool.setuptools.package-data]
-"*" = ["*.yaml", "*.yml", "*.json"] 
+"*" = ["*.yaml", "*.yml", "*.json"]

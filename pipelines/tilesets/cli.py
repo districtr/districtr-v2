@@ -15,13 +15,12 @@ from core.constants import (
     TIGER_COUNTY_URL,
     S3_TIGER_PREFIX,
 )
-from core.cli import cli
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@cli.group()
+@click.group()
 def tileset() -> None:
     """Tileset commands."""
     pass

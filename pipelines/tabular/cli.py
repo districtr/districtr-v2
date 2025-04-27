@@ -3,13 +3,12 @@ import logging
 from core.settings import settings
 from core.constants import S3_TABULAR_PREFIX
 from tabular.models import TabularBatch
-from core.cli import cli
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@cli.group()
+@click.group()
 def tabular() -> None:
     """Tabular analysis commands."""
     pass
@@ -48,6 +47,7 @@ def build_parquet(
     if upload:
         logger.info(f"Uploading {out_path} to S3.")
         s3_client = settings.get_s3_client()
+        assert s3_client is not None, "S3 client is not initialized"
         s3_client.upload_file(
             settings.OUT_SCRATCH / out_path,
             settings.S3_BUCKET,
