@@ -23,9 +23,8 @@ export const ShareMapsModal: React.FC<{
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const {upsertUserMap} = useMapStore(store => store);
   const userMaps = useMapStore(store => store.userMaps);
-  const currentMap = React.useMemo(
-    () => userMaps.find(map => map.document_id === mapDocument?.document_id),
-    [mapDocument?.document_id, userMaps]
+  const currentMap = useMapStore(store =>
+    userMaps.find(map => map.document_id === mapDocument?.document_id)
   );
   const [shareType, setShareType] = React.useState<'read' | 'edit'>('read');
   const [linkCopied, setLinkCopied] = React.useState(false);
@@ -177,9 +176,9 @@ export const ShareMapsModal: React.FC<{
                       setLinkCopied
                     )
                   }
-                  disabled={linkCopied ?? false}
+                  disabled={(linkCopied || (shareType === 'edit' && !password)) ?? false}
                 >
-                  {linkCopied ? 'Copied!' : 'Click to Generate Link'}
+                  {linkCopied ? 'Copied!' : 'Click to Copy Link'}
                 </Button>
               </Flex>
             </>
@@ -210,7 +209,7 @@ export const ShareMapsModal: React.FC<{
                     setLinkCopied
                   );
                 }}
-                disabled={linkCopied ?? false}
+                disabled={(linkCopied || !password) ?? false}
               >
                 {linkCopied ? 'Copied!' : 'Click to copy share link'}
               </Button>
