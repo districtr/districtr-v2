@@ -8,7 +8,6 @@ from app.utils import (
     create_shatterable_gerrydb_view,
     get_local_or_s3_path,
     add_extent_to_districtrmap,
-    add_available_summary_stats_to_districtrmap,
     create_spatial_index,
 )
 from app.main import get_session
@@ -291,11 +290,6 @@ def load_sample_data(
 
         logger.info(f"Adding extent to districtr map with UUID {u}")
         add_extent_to_districtrmap(session=session, districtr_map_uuid=u)
-
-        logger.info(f"Adding available summary stats to districtr map with UUID {u}")
-        _ = add_available_summary_stats_to_districtrmap(
-            session=session, districtr_map_uuid=u
-        )
 
         if view.child_layer is not None:
             # Commit districtr views

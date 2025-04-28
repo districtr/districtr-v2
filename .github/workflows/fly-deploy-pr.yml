@@ -140,7 +140,7 @@ jobs:
                   flyctl launch \
                   --no-deploy --copy-config --name "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
                   --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
-                  --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com
+                  --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
             
                   echo "App $app launched successfully."
                 fi
@@ -159,12 +159,12 @@ jobs:
                 -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
                 ENVIRONMENT="qa" \
                 NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
-                NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com
+                NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
             
                 # Deploy the app
                 flyctl deploy --config "$config" --app "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
                 --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
-                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com \
+                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org \
                 --strategy immediate '--ha=false' \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: app
