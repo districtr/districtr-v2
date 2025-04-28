@@ -193,6 +193,7 @@ def test_shattering(client, session: Session, document_id):
         "/api/update_assignments",
         json={
             "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
+            "updated_at": "2023-10-01T00:00:00Z",
             "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
         },
     )
@@ -230,6 +231,7 @@ def test_unshatter_process(client, document_id):
         "/api/update_assignments",
         json={
             "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
+            "updated_at": "2023-10-01T00:00:00Z",
             "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
         },
     )
