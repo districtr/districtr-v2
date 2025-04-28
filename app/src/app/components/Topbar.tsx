@@ -25,6 +25,7 @@ import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
 import {PasswordPromptModal} from '@components/Toolbar/PasswordPromptModal';
 import {SaveMapModal} from '@/app/components/Toolbar/SaveMapModal';
 import {useMapStatus} from '../hooks/useMapStatus';
+import {VariableAnchorOffsetCollection} from 'maplibre-gl';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -175,9 +176,12 @@ export const Topbar: React.FC = () => {
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
             {/*map name */}
-            <Text size="3" className="text-black-500">
-              {mapName || ''}
-            </Text>
+            <Button variant="ghost" onClick={() => setSaveMapsModal(true)}>
+              <Text size="3" className="text-black-500">
+                {mapName || ''}
+              </Text>
+            </Button>
+            {/*map slug */}
             {/*source table name */}
             <Text size="3" className="text-gray-500">
               {mapDocument?.gerrydb_table || ''}
