@@ -191,7 +191,10 @@ def document_id_fixture(
 def test_shattering(client, session: Session, document_id):
     response = client.patch(
         "/api/update_assignments",
-        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
+        json={
+            "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
+            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
+        },
     )
     assert response.status_code == 200
 
@@ -225,7 +228,10 @@ def test_get_available_summary_stats(
 def test_unshatter_process(client, document_id):
     response = client.patch(
         "/api/update_assignments",
-        json={"assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}]},
+        json={
+            "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
+            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
+        },
     )
 
     # Test
