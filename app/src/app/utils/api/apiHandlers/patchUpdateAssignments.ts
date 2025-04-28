@@ -8,7 +8,7 @@ export const patchUpdateAssignments = async ({
 }: {
   assignments: Assignment[];
   updateHash: string;
-  userID: string;
+  userID: string | null;
 }): Promise<AssignmentsCreate> => {
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {

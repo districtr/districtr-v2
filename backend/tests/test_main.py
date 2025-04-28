@@ -220,6 +220,7 @@ def assignments_fixture(client, document_id_all_stats):
                 },
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
