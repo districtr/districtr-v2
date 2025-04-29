@@ -35,6 +35,7 @@ def create_districtr_map(
     gerrydb_table_name: str | None = None,
     num_districts: int | None = None,
     tiles_s3_path: str | None = None,
+    group_slug: str = "states",
     visibility: bool = True,
 ) -> str:
     """
@@ -46,6 +47,7 @@ def create_districtr_map(
         districtr_map_slug: The slug of the districtr map.
         parent_layer_name: The name of the parent layer.
         child_layer_name: The name of the child layer.
+        group_slug: The slug of the map group.
         gerrydb_table_name: The name of the gerrydb table.
         num_districts: The number of districts.
         tiles_s3_path: The S3 path to the tiles.
@@ -89,6 +91,17 @@ def create_districtr_map(
             "parent_layer_name": parent_layer,
             "child_layer_name": child_layer,
             "visibility": visibility,
+        },
+    )
+    group_stmt = text("""
+        INSERT INTO districtrmaps_to_groups (group_id, districtrmap_uuid)
+        SELECT id, :uuid FROM map_group
+        WHERE slug = :slug"""
+    )
+    session.execute(group_stmt,
+        {
+            "uuid": inserted_map_uuid[0],
+            "slug": group_slug,
         },
     )
     return inserted_map_uuid[0]  # pyright: ignore
