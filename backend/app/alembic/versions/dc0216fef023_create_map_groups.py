@@ -37,7 +37,7 @@ def upgrade() -> None:
             ["districtrmap.uuid"],
         ),
     )
-    op.execute(sa.text("INSERT INTO map_group (id, name, slug) VALUES (1, 'States', 'states')"))
+    op.execute(sa.text("INSERT INTO map_group (name, slug) VALUES ('States', 'states')"))
     op.execute(sa.text("INSERT INTO districtrmaps_to_groups (group_id, districtrmap_uuid) SELECT 1, uuid from districtrmap"))
 
 def downgrade() -> None:
