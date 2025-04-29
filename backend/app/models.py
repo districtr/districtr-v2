@@ -300,3 +300,9 @@ class ShatterResult(BaseModel):
 
 class ColorsSetResult(BaseModel):
     colors: list[str]
+
+
+class DistrictrMapsToGroups(SQLModel, table=True):
+    __tablename__ = "districtrmaps_to_groups"
+    districtrmap_uuid: str = Field(primary_key=True, foreign_key="districtrmap.uuid")
+    group_id: int = Field(primary_key=True, foreign_key="map_groups.id")
