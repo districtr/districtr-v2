@@ -31,14 +31,16 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["group_id"],
             ["map_group.id"],
+            ondelete="CASCADE"
         ),
         sa.ForeignKeyConstraint(
             ["districtrmap_uuid"],
             ["districtrmap.uuid"],
+            ondelete="CASCADE"
         ),
     )
-    op.execute(sa.text("INSERT INTO map_group (name, slug) VALUES ('States', 'states')"))
-    op.execute(sa.text("INSERT INTO districtrmaps_to_groups (group_id, districtrmap_uuid) SELECT 1, uuid from districtrmap"))
+    op.execute(sa.text("INSERT INTO map_group (id, name, slug) VALUES (0, 'States', 'states')"))
+    op.execute(sa.text("INSERT INTO districtrmaps_to_groups (group_id, districtrmap_uuid) SELECT 0, uuid from districtrmap"))
 
 def downgrade() -> None:
     op.drop_table('districtrmaps_to_groups')

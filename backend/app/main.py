@@ -953,7 +953,7 @@ async def update_districtrmap_metadata(
 async def get_projects(
     *,
     session: Session = Depends(get_session),
-    group: int = Query(default=1),
+    group: int = Query(default=0),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
 ):
