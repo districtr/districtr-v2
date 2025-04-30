@@ -38,6 +38,7 @@ from app.models import (
     ColorsSetResult,
     DistrictrMap,
     DistrictrMapsToGroups,
+    MapGroup,
     Document,
     DocumentCreate,
     DocumentPublic,
@@ -953,17 +954,22 @@ async def update_districtrmap_metadata(
 async def get_projects(
     *,
     session: Session = Depends(get_session),
-    group: int = Query(default=0),
+    group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
 ):
+    groupRow = session.exec(
+        select(MapGroup)
+        .filter(MapGroup.slug == group)
+    ).first()
+
     gerrydb_views = session.exec(
         select(DistrictrMap)
         .join(
             DistrictrMapsToGroups,
             DistrictrMapsToGroups.districtrmap_uuid == DistrictrMap.uuid
         )
-        .filter(DistrictrMapsToGroups.group_id == group)
+        .filter(DistrictrMapsToGroups.group_id == groupRow.id)
         .filter(DistrictrMap.visible == true())  # pyright: ignore
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
