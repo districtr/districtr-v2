@@ -22,6 +22,7 @@ import {
   summaryStatLabels,
 } from '@/app/store/demography/evaluationConfig';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
+import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 
 const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
@@ -29,7 +30,6 @@ const Evaluation: React.FC = () => {
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
   const {zoneStats, demoIsLoaded, zoneData} = useSummaryStats(showUnassigned);
   const maxValues = zoneStats?.maxValues;
-  const numberFormat = numberFormats[evalMode];
   const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
   const availableColumnSets = Object.keys(availableSummaries) as Array<keyof SummaryStatConfig>;
   const colorScheme = useMapStore(state => state.colorScheme);
@@ -41,6 +41,7 @@ const Evaluation: React.FC = () => {
         : availableColumnSets[0]
   );
 
+  const numberFormat = numberFormats[summaryType === 'VOTERHISTORY' ? 'partisan' : evalMode];
   useEffect(() => {
     if (!availableColumnSets.length) return;
     const hasCurrent = summaryType && availableSummaries[summaryType];
@@ -158,14 +159,18 @@ const Evaluation: React.FC = () => {
                               ? // @ts-ignore
                                 value / maxValues[column]
                               : value;
-                        const backgroundColor =
-                          value === undefined || colorValue === undefined
-                            ? undefined
-                            : colorBg && !isUnassigned
-                              ? interpolateGreys(colorValue as number)
-                                  .replace('rgb', 'rgba')
-                                  .replace(')', ',0.5)')
-                              : 'initial';
+                        let backgroundColor: string | undefined;
+                        if (value === undefined || colorValue === undefined) {
+                        } else if (colorBg && summaryType === 'VOTERHISTORY') {
+                          console.log('!!!', value);
+                          backgroundColor = PARTISAN_SCALE(((value as number) + 1) / 2);
+                        } else if (colorBg && !isUnassigned) {
+                          backgroundColor = interpolateGreys(colorValue as number)
+                            .replace('rgb', 'rgba')
+                            .replace(')', ',0.5)');
+                        } else {
+                          backgroundColor = 'initial';
+                        }
                         return (
                           <Table.Cell
                             className="py-2 px-4 text-right"

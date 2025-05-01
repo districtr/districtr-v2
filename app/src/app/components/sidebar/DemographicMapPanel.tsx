@@ -50,23 +50,26 @@ const mapDisplayModes: Array<{
   },
 ];
 
-const getOpacityStates = (mapOptions: MapStore['mapOptions'], setMapOptions: MapStore['setMapOptions']) => [
-    {
-      selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity > 0,
-      label: 'Overlay',
-      onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: OVERLAY_OPACITY}),
-    },
-    {
-      selected: !mapOptions.showPaintedDistricts,
-      label: 'Show Thematic Map',
-      onClick: () => setMapOptions({showPaintedDistricts: false, overlayOpacity: 1}),
-    },
-    {
-      selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity === 0,
-      label: 'Show Districts',
-      onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: 0}),
-    },
-  ];
+const getOpacityStates = (
+  mapOptions: MapStore['mapOptions'],
+  setMapOptions: MapStore['setMapOptions']
+) => [
+  {
+    selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity > 0,
+    label: 'Overlay',
+    onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: OVERLAY_OPACITY}),
+  },
+  {
+    selected: !mapOptions.showPaintedDistricts,
+    label: 'Show Thematic Map',
+    onClick: () => setMapOptions({showPaintedDistricts: false, overlayOpacity: 1}),
+  },
+  {
+    selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity === 0,
+    label: 'Show Districts',
+    onClick: () => setMapOptions({showPaintedDistricts: true, overlayOpacity: 0}),
+  },
+];
 export const DemographicMapPanel: React.FC = () => {
   const demographicMapMode = useMapStore(state => state.mapOptions.showDemographicMap);
   const setMapOptions = useMapStore(state => state.setMapOptions);
@@ -111,7 +114,6 @@ export const DemographicMapPanel: React.FC = () => {
     setVariant(usePercent ? 'percent' : 'raw');
   };
 
-
   useEffect(() => {
     // add a listener for option or alt key press and release
     const handleKeyPress = (event: KeyboardEvent) => {
@@ -119,7 +121,11 @@ export const DemographicMapPanel: React.FC = () => {
       const isOverlayMode = mapOptions.showDemographicMap === 'overlay';
       const activeElement = document.activeElement;
       // if active element is an input, don't do anything
-      if (!isOverlayMode || activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+      if (
+        !isOverlayMode ||
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement
+      )
         return;
       // if command/control held down, don't do anything
       if (event.metaKey || event.ctrlKey) return;
