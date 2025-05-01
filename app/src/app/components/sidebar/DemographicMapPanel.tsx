@@ -19,6 +19,7 @@ import {
   Heading,
   IconButton,
   Popover,
+  Slider,
   Switch,
   Tabs,
   Text,
@@ -314,6 +315,18 @@ export const DemographicMapPanel: React.FC = () => {
                         <PlusIcon />
                       </IconButton>
                     </Flex>
+                    {isOverlay && (
+                      <Flex direction="column" gapY="2">
+                        <Text>Overlay Opacity</Text>
+                        <Slider
+                          value={[mapOptions.overlayOpacity]}
+                          onValueChange={value => setMapOptions({overlayOpacity: value[0]})}
+                          min={0}
+                          max={1}
+                          step={0.01}
+                        />
+                      </Flex>
+                    )}
                   </Flex>
                 </Popover.Content>
               </Popover.Root>
