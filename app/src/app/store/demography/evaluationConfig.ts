@@ -97,11 +97,11 @@ export const summaryStatLabels: Array<{
   {
     value: 'TOTPOP',
     label: 'Total population',
-    supportedModes: ['share', 'count']
+    supportedModes: ['share', 'count'],
   },
   {
     value: 'VOTERHISTORY',
     label: 'Voter history',
-    supportedModes: ['share']
+    supportedModes: ['share'],
   },
 ];

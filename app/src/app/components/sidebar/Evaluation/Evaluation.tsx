@@ -55,11 +55,14 @@ const Evaluation: React.FC = () => {
   }, [availableSummaries]);
 
   useEffect(() => {
-    if (summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length === 1) {
+    if (
+      summaryStatConfig?.supportedModes?.length &&
+      summaryStatConfig?.supportedModes?.length === 1
+    ) {
       setEvalMode(summaryStatConfig?.supportedModes[0]);
     }
   }, [summaryStatConfig]);
-  
+
   const columnConfig = summaryType ? availableSummaries[summaryType] : [];
   if (!demoIsLoaded) {
     return (
