@@ -27,6 +27,7 @@ import {PARTISAN_SCALE} from '@/app/store/demography/constants';
 const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
+
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
   const {zoneStats, demoIsLoaded, zoneData} = useSummaryStats(showUnassigned);
   const maxValues = zoneStats?.maxValues;
@@ -40,7 +41,10 @@ const Evaluation: React.FC = () => {
         ? 'VAP'
         : availableColumnSets[0]
   );
-
+  const summaryStatConfig = summaryStatLabels.find(f => f.value === summaryType);
+  const showModeButtons = Boolean(
+    summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length > 1
+  );
   const numberFormat = numberFormats[summaryType === 'VOTERHISTORY' ? 'partisan' : evalMode];
   useEffect(() => {
     if (!availableColumnSets.length) return;
@@ -49,6 +53,13 @@ const Evaluation: React.FC = () => {
       setSummaryType(availableColumnSets.includes('VAP') ? 'VAP' : availableColumnSets[0]);
     }
   }, [availableSummaries]);
+
+  useEffect(() => {
+    if (summaryStatConfig?.supportedModes?.length && summaryStatConfig?.supportedModes?.length === 1) {
+      setEvalMode(summaryStatConfig?.supportedModes[0]);
+    }
+  }, [summaryStatConfig]);
+  
   const columnConfig = summaryType ? availableSummaries[summaryType] : [];
   if (!demoIsLoaded) {
     return (
@@ -86,17 +97,19 @@ const Evaluation: React.FC = () => {
             ))}
         </Tabs.List>
       </Tabs.Root>
-      <Flex align="center" gap="3" my="2" wrap="wrap">
-        {modeButtonConfig.map((mode, i) => (
-          <Button
-            key={i}
-            variant={mode.value === evalMode ? 'solid' : 'outline'}
-            onClick={() => setEvalMode(mode.value)}
-          >
-            {mode.label}
-          </Button>
-        ))}
-      </Flex>
+      {showModeButtons && (
+        <Flex align="center" gap="3" my="2" wrap="wrap">
+          {modeButtonConfig.map((mode, i) => (
+            <Button
+              key={i}
+              variant={mode.value === evalMode ? 'solid' : 'outline'}
+              onClick={() => setEvalMode(mode.value)}
+            >
+              {mode.label}
+            </Button>
+          ))}
+        </Flex>
+      )}
       <Flex align="center" gap="3" mt="1">
         <CheckboxGroup.Root
           defaultValue={[]}

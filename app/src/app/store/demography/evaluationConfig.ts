@@ -87,17 +87,21 @@ export const numberFormats: Record<EvalModes, NumberFormats> = {
 export const summaryStatLabels: Array<{
   value: keyof SummaryStatConfig;
   label: string;
+  supportedModes: EvalModes[];
 }> = [
   {
     value: 'VAP',
     label: 'Voting age population',
+    supportedModes: ['share', 'count'],
   },
   {
     value: 'TOTPOP',
     label: 'Total population',
+    supportedModes: ['share', 'count']
   },
   {
     value: 'VOTERHISTORY',
     label: 'Voter history',
+    supportedModes: ['share']
   },
 ];
