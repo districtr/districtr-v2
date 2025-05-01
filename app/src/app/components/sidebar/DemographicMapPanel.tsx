@@ -5,6 +5,7 @@ import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {
   GearIcon,
+  InfoCircledIcon,
   MinusIcon,
   PlusIcon,
   ShadowInnerIcon,
@@ -21,6 +22,7 @@ import {
   Switch,
   Tabs,
   Text,
+  Tooltip,
 } from '@radix-ui/themes';
 import {Select} from '@radix-ui/themes';
 import {LegendLabel, LegendThreshold} from '@visx/legend';
@@ -171,12 +173,11 @@ export const DemographicMapPanel: React.FC = () => {
       {demographicMapMode !== undefined && (
         <>
           <Flex direction="column" pt="2">
-            <Text>Map Variable</Text>
             <Tabs.Root
               value={columnGroup}
               onValueChange={value => setColumnGroup(value as keyof typeof choroplethMapVariables)}
             >
-              <Tabs.List>
+              <Tabs.List wrap="wrap">
                 {summaryStatLabels.map(f => (
                   <Tabs.Trigger key={f.value} value={f.value}>
                     <Heading as="h3" size="3">
@@ -186,47 +187,69 @@ export const DemographicMapPanel: React.FC = () => {
                 ))}
               </Tabs.List>
             </Tabs.Root>
-            <Flex direction="row" gapX="3" align="center" py="2">
-              <Select.Root value={variable} onValueChange={handleChangeVariable}>
-                <Select.Trigger />
-                <Select.Content>
-                  {currentVariableList.map(f => (
-                    <Select.Item key={f.value} value={f.value}>
-                      {f.label}
-                    </Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
+            <Flex direction="row" gap="3" align="start" py="2" wrap="wrap">
+              <Flex direction="column" gapY="1">
+                <Text>Map Variable</Text>
+                <Select.Root value={variable} onValueChange={handleChangeVariable}>
+                  <Select.Trigger />
+                  <Select.Content>
+                    {currentVariableList.map(f => (
+                      <Select.Item key={f.value} value={f.value}>
+                        {f.label}
+                      </Select.Item>
+                    ))}
+                  </Select.Content>
+                </Select.Root>
+              </Flex>
               {canBePercent && (
-                <Text as="label" size="2">
-                  <Flex gap="2" align="center" justify={'center'}>
-                    <Text as="label" size="1">
-                      Count
-                    </Text>
-                    <Switch checked={variant === 'percent'} onCheckedChange={handleChangePercent} />
-                    <Text as="label" size="1">
-                      %
+                <Flex direction="column" gapY="1">
+                  <Text>Display Mode</Text>
+                  <Text as="label" size="2">
+                    <Flex gap="2" align="center" justify={'center'}>
+                      <Text as="label" size="1">
+                        Count
+                      </Text>
+                      <Switch
+                        checked={variant === 'percent'}
+                        onCheckedChange={handleChangePercent}
+                      />
+                      <Text as="label" size="1">
+                        %
+                      </Text>
+                    </Flex>
+                  </Text>
+                </Flex>
+              )}
+
+              {demographicMapMode === 'overlay' && (
+                <Flex direction="column" gapY="1">
+                  <Flex direction="row" gapX="1" align="center">
+                    <Text>
+                      Overlay Mode
+                      <Tooltip content="Press 'x' to cycle through the overlay modes.">
+                        <IconButton variant="ghost">
+                          <InfoCircledIcon />
+                        </IconButton>
+                      </Tooltip>
                     </Text>
                   </Flex>
-                </Text>
+                  <Flex direction="row" gapX="0" align="center" wrap="wrap">
+                    {getOpacityStates(mapOptions, setMapOptions).map((option, i) => (
+                      <Button
+                        key={i}
+                        className="!rounded-none mr-[-2px]"
+                        variant={option.selected ? 'solid' : 'outline'}
+                        onClick={option.onClick}
+                      >
+                        {option.label}
+                      </Button>
+                    ))}
+                  </Flex>
+                </Flex>
               )}
             </Flex>
           </Flex>
 
-          {demographicMapMode === 'overlay' && (
-            <Flex direction="row" gapX="0" align="center" py="2">
-              {getOpacityStates(mapOptions, setMapOptions).map((option, i) => (
-                <Button
-                  key={i}
-                  className="!rounded-none mr-[-2px]"
-                  variant={option.selected ? 'solid' : 'outline'}
-                  onClick={option.onClick}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </Flex>
-          )}
           {scale && 'invertExtent' in scale ? (
             <Flex direction={'row'} justify="center" gapX="2">
               <LegendThreshold
