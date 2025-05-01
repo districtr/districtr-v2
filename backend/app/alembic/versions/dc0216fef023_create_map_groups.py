@@ -20,17 +20,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_table('map_group',
-        sa.Column('id', sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column('name', sa.String(), unique=True, nullable=False),
-        sa.Column('slug', sa.String(), unique=True, nullable=False),
+        sa.Column('slug', sa.String(), primary_key=True, nullable=False),
     )
     op.create_table('districtrmaps_to_groups',
-        sa.Column('group_id', sa.Integer(), nullable=False),
+        sa.Column('group_slug', sa.String(), nullable=False),
         sa.Column('districtrmap_uuid', sa.Uuid(), nullable=False),
-        sa.PrimaryKeyConstraint("group_id", "districtrmap_uuid", name="group_map_unique"),
+        sa.PrimaryKeyConstraint("group_slug", "districtrmap_uuid", name="group_map_unique"),
         sa.ForeignKeyConstraint(
-            ["group_id"],
-            ["map_group.id"],
+            ["group_slug"],
+            ["map_group.slug"],
             ondelete="CASCADE"
         ),
         sa.ForeignKeyConstraint(
@@ -39,8 +38,8 @@ def upgrade() -> None:
             ondelete="CASCADE"
         ),
     )
-    op.execute(sa.text("INSERT INTO map_group (id, name, slug) VALUES (0, 'States', 'states')"))
-    op.execute(sa.text("INSERT INTO districtrmaps_to_groups (group_id, districtrmap_uuid) SELECT 0, uuid from districtrmap"))
+    op.execute(sa.text("INSERT INTO map_group (name, slug) VALUES ('States', 'states')"))
+    op.execute(sa.text("INSERT INTO districtrmaps_to_groups (group_slug, districtrmap_uuid) SELECT 'states', uuid from districtrmap"))
 
 def downgrade() -> None:
     op.drop_table('districtrmaps_to_groups')
