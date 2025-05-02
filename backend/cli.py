@@ -1,11 +1,13 @@
 import click
 import logging
+import re
 
 from app.core.db import engine
 from app.core.config import settings
 from sqlalchemy import text
 from app.utils import (
     create_districtr_map as _create_districtr_map,
+    create_map_group as _create_map_group,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
     create_parent_child_edges as _create_parent_child_edges,
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
@@ -388,6 +390,25 @@ def create_spatial_index(
             autocommit=True,
         )
         logger.info(f"Created spatial index successfully for table {table}.")
+
+
+@cli.command("create-group")
+@click.option("--name", "-n", help="Group name", required=True, multiple=False)
+@click.option("--slug", "-s", help="Group slug", required=False, multiple=False)
+@with_session
+def create_map_group(
+    session: Session, name: str, slug: str | None
+):
+    # generate slug as lowercase a-z, no spaces
+    if slug is None:
+        slug = ''.join(re.findall(r'[a-z]', name.lower()))
+    _create_map_group(
+        session=session,
+        group_name=name,
+        slug=slug,
+        autocommit=True,
+    )
+    logger.info(f"Created map group named {name}.")
 
 
 if __name__ == "__main__":
