@@ -83,14 +83,13 @@ export const publishCMSContent = post<CMSContentId, Promise<TagsCMSContent | Pla
 
 export const deleteCMSContent = async ({
   body: {content_id, content_type},
-  session
+  session,
 }: {
   body: {content_id: string; content_type: CmsContentTypes};
   session: ClientSession;
 }) => {
   const url = `cms/content/${content_type}/${content_id}`;
-  const deleteContent = del(url);
-  return await deleteContent({});
+  return await del(url)({session});
 };
 
 export const getCMSContent = async <T extends CmsContentTypes>(
@@ -99,8 +98,13 @@ export const getCMSContent = async <T extends CmsContentTypes>(
   type: T
 ): Promise<CMSContentResponseWithLanguages<T> | null> => {
   let url = `cms/content/${type}/slug/${slug}?language=${language}`;
-  const getContent = get<Promise<CMSContentResponseWithLanguages<T>>>(url);
-  return await getContent({});
+  const content = await get<Promise<CMSContentResponseWithLanguages<T>>>(url)({});
+  if (content.ok) {
+    return content.response;
+  } else {
+    console.error(content.error);
+    return null;
+  }
 };
 
 export const listCMSContent = async (
@@ -108,9 +112,13 @@ export const listCMSContent = async (
   params: {language?: string; districtr_map_slug?: string} = {}
 ): Promise<AllCmsLists | null> => {
   const url = `cms/content/${type}/list`;
-  console.log('URL', url);
-  const listContent = get<Promise<AllCmsLists>>(url.toString());
-  return await listContent({});
+  const content = await  get<Promise<AllCmsLists>>(url.toString())({});
+  if (content.ok) {
+    return content.response;
+  } else {
+    console.error(content.error);
+    return null;
+  }
 };
 
 export const listAuthoredCMSContent = async (
@@ -119,6 +127,11 @@ export const listAuthoredCMSContent = async (
   session: ClientSession
 ): Promise<AllCmsLists | null> => {
   const url = `cms/content/${type}/list/authored`;
-  const listContent = get<Promise<AllCmsLists>>(url.toString());
-  return await listContent({body: {}, session});
+  const content = await get<Promise<AllCmsLists>>(url.toString())({body: {}, session});
+  if (content.ok) {
+    return content.response;
+  } else {
+    console.error(content.error);
+    return null;
+  }
 };

@@ -19,7 +19,18 @@ export const make = (path: string) => {
     }: {
       body?: TBody;
       session?: ClientSession;
-    }): Promise<TResponse | null> => {
+    }): Promise<
+      | {
+          ok: true;
+          response: TResponse;
+        }
+      | {
+          ok: false;
+          error: {
+            detail: string;
+          };
+        }
+    > => {
       const headers = new Headers({
         'Content-Type': 'application/json',
         ...options,
@@ -45,14 +56,30 @@ export const make = (path: string) => {
         const response = await fetch(fullPath, fetchOptions);
 
         if (!response.ok) {
-          console.error('Error making request', response.status, await response.text());
-          return null;
+          const error = await response.json();
+          return {
+            ok: false,
+            error: error,
+          };
+        }
+        let responseContent = await response.text();
+        try {
+          responseContent = JSON.parse(responseContent);
+        } catch (error) {
+          // response was not json
         }
 
-        return (await response.json()) as TResponse;
+        return {
+          ok: true,
+          response: responseContent as TResponse,
+        };
       } catch (error) {
-        console.error('Network or parsing error:', error);
-        return null;
+        return {
+          ok: false,
+          error: {
+            detail: JSON.stringify(error),
+          },
+        };
       }
     };
   };
