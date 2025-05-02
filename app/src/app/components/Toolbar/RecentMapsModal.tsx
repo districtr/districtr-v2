@@ -135,7 +135,7 @@ const RecentMapsRow: React.FC<{
   onSelect: (data: DocumentObject) => void;
   active: boolean;
   onChange?: (data?: DocumentObject) => void;
-  onDelete?: (data?: DocumentObject) => void;
+  onDelete: (data: DocumentObject) => void;
 }> = ({data, onSelect, active, onChange, onDelete}) => {
   const updatedDate = new Date(data.updated_at as string);
   const formattedDate = updatedDate.toLocaleDateString();
