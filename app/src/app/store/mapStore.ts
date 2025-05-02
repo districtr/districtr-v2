@@ -801,8 +801,9 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     });
   },
   deleteUserMap: documentId => {
-    const userMaps = get().userMaps.filter(map => map.document_id !== documentId);
-    set({userMaps});
+    set(state => ({
+      userMaps: state.userMaps.filter(map => map.document_id !== documentId),
+    }));
   },
   shatterIds: {
     parents: new Set(),

@@ -48,6 +48,12 @@ export const Topbar: React.FC = () => {
       ''
   );
 
+  const mapTableName = useMapStore(
+    state =>
+      state.userMaps.find(userMap => userMap.document_id === state.mapDocument?.document_id)
+        ?.name ?? ''
+  );
+
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
 
@@ -184,7 +190,7 @@ export const Topbar: React.FC = () => {
             {/*map slug */}
             {/*source table name */}
             <Text size="3" className="text-gray-500">
-              {mapDocument?.gerrydb_table || ''}
+              {mapTableName || ''}
             </Text>
           </Flex>
           <Flex direction="row" align="center" gapX="2">

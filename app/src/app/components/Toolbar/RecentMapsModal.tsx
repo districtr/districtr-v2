@@ -35,6 +35,11 @@ export const RecentMapsModal: React.FC<{
 
   const clear = useTemporalStore(store => store.clear);
 
+  const handleDeleteMap = (documentId: string) => {
+    // deletes the map from the userMaps list
+    deleteUserMap(documentId);
+  };
+
   const handleMapDocument = (data: DocumentObject) => {
     setMapDocument(data);
     clear();
@@ -117,9 +122,7 @@ export const RecentMapsModal: React.FC<{
                   }
                   data={userMap}
                   onSelect={handleMapDocument}
-                  onDelete={() => {
-                    deleteUserMap(userMap.document_id);
-                  }}
+                  onDelete={handleDeleteMap}
                 />
               ))}
             </Table.Body>
@@ -203,9 +206,19 @@ const RecentMapsRow: React.FC<{
               <Popover.Content sideOffset={5} className="w-[200px] p-2 bg-white rounded-md">
                 <Text>Are you sure? This cannot be undone.</Text>
                 <Separator className="my-2" />
-                <Button onClick={() => onDelete(data)} variant="outline" className="w-full">
-                  Remove
-                </Button>
+                <Popover.Close>
+                  <Button
+                    onClick={() => {
+                      // this works but the row does not disappear;
+                      //  only the data is removed + popover closes
+                      onDelete(data);
+                    }}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Remove
+                  </Button>
+                </Popover.Close>
               </Popover.Content>
             </Popover.Root>
           </>
