@@ -24,6 +24,8 @@ export const PopulationChart: React.FC<{
 }) => {
   const chartOptions = useChartStore(state => state.chartOptions);
   const colorScheme = useMapStore(state => state.colorScheme);
+  const setSelectedZone = useMapStore(state => state.setSelectedZone);
+  const selectedZone = useMapStore(state => state.selectedZone);
 
   const {
     popBarScaleToCurrent: scaleToCurrent,
@@ -117,6 +119,18 @@ export const PopulationChart: React.FC<{
             {entry.total_pop_20 > 0 && (
               <>
                 <Bar
+                  key={`bar-interactive-${entry.zone}`}
+                  x={0}
+                  y={yScale(index)}
+                  width={xMax}
+                  height={barHeight+10}
+                  className="opacity-0 hover:opacity-10 transition-opacity duration-300 cursor-pointer"
+                  onClick={() => setSelectedZone(entry.zone)}
+                  onMouseEnter={() => setHoveredIndex(index)}
+                  onMouseMove={() => setHoveredIndex(index)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                />
+                <Bar
                   key={`bar-${entry.zone}`}
                   x={0}
                   y={yScale(index) + 5}
@@ -127,17 +141,6 @@ export const PopulationChart: React.FC<{
                   style={{
                     pointerEvents: 'none',
                   }}
-                />
-                <Bar
-                  key={`bar-interactive-${entry.zone}`}
-                  x={0}
-                  y={yScale(index) + 5}
-                  width={xMax}
-                  height={barHeight}
-                  fillOpacity={0}
-                  onMouseEnter={() => setHoveredIndex(index)}
-                  onMouseMove={() => setHoveredIndex(index)}
-                  onMouseLeave={() => setHoveredIndex(null)}
                 />
               </>
             )}
