@@ -237,8 +237,12 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
         content.updates.districtr_map_slugs =
           (formData.content as FormDataType<'places'>).districtr_map_slugs || null;
       }
-      await updateCMSContent({body: content, session});
-      set({success: 'Content updated successfully!', editingContent: null});
+      const r = await updateCMSContent({body: content, session});
+      if (r.ok) {
+        set({success: 'Content updated successfully!', editingContent: null});
+      } else {
+        set({error: r.error?.detail, success: undefined});
+      }
     } else {
       // Creating new content
       let content: CMSContentCreate = {
