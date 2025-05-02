@@ -30,7 +30,7 @@ import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import get_session
 from app.core.config import settings
-from app.thumbnails import fetch_thumbnail, generate_thumbnail
+from app.thumbnails import generate_thumbnail, thumbnail_exists
 from app.utils import hash_password, verify_password
 import jwt
 from uuid import uuid4
@@ -1085,6 +1085,7 @@ async def get_projects(
     ).all()
     return gerrydb_views
 
+
 @app.get("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
 async def get_thumbnail(
     *,
@@ -1092,8 +1093,10 @@ async def get_thumbnail(
     session: Session = Depends(get_session),
 ):
     try:
-        img_io = fetch_thumbnail(session, document_id)
-        return StreamingResponse(content=img_io, media_type="image/png")
+        if thumbnail_exists(document_id):
+            return RedirectResponse(url=f"https://tilesets1.cdn.districtr.org/thumbnails/{document_id}.png")
+        else:
+            return RedirectResponse(url="/home-megaphone.png")
     except:
         return RedirectResponse(url="/home-megaphone.png")
 

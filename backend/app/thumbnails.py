@@ -55,8 +55,16 @@ DISTRICT_COLORS = [
 ]
 
 
-# receives the document_id and returns whether a thumbnail exists on S3
 def thumbnail_exists(document_id: str) -> bool:
+    """
+    Check whether a thumbnail exists yet for this map document.
+
+    Args:
+        document_id: The ID for the map
+
+    Returns:
+        A true/false response if S3 returns head info.
+    """
     s3 = settings.get_s3_client()
     assert s3, "S3 client is not available"
     object_information = s3.head_object(
@@ -65,9 +73,14 @@ def thumbnail_exists(document_id: str) -> bool:
     return object_information["ResponseMetadata"]["HTTPStatusCode"] == 200
 
 
-# receives the current session and requested document_id
-# returns io stream of generated image
-def generate_thumbnail(session: Session, document_id: str) -> io.BytesIO:
+def generate_thumbnail(session: Session, document_id: str) -> None:
+    """
+    Generate a preview image of the map using GeoPandas.
+
+    Args:
+        session: The database session.
+        document_id: The ID for the map
+    """
     stmt = text("""
         SELECT color_scheme, parent_layer, child_layer
         FROM document.document doc
@@ -99,16 +112,21 @@ def generate_thumbnail(session: Session, document_id: str) -> io.BytesIO:
         INNER JOIN gerrydb.{child_layer} blocks ON blocks.path = assigned.geo_id
         WHERE zone IS NOT NULL
         GROUP BY zone)"""
-    conn = session.get_bind().raw_connection()
-    df = geopandas.read_postgis(sql, conn).to_crs(epsg=3857)
 
-    df["color"] = df.apply(lambda row: coloration(row), axis=1)
-    geoplt = df.plot(figsize=(2.8, 2.8), color=df["color"])
-    geoplt.set_axis_off()
-    pic_IObytes = io.BytesIO()
-    geoplt.figure.savefig(pic_IObytes, format="png")
-    plt.close(geoplt.figure)
-    pic_IObytes.seek(0)
+    try:
+        conn = session.get_bind().raw_connection()
+        df = geopandas.read_postgis(sql, conn).to_crs(epsg=3857)
+        df["color"] = df.apply(lambda row: coloration(row), axis=1)
+
+        geoplt = df.plot(figsize=(2.8, 2.8), color=df["color"])
+        geoplt.set_axis_off()
+        pic_IObytes = io.BytesIO()
+        geoplt.figure.savefig(pic_IObytes, format="png")
+        plt.close(geoplt.figure)
+        pic_IObytes.seek(0)
+    except:
+        logger.info(f"Could not generate thumbnail for {document_id}")
+        return
 
     # write to S3
     try:
@@ -121,17 +139,4 @@ def generate_thumbnail(session: Session, document_id: str) -> io.BytesIO:
             ContentType="image/png",
         )
     except:
-        logger.info("Could not upload thumbnail")
-
-    return pic_IObytes
-
-
-# fetch current thumbnail or generate one
-def fetch_thumbnail(session: Session, document_id: str) -> io.BytesIO:
-    if thumbnail_exists(document_id):
-        s3 = settings.get_s3_client()
-        assert s3, "S3 client is not available"
-        s3_object = s3.get_object(Bucket=THUMBNAIL_BUCKET, Key=f"thumbnails/{document_id}.png")
-        return s3_object["Body"]
-    else:
-        return generate_thumbnail(session, document_id)
+        logger.info(f"Could not upload thumbnail for {document_id}")
