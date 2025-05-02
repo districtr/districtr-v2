@@ -36,7 +36,6 @@ export const RecentMapsModal: React.FC<{
   const clear = useTemporalStore(store => store.clear);
 
   const handleDeleteMap = (documentId: string) => {
-    // deletes the map from the userMaps list
     deleteUserMap(documentId);
   };
 
@@ -122,7 +121,9 @@ export const RecentMapsModal: React.FC<{
                   }
                   data={userMap}
                   onSelect={handleMapDocument}
-                  onDelete={handleDeleteMap}
+                  onDelete={() => {
+                    deleteUserMap(userMap.document_id);
+                  }}
                 />
               ))}
             </Table.Body>
