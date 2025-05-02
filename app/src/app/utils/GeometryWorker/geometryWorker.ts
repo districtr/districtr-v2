@@ -10,6 +10,7 @@ import Protobuf from 'pbf';
 import booleanWithin from '@turf/boolean-within';
 import distance from '@turf/distance';
 import {getCoords} from '@turf/invariant';
+import union from '@turf/union';
 
 const CENTROID_BUFFER_KM = 10;
 
@@ -33,6 +34,10 @@ const GeometryWorker: GeometryWorkerClass = {
     parents: [],
     children: [],
   },
+  setMaxParentZoom(zoom) {
+    this.maxParentZoom = zoom;
+  },
+  maxParentZoom: 0,
   previousCentroids: {},
   getPropsById(ids: string[]) {
     const features: MinGeoJSONFeature[] = [];
@@ -107,21 +112,31 @@ const GeometryWorker: GeometryWorkerClass = {
     const childLayer = mapDocument.child_layer;
     for (const layerName in tile.layers) {
       const isParent = layerName === parentLayer;
+      if (isParent && tileID.z > this.maxParentZoom) continue;
       const layer = tile.layers[layerName];
-
       // Extract features from the layer
       for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
         const id = feature?.properties?.[idProp] as string;
-        const prevZoom = this.geometries?.[id]?.zoom;
-
-        if (!id || (prevZoom && prevZoom > tileID.z)) continue;
+        if (!id) continue;
+        const childNotBroken = !isParent && !this.shatterIds.children.includes(id);
+        if (childNotBroken) continue;
+        const previousGeometry = this.geometries[id];
+        const zoomDiff = previousGeometry?.zoom && tileID.z - previousGeometry.zoom;
+        if (zoomDiff && zoomDiff < 0) continue;
+        
         let geojsonFeature: any = feature.toGeoJSON(tileID.x, tileID.y, tileID.z);
         geojsonFeature.zoom = tileID.z;
         geojsonFeature.id = id;
         geojsonFeature.sourceLayer = layerName;
         geojsonFeature.properties = feature.properties;
-        this.geometries[id as string] = geojsonFeature;
+        if (zoomDiff ===undefined || zoomDiff > 0) {
+          this.geometries[id as string] = geojsonFeature;
+        } else if (zoomDiff === 0) {
+          // merge geometries
+          const unioned = union(previousGeometry, geojsonFeature);
+          this.activeGeometries[id] = geojsonFeature;
+        }
         if (
           (isParent && !this.shatterIds.parents.includes(id)) ||
           (!isParent && this.shatterIds.children.includes(id))

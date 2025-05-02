@@ -185,7 +185,12 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
 
 export const handleMapZoom = (e: ViewStateChangeEvent) => {};
 
-export const handleMapIdle = () => {};
+export const handleMapIdle = (e: ViewStateChangeEvent) => {
+  const currentZoom = e.viewState.zoom;
+  if (GeometryWorker) {
+    GeometryWorker.setMaxParentZoom(currentZoom);
+  }
+};
 
 export const handleMapMoveEnd = () => {};
 
