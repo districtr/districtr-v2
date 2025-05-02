@@ -8,6 +8,7 @@ export const FROZEN_CONDITIONS = {
 } as const;
 
 export const STATUS_TEXT = {
+  start: 'Begin Editing',
   frozen: 'Status: Frozen',
   progress: 'Status: In Progress',
   scratch: 'Scratch Work Only',

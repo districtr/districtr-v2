@@ -203,11 +203,7 @@ const RecentMapsRow: React.FC<{
               <Popover.Content sideOffset={5} className="w-[200px] p-2 bg-white rounded-md">
                 <Text>Are you sure? This cannot be undone.</Text>
                 <Separator className="my-2" />
-                <Button
-                  onClick={() => console.log('deleting')}
-                  variant="outline"
-                  className="w-full"
-                >
+                <Button onClick={() => onDelete(data)} variant="outline" className="w-full">
                   Remove
                 </Button>
               </Popover.Content>
