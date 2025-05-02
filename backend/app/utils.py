@@ -449,3 +449,28 @@ def create_spatial_index(
     )
     if autocommit:
         session.commit()
+
+
+def create_map_group(
+    session: Session,
+    group_name: str,
+    slug: str,
+    autocommit: bool = False,
+):
+    """
+    Create a MapGroup which can organize multiple DistrictrMaps.
+
+    Args:
+        session (Session): The database session.
+        group_name (str): The name of the group.
+        slug (str): The slug for the group used in URLs and queries.
+    """
+    session.execute(
+        text(f"INSERT INTO map_group (name, slug) VALUES (:group_name, :slug)"),
+        {
+            "group_name": group_name,
+            "slug": slug,
+        },
+    )
+    if autocommit:
+        session.commit()
