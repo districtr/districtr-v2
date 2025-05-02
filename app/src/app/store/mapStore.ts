@@ -266,7 +266,7 @@ export interface MapStore {
     userMapDocumentId?: string;
     userMapData?: MapStore['userMaps'][number];
   }) => void;
-
+  deleteUserMap: (documentId: string) => void;
   mapName: () => string | undefined;
   mapMetadata: DocumentObject['map_metadata'];
   updateMetadata: (
@@ -799,6 +799,10 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     set({
       userMaps,
     });
+  },
+  deleteUserMap: documentId => {
+    const userMaps = get().userMaps.filter(map => map.document_id !== documentId);
+    set({userMaps});
   },
   shatterIds: {
     parents: new Set(),

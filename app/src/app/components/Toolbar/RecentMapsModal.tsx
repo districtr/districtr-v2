@@ -1,7 +1,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {Button, Flex, Text, Table, Dialog, Box, Separator} from '@radix-ui/themes';
+import {Button, Flex, Text, Table, Dialog, Box, Separator, Popover} from '@radix-ui/themes';
 import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '@utils/api/apiHandlers/types';
 import {styled} from '@stitches/react';
@@ -23,6 +23,7 @@ export const RecentMapsModal: React.FC<{
   const mapDocument = useMapStore(store => store.mapDocument);
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
+  const deleteUserMap = useMapStore(store => store.deleteUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const setActiveTool = useMapStore(store => store.setActiveTool);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
@@ -82,7 +83,6 @@ export const RecentMapsModal: React.FC<{
       <DialogContentContainer className="md:w-[50vw]">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
-
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
             aria-label="Close"
@@ -104,24 +104,24 @@ export const RecentMapsModal: React.FC<{
             </Table.Header>
 
             <Table.Body>
-              {userMaps.map(
-                (userMap, i) =>
-                  // for all non-active maps
-                  userMap.document_id !== mapDocument?.document_id && (
-                    <RecentMapsRow
-                      key={i}
-                      active={mapDocument?.document_id === userMap.document_id}
-                      onChange={userMapData =>
-                        upsertUserMap({
-                          userMapData,
-                          userMapDocumentId: userMap.document_id,
-                        })
-                      }
-                      data={userMap}
-                      onSelect={handleMapDocument}
-                    />
-                  )
-              )}
+              {userMaps.map((userMap, i) => (
+                // for all maps, including active map
+                <RecentMapsRow
+                  key={i}
+                  active={mapDocument?.document_id === userMap.document_id}
+                  onChange={userMapData =>
+                    upsertUserMap({
+                      userMapData,
+                      userMapDocumentId: userMap.document_id,
+                    })
+                  }
+                  data={userMap}
+                  onSelect={handleMapDocument}
+                  onDelete={() => {
+                    deleteUserMap(userMap.document_id);
+                  }}
+                />
+              ))}
             </Table.Body>
           </Table.Root>
         </Box>
@@ -135,12 +135,12 @@ const RecentMapsRow: React.FC<{
   onSelect: (data: DocumentObject) => void;
   active: boolean;
   onChange?: (data?: DocumentObject) => void;
-}> = ({data, onSelect, active, onChange}) => {
+  onDelete?: (data?: DocumentObject) => void;
+}> = ({data, onSelect, active, onChange, onDelete}) => {
   const updatedDate = new Date(data.updated_at as string);
   const formattedDate = updatedDate.toLocaleDateString();
   const metadataName = data?.map_metadata?.name || data.districtr_map_slug;
   const [mapName, setMapName] = React.useState(metadataName);
-
   const handleChangeName = (name: string | null) => {
     // if name does not match metadata, make eligible to save
     if (name !== metadataName && name !== null) {
@@ -163,22 +163,56 @@ const RecentMapsRow: React.FC<{
       <Table.Cell>
         <Text>{formattedDate}</Text>
       </Table.Cell>
-      <Table.Cell py=".5rem">
-        {!active && (
+      <Table.Cell py=".5rem" justify="center">
+        {!active ? (
           <Button
             onClick={() => onSelect(data)}
             variant="outline"
             className="box-content size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
           >
-            Load
+            Ready to Load
           </Button>
+        ) : (
+          <div style={{}}>
+            <Button
+              disabled
+              variant="outline"
+              className="box-content mx-2 size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
+            >
+              Active
+            </Button>
+            <Button
+              disabled
+              variant="outline"
+              className="box-content mx-2 size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
+            >
+              Unload
+            </Button>
+          </div>
         )}
       </Table.Cell>
       <Table.Cell py=".5rem">
         {!active && (
-          <Button onClick={() => onChange?.()} variant="ghost" color="ruby" className="size-full">
-            Delete
-          </Button>
+          <>
+            <Popover.Root>
+              <Popover.Trigger asChild>
+                <Button variant="ghost" color="ruby" className="size-full">
+                  Remove from List
+                </Button>
+              </Popover.Trigger>
+              <Popover.Content sideOffset={5} className="w-[200px] p-2 bg-white rounded-md">
+                <Text>Are you sure? This cannot be undone.</Text>
+                <Separator className="my-2" />
+                <Button
+                  onClick={() => console.log('deleting')}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Remove
+                </Button>
+              </Popover.Content>
+            </Popover.Root>
+          </>
         )}
       </Table.Cell>
     </Table.Row>
