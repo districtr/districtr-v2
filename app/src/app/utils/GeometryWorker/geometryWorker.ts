@@ -112,7 +112,7 @@ const GeometryWorker: GeometryWorkerClass = {
     const childLayer = mapDocument.child_layer;
     for (const layerName in tile.layers) {
       const isParent = layerName === parentLayer;
-      if (isParent && tileID.z > this.maxParentZoom) continue;
+      if (isParent && this.maxParentZoom !== 0 && tileID.z > this.maxParentZoom) continue;
       const layer = tile.layers[layerName];
       // Extract features from the layer
       for (let i = 0; i < layer.length; i++) {
@@ -121,22 +121,26 @@ const GeometryWorker: GeometryWorkerClass = {
         if (!id) continue;
         const childNotBroken = !isParent && !this.shatterIds.children.includes(id);
         if (childNotBroken) continue;
-        const previousGeometry = this.geometries[id];
-        const zoomDiff = previousGeometry?.zoom && tileID.z - previousGeometry.zoom;
+        const previousFeature = this.geometries[id];
+        const zoomDiff = previousFeature?.zoom && tileID.z - previousFeature.zoom;
         if (zoomDiff && zoomDiff < 0) continue;
-        
+
         let geojsonFeature: any = feature.toGeoJSON(tileID.x, tileID.y, tileID.z);
         geojsonFeature.zoom = tileID.z;
         geojsonFeature.id = id;
         geojsonFeature.sourceLayer = layerName;
         geojsonFeature.properties = feature.properties;
-        if (zoomDiff ===undefined || zoomDiff > 0) {
-          this.geometries[id as string] = geojsonFeature;
-        } else if (zoomDiff === 0) {
+        if (zoomDiff === 0) {
           // merge geometries
-          const unioned = union(previousGeometry, geojsonFeature);
-          this.activeGeometries[id] = geojsonFeature;
+          const unioned = union({
+            type: 'FeatureCollection',
+            features: [previousFeature, geojsonFeature],
+          });
+          if (unioned) {
+            geojsonFeature.geometry = unioned.geometry;
+          }
         }
+        this.geometries[id as string] = geojsonFeature;
         if (
           (isParent && !this.shatterIds.parents.includes(id)) ||
           (!isParent && this.shatterIds.children.includes(id))
