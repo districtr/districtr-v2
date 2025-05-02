@@ -181,7 +181,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   } else {
     useTooltipStore.getState().setTooltip(null);
   }
-}, 25);
+}, 5);
 
 export const handleMapZoom = (e: ViewStateChangeEvent) => {};
 

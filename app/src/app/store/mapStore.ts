@@ -985,7 +985,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       };
     }),
   resetZoneAssignments: () => set({zoneAssignments: new Map()}),
-  brushSize: 50,
+  brushSize: 1,
   setBrushSize: size => set({brushSize: size}),
   isPainting: false,
   setIsPainting: isPainting => {
