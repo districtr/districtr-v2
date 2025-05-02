@@ -5,7 +5,6 @@ import {
   EraserIcon,
   Pencil2Icon,
   HandIcon,
-  LockOpen1Icon,
   ViewGridIcon,
   ResetIcon,
 } from '@radix-ui/react-icons';
@@ -107,17 +106,7 @@ export const useActiveTools = () => {
       hotKeyAccessor: e => {
         return e.code === 'KeyB';
       },
-    },
-    {
-      hotKeyLabel: 'L',
-      mode: 'lock',
-      disabled: !mapDocument?.document_id || status === 'locked',
-      label: 'Lock',
-      icon: LockOpen1Icon,
-      hotKeyAccessor: e => {
-        return e.code === 'KeyL';
-      },
-    },
+    }
   ];
   if (status === 'locked') return [];
   return config;
