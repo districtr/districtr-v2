@@ -16,7 +16,8 @@ export const useMapStatus = () => {
   const statusText = useMemo(() => {
     if (!document_id) return null;
     if (status === 'locked' || access === 'read') return STATUS_TEXT.frozen;
-    if (!mapMetadata || mapMetadata.draft_status === 'scratch') return STATUS_TEXT.scratch;
+    if (!mapMetadata || !mapMetadata.draft_status) return; // status not set yet
+    if (mapMetadata.draft_status === 'scratch') return STATUS_TEXT.scratch;
     if (mapMetadata.draft_status === 'in_progress') return STATUS_TEXT.progress;
     return STATUS_TEXT.ready;
   }, [status, access, document_id, mapMetadata]);

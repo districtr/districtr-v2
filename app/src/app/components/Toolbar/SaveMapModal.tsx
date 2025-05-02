@@ -60,7 +60,7 @@ export const SaveMapModal: React.FC<{
     name: null,
     group: null,
     description: null,
-    draft_status: 'scratch',
+    draft_status: null,
     tags: null,
     eventId: null,
   });
@@ -76,7 +76,7 @@ export const SaveMapModal: React.FC<{
       name: metadata?.name ?? null,
       group: metadata?.group ?? null,
       description: metadata?.description ?? null,
-      draft_status: metadata?.draft_status ?? 'scratch',
+      draft_status: metadata?.draft_status,
       tags: metadata?.tags ?? null,
       eventId: metadata?.eventId ?? null,
     });
@@ -116,10 +116,10 @@ export const SaveMapModal: React.FC<{
     }
   };
 
-  const handleChangeIsDraft = (isDraft: string) => {
+  const handleChangeIsDraft = (isDraft: string | null) => {
     setMapFormState(prev => ({
       ...prev,
-      draft_status: (isDraft as 'scratch' | 'in_progress' | 'ready_to_share') || 'scratch',
+      draft_status: (isDraft as 'scratch' | 'in_progress' | 'ready_to_share') || null,
     }));
     setShareStateIsSaved(false);
   };
@@ -203,7 +203,7 @@ export const SaveMapModal: React.FC<{
               <Text weight={'medium'}> Status </Text>
               <Flex gap="2">
                 <RadioGroup.Root
-                  value={mapFormState.draft_status ?? 'scratch'}
+                  value={mapFormState.draft_status ?? undefined}
                   onValueChange={(e: 'scratch' | 'in_progress' | 'ready_to_share') => {
                     setMapFormState(prev => ({...prev, draft_status: e}));
                     setShareStateIsSaved(false);
