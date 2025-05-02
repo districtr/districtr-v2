@@ -1,0 +1,164 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-hash@0.2.1/leaflet-hash.js"></script>
+    <script src="https://unpkg.com/protomaps-leaflet@5.0.0/dist/protomaps-leaflet.js"></script>
+    <!-- <script src="../dist/protomaps-leaflet.js"></script> -->
+    <style>
+      body,
+      #map {
+        height: 100vh;
+        margin: 0px;
+      }
+    </style>
+  </head>
+  <body>
+    <style>
+      .leaflet-container {
+        background-color: white !important;
+      }
+    </style>
+    <div id="map"></div>
+    <script>
+      const colorScheme = [
+        '#0099cd',
+        '#ffca5d',
+        '#00cd99',
+        '#99cd00',
+        '#cd0099',
+        '#aa44ef', // lighter, req from San Diego
+        // Color brewer:
+        '#8dd3c7',
+        '#bebada',
+        '#fb8072',
+        '#80b1d3',
+        '#fdb462',
+        '#b3de69',
+        '#fccde5',
+        '#bc80bd',
+        '#ccebc5',
+        '#ffed6f',
+        '#ffffb3',
+        // other color brewer scheme:
+        '#a6cee3',
+        '#1f78b4',
+        '#b2df8a',
+        '#33a02c',
+        '#fb9a99',
+        '#e31a1c',
+        '#fdbf6f',
+        '#ff7f00',
+        '#cab2d6',
+        '#6a3d9a',
+        '#b15928',
+        // random material design colors:
+        '#64ffda',
+        '#00B8D4',
+        '#A1887F',
+        '#76FF03',
+        '#DCE775',
+        '#B388FF',
+        '#FF80AB',
+        '#D81B60',
+        '#26A69A',
+        '#FFEA00',
+        '#6200EA',
+      ];
+      const main = async () => {
+        const map = L.map('map', {
+          zoomControl: false,
+          attributionControl: false,
+          backgroundColor: 'white',
+        });
+        document.querySelector('body').style.backgroundColor = 'white';
+        const url = new URL(window.location.href);
+        const params = url.searchParams;
+        const api_url = params.get('api_url');
+        const document_id = params.get('document_id');
+        const s3_url = params.get('s3_url');
+        const mapDocument = await fetch(`${api_url}/api/document/${document_id}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: '-999',
+          }),
+        }).then(res => res.json());
+        const assignments = await fetch(
+          `${api_url}/api/get_assignments/${mapDocument.document_id}`
+        ).then(res => res.json());
+        const bounds = [
+          [mapDocument.extent[1], mapDocument.extent[0]],
+          [mapDocument.extent[3], mapDocument.extent[2]],
+        ];
+        map.fitBounds(bounds);
+        const colors = mapDocument.color_scheme || colorScheme;
+        const colorsById = assignments.reduce((acc, assignment) => {
+          acc[assignment.geo_id] = colors[(assignment.zone - 1) % colors.length];
+          return acc;
+        }, {});
+        function getColor(id) {
+          return colorsById[id] || null;
+        }
+        class DistrictrSymbolizer {
+          draw(context, geom, z, feature) {
+            const color = getColor(feature.props.path);
+            if (color) {
+              context.fillStyle = color;
+            } else {
+              context.strokeStyle = '#ddd';
+              context.lineWidth = 1;
+            }
+            context.beginPath();
+            for (var poly of geom) {
+              for (var p = 0; p < poly.length - 1; p++) {
+                let pt = poly[p];
+                if (p == 0) context.moveTo(pt.x, pt.y);
+                else context.lineTo(pt.x, pt.y);
+              }
+            }
+            if (color) {
+              context.fill();
+            } else {
+              context.stroke();
+            }
+          }
+        }
+
+        const paintRules = [
+          {
+            dataLayer: mapDocument.parent_layer,
+            symbolizer: new DistrictrSymbolizer(),
+          },
+        ];
+
+        const protoLayer = protomapsL.leafletLayer({
+          url: `${s3_url}/${mapDocument.tiles_s3_path}`,
+          attribution: '© Protomaps',
+          paintRules: paintRules,
+        });
+
+        protoLayer.addTo(map);
+
+        protoLayer.on('load', () => {
+          console.log('loaded');
+          // set timeout for 1 second add a div to the map
+          setTimeout(() => {
+            const div = document.createElement('div');
+            // id "map-ready"
+            div.id = 'map-ready';
+            div.style.position = 'absolute';
+            div.style.top = '10px';
+            div.style.left = '10px';
+            document.body.appendChild(div);
+          }, 1000);
+        });
+      };
+      main();
+    </script>
+  </body>
+</html>
