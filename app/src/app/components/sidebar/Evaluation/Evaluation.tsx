@@ -1,53 +1,65 @@
 import React, {useEffect, useState} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
-import {Blockquote, Box, Button, CheckboxGroup, Heading, Table, Tabs} from '@radix-ui/themes';
+import {
+  Blockquote,
+  Box,
+  Button,
+  CheckboxGroup,
+  Heading,
+  Spinner,
+  Table,
+  Tabs,
+} from '@radix-ui/themes';
 import {Flex, Text} from '@radix-ui/themes';
 import {formatNumber} from '@/app/utils/numbers';
 import {interpolateGreys} from 'd3-scale-chromatic';
-import {SummaryStatKeys, SummaryTypes, TotalColumnKeys} from '@/app/utils/api/summaryStats';
+import {SummaryStatConfig} from '@/app/utils/api/summaryStats';
+import {useSummaryStats} from '@/app/hooks/useSummaryStats';
 import {
+  EvalModes,
+  modeButtonConfig,
   numberFormats,
   summaryStatLabels,
-  EvalModes,
-  columnConfigs,
-  modeButtonConfig,
-} from './config';
-import {useDemography} from '@/app/hooks/useDemography';
-import {useSummaryStats} from '@/app/hooks/useSummaryStats';
+} from '@/app/store/demography/evaluationConfig';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
 
 const Evaluation: React.FC = () => {
   const [evalMode, setEvalMode] = useState<EvalModes>('share');
   const [colorBg, setColorBg] = useState<boolean>(true);
   const [showUnassigned, setShowUnassigned] = useState<boolean>(true);
-  const {populationData} = useDemography(showUnassigned);
-  const {summaryStats, zoneStats} = useSummaryStats();
+  const {zoneStats, demoIsLoaded, zoneData} = useSummaryStats(showUnassigned);
   const maxValues = zoneStats?.maxValues;
   const numberFormat = numberFormats[evalMode];
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const availableSummaries = summaryStatLabels.filter(f =>
-    mapDocument?.available_summary_stats?.includes(f.value)
-  );
-  const assignmentsHash = useMapStore(state => state.assignmentsHash);
+  const availableSummaries = useDemographyStore(state => state.availableColumnSets.evaluation);
+  const availableColumnSets = Object.keys(availableSummaries) as Array<keyof SummaryStatConfig>;
   const colorScheme = useMapStore(state => state.colorScheme);
-  const [summaryType, setSummaryType] = useState<SummaryTypes | undefined>(
-    (mapDocument?.available_summary_stats?.includes('VAP')
-      ? 'VAP'
-      : mapDocument?.available_summary_stats?.[0]) as SummaryTypes
+  const [summaryType, setSummaryType] = useState<keyof SummaryStatConfig | undefined>(
+    !availableColumnSets.length
+      ? undefined
+      : availableColumnSets.includes('VAP')
+        ? 'VAP'
+        : availableColumnSets[0]
   );
-  const totals = summaryStats?.[summaryType as keyof typeof summaryStats];
 
   useEffect(() => {
-    const hasCurrent = summaryType && mapDocument?.available_summary_stats?.includes(summaryType);
+    if (!availableColumnSets.length) return;
+    const hasCurrent = summaryType && availableSummaries[summaryType];
     if (!hasCurrent) {
-      setSummaryType(mapDocument?.available_summary_stats?.[0] as SummaryTypes);
+      setSummaryType(availableColumnSets.includes('VAP') ? 'VAP' : availableColumnSets[0]);
     }
-  }, [mapDocument?.available_summary_stats]);
-
-  const columnConfig = summaryType ? columnConfigs[summaryType] : [];
-  const summaryStatKeys = summaryType ? SummaryStatKeys[summaryType] : [];
-  const totalColumn = summaryType ? TotalColumnKeys[summaryType] : undefined;
-
-  if (!populationData || !maxValues || (mapDocument && !mapDocument.available_summary_stats)) {
+  }, [availableSummaries]);
+  const columnConfig = summaryType ? availableSummaries[summaryType] : [];
+  if (!demoIsLoaded) {
+    return (
+      <Flex dir="column" justify="center" align="center" p="4">
+        <Spinner />
+        <Text size="2" className="ml-2">
+          Loading evaluation data...
+        </Text>
+      </Flex>
+    );
+  }
+  if (!zoneData || !maxValues || !availableColumnSets.length) {
     return (
       <Blockquote color="crimson">
         <Text>Summary statistics are not available for this map.</Text>
@@ -57,15 +69,20 @@ const Evaluation: React.FC = () => {
 
   return (
     <Box width={'100%'}>
-      <Tabs.Root value={summaryType} onValueChange={value => setSummaryType(value as SummaryTypes)}>
+      <Tabs.Root
+        value={summaryType}
+        onValueChange={value => setSummaryType(value as keyof SummaryStatConfig)}
+      >
         <Tabs.List>
-          {availableSummaries.map(({value, label}) => (
-            <Tabs.Trigger key={value} value={value}>
-              <Heading as="h3" size="3">
-                {label}
-              </Heading>
-            </Tabs.Trigger>
-          ))}
+          {summaryStatLabels
+            .filter(f => availableColumnSets.includes(f.value))
+            .map(({value, label}) => (
+              <Tabs.Trigger key={value} value={value}>
+                <Heading as="h3" size="3">
+                  {label}
+                </Heading>
+              </Tabs.Trigger>
+            ))}
         </Tabs.List>
       </Tabs.Root>
       <Flex align="center" gap="3" my="2" wrap="wrap">
@@ -84,12 +101,7 @@ const Evaluation: React.FC = () => {
           defaultValue={[]}
           orientation="horizontal"
           name="evaluation-options"
-          value={[
-            // showAverages ? 'averages' : '',
-            // showStdDev ? 'stddev' : '',
-            colorBg ? 'colorBg' : '',
-            showUnassigned ? 'unassigned' : '',
-          ]}
+          value={[colorBg ? 'colorBg' : '', showUnassigned ? 'unassigned' : '']}
         >
           <CheckboxGroup.Item value="unassigned" onClick={() => setShowUnassigned(v => !v)}>
             Show Unassigned Population
@@ -108,15 +120,16 @@ const Evaluation: React.FC = () => {
               <Table.ColumnHeaderCell className="py-2 px-4 text-left font-semibold">
                 Zone
               </Table.ColumnHeaderCell>
-              {columnConfig.map((f, i) => (
-                <Table.ColumnHeaderCell className="py-2 px-4 text-right font-semibold" key={i}>
-                  {f.label}
-                </Table.ColumnHeaderCell>
-              ))}
+              {!!columnConfig &&
+                columnConfig.map((f, i) => (
+                  <Table.ColumnHeaderCell className="py-2 px-4 text-right font-semibold" key={i}>
+                    {f.label}
+                  </Table.ColumnHeaderCell>
+                ))}
             </Table.Row>
           </Table.Header>
           <Table.Body>
-            {populationData
+            {zoneData
               .sort((a, b) => (a.zone || 0) - (b.zone || 0))
               .map((row, i) => {
                 const isUnassigned = row.zone === undefined;
@@ -132,38 +145,41 @@ const Evaluation: React.FC = () => {
                       ></span>
                       {zoneName}
                     </Table.Cell>
-                    {columnConfig.map((f, i) => {
-                      const column = (
-                        evalMode === 'count' ? f.column : `${f.column}_pct`
-                      ) as keyof typeof row;
-                      const value = row[column];
-                      const colorValue =
-                        value === undefined
-                          ? undefined
-                          : evalMode === 'count'
-                            ? // @ts-ignore
-                              value / maxValues[column]
-                            : value;
-                      const backgroundColor =
-                        value === undefined || colorValue === undefined
-                          ? undefined
-                          : colorBg && !isUnassigned
-                            ? interpolateGreys(colorValue)
-                                .replace('rgb', 'rgba')
-                                .replace(')', ',0.5)')
-                            : 'initial';
-                      return (
-                        <Table.Cell
-                          className="py-2 px-4 text-right"
-                          style={{
-                            backgroundColor,
-                          }}
-                          key={i}
-                        >
-                          {value === undefined ? '--' : formatNumber(value, numberFormat)}
-                        </Table.Cell>
-                      );
-                    })}
+                    {!!columnConfig &&
+                      columnConfig.map((f, i) => {
+                        const column = (
+                          evalMode === 'count' ? f.column : `${f.column}_pct`
+                        ) as keyof typeof row;
+                        const value = row[column];
+                        const colorValue =
+                          value === undefined
+                            ? undefined
+                            : evalMode === 'count'
+                              ? // @ts-ignore
+                                value / maxValues[column]
+                              : value;
+                        const backgroundColor =
+                          value === undefined || colorValue === undefined
+                            ? undefined
+                            : colorBg && !isUnassigned
+                              ? interpolateGreys(colorValue as number)
+                                  .replace('rgb', 'rgba')
+                                  .replace(')', ',0.5)')
+                              : 'initial';
+                        return (
+                          <Table.Cell
+                            className="py-2 px-4 text-right"
+                            style={{
+                              backgroundColor,
+                            }}
+                            key={i}
+                          >
+                            {value === undefined || Number.isNaN(value)
+                              ? '--'
+                              : formatNumber(value as number, numberFormat)}
+                          </Table.Cell>
+                        );
+                      })}
                   </Table.Row>
                 );
               })}

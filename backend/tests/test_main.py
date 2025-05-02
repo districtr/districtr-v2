@@ -12,10 +12,7 @@ from tests.constants import (
     GERRY_DB_FIXTURE_NAME,
     USER_ID,
 )
-from app.utils import (
-    create_districtr_map,
-    add_available_summary_stats_to_districtrmap,
-)
+from app.utils import create_districtr_map
 from app.models import DocumentEditStatus, DocumentShareStatus
 import jwt
 from app.core.config import settings
@@ -400,73 +397,6 @@ def test_patch_reset_assignments(client, document_id):
     assert len(assignments.json()) == 0
 
 
-def test_get_document_population_totals_null_assignments(
-    client, document_id_all_stats, ks_demo_view_census_blocks
-):
-    response = client.patch(
-        "/api/update_assignments",
-        json={
-            "assignments": [
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "202090441022004",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "202090428002008",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "200979691001108",
-                    "zone": None,
-                },
-            ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
-        },
-    )
-    assert response.status_code == 200, response.json()
-    data = response.json()
-    assert data.get("assignments_upserted") == 3
-    assert data.get("updated_at") is not None
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    assert result.status_code == 200, result.json()
-    data = result.json()
-    assert data == [{"zone": 1, "total_pop": 43}]
-
-
-def test_get_document_population_totals(
-    client, assignments_document_id, ks_demo_view_census_blocks
-):
-    doc_uuid = str(uuid.UUID(assignments_document_id))
-    result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    assert result.status_code == 200
-    data = result.json()
-    assert data == [{"zone": 1, "total_pop": 43}, {"zone": 2, "total_pop": 13}]
-
-
-def test_get_document_vap_totals(
-    client, assignments_document_id_total_vap, ks_demo_view_census_blocks_total_vap
-):
-    doc_uuid = str(uuid.UUID(assignments_document_id_total_vap))
-    result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    assert result.status_code == 404
-    assert result.json() == {"detail": "Population column not found in GerryDB view"}
-
-
-def test_get_document_population_totals_no_gerrydb_pop_view(
-    client, assignments_document_no_gerrydb_pop_id, ks_demo_view_census_blocks
-):
-    doc_uuid = str(uuid.UUID(assignments_document_no_gerrydb_pop_id))
-    result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    data = result.json()
-    assert result.status_code == 404, data
-    assert data == {"detail": "Population column not found in GerryDB view"}
-
-
 def test_list_gerydb_views(client, districtr_maps):
     response = client.get("/api/gerrydb/views")
     assert response.status_code == 200
@@ -568,12 +498,6 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
         districtr_map_slug=layer,
         gerrydb_table_name=layer,
     )
-    summary_stats = add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-    assert summary_stats == [
-        "TOTPOP"
-    ], f"Expected TOTPOP to be available, got {summary_stats}"
 
     session.commit()
 
@@ -618,13 +542,6 @@ def ks_demo_view_census_blocks_summary_stats_vap(session: Session):
         districtr_map_slug=layer,
         gerrydb_table_name=layer,
     )
-    summary_stats = add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-    assert summary_stats == [
-        "VAP"
-    ], f"Expected VAP to be available, got {summary_stats}"
-
     session.commit()
 
     if result.returncode != 0:
@@ -669,61 +586,11 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
         gerrydb_table_name=layer,
         num_districts=4,
     )
-    summary_stats = add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-    assert (
-        "TOTPOP" in summary_stats
-    ), f"Expected TOTPOP to be available, got {summary_stats}"
-    assert "VAP" in summary_stats, f"Expected VAP to be available, got {summary_stats}"
-
     session.commit()
 
     if result.returncode != 0:
         print(f"ogr2ogr failed. Got {result}")
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
-
-
-def test_get_demography_table(
-    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
-):
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(f"/api/document/{doc_uuid}/demography")
-    print(result.json())
-    assert result.status_code == 200
-    data = result.json()
-    assert "columns" in data
-    assert "results" in data
-    assert len(data["columns"]) == 15
-    assert len(data["results"]) == 10
-
-
-def test_get_demography_select_ids(
-    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
-):
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(
-        f"/api/document/{doc_uuid}/demography?ids=202090441022004&ids=202090428002008"
-    )
-    assert result.status_code == 200
-    data = result.json()
-    assert len(data["results"]) == 2
-    assert data["results"][0][0] == "202090441022004"
-    assert data["results"][1][0] == "202090428002008"
-
-
-def test_get_demography_select_ids_and_select_table(
-    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
-):
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(
-        f"/api/document/{doc_uuid}/demography?ids=202090441022004&ids=202090428002008&stats=TOTPOP"
-    )
-    assert result.status_code == 200
-    data = result.json()
-    assert len(data["results"]) == 2
-    assert "total_pop_20" in data["columns"]
-    assert "total_vap_20" not in data["columns"]
 
 
 def test_change_colors(

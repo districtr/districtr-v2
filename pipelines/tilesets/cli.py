@@ -1,33 +1,32 @@
 import duckdb
-
 import os
 import click
 import logging
 from urllib.parse import urlparse
 from subprocess import run
 from typing import Iterable
-from files import download_and_unzip_zipfile, exists_in_s3
-from settings import settings
-from models import GerryDBTileset, TilesetBatch
-from utils import merge_tilesets
-from constants import (
+from tilesets.files import download_and_unzip_zipfile, exists_in_s3
+from core.settings import settings
+from tilesets.models import GerryDBTileset, TilesetBatch
+from tilesets.utils import merge_tilesets
+from core.constants import (
     DEFAULT_GERRYDB_COLUMNS,
     S3_BASEMAPS_PREFIX,
     TIGER_COUNTY_URL,
     S3_TIGER_PREFIX,
 )
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 @click.group()
-def cli():
+def tileset() -> None:
+    """Tileset commands."""
     pass
 
 
-@cli.command("create-gerrydb-tileset")
+@tileset.command("create-gerrydb-tileset")
 @click.option(
     "--layer", "-n", help="Name of the layer in the gerrydb view to load", required=True
 )
@@ -72,7 +71,7 @@ def create_gerrydb_tileset(
     logger.info(f"Tileset created at {tileset_path}")
 
 
-@cli.command("merge-gerrydb-tilesets")
+@tileset.command("merge-gerrydb-tilesets")
 @click.option("--out-name", "-o", help="Name of the output tileset", required=True)
 @click.option(
     "--parent-layer",
@@ -99,7 +98,7 @@ def merge_gerrydb_tilesets(
     )
 
 
-@cli.command("batch-create-tilesets")
+@tileset.command("batch-create")
 @click.option("--config-path", help="Path to the config file", required=True)
 @click.option(
     "--data-dir",
@@ -126,10 +125,11 @@ def batch_create_tilesets(
         tileset_batch.upload_results()
 
 
-@cli.command()
+@tileset.command("create-county-tiles")
 @click.option("--replace", is_flag=True, help="Replace existing files", default=False)
 @click.option("--upload", is_flag=True, help="Upload files to S3", default=False)
 def create_county_tiles(replace: bool = False, upload: bool = False):
+    """Create county tiles for basemaps."""
     logger.info("Creating county tiles")
     if replace or not os.path.exists(
         settings.OUT_SCRATCH / "tl_{TIGER_YEAR}_us_county.zip"
@@ -238,7 +238,3 @@ def create_county_tiles(replace: bool = False, upload: bool = False):
         logger.info("Uploading combined tiles to S3")
         assert s3_client is not None, "S3 client is not initialized"
         s3_client.upload_file(combined_tiles, settings.S3_BUCKET, key)
-
-
-if __name__ == "__main__":
-    cli()

@@ -5,7 +5,6 @@ from app.utils import (
     create_shatterable_gerrydb_view,
     create_parent_child_edges,
     add_extent_to_districtrmap,
-    get_available_summary_stats,
     update_districtrmap,
 )
 from sqlmodel import Session
@@ -212,18 +211,6 @@ def test_shattering(client, session: Session, document_id):
     assert len({d["document_id"] for d in data["children"]}) == 1
     assert {d["geo_id"] for d in data["children"]} == {"a", "e"}
     assert all(d["zone"] == 1 for d in data["children"])
-
-
-def test_get_available_summary_stats(
-    session: Session, ks_demo_view_census_blocks_summary_stats
-):
-    result = get_available_summary_stats(session, GERRY_DB_TOTPOP_FIXTURE_NAME)
-    assert len(result) == 1
-    (summary_stats_available,) = result
-    assert summary_stats_available
-    assert len(summary_stats_available) == 1
-    (summary_stat,) = summary_stats_available
-    assert summary_stat == "TOTPOP"
 
 
 def test_unshatter_process(client, document_id):

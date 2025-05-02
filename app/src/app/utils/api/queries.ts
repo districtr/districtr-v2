@@ -8,7 +8,11 @@ import {getDocument} from '@utils/api/apiHandlers/getDocument';
 import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
 import {demographyCache} from '../demography/demographyCache';
-import {useDemographyStore} from '@/app/store/demographyStore';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
+import {AllEvaluationConfigs, AllMapConfigs, AllTabularColumns} from './summaryStats';
+import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
+import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
+import {choroplethMapVariables} from '@/app/store/demography/constants';
 
 const INITIAL_VIEW_LIMIT = 30;
 const INITIAL_VIEW_OFFSET = 0;
@@ -113,38 +117,39 @@ fetchAssignments.subscribe(assignments => {
 });
 
 const fetchDemography = new QueryObserver<null | {
-  columns: string[];
-  results: (string | number)[][];
-  dataHash: string;
+  columns: AllTabularColumns[number][];
+  results: ColumnarTableData;
 }>(queryClient, {
   queryKey: ['demography'],
   queryFn: async () => {
-    const result = await getDemography({
-      document_id: useMapStore.getState().mapDocument?.document_id,
+    const state = useMapStore.getState();
+    const mapDocument = state.mapDocument;
+    if (!mapDocument) {
+      throw new Error('No map document found');
+    }
+    const brokenIds = Array.from(state.shatterIds.parents);
+    return await getDemography({
+      mapDocument,
+      brokenIds,
     });
-    return {
-      ...result,
-      dataHash: result.dataHash || '',
-    };
   },
 });
 
 export const updateDemography = ({
-  document_id,
-  ids,
+  mapDocument,
+  brokenIds,
   dataHash,
 }: {
-  document_id: string;
-  ids?: string[];
+  mapDocument: DocumentObject;
+  brokenIds?: string[];
   dataHash: string;
 }) => {
   fetchDemography.setOptions({
     queryFn: async () => {
-      const result = await getDemography({document_id, ids, dataHash});
-      return {
-        ...result,
-        dataHash: result.dataHash || '',
-      };
+      return await getDemography({
+        mapDocument,
+        brokenIds,
+      });
     },
     queryKey: ['demography', performance.now()],
   });
@@ -152,35 +157,34 @@ export const updateDemography = ({
 
 fetchDemography.subscribe(demography => {
   if (demography.data) {
-    const {
-      setDataHash,
-      variable,
-      setVariable,
-      getMapRef: getDemogMapRef,
-    } = useDemographyStore.getState();
-    const {shatterIds, mapDocument, getMapRef: getMainMapRef, mapOptions} = useMapStore.getState();
+    const {setDataHash, setAvailableColumnSets} = useDemographyStore.getState();
+    const {shatterIds, mapDocument} = useMapStore.getState();
     const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
     const result = demography.data;
-
     if (!mapDocument || !result) return;
-
-    if (dataHash !== result.dataHash) {
-      console.log('Data hash mismatch, skipping update', dataHash, result.dataHash);
-      return;
-    }
-
-    demographyCache.update(result.columns, result.results, shatterIds, mapDocument, dataHash);
+    demographyCache.update(result.columns, result.results, dataHash);
+    const availableColumns = demographyCache?.table?.columnNames() ?? [];
+    const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
+      Object.entries(evalColumnConfigs)
+        .map(([columnsetKey, config]) => [
+          columnsetKey,
+          config.filter(entry => availableColumns.includes(entry.column)),
+        ])
+        .filter(([, config]) => config.length > 0)
+    );
+    const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
+      Object.entries(choroplethMapVariables)
+        .map(([columnsetKey, config]) => [
+          columnsetKey,
+          config.filter(entry => availableColumns.includes(entry.value)),
+        ])
+        .filter(([, config]) => config.length > 0)
+    );
     setDataHash(dataHash);
-    setVariable(variable);
-    const newIds = demography.data.results.map(row => row[0]) as string[];
-    let mapRef = mapOptions.showDemographicMap === 'overlay' ? getMainMapRef() : getDemogMapRef();
-    if (mapRef && newIds.length) {
-      demographyCache.paintDemography({
-        variable,
-        mapRef,
-        ids: newIds,
-      });
-    }
+    setAvailableColumnSets({
+      evaluation: availableEvalSets,
+      map: availableMapSets,
+    });
   }
 });
 

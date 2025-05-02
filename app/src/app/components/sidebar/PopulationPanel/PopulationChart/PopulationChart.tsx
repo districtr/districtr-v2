@@ -7,11 +7,12 @@ import {scaleLinear} from '@visx/scale';
 import {AxisBottom} from '@visx/axis';
 import {useChartStore} from '@/app/store/chartStore';
 import {PopulationLabels} from './PopulationLabels';
+import {SummaryRecord} from '@/app/utils/api/summaryStats';
 
 export const PopulationChart: React.FC<{
   width: number;
   height: number;
-  data: Array<{zone: number; total_pop_20: number}>;
+  data: Array<SummaryRecord>;
   margins?: {left: number; right: number; top: number; bottom: number};
   idealPopulation?: number;
 }> = ({
