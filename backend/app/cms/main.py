@@ -67,8 +67,24 @@ async def update_cms_content(
     data: CmsContentUpdate,
     content: Annotated[CmsContent, Depends(content_update)],
     session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.update_content]),
 ):
     """Update existing CMS content"""
+    can_update_all = "update:update-all" in auth_result.get("scope")
+    CMSContent = CMS_MODEL_MAP[data.content_type]
+    # fetch existing content
+    stmt = select(CMSContent).where(
+        CMSContent.id == data.content_id,
+        (CMSContent.author == auth_result["sub"]) | can_update_all,
+    )
+    existing_content = session.exec(stmt).one_or_none()
+
+    if not existing_content:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Content not found",
+        )
+
     try:
         update_data = data.updates.model_dump(exclude_unset=True)
         content.sqlmodel_update(update_data)
@@ -88,6 +104,7 @@ async def update_cms_content(
 async def publish_cms_content(
     content: Annotated[CmsContent, Depends(content_update)],
     session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.publish_content]),
 ):
     """Publish draft content"""
     if not content.draft_content:
@@ -116,9 +133,10 @@ async def delete_cms_content(
 ):
     """Delete CMS content by ID"""
     CMSContent = CMS_MODEL_MAP[content_type]
-
+    can_delete_all = "delete:delete-all" in auth_result.get("scope")
     stmt = select(CMSContent).where(
-        CMSContent.id == content_id, CMSContent.author == auth_result["sub"]
+        CMSContent.id == content_id,
+        (CMSContent.author == auth_result["sub"]) | can_delete_all,
     )
     try:
         content = session.execute(stmt).scalar_one()
@@ -163,7 +181,7 @@ async def list_cms_content(
 @router.get(
     "/content/{content_type}/list/authored", response_model=list[AllCMSContentPublic]
 )
-async def list_author_cms_content(
+async def list_editor_cms_content(
     content_type: CMSContentTypesEnum,
     language: LanguageEnum | None = None,
     session: Session = Depends(get_session),
@@ -172,9 +190,14 @@ async def list_author_cms_content(
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.read_content]),
 ):
     """List CMS content with optional filtering"""
+    can_read_all = "read:read-all" in auth_result.get("scope")
+    logger.info("AUTHORIZED auth_result", can_read_all)
     CMSModel = CMS_MODEL_MAP[content_type]
     author = auth_result["sub"]
-    query = select(CMSModel).where(CMSModel.author == author)
+
+    query = select(CMSModel)
+    if not can_read_all:
+        query = query.where(CMSModel.author == author)
 
     if language is not None:
         logger.info(f"Filtering by language: {language}")

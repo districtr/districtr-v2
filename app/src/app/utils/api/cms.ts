@@ -112,7 +112,7 @@ export const listCMSContent = async (
   params: {language?: string; districtr_map_slug?: string} = {}
 ): Promise<AllCmsLists | null> => {
   const url = `cms/content/${type}/list`;
-  const content = await  get<Promise<AllCmsLists>>(url.toString())({});
+  const content = await get<Promise<AllCmsLists>>(url.toString())({});
   if (content.ok) {
     return content.response;
   } else {
@@ -121,7 +121,7 @@ export const listCMSContent = async (
   }
 };
 
-export const listAuthoredCMSContent = async (
+export const listEditorCMSContent = async (
   type: CmsContentTypes,
   params: {language?: string; districtr_map_slug?: string} = {},
   session: ClientSession

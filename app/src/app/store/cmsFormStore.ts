@@ -4,7 +4,7 @@ import {
   AllCmsLists,
   AllCmsEntries,
   CmsContentTypes,
-  listAuthoredCMSContent,
+  listEditorCMSContent,
   PlacesCMSContent,
   TagsCMSContent,
   createCMSContent,
@@ -142,7 +142,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
 
     try {
       const [content, mapsData] = await Promise.all([
-        listAuthoredCMSContent(contentType, {}, session),
+        listEditorCMSContent(contentType, {}, session),
         get().loadMapList(),
       ]);
 
@@ -217,7 +217,6 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       set({error: 'Failed to authenticate.'});
       return;
     }
-    console.log('editingContent', session);
     if (editingContent) {
       // Updating existing content
       let content: CMSContentUpdate = {
@@ -264,7 +263,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       if (r.ok) {
         set({success: 'Content created successfully!'});
         // Refresh content list and reset form
-        const newContent = await listAuthoredCMSContent(contentType, {}, session);
+        const newContent = await listEditorCMSContent(contentType, {}, session);
         const resetFormData = createTypedFormData(
           contentType,
           structuredClone(defaultFormData[contentType])
@@ -334,7 +333,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       session: session,
     });
     if (r.ok) {
-      const updatedContent = await listAuthoredCMSContent(contentType, {}, session);
+      const updatedContent = await listEditorCMSContent(contentType, {}, session);
       set({
         success: 'Content published successfully!',
         content: updatedContent,

@@ -15,7 +15,10 @@ class TokenScope:
 
     create_content = "create:content"
     read_content = "read:content"
+    read_all_content = "read:read-all"
+
     update_content = "update:content"
+    publish_content = "update:publish"
     delete_content = "delete:content"
 
 
