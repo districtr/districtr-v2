@@ -195,7 +195,7 @@ const RecentMapsRow: React.FC<{
         {!active && (
           <>
             <Popover.Root>
-              <Popover.Trigger asChild>
+              <Popover.Trigger>
                 <Button variant="ghost" color="ruby" className="size-full">
                   Remove from List
                 </Button>
