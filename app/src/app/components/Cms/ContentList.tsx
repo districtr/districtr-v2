@@ -4,10 +4,12 @@ import React from 'react';
 
 export const ContentList: React.FC = () => {
   const content = useCmsFormStore(state => state.content);
+  const session = useCmsFormStore(state => state.session);
   const handlePublish = useCmsFormStore(state => state.handlePublish);
   const handleEdit = useCmsFormStore(state => state.handleEdit);
   const handleDelete = useCmsFormStore(state => state.handleDelete);
   const setPreviewData = useCmsFormStore(state => state.setPreviewData);
+  const canPublish = session?.tokenSet?.scope?.includes('update:publish');
 
   if (!content || content.length === 0) {
     return (
@@ -18,8 +20,6 @@ export const ContentList: React.FC = () => {
   }
 
   const sortedContent = content.sort((a, b) => a?.created_at?.localeCompare(b?.created_at)) || [];
-
-  console.log(content);
 
   return (
     <Flex className="bg-white shadow rounded-lg" direction="column" gapY="4">
@@ -60,13 +60,15 @@ export const ContentList: React.FC = () => {
                   </Table.Cell>
                   <Table.Cell>
                     <Flex gapX="2">
-                      <Button
-                        onClick={() => handlePublish(item.id)}
-                        disabled={!item.draft_content}
-                        color="grass"
-                      >
-                        Publish
-                      </Button>
+                      {canPublish && (
+                        <Button
+                          onClick={() => handlePublish(item.id)}
+                          disabled={!item.draft_content}
+                          color="grass"
+                        >
+                          Publish
+                        </Button>
+                      )}
                       <Button onClick={() => handleEdit(item)} color="yellow">
                         Edit
                       </Button>
