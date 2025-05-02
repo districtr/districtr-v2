@@ -26,7 +26,7 @@ import {
 } from '../utils/helpers';
 import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
-import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../constants/layers';
+import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
@@ -884,6 +884,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     showCountyBoundaries: true,
     showPaintedDistricts: true,
     showZoneNumbers: true,
+    overlayOpacity: OVERLAY_OPACITY,
   },
   setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
   sidebarPanels: ['population'],
