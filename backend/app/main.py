@@ -1098,14 +1098,15 @@ async def get_thumbnail(
         return RedirectResponse(url="/home-megaphone.png")
 
 
-@app.put("/api/document/{document_id}/put_thumbnail", status_code=status.HTTP_200_OK)
-async def put_thumbnail(
+@app.post("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
+async def make_thumbnail(
     *,
     document_id: str,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
-    generate_thumbnail(session, document_id)
-    return {}
+    background_tasks.add_task(generate_thumbnail, session=session, document_id=document_id)
+    return {"message": "Generating thumbnail in background task"}
 
 
 @app.post("/api/document/{document_id}/share")

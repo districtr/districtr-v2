@@ -60,7 +60,7 @@ def thumbnail_exists(document_id: str) -> bool:
     s3 = settings.get_s3_client()
     assert s3, "S3 client is not available"
     object_information = s3.head_object(
-        Bucket=THUMBNAIL_BUCKET, Key=f"thumbnails/{document_id}",
+        Bucket=THUMBNAIL_BUCKET, Key=f"thumbnails/{document_id}.png",
     )
     return object_information["ResponseMetadata"]["HTTPStatusCode"] == 200
 
@@ -87,19 +87,19 @@ def generate_thumbnail(session: Session, document_id: str) -> io.BytesIO:
             return color_scheme[int(row["zone"]) % len(color_scheme)]
 
     sql = f"""
-    SELECT ST_Union(geometry) AS geom, zone
+    SELECT ST_Collect(geometry) AS geom, zone
     FROM gerrydb.{parent_layer} geos
     LEFT JOIN "document.assignments_{document_id}" assigned ON geos.path = assigned.geo_id
     GROUP BY zone
     """
     if child_layer is not None:
         sql += f"""UNION
-        (SELECT ST_Union(geometry) AS geom, zone
+        (SELECT ST_Collect(geometry) AS geom, zone
         FROM "document.assignments_{document_id}" assigned
         INNER JOIN gerrydb.{child_layer} blocks ON blocks.path = assigned.geo_id
         WHERE zone IS NOT NULL
         GROUP BY zone)"""
-    conn = conn = session.connection().connection
+    conn = session.get_bind().raw_connection()
     df = geopandas.read_postgis(sql, conn).to_crs(epsg=3857)
 
     df["color"] = df.apply(lambda row: coloration(row), axis=1)
@@ -116,7 +116,7 @@ def generate_thumbnail(session: Session, document_id: str) -> io.BytesIO:
         assert s3, "S3 client is not available"
         s3.put_object(
             Bucket=THUMBNAIL_BUCKET,
-            Key=f"thumbnails/{document_id}",
+            Key=f"thumbnails/{document_id}.png",
             Body=pic_IObytes,
             ContentType="image/png",
         )
@@ -131,7 +131,7 @@ def fetch_thumbnail(session: Session, document_id: str) -> io.BytesIO:
     if thumbnail_exists(document_id):
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
-        s3_object = s3.get_object(Bucket=THUMBNAIL_BUCKET, Key=f"thumbnails/{document_id}")
+        s3_object = s3.get_object(Bucket=THUMBNAIL_BUCKET, Key=f"thumbnails/{document_id}.png")
         return s3_object["Body"]
     else:
         return generate_thumbnail(session, document_id)
