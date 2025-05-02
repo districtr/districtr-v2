@@ -304,12 +304,11 @@ class ColorsSetResult(BaseModel):
 
 class MapGroup(SQLModel, table=True):
     __tablename__ = "map_group"
-    id: int = Field(primary_key=True)
+    slug: str = Field(primary_key=True, nullable=False)
     name: str = Field(nullable=False)
-    slug: str = Field(nullable=False)
 
 
 class DistrictrMapsToGroups(SQLModel, table=True):
     __tablename__ = "districtrmaps_to_groups"
     districtrmap_uuid: str = Field(primary_key=True, foreign_key="districtrmap.uuid")
-    group_id: int = Field(primary_key=True, foreign_key="map_groups.id")
+    group_slug: str = Field(primary_key=True, foreign_key="map_groups.slug")

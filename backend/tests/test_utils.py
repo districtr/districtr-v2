@@ -2,6 +2,7 @@ import pytest
 import os
 from app.utils import (
     create_districtr_map,
+    create_map_group,
     create_shatterable_gerrydb_view,
     create_parent_child_edges,
     add_extent_to_districtrmap,
@@ -115,6 +116,25 @@ def test_update_districtr_map(session: Session, simple_parent_geos_districtrmap)
     session.commit()
     districtr_map = DistrictrMap.model_validate(result)
     assert not districtr_map.visible
+
+
+def map_group_fixtures(
+    session: Session, ks_demo_view_census_blocks_districtrmap: None
+):
+    create_map_group(
+        session=session,
+        group_name="Test Group",
+        slug="testgroup"
+    )
+    create_districtr_map(
+        session=session,
+        name="Districtr map",
+        group_slug="testgroup",
+        districtr_map_slug="districtr_map",
+        gerrydb_table_name="districtr_map",
+        parent_layer="simple_parent_geos",
+    )
+    session.commit()
 
 
 def test_add_extent_to_districtrmap(session: Session, simple_parent_geos_gerrydb):

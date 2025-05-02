@@ -94,9 +94,8 @@ def create_districtr_map(
         },
     )
     group_stmt = text("""
-        INSERT INTO districtrmaps_to_groups (group_id, districtrmap_uuid)
-        SELECT id, :uuid FROM map_group
-        WHERE slug = :slug"""
+        INSERT INTO districtrmaps_to_groups (group_slug, districtrmap_uuid)
+        VALUES (:slug, :uuid)"""
     )
     session.execute(group_stmt,
         {
