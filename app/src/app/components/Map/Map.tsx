@@ -9,7 +9,7 @@ import {MAP_OPTIONS} from '@constants/configuration';
 import {handleWheelOrPinch, mapContainerEvents, mapEventHandlers} from '@utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '@constants/layers';
 import {useMapStore} from '@store/mapStore';
-import {useDemographyStore} from '@/app/store/demographyStore';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';
@@ -159,7 +159,6 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         onMoveEnd={mapEventHandlers.onMoveEnd}
         onData={mapEventHandlers.onData as any}
         interactiveLayerIds={INTERACTIVE_LAYERS}
-        reuseMaps
       >
         <CountyLayers />
         <VtdBlockLayers isDemographicMap={isDemographicMap} />

@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional, Any
-from pydantic import UUID4, BaseModel, ConfigDict
+from typing import Optional
+from pydantic import UUID4, BaseModel
 from sqlmodel import (
     Field,
     ForeignKey,
@@ -16,7 +16,7 @@ from sqlmodel import (
     Integer,
     Text,
 )
-from sqlalchemy.types import ARRAY, TEXT
+from sqlalchemy.types import ARRAY
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import Float
 import pydantic_geojson
@@ -62,12 +62,6 @@ class TimeStampMixin(SQLModel):
     )
 
 
-class SummaryStatisticType(Enum):
-    TOTPOP = "Population by Race"
-    VAP = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
-    VHISTORY = "Voting History"
-
-
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     uuid: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     name: str = Field(nullable=False)
@@ -95,9 +89,6 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
-    available_summary_stats: list[SummaryStatisticType] | None = Field(
-        sa_column=Column(ARRAY(TEXT), nullable=True, default=[])
-    )
 
 
 class DistrictrMapPublic(BaseModel):
@@ -109,7 +100,6 @@ class DistrictrMapPublic(BaseModel):
     tiles_s3_path: str | None = None
     num_districts: int | None = None
     visible: bool = True
-    available_summary_stats: list[str] | None = None
 
 
 class DistrictrMapUpdate(BaseModel):
@@ -121,7 +111,6 @@ class DistrictrMapUpdate(BaseModel):
     tiles_s3_path: str | None = None
     num_districts: int | None = None
     visible: bool | None = None
-    available_summary_stats: list[str] | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -243,7 +232,6 @@ class DocumentPublic(BaseModel):
     created_at: datetime
     updated_at: datetime
     extent: list[float] | None = None
-    available_summary_stats: list[str] | None = None
     map_metadata: DistrictrMapMetadata | None
     status: DocumentEditStatus = (
         DocumentEditStatus.unlocked
@@ -317,48 +305,3 @@ class ShatterResult(BaseModel):
 
 class ColorsSetResult(BaseModel):
     colors: list[str]
-
-
-class ZonePopulation(BaseModel):
-    zone: int
-    total_pop: int
-
-
-class SummaryStats(BaseModel):
-    summary_stat: SummaryStatisticType
-    results: list[Any]
-
-
-class PopulationStatsTOTPOP(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    other_pop_20: int
-    amin_pop_20: int
-    asian_nhpi_pop_20: int
-    bpop_20: int
-    hpop_20: int
-    white_pop_20: int
-    total_pop_20: int
-
-
-class SummaryStatsTOTPOP(PopulationStatsTOTPOP):
-    zone: int
-
-
-class PopulationStatsVAP(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    white_vap_20: int
-    other_vap_20: int
-    amin_vap_20: int
-    asian_nhpi_vap_20: int
-    hvap_20: int
-    bvap_20: int
-    total_vap_20: int
-
-
-class SummaryStatsVAP(PopulationStatsVAP):
-    zone: int
-
-
-class SummaryStatisticColumnLists(Enum):
-    TOTPOP = PopulationStatsTOTPOP.model_fields.keys()
-    VAP = PopulationStatsVAP.model_fields.keys()

@@ -28,7 +28,7 @@ export const defaultPanels: DataPanelSpec[] = [
   },
   {
     title: 'demography',
-    label: 'Demographic Map',
+    label: 'Demographic & Election Map',
     content: <DemographicMapPanel />,
   },
   {

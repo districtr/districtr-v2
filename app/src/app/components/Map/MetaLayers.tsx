@@ -63,6 +63,7 @@ const PopulationTextLayer = () => {
 
 const ZoneNumbersLayer = () => {
   const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
+  const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
   const zoneAssignments = useMapStore(state => state.zoneAssignments);
   const colorScheme = useMapStore(state => state.colorScheme);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
@@ -125,7 +126,7 @@ const ZoneNumbersLayer = () => {
     setZoneNumberData(EMPTY_FT_COLLECTION);
   }, [mapDocumentId]);
 
-  if (!showZoneNumbers) {
+  if (!showZoneNumbers || !showPaintedDistricts) {
     return null;
   }
   return (

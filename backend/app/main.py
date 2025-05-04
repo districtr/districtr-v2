@@ -13,10 +13,6 @@ import botocore.exceptions
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
 from fastapi.responses import FileResponse
 from sqlalchemy import text, update
-from sqlalchemy.exc import (
-    ProgrammingError,
-    InternalError,
-)
 from sqlmodel import Session, String, select, true
 from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
@@ -51,14 +47,12 @@ from app.models import (
     GEOIDSResponse,
     AssignedGEOIDS,
     UUIDType,
-    ZonePopulation,
     DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
     TokenRequest,
     DocumentShareStatus,
     BBoxGeoJSONs,
-    SummaryStatisticColumnLists,
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
@@ -267,7 +261,6 @@ async def create_document(
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             coalesce(plan_genesis).label("genesis"),
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
             # send metadata as a null object on init of document
             coalesce(
                 None,
@@ -800,7 +793,6 @@ async def get_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
             # get metadata as a json object
             Document.map_metadata.label("map_metadata"),  # pyright: ignore
             coalesce(
@@ -904,37 +896,6 @@ async def get_document_status(
         session.commit()
 
         return {"status": DocumentEditStatus.checked_out}
-
-
-@app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
-async def get_total_population(
-    document: Annotated[Document, Depends(_get_document)],
-    session: Session = Depends(get_session),
-):
-    stmt = text(
-        "SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL"
-    )
-    try:
-        result = session.execute(stmt, {"document_id": document.document_id})
-        return [
-            ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()
-        ]
-    except (ProgrammingError, InternalError) as e:
-        logger.error(e)
-        error_text = str(e)
-        if (
-            f"Table name not found for document_id: {document.document_id}"
-            in error_text
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document.document_id} not found",
-            )
-        elif "Population column not found for gerrydbview" in error_text:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Population column not found in GerryDB view",
-            )
 
 
 @app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
@@ -1210,86 +1171,6 @@ async def get_connected_component_bboxes(
         )
 
     return BBoxGeoJSONs(features=bboxes)
-
-
-@app.get("/api/document/{document_id}/demography")
-async def get_map_demography(
-    document_id: str,
-    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
-    ids: list[str] = Query(default=[]),
-    stats: list[str] = Query(default=[]),
-    session: Session = Depends(get_session),
-):
-    if not districtr_map.visible:
-        raise HTTPException(
-            status_code=status.HTTP_410_GONE,
-            detail="This map is no longer supported",
-        )
-
-    columns = []
-    if districtr_map.available_summary_stats is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str("Summary statistic not available for this map"),
-        )
-    # by default use all available columns otherwise the requested columns
-
-    available_summary_stats = (
-        districtr_map.available_summary_stats if len(stats) == 0 else stats
-    )
-    # By default, provide all summary stats
-
-    for summary_stat in available_summary_stats:
-        if summary_stat not in SummaryStatisticColumnLists.__members__:
-            continue
-        else:
-            stat_cols = SummaryStatisticColumnLists[summary_stat]
-            columns.extend(stat_cols.value)
-
-    if len(ids) > 0:
-        # If the user sends a selection of IDs, just use those
-        # This bypasses the document.assignments and gerrydb.parent full query
-        # Essentially we use the user provided IDs as start of the join
-        # This could be a where clause at the end, but this should be faster
-        ids_subquery = text(
-            """
-            SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
-        """.format(",".join(f"(:id{i})" for i in range(len(ids))))
-        )
-        # This is for efficiency but slightly slippery
-        # Adding the format here provides some safety
-        params = {f"id{i}": id for i, id in enumerate(ids)}
-    else:
-        # direct string interpolation of dm.parent_layer is safe
-        # since it always comes from the database
-        # This gives us all VTDs
-        # and any shattered children
-        # The FE will filter for shattered parents
-        ids_subquery = text(
-            f"""SELECT distinct geo_id
-            FROM document.assignments
-            WHERE document_id = :document_id
-            UNION
-            SELECT path as geo_id
-            FROM gerrydb.{districtr_map.parent_layer}"""
-        )
-        params = {"document_id": document_id}
-
-    stmt = text(
-        f"""
-        SELECT path, {",".join(columns)}
-        FROM ({ids_subquery}) as ids
-        LEFT JOIN gerrydb.{districtr_map.gerrydb_table_name} gdb
-        on gdb.path = ids.geo_id
-        WHERE path is not null
-    """
-    )
-
-    results = session.execute(stmt, params).fetchall()
-    return {
-        "columns": ["path", *columns],
-        "results": [[*row] for row in results],
-    }
 
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)

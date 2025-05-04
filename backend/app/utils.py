@@ -12,7 +12,7 @@ from pathlib import Path
 from app.constants import GERRY_DB_SCHEMA
 
 
-from app.models import SummaryStatisticType, UUIDType, DistrictrMap, DistrictrMapUpdate
+from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -273,72 +273,6 @@ def add_extent_to_districtrmap(
         """
     )
     session.execute(stmt)
-
-
-def get_available_summary_stats(session: Session, gerrydb_table_name: str):
-    """
-    Get the available summary statistics for a given gerrydb table.
-
-    Args:
-        session: The database session.
-        gerrydb_table_name: The name of the gerrydb table.
-    """
-    stmt = text("SELECT * FROM get_available_summary_stats(:gerrydb_table_name)")
-    return session.execute(
-        stmt,
-        {
-            "gerrydb_table_name": gerrydb_table_name,
-        },
-    ).all()
-
-
-def add_available_summary_stats_to_districtrmap(
-    session: Session, districtr_map_uuid: str, summary_stats: list[str] | None = None
-) -> list[SummaryStatisticType] | None:
-    """
-    Add the available summary statistics to the districtr map.
-
-    Args:
-        session: The database session.
-        districtr_map_uuid: The UUID of the districtr map.
-        summary_stats: The summary statistics to add.
-    """
-    if summary_stats is not None:
-        raise NotImplementedError(
-            "Manually adding summary stats to a districtr map is not yet implemented."
-        )
-
-    stmt = text(
-        """
-        UPDATE districtrmap
-        SET available_summary_stats =
-            CASE WHEN child_layer IS NOT NULL THEN
-                (
-                SELECT ARRAY_AGG(summary_stat) FROM get_available_summary_stats(child_layer)
-                INTERSECT
-                SELECT ARRAY_AGG(summary_stat) FROM get_available_summary_stats(parent_layer)
-                )
-            ELSE
-                (SELECT ARRAY_AGG(summary_stat) FROM get_available_summary_stats(parent_layer))
-            END
-        WHERE uuid = :districtr_map_uuid
-        RETURNING available_summary_stats
-        """
-    ).bindparams(
-        bindparam(key="districtr_map_uuid", type_=UUIDType),
-    )
-    result = session.execute(
-        stmt,
-        {
-            "districtr_map_uuid": districtr_map_uuid,
-            "summary_stats": summary_stats,
-        },
-    )
-    (available_summary_stats,) = result.one()
-    logger.info(
-        f"Updated available summary stats for districtr map {districtr_map_uuid} to {available_summary_stats}"
-    )
-    return available_summary_stats
 
 
 def download_file_from_s3(
