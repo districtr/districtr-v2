@@ -3,12 +3,24 @@ import {Badge, Blockquote, Button, Flex, Heading, Table} from '@radix-ui/themes'
 import React from 'react';
 
 export const ContentList: React.FC = () => {
-  const content = useCmsFormStore(state => state.content?.content);
+  const content = useCmsFormStore(state => state.content);
+  const session = useCmsFormStore(state => state.session);
   const handlePublish = useCmsFormStore(state => state.handlePublish);
   const handleEdit = useCmsFormStore(state => state.handleEdit);
   const handleDelete = useCmsFormStore(state => state.handleDelete);
   const setPreviewData = useCmsFormStore(state => state.setPreviewData);
-  const sortedContent = content?.sort((a, b) => a?.created_at?.localeCompare(b?.created_at)) || [];
+  const canPublish = session?.tokenSet?.scope?.includes('update:publish');
+
+  if (!content || content.length === 0) {
+    return (
+      <Blockquote color="gray" className="m-6 mt-0">
+        No content found
+      </Blockquote>
+    );
+  }
+
+  const sortedContent = content.sort((a, b) => a?.created_at?.localeCompare(b?.created_at)) || [];
+
   return (
     <Flex className="bg-white shadow rounded-lg" direction="column" gapY="4">
       <Heading as="h2" className="text-xl font-semibold border-b p-6">
@@ -48,13 +60,15 @@ export const ContentList: React.FC = () => {
                   </Table.Cell>
                   <Table.Cell>
                     <Flex gapX="2">
-                      <Button
-                        onClick={() => handlePublish(item.id)}
-                        disabled={!item.draft_content}
-                        color="grass"
-                      >
-                        Publish
-                      </Button>
+                      {canPublish && (
+                        <Button
+                          onClick={() => handlePublish(item.id)}
+                          disabled={!item.draft_content}
+                          color="grass"
+                        >
+                          Publish
+                        </Button>
+                      )}
                       <Button onClick={() => handleEdit(item)} color="yellow">
                         Edit
                       </Button>

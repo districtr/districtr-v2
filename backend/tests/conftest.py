@@ -2,6 +2,7 @@ import os
 import pytest
 from app.main import app
 from app.core.db import get_session
+from app.core.security import auth
 from fastapi.testclient import TestClient
 from sqlalchemy.event import listens_for
 from sqlmodel import create_engine, Session
@@ -17,6 +18,7 @@ from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     GERRY_DB_FIXTURE_NAME,
     USER_ID,
+    ACCOUNT_AUTH0_ID,
 )
 from app.constants import GERRY_DB_SCHEMA
 from app.utils import create_districtr_map, create_shatterable_gerrydb_view
@@ -29,7 +31,11 @@ def client_fixture(session: Session):
     def get_session_override():
         return session
 
+    def get_auth_result_override():
+        return {"sub": ACCOUNT_AUTH0_ID}
+
     app.dependency_overrides[get_session] = get_session_override
+    app.dependency_overrides[auth.verify] = get_auth_result_override
 
     client = TestClient(app, headers={"origin": "http://localhost:5173"})
     yield client
