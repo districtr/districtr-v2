@@ -320,10 +320,15 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
                 }}
               </LegendThreshold>
             </Flex>
-          ) : !!mapVariableConfig && scale && mapVariableConfig?.fixedScale && mapVariableConfig.customLegendLabels ? (
+          ) : !!mapVariableConfig &&
+            scale &&
+            mapVariableConfig?.fixedScale &&
+            mapVariableConfig.customLegendLabels ? (
             <Flex direction={'column'} justify="center" gapX="2" width="100%">
               <LinearGradient
-                colors={mapVariableConfig.fixedScale.domain().map(d => mapVariableConfig.fixedScale!(d))}
+                colors={mapVariableConfig.fixedScale
+                  .domain()
+                  .map(d => mapVariableConfig.fixedScale!(d))}
                 numTicks={mapVariableConfig.customLegendLabels.length}
               />
               <Flex direction={'row'} width="100%" justify="between">

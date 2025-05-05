@@ -1,7 +1,7 @@
 import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {MapStore} from '@/app/store/mapStore';
 import {MapValidation} from './MapValidation/MapValidation';
-import { SummaryPanel } from './SummaryPanel';
+import {SummaryPanel} from './SummaryPanel';
 
 export interface DataPanelSpec {
   title: MapStore['sidebarPanels'][number];
@@ -28,7 +28,9 @@ export const defaultPanels: DataPanelSpec[] = [
   {
     title: 'election',
     label: 'Election details',
-    content: <SummaryPanel defaultColumnSet="VOTERHISTORY" displayedColumnSets={['VOTERHISTORY']} />,
+    content: (
+      <SummaryPanel defaultColumnSet="VOTERHISTORY" displayedColumnSets={['VOTERHISTORY']} />
+    ),
   },
   {
     title: 'mapValidation',
