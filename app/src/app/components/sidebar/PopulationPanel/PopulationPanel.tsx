@@ -19,6 +19,7 @@ export const PopulationPanel = () => {
   const {summaryStats, zoneStats} = useSummaryStats();
   const idealPopulation = summaryStats?.idealpop;
   const unassigned = summaryStats.unassigned;
+  const mapDocument = useMapStore(state => state.mapDocument);
   const numDistricts = useMapStore(
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
@@ -48,6 +49,15 @@ export const PopulationPanel = () => {
       <Text color="gray" size="2">
         No data to display
       </Text>
+    );
+  }
+  if (!mapDocument) {
+    return (
+      <Flex dir="column" justify="center" align="center" p="4">
+        <Text size="2" className="ml-2">
+          Choose a map to display population data
+        </Text>
+      </Flex>
     );
   }
   if (!demoIsLoaded) {
