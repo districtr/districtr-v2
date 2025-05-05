@@ -22,12 +22,12 @@ export const defaultPanels: DataPanelSpec[] = [
   },
   {
     title: 'demography',
-    label: 'Demographic evaluation',
+    label: 'Demographics',
     content: <SummaryPanel defaultColumnSet="VAP" displayedColumnSets={['VAP', 'TOTPOP']} />,
   },
   {
     title: 'election',
-    label: 'Election details',
+    label: 'Elections',
     content: (
       <SummaryPanel defaultColumnSet="VOTERHISTORY" displayedColumnSets={['VOTERHISTORY']} />
     ),
