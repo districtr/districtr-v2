@@ -22,7 +22,10 @@ export const PopulationPanel = () => {
   const numDistricts = useMapStore(
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
-  const allPainted = numDistricts === populationData.length;
+  const allPainted =
+    numDistricts === populationData.length &&
+    zoneStats.minPopulation !== undefined &&
+    zoneStats.minPopulation > 0;
 
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
@@ -133,14 +136,15 @@ export const PopulationPanel = () => {
             <br />
             {allPainted &&
             zoneStats?.range !== undefined &&
-            zoneStats.maxPopulation !== undefined ? (
+            zoneStats.maxPopulation !== undefined &&
+            zoneStats.maxPopulation !== 0 ? (
               <>
                 <b>{formatNumber(zoneStats.range / zoneStats.maxPopulation, 'percent')}</b> (
                 {formatNumber(zoneStats.range || 0, 'string')})
               </>
             ) : (
               ' will appear when all districts are started'
-            )}{' '}
+            )}
           </Text>
         </Flex>
       )}
