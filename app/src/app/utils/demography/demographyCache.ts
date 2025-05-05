@@ -1,25 +1,32 @@
 'use client';
 import {op, table, escape} from 'arquero';
 import type {ColumnTable} from 'arquero';
-import {DocumentObject} from '../api/apiHandlers/types';
 import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../../constants/layers';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
 import {useChartStore} from '../../store/chartStore';
 import {
-  AllDemographyVariables,
-  TOTPOPTotPopSummaryStats,
-  TOTPOPZoneSummaryStats,
-  VAPVapPopSummaryStats,
-  VAPZoneSummaryStats,
-  SummaryStatKeys,
-  SummaryTypes,
+  DemographyRow,
+  MaxValues,
+  AllTabularColumns,
+  SummaryRecord,
+  summaryStatsConfig,
+  summaryStatsWithPctConfig,
+  SummaryTable,
+  TableRow,
+  TabularDataWithPercent,
+  AllMapConfigs,
 } from '../api/summaryStats';
-import {getMaxRollups, getPctDerives, getRollups} from './arquero';
-import {TableRow, MaxValues, SummaryRecord, SummaryTable} from './types';
+import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
-import {DEFAULT_COLOR_SCHEME, DEFAULT_COLOR_SCHEME_GRAY} from '@/app/store/demographyStore';
+import {type AnyD3Scale} from '@/app/store/demography/types';
+import {
+  choroplethMapVariables,
+  DEFAULT_COLOR_SCHEME,
+  DEFAULT_COLOR_SCHEME_GRAY,
+} from '@/app/store/demography/constants';
 import {NullableZone} from '@/app/constants/types';
+import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 /**
  * Class to organize queries on current demographic data
  */
@@ -51,12 +58,14 @@ class DemographyCache {
    */
   id_col: string = 'path';
 
+  availableColumns: AllTabularColumns[number][] = [];
+
   /**
    * Available summary statistics / derived values.
    */
   summaryStats: {
-    TOTPOP?: TOTPOPTotPopSummaryStats;
-    VAP?: VAPVapPopSummaryStats;
+    TOTPOP?: (typeof summaryStatsWithPctConfig)['TOTPOP'];
+    VAP?: (typeof summaryStatsWithPctConfig)['VAP'];
     idealpop?: number;
     totalPopulation?: number;
     unassigned?: number;
@@ -70,86 +79,26 @@ class DemographyCache {
     paintedZones?: number;
   } = {};
 
-  idsToExclude: Set<string> = new Set();
-
-  colorScale?: ReturnType<typeof scale.scaleThreshold<number, string>>;
-
-  /**
-   * Rotates the given columns and data rows from an 2D array into an arquero object.
-   * Arquero expects an object with columnar arrays to make a table
-   *
-   * @param columns - The columns to rotate.
-   * @param dataRows - The data rows to rotate.
-   * @param childIds - The set of child IDs.
-   * @param mapDocument - The map document object.
-   * @returns The rotated data as an object.
-   */
-  rotate(
-    columns: Array<string>,
-    dataRows: Array<Array<string | number>>,
-    childIds: Set<string>,
-    mapDocument: DocumentObject
-  ): Record<string, any> {
-    const output: Record<string, any> = {};
-    for (let i = 0; i < columns.length; i++) {
-      const column = columns[i];
-      output[column] = dataRows.map(row => row[i]);
-    }
-    output.sourceLayer = dataRows.map(row =>
-      childIds.has(row[0].toString()) ? mapDocument.child_layer : mapDocument.parent_layer
-    );
-    return output;
-  }
-
+  colorScale?: AnyD3Scale;
   /**
    * Updates this class with new data from the backend.
    *
    * @param columns - The columns to update.
    * @param dataRows - The data rows to update.
-   * @param childIds - The set of child IDs.
    * @param mapDocument - The map document object.
    * @param hash - The hash representing the new state.
    */
-  update(
-    columns: Array<string>,
-    dataRows: Array<Array<string | number>>,
-    shatterIds: {parents: Set<string>; children: Set<string>},
-    mapDocument: DocumentObject,
-    hash: string
-  ): void {
+  update(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
     if (hash === this.hash) return;
-    const newColumnarData = this.rotate(columns, dataRows, shatterIds.children, mapDocument);
-    const newTable = table(newColumnarData);
-    if (!this.table) {
-      this.table = table(this.filterShattered(newTable, shatterIds, mapDocument));
-    } else {
-      this.table = table(
-        this.filterShattered(this.table.concat(newTable).dedupe('path'), shatterIds, mapDocument)
-      );
-    }
+    this.availableColumns = columns;
+    this.table = table(data).derive(getColumnDerives(columns));
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
     this.calculateSummaryStats();
     this.hash = hash;
-    this.idsToExclude.clear();
   }
-  filterShattered(
-    table: ColumnTable,
-    shatterIds: {parents: Set<string>; children: Set<string>},
-    mapDocument: DocumentObject
-  ) {
-    // not shatterable
-    if (!mapDocument.child_layer) return table;
-    return table.filter(
-      escape(
-        (row: TableRow) =>
-          row.path &&
-          ((row.sourceLayer === mapDocument.parent_layer && !shatterIds.parents.has(row.path)) ||
-            (row.sourceLayer === mapDocument.child_layer && shatterIds.children.has(row.path)))
-      )
-    );
-  }
+
   /**
    * Updates the zone table with new zone assignments.
    *
@@ -178,16 +127,8 @@ class DemographyCache {
     this.populations = [];
     this.summaryStats = {};
     this.hash = '';
-    this.idsToExclude.clear();
     this.colorScale = undefined;
     this.zoneStats = {};
-  }
-  /**
-   * Add IDS to exlude on next update
-   * @param idsToExclude
-   */
-  exclude(idsToExclude: string[]): void {
-    this.idsToExclude = new Set([...this.idsToExclude, ...idsToExclude]);
   }
   /**
    * Gets the filtered data for a given ID.
@@ -220,26 +161,6 @@ class DemographyCache {
   }
 
   /**
-   * Gets the available summaries object.
-   *
-   * @returns The available summaries object.
-   */
-  getAvailableSummariesObject(): Record<SummaryTypes, boolean> {
-    const mapDocument = useMapStore.getState().mapDocument;
-    if (!mapDocument?.available_summary_stats) {
-      return {} as Record<SummaryTypes, boolean>;
-    }
-
-    return mapDocument.available_summary_stats.reduce(
-      (acc, stat) => {
-        acc[stat] = true;
-        return acc;
-      },
-      {} as Record<SummaryTypes, boolean>
-    );
-  }
-
-  /**
    * Calculates the populations based on zone assignments.
    *
    * @param zoneAssignments - The zone assignments to use for calculation.
@@ -252,23 +173,13 @@ class DemographyCache {
     if (zoneAssignments) {
       this.updateZoneTable(zoneAssignments);
     }
-    const availableStats = this.getAvailableSummariesObject();
-    if (!this.table || !this.zoneTable || !Object.keys(availableStats).length) {
+
+    if (!this.table || !this.zoneTable) {
       return {
         ok: false,
       };
     }
-    const {mapDocument, shatterIds} = useMapStore.getState();
-    if (mapDocument === null) {
-      console.error('No map document');
-    }
-
-    const joinedTable = this.filterShattered(
-      this.table.join_full(this.zoneTable, ['path', 'path']).dedupe('path'),
-      shatterIds,
-      mapDocument!
-    );
-
+    const joinedTable = this.table.join_full(this.zoneTable, ['path', 'path']);
     const missingPopulations = joinedTable.filter(
       escape(
         (row: TableRow & {zone: NullableZone}) =>
@@ -282,14 +193,15 @@ class DemographyCache {
         ok: false,
       };
     }
+    const columns = this.table.columnNames();
     // if any tot
     const populationsTable = joinedTable
       .groupby('zone')
-      .rollup(getRollups(availableStats))
-      .derive(getPctDerives(availableStats));
+      .rollup(getRollups(columns, 'sum'))
+      .derive(getPctDerives(columns));
 
     const maxRollups = populationsTable
-      .rollup(getMaxRollups(availableStats))
+      .rollup(getRollups(columns, 'max'))
       .objects()[0] as MaxValues;
 
     if (maxRollups) {
@@ -324,18 +236,16 @@ class DemographyCache {
    */
   calculateSummaryStats(): void {
     if (!this.table) return;
-    const availableStats = this.getAvailableSummariesObject();
-    this.table = this.table.derive(getPctDerives(availableStats));
-    const summaries = this.table.rollup(getRollups(availableStats)).objects()[0] as SummaryRecord;
+    const columns = this.table.columnNames();
+    this.table = this.table.derive(getPctDerives(columns));
+    const summaries = this.table.rollup(getRollups(columns, 'sum')).objects()[0] as SummaryRecord;
     const mapDocument = useMapStore.getState().mapDocument;
 
-    Object.keys(availableStats).forEach(key => {
-      const summaryStats: Partial<TOTPOPZoneSummaryStats & VAPZoneSummaryStats> = {};
-      const statKeys = SummaryStatKeys[key as SummaryTypes];
-      if (!statKeys) return;
-      statKeys.forEach(stat => (summaryStats[stat] = summaries[stat]));
-      this.summaryStats[key as SummaryTypes] = summaryStats as TOTPOPTotPopSummaryStats &
-        VAPVapPopSummaryStats;
+    Object.entries(summaryStatsConfig).forEach(([key, config]) => {
+      const summaryStats: Partial<DemographyRow> = {};
+      config['columns'].forEach(col => (summaryStats[col] = summaries[col]));
+      // @ts-ignore
+      this.summaryStats[key] = summaryStats as SummaryRecord;
     });
 
     this.summaryStats.totalPopulation = summaries.total_pop_20;
@@ -349,21 +259,29 @@ class DemographyCache {
    * Helper to manage the arqueo quantile function.
    */
   calculateQuantiles(
-    variable: string,
+    config: AllMapConfigs[number],
+    variableName: AllTabularColumns[number],
     numberOfBins: number
   ): {quantilesObject: {[q: string]: number}; quantilesList: number[]} | null {
     if (!this.table) return null;
+    const derives = {
+      quantileVariable: config.expression
+        ? escape(config.expression)
+        : escape((row: DemographyRow) => row[variableName as keyof DemographyRow]),
+    };
     const rollups = new Array(numberOfBins + 1)
       .fill(0)
       .map((f, i) => (i === 0 ? i : Math.round((1 / numberOfBins) * i * 100) / 100))
       .reduce(
         (acc, curr, i) => {
-          acc[`q${curr * 100}`] = op.quantile(variable, curr);
+          acc[`q${curr * 100}`] = op.quantile('quantileVariable', curr);
           return acc;
         },
         {} as {[key: string]: ReturnType<typeof op.quantile>}
       );
-    const quantilesObject = this.table.rollup(rollups).objects()[0] as {[q: string]: number};
+    const quantilesObject = this.table.derive(derives).rollup(rollups).objects()[0] as {
+      [q: string]: number;
+    };
     const quantilesList = Object.values(quantilesObject)
       .sort((a, b) => a - b)
       .slice(1, -1);
@@ -374,25 +292,35 @@ class DemographyCache {
   }
 
   paintDemography({
-    variable,
+    config,
+    variableName,
     mapRef,
     ids,
   }: {
-    variable: AllDemographyVariables;
+    config: AllMapConfigs[number];
+    variableName: AllTabularColumns[number];
     mapRef: maplibregl.Map;
     ids?: string[];
   }) {
     if (!this.table || !this.colorScale) return;
     const colorScale = this.colorScale!;
-    let rows = this.table.select('path', 'sourceLayer', variable);
+    const derives = {
+      color: config.expression
+        ? escape(config.expression)
+        : escape((row: DemographyRow) => row[variableName]),
+    };
+    let rows = this.table.derive(derives).select('path', 'sourceLayer', 'color');
     if (ids) {
       rows = rows.filter(escape((row: TableRow) => ids.includes(row.path)));
     }
-    (rows.objects() as TableRow[]).forEach(row => {
+    (rows.objects() as Array<TableRow & {color: number}>).forEach(row => {
       const id = row.path;
-      const value = row[variable as keyof typeof row];
-      if (!id || isNaN(+value)) return;
-      const color = colorScale(+value);
+      if (!id) return;
+      const value = row['color'];
+      let color = '#CCCCCC';
+      if (!isNaN(+value)) {
+        color = colorScale(+value);
+      }
 
       mapRef.setFeatureState(
         {
@@ -422,37 +350,56 @@ class DemographyCache {
    */
   calculateDemographyColorScale({
     variable,
+    variant,
     mapRef,
     mapDocument,
     numberOfBins,
     paintMap,
   }: {
-    variable: AllDemographyVariables;
+    variable: AllTabularColumns[number];
+    variant: 'percent' | 'raw';
     mapRef: maplibregl.Map;
     mapDocument: MapStore['mapDocument'];
     numberOfBins: number;
     paintMap?: boolean;
   }) {
-    if (!this.table) return;
-    const quantiles = this.calculateQuantiles(variable, numberOfBins);
-    const dataSoureExists = mapRef.getSource(BLOCK_SOURCE_ID);
-    if (!mapRef || !mapDocument || !dataSoureExists || !quantiles) return;
-    const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
-    const defaultColor =
-      mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
-    const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
-    const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
-    let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
-    if (actualBinsLength < 3) {
-      colorscheme = colorscheme.slice(0, actualBinsLength);
+    const dataSoureExists = mapRef?.getSource(BLOCK_SOURCE_ID);
+    const config = Object.values(choroplethMapVariables)
+      .flat()
+      .find(v => v.value === variable);
+
+    if (!this.table || !dataSoureExists) return;
+    if (!config) return;
+    const variableName = (
+      variant === 'percent' && config.variants?.includes('percent')
+        ? `${config.value}_pct`
+        : config.value
+    ) as AllTabularColumns[number];
+    if (config.fixedScale) {
+      this.colorScale = config.fixedScale as AnyD3Scale;
+    } else {
+      const quantiles = this.calculateQuantiles(config, variableName, numberOfBins);
+      if (!quantiles) return;
+      const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
+      const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
+
+      const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
+      const defaultColor =
+        mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
+      let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
+
+      if (actualBinsLength < 3) {
+        colorscheme = colorscheme.slice(0, actualBinsLength);
+      }
+      this.colorScale = scale
+        .scaleThreshold<number, string>()
+        .domain(uniqueQuantiles)
+        .range(colorscheme);
     }
-    this.colorScale = scale
-      .scaleThreshold<number, string>()
-      .domain(uniqueQuantiles)
-      .range(colorscheme);
     if (paintMap) {
       this.paintDemography({
-        variable,
+        config,
+        variableName,
         mapRef,
       });
     }

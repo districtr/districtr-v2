@@ -19,6 +19,7 @@ export type DistrictrMapOptions = {
   showBlockPopulationNumbers?: boolean;
   showDemographicMap?: undefined | 'side-by-side' | 'overlay';
   showPaintedDistricts?: boolean;
+  overlayOpacity: number;
 };
 
 export type DistrictrChartOptions = {

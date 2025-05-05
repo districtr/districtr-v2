@@ -9,7 +9,6 @@ from app.utils import (
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
     create_parent_child_edges as _create_parent_child_edges,
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
-    add_available_summary_stats_to_districtrmap as _add_available_summary_stats_to_districtrmap,
     update_districtrmap as _update_districtrmap,
     get_local_or_s3_path,
     create_spatial_index as _create_spatial_index,
@@ -177,10 +176,6 @@ def create_districtr_map(
             session=session, districtr_map_uuid=districtr_map_uuid, bounds=bounds
         )
 
-    _add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-
     logger.info(f"Districtr map created successfully {districtr_map_uuid}")
 
 
@@ -334,27 +329,6 @@ def add_extent_to_districtr_map(
         session=session, districtr_map_uuid=districtr_map_uuid, bounds=bounds
     )
     logger.info("Updated extent successfully.")
-
-
-@cli.command("add-available-summary-stats-to-districtr-map")
-@click.option("--districtr-map-slug", "-d", help="Districtr map name", required=True)
-@with_session
-def add_available_summary_stats_to_districtr_map(
-    session: Session, districtr_map_slug: str
-):
-    stmt = text(
-        "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
-    )
-    (districtr_map_uuid,) = session.execute(
-        stmt, params={"districtr_map_slug": districtr_map_slug}
-    ).one()
-    print(f"Found districtmap uuid: {districtr_map_uuid}")
-
-    _add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-
-    logger.info("Updated available summary stats successfully.")
 
 
 @cli.command("batch-create-districtr-maps")
