@@ -1,8 +1,7 @@
-import Evaluation from '@/app/components/sidebar/Evaluation/Evaluation';
 import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {MapStore} from '@/app/store/mapStore';
-import {DemographicMapPanel} from './DemographicMapPanel';
 import {MapValidation} from './MapValidation/MapValidation';
+import { SummaryPanel } from './SummaryPanel';
 
 export interface DataPanelSpec {
   title: MapStore['sidebarPanels'][number];
@@ -22,18 +21,18 @@ export const defaultPanels: DataPanelSpec[] = [
     content: <PopulationPanel />,
   },
   {
-    title: 'evaluation',
-    label: 'Evaluation',
-    content: <Evaluation />,
+    title: 'demography',
+    label: 'Demographic evaluation',
+    content: <SummaryPanel defaultColumnSet="VAP" displayedColumnSets={['VAP', 'TOTPOP']} />,
   },
   {
-    title: 'demography',
-    label: 'Demographic & Election Map',
-    content: <DemographicMapPanel />,
+    title: 'election',
+    label: 'Election details',
+    content: <SummaryPanel defaultColumnSet="VOTERHISTORY" displayedColumnSets={['VOTERHISTORY']} />,
   },
   {
     title: 'mapValidation',
-    label: 'Map Validation',
+    label: 'Map validation',
     content: <MapValidation />,
   },
 ];
