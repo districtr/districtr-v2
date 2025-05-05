@@ -34,7 +34,8 @@ export const PopulationPanel = () => {
   const setLockedZones = useMapStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
   const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
-
+  const setSelectedZone = useMapStore(state => state.setSelectedZone);
+  const selectedZone = useMapStore(state => state.selectedZone);
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
@@ -88,12 +89,17 @@ export const PopulationPanel = () => {
             <Flex
               key={d.zone}
               direction={'row'}
-              gap={'1'}
+              gapY={'1'}
+              gapX="3"
               align={'center'}
               className="p-0 m-0"
               justify={'between'}
             >
-              {!!showDistrictNumbers && <Text weight={'bold'}>{d.zone}</Text>}
+              {!!showDistrictNumbers && (
+                <IconButton variant="ghost" onClick={() => setSelectedZone(d.zone)}>
+                  <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
+                </IconButton>
+              )}
               <IconButton onClick={() => handleLockChange(d.zone)} variant="ghost">
                 {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
               </IconButton>
