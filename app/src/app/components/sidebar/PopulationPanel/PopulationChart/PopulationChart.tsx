@@ -123,7 +123,7 @@ export const PopulationChart: React.FC<{
                   x={0}
                   y={yScale(index)}
                   width={xMax}
-                  height={barHeight+10}
+                  height={barHeight + 10}
                   className="opacity-0 hover:opacity-10 transition-opacity duration-300 cursor-pointer"
                   onClick={() => setSelectedZone(entry.zone)}
                   onMouseEnter={() => setHoveredIndex(index)}

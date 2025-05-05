@@ -249,8 +249,9 @@ class DemographyCache {
     });
 
     this.summaryStats.totalPopulation = summaries.total_pop_20;
-    this.summaryStats.idealpop =
-      Math.round(summaries.total_pop_20 / (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS));
+    this.summaryStats.idealpop = Math.round(
+      summaries.total_pop_20 / (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
+    );
 
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
   }

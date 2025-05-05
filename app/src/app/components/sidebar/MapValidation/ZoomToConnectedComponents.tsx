@@ -60,9 +60,7 @@ export default function ZoomToConnectedComponents({
         </Tooltip>
       </Flex>
       {showZoom && !data && !error && <Spinner />}
-      {showZoom && error && (
-        <Blockquote color="red">Error fetching components</Blockquote>
-      )}
+      {showZoom && error && <Blockquote color="red">Error fetching components</Blockquote>}
       {!!(showZoom && !isLoading && !isFetching && data) && (
         <Flex direction="column" gap="1" justify="start" align="start" py="2">
           <Text color="gray">Zoom to components</Text>

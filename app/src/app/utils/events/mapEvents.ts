@@ -8,7 +8,12 @@ import type {
   MapGeoJSONFeature,
   MapSourceDataEvent,
 } from 'maplibre-gl';
-import type {MapEvent, MapRef as MapLibreMap, MapRef, ViewStateChangeEvent} from 'react-map-gl/maplibre';
+import type {
+  MapEvent,
+  MapRef as MapLibreMap,
+  MapRef,
+  ViewStateChangeEvent,
+} from 'react-map-gl/maplibre';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,

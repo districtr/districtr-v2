@@ -1,13 +1,7 @@
 import {IconButtonProps, IconProps} from '@radix-ui/themes';
 import {ActiveTool} from '@constants/types';
 import {useMapStore} from '@/app/store/mapStore';
-import {
-  EraserIcon,
-  Pencil2Icon,
-  HandIcon,
-  ViewGridIcon,
-  ResetIcon,
-} from '@radix-ui/react-icons';
+import {EraserIcon, Pencil2Icon, HandIcon, ViewGridIcon, ResetIcon} from '@radix-ui/react-icons';
 import {useTemporalStore} from '@/app/store/temporalStore';
 import {useCallback} from 'react';
 import {debounce} from 'lodash';
@@ -106,7 +100,7 @@ export const useActiveTools = () => {
       hotKeyAccessor: e => {
         return e.code === 'KeyB';
       },
-    }
+    },
   ];
   if (status === 'locked') return [];
   return config;
