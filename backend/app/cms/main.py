@@ -70,7 +70,7 @@ async def update_cms_content(
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.update_content]),
 ):
     """Update existing CMS content"""
-    can_update_all = "update:update-all" in auth_result.get("scope")
+    can_update_all = "update:update-all" in (auth_result.get("scope") or [])
     CMSContent = CMS_MODEL_MAP[data.content_type]
     # fetch existing content
     stmt = select(CMSContent).where(
@@ -133,7 +133,7 @@ async def delete_cms_content(
 ):
     """Delete CMS content by ID"""
     CMSContent = CMS_MODEL_MAP[content_type]
-    can_delete_all = "delete:delete-all" in auth_result.get("scope")
+    can_delete_all = "delete:delete-all" in (auth_result.get("scope") or [])
     stmt = select(CMSContent).where(
         CMSContent.id == content_id,
         (CMSContent.author == auth_result["sub"]) | can_delete_all,
@@ -190,7 +190,7 @@ async def list_editor_cms_content(
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.read_content]),
 ):
     """List CMS content with optional filtering"""
-    can_read_all = "read:read-all" in auth_result.get("scope")
+    can_read_all = "read:read-all" in  (auth_result.get("scope") or [])
     logger.info("AUTHORIZED auth_result", can_read_all)
     CMSModel = CMS_MODEL_MAP[content_type]
     author = auth_result["sub"]
