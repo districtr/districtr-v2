@@ -1,7 +1,7 @@
 """add author to cms content
 
 Revision ID: ea4bc886a999
-Revises: 8b06a98951aa
+Revises: d38d0f766dc5
 Create Date: 2025-04-05 22:05:41.801663
 
 """
@@ -15,7 +15,7 @@ from app.constants import CMS_SCHEMA
 
 
 revision: str = "ea4bc886a999"
-down_revision: Union[str, None] = "8b06a98951aa"
+down_revision: Union[str, None] = "d38d0f766dc5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
