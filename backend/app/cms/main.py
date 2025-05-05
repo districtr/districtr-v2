@@ -190,7 +190,7 @@ async def list_editor_cms_content(
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.read_content]),
 ):
     """List CMS content with optional filtering"""
-    can_read_all = "read:read-all" in  (auth_result.get("scope") or [])
+    can_read_all = "read:read-all" in (auth_result.get("scope") or [])
     logger.info("AUTHORIZED auth_result", can_read_all)
     CMSModel = CMS_MODEL_MAP[content_type]
     author = auth_result["sub"]
