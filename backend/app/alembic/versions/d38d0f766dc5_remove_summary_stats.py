@@ -50,7 +50,7 @@ def downgrade() -> None:
         with open(f"{SQL_DIR}/{udf['filepath']}", "r") as f:
             sql = f.read()
         op.execute(sa.text(sql))
-        
+
     op.execute(
         sa.text(
             """
