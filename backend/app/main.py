@@ -38,7 +38,6 @@ from app.models import (
     ColorsSetResult,
     DistrictrMap,
     DistrictrMapsToGroups,
-    MapGroup,
     Document,
     DocumentCreate,
     DocumentPublic,
@@ -54,6 +53,8 @@ from app.models import (
     TokenRequest,
     DocumentShareStatus,
     BBoxGeoJSONs,
+    MapGroup,
+    MapGroupResponse,
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
@@ -962,7 +963,7 @@ async def get_projects(
         select(DistrictrMap)
         .join(
             DistrictrMapsToGroups,
-            DistrictrMapsToGroups.districtrmap_uuid == DistrictrMap.uuid
+            DistrictrMapsToGroups.districtrmap_uuid == DistrictrMap.uuid,
         )
         .filter(DistrictrMapsToGroups.group_slug == group)
         .filter(DistrictrMap.visible == true())  # pyright: ignore
@@ -1214,3 +1215,38 @@ async def get_survey_results(
         return FileResponse(
             path=_out_file, media_type=media_type, filename=out_file_name
         )
+
+
+@app.get("/api/group/{group_slug}", response_model=MapGroupResponse)
+async def get_group(
+    *,
+    session: Session = Depends(get_session),
+    group_slug: str,
+):
+    stmt = select(
+        MapGroup,
+        DistrictrMap.districtr_map_slug,
+    ).join(
+        DistrictrMapsToGroups,
+        DistrictrMapsToGroups.group_slug == MapGroup.slug,
+    ).join(
+        DistrictrMap,
+        DistrictrMap.uuid == DistrictrMapsToGroups.districtrmap_uuid
+    ).where(
+        MapGroup.slug == group_slug,
+        DistrictrMap.visible == True,
+    )
+    results = session.execute(
+        statement=stmt,
+    ).all()
+
+    if not results:
+        return {"group": None, "maps": []}
+
+    group = results[0][0]
+    maps = [row[1] for row in results]
+
+    return {
+        "group": group,
+        "map_slugs": maps,
+    }

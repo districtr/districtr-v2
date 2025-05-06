@@ -465,7 +465,7 @@ def create_map_group(
         slug (str): The slug for the group used in URLs and queries.
     """
     session.execute(
-        text(f"INSERT INTO map_group (name, slug) VALUES (:group_name, :slug)"),
+        text("INSERT INTO map_group (name, slug) VALUES (:group_name, :slug)"),
         {
             "group_name": group_name,
             "slug": slug,
