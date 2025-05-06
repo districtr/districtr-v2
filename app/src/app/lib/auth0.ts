@@ -13,7 +13,7 @@ const SCOPES = {
   default: 'openid profile email',
   editor: 'openid profile email read:content update:content create:content delete:content',
   admin:
-    'openid profile email read:content read:read-all update:content update:update-allupdate:publish create:content delete:content delete:delete-all',
+    'openid profile email read:content read:read-all update:content update:update-all update:publish create:content delete:content delete:delete-all',
 };
 
 // Helper to determine user role from claims
