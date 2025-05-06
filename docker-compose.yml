@@ -10,7 +10,7 @@ services:
       - ./data:/data
 
     env_file:
-      - ./backend/.env.docker # Ensure the env file is also from the backend folder
+      - ./backend/.env.docker.local # Ensure the env file is also from the backend folder
     environment:
       GPKG_DATA_DIR: sample_data
       LOAD_DATA: False
@@ -51,7 +51,7 @@ services:
       - ./app/node_modules:/app/node_modules # Bind mount for node_modules
 
     env_file:
-      - ./app/.env.docker
+      - ./app/.env.docker.local
     ports:
       - "3000:3000" # Expose Next.js on port 3000
     command: sh -c "npm install && npm run dev"
