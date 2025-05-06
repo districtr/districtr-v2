@@ -5,12 +5,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_ignore_empty=True, extra="ignore"
+        env_file="../.env", env_ignore_empty=True, extra="ignore"
     )
 
     # Volumes
 
-    OUT_SCRATCH: Path = Path(__file__).parent / "scratch"
+    OUT_SCRATCH: Path = Path("/tmp")
 
     # R2
 

@@ -16,6 +16,7 @@ from tests.constants import (
 from app.utils import (
     create_districtr_map,
 )
+from fastapi.testclient import TestClient
 
 GERRY_DB_TOTAL_VAP_FIXTURE_NAME = "ks_demo_view_census_blocks_total_vap"
 
@@ -402,16 +403,10 @@ def test_publish_cms_content_not_found(
     assert "not found" in response.json()["detail"]
 
 
-def test_delete_cms_content(client, tags_cms_content_id):
+def test_delete_cms_content(client: TestClient, tags_cms_content_id):
     """Test deleting a CMS content entry"""
     # Create a mock content object for the session to return
-    response = client.post(
-        "/api/cms/content/delete",
-        json={
-            "content_type": CMSContentTypesEnum.tags.value,
-            "content_id": tags_cms_content_id[-1],
-        },
-    )
+    response = client.delete(f"/api/cms/content/tags/{tags_cms_content_id[-1]}")
     assert response.status_code == 204
 
 
@@ -419,10 +414,7 @@ def test_delete_cms_content_not_found(client):
     """Test deleting a non-existent CMS content entry"""
     # Set up the mock session to return None, simulating content Not Found
     fake_id = str(uuid.uuid4())
-    response = client.post(
-        "/api/cms/content/delete",
-        json={"content_type": CMSContentTypesEnum.tags.value, "content_id": fake_id},
-    )
+    response = client.delete(f"/api/cms/content/places/{fake_id}")
     assert response.status_code == 404
     assert "not found" in response.json()["detail"]
 

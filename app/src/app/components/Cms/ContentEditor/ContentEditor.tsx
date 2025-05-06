@@ -4,6 +4,7 @@ import {LANG_MAPPING} from '@/app/utils/language';
 import {Box, Button, Flex, Grid, Heading, Select, Text, TextField} from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
 import {CheckCircledIcon} from '@radix-ui/react-icons';
+import { PlacesCMSContent } from '@/app/utils/api/cms';
 
 const RichTextEditor = dynamic(() => import('@/app/components/Cms/RichTextEditor'), {ssr: false});
 
@@ -145,9 +146,8 @@ export const ContentEditor: React.FC = () => {
               {' '}
               <Select.Trigger>
                 <Text>
-                  {/* @ts-ignore */}
-                  {formData.content.districtr_map_slugs?.length //@ts-ignore
-                    ? formData.content.districtr_map_slugs.length + ' maps selected'
+                  {(formData?.content as unknown as PlacesCMSContent)?.districtr_map_slugs?.length
+                    ? (formData?.content as unknown as PlacesCMSContent)?.districtr_map_slugs?.length + ' maps selected'
                     : 'Select a map'}
                 </Text>
               </Select.Trigger>
