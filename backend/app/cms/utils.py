@@ -32,10 +32,14 @@ def get_content_factory(
         is_admin = "update:update-all" in (auth_result.get("scope") or [])
         try:
             assert isinstance(CMSModel, type), "Invalid content type"
-            stmt = select(CMSModel).where(CMSModel.id == data.content_id)
-            if not is_admin:
-                stmt = stmt.where(CMSModel.author == auth_result["sub"])
-            content = session.exec(stmt).one()
+            content = session.exec(
+                select(CMSModel)
+                .where(CMSModel.id == data.content_id)
+                .where(
+                    (CMSModel.author == auth_result["sub"])
+                    | is_admin
+                )
+            ).one()
         except NoResultFound:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
