@@ -11,15 +11,12 @@ services:
 
     env_file:
       - ./backend/.env.docker # Ensure the env file is also from the backend folder
-    environment:
-      GPKG_DATA_DIR: sample_data
-      LOAD_DATA: False
     depends_on:
       db:
         condition: service_healthy
     command: bash -c "
       alembic upgrade head && \
-      if [ $LOAD_DATA = 'True' ]; then python cli.py batch-create-districtr-maps --config-file=management/configs/geopackages_vap_and_election.yaml --data-dir=/data --skip-gerrydb-loads; fi && \
+      if [ ${LOAD_DATA:-false} = true ]; then python cli.py batch-create-districtr-maps --config-file=management/configs/geopackages_vap_and_election.yaml --data-dir=/data; fi && \
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '.venv/**/*.py'
       "
     ports:
