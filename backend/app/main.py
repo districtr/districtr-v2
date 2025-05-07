@@ -978,7 +978,9 @@ async def get_thumbnail(
 ):
     try:
         if thumbnail_exists(document_id):
-            return RedirectResponse(url=f"{settings.CDN_URL}/thumbnails/{document_id}.png")
+            return RedirectResponse(
+                url=f"{settings.CDN_URL}/thumbnails/{document_id}.png"
+            )
         else:
             return RedirectResponse(url="/home-megaphone.png")
     except:
@@ -1005,7 +1007,9 @@ async def make_thumbnail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
-    background_tasks.add_task(generate_thumbnail, session=session, document_id=document_id)
+    background_tasks.add_task(
+        generate_thumbnail, session=session, document_id=document_id
+    )
     return {"message": "Generating thumbnail in background task"}
 
 

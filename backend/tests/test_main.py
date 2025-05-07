@@ -817,7 +817,9 @@ def test_thumbnail_generator(client, document_id):
             f"/api/document/{document_id}/thumbnail",
         )
         assert response.status_code == 200
-        assert response.json().get("message") == "Generating thumbnail in background task"
+        assert (
+            response.json().get("message") == "Generating thumbnail in background task"
+        )
 
         # confirm backend is called
         mock_generate_thumbnail.assert_called_once()

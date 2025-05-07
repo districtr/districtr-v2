@@ -68,7 +68,8 @@ def thumbnail_exists(document_id: str) -> bool:
     s3 = settings.get_s3_client()
     assert s3, "S3 client is not available"
     object_information = s3.head_object(
-        Bucket=THUMBNAIL_BUCKET, Key=f"thumbnails/{document_id}.png",
+        Bucket=THUMBNAIL_BUCKET,
+        Key=f"thumbnails/{document_id}.png",
     )
     return object_information["ResponseMetadata"]["HTTPStatusCode"] == 200
 

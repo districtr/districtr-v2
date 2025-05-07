@@ -1,7 +1,7 @@
 'use client';
 
 import {generateThumbnail} from '@/app/utils/api/apiHandlers/generateThumbnail';
-import { Cross2Icon, ReloadIcon } from '@radix-ui/react-icons';
+import {Cross2Icon, ReloadIcon} from '@radix-ui/react-icons';
 import {Button, Flex, Heading, IconButton, Text, TextField} from '@radix-ui/themes';
 import {useState} from 'react';
 
@@ -13,7 +13,9 @@ export default function CmsHome() {
   const handleGenerateThumbnail = async () => {
     const response = await generateThumbnail(textValue);
     if (response.message) {
-      setResponse(`Success: ${response.message}. Your thumbnail make take up to 1 minute to generate; click the reload button to refresh the preview thumbnail.`);
+      setResponse(
+        `Success: ${response.message}. Your thumbnail make take up to 1 minute to generate; click the reload button to refresh the preview thumbnail.`
+      );
       setTimeout(() => {
         setResponse('');
       }, 15000);
@@ -45,13 +47,16 @@ export default function CmsHome() {
       </Flex>
       <Flex direction="column" gap="4">
         {thumbnails.map(documentId => (
-          <ThumbnailImage key={documentId} documentId={documentId} onDismiss={() => handleDismiss(documentId)} />
+          <ThumbnailImage
+            key={documentId}
+            documentId={documentId}
+            onDismiss={() => handleDismiss(documentId)}
+          />
         ))}
       </Flex>
     </Flex>
   );
 }
-
 
 const ThumbnailImage: React.FC<{
   documentId: string;
@@ -64,22 +69,16 @@ const ThumbnailImage: React.FC<{
   };
   return (
     <Flex direction="column" gap="4" className="border border-gray-300 rounded-md p-4">
-      <img
-      src={url}
-      alt="Thumbnail"
-      width={320}
-      height={180}
-    />
-    <Text>{documentId}</Text>
-    <Flex direction="row" gap="2">
-
-    <IconButton onClick={handleRefresh}>
-      <ReloadIcon />
-    </IconButton>
-    <IconButton onClick={onDismiss}>
-      <Cross2Icon />
-    </IconButton>
-    </Flex>
+      <img src={url} alt="Thumbnail" width={320} height={180} />
+      <Text>{documentId}</Text>
+      <Flex direction="row" gap="2">
+        <IconButton onClick={handleRefresh}>
+          <ReloadIcon />
+        </IconButton>
+        <IconButton onClick={onDismiss}>
+          <Cross2Icon />
+        </IconButton>
+      </Flex>
     </Flex>
   );
 };
