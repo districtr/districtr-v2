@@ -1,4 +1,4 @@
-import { unstable_noStore as noStore} from "next/cache";
+import {unstable_noStore as noStore} from 'next/cache';
 
 export const GET = async () => {
   noStore();
@@ -6,11 +6,14 @@ export const GET = async () => {
   if (!formUrl || !URL.canParse(formUrl)) {
     return new Response('Form URL not found', {status: 404});
   }
-  return new Response(JSON.stringify({
-    formUrl,
-  }), {
-    headers: {
-      'Cache-Control': 'no-cache, no-store, max-age=0, must-revalidate',
-    },
-  });
+  return new Response(
+    JSON.stringify({
+      formUrl,
+    }),
+    {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, max-age=0, must-revalidate',
+      },
+    }
+  );
 };
