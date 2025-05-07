@@ -29,7 +29,7 @@ def get_content_factory(
         auth_result: dict = Security(auth.verify, scopes=scopes),
     ) -> CmsContent:
         CMSModel: CmsContent = CMS_MODEL_MAP[data.content_type]
-        is_admin = "update:update-all" in (auth_result.get("scope") or [])
+        is_admin = TokenScope.update_all_content in (auth_result.get("scope") or [])
         try:
             assert isinstance(CMSModel, type), "Invalid content type"
             content = session.exec(
