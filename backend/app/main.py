@@ -26,7 +26,7 @@ import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import get_session
 from app.core.config import settings
-from app.thumbnails import generate_thumbnail, thumbnail_exists
+from app.core.thumbnails import generate_thumbnail, thumbnail_exists
 from app.utils import hash_password, verify_password
 import jwt
 from uuid import uuid4
