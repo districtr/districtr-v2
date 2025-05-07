@@ -10,7 +10,7 @@ services:
       - ./data:/data
 
     env_file:
-      - ./backend/.env.docker # Ensure the env file is also from the backend folder
+      - ./backend/.env.docker.local # Ensure the env file is also from the backend folder
     environment:
       GPKG_DATA_DIR: sample_data
       LOAD_DATA: False

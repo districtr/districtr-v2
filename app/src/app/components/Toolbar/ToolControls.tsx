@@ -25,9 +25,6 @@ const ToolControlsConfig: Record<
   eraser: {
     Component: BrushControls,
   },
-  lock: {
-    Component: ZoneLockPicker,
-  },
   shatter: {
     Component: () => {
       const focusFeatures = useMapStore(state => state.focusFeatures);

@@ -25,6 +25,11 @@ export type GeometryWorkerClass = {
     parents: string[];
     children: string[];
   };
+  /**
+   * The maximum zoom level of the parent layer.
+   */
+  maxParentZoom: number;
+  setMaxParentZoom: (zoom: number) => void;
   zoneAssignments: Record<string, number>;
   previousCentroids: Record<number, GeoJSON.Feature<GeoJSON.Point>>;
   /**

@@ -6,10 +6,14 @@ import type {
   MapLayerMouseEvent,
   MapLayerTouchEvent,
   MapGeoJSONFeature,
-  MapStyleDataEvent,
   MapSourceDataEvent,
 } from 'maplibre-gl';
-import type {MapRef as MapLibreMap, MapRef, ViewStateChangeEvent} from 'react-map-gl/maplibre';
+import type {
+  MapEvent,
+  MapRef as MapLibreMap,
+  MapRef,
+  ViewStateChangeEvent,
+} from 'react-map-gl/maplibre';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
@@ -22,7 +26,6 @@ import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/hoverFeatures';
-import {getFeatureUnderCursor} from '../helpers';
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -181,11 +184,17 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   } else {
     useTooltipStore.getState().setTooltip(null);
   }
-}, 25);
+}, 5);
 
 export const handleMapZoom = (e: ViewStateChangeEvent) => {};
 
-export const handleMapIdle = () => {};
+export const handleMapIdle = (e: MapEvent) => {
+  const mapDocument = useMapStore.getState().mapDocument;
+  const currentZoom = e.target.getZoom();
+  if (GeometryWorker && mapDocument) {
+    GeometryWorker.setMaxParentZoom(currentZoom);
+  }
+};
 
 export const handleMapMoveEnd = () => {};
 

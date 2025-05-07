@@ -46,9 +46,11 @@ export var useDemographyStore = create(
       });
     },
     unmount: () => {
+      const isSwappingMode = useMapStore.getState().mapOptions.showDemographicMap;
+      const currScale = get().scale;
       set({
         getMapRef: () => undefined,
-        scale: undefined,
+        scale: isSwappingMode ? currScale : undefined,
       });
     },
     numberOfBins: 5,
