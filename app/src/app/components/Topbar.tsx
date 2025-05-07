@@ -35,6 +35,7 @@ export const Topbar: React.FC = () => {
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
   const {statusText} = useMapStatus();
+  const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
@@ -143,7 +144,7 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
+              <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)} disabled={!showRecentMaps}>
                 Recent Maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
