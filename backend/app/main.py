@@ -975,7 +975,7 @@ async def get_thumbnail(
 ):
     try:
         if thumbnail_exists(document_id):
-            return RedirectResponse(url=f"https://tilesets1.cdn.districtr.org/thumbnails/{document_id}.png")
+            return RedirectResponse(url=f"{settings.CDN_URL}/thumbnails/{document_id}.png")
         else:
             return RedirectResponse(url="/home-megaphone.png")
     except:
@@ -989,6 +989,19 @@ async def make_thumbnail(
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
+    try:
+        stmt = select(Document.document_id).filter(Document.document_id == document_id)
+        map = session.execute(stmt).first()
+    except DataError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document ID did not fit UUID format",
+        )
+    if map == None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
     background_tasks.add_task(generate_thumbnail, session=session, document_id=document_id)
     return {"message": "Generating thumbnail in background task"}
 
