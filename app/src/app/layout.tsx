@@ -4,6 +4,7 @@ import './globals.css';
 import {Theme} from '@radix-ui/themes';
 import '@radix-ui/themes/styles.css';
 import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
+import {FeedbackForm} from './components/FeedbackForm';
 
 const inter = Inter({subsets: ['latin']});
 
@@ -61,6 +62,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <Theme accentColor="indigo" grayColor="gray" radius="large" scaling="95%">
           <main>{children}</main>
+          <FeedbackForm />
         </Theme>
       </body>
     </html>
