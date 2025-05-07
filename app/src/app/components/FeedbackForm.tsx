@@ -15,6 +15,7 @@ export const FeedbackForm = () => {
   const copyUrlToClipboard = () => {
     navigator.clipboard.writeText(currentUrl);
   };
+  console.log('feedback form', hidden, formEmbedUrl)
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger>
@@ -44,11 +45,11 @@ export const FeedbackForm = () => {
           </Box>
         </Box>
       </Dialog.Trigger>
-      <Dialog.Content>
+      <Dialog.Content className="!max-w-[800px]">
         <Flex
           direction="column"
           gap="4"
-          className="max-w-[800px] w-full h-auto max-h-[80vh] overflow-hidden"
+          className="w-full h-auto max-h-[80vh] overflow-hidden"
         >
           <Heading size="4">Help us improve Districtr v2</Heading>
           <Text>Found a bug or have a suggestion? Let us know!</Text>
@@ -59,7 +60,7 @@ export const FeedbackForm = () => {
               <CopyIcon />
             </IconButton>
           </Flex>
-          <Box className="w-full h-auto overflow-y-auto flex-1">
+          <Box className="w-full h-auto flex-1">
             <iframe src={formEmbedUrl} className="w-full h-[80vh]" />
           </Box>
         </Flex>
