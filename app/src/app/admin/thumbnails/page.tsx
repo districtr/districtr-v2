@@ -2,7 +2,16 @@
 
 import {generateThumbnail} from '@/app/utils/api/apiHandlers/generateThumbnail';
 import {Cross2Icon, ReloadIcon} from '@radix-ui/react-icons';
-import {Button, Flex, Heading, IconButton, Text, TextField} from '@radix-ui/themes';
+import {
+  Blockquote,
+  Button,
+  Flex,
+  Grid,
+  Heading,
+  IconButton,
+  Text,
+  TextField,
+} from '@radix-ui/themes';
 import {useState} from 'react';
 
 export default function CmsHome() {
@@ -11,6 +20,14 @@ export default function CmsHome() {
   const [thumbnails, setThumbnails] = useState<string[]>([]);
 
   const handleGenerateThumbnail = async () => {
+    if (!textValue) {
+      setResponse('Please enter a map document ID');
+      return;
+    }
+    if (thumbnails.includes(textValue)) {
+      setResponse('Thumbnail already exists. Dismiss the preview below to re-generate it.');
+      return;
+    }
     const response = await generateThumbnail(textValue);
     if (response.message) {
       setResponse(
@@ -35,17 +52,24 @@ export default function CmsHome() {
       </Heading>
       <Text>Generate or update thumbnails for maps</Text>
 
-      <Flex direction="column" gap="4">
-        <Text>Generate thumbnails for maps</Text>
+      <Flex direction="row" gap="4">
         <TextField.Root
           value={textValue}
           onChange={e => setTextValue(e.target.value)}
           placeholder="Enter a map document ID"
+          className="flex-grow"
         ></TextField.Root>
         <Button onClick={handleGenerateThumbnail}>Generate Thumbnail</Button>
-        {response?.length > 0 && <Text>{response}</Text>}
       </Flex>
-      <Flex direction="column" gap="4">
+      {response?.length > 0 && <Blockquote>{response}</Blockquote>}
+      <Grid
+        columns={{
+          initial: '1',
+          md: '2',
+          lg: '3',
+        }}
+        gap="4"
+      >
         {thumbnails.map(documentId => (
           <ThumbnailImage
             key={documentId}
@@ -53,7 +77,7 @@ export default function CmsHome() {
             onDismiss={() => handleDismiss(documentId)}
           />
         ))}
-      </Flex>
+      </Grid>
     </Flex>
   );
 }
