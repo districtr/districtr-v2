@@ -3,12 +3,12 @@ import {CopyIcon, Cross1Icon, Cross2Icon} from '@radix-ui/react-icons';
 import {Box, Button, Dialog, Flex, Heading, IconButton, Text} from '@radix-ui/themes';
 import React, {useState} from 'react';
 
-export const FeedbackForm: React.FC<{url: string | undefined}> = ({url}) => {
+export const FeedbackForm: React.FC<{formUrl: string | undefined}> = ({formUrl}) => {
   const [open, setOpen] = useState(false);
   const [hovering, setHovering] = useState(false);
   const [hidden, setHidden] = useState(false);
 
-  if (!url || !URL.canParse(url) || hidden) {
+  if (!formUrl || !URL.canParse(formUrl) || hidden) {
     return null;
   }
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -57,7 +57,7 @@ export const FeedbackForm: React.FC<{url: string | undefined}> = ({url}) => {
             </IconButton>
           </Flex>
           <Box className="w-full h-auto flex-1">
-            <iframe src={formEmbedUrl} className="w-full h-[80vh]" />
+            <iframe src={formUrl} className="w-full h-[80vh]" />
           </Box>
         </Flex>
         <Dialog.Close>
