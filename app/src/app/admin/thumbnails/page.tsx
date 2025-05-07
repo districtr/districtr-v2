@@ -31,7 +31,7 @@ export default function CmsHome() {
     const response = await generateThumbnail(textValue);
     if (response.message) {
       setResponse(
-        `Success: ${response.message}. Your thumbnail make take up to 1 minute to generate; click the reload button to refresh the preview thumbnail.`
+        `Success: ${response.message}. Your thumbnail may take up to 1 minute to generate; click the reload button to refresh the preview thumbnail.`
       );
       setTimeout(() => {
         setResponse('');
