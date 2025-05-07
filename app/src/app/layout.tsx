@@ -57,13 +57,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const formUrl = process.env.NEXT_PUBLIC_FEEDBACK_FORM;
   return (
     <html lang="en">
       <body className={inter.className}>
         <Theme accentColor="indigo" grayColor="gray" radius="large" scaling="95%">
           <main>{children}</main>
-          <FeedbackForm formUrl={formUrl} />
+          <FeedbackForm />
         </Theme>
       </body>
     </html>

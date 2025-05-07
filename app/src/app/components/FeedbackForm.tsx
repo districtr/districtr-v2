@@ -1,12 +1,20 @@
 'use client';
 import {CopyIcon, Cross1Icon, Cross2Icon} from '@radix-ui/react-icons';
 import {Box, Button, Dialog, Flex, Heading, IconButton, Text} from '@radix-ui/themes';
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 
-export const FeedbackForm: React.FC<{formUrl: string | undefined}> = ({formUrl}) => {
+export const FeedbackForm: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [hovering, setHovering] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [formUrl, setFormUrl] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    fetch('/api/env')
+      .then(res => (res.ok ? res.json() : Promise.reject(res)))
+      .then(data => setFormUrl(data.formUrl))
+      .catch();
+  }, []);
 
   if (!formUrl || !URL.canParse(formUrl) || hidden) {
     return <div id="feedback-form-placeholder" className="hidden" />;
