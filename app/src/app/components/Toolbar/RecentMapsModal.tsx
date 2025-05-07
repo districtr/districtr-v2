@@ -95,7 +95,7 @@ export const RecentMapsModal: React.FC<{
           </Dialog.Close>
         </Flex>
         <Separator size={'4'} className="my-4" />
-        {/* table of non-active maps */}
+        {/* table of user maps */}
         <Box className="max-h-[50vh] overflow-y-auto">
           <Table.Root size="3" variant="surface">
             <Table.Header>

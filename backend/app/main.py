@@ -33,7 +33,6 @@ import app.cms.main as cms
 from networkx import Graph, connected_components
 from app.models import (
     Assignments,
-    AssignmentsCreate,
     AssignmentsResponse,
     ColorsSetResult,
     DistrictrMap,
@@ -316,7 +315,6 @@ async def update_assignments(
     lock_status = check_map_lock(document_id, data["user_id"], session)
 
     if lock_status == DocumentEditStatus.checked_out:
-
         stmt = insert(Assignments).values(assignments)
         stmt = stmt.on_conflict_do_update(
             constraint=Assignments.__table__.primary_key,
@@ -343,9 +341,7 @@ def _get_document(
 ) -> Document:
     try:
         document = session.exec(
-            select(Document).filter(
-                Document.document_id == document_id
-            )  # pyright: ignore
+            select(Document).filter(Document.document_id == document_id)  # pyright: ignore
         ).one()
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -479,8 +475,7 @@ async def update_colors(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug
-            == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -572,9 +567,7 @@ async def get_document(
             ).label("status"),
             coalesce(
                 access_type,
-            ).label(
-                "access"
-            ),  # read or edit
+            ).label("access"),  # read or edit
             # add access - read or edit
         )  # pyright: ignore
         .where(Document.document_id == document_id)
@@ -703,8 +696,7 @@ def _get_districtr_map(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug
-            == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
