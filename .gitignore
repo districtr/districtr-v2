@@ -80,3 +80,4 @@ backend/.env.docker
 !pre-commit/Dockerfile.dev
 !pipelines/Dockerfile.dev
 pipelines/districtr_pipelines.egg*
+docker-compose.override.yml
