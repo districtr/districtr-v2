@@ -1,7 +1,7 @@
 """create map groups
 
 Revision ID: dc0216fef023
-Revises: d38d0f766dc5
+Revises: ea4bc886a999
 Create Date: 2025-04-29 15:50:59.583224
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'dc0216fef023'
-down_revision: Union[str, None] = 'd38d0f766dc5'
+down_revision: Union[str, None] = 'ea4bc886a999'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
