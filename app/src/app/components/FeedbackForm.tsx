@@ -1,21 +1,21 @@
 'use client';
 import {CopyIcon, Cross1Icon, Cross2Icon} from '@radix-ui/react-icons';
 import {Box, Button, Dialog, Flex, Heading, IconButton, Text} from '@radix-ui/themes';
-import {useState} from 'react';
+import React, {useState} from 'react';
 
-export const FeedbackForm = () => {
+export const FeedbackForm: React.FC<{url: string | undefined}> = ({url}) => {
   const [open, setOpen] = useState(false);
   const [hovering, setHovering] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const formEmbedUrl = process.env.NEXT_PUBLIC_FEEDBACK_FORM;
-  if (!formEmbedUrl || !URL.canParse(formEmbedUrl) || hidden) {
+
+  if (!url || !URL.canParse(url) || hidden) {
     return null;
   }
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
   const copyUrlToClipboard = () => {
     navigator.clipboard.writeText(currentUrl);
   };
-  console.log('feedback form', hidden, formEmbedUrl)
+
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger>
@@ -46,11 +46,7 @@ export const FeedbackForm = () => {
         </Box>
       </Dialog.Trigger>
       <Dialog.Content className="!max-w-[800px]">
-        <Flex
-          direction="column"
-          gap="4"
-          className="w-full h-auto max-h-[80vh] overflow-hidden"
-        >
+        <Flex direction="column" gap="4" className="w-full h-auto max-h-[80vh] overflow-hidden">
           <Heading size="4">Help us improve Districtr v2</Heading>
           <Text>Found a bug or have a suggestion? Let us know!</Text>
           <Text>Please include your current URL in your feedback:</Text>
