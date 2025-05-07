@@ -7,8 +7,9 @@ from fastapi import (
     BackgroundTasks,
     Body,
     Form,
+    Security,
 )
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse
 from typing import Annotated
 import botocore.exceptions
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
@@ -26,6 +27,7 @@ import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import get_session
 from app.core.config import settings
+from app.core.security import auth, TokenScope
 from app.core.thumbnails import generate_thumbnail, thumbnail_exists
 from app.utils import hash_password, verify_password
 import jwt
@@ -972,6 +974,7 @@ async def get_thumbnail(
     *,
     document_id: str,
     session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
 ):
     try:
         if thumbnail_exists(document_id):
