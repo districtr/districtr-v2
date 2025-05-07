@@ -9,7 +9,7 @@ export const FeedbackForm: React.FC<{formUrl: string | undefined}> = ({formUrl})
   const [hidden, setHidden] = useState(false);
 
   if (!formUrl || !URL.canParse(formUrl) || hidden) {
-    return null;
+    return <div id="feedback-form-placeholder" className="hidden" />;
   }
   const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
   const copyUrlToClipboard = () => {
