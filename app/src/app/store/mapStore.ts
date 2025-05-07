@@ -230,6 +230,11 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
+  /**
+   * Map of ISO timestamps. 
+   * Keeps track of when a zone was last to keep track of when to refetch data
+   */
+  zonesLastUpdated: Map<Zone, string>;
   assignmentsHash: string;
   lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
@@ -340,8 +345,10 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       getMapRef,
       selectedZone: _selectedZone,
       allPainted,
+      zonesLastUpdated,
     } = get();
 
+    const updateHash = new Date().toISOString();
     const map = getMapRef();
     const selectedZone = activeTool === 'eraser' ? null : _selectedZone;
     if (!map || !mapDocument?.document_id) {
@@ -359,7 +366,9 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     // PAINT
     const popChanges: Record<number, number> = {};
     selectedZone !== null && (popChanges[selectedZone] = 0);
-
+    if (features?.length && selectedZone) {
+      zonesLastUpdated.set(selectedZone, updateHash);
+    }
     features?.forEach(feature => {
       const id = feature?.id?.toString() ?? undefined;
       if (!id || !feature.sourceLayer) return;
@@ -371,7 +380,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       const shouldSkip =
         accumulatedGeoids.has(id) || state?.['locked'] || prevAssignment === selectedZone || false;
       if (shouldSkip) return;
-
+      zonesLastUpdated.set(prevAssignment, updateHash);
       accumulatedGeoids.add(feature.properties?.path);
       // TODO: Tiles should have population values as numbers, not strings
       const popValue = parseInt(feature.properties?.total_pop_20);
@@ -397,7 +406,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     useChartStore.getState().setPaintedChanges(popChanges);
     set({
       isTemporalAction: false,
-      assignmentsHash: new Date().toISOString(),
+      assignmentsHash: updateHash,
+      zonesLastUpdated: new Map(zonesLastUpdated),
     });
   },
   mapViews: {isPending: true},
@@ -925,8 +935,9 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     }
   },
   zoneAssignments: new Map(),
+  zonesLastUpdated: new Map(),
   assignmentsHash: '',
-  lastUpdatedHash: Date.now().toString(),
+  lastUpdatedHash: new Date().toISOString(),
   setAssignmentsHash: hash => set({assignmentsHash: hash}),
   accumulatedGeoids: new Set<string>(),
   setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
