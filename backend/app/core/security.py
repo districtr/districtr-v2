@@ -18,8 +18,10 @@ class TokenScope:
     read_all_content = "read:read-all"
 
     update_content = "update:content"
+    update_all_content = "update:update-all"
     publish_content = "update:publish"
     delete_content = "delete:content"
+    delete_all_content = "delete:delete-all"
 
 
 class UnauthorizedException(HTTPException):
