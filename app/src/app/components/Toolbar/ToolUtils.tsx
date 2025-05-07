@@ -1,14 +1,7 @@
 import {IconButtonProps, IconProps} from '@radix-ui/themes';
 import {ActiveTool} from '@constants/types';
 import {useMapStore} from '@/app/store/mapStore';
-import {
-  EraserIcon,
-  Pencil2Icon,
-  HandIcon,
-  LockOpen1Icon,
-  ViewGridIcon,
-  ResetIcon,
-} from '@radix-ui/react-icons';
+import {EraserIcon, Pencil2Icon, HandIcon, ViewGridIcon, ResetIcon} from '@radix-ui/react-icons';
 import {useTemporalStore} from '@/app/store/temporalStore';
 import {useCallback} from 'react';
 import {debounce} from 'lodash';
@@ -106,16 +99,6 @@ export const useActiveTools = () => {
       icon: ViewGridIcon,
       hotKeyAccessor: e => {
         return e.code === 'KeyB';
-      },
-    },
-    {
-      hotKeyLabel: 'L',
-      mode: 'lock',
-      disabled: !mapDocument?.document_id || status === 'locked',
-      label: 'Lock',
-      icon: LockOpen1Icon,
-      hotKeyAccessor: e => {
-        return e.code === 'KeyL';
       },
     },
   ];

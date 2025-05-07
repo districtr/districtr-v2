@@ -219,7 +219,7 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
-  sidebarPanels: Array<'layers' | 'population' | 'evaluation' | 'demography' | 'mapValidation'>;
+  sidebarPanels: Array<'layers' | 'population' | 'demography' | 'election' | 'mapValidation'>;
   setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
   activeTool: ActiveTool;
@@ -985,7 +985,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       };
     }),
   resetZoneAssignments: () => set({zoneAssignments: new Map()}),
-  brushSize: 50,
+  brushSize: 1,
   setBrushSize: size => set({brushSize: size}),
   isPainting: false,
   setIsPainting: isPainting => {

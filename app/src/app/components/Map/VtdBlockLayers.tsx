@@ -35,7 +35,7 @@ export const VtdBlockLayers: React.FC<{
     }, 10);
   }, [mapDocument?.tiles_s3_path, mapDocument?.document_id]);
 
-  const handleDemographyRender = ({numberOfBins}: {numberOfBins?: number}) => {
+  const handleChoroplethRender = ({numberOfBins}: {numberOfBins?: number}) => {
     const _map = mapRef.current?.getMap();
     if (_map) {
       const updateFn = () => {
@@ -67,7 +67,7 @@ export const VtdBlockLayers: React.FC<{
 
   useLayoutEffect(() => {
     if (showDemography) {
-      handleDemographyRender({numberOfBins});
+      handleChoroplethRender({numberOfBins});
     }
   }, [
     numberOfBins,
