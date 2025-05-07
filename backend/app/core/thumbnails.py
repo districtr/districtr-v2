@@ -125,7 +125,7 @@ def generate_thumbnail(session: Session, document_id: str) -> None:
         plt.close(geoplt.figure)
         pic_IObytes.seek(0)
     except:
-        logger.info(f"Could not generate thumbnail for {document_id}")
+        logger.error(f"Could not generate thumbnail for {document_id}")
         return
 
     # write to S3
@@ -139,4 +139,4 @@ def generate_thumbnail(session: Session, document_id: str) -> None:
             ContentType="image/png",
         )
     except:
-        logger.info(f"Could not upload thumbnail for {document_id}")
+        logger.error(f"Could not upload thumbnail for {document_id}")
