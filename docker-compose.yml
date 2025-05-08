@@ -48,7 +48,7 @@ services:
       - ./app/node_modules:/app/node_modules # Bind mount for node_modules
 
     env_file:
-      - ./app/.env.docker.local
+      - ./app/.env.docker
     ports:
       - "3000:3000" # Expose Next.js on port 3000
     command: sh -c "npm install && npm run dev"
