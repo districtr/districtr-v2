@@ -52,20 +52,18 @@ export default function ZoomToConnectedComponents({
     <div>
       <Flex direction="row" gap="1" justify="start" align="center">
         <CrossCircledIcon color="red" />
-        <Text color="gray">{contiguity} connected components</Text>
-        <Tooltip content="View connected components">
+        <Text color="gray">{contiguity} components</Text>
+        <Tooltip content="View components">
           <IconButton variant="ghost" onClick={() => setShowZoom(prev => !prev)}>
             {showZoom ? <ChevronUpIcon /> : <ChevronDownIcon />}
           </IconButton>
         </Tooltip>
       </Flex>
       {showZoom && !data && !error && <Spinner />}
-      {showZoom && error && (
-        <Blockquote color="red">Error fetching connected components</Blockquote>
-      )}
+      {showZoom && error && <Blockquote color="red">Error fetching components</Blockquote>}
       {!!(showZoom && !isLoading && !isFetching && data) && (
         <Flex direction="column" gap="1" justify="start" align="start" py="2">
-          <Text color="gray">Zoom to connected components</Text>
+          <Text color="gray">Zoom to components</Text>
           <ZoomToFeature
             features={data.features}
             selectedIndex={selectedFeature}
