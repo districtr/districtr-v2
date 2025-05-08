@@ -19,7 +19,6 @@ interface ContiguityDetailProps {
   contiguity: null | number;
   lastUpdated: number | string | null;
   handleUpdateParent: () => void;
-  parentIsLoading: boolean;
 }
 
 export default function ContiguityDetail({
@@ -27,7 +26,6 @@ export default function ContiguityDetail({
   contiguity,
   lastUpdated,
   handleUpdateParent,
-  parentIsLoading,
 }: ContiguityDetailProps) {
   const mapDocument = useMapStore(store => store.mapDocument);
   const zoneLastUpdated = useMapStore(store => store.zonesLastUpdated.get(zone));
@@ -67,7 +65,7 @@ export default function ContiguityDetail({
   return (
     <div>
       <Flex direction="row" gap="1" justify="start" align="center">
-        {isOutOfSync || parentIsLoading ? (
+        {isOutOfSync ? (
           <QuestionMarkCircledIcon color="gray" />
         ) : contiguity === 1 ? (
           <CheckCircledIcon color="green" />

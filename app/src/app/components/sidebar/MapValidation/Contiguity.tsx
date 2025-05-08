@@ -3,7 +3,7 @@ import {getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
 import {Blockquote, Box, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo} from 'react';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {isAxiosError} from 'axios';
 import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDisplay';
@@ -12,8 +12,7 @@ import ContiguityDetail from './ContiguityDetail';
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const colorScheme = useMapStore(store => store.colorScheme);
-  const [lastUpdatedContiguity, setLastUpdatedContguity] = useState<string | null>(null);
-  const {data, error, isLoading, isFetched, refetch, isRefetching} = useQuery(
+  const {data, error, isLoading, refetch, dataUpdatedAt} = useQuery(
     {
       queryKey: ['Contiguity', mapDocument?.document_id],
       queryFn: () => mapDocument && getContiguity(mapDocument),
@@ -24,20 +23,11 @@ export const Contiguity = () => {
     },
     queryClient
   );
-
-  const update = async () => {
-    setLastUpdatedContguity(null);
-    await refetch();
-    setLastUpdatedContguity(useMapStore.getState().lastUpdatedHash);
-  };
+  const lastUpdatedContiguity = dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null;
 
   useEffect(() => {
     refetch();
   }, [mapDocument?.document_id, refetch]);
-
-  useEffect(() => {
-    setLastUpdatedContguity(useMapStore.getState().lastUpdatedHash);
-  }, [isFetched]);
 
   const tableData = useMemo(() => {
     if (!data) return [];
@@ -104,8 +94,7 @@ export const Contiguity = () => {
                   zone={row.zone}
                   contiguity={row.contiguity}
                   lastUpdated={lastUpdatedContiguity}
-                  handleUpdateParent={update}
-                  parentIsLoading={isLoading || isRefetching}
+                  handleUpdateParent={refetch}
                 />
               </Table.Cell>
             </Table.Row>
@@ -113,7 +102,7 @@ export const Contiguity = () => {
         </Table.Body>
       </Table.Root>
       <Flex direction="row" gapX="4" pt="4" align="center">
-        <RefreshButton onClick={update} />
+        <RefreshButton onClick={refetch} />
         {Boolean(lastUpdatedContiguity) && <TimestampDisplay timestamp={lastUpdatedContiguity} />}
       </Flex>
     </Box>
