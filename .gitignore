@@ -77,6 +77,7 @@ temp/*
 pipelines/build_client_rects/output/*
 data/**/*
 backend/.env.docker
+app/.env.docker
 !pre-commit/Dockerfile.dev
 !pipelines/Dockerfile.dev
 pipelines/districtr_pipelines.egg*
