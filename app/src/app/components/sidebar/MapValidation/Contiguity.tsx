@@ -13,7 +13,7 @@ export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const colorScheme = useMapStore(store => store.colorScheme);
   const [lastUpdatedContiguity, setLastUpdatedContguity] = useState<string | null>(null);
-  const {data, error, isLoading, isFetched, refetch} = useQuery(
+  const {data, error, isLoading, isFetched, refetch, isRefetching} = useQuery(
     {
       queryKey: ['Contiguity', mapDocument?.document_id],
       queryFn: () => mapDocument && getContiguity(mapDocument),
@@ -105,6 +105,7 @@ export const Contiguity = () => {
                   contiguity={row.contiguity}
                   lastUpdated={lastUpdatedContiguity}
                   handleUpdateParent={update}
+                  parentIsLoading={isLoading || isRefetching}
                 />
               </Table.Cell>
             </Table.Row>
