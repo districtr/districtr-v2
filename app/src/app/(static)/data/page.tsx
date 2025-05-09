@@ -19,8 +19,8 @@ export default function GuidePage() {
         lean in your state. Precinct level data can be{' '}
         <NextLink legacyBehavior href="https://districtr.org/assets/the-data-for-districtr.pdf">
           <Link target="_blank">notoriously difficult to collect</Link>
-        </NextLink>
-        ! In districtr v2, we use Census VTDs, which are approximations of precinct boundaries
+        </NextLink>!{" "}
+        In Districtr v2, we use Census VTDs, which are approximations of precinct boundaries
         collected by the Census and adjusted to be constructed out of blocks.
       </Text>
       <Text size="3">
@@ -55,7 +55,7 @@ export default function GuidePage() {
       </Text>
       <Text size="3">
         To compute the demographic categories like &quot;Black&quot; and &quot;Asian&quot; in
-        districtr v2, we use collections of columns from the Decennial Census. You can read more
+        Districtr v2, we use collections of columns from the Decennial Census. You can read more
         about exactly which columns we use{' '}
         <NextLink legacyBehavior href="https://mggg.org/VAP-CVAP">
           <Link>here</Link>
