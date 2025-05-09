@@ -109,11 +109,11 @@ const Main: React.FC = () => {
               <Text size="5">
                 Districtr lets you put your community on the map (literally!) by marking places that
                 matter to make your shared interests visible. If you are interested in learning more
-                about best practices for COI map collection, check out our{' '}
-                <NextLink legacyBehavior href="/training">
-                  <Link>training materials</Link>
+                about best practices for COI map collection email us at{' '}
+                <NextLink legacyBehavior href="mailto:Districtr@mggg.org">
+                  <Link>Districtr@mggg.org</Link>
                 </NextLink>
-                .{' '}
+                .
               </Text>
               <Text size="5">
                 For a detailed walkthrough of Districtr, visit our{' '}
@@ -133,10 +133,6 @@ const Main: React.FC = () => {
         </Box>
         <Text size="3" className="text-right mt-4">
           Import an existing plan or community map (coming soon)
-        </Text>
-        <br />
-        <Text size="3" className="text-right mt-4">
-          Features available by jurisdiction (coming soon)
         </Text>
       </ContentSection>
       <ContentSection title="About Districtr">
