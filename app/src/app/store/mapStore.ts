@@ -472,7 +472,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       },
       colorScheme: DefaultColorScheme,
       sidebarPanels: ['population'],
-      appLoadingState: 'initializing',
+      appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
       shatterIds: {parents: new Set(), children: new Set()},
     });
   },
