@@ -60,6 +60,12 @@ export const Footer: React.FC = () => (
             <NextLink href="/about" legacyBehavior>
               <Link className=" !cursor-pointer !text-districtrLightBlue">About</Link>
             </NextLink>
+            <NextLink href="/data" legacyBehavior>
+              <Link className=" !cursor-pointer !text-districtrLightBlue">Data</Link>
+            </NextLink>
+            <NextLink href="/rules" legacyBehavior>
+              <Link className=" !cursor-pointer !text-districtrLightBlue">Rules</Link>
+            </NextLink>
             <NextLink href="/updates" legacyBehavior>
               <Link className=" !cursor-pointer !text-districtrLightBlue">Updates</Link>
             </NextLink>
@@ -75,7 +81,12 @@ export const Footer: React.FC = () => (
             </NextLink>
             <NextLink href="https://mggg.org/" legacyBehavior>
               <Link target="_blank" className="!cursor-pointer !text-districtrLightBlue">
-              Data and Democracy Lab
+                Data and Democracy Lab
+              </Link>
+            </NextLink>
+            <NextLink href="https://github.com/districtr/districtr-v2" legacyBehavior>
+              <Link target="_blank" className="!cursor-pointer !text-districtrLightBlue">
+                GitHub
               </Link>
             </NextLink>
           </Flex>
