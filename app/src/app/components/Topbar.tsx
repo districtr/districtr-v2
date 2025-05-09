@@ -11,6 +11,8 @@ import {
   Box,
   Tooltip,
   Tabs,
+  Popover,
+  TextField,
 } from '@radix-ui/themes';
 import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
@@ -27,6 +29,8 @@ import {SaveMapModal} from '@/app/components/Toolbar/SaveMapModal';
 import {useMapStatus} from '../hooks/useMapStatus';
 import {VariableAnchorOffsetCollection} from 'maplibre-gl';
 import {useMapMetadata} from '../hooks/useMapMetadata';
+import { STATUS_TEXT } from '../constants/notifications';
+import { PasswordPopover } from './Toolbar/PasswordPopover';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -219,6 +223,7 @@ export const Topbar: React.FC = () => {
                 </Badge>
               </Tooltip>
             )}
+            {(!!(statusText === STATUS_TEXT.sharedWithPw) && <PasswordPopover />)}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               onClick={() => setSettingsOpen(prev => !prev)}

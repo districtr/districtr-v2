@@ -11,11 +11,13 @@ export const STATUS_TOOLTIPS = {
   viewOnly: 'This map is view only. You can make a duplicate copy to edit.',
   checkedOut:
     'Another user is actively editing this map.  You can choose to make a duplicate copy to edit or you can wait and return to this later.',
+  lockedWithPW: 'This map is password protected. Enter the password to continue editing.',
 } as const;
 
 export const STATUS_TEXT = {
   start: 'Editing',
   frozen: 'Status: Frozen',
+  sharedWithPw: 'Status: Password Protected',
   checkedOut: 'Status: In Use',
   progress: 'Status: In Progress',
   scratch: 'Scratch Work Only',

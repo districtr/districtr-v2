@@ -24,7 +24,7 @@ import {
   resetZoneColors,
   setZones,
 } from '../utils/helpers';
-import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
+import {checkoutDocument, patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
@@ -286,6 +286,7 @@ export interface MapStore {
   // SHARE MAP
   passwordPrompt: boolean;
   setPasswordPrompt: (prompt: boolean) => void;
+  handleUnlockWithPassword: (password: string | null) => void;
   password: string | null;
   setPassword: (password: string | null | undefined) => void;
   receivedShareToken: string | null;
@@ -1077,6 +1078,37 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
   password: null,
   setPassword: password => set({password}),
+  handleUnlockWithPassword: (password) => {
+    const {mapDocument, receivedShareToken} = get();
+    if (!password) {
+      set({
+        errorNotification: {
+          message: 'Please provide a password',
+          severity: 1,
+        },
+      });
+    } else if (mapDocument?.document_id && receivedShareToken?.length) {
+      checkoutDocument
+        .mutate({
+          document_id: mapDocument.document_id,
+          token: receivedShareToken,
+          password,
+        })
+        .then(response => {
+          console.log(response);
+          if (response.document_id === mapDocument.document_id) {
+            set({passwordPrompt: false});
+          }
+        });
+    } else {
+      set({
+        errorNotification: {
+          message: 'No document ID or share token found',
+          severity: 1,
+        },
+      });
+    }
+  },
   receivedShareToken: null,
   setReceivedShareToken: token => set({receivedShareToken: token}),
   shareMapMessage: null,

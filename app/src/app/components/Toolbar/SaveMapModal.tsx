@@ -52,6 +52,7 @@ export const SaveMapModal: React.FC<{
   const [shareStateIsSaved, setShareStateIsSaved] = React.useState(false);
   const [password, setPassword] = React.useState<string | null>(null);
   const receivedShareToken = useMapStore(store => store.receivedShareToken ?? '');
+  const handleUnlockWithPassword = useMapStore(store => store.handleUnlockWithPassword);
   const shareMapMessage = useMapStore(store => store.shareMapMessage);
   const {frozenMessage} = useMapStatus();
   const mapMetadata = useMapMetadata(mapDocument?.document_id);
@@ -278,7 +279,7 @@ export const SaveMapModal: React.FC<{
                       onChange={e => setPassword(e.target.value ?? null)}
                     ></TextField.Root>
                     <Flex gap="2" py="1">
-                      <Button onClick={handlePasswordSubmit}>Submit</Button>
+                      <Button onClick={() => handleUnlockWithPassword(password)}>Submit</Button>
                     </Flex>
                   </>
                 ) : null}
