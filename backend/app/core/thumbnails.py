@@ -100,14 +100,19 @@ def generate_thumbnail(session: Session, document_id: str) -> None:
         else:
             return color_scheme[int(row["zone"]) % len(color_scheme)]
 
-    sql = f"""WITH geos AS ( SELECT * FROM get_zone_assignments_geo('{document_id}'::UUID) )
-        SELECT
-            zone::INT AS zone,
-            ST_Collect(geometry) AS geom
-        FROM geos
+    sql = f"""
+    SELECT ST_Collect(geometry) AS geom, zone
+    FROM gerrydb.{parent_layer} geos
+    LEFT JOIN "document.assignments_{document_id}" assigned ON geos.path = assigned.geo_id
+    GROUP BY zone
+    """
+    if child_layer is not None:
+        sql += f"""UNION
+        (SELECT ST_Collect(geometry) AS geom, zone
+        FROM "document.assignments_{document_id}" assigned
+        INNER JOIN gerrydb.{child_layer} blocks ON blocks.path = assigned.geo_id
         WHERE zone IS NOT NULL
-        GROUP BY zone
-        """
+        GROUP BY zone)"""
 
     try:
         conn = session.get_bind().raw_connection()
