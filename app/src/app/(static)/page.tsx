@@ -130,12 +130,13 @@ const Main: React.FC = () => {
         <Box className="w-full aspect-square mx-auto lg:aspect-video">
           <ResponsivePlaceMap />
         </Box>
-        <Heading size="6" as="h3" className="text-right mt-4">
+        <Text size="3" className="text-right mt-4">
           Import an existing plan or community map (coming soon)
-        </Heading>
-        <Heading size="6" as="h3" className="text-right mt-4">
+        </Text>
+        <br/>
+        <Text size="3" className="text-right mt-4">
           Features available by jurisdiction (coming soon)
-        </Heading>
+        </Text>
       </ContentSection>
       <ContentSection title="About Districtr">
         <Flex direction="column" gapY="4" py="4">
