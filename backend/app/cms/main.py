@@ -158,7 +158,7 @@ async def list_cms_content(
     language: LanguageEnum | None = None,
     session: Session = Depends(get_session),
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, le=100),
+    limit: int = Query(default=100, le=100),
     author: str | None = Query(default=None),
 ):
     """List CMS content with optional filtering"""
@@ -186,7 +186,7 @@ async def list_editor_cms_content(
     language: LanguageEnum | None = None,
     session: Session = Depends(get_session),
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, le=100),
+    limit: int = Query(default=100, le=100),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.read_content]),
 ):
     """List CMS content with optional filtering"""
