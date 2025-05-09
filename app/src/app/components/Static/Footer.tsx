@@ -6,7 +6,7 @@ import {PlaceMapModal} from './PlaceMap/PlaceMapModal';
 
 export const Footer: React.FC = () => (
   <>
-    <Box className="p-4 mt-12 pt-0 bg-districtrIndigo">
+    <Box className="p-4 mt-12 pt-0 bg-gray-800">
       <Box id="footer-content" className="mx-auto max-w-screen-lg">
         <Box className="translate-y-[-50%]">
           <Box className="bg-gray-200 p-4 w-fit">

@@ -5,6 +5,7 @@ import NextLink from 'next/link';
 import {ContentSection} from '../components/Static/ContentSection';
 import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
 import {DevTeam} from '../components/Static/Content/DevTeam';
+import { CTA } from '../components/Static/Content/CTA';
 
 const Main: React.FC = () => {
   return (
@@ -223,6 +224,7 @@ const Main: React.FC = () => {
           <DevTeam />
         </Flex>
       </ContentSection>
+      <CTA />
     </Flex>
   );
 };

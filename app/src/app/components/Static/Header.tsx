@@ -12,18 +12,18 @@ export const Header: React.FC = () => {
 
   const linkItems = [
     <NextLink legacyBehavior href="/about" key={`link-items-1`}>
-      <Link className="!font-bold">About Districtr</Link>
+      <Link className="!font-bold !cursor-pointer">About Districtr</Link>
     </NextLink>,
     <NextLink legacyBehavior href="/guide" key={`link-items-2`}>
-      <Link className="!font-bold">Guide</Link>
+      <Link className="!font-bold !cursor-pointer">Guide</Link>
     </NextLink>,
     <NextLink legacyBehavior href="/data" key={`link-items-3`}>
-      <Link className="!font-bold">Data</Link>
+      <Link className="!font-bold !cursor-pointer">Data</Link>
     </NextLink>,
     <NextLink legacyBehavior href="/rules" key={`link-items-4`}>
-      <Link className="!font-bold">Rules of Redistricting</Link>
+      <Link className="!font-bold !cursor-pointer">Rules of Redistricting</Link>
     </NextLink>,
-    <Link className="!font-bold cursor-pointer" onClick={() => setModalOpen(true)}>
+    <Link className="!font-bold !cursor-pointer" onClick={() => setModalOpen(true)}>
       Start Mapping
     </Link>,
   ];

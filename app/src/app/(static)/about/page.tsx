@@ -1,3 +1,4 @@
+import { CTA } from '@/app/components/Static/Content/CTA';
 import {DevTeam} from '@/app/components/Static/Content/DevTeam';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import NextLink from 'next/link';
@@ -87,6 +88,7 @@ export default function GuidePage() {
         <Text size="3">Our team aims to respond to requests for new modules within a week.</Text>
 
         <DevTeam />
+        <CTA />
       </Flex>
     </Flex>
   );

@@ -1,3 +1,4 @@
+import { CTA } from '@/app/components/Static/Content/CTA';
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {LoopVideoPlayer} from '@/app/components/Static/LoopVideoPlayer';
 import {Box, Flex, Heading, Text} from '@radix-ui/themes';
@@ -264,6 +265,7 @@ export default function GuidePage() {
           />
         </Flex>
       </ContentSection>
+      <CTA />
     </Flex>
   );
 }

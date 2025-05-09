@@ -1,3 +1,4 @@
+import { CTA } from '@/app/components/Static/Content/CTA';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
@@ -71,6 +72,7 @@ export default function GuidePage() {
         </NextLink>{' '}
         database, which stores all sorts of geospatial data.
       </Text>
+      <CTA />
     </Flex>
   );
 }
