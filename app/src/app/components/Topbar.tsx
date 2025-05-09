@@ -26,6 +26,7 @@ import {PasswordPromptModal} from '@components/Toolbar/PasswordPromptModal';
 import {SaveMapModal} from '@/app/components/Toolbar/SaveMapModal';
 import {useMapStatus} from '../hooks/useMapStatus';
 import {VariableAnchorOffsetCollection} from 'maplibre-gl';
+import {useMapMetadata} from '../hooks/useMapMetadata';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -40,20 +41,9 @@ export const Topbar: React.FC = () => {
   const mapViews = useMapStore(state => state.mapViews);
   const {statusText} = useMapStatus();
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
-
-  const mapName = useMapStore(
-    state =>
-      state.userMaps.find(userMap => userMap.document_id === state.mapDocument?.document_id)
-        ?.map_metadata?.name ??
-      state.mapDocument?.map_metadata?.name ??
-      ''
-  );
-
-  const mapTableName = useMapStore(
-    state =>
-      state.userMaps.find(userMap => userMap.document_id === state.mapDocument?.document_id)
-        ?.name ?? ''
-  );
+  const mapMetadata = useMapMetadata(mapDocument?.document_id);
+  const mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
+  const mapTableName = mapMetadata?.name ?? '';
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];

@@ -17,6 +17,7 @@ import {styled} from '@stitches/react';
 import {checkoutDocument} from '@/app/utils/api/mutations';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
 import {useMapStatus} from '@/app/hooks/useMapStatus';
+import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 
 const BoxContainer = styled(Box, {
   display: 'flex',
@@ -53,6 +54,7 @@ export const SaveMapModal: React.FC<{
   const receivedShareToken = useMapStore(store => store.receivedShareToken ?? '');
   const shareMapMessage = useMapStore(store => store.shareMapMessage);
   const {frozenMessage} = useMapStatus();
+  const mapMetadata = useMapMetadata(mapDocument?.document_id);
   const mapIsSaved =
     tagsIsSaved && descriptionIsSaved && groupNameIsSaved && shareStateIsSaved && mapNameIsSaved;
 
@@ -66,21 +68,16 @@ export const SaveMapModal: React.FC<{
   });
 
   useEffect(() => {
-    if (!mapDocument) return;
-
-    const metadata =
-      userMaps.find(map => map.document_id === mapDocument.document_id)?.map_metadata ??
-      mapDocument.map_metadata;
-
+    if (!mapMetadata) return;
     setMapFormState({
-      name: metadata?.name ?? null,
-      group: metadata?.group ?? null,
-      description: metadata?.description ?? null,
-      draft_status: metadata?.draft_status,
-      tags: metadata?.tags ?? null,
-      eventId: metadata?.eventId ?? null,
+      name: mapMetadata?.name ?? null,
+      group: mapMetadata?.group ?? null,
+      description: mapMetadata?.description ?? null,
+      draft_status: mapMetadata?.draft_status,
+      tags: mapMetadata?.tags ?? null,
+      eventId: mapMetadata?.eventId ?? null,
     });
-  }, [mapDocument, userMaps]);
+  }, [mapMetadata]);
 
   const handlePasswordSubmit = async () => {
     if (mapDocument?.document_id && receivedShareToken.length) {

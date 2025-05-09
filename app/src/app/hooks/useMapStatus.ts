@@ -1,18 +1,15 @@
 import {useMemo} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {FROZEN_CONDITIONS, STATUS_TEXT} from '../constants/notifications';
+import {useMapMetadata} from './useMapMetadata';
 
 export const useMapStatus = () => {
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const mapStatus = useMapStore(state => state.mapStatus);
   const status = mapStatus?.status;
   const access = mapStatus?.access;
+  const mapMetadata = useMapMetadata(document_id);
 
-  const mapMetadata = useMapStore(
-    state =>
-      state.userMaps.find(userMap => userMap.document_id === state.mapDocument?.document_id)
-        ?.map_metadata || null
-  );
   const statusText = useMemo(() => {
     if (!document_id) return null;
     if (status === 'locked' || access === 'read') return STATUS_TEXT.frozen;
