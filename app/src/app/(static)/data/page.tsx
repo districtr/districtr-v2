@@ -5,13 +5,13 @@ import NextLink from 'next/link';
 export default function GuidePage() {
   return (
     <Flex direction="column" gapY="4" className="max-w-screen-lg mx-auto">
-      <Heading as="h1">Data</Heading>
-      <Text>
+      <Heading as="h1" size="8">Data</Heading>
+      <Text size="3">
         In our maps, you draw your own districts and communities from a given set of units or
         building blocks. Common building blocks that you&apos;ll see in our modules are{' '}
         <b>precincts</b>, <b>block groups</b>, or <b>blocks</b>.
       </Text>{' '}
-      <Text>
+      <Text size="3">
         <b>Precincts</b> are the smallest unit at which vote counts are reported. (Usually these
         correspond one-to-one with polling places, where you actually go to cast a vote.) Therefore,
         precincts are the smallest unit to use when you care about accurate election results. In a
@@ -23,7 +23,7 @@ export default function GuidePage() {
         ! In districtr v2, we use Census VTDs, which are approximations of precinct boundaries
         collected by the Census and adjusted to be constructed out of blocks.
       </Text>
-      <Text>
+      <Text size="3">
         <b>Blocks</b> and <b>block groups</b> are units created by the United States Census Bureau
         with input from individual states. Blocks are the smallest geographic unit published by the
         Census Bureau, and attempt to fit neatly into the geographic features of their surroundings
@@ -39,7 +39,7 @@ export default function GuidePage() {
         </NextLink>
         .
       </Text>
-      <Text>
+      <Text size="3">
         The <b>Decennial Census</b> is the nationwide tallying of every person living in the United
         States, and has been conducted every ten years since 1790. The final Census product is an
         extremely large dataset, with more than 18,000 tabulated variables, and is published at the
@@ -53,7 +53,7 @@ export default function GuidePage() {
         statistics, including income and some demographic data, and are published at the block group
         level regardless of population.
       </Text>
-      <Text>
+      <Text size="3">
         To compute the demographic categories like &quot;Black&quot; and &quot;Asian&quot; in
         districtr v2, we use collections of columns from the Decennial Census. You can read more
         about exactly which columns we use{' '}

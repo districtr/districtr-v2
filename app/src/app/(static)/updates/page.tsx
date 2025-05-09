@@ -3,15 +3,17 @@ import {Flex, Heading, Text} from '@radix-ui/themes';
 export default function UpdatesPage() {
   return (
     <Flex className="w-full mx-auto max-w-screen-lg" direction="column" gapY="4">
-      <Heading as="h1">Updates</Heading>
-      <Heading as="h2" size="3" className="text-balance max-w-prose">
+      <Heading as="h1" size="8">
+        Updates
+      </Heading>
+      <Heading as="h2" size="5" className="text-balance max-w-prose">
         After many years of faithful service, and thousands of community based maps drawn, we
         decided that districtr needed a revamp. On the backend, our team implemented the latest and
         greatest in GIS packages. This allowed us to implement tons of exciting new features in v2,
         as well as set us up for long term success maintaining and upgrading the site!
       </Heading>
-      <Text>New/notable features include:</Text>
-      <ul className="list-disc list-inside">
+      <Text size="3">New/notable features include:</Text>
+      <ul className="list-disc leading-7 pl-4">
         <li>Paint by county: use the brush to paint entire counties at once.</li>
         <li>
           Save/share: share a link to your map. You can share a version that collaborators can edit,
