@@ -183,7 +183,7 @@ const Main: React.FC = () => {
 
           <Text size="5">
             <b>Openness and transparency.</b> The entire project is open source, with permissive
-            licenses. We don&apos;t collect any information about users.
+            licenses. We respect your privacy, and only collect anonymized usage data like page views, how you found Districtr, and what size screen you are using.
           </Text>
 
           <Text size="5">
