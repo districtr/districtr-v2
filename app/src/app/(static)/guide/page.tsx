@@ -50,7 +50,7 @@ export default function GuidePage() {
             across the map.
           </Text>
           <Text size="3">
-            o zoom in and out, use the plus and minus buttons in the bottom right corner of the map.
+            To zoom in and out, use the plus and minus buttons in the bottom right corner of the map.
             You can also use a mouse scroll wheel or trackpad.
           </Text>
           <LoopVideoPlayer
@@ -85,7 +85,7 @@ export default function GuidePage() {
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/brush_size.webm`}
           />
           <Text size="3">
-            To paint whole counties, toggle the “Paint counties” box next to the slider.
+            To paint whole counties, toggle the “County Brush” box next to the slider.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/paint_by_county.webm`}
@@ -93,7 +93,7 @@ export default function GuidePage() {
           <Text size="3">
             To inspect districts without altering them, or to avoid painting over already-drawn
             areas, toggle the lock icon next to the district number in the list of districts in the
-            “Population” tab
+            “Population” tab.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/lock_districts.webm`}
