@@ -1,4 +1,4 @@
-import { CTA } from '@/app/components/Static/Content/CTA';
+import {CTA} from '@/app/components/Static/Content/CTA';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
