@@ -23,7 +23,7 @@ export const Header: React.FC = () => {
     <NextLink legacyBehavior href="/rules" key={`link-items-4`}>
       <Link className="!font-bold !cursor-pointer">Rules of Redistricting</Link>
     </NextLink>,
-    <Link className="!font-bold !cursor-pointer" onClick={() => setModalOpen(true)}>
+    <Link className="!font-bold !cursor-pointer" onClick={() => setModalOpen(true)} key={`link-items-5`}>
       Start Mapping
     </Link>,
   ];
