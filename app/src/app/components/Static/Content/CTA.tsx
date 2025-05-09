@@ -24,7 +24,7 @@ export const CTA: React.FC = () => {
       <Box className="relative z-10 text-center max-w-2xl mx-auto px-4">
         <PlaceMapModal>
           <Box className="bg-districtrBlue text-white text-xl px-8 py-3 rounded-md font-bold hover:bg-blue-700 transition-colors cursor-pointer">
-            Ready to start mapping your community?
+            Ready to start drawing districts?
           </Box>
         </PlaceMapModal>
       </Box>
