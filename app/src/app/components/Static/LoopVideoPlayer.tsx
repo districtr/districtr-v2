@@ -1,17 +1,17 @@
-"use client"
-import { Box } from "@radix-ui/themes";
-import { useEffect, useRef } from "react";
-import { useInView } from "react-intersection-observer";
+'use client';
+import {Box} from '@radix-ui/themes';
+import {useEffect, useRef} from 'react';
+import {useInView} from 'react-intersection-observer';
 
 export const LoopVideoPlayer: React.FC<{videoUrl: string}> = ({videoUrl}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { ref, inView } = useInView({
+  const {ref, inView} = useInView({
     threshold: 0.2,
   });
 
   useEffect(() => {
     if (!videoRef.current) return;
-    
+
     if (inView) {
       videoRef.current.play();
     } else {
@@ -21,7 +21,10 @@ export const LoopVideoPlayer: React.FC<{videoUrl: string}> = ({videoUrl}) => {
   }, [inView]);
 
   return (
-    <Box ref={ref} className="w-full h-auto max-w-[800px] mx-auto shadow-xl m-4 border-districtrIndigo border-2 rounded-lg overflow-hidden">
+    <Box
+      ref={ref}
+      className="w-full h-auto max-w-[800px] mx-auto shadow-xl m-4 border-districtrIndigo border-2 rounded-lg overflow-hidden"
+    >
       <video ref={videoRef} src={videoUrl} loop muted playsInline />
     </Box>
   );

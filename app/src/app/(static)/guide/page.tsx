@@ -14,7 +14,9 @@ export default function GuidePage() {
         you wish to make a districting plan. All states are available, as well as Washington, D.C.
         and Puerto Rico.
       </Text>
-      <LoopVideoPlayer videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/get_to_map.webm`} />
+      <LoopVideoPlayer
+        videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/get_to_map.webm`}
+      />
       <Text>
         Once you have selected a state, you will be directed to its landing page. The landing page
         contains all mapping options along with background information.
@@ -24,7 +26,9 @@ export default function GuidePage() {
         The available localities and districts vary by state. (Additional localities can be added
         upon request.)
       </Text>
-      <LoopVideoPlayer videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/get_to_locality_module.webm`} />
+      <LoopVideoPlayer
+        videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/get_to_locality_module.webm`}
+      />
       <Text>You will now be redirected to your selected districting page.</Text>
 
       <Heading>Main Tools</Heading>
@@ -39,7 +43,9 @@ export default function GuidePage() {
         To zoom in and out, use the plus and minus buttons in the bottom right corner of the map.
         You can also use a mouse scroll wheel or trackpad.
       </Text>
-      <LoopVideoPlayer videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/move_zoom.webm`} />
+      <LoopVideoPlayer
+        videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/move_zoom.webm`}
+      />
 
       <Heading>Drawing the districts</Heading>
 

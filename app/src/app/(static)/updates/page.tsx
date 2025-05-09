@@ -20,8 +20,8 @@ export default function UpdatesPage() {
         <li>Custom district colors. </li>
         <li>Draggable and resizable toolbar. </li>
         <li>
-          Precinct shattering: the ability to take a precinct and &quot;shatter it&quot; into its component
-          Census blocks. This helps you draw maps with +/- 1 population deviation.{' '}
+          Precinct shattering: the ability to take a precinct and &quot;shatter it&quot; into its
+          component Census blocks. This helps you draw maps with +/- 1 population deviation.{' '}
         </li>
         <li>
           Importing/exporting maps: users can upload maps from other sources as block level

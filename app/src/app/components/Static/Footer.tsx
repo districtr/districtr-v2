@@ -3,7 +3,6 @@ import {Box, Flex, Heading, Link, Text} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
 export const Footer: React.FC = () => (
-  
   <Box className="p-4 bg-gray-200">
     <Flex
       direction={{

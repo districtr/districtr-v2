@@ -143,7 +143,10 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)} disabled={!showRecentMaps}>
+              <DropdownMenu.Item
+                onClick={() => setRecentMapsModalOpen(true)}
+                disabled={!showRecentMaps}
+              >
                 Recent Maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
