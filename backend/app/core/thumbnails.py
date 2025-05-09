@@ -122,7 +122,9 @@ def generate_thumbnail(session: Session, document_id: str) -> None:
         pic_IObytes.seek(0)
     except:
         logger.error(f"Could not generate thumbnail for {document_id}")
+        pic_IObytes.close()
         return
+
 
     # write to S3
     try:
@@ -136,3 +138,6 @@ def generate_thumbnail(session: Session, document_id: str) -> None:
         )
     except:
         logger.error(f"Could not upload thumbnail for {document_id}")
+    finally:
+        pic_IObytes.close()
+        logger.info(f"Thumbnail uploaded for {document_id}")
