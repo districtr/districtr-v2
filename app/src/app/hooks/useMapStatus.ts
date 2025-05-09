@@ -10,7 +10,7 @@ export const useMapStatus = () => {
   const status = mapStatus?.status;
   const access = mapStatus?.access;
   const mapMetadata = useMapMetadata(document_id);
-  const shareUrl = new URL(window.location.toString()).searchParams.get('share');
+  const shareUrl = typeof window !== 'undefined' ? new URL(window.location.toString()).searchParams.get('share') : null;
 
   const [statusText, statusTooltip, statusColor] = useMemo(() => {
     if (!document_id) return [null, null, null];
