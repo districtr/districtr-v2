@@ -970,11 +970,7 @@ async def get_projects(
 
 
 @app.get("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
-async def get_thumbnail(
-    *,
-    document_id: str,
-    session: Session = Depends(get_session)
-):
+async def get_thumbnail(*, document_id: str, session: Session = Depends(get_session)):
     try:
         if thumbnail_exists(document_id):
             return RedirectResponse(
@@ -992,7 +988,7 @@ async def make_thumbnail(
     document_id: str,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content])
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
 ):
     try:
         stmt = select(Document.document_id).filter(Document.document_id == document_id)
@@ -1007,8 +1003,7 @@ async def make_thumbnail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
-
-    generate_thumbnail(session=session, document_id=document_id)
+    background_tasks.add_task(generate_thumbnail, session=session, document_id=document_id)
     return {"message": "Generating thumbnail in background task"}
 
 
