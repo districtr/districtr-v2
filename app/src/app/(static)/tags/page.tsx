@@ -27,9 +27,7 @@ export default async function TagsPage() {
         }}
         gap="4"
       >
-        {entries.length === 0 && (
-          <Text>No tags found</Text>
-        )}
+        {entries.length === 0 && <Text>No tags found</Text>}
         {entries.map(content => (
           <Card key={content.slug}>
             <Heading as="h3" size="4">

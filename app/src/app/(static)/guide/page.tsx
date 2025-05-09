@@ -50,8 +50,8 @@ export default function GuidePage() {
             across the map.
           </Text>
           <Text size="3">
-            To zoom in and out, use the plus and minus buttons in the bottom right corner of the map.
-            You can also use a mouse scroll wheel or trackpad.
+            To zoom in and out, use the plus and minus buttons in the bottom right corner of the
+            map. You can also use a mouse scroll wheel or trackpad.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/move_zoom.webm`}

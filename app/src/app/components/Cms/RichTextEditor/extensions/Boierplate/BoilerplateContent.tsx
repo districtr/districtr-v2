@@ -90,7 +90,7 @@ const AboutTheDataBoilerplate = (
       and used to identify precinct boundaries. Demographic data were aggregated from the census
       block level and precincts were assigned to districts using the{' '}
       <Link target="_blank" href="https://github.com/mggg/maup">
-      Data and Democracy Lab&apos;s proration software
+        Data and Democracy Lab&apos;s proration software
       </Link>
       .
     </Text>
