@@ -7,7 +7,7 @@ import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
 
 const Main: React.FC = () => {
   return (
-    <Flex direction="column" className="px-12 max-w-screen-xl mx-auto" gapY="9">
+    <Flex direction="column" className="max-w-screen-lg mx-auto" gapY="9">
       <Flex direction="column" align="center" justify="center">
         <Image src="/districtr_logo.jpg" alt="logo" width={800} height={300} />
         <Heading size="7" as="h2" className="pb-4">

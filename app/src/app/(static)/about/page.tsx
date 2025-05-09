@@ -3,7 +3,7 @@ import NextLink from 'next/link';
 
 export default function GuidePage() {
   return (
-    <Flex direction="column" gapY="4">
+    <Flex direction="column" gapY="4" className="max-w-screen-lg mx-auto">
       <Heading as="h1" my="4">
         About Districtr
       </Heading>
@@ -88,18 +88,17 @@ export default function GuidePage() {
         <Heading className="text-districtrIndigo pt-6">Development Team</Heading>
 
         <Text size="5">
-          <b>Project Manager</b>: Liz Kopecky
+          <b>Software Devs:</b> Anna Bailliekova, Nick Doiron, Mario Giampieri, Dylan Halpern,
+          Raphael Laude
         </Text>
-
         <Text size="5">
-          {' '}
-          <b>Originating Team:</b> Max Hully, Ruth Buck
+          <b>Project Team:</b> Chris Donnay (project manager), Moon Duchin
         </Text>
-
         <Text size="5">
-          <b>Contributors:</b> Jamie Atlas, Eion Blanchard, Jack Deschler, Nick Doiron, Moon Duchin,
-          Chris Gernon, Peter Horvath, Muniba Khan, Zhenghong Lieu, JN Matthews, Anthony Pizzimenti,
-          Heather Rosenfeld, Anna Schall, and many more
+          <b>Past Contributors:</b> Max Hully, Ruth Buck (originating team); Liz Kopecky (past
+          project manager); Jamie Atlas, Eion Blanchard, Jack Deschler, Chris Gernon, Peter Horvath,
+          Muniba Khan, Zhenghong Lieu, JN Matthews, Anthony Pizzimenti, Heather Rosenfeld, Anna
+          Schall, and many more
         </Text>
       </Flex>
     </Flex>

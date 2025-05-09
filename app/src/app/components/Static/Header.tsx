@@ -12,14 +12,19 @@ export const Header: React.FC = () => {
       <Link>GET STARTED</Link>
     </NextLink>,
     <PlaceMapModal key={`link-items-2`} />,
-    <NextLink legacyBehavior href="/about" key={`link-items-3`}>
+    <NextLink legacyBehavior href="/about" key={`link-items-2`}>
       <Link>ABOUT</Link>
+    </NextLink>,
+    <NextLink legacyBehavior href="/data" key={`link-items-3`}>
+      <Link>DATA</Link>
     </NextLink>,
     <NextLink legacyBehavior href="/updates" key={`link-items-4`}>
       <Link>WHAT&apos;S NEW?</Link>
     </NextLink>,
     <NextLink legacyBehavior href="https://mggg.org/" target="_blank" key={`link-items-5`}>
-      <Image src="/mggg.svg" alt="MGGG" width={100} height={50} className="cursor-pointer" />
+      <Link target="_blank">
+        <Image src="/mggg.svg" alt="MGGG" width={100} height={50} className="cursor-pointer" />
+      </Link>
     </NextLink>,
   ];
 

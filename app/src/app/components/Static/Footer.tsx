@@ -3,6 +3,7 @@ import {Box, Flex, Heading, Link, Text} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
 export const Footer: React.FC = () => (
+  
   <Box className="p-4 bg-gray-200">
     <Flex
       direction={{
@@ -11,7 +12,7 @@ export const Footer: React.FC = () => (
       }}
       gap="2"
       justify={'between'}
-      className="max-w-screen-xl mx-auto"
+      className="max-w-screen-lg mx-auto"
     >
       <Flex direction="column">
         <Heading as="h3" className="text-lg font-bold">
