@@ -152,7 +152,7 @@ async def delete_cms_content(
     return None
 
 
-@router.get("/content/{content_type}/list", response_model=list[AllCMSContentPublic])
+@router.get("/content/{content_type}/list")
 async def list_cms_content(
     content_type: CMSContentTypesEnum,
     language: LanguageEnum | None = None,
