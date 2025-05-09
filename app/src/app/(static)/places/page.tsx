@@ -1,6 +1,6 @@
-import {listCMSContent} from '@/app/utils/api/cms';
+import {listCMSContent, PlacesCMSContent} from '@/app/utils/api/cms';
 import {onlyUniqueProperty} from '@/app/utils/arrays';
-import {Card, Flex, Grid, Heading, Link} from '@radix-ui/themes';
+import {Card, Flex, Grid, Heading, Link, Text} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -11,7 +11,9 @@ export default async function TagsPage() {
   const entries = cmsContent
     ?.filter(content => content.published_content)
     .filter(onlyUniqueProperty('slug'))
-    .sort((a, b) => a.published_content!.title.localeCompare(b.published_content!.title));
+    .sort((a, b) =>
+      a.published_content!.title.localeCompare(b.published_content!.title)
+    ) as PlacesCMSContent[];
 
   if (!entries) return null;
 
@@ -33,6 +35,10 @@ export default async function TagsPage() {
             <Heading as="h3" size="4">
               {content.published_content!.title}
             </Heading>
+            {!!(content?.districtr_map_slugs && content?.districtr_map_slugs?.length) && (
+              <Text>{content.districtr_map_slugs.length} map modules</Text>
+            )}
+            <br />
             <NextLink href={`/place/${content.slug}`} passHref legacyBehavior>
               <Link>Go to place</Link>
             </NextLink>
