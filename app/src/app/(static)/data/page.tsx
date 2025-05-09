@@ -65,7 +65,7 @@ export default function GuidePage() {
           <Link>MGGG</Link>
         </NextLink>{' '}
         Redistricting Lab&apos;s{' '}
-        <NextLink legacyBehavior href="https://github.com/mggg/gerrydb">
+        <NextLink legacyBehavior href="https://github.com/mggg/gerrydb-client-py">
           <Link>gerrydb</Link>
         </NextLink>{' '}
         database, which stores all sorts of geospatial data.
