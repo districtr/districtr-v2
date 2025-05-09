@@ -29,7 +29,7 @@ export const Header: React.FC = () => {
   ];
 
   return (
-    <Flex direction="row" justify={'between'} className="p-4 bg-gray-100 sticky top-0 shadow-sm">
+    <Flex direction="row" justify={'between'} className="p-4 bg-gray-100 sticky top-0 shadow-sm z-[10000]">
       <Heading size="4" className="site-title text-districtrBlue">
         <a href="/">Districtr</a>
       </Heading>
