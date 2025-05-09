@@ -16,7 +16,7 @@ import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ToolSettings} from '@components/Toolbar/Settings';
-import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
+import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {useTemporalStore} from '@store/temporalStore';
 import {document} from '@utils/api/mutations';
 import {DistrictrMap} from '@utils/api/apiHandlers/types';
@@ -39,12 +39,11 @@ export const Topbar: React.FC = () => {
   const status = useMapStore(state => state.mapStatus?.status);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
-  const {statusText} = useMapStatus();
+  const {statusText, statusColor, statusTooltip} = useMapStatus();
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
   const mapMetadata = useMapMetadata(mapDocument?.document_id);
   const mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
   const mapTableName = mapMetadata?.name ?? '';
-
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
 
@@ -208,14 +207,17 @@ export const Topbar: React.FC = () => {
                 {status === 'locked' ? 'Share' : 'Share'}
               </Button>
             )}
-            {!!statusText && (
-              <Badge
-                color={statusText === 'Status: Ready to Share' ? 'green' : 'blue'}
-                size={'3'}
-                variant={statusText === 'Scratch Work Only' ? 'outline' : 'surface'}
-              >
-                {statusText}
-              </Badge>
+            {!!(statusText && statusColor) && (
+              <Tooltip content={statusTooltip}>
+                <Badge
+                  color={statusColor}
+                  size={'3'}
+                  variant={'soft'}
+                  className={statusTooltip?.length ? '' : `pointer-events-none`}
+                >
+                  {statusText} {!!statusTooltip?.length && <InfoCircledIcon />}
+                </Badge>
+              </Tooltip>
             )}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
