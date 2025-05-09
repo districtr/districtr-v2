@@ -60,15 +60,15 @@ export default function GuidePage() {
         Districtr v2, we use collections of columns from the Decennial Census. You can read more
         about exactly which columns we use{' '}
         <NextLink legacyBehavior href="https://mggg.org/VAP-CVAP">
-          <Link>here</Link>
+          <Link target="_blank">here</Link>
         </NextLink>
         . On the backend, all of our data comes from the{' '}
         <NextLink legacyBehavior href="https://mggg.org/">
-          <Link>Data and Democracy Lab</Link>
+          <Link target="_blank">Data and Democracy Lab</Link>
         </NextLink>{' '}
         Redistricting Lab&apos;s{' '}
         <NextLink legacyBehavior href="https://github.com/mggg/gerrydb-client-py">
-          <Link>gerrydb</Link>
+          <Link target="_blank">gerrydb</Link>
         </NextLink>{' '}
         database, which stores all sorts of geospatial data.
       </Text>
