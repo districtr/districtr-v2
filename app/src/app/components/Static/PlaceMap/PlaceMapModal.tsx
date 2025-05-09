@@ -4,14 +4,18 @@ import {ResponsivePlaceMap} from './PlaceMap';
 import {usePathname} from 'next/navigation';
 import {useEffect, useState} from 'react';
 
-export const PlaceMapModal: React.FC<{children?: React.ReactNode, _open?: boolean, _setOpen?: (open: boolean) => void}> = ({children, _open, _setOpen}) => {
+export const PlaceMapModal: React.FC<{
+  children?: React.ReactNode;
+  _open?: boolean;
+  _setOpen?: (open: boolean) => void;
+}> = ({children, _open, _setOpen}) => {
   const [modalOpen, setModalOpen] = useState(_open);
   const isOpen = _open || modalOpen;
   const handleOpenChange = _setOpen || setModalOpen;
   const pathname = usePathname();
 
   useEffect(() => {
-    setModalOpen(false);
+    handleOpenChange(false);
   }, [pathname]);
 
   return (
