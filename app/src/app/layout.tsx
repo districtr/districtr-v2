@@ -60,7 +60,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <script defer src="https://analytics.ds.uchicago.edu/script.js" data-website-id="035a9218-84f6-4a19-80fc-92951dfa62ff" />
+        <script
+          defer
+          src="https://analytics.ds.uchicago.edu/script.js"
+          data-website-id="035a9218-84f6-4a19-80fc-92951dfa62ff"
+        />
       </head>
       <body className={inter.className}>
         <Theme accentColor="indigo" grayColor="gray" radius="large" scaling="95%">

@@ -4,7 +4,9 @@ import NextLink from 'next/link';
 export default function GuidePage() {
   return (
     <Flex direction="column" gapY="4" className="max-w-screen-lg mx-auto">
-      <Heading as="h1" size="8">Data</Heading>
+      <Heading as="h1" size="8">
+        Data
+      </Heading>
       <Text size="3">
         In our maps, you draw your own districts and communities from a given set of units or
         building blocks. Common building blocks that you&apos;ll see in our modules are{' '}
@@ -18,8 +20,8 @@ export default function GuidePage() {
         lean in your state. Precinct level data can be{' '}
         <NextLink legacyBehavior href="https://districtr.org/assets/the-data-for-districtr.pdf">
           <Link target="_blank">notoriously difficult to collect</Link>
-        </NextLink>!{" "}
-        In Districtr v2, we use Census VTDs, which are approximations of precinct boundaries
+        </NextLink>
+        ! In Districtr v2, we use Census VTDs, which are approximations of precinct boundaries
         collected by the Census and adjusted to be constructed out of blocks.
       </Text>
       <Text size="3">

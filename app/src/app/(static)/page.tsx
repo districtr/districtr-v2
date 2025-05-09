@@ -4,7 +4,7 @@ import Image from 'next/image';
 import NextLink from 'next/link';
 import {ContentSection} from '../components/Static/ContentSection';
 import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
-import { DevTeam } from '../components/Static/Content/DevTeam';
+import {DevTeam} from '../components/Static/Content/DevTeam';
 
 const Main: React.FC = () => {
   return (
@@ -133,7 +133,7 @@ const Main: React.FC = () => {
         <Text size="3" className="text-right mt-4">
           Import an existing plan or community map (coming soon)
         </Text>
-        <br/>
+        <br />
         <Text size="3" className="text-right mt-4">
           Features available by jurisdiction (coming soon)
         </Text>

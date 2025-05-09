@@ -1,4 +1,4 @@
-import { listCMSContent, PlacesCMSContent } from '@/app/utils/api/cms';
+import {listCMSContent, PlacesCMSContent} from '@/app/utils/api/cms';
 import * as topojson from 'topojson-client';
 import {create} from 'zustand';
 
@@ -19,15 +19,17 @@ export const usePlaceMapStore = create<{
   data: null,
   mapsBySlug: {},
   getData: async () => {
-    const [topology, content] = await Promise.all([fetch(
-      `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/sprites/usa-topo.json`
-    ).then(r => r.json()),
-    listCMSContent('places') as Promise<PlacesCMSContent[]>
-  ])
-  const mapsBySlug = content?.reduce((acc, place) => {
-    acc[place.slug] = place.districtr_map_slugs?.length || 0;
-    return acc;
-  }, {} as Record<string, number>)
+    const [topology, content] = await Promise.all([
+      fetch(`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/sprites/usa-topo.json`).then(r => r.json()),
+      listCMSContent('places') as Promise<PlacesCMSContent[]>,
+    ]);
+    const mapsBySlug = content?.reduce(
+      (acc, place) => {
+        acc[place.slug] = place.districtr_map_slugs?.length || 0;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
     // @ts-expect-error
     const {features: unitedStates} = topojson.feature(topology, topology.objects.states) as {
       type: 'FeatureCollection';
