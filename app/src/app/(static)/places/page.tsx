@@ -30,13 +30,16 @@ export default async function TagsPage() {
         }}
         gap="4"
       >
+        {entries.length === 0 && (
+          <Text>No places available.</Text>
+        )}
         {entries.map(content => (
           <Card key={content.slug}>
             <Heading as="h3" size="4">
               {content.published_content!.title}
             </Heading>
             {!!(content?.districtr_map_slugs && content?.districtr_map_slugs?.length) && (
-              <Text>{content.districtr_map_slugs.length} map modules</Text>
+              <Text>{content.districtr_map_slugs.length} map module{content.districtr_map_slugs.length === 1 ? '' : 's'}</Text>
             )}
             <br />
             <NextLink href={`/place/${content.slug}`} passHref legacyBehavior>
