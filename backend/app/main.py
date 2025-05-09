@@ -147,6 +147,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
+# TODO Move document functions to core/document.py
 def check_map_lock(document_id, user_id, session):
     # Try to fetch an existing lock for this document
     result = session.execute(
