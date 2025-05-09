@@ -54,7 +54,7 @@ export default function GuidePage() {
         level regardless of population.
       </Text>
       <Text>
-        To compute the demographic categories like "Black" and "Asian" in districtr v2, we use
+        To compute the demographic categories like &quot;Black&quot; and &quot;Asian&quot; in districtr v2, we use
         collections of columns from the Decennial Census. You can read more about exactly which
         columns we use{' '}
         <NextLink legacyBehavior href="https://mggg.org/VAP-CVAP">

@@ -20,7 +20,7 @@ export default function UpdatesPage() {
         <li>Custom district colors. </li>
         <li>Draggable and resizable toolbar. </li>
         <li>
-          Precinct shattering: the ability to take a precinct and "shatter it" into its component
+          Precinct shattering: the ability to take a precinct and &quot;shatter it&quot; into its component
           Census blocks. This helps you draw maps with +/- 1 population deviation.{' '}
         </li>
         <li>
@@ -33,9 +33,9 @@ export default function UpdatesPage() {
           you to any problem areas in the map.{' '}
         </li>
         <li>
-          Demographics: evaluate your map's districts using demographic data from the Census.{' '}
+          Demographics: evaluate your map&apos;s districts using demographic data from the Census.{' '}
         </li>
-        <li>Elections: evaluate your map's districts using recent election data. </li>
+        <li>Elections: evaluate your map&apos;s districts using recent election data. </li>
       </ul>
     </Flex>
   );
