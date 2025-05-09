@@ -64,7 +64,7 @@ export default function GuidePage() {
         </NextLink>
         . On the backend, all of our data comes from the{' '}
         <NextLink legacyBehavior href="https://mggg.org/">
-          <Link>MGGG</Link>
+          <Link>Data and Democracy Lab</Link>
         </NextLink>{' '}
         Redistricting Lab&apos;s{' '}
         <NextLink legacyBehavior href="https://github.com/mggg/gerrydb-client-py">

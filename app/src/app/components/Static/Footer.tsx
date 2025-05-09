@@ -75,7 +75,7 @@ export const Footer: React.FC = () => (
             </NextLink>
             <NextLink href="https://mggg.org/" legacyBehavior>
               <Link target="_blank" className="!cursor-pointer !text-districtrLightBlue">
-                MGGG
+              Data and Democracy Lab
               </Link>
             </NextLink>
           </Flex>
@@ -91,7 +91,7 @@ export const Footer: React.FC = () => (
         gap="2"
       >
         <Text className="text-center my-1" size="2">
-          Copyright 2025, MGGG. All rights reserved.
+          Copyright 2025, Data and Democracy Lab. All rights reserved.
         </Text>
         <NextLink href="/admin/cms" legacyBehavior>
           <Link size="2">Admin Login</Link>

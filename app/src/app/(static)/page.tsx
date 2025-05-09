@@ -26,7 +26,7 @@ const Main: React.FC = () => {
         <Text size="5">
           Districtr is a project of the{' '}
           <Link href="https://mggg.org/" target="_blank">
-            MGGG Redistricting Lab
+            Data and Democracy Lab
           </Link>
           , intended to promote public participation in redistricting around the United States.
           Redistricting is dividing up a jurisdiction (like a state, county, or city) into pieces

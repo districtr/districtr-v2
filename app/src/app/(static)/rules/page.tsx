@@ -97,7 +97,7 @@ export default function GuidePage() {
         >
           <Link target="_blank">handout</Link>
         </NextLink>
-        . MGGG collaborator Justin Levitt maintains a guide to state-by-state rules at{' '}
+        . friend of the Lab Doug Spencer maintains a guide to state-by-state rules at{' '}
         <NextLink legacyBehavior href="https://redistricting.lls.edu/" target="_blank">
           <Link target="_blank">All About Redistricting</Link>
         </NextLink>
