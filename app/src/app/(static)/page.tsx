@@ -4,6 +4,7 @@ import Image from 'next/image';
 import NextLink from 'next/link';
 import {ContentSection} from '../components/Static/ContentSection';
 import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
+import { DevTeam } from '../components/Static/Content/DevTeam';
 
 const Main: React.FC = () => {
   return (
@@ -218,22 +219,7 @@ const Main: React.FC = () => {
 
           <Text size="5">Our team aims to respond to requests for new modules within a week.</Text>
 
-          <Heading className="text-districtrIndigo pt-6">Development Team</Heading>
-
-          <Text size="5">
-            <b>Project Manager</b>: Liz Kopecky
-          </Text>
-
-          <Text size="5">
-            {' '}
-            <b>Originating Team:</b> Max Hully, Ruth Buck
-          </Text>
-
-          <Text size="5">
-            <b>Contributors:</b> Jamie Atlas, Eion Blanchard, Jack Deschler, Nick Doiron, Moon
-            Duchin, Chris Gernon, Peter Horvath, Muniba Khan, Zhenghong Lieu, JN Matthews, Anthony
-            Pizzimenti, Heather Rosenfeld, Anna Schall, and many more
-          </Text>
+          <DevTeam />
         </Flex>
       </ContentSection>
     </Flex>
