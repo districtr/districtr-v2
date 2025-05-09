@@ -111,6 +111,7 @@ class Settings(BaseSettings):
     # R2
 
     R2_BUCKET_NAME: str | None = None
+    CDN_URL: str | None = None
     ACCOUNT_ID: str | None = None
     AWS_S3_BUCKET: str | None = None
     AWS_S3_ENDPOINT: str | None = None
@@ -135,6 +136,13 @@ class Settings(BaseSettings):
             aws_secret_access_key=self.AWS_SECRET_ACCESS_KEY,
             **kwargs,
         )
+
+    # Auth0
+
+    AUTH0_DOMAIN: str
+    AUTH0_API_AUDIENCE: str
+    AUTH0_ISSUER: str
+    AUTH0_ALGORITHMS: str
 
 
 @lru_cache()
