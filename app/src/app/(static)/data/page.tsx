@@ -1,4 +1,3 @@
-import {EmbeddedPdfModal} from '@/app/components/Static/EmbeddedPdfModal';
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
