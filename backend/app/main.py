@@ -1016,7 +1016,9 @@ async def make_thumbnail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
-    background_tasks.add_task(generate_thumbnail, session=session, document_id=document_id)
+    background_tasks.add_task(
+        generate_thumbnail, session=session, document_id=document_id
+    )
     return {"message": "Generating thumbnail in background task"}
 
 
