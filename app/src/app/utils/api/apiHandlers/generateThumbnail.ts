@@ -1,17 +1,13 @@
-import axios from 'axios';
+import {post} from '../factory';
+import {ClientSession} from '@/app/lib/auth0';
 
-export const generateThumbnail = async (documentId: string) => {
-  const response = await axios.post(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/document/${documentId}/thumbnail`,
-    {
+export const generateThumbnail = async (documentId: string, session: ClientSession) => {
+  const response = await post<{documentId: string}, {message: string}>(`document/${documentId}/thumbnail`)({
+    body: {
       documentId,
     },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-  console.log(response.data);
-  return response.data;
+    session,
+  });
+
+  return response;
 };
