@@ -8,7 +8,7 @@ export const ContentSection: React.FC<{
 }> = ({title, flavorImage, children}) => {
   return (
     <Box>
-      <Flex direction="row" align="center" justify="start">
+      <Flex direction="row" align="center" justify="start" my="2">
         <Heading as="h2" className="font-bold p-4 bg-gray-100" size="6">
           {title}
         </Heading>

@@ -35,10 +35,7 @@ def get_content_factory(
             content = session.exec(
                 select(CMSModel)
                 .where(CMSModel.id == data.content_id)
-                .where(
-                    (CMSModel.author == auth_result["sub"])
-                    | is_admin
-                )
+                .where((CMSModel.author == auth_result["sub"]) | is_admin)
             ).one()
         except NoResultFound:
             raise HTTPException(

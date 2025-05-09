@@ -231,7 +231,7 @@ export interface MapStore {
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   /**
-   * Map of ISO timestamps. 
+   * Map of ISO timestamps.
    * Keeps track of when a zone was last to keep track of when to refetch data
    */
   zonesLastUpdated: Map<Zone, string>;
