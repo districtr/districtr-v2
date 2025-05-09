@@ -28,13 +28,13 @@ export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
   const [shareMapsModal, setShareMapsModal] = React.useState(false);
-  const [saveMapsModal, setSaveMapsModal] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const status = useMapStore(state => state.mapStatus?.status);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
   const {statusText} = useMapStatus();
+  const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
 
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
@@ -143,7 +143,7 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
+              <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)} disabled={!showRecentMaps}>
                 Recent Maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>

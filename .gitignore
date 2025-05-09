@@ -82,3 +82,4 @@ app/.env.docker
 !pipelines/Dockerfile.dev
 pipelines/districtr_pipelines.egg*
 docker-compose.override.yml
+app/.env.docker
