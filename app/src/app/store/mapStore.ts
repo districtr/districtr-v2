@@ -788,11 +788,18 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         view => view.districtr_map_slug === mapDocument.districtr_map_slug
       );
       if (documentIndex !== -1) {
-        userMaps[documentIndex] = {
-          ...documentInfo,
-          ...userMaps[documentIndex],
-          ...mapDocument,
-        };
+        set(state => ({
+          userMaps: state.userMaps.map((m, i) =>
+            i === documentIndex
+              ? {
+                  ...m,
+                  ...documentInfo,
+                  ...mapDocument,
+                  map_metadata: structuredClone(mapDocument.map_metadata),
+                }
+              : m
+          ),
+        }));
       } else {
         userMaps = [{...mapDocument, ...documentInfo}, ...userMaps];
       }

@@ -40,7 +40,7 @@ export const SaveMapModal: React.FC<{
   useEffect(() => {
     setDialogOpen(open || false);
   }, [open]);
-
+  const appLoadingState = useMapStore(store => store.appLoadingState);
   const mapDocument = useMapStore(store => store.mapDocument);
   const status = useMapStore(store => store.mapStatus?.status);
   const userMaps = useMapStore(store => store.userMaps);
@@ -81,7 +81,7 @@ export const SaveMapModal: React.FC<{
   }, [mapMetadata]);
 
   useEffect(() => {
-    if (mapDocument?.document_id) {
+    if (mapDocument?.document_id && appLoadingState === 'loaded') {
       setMapFormState({
         name: null,
         group: null,

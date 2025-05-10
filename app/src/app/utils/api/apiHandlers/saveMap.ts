@@ -20,7 +20,6 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
         .then(data => {
           const updatedMetadata = latestMetadata ?? handleCreateBlankMetadataObject();
           metadata.mutate({document_id: data.document_id, metadata: updatedMetadata});
-
           const updatedMapDoc = {...data, map_metadata: updatedMetadata};
 
           upsertUserMap({documentId: data.document_id, mapDocument: updatedMapDoc});
