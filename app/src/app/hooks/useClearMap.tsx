@@ -11,17 +11,19 @@ export const useClearMap = (updateTrigger: unknown) => {
       const layerState = state[sourceLayer];
       const layerStateKeys = Object.keys(layerState);
       layerStateKeys.forEach(id => {
-        const property = layerState[id];
-        mapRef.setFeatureState(
-          {
-            source: BLOCK_SOURCE_ID,
-            sourceLayer,
-            id,
-          },
-          {
-            [property]: undefined,
-          }
-        );
+        const properties = Object.keys(layerState[id]);
+        properties.forEach(property => {
+          mapRef.setFeatureState(
+            {
+              source: BLOCK_SOURCE_ID,
+              sourceLayer,
+              id,
+            },
+            {
+              [property]: undefined,
+            }
+          );
+        });
       });
     });
   };
