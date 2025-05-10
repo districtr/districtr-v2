@@ -3,6 +3,7 @@ import {updateDocumentFromId, updateGetDocumentFromId} from './queries';
 import {jwtDecode} from 'jwt-decode';
 export let previousDocumentID = '';
 import {sharedDocument} from './mutations';
+import {unlockMapDocument} from './apiHandlers/unlockMapDocument';
 
 export const getSearchParamsObserver = () => {
   // next ssr safety
@@ -16,11 +17,13 @@ export const getSearchParamsObserver = () => {
       // resume temporal states on tab re-focus
       useMapStore.temporal.getState().resume();
       useMapStore.getState().setAppLoadingState('loaded');
-      updateDocumentFromId.refetch();
+      updateDocumentFromId.refetch(); // confirms map lock status on tab re-focus
     } else {
       // prevent temporal states from generating while tab is not visible
       useMapStore.temporal.getState().pause();
       useMapStore.getState().setAppLoadingState('blurred');
+      // unlock map doc on blurred
+      unlockMapDocument(useMapStore.getState().mapDocument?.document_id as string);
     }
   };
 

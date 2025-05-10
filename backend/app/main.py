@@ -336,7 +336,7 @@ async def update_assignments(
         }
     else:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Document is locked by another user",
         )
 
@@ -631,7 +631,7 @@ async def unlock_document(
         )
 
         session.commit()
-
+        print("Document unlocked")
         return {"status": DocumentEditStatus.unlocked}
     except Exception as e:
         session.rollback()
@@ -1167,9 +1167,7 @@ async def load_plan_from_share(
         session,
         shared=True,
         access_type=data.access,
-        lock_status=(
-            DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
-        ),
+        lock_status=(DocumentEditStatus.locked if set_is_locked else None),
     )
 
 
