@@ -6,6 +6,7 @@ import {usePathname, useSearchParams, useRouter} from 'next/navigation';
 import {DocumentObject} from '@utils/api/apiHandlers/types';
 import {styled} from '@stitches/react';
 import {useTemporalStore} from '@/app/store/temporalStore';
+import {unlockMapDocument} from '@/app/utils/api/apiHandlers/unlockMapDocument';
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxWidth: '60vw',
@@ -37,8 +38,9 @@ export const RecentMapsModal: React.FC<{
   const clear = useTemporalStore(store => store.clear);
 
   const handleUnloadMapDocument = () => {
-    console.log('unload map document');
     setMapDocument({} as DocumentObject);
+    // release the lock on the map in the db
+    unlockMapDocument(mapDocument?.document_id as string);
   };
 
   const handleDeleteMap = (documentId: string) => {
