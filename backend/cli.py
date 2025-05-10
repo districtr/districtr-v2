@@ -11,6 +11,7 @@ from app.utils import (
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
     create_parent_child_edges as _create_parent_child_edges,
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
+    add_districtr_map_to_map_group as _add_districtr_map_to_map_group,
     update_districtrmap as _update_districtrmap,
     get_local_or_s3_path,
     create_spatial_index as _create_spatial_index,
@@ -393,22 +394,37 @@ def create_spatial_index(
 
 
 @cli.command("create-group")
-@click.option("--name", "-n", help="Group name", required=True, multiple=False)
-@click.option("--slug", "-s", help="Group slug", required=False, multiple=False)
+@click.option("--name", "-n", help="Group name", required=True)
+@click.option("--map-group-slug", "-s", help="Group slug", required=False)
 @with_session
-def create_map_group(
-    session: Session, name: str, slug: str | None
-):
+def create_map_group(session: Session, name: str, map_group_slug: str | None):
     # generate slug as lowercase a-z, no spaces
-    if slug is None:
-        slug = ''.join(re.findall(r'[a-z]', name.lower()))
+    if map_group_slug is None:
+        map_group_slug = "".join(re.findall(r"[a-z]", name.lower()))
+
     _create_map_group(
         session=session,
         group_name=name,
-        slug=slug,
+        slug=map_group_slug,
         autocommit=True,
     )
-    logger.info(f"Created map group named {name}.")
+    logger.info(f"Created map group named {name} and slug `{map_group_slug}`.")
+
+
+@cli.command("add-districtr-map-to-map-group")
+@click.option("--districtr-map-slug", "-d", help="DistrictrMap slug", required=True)
+@click.option("--map-group-slug", "-s", help="Group slug", required=True)
+@with_session
+def add_districtr_map_to_map_group(
+    session: Session, districtr_map_slug: str, map_group_slug: str
+):
+    _add_districtr_map_to_map_group(
+        session=session,
+        districtr_map_slug=districtr_map_slug,
+        group_slug=map_group_slug,
+        autocommit=True,
+    )
+    logger.info(f"Added {districtr_map_slug} to `{map_group_slug}`.")
 
 
 if __name__ == "__main__":

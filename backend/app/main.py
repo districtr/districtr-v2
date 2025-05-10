@@ -42,7 +42,6 @@ from app.models import (
     ColorsSetResult,
     DistrictrMap,
     DistrictrMapsToGroups,
-    MapGroup,
     Document,
     DocumentCreate,
     DocumentPublic,
@@ -966,7 +965,7 @@ async def get_projects(
         select(DistrictrMap)
         .join(
             DistrictrMapsToGroups,
-            DistrictrMapsToGroups.districtrmap_uuid == DistrictrMap.uuid
+            DistrictrMapsToGroups.districtrmap_uuid == DistrictrMap.uuid,
         )
         .filter(DistrictrMapsToGroups.group_slug == group)
         .filter(DistrictrMap.visible == true())  # pyright: ignore
@@ -1011,7 +1010,9 @@ async def make_thumbnail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
-    background_tasks.add_task(generate_thumbnail, session=session, document_id=document_id)
+    background_tasks.add_task(
+        generate_thumbnail, session=session, document_id=document_id
+    )
     return {"message": "Generating thumbnail in background task"}
 
 

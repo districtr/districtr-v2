@@ -1,6 +1,7 @@
 import pytest
 import os
 from app.utils import (
+    add_districtr_map_to_map_group,
     create_districtr_map,
     create_map_group,
     create_shatterable_gerrydb_view,
@@ -14,6 +15,7 @@ from app.constants import GERRY_DB_SCHEMA
 from app.models import DistrictrMap
 from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
@@ -118,23 +120,60 @@ def test_update_districtr_map(session: Session, simple_parent_geos_districtrmap)
     assert not districtr_map.visible
 
 
-def map_group_fixtures(
-    session: Session, ks_demo_view_census_blocks_districtrmap: None
-):
+def test_create_map_group(session: Session):
+    map_group_slug = "testgroup"
     create_map_group(
-        session=session,
-        group_name="Test Group",
-        slug="testgroup"
+        session=session, group_name="Test Group", slug=map_group_slug, autocommit=True
     )
-    create_districtr_map(
-        session=session,
-        name="Districtr map",
-        group_slug="testgroup",
-        districtr_map_slug="districtr_map",
-        gerrydb_table_name="districtr_map",
+
+    result = session.execute(
+        text("select count(*) from map_group where slug = :map_group_slug"),
+        params={"map_group_slug": map_group_slug},
+    ).scalar()
+
+    assert result == 1
+
+
+@pytest.fixture(name="map_group_slug")
+def map_group_fixture(session: Session):
+    map_group_slug = "testgroup"
+    create_map_group(
+        session=session, group_name="Test Group", slug=map_group_slug, autocommit=True
+    )
+
+    return map_group_slug
+
+
+def test_create_districtr_map_in_group(
+    session: Session, map_group_slug, simple_parent_geos_gerrydb: None
+):
+    uuid = create_districtr_map(
+        session,
+        name="Simple shatterable layer",
+        districtr_map_slug="simple_geos_test",
+        gerrydb_table_name="simple_geos_test",
+        num_districts=10,
+        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
         parent_layer="simple_parent_geos",
+        group_slug=map_group_slug,
     )
-    session.commit()
+    assert uuid
+
+
+def test_add_districtr_map_to_nonexistent_group(
+    session: Session, simple_parent_geos_gerrydb: None
+):
+    with pytest.raises(IntegrityError):
+        create_districtr_map(
+            session,
+            name="Simple shatterable layer",
+            districtr_map_slug="simple_geos_test",
+            gerrydb_table_name="simple_geos_test",
+            num_districts=10,
+            tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
+            parent_layer="simple_parent_geos",
+            group_slug="thisgroupdoesntexist",
+        )
 
 
 def test_add_extent_to_districtrmap(session: Session, simple_parent_geos_gerrydb):
@@ -148,6 +187,69 @@ def test_add_extent_to_districtrmap(session: Session, simple_parent_geos_gerrydb
     add_extent_to_districtrmap(
         session=session, districtr_map_uuid=inserted_districtr_map
     )
+
+
+@pytest.fixture
+def districtr_map_in_group(
+    session: Session, map_group_slug, simple_parent_geos_gerrydb: None
+):
+    uuid = create_districtr_map(
+        session,
+        name="Simple shatterable layer",
+        districtr_map_slug="simple_geos_test",
+        gerrydb_table_name="simple_geos_test",
+        num_districts=10,
+        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
+        parent_layer="simple_parent_geos",
+        group_slug=map_group_slug,
+    )
+    assert uuid
+    return uuid
+
+
+def test_map_group_unique_conflict_on_name(session: Session, map_group_slug: str):
+    # TODO: Is this the behavior we want? Should map groups be unique on name
+    # _and_ slug?
+    with pytest.raises(IntegrityError):
+        map_group_slug_two = "testgroup_two"
+        create_map_group(
+            session=session,
+            group_name="Test Group",
+            slug=map_group_slug_two,
+            autocommit=True,
+        )
+
+
+@pytest.fixture(name="second_map_group_slug")
+def map_group_fixture2(session: Session):
+    map_group_slug = "testgroup_two"
+    create_map_group(
+        session=session,
+        group_name="Test Group Two",
+        slug=map_group_slug,
+        autocommit=True,
+    )
+
+    return map_group_slug
+
+
+def test_add_districtr_map_already_in_group_to_group(
+    session: Session, districtr_map_in_group: str, second_map_group_slug: str
+):
+    add_districtr_map_to_map_group(
+        session=session,
+        districtr_map_slug="simple_geos_test",
+        group_slug=second_map_group_slug,
+    )
+
+    result = session.execute(
+        text(
+            "select count(*) from districtrmaps_to_groups where districtrmap_uuid = :map_uuid"
+        ),
+        params={"map_uuid": districtr_map_in_group},
+    ).scalar()
+
+    assert result == 2
 
 
 def test_add_extent_to_districtrmap_manual_bounds(
