@@ -2,8 +2,8 @@
 import React from 'react';
 import Papa from 'papaparse';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
-import { uploadAssignments } from './apiHandlers/uploadAssignments';
-import { useMapStore } from '@/app/store/mapStore';
+import {uploadAssignments} from './apiHandlers/uploadAssignments';
+import {useMapStore} from '@/app/store/mapStore';
 
 const ROWS_PER_BATCH = 20000000000;
 const ROWS_TO_TEST = 200;

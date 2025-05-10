@@ -9,7 +9,7 @@ export type GDBPath = string;
 
 export type ZoneDict = Map<GEOID, Zone>;
 
-export type ActiveTool = 'pan' | 'brush' | 'eraser' | 'shatter' | 'lock' | 'undo' | 'redo'; // others?
+export type ActiveTool = 'pan' | 'brush' | 'eraser' | 'shatter' | 'undo' | 'redo'; // others?
 
 export type SpatialUnit = 'county' | 'tract' | 'block' | 'block_group' | 'voting_district'; // others?
 
