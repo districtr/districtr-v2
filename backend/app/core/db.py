@@ -1,6 +1,10 @@
 from sqlmodel import create_engine, Session
+import logging
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 echo = True
 
