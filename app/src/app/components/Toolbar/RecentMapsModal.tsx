@@ -26,6 +26,7 @@ export const RecentMapsModal: React.FC<{
   const deleteUserMap = useMapStore(store => store.deleteUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const setActiveTool = useMapStore(store => store.setActiveTool);
+  const setFreshMap = useMapStore(store => store.setFreshMap);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [openItem, setOpenItem] = React.useState<string | null>(null);
 
@@ -34,6 +35,11 @@ export const RecentMapsModal: React.FC<{
   }, [open]);
 
   const clear = useTemporalStore(store => store.clear);
+
+  const handleUnloadMapDocument = () => {
+    console.log('unload map document');
+    setMapDocument({} as DocumentObject);
+  };
 
   const handleDeleteMap = (documentId: string) => {
     deleteUserMap(documentId);
@@ -124,6 +130,7 @@ export const RecentMapsModal: React.FC<{
                   onDelete={() => {
                     deleteUserMap(userMap.document_id);
                   }}
+                  onUnload={handleUnloadMapDocument}
                 />
               ))}
             </Table.Body>
@@ -140,7 +147,8 @@ const RecentMapsRow: React.FC<{
   active: boolean;
   onChange?: (data?: DocumentObject) => void;
   onDelete: (data: DocumentObject) => void;
-}> = ({data, onSelect, active, onChange, onDelete}) => {
+  onUnload: (data: DocumentObject) => void;
+}> = ({data, onSelect, active, onChange, onDelete, onUnload}) => {
   const updatedDate = new Date(data.updated_at as string);
   const formattedDate = updatedDate.toLocaleDateString();
   const metadataName = data?.map_metadata?.name || data.districtr_map_slug;
@@ -174,21 +182,14 @@ const RecentMapsRow: React.FC<{
             variant="outline"
             className="box-content size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
           >
-            Ready to Load
+            Load
           </Button>
         ) : (
           <div style={{}}>
             <Button
-              disabled
               variant="outline"
               className="box-content mx-2 size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
-            >
-              Active
-            </Button>
-            <Button
-              disabled
-              variant="outline"
-              className="box-content mx-2 size-full rounded-xl hover:bg-blue-200 inline-flex transition-colors"
+              onClick={() => onUnload(data)}
             >
               Unload
             </Button>

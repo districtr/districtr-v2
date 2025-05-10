@@ -37,7 +37,6 @@ export const ShareMapsModal: React.FC<{
   }, [open]);
 
   useEffect(() => {
-    console.log('currentMap', currentMap);
     if (currentMap && currentMap.password) {
       setPassword(currentMap.password);
       setPasswordDisabled(true);
@@ -62,7 +61,6 @@ export const ShareMapsModal: React.FC<{
     // lock password field
     setPasswordDisabled(true);
     setIsVisible(false);
-    console.log('password', password);
     if (password !== null && mapDocument?.document_id) {
       upsertUserMap({
         documentId: mapDocument?.document_id,
