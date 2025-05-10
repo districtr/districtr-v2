@@ -792,7 +792,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
           ...documentInfo,
           ...userMaps[documentIndex],
           ...mapDocument,
-          map_metadata: structuredClone(mapDocument.map_metadata),
+          map_metadata: mapDocument.map_metadata ?? userMaps[documentIndex].map_metadata,
         };
       } else {
         userMaps = [{...mapDocument, ...documentInfo}, ...userMaps];
