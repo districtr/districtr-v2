@@ -10,9 +10,9 @@ from app.utils import (
     create_parent_child_edges as _create_parent_child_edges,
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
     update_districtrmap as _update_districtrmap,
-    get_local_or_s3_path,
     create_spatial_index as _create_spatial_index,
 )
+from app.io import get_local_or_s3_path
 from app.constants import GERRY_DB_SCHEMA
 from app.contiguity.main import write_graph, graph_from_gpkg, GraphFileFormat
 from functools import wraps
