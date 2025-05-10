@@ -12,7 +12,7 @@ from app.utils import (
     update_districtrmap as _update_districtrmap,
     create_spatial_index as _create_spatial_index,
 )
-from app.io import get_local_or_s3_path
+from app.core.io import get_local_or_s3_path
 from app.constants import GERRY_DB_SCHEMA
 from app.contiguity.main import write_graph, graph_from_gpkg, GraphFileFormat
 from functools import wraps

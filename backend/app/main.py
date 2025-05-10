@@ -59,7 +59,7 @@ from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from app.utils import _cleanup_expired_locks, _remove_all_locks
-from app.io import remove_file
+from app.core.io import remove_file
 from app.exports import (
     get_export_sql_method,
     DocumentExportType,

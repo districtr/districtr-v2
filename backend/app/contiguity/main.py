@@ -7,7 +7,7 @@ from networkx import (
 )
 from typing import Iterable, Hashable, Any
 from app.models import UUIDType
-from app.io import download_file_from_s3
+from app.core.io import download_file_from_s3
 from app.core.config import settings, Environment
 from sqlmodel import Session, Integer, ARRAY
 from urllib.parse import urlparse

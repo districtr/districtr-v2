@@ -16,7 +16,7 @@ from app.models import Document
 from urllib.parse import urlparse
 from pathlib import Path
 from boto3.exceptions import S3UploadFailedError
-from app.io import file_exists, UnsupportedFileScheme
+from app.core.io import file_exists, UnsupportedFileScheme
 
 router = APIRouter(tags=["thumbnails"])
 logger = logging.getLogger(__name__)
