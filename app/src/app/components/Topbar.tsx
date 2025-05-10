@@ -56,10 +56,6 @@ export const Topbar: React.FC = () => {
   const data = mapViews?.data || [];
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
-    if (selectedMap.districtr_map_slug === mapDocument?.districtr_map_slug) {
-      console.log('No document or same document');
-      return;
-    }
     clear();
     document.mutate({
       districtr_map_slug: selectedMap.districtr_map_slug,
