@@ -83,6 +83,8 @@ const updateGetDocumentFromId = (documentId: string) => {
 export const fetchAssignments = new QueryObserver<null | RemoteAssignmentsResponse>(queryClient, {
   queryKey: ['assignments'],
   queryFn: () => getAssignments(useMapStore.getState().mapDocument),
+  staleTime: 0,
+  placeholderData: _ => null,
 });
 
 const updateAssignments = (mapDocument: DocumentObject) => {
@@ -94,21 +96,9 @@ const updateAssignments = (mapDocument: DocumentObject) => {
 
 fetchAssignments.subscribe(assignments => {
   if (assignments.data) {
-    const {loadZoneAssignments, loadedMapId, setAppLoadingState} = useMapStore.getState();
-    // This subscription fires again on browser tab focus, for uhh reasons
-    // If you started the map during the same session you are returning to
-    // The cached assignments data will be empty, resetting your map
-    // We need this to ensure that the map is not reset when the tab is refocused
-    if (assignments.data.documentId === loadedMapId) {
-      console.log(
-        'Map already loaded, skipping assignment load',
-        assignments.data.documentId,
-        loadedMapId
-      );
-    } else {
-      loadZoneAssignments(assignments.data);
-      useMapStore.temporal.getState().clear();
-    }
+    const {loadZoneAssignments, setAppLoadingState} = useMapStore.getState();
+    loadZoneAssignments(assignments.data);
+    useMapStore.temporal.getState().clear();
     setAppLoadingState('loaded');
   }
 });
