@@ -40,6 +40,7 @@ export const SaveMapModal: React.FC<{
   useEffect(() => {
     setDialogOpen(open || false);
   }, [open]);
+  const {statusText} = useMapStatus();
   const appLoadingState = useMapStore(store => store.appLoadingState);
   const mapDocument = useMapStore(store => store.mapDocument);
   const status = useMapStore(store => store.mapStatus?.status);
@@ -281,7 +282,8 @@ export const SaveMapModal: React.FC<{
           <Flex direction="column">
             <Flex direction="row">
               <Flex gap="2">
-                {useMapStore.getState().mapStatus?.status === 'locked' &&
+                {statusText === 'checked_out' &&
+                useMapStore.getState().mapStatus?.status === 'locked' &&
                 useMapStore.getState().mapStatus?.access === 'edit' ? (
                   <>
                     <TextField.Root
@@ -298,7 +300,9 @@ export const SaveMapModal: React.FC<{
                 ) : null}
               </Flex>
               <Flex gap="2" px="2">
-                {!!frozenMessage && <Text>{frozenMessage}</Text>}
+                {!!frozenMessage && useMapStore.getState().mapStatus?.access !== 'edit' && (
+                  <Text>{frozenMessage}</Text>
+                )}
               </Flex>
             </Flex>
             <Blockquote color="red">{shareMapMessage}</Blockquote>
