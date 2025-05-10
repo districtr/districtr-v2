@@ -346,9 +346,7 @@ def _get_document(
 ) -> Document:
     try:
         document = session.exec(
-            select(Document).filter(
-                Document.document_id == document_id
-            )  # pyright: ignore
+            select(Document).filter(Document.document_id == document_id)  # pyright: ignore
         ).one()
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -482,8 +480,7 @@ async def update_colors(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug
-            == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -575,9 +572,7 @@ async def get_document(
             ).label("status"),
             coalesce(
                 access_type,
-            ).label(
-                "access"
-            ),  # read or edit
+            ).label("access"),  # read or edit
             # add access - read or edit
         )  # pyright: ignore
         .where(Document.document_id == document_id)
@@ -707,8 +702,7 @@ def _get_districtr_map(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug
-            == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
