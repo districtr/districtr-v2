@@ -18,18 +18,24 @@ export const VtdBlockLayers: React.FC<{
   const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap);
   const demographicVariable = useDemographyStore(state => state.variable);
   const demographicVariant = useDemographyStore(state => state.variant);
+  const [clearSource, setClearSource] = useState(false);
   const setScale = useDemographyStore(state => state.setScale);
   const demographyDataHash = useDemographyStore(state => state.dataHash);
   const shatterIds = useMapStore(state => state.shatterIds);
   const showDemography = isDemographicMap || showDemographicMap === 'overlay';
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
-
   useClearMap(mapDocument?.document_id);
   useLayoutEffect(() => {
     // on mount, set map rendering state to loaded
     setMapRenderingState('loaded');
   }, []);
+  useEffect(() => {
+    setClearSource(true);
+    setTimeout(() => {
+      setClearSource(false);
+    }, 10);
+  }, [mapDocument?.tiles_s3_path]);
 
   const handleChoroplethRender = ({numberOfBins}: {numberOfBins?: number}) => {
     const _map = mapRef.current?.getMap();
@@ -74,8 +80,7 @@ export const VtdBlockLayers: React.FC<{
     mapDocument,
     demographicVariant,
   ]);
-
-  if (!mapDocument) return null;
+  if (!mapDocument || clearSource) return null;
 
   return (
     <>
