@@ -1,21 +1,48 @@
 import os
-from tests.constants import GERRY_DB_FIXTURE_NAME, USER_ID, FIXTURES_PATH
+import pytest
+from tests.constants import FIXTURES_PATH
 from unittest.mock import patch
 
 
-def test_thumbnail_generator(client, document_id):
+@pytest.fixture
+def document_id_with_assignments(client, document_id):
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {
+                    "document_id": document_id,
+                    "geo_id": "202090441022004",
+                    "zone": 1,
+                },
+                {
+                    "document_id": document_id,
+                    "geo_id": "202090428002008",
+                    "zone": 1,
+                },
+                {
+                    "document_id": document_id,
+                    "geo_id": "202090443032011",
+                    "zone": 1,
+                },
+                {
+                    "document_id": document_id,
+                    "geo_id": "200979691001108",
+                    "zone": 2,
+                },
+            ]
+        },
+    )
+    assert response.status_code == 200
+
+    return document_id
+
+
+def test_thumbnail_generator(client, document_id_with_assignments):
     with patch(
         "app.thumbnails.main.get_document_thumbnail_file_path"
     ) as mock_generate_thumbnail:
-        response = client.post(
-            "/api/create_document",
-            json={
-                "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-                "user_id": USER_ID,
-            },
-        )
-        document_id = response.json().get("document_id")
-
+        document_id = document_id_with_assignments
         out_path = f"{FIXTURES_PATH}/{document_id}.png"
         mock_generate_thumbnail.return_value = out_path
 
