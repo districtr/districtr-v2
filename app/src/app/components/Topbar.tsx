@@ -10,6 +10,7 @@ import {
   Box,
   Tooltip,
   Tabs,
+  Dialog,
 } from '@radix-ui/themes';
 import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
@@ -23,11 +24,11 @@ import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
 import {PasswordPromptModal} from '@components/Toolbar/PasswordPromptModal';
 import {useMapStatus} from '../hooks/useMapStatus';
+import {UploaderModal} from './Toolbar/UploaderModal';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
-  const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
-  const [shareMapsModal, setShareMapsModal] = React.useState(false);
+  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | 'share' | null>(null);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const status = useMapStore(state => state.mapStatus?.status);
@@ -143,11 +144,11 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item
-                onClick={() => setRecentMapsModalOpen(true)}
-                disabled={!showRecentMaps}
-              >
-                Recent Maps
+              <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
+                Upload Block Assignments
+              </DropdownMenu.Item>
+              <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={!showRecentMaps}>
+                View Recent Maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
                 <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
@@ -171,7 +172,7 @@ export const Topbar: React.FC = () => {
                 variant="outline"
                 className="mr-2"
                 disabled={!mapDocument?.document_id}
-                onClick={() => setShareMapsModal(true)}
+                onClick={() => setModalOpen('share')}
               >
                 {status === 'locked' ? 'Share' : 'Share'}
               </Button>
@@ -181,7 +182,7 @@ export const Topbar: React.FC = () => {
                 variant="outline"
                 className="mr-2"
                 disabled={!mapDocument?.document_id}
-                onClick={() => setRecentMapsModalOpen(true)}
+                onClick={() => setModalOpen('recents')}
               >
                 {statusText}
               </Button>
@@ -201,8 +202,9 @@ export const Topbar: React.FC = () => {
         </Flex>
         <MobileDataTabs />
       </Flex>
-      <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
-      <ShareMapsModal open={shareMapsModal} onClose={() => setShareMapsModal(false)} />
+      <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(null)} />
+      <ShareMapsModal open={modalOpen === 'share'} onClose={() => setModalOpen(null)} />
+      <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>
   );

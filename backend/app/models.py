@@ -261,6 +261,11 @@ class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
 
 
+class AssignmentsBulkUpload(BaseModel):
+    assignments: list[list[str]]
+    gerrydb_table_name: str
+
+
 class AssignmentsResponse(SQLModel):
     geo_id: str
     zone: int | None
