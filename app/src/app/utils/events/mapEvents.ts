@@ -247,7 +247,7 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
 };
 
 export const handleDataLoad = (e: MapSourceDataEvent) => {
-  const {mapDocument, shatterMappings} = useMapStore.getState();
+  const {mapDocument, shatterMappings, setMapOptions, setMapRenderingState} = useMapStore.getState();
   const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {};
   if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
   const tileData = e?.tile?.latestFeatureIndex;
@@ -257,7 +257,8 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
   }
   const ft = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer];
   const currentStateFp = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
-  currentStateFp && useMapStore.getState().setMapOptions({currentStateFp});
+  currentStateFp && setMapOptions({currentStateFp});
+  setMapRenderingState('loaded');
   if (mapDocument) {
     GeometryWorker?.loadTileData({
       tileData: e.tile.latestRawTileData,

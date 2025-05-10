@@ -37,7 +37,6 @@ import app.cms.main as cms
 from networkx import Graph, connected_components
 from app.models import (
     Assignments,
-    AssignmentsCreate,
     AssignmentsResponse,
     ColorsSetResult,
     DistrictrMap,
@@ -148,6 +147,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
+# TODO Move document functions to core/document.py
 def check_map_lock(document_id, user_id, session):
     # Try to fetch an existing lock for this document
     result = session.execute(
@@ -312,19 +312,33 @@ async def create_document(
 
 @app.patch("/api/update_assignments")
 async def update_assignments(
-    data: AssignmentsCreate, session: Session = Depends(get_session)
+    data: dict = Body(...), session: Session = Depends(get_session)
 ):
-    assignments = data.model_dump()["assignments"]
-    stmt = insert(Assignments).values(assignments)
-    stmt = stmt.on_conflict_do_update(
-        constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
-    )
-    session.execute(stmt)
-    updated_at = None
-    if len(data.assignments) > 0:
-        updated_at = update_timestamp(session, assignments[0]["document_id"])
-    session.commit()
-    return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
+    # todo: type the input instead of dict
+    assignments = data["assignments"]
+    document_id = assignments[0]["document_id"]
+    lock_status = check_map_lock(document_id, data["user_id"], session)
+
+    if lock_status == DocumentEditStatus.checked_out:
+        stmt = insert(Assignments).values(assignments)
+        stmt = stmt.on_conflict_do_update(
+            constraint=Assignments.__table__.primary_key,
+            set_={"zone": stmt.excluded.zone},
+        )
+        session.execute(stmt)
+        updated_at = None
+        if len(assignments) > 0:
+            updated_at = update_timestamp(session, document_id)
+        session.commit()
+        return {
+            "assignments_upserted": len(assignments),
+            "updated_at": data["updated_at"],
+        }
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is locked by another user",
+        )
 
 
 def _get_document(
@@ -612,6 +626,7 @@ async def unlock_document(
         )
 
         session.commit()
+        print("Document unlocked")
         return {"status": DocumentEditStatus.unlocked}
     except Exception as e:
         session.rollback()
@@ -1003,7 +1018,9 @@ async def make_thumbnail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
-    background_tasks.add_task(generate_thumbnail, session=session, document_id=document_id)
+    background_tasks.add_task(
+        generate_thumbnail, session=session, document_id=document_id
+    )
     return {"message": "Generating thumbnail in background task"}
 
 
@@ -1144,9 +1161,7 @@ async def load_plan_from_share(
         session,
         shared=True,
         access_type=data.access,
-        lock_status=(
-            DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
-        ),
+        lock_status=(DocumentEditStatus.locked if set_is_locked else None),
     )
 
 

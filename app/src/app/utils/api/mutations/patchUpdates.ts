@@ -8,7 +8,7 @@ export const patchUpdates = new MutationObserver(queryClient, {
   mutationFn: patchUpdateAssignments,
   onMutate: () => {
     console.log('Updating assignments');
-    const {zoneAssignments, shatterIds, shatterMappings, mapDocument, lastUpdatedHash} =
+    const {zoneAssignments, shatterIds, shatterMappings, mapDocument, lastUpdatedHash, userID} =
       useMapStore.getState();
     if (!mapDocument) return;
   },

@@ -17,7 +17,7 @@ export const getAssignments = async (
     );
     return null;
   }
-  if (mapDocument) {
+  if (mapDocument?.document_id) {
     return await axios
       .get(`${process.env.NEXT_PUBLIC_API_URL}/api/get_assignments/${mapDocument.document_id}`)
       .then(res => {

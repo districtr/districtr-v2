@@ -18,11 +18,8 @@ export function GerryDBViewSelector() {
     console.log('Value changed: ', value);
     const selectedDistrictrMap = data?.find(view => view.name === value);
     console.log('Selected view: ', selectedDistrictrMap);
-    if (
-      !selectedDistrictrMap ||
-      selectedDistrictrMap.districtr_map_slug === mapDocument?.districtr_map_slug
-    ) {
-      console.log('No document or same document');
+    if (!selectedDistrictrMap) {
+      console.log('No document');
       return;
     }
     console.log('mutating to create new document');

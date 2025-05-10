@@ -141,13 +141,20 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
+class DocumentDraftStatus(str, Enum):
+    in_progress = "in_progress"
+    scratch = "scratch"
+    ready_to_share = "ready_to_share"
+    # perhaps others down the road e.g. accepted, archived, etc.
+
+
 class DistrictrMapMetadata(BaseModel):
     name: Optional[str] | None = None
     group: Optional[str] | None = None
     tags: Optional[list[str]] | None = None
     description: Optional[str] | None = None
     event_id: Optional[str] | None = None
-    is_draft: bool = True
+    draft_status: Optional[DocumentDraftStatus] = DocumentDraftStatus.scratch
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
