@@ -9,7 +9,6 @@ import {useTemporalStore} from '@/app/store/temporalStore';
 import {unlockMapDocument} from '@/app/utils/api/apiHandlers/unlockMapDocument';
 
 const DialogContentContainer = styled(Dialog.Content, {
-  maxWidth: '60vw',
   maxHeight: 'calc(100vh-2rem)',
 });
 
@@ -97,7 +96,7 @@ export const RecentMapsModal: React.FC<{
           </Button>
         </Dialog.Trigger>
       )}
-      <DialogContentContainer className="md:w-[50vw]">
+      <DialogContentContainer className="sm:w-[95vw] md:w-[60vw]">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
           <Dialog.Close

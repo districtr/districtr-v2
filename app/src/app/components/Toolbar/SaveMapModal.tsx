@@ -27,7 +27,6 @@ const BoxContainer = styled(Box, {
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxHeight: 'calc(100vh-2rem)',
-  maxWidth: '60vw',
   overflowY: 'auto',
 });
 
@@ -197,7 +196,7 @@ export const SaveMapModal: React.FC<{
           </Button>
         </Dialog.Trigger>
       )}
-      <DialogContentContainer className="sm:w-[75vw] md:w-[60vw]">
+      <DialogContentContainer className="sm:w-[95vw] md:w-[60vw]">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Save Map Details</Dialog.Title>
 
