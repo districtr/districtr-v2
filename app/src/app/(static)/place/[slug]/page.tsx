@@ -1,5 +1,6 @@
 import {LanguagePicker} from '@/app/components/LanguagePicker/LanguagePicker';
 import RichTextRenderer from '@/app/components/RichTextRenderer/RichTextRenderer';
+import {ContentSection} from '@/app/components/Static/ContentSection';
 import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getCMSContent} from '@/app/utils/api/cms';
@@ -35,29 +36,30 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         preferredLanguage={language}
         availableLanguages={cmsData.available_languages}
       />
-      <Heading as="h3">Available Plans</Heading>
+      <ContentSection title="Draw a plan from scratch">
+        <Grid
+          gap="2"
+          columns={{
+            initial: '1',
+            md: '2',
+            lg: '4',
+          }}
+        >
+          {Boolean(availableMaps) && (
+            <>
+              {availableMaps!.map((view, i) => (
+                <CreateButton
+                  key={i}
+                  view={{
+                    ...view,
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </Grid>
+      </ContentSection>
 
-      <Grid
-        gap="2"
-        columns={{
-          initial: '1',
-          md: '2',
-          lg: '4',
-        }}
-      >
-        {Boolean(availableMaps) && (
-          <>
-            {availableMaps!.map((view, i) => (
-              <CreateButton
-                key={i}
-                view={{
-                  ...view,
-                }}
-              />
-            ))}
-          </>
-        )}
-      </Grid>
       <RichTextRenderer content={cmsData.content.published_content.body} className="my-4" />
     </Flex>
   );

@@ -7,7 +7,9 @@ from fastapi import (
     BackgroundTasks,
     Body,
     Form,
+    Security,
 )
+from fastapi.responses import RedirectResponse
 from typing import Annotated
 import botocore.exceptions
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
@@ -25,6 +27,8 @@ import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import get_session
 from app.core.config import settings
+from app.core.security import auth, TokenScope
+from app.core.thumbnails import generate_thumbnail, thumbnail_exists
 from app.utils import hash_password, verify_password
 import jwt
 from uuid import uuid4
@@ -971,6 +975,44 @@ async def get_projects(
         .limit(limit)
     ).all()
     return gerrydb_views
+
+
+@app.get("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
+async def get_thumbnail(*, document_id: str, session: Session = Depends(get_session)):
+    try:
+        if thumbnail_exists(document_id):
+            return RedirectResponse(
+                url=f"{settings.CDN_URL}/thumbnails/{document_id}.png"
+            )
+        else:
+            return RedirectResponse(url="/home-megaphone.png")
+    except:
+        return RedirectResponse(url="/home-megaphone.png")
+
+
+@app.post("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
+async def make_thumbnail(
+    *,
+    document_id: str,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+):
+    try:
+        stmt = select(Document.document_id).filter(Document.document_id == document_id)
+        map = session.execute(stmt).first()
+    except DataError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document ID did not fit UUID format",
+        )
+    if map == None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+    background_tasks.add_task(generate_thumbnail, session=session, document_id=document_id)
+    return {"message": "Generating thumbnail in background task"}
 
 
 @app.post("/api/document/{document_id}/share")

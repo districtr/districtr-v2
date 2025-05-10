@@ -111,6 +111,7 @@ class Settings(BaseSettings):
     # R2
 
     R2_BUCKET_NAME: str | None = None
+    CDN_URL: str | None = None
     ACCOUNT_ID: str | None = None
     AWS_S3_BUCKET: str | None = None
     AWS_S3_ENDPOINT: str | None = None
