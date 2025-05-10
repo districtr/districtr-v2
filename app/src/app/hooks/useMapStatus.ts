@@ -3,6 +3,7 @@ import {useMapStore} from '../store/mapStore';
 import {FROZEN_CONDITIONS, STATUS_TEXT, STATUS_TOOLTIPS} from '../constants/notifications';
 import {useMapMetadata} from './useMapMetadata';
 import {BadgeProps} from '@radix-ui/themes';
+import {useSearchParams} from 'next/navigation';
 
 export const useMapStatus = () => {
   const document_id = useMapStore(state => state.mapDocument?.document_id);
@@ -10,10 +11,7 @@ export const useMapStatus = () => {
   const status = mapStatus?.status;
   const access = mapStatus?.access;
   const mapMetadata = useMapMetadata(document_id);
-  const shareUrl =
-    typeof window !== 'undefined'
-      ? new URL(window.location.toString()).searchParams.get('share')
-      : null;
+  const shareUrl = useSearchParams().get('share');
 
   const [statusText, statusTooltip, statusColor] = useMemo(() => {
     if (!document_id) return [null, null, null];
