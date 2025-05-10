@@ -18,7 +18,7 @@ export const VtdBlockLayers: React.FC<{
   const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap);
   const demographicVariable = useDemographyStore(state => state.variable);
   const demographicVariant = useDemographyStore(state => state.variant);
-  const [clearSource, setClearSource] = useState(false);
+  const [loadedTiles, setLoadedTiles] = useState<string>('');
   const setScale = useDemographyStore(state => state.setScale);
   const demographyDataHash = useDemographyStore(state => state.dataHash);
   const shatterIds = useMapStore(state => state.shatterIds);
@@ -26,15 +26,20 @@ export const VtdBlockLayers: React.FC<{
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
   useClearMap(mapDocument?.document_id);
+  useEffect(() => {
+    setMapRenderingState('loading');
+  }, [mapDocument?.tiles_s3_path]);
+
   useLayoutEffect(() => {
-    // on mount, set map rendering state to loaded
+    // on first render, set map rendering state to loaded
     setMapRenderingState('loaded');
   }, []);
-  useEffect(() => {
-    setClearSource(true);
-    setTimeout(() => {
-      setClearSource(false);
-    }, 10);
+
+  // clear source on tileset change for 1 render
+  useLayoutEffect(() => {
+    if (mapDocument?.tiles_s3_path) {
+      setLoadedTiles(mapDocument.tiles_s3_path);
+    }
   }, [mapDocument?.tiles_s3_path]);
 
   const handleChoroplethRender = ({numberOfBins}: {numberOfBins?: number}) => {
@@ -80,7 +85,7 @@ export const VtdBlockLayers: React.FC<{
     mapDocument,
     demographicVariant,
   ]);
-  if (!mapDocument || clearSource) return null;
+  if (!mapDocument || loadedTiles !== mapDocument.tiles_s3_path) return null;
 
   return (
     <>
