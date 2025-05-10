@@ -10,7 +10,8 @@ from app.core.config import settings
 from fastapi import APIRouter, Security, status, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from app.core.security import auth, TokenScope
-from app.core.db import get_session, get_document
+from app.core.db import get_session
+from app.core.dependencies import get_document
 from app.models import Document
 from urllib.parse import urlparse
 from pathlib import Path

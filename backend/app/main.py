@@ -23,7 +23,8 @@ from sqlmodel import ARRAY, INT
 from datetime import datetime, UTC, timedelta
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
-from app.core.db import get_session, get_document
+from app.core.db import get_session
+from app.core.dependencies import get_document as _get_document
 from app.core.config import settings
 from app.utils import hash_password, verify_password
 import jwt
@@ -331,7 +332,7 @@ async def update_assignments(
     response_model=ShatterResult,
 )
 async def shatter_parent(
-    document: Annotated[Document, Depends(get_document)],
+    document: Annotated[Document, Depends(_get_document)],
     data: GEOIDS,
     session: Session = Depends(get_session),
 ):
@@ -366,7 +367,7 @@ async def shatter_parent(
     response_model=GEOIDSResponse,
 )
 async def unshatter_parent(
-    document: Annotated[Document, Depends(get_document)],
+    document: Annotated[Document, Depends(_get_document)],
     data: AssignedGEOIDS,
     session: Session = Depends(get_session),
 ):
@@ -406,7 +407,7 @@ async def unshatter_parent(
     "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
 )
 async def reset_map(
-    document: Annotated[Document, Depends(get_document)],
+    document: Annotated[Document, Depends(_get_document)],
     session: Session = Depends(get_session),
 ):
     partition_name = f'"document.assignments_{document.document_id}"'
@@ -477,7 +478,7 @@ async def update_colors(
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(
-    document: Annotated[Document, Depends(get_document)],
+    document: Annotated[Document, Depends(_get_document)],
     session: Session = Depends(get_session),
 ):
     stmt = (
@@ -639,7 +640,7 @@ async def get_document_status(
 
 @app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
 async def get_unassigned_geoids(
-    document: Annotated[Document, Depends(get_document)],
+    document: Annotated[Document, Depends(_get_document)],
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
@@ -914,7 +915,7 @@ async def get_connected_component_bboxes(
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
-    document: Annotated[Document, Depends(get_document)],
+    document: Annotated[Document, Depends(_get_document)],
     metadata: dict = Body(...),
     session: Session = Depends(get_session),
 ):
@@ -955,7 +956,7 @@ async def get_projects(
 
 @app.post("/api/document/{document_id}/share")
 async def share_districtr_plan(
-    document: Annotated[Document, Depends(get_document)],
+    document: Annotated[Document, Depends(_get_document)],
     params: dict = Body(...),
     session: Session = Depends(get_session),
 ):
@@ -1098,7 +1099,7 @@ async def load_plan_from_share(
 
 @app.post("/api/document/{document_id}/checkout", status_code=status.HTTP_200_OK)
 async def checkout_plan(
-    document: Annotated[Document, Depends(get_document)],
+    document: Annotated[Document, Depends(_get_document)],
     params: dict = Body(...),
     session: Session = Depends(get_session),
 ):
@@ -1143,7 +1144,7 @@ async def checkout_plan(
 @app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
 async def get_survey_results(
     *,
-    document: Annotated[Document, Depends(get_document)],
+    document: Annotated[Document, Depends(_get_document)],
     background_tasks: BackgroundTasks,
     format: str = "CSV",
     export_type: str = "ZoneAssignments",
