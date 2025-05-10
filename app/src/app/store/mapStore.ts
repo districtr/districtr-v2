@@ -1078,7 +1078,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
   password: null,
   setPassword: password => set({password}),
-  handleUnlockWithPassword: (password) => {
+  handleUnlockWithPassword: password => {
     const {mapDocument, receivedShareToken} = get();
     if (!password) {
       set({

@@ -10,7 +10,10 @@ export const useMapStatus = () => {
   const status = mapStatus?.status;
   const access = mapStatus?.access;
   const mapMetadata = useMapMetadata(document_id);
-  const shareUrl = typeof window !== 'undefined' ? new URL(window.location.toString()).searchParams.get('share') : null;
+  const shareUrl =
+    typeof window !== 'undefined'
+      ? new URL(window.location.toString()).searchParams.get('share')
+      : null;
 
   const [statusText, statusTooltip, statusColor] = useMemo(() => {
     if (!document_id) return [null, null, null];
@@ -28,7 +31,11 @@ export const useMapStatus = () => {
     if (mapMetadata.draft_status === 'scratch') return [STATUS_TEXT.scratch, null, 'gray'];
     if (mapMetadata.draft_status === 'in_progress') return [STATUS_TEXT.progress, null, 'blue'];
     return [STATUS_TEXT.ready, null, 'green'];
-  }, [mapStatus, status, access, document_id, mapMetadata]) as [string, string, BadgeProps['color']];
+  }, [mapStatus, status, access, document_id, mapMetadata]) as [
+    string,
+    string,
+    BadgeProps['color'],
+  ];
 
   const frozenMessage = useMemo(() => {
     if (typeof window === 'undefined') return null;
