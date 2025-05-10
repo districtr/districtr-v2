@@ -436,6 +436,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     const initialMapOptions = useMapStore.getInitialState().mapOptions;
     if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
       GeometryWorker?.clear();
+      GeometryWorker?.resetZones();
     } else {
       GeometryWorker?.resetZones();
     }
