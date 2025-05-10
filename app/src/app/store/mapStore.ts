@@ -424,9 +424,15 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       allPainted,
       mapOptions,
     } = get();
-    if (currentMapDocument?.document_id === mapDocument.document_id) {
+    const documentIsSame = currentMapDocument?.document_id === mapDocument.document_id;
+    const bothHaveData =
+      typeof currentMapDocument?.updated_at === 'string' &&
+      typeof mapDocument?.updated_at === 'string';
+    const remoteIsNewer = bothHaveData && currentMapDocument.updated_at! < mapDocument.updated_at!;
+    if (documentIsSame && !remoteIsNewer) {
       return;
     }
+
     const initialMapOptions = useMapStore.getInitialState().mapOptions;
     if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
       GeometryWorker?.clear();
@@ -470,10 +476,11 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         token: mapDocument.token,
         password: mapDocument.password,
       },
-      colorScheme: DefaultColorScheme,
+      colorScheme: mapDocument.color_scheme ?? DefaultColorScheme,
       sidebarPanels: ['population'],
       appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
       shatterIds: {parents: new Set(), children: new Set()},
+      loadedMapId: undefined,
     });
   },
   mapStatus: null,

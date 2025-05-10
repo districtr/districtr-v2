@@ -40,7 +40,7 @@ const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
 const getDocumentFunction = (documentId?: string) => {
   return async () => {
     const currentId = useMapStore.getState().mapDocument?.document_id;
-    if (documentId && documentId !== currentId) {
+    if (documentId) {
       useMapStore.getState().setAppLoadingState('loading');
       return await getDocument(documentId);
     } else {
@@ -68,11 +68,8 @@ updateDocumentFromId.subscribe(mapDocument => {
     url.searchParams.delete('document_id');
     window.history.replaceState({}, document.title, url.toString());
   }
-  if (mapDocument.data && mapDocument.data.document_id !== useMapStore.getState().loadedMapId) {
+  if (mapDocument.data) {
     useMapStore.getState().setMapDocument(mapDocument.data);
-    if (mapDocument.data.color_scheme?.length) {
-      useMapStore.getState().setColorScheme(mapDocument.data.color_scheme);
-    }
   }
 });
 
