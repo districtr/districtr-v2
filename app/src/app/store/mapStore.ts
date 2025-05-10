@@ -37,7 +37,7 @@ import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
-import { CheckboxGroupIndicator } from '@radix-ui/themes/dist/esm/components/checkbox-group.primitive.js';
+import {CheckboxGroupIndicator} from '@radix-ui/themes/dist/esm/components/checkbox-group.primitive.js';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -483,7 +483,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       colorScheme: mapDocument.color_scheme ?? DefaultColorScheme,
       sidebarPanels: ['population'],
       appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
-      mapRenderingState: mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
+      mapRenderingState:
+        mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
       shatterIds: {parents: new Set(), children: new Set()},
       loadedMapId: undefined,
     });
