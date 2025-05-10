@@ -24,7 +24,6 @@ export const useMapBrowserEvents = () => {
       setAppLoadingState('blurred');
       // unlock map doc on blurred
       const documentId = useMapStore.getState().mapDocument?.document_id;
-      console.log('documentId', documentId, 'unlocking');
       if (documentId) {
         unlockMapDocument(documentId);
       }
