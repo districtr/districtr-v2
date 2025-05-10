@@ -47,7 +47,11 @@ export const Topbar: React.FC = () => {
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
   const mapMetadata = useMapMetadata(mapDocument?.document_id);
   const mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
-  const mapTableName = mapMetadata?.name ?? '';
+  const mapTableName = useMapStore(
+    state =>
+      state.userMaps.find(userMap => userMap.document_id === state.mapDocument?.document_id)
+        ?.name ?? ''
+  );
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
 
