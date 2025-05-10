@@ -41,6 +41,7 @@ from app.models import (
     AssignmentsResponse,
     ColorsSetResult,
     DistrictrMap,
+    DistrictrMapsToGroups,
     Document,
     DocumentCreate,
     DocumentPublic,
@@ -956,11 +957,17 @@ async def update_districtrmap_metadata(
 async def get_projects(
     *,
     session: Session = Depends(get_session),
+    group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
 ):
     gerrydb_views = session.exec(
         select(DistrictrMap)
+        .join(
+            DistrictrMapsToGroups,
+            DistrictrMapsToGroups.districtrmap_uuid == DistrictrMap.uuid,
+        )
+        .filter(DistrictrMapsToGroups.group_slug == group)
         .filter(DistrictrMap.visible == true())  # pyright: ignore
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
@@ -1003,7 +1010,9 @@ async def make_thumbnail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
-    background_tasks.add_task(generate_thumbnail, session=session, document_id=document_id)
+    background_tasks.add_task(
+        generate_thumbnail, session=session, document_id=document_id
+    )
     return {"message": "Generating thumbnail in background task"}
 
 

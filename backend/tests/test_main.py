@@ -13,7 +13,7 @@ from tests.constants import (
     USER_ID,
 )
 from unittest.mock import patch
-from app.utils import create_districtr_map
+from app.utils import create_districtr_map, create_map_group
 from app.models import DocumentEditStatus, DocumentShareStatus
 import jwt
 from app.core.config import settings
@@ -145,6 +145,7 @@ def districtr_map_fixtures(
             districtr_map_slug=f"districtr_map_{i}",
             gerrydb_table_name=f"districtr_map_{i}",
             parent_layer=GERRY_DB_FIXTURE_NAME,
+            group_slug="states",
         )
     session.commit()
 
@@ -395,7 +396,7 @@ def test_list_gerydb_views(client, districtr_maps):
     response = client.get("/api/gerrydb/views")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 5
+    assert len(data) == 4
 
 
 def test_list_gerydb_views_limit(client, districtr_maps):
@@ -409,7 +410,7 @@ def test_list_gerydb_views_offset(client, districtr_maps):
     response = client.get("/api/gerrydb/views?offset=1")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 4
+    assert len(data) == 3
 
 
 def test_list_gerydb_views_offset_and_limit(client, districtr_maps):
@@ -417,6 +418,35 @@ def test_list_gerydb_views_offset_and_limit(client, districtr_maps):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
+
+
+@pytest.fixture(name="map_group_two")
+def map_group_two_fixture(session: Session):
+    create_map_group(session=session, group_name="Map Group Two", slug="map_group_two")
+    return "map_group_two"
+
+
+@pytest.fixture(name="districtr_maps_diff_group")
+def districtr_map_diff_group_fixtures(
+    session: Session, map_group_two: str, ks_demo_view_census_blocks_districtrmap
+):
+    for i in range(4):
+        create_districtr_map(
+            session=session,
+            name=f"Districtr map {i}",
+            districtr_map_slug=f"districtr_map_{i}",
+            gerrydb_table_name=f"districtr_map_{i}",
+            parent_layer=GERRY_DB_FIXTURE_NAME,
+            group_slug=map_group_two,
+        )
+    session.commit()
+
+
+def test_list_gerydb_views_diff_map_group(client, districtr_maps_diff_group):
+    response = client.get("/api/gerrydb/views?group=map_group_two")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 4
 
 
 @pytest.fixture(name="districtr_maps_soft_deleted")
@@ -433,6 +463,7 @@ def districtr_map_soft_deleted_fixture(
             visibility=bool(
                 i
             ),  # Should have one hidden (index 0) and one visible (index 1)
+            group_slug="states",
         )
     session.commit()
 
@@ -443,17 +474,16 @@ def test_list_gerydb_views_soft_deleted_map(
     response = client.get("/api/gerrydb/views")
     assert response.status_code == 200
     data = response.json()
-    # One visible from `ks_demo_view_census_blocks_districtrmap`
     # One hidden from `districtr_maps_soft_deleted`
     # One visible from `districtr_maps_soft_deleted`
-    assert len(data) == 2
+    assert len(data) == 1
 
     # Check that the hidden map is there
     stmt = text("SELECT * FROM districtrmap WHERE not visible")
     result = session.execute(stmt).one()
     assert result is not None
     assert not result.visible
-    assert data[0]["name"] == "Districtr map ks_demo_view_census_blocks"
+    assert data[0]["name"] == "Districtr map 1"
 
 
 @pytest.fixture(name=GERRY_DB_TOTPOP_FIXTURE_NAME)
@@ -485,7 +515,7 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    districtr_map_uuid = create_districtr_map(
+    create_districtr_map(
         session=session,
         name="DistrictMap with TOTPOP view",
         parent_layer=layer,
@@ -529,7 +559,7 @@ def ks_demo_view_census_blocks_summary_stats_vap(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    districtr_map_uuid = create_districtr_map(
+    create_districtr_map(
         session=session,
         name="DistrictMap with VAP view",
         parent_layer=layer,
@@ -572,7 +602,7 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    districtr_map_uuid = create_districtr_map(
+    create_districtr_map(
         session=session,
         name="DistrictMap with TOTPOP AND VAP view",
         parent_layer=layer,

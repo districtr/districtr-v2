@@ -130,7 +130,6 @@ def generate_thumbnail(session: Session, document_id: str) -> None:
         pic_IObytes.close()
         return
 
-
     # write to S3
     try:
         s3 = settings.get_s3_client()
