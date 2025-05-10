@@ -80,6 +80,19 @@ export const SaveMapModal: React.FC<{
     });
   }, [mapMetadata]);
 
+  useEffect(() => {
+    if (mapDocument?.document_id) {
+      setMapFormState({
+        name: null,
+        group: null,
+        description: null,
+        draft_status: null,
+        tags: null,
+        eventId: null,
+      });
+    }
+  }, [mapDocument?.document_id]);
+
   const handlePasswordSubmit = async () => {
     if (mapDocument?.document_id && receivedShareToken.length) {
       checkoutDocument

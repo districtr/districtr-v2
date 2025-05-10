@@ -28,7 +28,7 @@ export const ShareMapsModal: React.FC<{
   );
   const [shareType, setShareType] = React.useState<'read' | 'edit'>('read');
   const [linkCopied, setLinkCopied] = React.useState(false);
-  const [password, setPassword] = React.useState<string | null>(currentMap?.password ?? null);
+  const [password, setPassword] = React.useState<string | null>(mapDocument?.password ?? null);
   const [passwordDisabled, setPasswordDisabled] = React.useState(false);
   const [isVisible, setIsVisible] = React.useState(true); // whether pw is dots or text
 
