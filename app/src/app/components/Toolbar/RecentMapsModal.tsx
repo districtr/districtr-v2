@@ -38,6 +38,11 @@ export const RecentMapsModal: React.FC<{
   const clear = useTemporalStore(store => store.clear);
 
   const handleUnloadMapDocument = () => {
+    // reset the map url
+    const urlParams = new URLSearchParams(searchParams.toString());
+    urlParams.delete('document_id');
+    urlParams.delete('share');
+    router.push(pathname + '?' + urlParams.toString());
     setMapDocument({} as DocumentObject);
     // release the lock on the map in the db
     unlockMapDocument(mapDocument?.document_id as string);
