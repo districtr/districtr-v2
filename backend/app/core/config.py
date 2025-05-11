@@ -143,7 +143,7 @@ class Settings(BaseSettings):
         if self.CDN_URL is not None:
             return self.CDN_URL
 
-        return self.R2_BUCKET_NAME
+        return f"https://{self.R2_BUCKET_NAME}.s3.amazonaws.com"
 
     # Auth0
 
