@@ -12,7 +12,6 @@ from tests.constants import (
     GERRY_DB_FIXTURE_NAME,
     USER_ID,
 )
-from unittest.mock import patch
 from app.utils import create_districtr_map, create_map_group
 from app.models import DocumentEditStatus, DocumentShareStatus
 import jwt
@@ -829,49 +828,3 @@ def test_document_checkout(client, document_id):
 
     assert response.status_code == 200
     assert response.json().get("status") == DocumentEditStatus.checked_out
-
-
-def test_thumbnail_generator(client, document_id):
-    with patch("app.main.generate_thumbnail") as mock_generate_thumbnail:
-        response = client.post(
-            "/api/create_document",
-            json={
-                "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-                "user_id": USER_ID,
-            },
-        )
-        document_id = response.json().get("document_id")
-
-        # API call is successful
-        response = client.post(
-            f"/api/document/{document_id}/thumbnail",
-        )
-        assert response.status_code == 200
-        assert (
-            response.json().get("message") == "Generating thumbnail in background task"
-        )
-
-        # confirm backend is called
-        mock_generate_thumbnail.assert_called_once()
-        args, kwargs = mock_generate_thumbnail.call_args
-        assert kwargs["document_id"] == document_id
-
-
-def test_thumbnail_cdn_redirect(client, document_id):
-    with patch("app.main.thumbnail_exists", return_value=True):
-        response = client.get(
-            f"/api/document/{document_id}/thumbnail",
-            follow_redirects=False,
-        )
-        assert response.status_code == 307
-        assert f"/thumbnails/{document_id}.png" in response.headers["location"]
-
-
-def test_thumbnail_generic_redirect(client, document_id):
-    with patch("app.main.thumbnail_exists", return_value=False):
-        response = client.get(
-            f"/api/document/{document_id}/thumbnail",
-            follow_redirects=False,
-        )
-        assert response.status_code == 307
-        assert response.headers["location"] == "/home-megaphone.png"

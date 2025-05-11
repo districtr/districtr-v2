@@ -6,10 +6,10 @@ from app.utils import (
     create_parent_child_edges,
     create_districtr_map,
     create_shatterable_gerrydb_view,
-    get_local_or_s3_path,
     add_extent_to_districtrmap,
     create_spatial_index,
 )
+from app.core.io import get_local_or_s3_path
 from app.main import get_session
 from app.core.config import settings
 from functools import wraps
