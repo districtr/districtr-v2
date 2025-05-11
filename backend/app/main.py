@@ -69,6 +69,7 @@ from app.exports import (
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
+from numpy.random import randint
 
 
 if settings.ENVIRONMENT in ("production", "qa"):
@@ -501,19 +502,16 @@ async def upload_assignments(
     This endpoint creates a new document and loads a batch of assignments from CSV data.
     It performs data validation and consolidates uniform VTDs from their blocks for shatterable maps.
     """
-    d = data.model_dump()
-    csv_rows = d["assignments"]
-
     # Texas had 914_231 in the 2010 Census
     # https://www.census.gov/geographies/reference-files/time-series/geo/tallies.html
     # We don't expect any maps larger than that
-    if len(csv_rows) > 914_231:
+    if len(data.assignments) > 914_231:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail="Upload size exceeds maximum allowed limit (1,000,000 records)",
         )
-    # Records
-    for i, record in enumerate(csv_rows):
+
+    for i, record in enumerate(data.assignments):
         if len(record) != 2:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -527,7 +525,7 @@ async def upload_assignments(
 
     # Validate gerrydb_table exists
     try:
-        gerrydb_table = d["gerrydb_table_name"]
+        gerrydb_table = data.gerrydb_table_name
         stmt = select(DistrictrMap).where(
             DistrictrMap.gerrydb_table_name == gerrydb_table
         )
@@ -552,7 +550,7 @@ async def upload_assignments(
     # Bulk insert records
     cursor = session.connection().connection.cursor()
     with cursor.copy(f"COPY {temp_table_name} (geo_id, zone) FROM STDIN") as copy:
-        for record in csv_rows:
+        for record in data.assignments:
             if not record[1] or record[1] == "":
                 copy.write_row([record[0], None])
             else:
@@ -571,8 +569,11 @@ async def upload_assignments(
 
         # Validate uploaded data matches the gerrydb table
         # Sampling a few records is more efficient than checking every record
-        sample_size = min(100, len(csv_rows))
-        sample_geo_ids = [csv_rows[i][0] for i in range(sample_size)]
+        sample_size = min(100, len(data.assignments))
+        sample_geo_ids = [
+            data.assignments[randint(len(data.assignments))][0]
+            for _ in range(sample_size)
+        ]
 
         results = session.execute(
             text(f"""
@@ -597,35 +598,44 @@ async def upload_assignments(
             )
         )
 
-        results = session.execute(
+        # First, find and save uniform VTDs into a Common Table Expression (CTE)
+        # Then perform operations sequentially using the CTE results
+
+        # Create a temporary table to store uniform VTDs
+        session.execute(
             text(f"""
-            SELECT parent_path, MIN(zone) FROM {parent_child_table}
+            CREATE TEMPORARY TABLE uniform_vtds AS
+            SELECT parent_path, MIN(zone) AS zone
+            FROM {parent_child_table}
             JOIN {temp_table_name} ON geo_id = {parent_child_table}.child_path
             GROUP BY parent_path
             HAVING COUNT(DISTINCT COALESCE(zone, -1)) = 1
-            """)
+        """)
         )
 
-        # Re-import VTDs that are fully uniform zone
-        vtds = []
-        with cursor.copy(f"COPY {temp_table_name} (geo_id, zone) FROM STDIN") as copy:
-            for row in results:
-                vtd, zone = row
-                vtds.append(vtd)
-                copy.write_row([vtd, zone])
-        # Only run this cleanup if we found uniform VTDs
-        if vtds:
-            # Clean up blocks which are now in uniform VTDs
-            session.execute(
-                text(f"""
-                DELETE FROM {temp_table_name}
-                WHERE geo_id = ANY(
-                    SELECT child_path FROM {parent_child_table}
-                    WHERE parent_path = ANY(:vtds)
+        # Insert uniform VTDs into the assignments temp table
+        session.execute(
+            text(f"""
+            INSERT INTO {temp_table_name} (geo_id, zone)
+            SELECT parent_path, zone FROM uniform_vtds
+        """)
+        )
+
+        # Delete the child entries (blocks) for these uniform VTDs
+        session.execute(
+            text(f"""
+            DELETE FROM {temp_table_name}
+            WHERE geo_id IN (
+                SELECT child_path FROM {parent_child_table}
+                WHERE parent_path IN (
+                    SELECT parent_path FROM uniform_vtds
                 )
-                """),
-                {"vtds": vtds},
             )
+        """)
+        )
+
+        # Drop the temporary table
+        session.execute(text("DROP TABLE IF EXISTS uniform_vtds"))
 
         # For non-shatterable maps, we don't need additional validation
         # as the geo_ids should match the gerrydb table directly
