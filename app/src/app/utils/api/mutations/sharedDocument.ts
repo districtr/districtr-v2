@@ -46,7 +46,7 @@ export const sharedDocument = new MutationObserver(queryClient, {
       setMapDocument(data);
     }
     setAppLoadingState('loaded');
-    setPasswordPrompt(false);
+    setPasswordPrompt(data.status === 'locked');
     if (data.status !== 'locked') {
       const documentUrl = new URL(window.location.toString());
       documentUrl.searchParams.delete('share'); // remove share + token from url

@@ -24,7 +24,7 @@ import {document} from '@utils/api/mutations';
 import {DistrictrMap} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
-import {PasswordPromptModal} from '@components/Toolbar/PasswordPromptModal';
+
 import {SaveMapModal} from '@/app/components/Toolbar/SaveMapModal';
 import {useMapStatus} from '../hooks/useMapStatus';
 import {VariableAnchorOffsetCollection} from 'maplibre-gl';
@@ -38,11 +38,11 @@ export const Topbar: React.FC = () => {
   const [shareMapsModal, setShareMapsModal] = React.useState(false);
   const [saveMapsModal, setSaveMapsModal] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-
   const mapDocument = useMapStore(state => state.mapDocument);
   const status = useMapStore(state => state.mapStatus?.status);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
+  const passwordPrompt = useMapStore(state => state.passwordPrompt);
   const {statusText, statusColor, statusTooltip} = useMapStatus();
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
   const mapMetadata = useMapMetadata(mapDocument?.document_id);
@@ -223,7 +223,7 @@ export const Topbar: React.FC = () => {
                 </Badge>
               </Tooltip>
             )}
-            {!!(statusText === STATUS_TEXT.sharedWithPw) && <PasswordPopover />}
+            {passwordPrompt && <PasswordPopover />}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               onClick={() => setSettingsOpen(prev => !prev)}
@@ -242,7 +242,6 @@ export const Topbar: React.FC = () => {
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
       <ShareMapsModal open={shareMapsModal} onClose={() => setShareMapsModal(false)} />
       <SaveMapModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} />
-      <PasswordPromptModal />
     </>
   );
 };

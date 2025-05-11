@@ -29,11 +29,7 @@ export const useMapStatus = () => {
     if (mapMetadata.draft_status === 'scratch') return [STATUS_TEXT.scratch, null, 'gray'];
     if (mapMetadata.draft_status === 'in_progress') return [STATUS_TEXT.progress, null, 'blue'];
     return [STATUS_TEXT.ready, null, 'green'];
-  }, [mapStatus, status, access, document_id, mapMetadata]) as [
-    string,
-    string,
-    BadgeProps['color'],
-  ];
+  }, [status, access, document_id, mapMetadata, shareUrl]) as [string, string, BadgeProps['color']];
 
   const frozenMessage = useMemo(() => {
     if (typeof window === 'undefined') return null;

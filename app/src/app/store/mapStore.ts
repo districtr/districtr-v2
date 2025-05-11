@@ -1118,10 +1118,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
           password,
         })
         .then(response => {
-          console.log(response);
-          if (response.document_id === mapDocument.document_id) {
-            set({passwordPrompt: false});
-          }
+          set({passwordPrompt: false});
         });
     } else {
       set({
