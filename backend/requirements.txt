@@ -51,7 +51,7 @@ filelock==3.17.0
     # via virtualenv
 fiona==1.10.1
 geoalchemy2==0.15.2
-geopandas==0.14.4
+geopandas==1.0.1
 h11==0.14.0
     # via
     #   httpcore
