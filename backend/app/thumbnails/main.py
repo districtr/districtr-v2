@@ -124,7 +124,7 @@ def generate_thumbnail(
         if row["zone"] is None or math.isnan(row["zone"]):
             return "#CCCCCC"
         else:
-            return color_scheme[int(row["zone"]) % len(color_scheme)]
+            return color_scheme[int(row["zone"]) - 1 % len(color_scheme)]
 
     sql = f"""
     SELECT ST_Collect(geometry) AS geom, zone
