@@ -14,7 +14,7 @@ from app.constants import SQL_DIR
 
 # revision identifiers, used by Alembic.
 revision: str = "25416f500a9b"
-down_revision: Union[str, None] = "ea4bc886a999"
+down_revision: Union[str, None] = "dc0216fef023"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
