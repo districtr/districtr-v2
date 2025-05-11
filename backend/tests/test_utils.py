@@ -207,19 +207,6 @@ def districtr_map_in_group(
     return uuid
 
 
-def test_map_group_unique_conflict_on_name(session: Session, map_group_slug: str):
-    # TODO: Is this the behavior we want? Should map groups be unique on name
-    # _and_ slug?
-    with pytest.raises(IntegrityError):
-        map_group_slug_two = "testgroup_two"
-        create_map_group(
-            session=session,
-            group_name="Test Group",
-            slug=map_group_slug_two,
-            autocommit=True,
-        )
-
-
 @pytest.fixture(name="second_map_group_slug")
 def map_group_fixture2(session: Session):
     map_group_slug = "testgroup_two"

@@ -21,7 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.create_table(
         "map_group",
-        sa.Column("name", sa.String(), unique=True, nullable=False),
+        sa.Column("name", sa.String(), nullable=False),
         sa.Column("slug", sa.String(), primary_key=True, nullable=False),
     )
     op.create_table(
