@@ -491,7 +491,7 @@ export const handleCreateBlankMetadataObject = (): DocumentMetadata => {
     group: null,
     tags: null,
     description: null,
-    is_draft: true,
+    draft_status: 'scratch',
     eventId: null,
   };
 };

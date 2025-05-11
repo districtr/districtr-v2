@@ -35,7 +35,6 @@ import app.thumbnails.main as thumbnails
 from networkx import Graph, connected_components
 from app.models import (
     Assignments,
-    AssignmentsCreate,
     AssignmentsResponse,
     ColorsSetResult,
     DistrictrMap,
@@ -149,6 +148,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
+# TODO Move document functions to core/document.py
 def check_map_lock(document_id, user_id, session):
     # Try to fetch an existing lock for this document
     result = session.execute(
@@ -313,19 +313,33 @@ async def create_document(
 
 @app.patch("/api/update_assignments")
 async def update_assignments(
-    data: AssignmentsCreate, session: Session = Depends(get_session)
+    data: dict = Body(...), session: Session = Depends(get_session)
 ):
-    assignments = data.model_dump()["assignments"]
-    stmt = insert(Assignments).values(assignments)
-    stmt = stmt.on_conflict_do_update(
-        constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
-    )
-    session.execute(stmt)
-    updated_at = None
-    if len(data.assignments) > 0:
-        updated_at = update_timestamp(session, assignments[0]["document_id"])
-    session.commit()
-    return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
+    # todo: type the input instead of dict
+    assignments = data["assignments"]
+    document_id = assignments[0]["document_id"]
+    lock_status = check_map_lock(document_id, data["user_id"], session)
+
+    if lock_status == DocumentEditStatus.checked_out:
+        stmt = insert(Assignments).values(assignments)
+        stmt = stmt.on_conflict_do_update(
+            constraint=Assignments.__table__.primary_key,
+            set_={"zone": stmt.excluded.zone},
+        )
+        session.execute(stmt)
+        updated_at = None
+        if len(assignments) > 0:
+            updated_at = update_timestamp(session, document_id)
+        session.commit()
+        return {
+            "assignments_upserted": len(assignments),
+            "updated_at": data["updated_at"],
+        }
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is locked by another user",
+        )
 
 
 @app.patch(
@@ -451,7 +465,8 @@ async def update_colors(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug
+            == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -544,7 +559,9 @@ async def get_document(
             ).label("status"),
             coalesce(
                 access_type,
-            ).label("access"),  # read or edit
+            ).label(
+                "access"
+            ),  # read or edit
             # add access - read or edit
         )  # pyright: ignore
         .where(Document.document_id == document_id)
@@ -598,6 +615,7 @@ async def unlock_document(
         )
 
         session.commit()
+        print("Document unlocked")
         return {"status": DocumentEditStatus.unlocked}
     except Exception as e:
         session.rollback()
@@ -673,7 +691,8 @@ def _get_districtr_map(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug
+            == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -1098,9 +1117,7 @@ async def load_plan_from_share(
         session,
         shared=True,
         access_type=data.access,
-        lock_status=(
-            DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
-        ),
+        lock_status=(DocumentEditStatus.locked if set_is_locked else None),
     )
 
 

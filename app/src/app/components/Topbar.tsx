@@ -1,6 +1,7 @@
 'use client';
 import {
   Button,
+  Badge,
   Text,
   DropdownMenu,
   Flex,
@@ -10,40 +11,51 @@ import {
   Box,
   Tooltip,
   Tabs,
+  Popover,
+  TextField,
 } from '@radix-ui/themes';
 import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ToolSettings} from '@components/Toolbar/Settings';
-import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
+import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon, InfoCircledIcon} from '@radix-ui/react-icons';
 import {useTemporalStore} from '@store/temporalStore';
 import {document} from '@utils/api/mutations';
 import {DistrictrMap} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
-import {PasswordPromptModal} from '@components/Toolbar/PasswordPromptModal';
+
+import {SaveMapModal} from '@/app/components/Toolbar/SaveMapModal';
 import {useMapStatus} from '../hooks/useMapStatus';
+import {VariableAnchorOffsetCollection} from 'maplibre-gl';
+import {useMapMetadata} from '../hooks/useMapMetadata';
+import {STATUS_TEXT} from '../constants/notifications';
+import {PasswordPopover} from './Toolbar/PasswordPopover';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
   const [shareMapsModal, setShareMapsModal] = React.useState(false);
+  const [saveMapsModal, setSaveMapsModal] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const status = useMapStore(state => state.mapStatus?.status);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
-  const {statusText} = useMapStatus();
+  const passwordPrompt = useMapStore(state => state.passwordPrompt);
+  const {statusText, statusColor, statusTooltip} = useMapStatus();
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
-
+  const mapMetadata = useMapMetadata(mapDocument?.document_id);
+  const mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
+  const mapTableName = useMapStore(
+    state =>
+      state.userMaps.find(userMap => userMap.document_id === state.mapDocument?.document_id)
+        ?.name ?? ''
+  );
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
-    if (selectedMap.districtr_map_slug === mapDocument?.districtr_map_slug) {
-      console.log('No document or same document');
-      return;
-    }
     clear();
     document.mutate({
       districtr_map_slug: selectedMap.districtr_map_slug,
@@ -166,6 +178,29 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <Flex direction="row" align="center" gapX="2">
+            {/*map name */}
+            <Button variant="ghost" onClick={() => setSaveMapsModal(true)}>
+              <Text size="3" className="text-black-500">
+                {mapName || ''}
+              </Text>
+            </Button>
+            {/*map slug */}
+            {/*source table name */}
+            <Text size="3" className="text-gray-500">
+              {mapTableName || ''}
+            </Text>
+          </Flex>
+          <Flex direction="row" align="center" gapX="2">
+            {!!statusText && (
+              <Button
+                variant="outline"
+                className="mr-2"
+                disabled={!mapDocument?.document_id}
+                onClick={() => setSaveMapsModal(true)}
+              >
+                Save / Status
+              </Button>
+            )}
             {!!statusText && (
               <Button
                 variant="outline"
@@ -176,16 +211,19 @@ export const Topbar: React.FC = () => {
                 {status === 'locked' ? 'Share' : 'Share'}
               </Button>
             )}
-            {!!statusText && (
-              <Button
-                variant="outline"
-                className="mr-2"
-                disabled={!mapDocument?.document_id}
-                onClick={() => setRecentMapsModalOpen(true)}
-              >
-                {statusText}
-              </Button>
+            {!!(statusText && statusColor) && (
+              <Tooltip content={statusTooltip}>
+                <Badge
+                  color={statusColor}
+                  size={'3'}
+                  variant={'soft'}
+                  className={statusTooltip?.length ? '' : `pointer-events-none`}
+                >
+                  {statusText} {!!statusTooltip?.length && <InfoCircledIcon />}
+                </Badge>
+              </Tooltip>
             )}
+            {passwordPrompt && <PasswordPopover />}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               onClick={() => setSettingsOpen(prev => !prev)}
@@ -203,7 +241,7 @@ export const Topbar: React.FC = () => {
       </Flex>
       <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
       <ShareMapsModal open={shareMapsModal} onClose={() => setShareMapsModal(false)} />
-      <PasswordPromptModal />
+      <SaveMapModal open={saveMapsModal} onClose={() => setSaveMapsModal(false)} />
     </>
   );
 };

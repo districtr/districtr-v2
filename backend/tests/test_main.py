@@ -218,6 +218,7 @@ def assignments_fixture(client, document_id_all_stats):
                 },
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -236,6 +237,7 @@ def assignments_total_vap_fixture(client, document_id_total_vap):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -254,6 +256,7 @@ def assignments_no_gerrydb_pop_fixture(client, document_no_gerrydb_pop):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -314,6 +317,7 @@ def test_patch_assignments(client, document_id):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -332,6 +336,7 @@ def test_patch_assignments_nulls(client, document_id):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": None},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -349,6 +354,7 @@ def test_patch_assignments_twice(client, document_id):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 0},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -364,6 +370,7 @@ def test_patch_assignments_twice(client, document_id):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 1},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200

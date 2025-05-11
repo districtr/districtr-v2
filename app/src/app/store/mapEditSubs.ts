@@ -15,7 +15,7 @@ let allowSendZoneUpdates = true;
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
   // locked during break or heal
-  const {mapLock, mapDocument, shatterIds, shatterMappings, lastUpdatedHash} =
+  const {mapLock, mapDocument, shatterIds, shatterMappings, lastUpdatedHash, userID} =
     _useMapStore.getState();
   const document_id = mapDocument?.document_id;
   if (
@@ -27,7 +27,7 @@ const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapS
   ) {
     const assignments = FormatAssignments();
     if (assignments.length) {
-      patchUpdates.mutate({assignments, updateHash: lastUpdatedHash});
+      patchUpdates.mutate({assignments, updateHash: lastUpdatedHash, userID: userID});
     }
   }
 };

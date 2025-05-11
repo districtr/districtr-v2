@@ -24,7 +24,7 @@ import {
   resetZoneColors,
   setZones,
 } from '../utils/helpers';
-import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
+import {checkoutDocument, patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
@@ -37,6 +37,7 @@ import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
+import {CheckboxGroupIndicator} from '@radix-ui/themes/dist/esm/components/checkbox-group.primitive.js';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -271,7 +272,7 @@ export interface MapStore {
     userMapDocumentId?: string;
     userMapData?: MapStore['userMaps'][number];
   }) => void;
-
+  deleteUserMap: (documentId: string) => void;
   mapName: () => string | undefined;
   mapMetadata: DocumentObject['map_metadata'];
   updateMetadata: (
@@ -281,11 +282,12 @@ export interface MapStore {
     description?: any,
     group?: any,
     eventId?: any,
-    is_draft?: boolean
+    draft_status?: any
   ) => void;
   // SHARE MAP
   passwordPrompt: boolean;
   setPasswordPrompt: (prompt: boolean) => void;
+  handleUnlockWithPassword: (password: string | null) => void;
   password: string | null;
   setPassword: (password: string | null | undefined) => void;
   receivedShareToken: string | null;
@@ -417,18 +419,26 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     demographyCache.clear();
     const {
       mapDocument: currentMapDocument,
+      activeTool: currentActiveTool,
       setFreshMap,
       resetZoneAssignments,
       upsertUserMap,
       allPainted,
       mapOptions,
     } = get();
-    if (currentMapDocument?.document_id === mapDocument.document_id) {
+    const documentIsSame = currentMapDocument?.document_id === mapDocument.document_id;
+    const bothHaveData =
+      typeof currentMapDocument?.updated_at === 'string' &&
+      typeof mapDocument?.updated_at === 'string';
+    const remoteIsNewer = bothHaveData && currentMapDocument.updated_at! < mapDocument.updated_at!;
+    if (documentIsSame && !remoteIsNewer) {
       return;
     }
+
     const initialMapOptions = useMapStore.getInitialState().mapOptions;
     if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
       GeometryWorker?.clear();
+      GeometryWorker?.resetZones();
     } else {
       GeometryWorker?.resetZones();
     }
@@ -469,10 +479,14 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         token: mapDocument.token,
         password: mapDocument.password,
       },
-      colorScheme: DefaultColorScheme,
+      activeTool: mapDocument.access === 'edit' ? currentActiveTool : undefined,
+      colorScheme: mapDocument.color_scheme ?? DefaultColorScheme,
       sidebarPanels: ['population'],
-      appLoadingState: 'initializing',
+      appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
+      mapRenderingState:
+        mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
       shatterIds: {parents: new Set(), children: new Set()},
+      loadedMapId: undefined,
     });
   },
   mapStatus: null,
@@ -791,6 +805,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
           ...documentInfo,
           ...userMaps[documentIndex],
           ...mapDocument,
+          map_metadata: mapDocument.map_metadata ?? userMaps[documentIndex].map_metadata,
         };
       } else {
         userMaps = [{...mapDocument, ...documentInfo}, ...userMaps];
@@ -809,6 +824,11 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     set({
       userMaps,
     });
+  },
+  deleteUserMap: documentId => {
+    set(state => ({
+      userMaps: state.userMaps.filter(map => map.document_id !== documentId),
+    }));
   },
   shatterIds: {
     parents: new Set(),
@@ -921,7 +941,12 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     });
   },
   activeTool: 'pan',
-  setActiveTool: tool => set({activeTool: tool}),
+  setActiveTool: tool => {
+    const canEdit = get().mapDocument?.access === 'edit';
+    if (canEdit) {
+      set({activeTool: tool});
+    }
+  },
   spatialUnit: 'tract',
   setSpatialUnit: unit => set({spatialUnit: unit}),
   selectedZone: 1,
@@ -956,6 +981,10 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   loadZoneAssignments: assignmentsData => {
     lastSentAssignments.clear();
+    const {mapDocument} = get();
+    if (mapDocument?.document_id !== assignmentsData.documentId) {
+      return;
+    }
     const assignments = assignmentsData.assignments;
     const zoneAssignments = new Map<string, number>();
     const shatterIds = {
@@ -1048,7 +1077,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     description: null,
     eventId: null,
     group: null,
-    is_draft: true,
+    draft_status: null,
   },
   updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
     set(state => {
@@ -1072,6 +1101,34 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
   password: null,
   setPassword: password => set({password}),
+  handleUnlockWithPassword: password => {
+    const {mapDocument, receivedShareToken} = get();
+    if (!password) {
+      set({
+        errorNotification: {
+          message: 'Please provide a password',
+          severity: 1,
+        },
+      });
+    } else if (mapDocument?.document_id && receivedShareToken?.length) {
+      checkoutDocument
+        .mutate({
+          document_id: mapDocument.document_id,
+          token: receivedShareToken,
+          password,
+        })
+        .then(response => {
+          set({passwordPrompt: false});
+        });
+    } else {
+      set({
+        errorNotification: {
+          message: 'No document ID or share token found',
+          severity: 1,
+        },
+      });
+    }
+  },
   receivedShareToken: null,
   setReceivedShareToken: token => set({receivedShareToken: token}),
   shareMapMessage: null,

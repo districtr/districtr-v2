@@ -1,6 +1,6 @@
 import os
 import pytest
-from tests.constants import FIXTURES_PATH
+from tests.constants import FIXTURES_PATH, USER_ID
 from unittest.mock import patch
 
 
@@ -30,7 +30,9 @@ def document_id_with_assignments(client, document_id):
                     "geo_id": "200979691001108",
                     "zone": 2,
                 },
-            ]
+            ],
+            "updated_at": "2023-10-01T00:00:00Z",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200

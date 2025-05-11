@@ -14,6 +14,7 @@ def assignments_fixture(client, document_id) -> str:
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
         },
     )
     assert response.status_code == 200
