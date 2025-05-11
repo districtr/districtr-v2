@@ -37,7 +37,6 @@ import app.cms.main as cms
 from networkx import Graph, connected_components
 from app.models import (
     Assignments,
-    AssignmentsBulkUpload,
     AssignmentsCreate,
     AssignmentsResponse,
     ColorsSetResult,
@@ -229,7 +228,7 @@ async def create_document(
 
     # if copy from doc, need to get assignments from that document, copy them for the new doc
     if copy_from_doc:
-        prev_assignments = Assignments.__table__.select().where(
+        prev_assignments = select(Assignments).where(
             Assignments.document_id == copy_from_doc
         )
         # create a new copy with the fresh document id
@@ -493,8 +492,8 @@ async def update_colors(
 
 
 @app.patch("/api/upload_assignments")
-async def upload_assignments(
-    data: AssignmentsBulkUpload, session: Session = Depends(get_session)
+async def upload_block_assignments(
+    data: DocumentCreate, session: Session = Depends(get_session)
 ):
     """
     Bulk upload assignments from CSV data
@@ -502,6 +501,12 @@ async def upload_assignments(
     This endpoint creates a new document and loads a batch of assignments from CSV data.
     It performs data validation and consolidates uniform VTDs from their blocks for shatterable maps.
     """
+    if data.assignments is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Missing geo_id at row {i+1}",
+        )
+
     # Texas had 914_231 in the 2010 Census
     # https://www.census.gov/geographies/reference-files/time-series/geo/tallies.html
     # We don't expect any maps larger than that

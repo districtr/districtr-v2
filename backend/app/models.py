@@ -176,6 +176,7 @@ class DocumentCreate(BaseModel):
     user_id: str | None
     metadata: Optional[DistrictrMapMetadata] | None = None
     copy_from_doc: Optional[str] | None = None  # document_id to copy from
+    assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
 class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
@@ -259,11 +260,6 @@ class Assignments(AssignmentsBase, table=True):
 
 class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
-
-
-class AssignmentsBulkUpload(BaseModel):
-    assignments: list[list[str]]
-    gerrydb_table_name: str
 
 
 class AssignmentsResponse(SQLModel):
