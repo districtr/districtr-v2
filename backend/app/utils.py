@@ -3,13 +3,9 @@ from sqlalchemy import bindparam, Integer, String, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, Float, Boolean
 import logging
-from urllib.parse import ParseResult
-import os
-from app.core.config import settings
 import bcrypt
-from urllib.parse import urlparse
-from pathlib import Path
 from app.constants import GERRY_DB_SCHEMA
+from sqlmodel import select
 
 
 from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
@@ -35,6 +31,7 @@ def create_districtr_map(
     gerrydb_table_name: str | None = None,
     num_districts: int | None = None,
     tiles_s3_path: str | None = None,
+    group_slug: str | None = None,
     visibility: bool = True,
 ) -> str:
     """
@@ -46,6 +43,7 @@ def create_districtr_map(
         districtr_map_slug: The slug of the districtr map.
         parent_layer_name: The name of the parent layer.
         child_layer_name: The name of the child layer.
+        group_slug: The slug of the map group.
         gerrydb_table_name: The name of the gerrydb table.
         num_districts: The number of districts.
         tiles_s3_path: The S3 path to the tiles.
@@ -91,6 +89,14 @@ def create_districtr_map(
             "visibility": visibility,
         },
     )
+
+    if group_slug is not None:
+        add_districtr_map_to_map_group(
+            session=session,
+            districtr_map_slug=districtr_map_slug,
+            group_slug=group_slug,
+        )
+
     return inserted_map_uuid[0]  # pyright: ignore
 
 
@@ -275,86 +281,6 @@ def add_extent_to_districtrmap(
     session.execute(stmt)
 
 
-def download_file_from_s3(
-    s3, url: ParseResult, out_path: str | None = None, replace=False
-) -> str:
-    """
-    Download a file from S3 to the local volume path.
-
-    Args:
-        s3: S3 client
-        url (ParseResult): URL of the file to download
-        replace (bool): If True, replace the file if it already exists
-
-    Returns the path to the downloaded file.
-    """
-    if not s3:
-        raise ValueError("S3 client is not available")
-
-    s3_prefix = url.path.lstrip("/")
-    logger.info("File name: %s", s3_prefix)
-    object_information = s3.head_object(Bucket=url.netloc, Key=s3_prefix)
-
-    if object_information["ResponseMetadata"]["HTTPStatusCode"] != 200:
-        raise ValueError(f"File {s3_prefix} not found in S3 bucket {url.netloc}")
-
-    logger.info("Downloading file from s3. Got response:\n%s", object_information)
-
-    if not out_path:
-        out_path = s3_prefix
-
-    path = os.path.join(settings.VOLUME_PATH, out_path)
-    logger.info("Path: %s", path)
-
-    if os.path.exists(path) and not replace:
-        logger.info("File already exists. Skipping download.")
-    else:
-        logger.info("Downloading file...")
-
-        path_dir = Path(path).parent
-        logger.info("Creating directory: %s", path_dir)
-        path_dir.mkdir(parents=True, exist_ok=True)
-        s3.download_file(url.netloc, s3_prefix, path)
-
-    return path
-
-
-def get_local_or_s3_path(file_path: str, replace: bool = False) -> str:
-    """
-    Get the local or S3 path for a file.
-
-    Args:
-        file_path (str): The path to the file.
-        replace (bool): If True, replace the file if it already exists
-
-    Returns the path to the downloaded file.
-    """
-    url = urlparse(file_path)
-    logger.info("URL: %s", url)
-
-    if url.scheme == "s3":
-        s3 = settings.get_s3_client()
-        assert s3, "S3 client is not available"
-        return download_file_from_s3(s3=s3, url=url, replace=replace)
-
-    return file_path
-
-
-def remove_file(filename: str) -> None:
-    """
-    Remove a file, quietly warning of failure rather than raising an Error.
-
-    Args:
-        filename (str): The name of the file to remove.
-    """
-    try:
-        os.remove(filename)
-        logger.info(f"Removed file {filename}")
-    except FileNotFoundError:
-        logger.warning(f"File {filename} not found")
-        pass
-
-
 def _cleanup_expired_locks(session: Session, hours: int) -> list[str] | None:
     """
     Delete expired locks from the database.
@@ -434,5 +360,54 @@ def create_spatial_index(
     session.execute(
         text(f"CREATE INDEX ON {GERRY_DB_SCHEMA}.{table_name} USING GIST ({geometry})"),
     )
+    if autocommit:
+        session.commit()
+
+
+def create_map_group(
+    session: Session,
+    group_name: str,
+    slug: str,
+    autocommit: bool = True,
+):
+    """
+    Create a MapGroup which can organize multiple DistrictrMaps.
+
+    Args:
+        session (Session): The database session.
+        group_name (str): The name of the group.
+        slug (str): The slug for the group used in URLs and queries.
+    """
+    session.execute(
+        text("INSERT INTO map_group (name, slug) VALUES (:group_name, :slug)"),
+        {
+            "group_name": group_name,
+            "slug": slug,
+        },
+    )
+    if autocommit:
+        session.commit()
+
+
+def add_districtr_map_to_map_group(
+    session: Session, districtr_map_slug: str, group_slug: str, autocommit: bool = True
+):
+    districtr_map = session.exec(
+        select(DistrictrMap).where(
+            DistrictrMap.districtr_map_slug == districtr_map_slug  # pyright: ignore
+        )
+    ).one()
+
+    group_stmt = text("""
+        INSERT INTO districtrmaps_to_groups (group_slug, districtrmap_uuid)
+        VALUES (:slug, :uuid)""")
+    session.execute(
+        group_stmt,
+        {
+            "uuid": districtr_map.uuid,
+            "slug": group_slug,
+        },
+    )
+
     if autocommit:
         session.commit()

@@ -307,3 +307,15 @@ class ShatterResult(BaseModel):
 
 class ColorsSetResult(BaseModel):
     colors: list[str]
+
+
+class MapGroup(SQLModel, table=True):
+    __tablename__ = "map_group"  # pyright: ignore
+    slug: str = Field(primary_key=True, nullable=False)
+    name: str = Field(nullable=False)
+
+
+class DistrictrMapsToGroups(SQLModel, table=True):
+    __tablename__ = "districtrmaps_to_groups"  # pyright: ignore
+    districtrmap_uuid: str = Field(primary_key=True, foreign_key="districtrmap.uuid")
+    group_slug: str = Field(primary_key=True, foreign_key="map_groups.slug")
