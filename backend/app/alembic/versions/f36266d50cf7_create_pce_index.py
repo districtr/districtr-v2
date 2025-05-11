@@ -33,7 +33,6 @@ def upgrade() -> None:
             "parentchildedges",
             ["child_path", "districtr_map"],
         )
-    pass
 
 
 def downgrade() -> None:  # Check if the index already exists before creating it
@@ -48,4 +47,3 @@ def downgrade() -> None:  # Check if the index already exists before creating it
             "idx_parentchildedges_child_path_districtr_map",
             table_name="parentchildedges",
         )
-    pass
