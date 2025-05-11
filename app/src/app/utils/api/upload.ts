@@ -5,10 +5,10 @@ import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {uploadAssignments} from './apiHandlers/uploadAssignments';
 import {useMapStore} from '@/app/store/mapStore';
 
-const ROWS_PER_BATCH = 20000000000;
+const ROWS_PER_BATCH = 914_231;
 const ROWS_TO_TEST = 200;
-// 200mb
-const MAX_FILE_SIZE = 20000000000;
+// 20mb
+const MAX_FILE_SIZE = 2_000_000_000;
 const PREFIX_MAP = {
   AL: '01',
   NE: '31',
@@ -203,7 +203,7 @@ export const processFile = ({
   }
   if (file.size > MAX_FILE_SIZE) {
     setErrorNotification({
-      message: 'Block CSV file size exceeds limit (200mb)',
+      message: 'Block CSV file size exceeds limit (20mb)',
       severity: 1,
     });
     throw new Error('Block CSV file size exceeds limit');
@@ -268,7 +268,7 @@ export const processFile = ({
             geoidHandler(row[GEOID]),
             !row[ZONE] ? '' : String(+row[ZONE]),
           ]),
-          gerrydb_table_name: districtrMap.gerrydb_table_name,
+          districtr_map_slug: districtrMap.districtr_map_slug,
         });
         batch++;
       }

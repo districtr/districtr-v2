@@ -10,12 +10,12 @@ import axios from 'axios';
  */
 export const uploadAssignments: (updateData: {
   assignments: [string, string][];
-  gerrydb_table_name: string;
-}) => Promise<{document_id: string}> = async ({assignments, gerrydb_table_name}) => {
+  districtr_map_slug: string;
+}) => Promise<{document_id: string}> = async ({assignments, districtr_map_slug}) => {
   return await axios
     .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload_assignments`, {
       assignments,
-      gerrydb_table_name,
+      districtr_map_slug,
     })
     .then(res => res.data);
 };

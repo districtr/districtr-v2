@@ -525,9 +525,8 @@ async def upload_assignments(
 
     # Validate gerrydb_table exists
     try:
-        gerrydb_table = data.gerrydb_table_name
         stmt = select(DistrictrMap).where(
-            DistrictrMap.gerrydb_table_name == gerrydb_table
+            DistrictrMap.districtr_map_slug == data.districtr_map_slug
         )
         districtr_map = session.exec(stmt).one()
     except NoResultFound:
@@ -537,8 +536,8 @@ async def upload_assignments(
         )
 
     results = session.execute(
-        text("SELECT create_document(:gerrydb_table);"),
-        {"gerrydb_table": gerrydb_table},
+        text("SELECT create_document(:districtr_map_slug);"),
+        {"districtr_map_slug": districtr_map.districtr_map_slug},
     )
     document_id = results.one()[0]
 
