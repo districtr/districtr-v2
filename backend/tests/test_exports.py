@@ -22,7 +22,7 @@ def assignments_fixture(client, document_id) -> str:
 
 @pytest.fixture(name="csv_result")
 def csv_result_fixture(assignments_document_id, client: TestClient) -> str:
-    with open(FIXTURES_PATH / "zone_assignments_csv_export.csv") as f:
+    with open(FIXTURES_PATH / "exports" / "zone_assignments_csv_export.csv") as f:
         return f.read()
 
 
@@ -41,7 +41,9 @@ def test_get_zone_assignments_csv_export(
 
 @pytest.fixture(name="geojson_result")
 def geojson_result_fixture(assignments_document_id, client: TestClient) -> str:
-    with open(FIXTURES_PATH / "zone_assignments_geojson_export.geojson") as f:
+    with open(
+        FIXTURES_PATH / "exports" / "zone_assignments_geojson_export.geojson"
+    ) as f:
         return f.read()
 
 

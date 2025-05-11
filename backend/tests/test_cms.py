@@ -1,4 +1,3 @@
-import os
 import pytest
 import uuid
 from app.cms.models import (
@@ -30,7 +29,7 @@ def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-lco",

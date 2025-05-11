@@ -1,5 +1,4 @@
 import pytest
-import os
 from app.utils import (
     create_districtr_map,
     create_shatterable_gerrydb_view,
@@ -27,7 +26,7 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-nln",

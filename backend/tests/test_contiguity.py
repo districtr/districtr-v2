@@ -63,7 +63,7 @@ def test_load_gml(connected_graph):
 
 @fixture(name="file_path")
 def gerrydb_simple_child_geos_graph_path() -> str:
-    return str(FIXTURES_PATH / "simple_child_geos.gml")
+    return str(FIXTURES_PATH / "contiguity" / "simple_child_geos.gml")
 
 
 def test_get_gerrydb_block_graph(file_path: str):
@@ -156,14 +156,14 @@ def test_subset_of_zones_contiguous(
 
 
 def test_graph_from_gpkg():
-    G = graph_from_gpkg(FIXTURES_PATH / "ks_ellis_county_block.gpkg")
+    G = graph_from_gpkg(FIXTURES_PATH / "gerrydb" / "ks_ellis_county_block.gpkg")
     assert len(G.edges) == 5439
     assert len(G.nodes) == 2296
 
 
 @fixture(name="gpkg_block_graph")
 def ri_vtd_p4_view_graph_fixture() -> Graph:
-    return graph_from_gpkg(FIXTURES_PATH / "ks_ellis_county_block.gpkg")
+    return graph_from_gpkg(FIXTURES_PATH / "gerrydb" / "ks_ellis_county_block.gpkg")
 
 
 def test_write_graph_to_gml(gpkg_block_graph: Graph):
@@ -185,7 +185,7 @@ def test_write_graph_to_gml(gpkg_block_graph: Graph):
 @fixture
 def mock_gerrydb_graph_file(monkeypatch):
     def mock_get_file(gerrydb_name: str) -> str:
-        return f"{FIXTURES_PATH}/{gerrydb_name}.pkl"
+        return f"{FIXTURES_PATH}/contiguity/{gerrydb_name}.pkl"
 
     monkeypatch.setattr(contiguity, "get_gerrydb_graph_file", mock_get_file)
 
