@@ -141,13 +141,20 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
+class DocumentDraftStatus(str, Enum):
+    in_progress = "in_progress"
+    scratch = "scratch"
+    ready_to_share = "ready_to_share"
+    # perhaps others down the road e.g. accepted, archived, etc.
+
+
 class DistrictrMapMetadata(BaseModel):
     name: Optional[str] | None = None
     group: Optional[str] | None = None
     tags: Optional[list[str]] | None = None
     description: Optional[str] | None = None
     event_id: Optional[str] | None = None
-    is_draft: bool = True
+    draft_status: Optional[DocumentDraftStatus] = DocumentDraftStatus.scratch
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
@@ -301,3 +308,15 @@ class ShatterResult(BaseModel):
 
 class ColorsSetResult(BaseModel):
     colors: list[str]
+
+
+class MapGroup(SQLModel, table=True):
+    __tablename__ = "map_group"  # pyright: ignore
+    slug: str = Field(primary_key=True, nullable=False)
+    name: str = Field(nullable=False)
+
+
+class DistrictrMapsToGroups(SQLModel, table=True):
+    __tablename__ = "districtrmaps_to_groups"  # pyright: ignore
+    districtrmap_uuid: str = Field(primary_key=True, foreign_key="districtrmap.uuid")
+    group_slug: str = Field(primary_key=True, foreign_key="map_groups.slug")

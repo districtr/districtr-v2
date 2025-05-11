@@ -40,7 +40,7 @@ export interface DocumentMetadata {
   tags: string | null;
   description: string | null;
   eventId: string | null;
-  is_draft: boolean;
+  draft_status: string | null;
 }
 
 export interface DocumentObject extends StatusObject {

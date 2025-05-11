@@ -7,15 +7,13 @@ from fastapi import (
     BackgroundTasks,
     Body,
     Form,
-    Security,
 )
-from fastapi.responses import RedirectResponse
 from typing import Annotated
 import botocore.exceptions
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
 from fastapi.responses import FileResponse
-from sqlalchemy import text, update
-from sqlmodel import Session, String, select, true
+from sqlalchemy import text
+from sqlmodel import Session, String, select, true, update
 from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
@@ -26,21 +24,21 @@ from datetime import datetime, UTC, timedelta
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.core.db import get_session
+from app.core.dependencies import get_document as _get_document
 from app.core.config import settings
-from app.core.security import auth, TokenScope
-from app.core.thumbnails import generate_thumbnail, thumbnail_exists
 from app.utils import hash_password, verify_password
 import jwt
 from uuid import uuid4
 import app.contiguity.main as contiguity
 import app.cms.main as cms
+import app.thumbnails.main as thumbnails
 from networkx import Graph, connected_components
 from app.models import (
     Assignments,
-    AssignmentsCreate,
     AssignmentsResponse,
     ColorsSetResult,
     DistrictrMap,
+    DistrictrMapsToGroups,
     Document,
     DocumentCreate,
     DocumentPublic,
@@ -59,7 +57,8 @@ from app.models import (
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
-from app.utils import remove_file, _cleanup_expired_locks, _remove_all_locks
+from app.utils import _cleanup_expired_locks, _remove_all_locks
+from app.core.io import remove_file
 from app.exports import (
     get_export_sql_method,
     DocumentExportType,
@@ -96,8 +95,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Include the CMS router
+# Module routers
 app.include_router(cms.router)
+app.include_router(thumbnails.router)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -148,6 +148,7 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
+# TODO Move document functions to core/document.py
 def check_map_lock(document_id, user_id, session):
     # Try to fetch an existing lock for this document
     result = session.execute(
@@ -312,35 +313,33 @@ async def create_document(
 
 @app.patch("/api/update_assignments")
 async def update_assignments(
-    data: AssignmentsCreate, session: Session = Depends(get_session)
+    data: dict = Body(...), session: Session = Depends(get_session)
 ):
-    assignments = data.model_dump()["assignments"]
-    stmt = insert(Assignments).values(assignments)
-    stmt = stmt.on_conflict_do_update(
-        constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
-    )
-    session.execute(stmt)
-    updated_at = None
-    if len(data.assignments) > 0:
-        updated_at = update_timestamp(session, assignments[0]["document_id"])
-    session.commit()
-    return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
+    # todo: type the input instead of dict
+    assignments = data["assignments"]
+    document_id = assignments[0]["document_id"]
+    lock_status = check_map_lock(document_id, data["user_id"], session)
 
-
-def _get_document(
-    document_id: str, session: Session = Depends(get_session)
-) -> Document:
-    try:
-        document = session.exec(
-            select(Document).filter(Document.document_id == document_id)  # pyright: ignore
-        ).one()
-    except NoResultFound:
-        raise HTTPException(status_code=404, detail="Document not found")
-    except Exception as e:
-        logger.error(f"Error loading document: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error loading document")
-
-    return document
+    if lock_status == DocumentEditStatus.checked_out:
+        stmt = insert(Assignments).values(assignments)
+        stmt = stmt.on_conflict_do_update(
+            constraint=Assignments.__table__.primary_key,
+            set_={"zone": stmt.excluded.zone},
+        )
+        session.execute(stmt)
+        updated_at = None
+        if len(assignments) > 0:
+            updated_at = update_timestamp(session, document_id)
+        session.commit()
+        return {
+            "assignments_upserted": len(assignments),
+            "updated_at": data["updated_at"],
+        }
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is locked by another user",
+        )
 
 
 @app.patch(
@@ -673,13 +672,14 @@ async def get_assignments(
             Assignments.document_id,
             ParentChildEdges.parent_path,
         )
-        .join(Document, Assignments.document_id == Document.document_id)
+        .join(Document, onclause=Assignments.document_id == Document.document_id)
         .join(
-            DistrictrMap, Document.districtr_map_slug == DistrictrMap.districtr_map_slug
+            DistrictrMap,
+            onclause=Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
         )
         .outerjoin(
             ParentChildEdges,
-            (Assignments.geo_id == ParentChildEdges.child_path)
+            onclause=(Assignments.geo_id == ParentChildEdges.child_path)
             & (ParentChildEdges.districtr_map == DistrictrMap.uuid),
         )
         .where(Assignments.document_id == document.document_id)
@@ -781,6 +781,7 @@ async def unlock_document(
         )
 
         session.commit()
+        print("Document unlocked")
         return {"status": DocumentEditStatus.unlocked}
     except Exception as e:
         session.rollback()
@@ -1128,57 +1129,23 @@ async def update_districtrmap_metadata(
 async def get_projects(
     *,
     session: Session = Depends(get_session),
+    group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
 ):
     gerrydb_views = session.exec(
         select(DistrictrMap)
+        .join(
+            DistrictrMapsToGroups,
+            DistrictrMapsToGroups.districtrmap_uuid == DistrictrMap.uuid,
+        )
+        .filter(DistrictrMapsToGroups.group_slug == group)
         .filter(DistrictrMap.visible == true())  # pyright: ignore
         .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)
     ).all()
     return gerrydb_views
-
-
-@app.get("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
-async def get_thumbnail(*, document_id: str, session: Session = Depends(get_session)):
-    try:
-        if thumbnail_exists(document_id):
-            return RedirectResponse(
-                url=f"{settings.CDN_URL}/thumbnails/{document_id}.png"
-            )
-        else:
-            return RedirectResponse(url="/home-megaphone.png")
-    except:
-        return RedirectResponse(url="/home-megaphone.png")
-
-
-@app.post("/api/document/{document_id}/thumbnail", status_code=status.HTTP_200_OK)
-async def make_thumbnail(
-    *,
-    document_id: str,
-    background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
-):
-    try:
-        stmt = select(Document.document_id).filter(Document.document_id == document_id)
-        map = session.execute(stmt).first()
-    except DataError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Document ID did not fit UUID format",
-        )
-    if map == None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found",
-        )
-    background_tasks.add_task(
-        generate_thumbnail, session=session, document_id=document_id
-    )
-    return {"message": "Generating thumbnail in background task"}
 
 
 @app.post("/api/document/{document_id}/share")
@@ -1318,9 +1285,7 @@ async def load_plan_from_share(
         session,
         shared=True,
         access_type=data.access,
-        lock_status=(
-            DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
-        ),
+        lock_status=(DocumentEditStatus.locked if set_is_locked else None),
     )
 
 

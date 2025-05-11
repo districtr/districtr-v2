@@ -139,6 +139,14 @@ class Settings(BaseSettings):
             **kwargs,
         )
 
+    @computed_field
+    @property
+    def cnd_url(self) -> str | None:
+        if self.CDN_URL is not None:
+            return self.CDN_URL
+
+        return f"https://{self.R2_BUCKET_NAME}.s3.amazonaws.com"
+
     # Auth0
 
     AUTH0_DOMAIN: str
