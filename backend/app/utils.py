@@ -5,6 +5,7 @@ from sqlmodel import Session, Float, Boolean
 import logging
 import bcrypt
 from app.constants import GERRY_DB_SCHEMA
+from sqlmodel import select
 
 
 from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
@@ -30,6 +31,7 @@ def create_districtr_map(
     gerrydb_table_name: str | None = None,
     num_districts: int | None = None,
     tiles_s3_path: str | None = None,
+    group_slug: str | None = None,
     visibility: bool = True,
 ) -> str:
     """
@@ -41,6 +43,7 @@ def create_districtr_map(
         districtr_map_slug: The slug of the districtr map.
         parent_layer_name: The name of the parent layer.
         child_layer_name: The name of the child layer.
+        group_slug: The slug of the map group.
         gerrydb_table_name: The name of the gerrydb table.
         num_districts: The number of districts.
         tiles_s3_path: The S3 path to the tiles.
@@ -86,6 +89,14 @@ def create_districtr_map(
             "visibility": visibility,
         },
     )
+
+    if group_slug is not None:
+        add_districtr_map_to_map_group(
+            session=session,
+            districtr_map_slug=districtr_map_slug,
+            group_slug=group_slug,
+        )
+
     return inserted_map_uuid[0]  # pyright: ignore
 
 
@@ -349,5 +360,54 @@ def create_spatial_index(
     session.execute(
         text(f"CREATE INDEX ON {GERRY_DB_SCHEMA}.{table_name} USING GIST ({geometry})"),
     )
+    if autocommit:
+        session.commit()
+
+
+def create_map_group(
+    session: Session,
+    group_name: str,
+    slug: str,
+    autocommit: bool = True,
+):
+    """
+    Create a MapGroup which can organize multiple DistrictrMaps.
+
+    Args:
+        session (Session): The database session.
+        group_name (str): The name of the group.
+        slug (str): The slug for the group used in URLs and queries.
+    """
+    session.execute(
+        text("INSERT INTO map_group (name, slug) VALUES (:group_name, :slug)"),
+        {
+            "group_name": group_name,
+            "slug": slug,
+        },
+    )
+    if autocommit:
+        session.commit()
+
+
+def add_districtr_map_to_map_group(
+    session: Session, districtr_map_slug: str, group_slug: str, autocommit: bool = True
+):
+    districtr_map = session.exec(
+        select(DistrictrMap).where(
+            DistrictrMap.districtr_map_slug == districtr_map_slug  # pyright: ignore
+        )
+    ).one()
+
+    group_stmt = text("""
+        INSERT INTO districtrmaps_to_groups (group_slug, districtrmap_uuid)
+        VALUES (:slug, :uuid)""")
+    session.execute(
+        group_stmt,
+        {
+            "uuid": districtr_map.uuid,
+            "slug": group_slug,
+        },
+    )
+
     if autocommit:
         session.commit()
