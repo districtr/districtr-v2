@@ -71,22 +71,28 @@ def get_document_thumbnail_file_path(document_id: str) -> str:
 
 
 def write_image(out_path: str | Path, pic_IObytes: io.BytesIO) -> None:
+    logger.info(f"Writing image to {out_path}.")
     url = urlparse(url=str(out_path))
 
     if url.scheme == "s3":
+        logger.info("Saving to S3")
         bucket = url.netloc
-        key = url.path
+        logger.info(f"s3 bucket: `{bucket}`")
+        key = url.path.lstrip("/")
+        logger.info(f"s3 key: `{key}`")
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
 
-        s3.put_object(
+        response = s3.put_object(
             Bucket=bucket,
             Key=key,
             Body=pic_IObytes,
             ContentType="image/png",
         )
+        logger.info(response)
 
     elif url.scheme == "":
+        logger.info("Saving to file")
         with open(url.path, "wb") as f:
             f.write(pic_IObytes.read())
 
@@ -169,7 +175,7 @@ def generate_thumbnail(
 async def get_thumbnail(*, document_id: str, session: Session = Depends(get_session)):
     thumbail_file_path = get_document_thumbnail_file_path(document_id)
     if file_exists(thumbail_file_path):
-        return RedirectResponse(url=f"{settings.CDN_URL}/thumbnails/{document_id}.png")
+        return RedirectResponse(url=f"{settings.cnd_url}/thumbnails/{document_id}.png")
 
     return RedirectResponse(url="/home-megaphone.png")
 
