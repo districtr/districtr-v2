@@ -15,14 +15,14 @@ export const useMapStatus = () => {
 
   const [statusText, statusTooltip, statusColor] = useMemo(() => {
     if (!document_id) return [null, null, null];
+    if (access === 'read') {
+      return [STATUS_TEXT.frozen, STATUS_TOOLTIPS.viewOnly, 'blue'];
+    }
     if (status === 'locked' && access === 'edit' && shareUrl) {
       return [STATUS_TEXT.sharedWithPw, STATUS_TOOLTIPS.lockedWithPW, 'cyan'];
     }
     if (status === 'locked' && access === 'edit') {
       return [STATUS_TEXT.checkedOut, STATUS_TOOLTIPS.checkedOut, 'bronze'];
-    }
-    if (status === 'locked' && access === 'read') {
-      return [STATUS_TEXT.frozen, STATUS_TOOLTIPS.viewOnly, 'blue'];
     }
     if (status === 'locked') return [STATUS_TEXT.frozen, STATUS_TOOLTIPS.viewOnly, 'blue'];
     if (!mapMetadata || !mapMetadata.draft_status) return [STATUS_TEXT.start, null, 'blue'];
