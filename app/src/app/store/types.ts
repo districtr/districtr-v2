@@ -15,6 +15,7 @@ export type DistrictrMapOptions = {
   currentStateFp?: string;
   showPopulationTooltip?: boolean;
   prominentCountyNames?: boolean;
+  prominentStreetNames?: boolean;
   showCountyBoundaries?: boolean;
   showBlockPopulationNumbers?: boolean;
   showDemographicMap?: undefined | 'side-by-side' | 'overlay';

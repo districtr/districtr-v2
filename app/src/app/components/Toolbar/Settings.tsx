@@ -143,6 +143,7 @@ export const ToolSettings: React.FC = () => {
           value={[
             mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
             mapOptions.prominentCountyNames === true ? 'prominentCountyNames' : '',
+            mapOptions.prominentStreetNames === true ? 'prominentStreetNames' : '',
           ]}
         >
           <CheckboxGroup.Item
@@ -164,6 +165,16 @@ export const ToolSettings: React.FC = () => {
             }
           >
             Emphasize county names
+          </CheckboxGroup.Item>
+          <CheckboxGroup.Item
+            value="prominentStreetNames"
+            onClick={() =>
+              setMapOptions({
+                prominentStreetNames: !mapOptions.prominentStreetNames,
+              })
+            }
+          >
+            Emphasize street names
           </CheckboxGroup.Item>
           <CheckboxGroup.Item value="2" disabled>
             Show tribes and communities

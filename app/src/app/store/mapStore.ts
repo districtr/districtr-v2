@@ -911,6 +911,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     mode: 'default',
     lockPaintedAreas: [],
     prominentCountyNames: true,
+    prominentStreetNames: false,
     showCountyBoundaries: true,
     showPaintedDistricts: true,
     showZoneNumbers: true,
