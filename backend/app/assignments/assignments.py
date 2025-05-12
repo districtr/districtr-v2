@@ -86,7 +86,7 @@ def batch_insert_assignments(
     )
 
     def _get_next_id():
-        counter = 0
+        counter = 1
         while True:
             yield counter
             counter += 1
@@ -104,7 +104,7 @@ def batch_insert_assignments(
                     zone_val = zone_to_id[record[1]]
                     if (
                         districtr_map.num_districts is not None
-                        and zone_val >= districtr_map.num_districts
+                        and zone_val > districtr_map.num_districts
                     ):
                         raise ValueError("Too many unique zones provided")
                     copy.write_row([record[0], zone_val])
