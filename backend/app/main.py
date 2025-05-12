@@ -1117,7 +1117,9 @@ async def load_plan_from_share(
         session,
         shared=True,
         access_type=data.access,
-        lock_status=(DocumentEditStatus.locked if set_is_locked else None),
+        lock_status=(
+            DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
+        ),
     )
 
 
