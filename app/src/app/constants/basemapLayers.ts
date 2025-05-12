@@ -233,7 +233,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'landuse',
     filter: ['any', ['==', 'pmap:kind', 'pier']],
     paint: {
-      'fill-color': '#c5c5c5',
+      'fill-color': '#d5d5d5',
     },
   },
   {
@@ -423,7 +423,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     source: 'protomaps',
     'source-layer': 'buildings',
     paint: {
-      'fill-color': '#d0d0d0',
+      'fill-color': '#e0e0e0',
       'fill-opacity': 0.5,
     },
   },
@@ -572,7 +572,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['==', 'pmap:level', 0], ['in', 'pmap:kind', 'other', 'path']],
     paint: {
-      'line-color': '#c5c5c5',
+      'line-color': '#d5d5d5',
       'line-dasharray': [3, 1],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 14, 0, 20, 7],
     },
@@ -600,7 +600,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       ['==', 'pmap:kind_detail', 'service'],
     ],
     paint: {
-      'line-color': '#c5c5c5',
+      'line-color': '#f5f5f5',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 0, 18, 8],
     },
   },
@@ -616,7 +616,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       ['!=', 'pmap:kind_detail', 'service'],
     ],
     paint: {
-      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 11, '#ebebeb', 15, '#c5c5c5'],
+      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 11, '#ebebeb', 15, '#d5d5d5'],
       'line-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -639,7 +639,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['==', 'pmap:level', 0], ['==', 'pmap:kind', 'medium_road']],
     paint: {
-      'line-color': '#c5c5c5',
+      'line-color': '#d5d5d5',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0, 12, 1.2, 15, 3, 18, 13],
     },
   },
@@ -663,7 +663,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     'source-layer': 'roads',
     filter: ['all', ['==', 'pmap:level', 0], ['==', 'pmap:kind', 'major_road']],
     paint: {
-      'line-color': '#c5c5c5',
+      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 6, '#ebebeb', 12, '#d5d5d5'],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 0, 12, 1.6, 15, 3, 18, 13],
     },
   },
@@ -848,7 +848,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['in', 'pmap:kind', 'other', 'path']],
     paint: {
-      'line-color': '#c5c5c5',
+      'line-color': '#d5d5d5',
       'line-dasharray': [2, 1],
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 14, 0, 20, 7],
     },
@@ -861,7 +861,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['==', 'pmap:kind', 'minor_road']],
     paint: {
-      'line-color': '#c5c5c5',
+      'line-color': '#d5d5d5',
       'line-width': [
         'interpolate',
         ['exponential', 1.6],
@@ -885,7 +885,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     minzoom: 12,
     filter: ['all', ['>', 'pmap:level', 0], ['==', 'pmap:link', 1]],
     paint: {
-      'line-color': '#c5c5c5',
+      'line-color': '#d5d5d5',
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 0, 13.5, 1, 18, 11],
     },
   },
@@ -992,12 +992,12 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     type: 'symbol',
     source: 'protomaps',
     'source-layer': 'roads',
-    minzoom: 15,
+    minzoom: 14,
     filter: ['any', ['in', 'pmap:kind', 'minor_road', 'other', 'path']],
     layout: {
       'symbol-sort-key': ['get', 'pmap:min_zoom'],
       'symbol-placement': 'line',
-      'text-font': ['Barlow Regular'],
+      'text-font': ['Barlow Bold'],
       'text-field': ['get', 'name'],
       'text-size': 14,
     },
@@ -1052,7 +1052,7 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     layout: {
       'symbol-sort-key': ['get', 'pmap:min_zoom'],
       'symbol-placement': 'line',
-      'text-font': ['Barlow Regular'],
+      'text-font': ['Barlow Bold'],
       'text-field': ['get', 'name'],
       'text-size': 14,
     },
