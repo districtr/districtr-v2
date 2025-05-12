@@ -227,9 +227,9 @@ async def create_document(
 
     if data.copy_from_doc is not None:
         total_assignments = duplicate_document_assignments(
-            session=session,
             from_document_id=data.copy_from_doc,
             to_document_id=document_id,
+            session=session,
         )
         plan_genesis = "copied"
 
@@ -245,10 +245,10 @@ async def create_document(
 
         try:
             total_assignments = batch_insert_assignments(
-                session=session,
                 document_id=document_id,
                 assignments=data.assignments,
                 districtr_map_slug=data.districtr_map_slug,
+                session=session,
             )
         except NoResultFound:
             raise HTTPException(
@@ -257,7 +257,9 @@ async def create_document(
             )
 
     if data.metadata is not None:
-        await update_districtrmap_metadata(document_id, data.metadata.dict(), session)
+        await update_districtrmap_metadata(
+            document_id=document_id, metadata=data.metadata.dict(), session=session
+        )
 
     stmt = (
         select(
@@ -941,12 +943,12 @@ async def get_connected_component_bboxes(
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
-    document: Annotated[Document, Depends(_get_document)],
+    document_id: str,
     metadata: dict = Body(...),
     session: Session = Depends(get_session),
 ):
     try:
-        # update document record with metadata
+        document = _get_document(document_id, session=session)
         stmt = (
             update(Document)
             .where(Document.document_id == document.document_id)

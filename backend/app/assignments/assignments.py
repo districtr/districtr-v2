@@ -1,4 +1,5 @@
 from fastapi import Depends
+from sqlalchemy.sql.functions import count
 from app.core.db import get_session
 from sqlalchemy import text
 from sqlmodel import Session, select
@@ -41,8 +42,15 @@ def duplicate_document_assignments(
     create_copy_stmt = insert(Assignments).from_select(
         ["geo_id", "zone", "document_id"], prev_assignments
     )
+    session.execute(create_copy_stmt)
 
-    session.execute(create_copy_stmt).scalar()
+    inserted_assignments = session.execute(
+        select(count()).where(Assignments.document_id == to_document_id)
+    ).scalar()
+    logger.info(
+        f"Inserted {inserted_assignments} assignments to document `{to_document_id}`"
+    )
+    return inserted_assignments
 
 
 def batch_insert_assignments(
