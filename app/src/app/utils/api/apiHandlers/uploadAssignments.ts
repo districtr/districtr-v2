@@ -13,7 +13,7 @@ export const uploadAssignments: (updateData: {
   districtr_map_slug: string;
 }) => Promise<{document_id: string}> = async ({assignments, districtr_map_slug}) => {
   return await axios
-    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/upload_assignments`, {
+    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
       assignments,
       districtr_map_slug,
     })

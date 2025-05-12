@@ -179,7 +179,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentCreate(BaseModel):
-    districtr_map_slug: str | None
+    districtr_map_slug: str
     user_id: str | None
     metadata: Optional[DistrictrMapMetadata] | None = None
     copy_from_doc: Optional[str] | None = None  # document_id to copy from

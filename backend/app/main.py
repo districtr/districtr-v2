@@ -18,11 +18,12 @@ from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam, literal
+from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
 from datetime import datetime, UTC, timedelta
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
+from app.assignments import duplicate_document_assignments, batch_insert_assignments
 from app.core.db import get_session
 from app.core.dependencies import get_document as _get_document
 from app.core.config import settings
@@ -67,7 +68,6 @@ from app.exports import (
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
-from numpy.random import randint
 
 
 if settings.ENVIRONMENT in ("production", "qa"):
@@ -94,8 +94,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-
-# Module routers
 app.include_router(cms.router)
 app.include_router(thumbnails.router)
 
@@ -221,35 +219,45 @@ async def create_document(
     plan_genesis = "created"
     document_id = results.one()[0]  # should be only one row, one column of results
 
-    lock_status = check_map_lock(
-        document_id, data.user_id, session
-    )  # this will properly create a lock record
+    # Checking a document's lock status will create one if none is found, as in
+    # the case of new documents
+    lock_status = check_map_lock(document_id, data.user_id, session)
 
-    copy_from_doc = getattr(data, "copy_from_doc", None)
+    total_assignments = 0
 
-    # if copy from doc, need to get assignments from that document, copy them for the new doc
-    if copy_from_doc:
-        prev_assignments = select(Assignments).where(
-            Assignments.document_id == copy_from_doc
+    if data.copy_from_doc is not None:
+        total_assignments = duplicate_document_assignments(
+            session=session,
+            from_document_id=data.copy_from_doc,
+            to_document_id=document_id,
         )
-        # create a new copy with the fresh document id
-        # set document id to new document id
-        prev_assignments = select(
-            Assignments.geo_id,
-            Assignments.zone,
-            literal(document_id).label("document_id"),
-        ).where(Assignments.document_id == copy_from_doc)
-
-        create_copy_stmt = insert(Assignments).from_select(
-            ["geo_id", "zone", "document_id"], prev_assignments
-        )
-
-        session.execute(create_copy_stmt)
         plan_genesis = "copied"
 
-    # check if there is a metadata item in the request
-    if data.metadata:
-        update_districtrmap_metadata(document_id, data.metadata.dict(), session)
+    elif data.assignments is not None and len(data.assignments) > 0:
+        if len(data.assignments) > 914_231:
+            # Texas had 914_231 in the 2010 Census
+            # https://www.census.gov/geographies/reference-files/time-series/geo/tallies.html
+            # We don't expect any maps larger than that
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail="Upload size exceeds maximum allowed limit (1,000,000 records)",
+            )
+
+        try:
+            total_assignments = batch_insert_assignments(
+                session=session,
+                document_id=document_id,
+                assignments=data.assignments,
+                districtr_map_slug=data.districtr_map_slug,
+            )
+        except NoResultFound:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="",
+            )
+
+    if data.metadata is not None:
+        await update_districtrmap_metadata(document_id, data.metadata.dict(), session)
 
     stmt = (
         select(
@@ -265,6 +273,7 @@ async def create_document(
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             coalesce(plan_genesis).label("genesis"),
+            coalesce(total_assignments).label("total_inserted_assignments"),
             # send metadata as a null object on init of document
             coalesce(
                 None,
@@ -282,11 +291,11 @@ async def create_document(
         )
         .limit(1)
     )
-    # Document id has a unique constraint so I'm not sure we need to hit the DB again here
-    # more valuable would be to check that the assignments table
+
     doc = session.exec(
         stmt,
-    ).one()  # again if we've got more than one, we have problems.
+    ).one()
+
     if not doc.map_uuid:
         session.rollback()
         raise HTTPException(
@@ -330,6 +339,7 @@ async def update_assignments(
         updated_at = None
         if len(assignments) > 0:
             updated_at = update_timestamp(session, document_id)
+            logger.info(f"Document updated at {updated_at}")
         session.commit()
         return {
             "assignments_upserted": len(assignments),
@@ -488,175 +498,6 @@ async def update_colors(
     session.execute(stmt, {"document_id": document_id, "colors": colors})
     session.commit()
     return ColorsSetResult(colors=colors)
-
-
-@app.patch("/api/upload_assignments")
-async def upload_block_assignments(
-    data: DocumentCreate, session: Session = Depends(get_session)
-):
-    """
-    Bulk upload assignments from CSV data
-
-    This endpoint creates a new document and loads a batch of assignments from CSV data.
-    It performs data validation and consolidates uniform VTDs from their blocks for shatterable maps.
-    """
-    if data.assignments is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Missing geo_id at row {i+1}",
-        )
-
-    # Texas had 914_231 in the 2010 Census
-    # https://www.census.gov/geographies/reference-files/time-series/geo/tallies.html
-    # We don't expect any maps larger than that
-    if len(data.assignments) > 914_231:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Upload size exceeds maximum allowed limit (1,000,000 records)",
-        )
-
-    for i, record in enumerate(data.assignments):
-        if len(record) != 2:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid record format at row {i+1}: expected [geo_id, zone]",
-            )
-        if not record[0]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Missing geo_id at row {i+1}",
-            )
-
-    # Validate gerrydb_table exists
-    try:
-        stmt = select(DistrictrMap).where(
-            DistrictrMap.districtr_map_slug == data.districtr_map_slug
-        )
-        districtr_map = session.exec(stmt).one()
-    except NoResultFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Districtr map doesn't exist",
-        )
-
-    results = session.execute(
-        text("SELECT create_document(:districtr_map_slug);"),
-        {"districtr_map_slug": districtr_map.districtr_map_slug},
-    )
-    document_id = results.one()[0]
-
-    temp_table_name = "temp_assignments"
-
-    session.execute(
-        text(f"CREATE TEMP TABLE {temp_table_name} (geo_id TEXT, zone INT)")
-    )
-    # Bulk insert records
-    cursor = session.connection().connection.cursor()
-    with cursor.copy(f"COPY {temp_table_name} (geo_id, zone) FROM STDIN") as copy:
-        for record in data.assignments:
-            if not record[1] or record[1] == "":
-                copy.write_row([record[0], None])
-            else:
-                try:
-                    zone_val = int(record[1])
-                    copy.write_row([record[0], zone_val])
-                except ValueError:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Invalid zone value for geo_id {record[0]}: '{record[1]}' is not an integer",
-                    )
-
-    # Shattered map
-    if districtr_map.child_layer is not None:
-        parent_child_table = f'"parentchildedges_{districtr_map.child_layer}"'
-
-        # Validate uploaded data matches the gerrydb table
-        # Sampling a few records is more efficient than checking every record
-        sample_size = min(100, len(data.assignments))
-        sample_geo_ids = [
-            data.assignments[randint(len(data.assignments))][0]
-            for _ in range(sample_size)
-        ]
-
-        results = session.execute(
-            text(f"""
-            SELECT COUNT(*) FROM {parent_child_table}
-            WHERE parent_path = ANY(:geo_ids) OR child_path = ANY(:geo_ids)
-            """),
-            {"geo_ids": sample_geo_ids},
-        )
-        match_count = results.scalar()
-
-        if match_count == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Assignment Geo IDs do not match any parent or child Geo IDs in the shatterable map",
-            )
-
-        # Find parents which are fully one zone
-        # Using a temp index can improve performance for large datasets
-        session.execute(
-            text(
-                f"CREATE INDEX IF NOT EXISTS temptable_geo_id_idx ON {temp_table_name} (geo_id)"
-            )
-        )
-
-        # First, find and save uniform VTDs into a Common Table Expression (CTE)
-        # Then perform operations sequentially using the CTE results
-
-        # Create a temporary table to store uniform VTDs
-        session.execute(
-            text(f"""
-            CREATE TEMPORARY TABLE uniform_vtds AS
-            SELECT parent_path, MIN(zone) AS zone
-            FROM {parent_child_table}
-            JOIN {temp_table_name} ON geo_id = {parent_child_table}.child_path
-            GROUP BY parent_path
-            HAVING COUNT(DISTINCT COALESCE(zone, -1)) = 1
-        """)
-        )
-
-        # Insert uniform VTDs into the assignments temp table
-        session.execute(
-            text(f"""
-            INSERT INTO {temp_table_name} (geo_id, zone)
-            SELECT parent_path, zone FROM uniform_vtds
-        """)
-        )
-
-        # Delete the child entries (blocks) for these uniform VTDs
-        session.execute(
-            text(f"""
-            DELETE FROM {temp_table_name}
-            WHERE geo_id IN (
-                SELECT child_path FROM {parent_child_table}
-                WHERE parent_path IN (
-                    SELECT parent_path FROM uniform_vtds
-                )
-            )
-        """)
-        )
-
-        # Drop the temporary table
-        session.execute(text("DROP TABLE IF EXISTS uniform_vtds"))
-
-        # For non-shatterable maps, we don't need additional validation
-        # as the geo_ids should match the gerrydb table directly
-
-    # Insert processed data into assignments table
-    count = session.execute(
-        text(f"""
-        INSERT INTO document.assignments (geo_id, zone, document_id)
-        SELECT geo_id, zone, :document_id
-        FROM {temp_table_name}
-        RETURNING COUNT(*)
-        """),
-        {"document_id": document_id},
-    ).scalar()
-
-    session.commit()
-
-    return {"document_id": document_id, "assignments_count": count}
 
 
 # called by getAssignments in apiHandlers.ts
