@@ -245,6 +245,7 @@ class DocumentPublic(BaseModel):
         DocumentEditStatus.unlocked
     )  # locked, unlocked, checked_out
     genesis: str | None = None
+    inserted_assignments: int
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
 
