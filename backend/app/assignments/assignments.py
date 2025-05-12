@@ -10,6 +10,7 @@ from app.models import (
     Assignments,
     DistrictrMap,
 )
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -84,21 +85,36 @@ def batch_insert_assignments(
         text(f"CREATE TEMP TABLE {temp_table_name} (geo_id TEXT, zone INT)")
     )
 
+    def _get_next_id():
+        counter = 0
+        while True:
+            yield counter
+            counter += 1
+
+    id_generator = _get_next_id()
+    zone_to_id = defaultdict(lambda: next(id_generator))
+
     cursor = session.connection().connection.cursor()
     with cursor.copy(f"COPY {temp_table_name} (geo_id, zone) FROM STDIN") as copy:
         import_errors = 0
+        null_count = 0
         for record in assignments:
             try:
-                if not record[1] or record[1] == "":
-                    copy.write_row([record[0], None])
-                else:
-                    zone_val = int(record[1])
+                if record[1] and record[1] != "":
+                    zone_val = zone_to_id[record[1]]
+                    if (
+                        districtr_map.num_districts is not None
+                        and zone_val >= districtr_map.num_districts
+                    ):
+                        raise ValueError("Too many unique zones provided")
                     copy.write_row([record[0], zone_val])
+                else:
+                    null_count += 1
             except ValueError:
                 import_errors += 1
 
     logger.info(
-        f"{import_errors} rows in the assignments provided failed to be written"
+        f"{import_errors} rows in the assignments provided failed to be written. {null_count} nulls were found"
     )
 
     parent_child_table = f'"parentchildedges_{districtr_map.uuid}"'

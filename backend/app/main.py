@@ -10,7 +10,12 @@ from fastapi import (
 )
 from typing import Annotated
 import botocore.exceptions
-from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
+from sqlalchemy.exc import (
+    MultipleResultsFound,
+    NoResultFound,
+    DataError,
+    IntegrityError,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlmodel import Session, String, select, true, update
@@ -256,6 +261,12 @@ async def create_document(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="",
             )
+        except IntegrityError as e:
+            if "psycopg.errors.UniqueViolation" in str(e):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Duplicate geoids found in input data. Ensure all geoids are unique",
+                )
 
     if data.metadata is not None:
         await update_districtrmap_metadata(

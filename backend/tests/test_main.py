@@ -834,3 +834,212 @@ def test_document_checkout(client, document_id):
 
     assert response.status_code == 200
     assert response.json().get("status") == DocumentEditStatus.checked_out
+
+
+def test_new_document_from_block_assignments(client, simple_shatterable_districtr_map):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", "2"],
+                ["c", "2"],
+                ["d", "2"],
+                ["e", "1"],
+                ["f", "3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    # All parent geoids are inferrable
+    assert data.get("inserted_assignments") == 3
+
+
+def test_new_document_from_block_assignments_no_matched_parents(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", "2"],
+                ["c", "1"],
+                ["d", "2"],
+                ["e", "2"],
+                ["f", "1"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    # No parent geoids are inferrable
+    assert data.get("inserted_assignments") == 6
+
+
+def test_new_document_from_block_assignments_some_matched_parents(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", "2"],
+                ["c", "1"],
+                ["d", "2"],
+                ["e", "1"],
+                ["f", "3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    # Some parent geoids are inferrable
+    assert data.get("inserted_assignments") == 5
+
+
+def test_new_document_from_block_assignments_some_nulls(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", ""],
+                ["c", "1"],
+                ["d", ""],
+                ["e", "1"],
+                ["f", "3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    assert data.get("inserted_assignments") == 3
+
+
+def test_new_document_from_block_assignments_non_integer_mapping(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "My zone 1"],
+                ["b", ""],
+                ["c", "My zone 1"],
+                ["d", ""],
+                ["e", "My zone 1"],
+                ["f", "My zone 3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    assert data.get("inserted_assignments") == 3
+
+
+def test_new_document_from_block_assignments_too_many_unique_zones(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", "2"],
+                ["c", "3"],
+                ["d", "4"],
+                ["e", "1"],
+                ["f", "5"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    # Maximum number of districts is three
+    # - a + e => parent A
+    # - b -> still valid so single block
+    # - c -> still valid so single block
+    # - d and f are skipped
+    assert data.get("inserted_assignments") == 3
+
+
+def test_new_document_from_block_assignments_duplicate_blocks_in_input(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["a", "1"],  # Dupe!
+                ["b", "2"],
+                ["c", "1"],
+                ["d", "2"],
+                ["e", "2"],
+                ["f", "1"],
+            ],
+        },
+    )
+    data = response.json()
+    detail = data.get("detail")
+    assert (
+        response.status_code == 400
+    ), f"Unexpected result: {response.status_code} {detail}"
+    assert (
+        detail == "Duplicate geoids found in input data. Ensure all geoids are unique"
+    )

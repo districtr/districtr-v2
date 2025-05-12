@@ -105,9 +105,6 @@ def simple_geos_graph(file_path: str) -> Graph:
 def document_id_fixture(
     client, session: Session, simple_shatterable_districtr_map, gerrydb_simple_geos_view
 ):
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=simple_shatterable_districtr_map
-    )
     response = client.post(
         "/api/create_document",
         json={"districtr_map_slug": "simple_geos", "user_id": USER_ID},
