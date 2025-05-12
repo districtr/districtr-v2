@@ -1016,6 +1016,33 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
     assert data.get("inserted_assignments") == 3
 
 
+def test_new_document_from_block_assignments_no_children(
+    client, ks_demo_view_census_blocks_districtrmap
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "ks_demo_view_census_blocks",
+            "user_id": USER_ID,
+            "assignments": [
+                ["202090441022004", "1"],
+                ["202090428002008", "1"],
+                ["202090443032011", "2"],
+                ["200979691001108", "3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "ks_demo_view_census_blocks"
+    assert data.get("inserted_assignments") == 4
+
+
 def test_new_document_from_block_assignments_duplicate_blocks_in_input(
     client, simple_shatterable_districtr_map
 ):

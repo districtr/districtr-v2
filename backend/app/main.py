@@ -259,7 +259,7 @@ async def create_document(
         except NoResultFound:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="",
+                detail="No districtr map found matching requested map",
             )
         except IntegrityError as e:
             if "psycopg.errors.UniqueViolation" in str(e):

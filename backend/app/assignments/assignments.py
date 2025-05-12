@@ -117,10 +117,24 @@ def batch_insert_assignments(
         f"{import_errors} rows in the assignments provided failed to be written. {null_count} nulls were found"
     )
 
-    parent_child_table = f'"parentchildedges_{districtr_map.uuid}"'
+    # Default check against valid geoids
+    exists_clause = f"""
+    SELECT 1
+    FROM gerrydb."{districtr_map.parent_layer}" g
+    WHERE
+        g.path = t.geo_id"""
 
     # Shattered map
     if districtr_map.child_layer is not None:
+        parent_child_table = f'"parentchildedges_{districtr_map.uuid}"'
+
+        exists_clause = f"""
+        SELECT 1
+        FROM {parent_child_table} edges
+        WHERE
+            edges.parent_path = t.geo_id
+            OR edges.child_path = t.geo_id"""
+
         # Using a temp index can improve performance for large datasets
         session.execute(
             text(
@@ -169,11 +183,7 @@ def batch_insert_assignments(
             SELECT geo_id, zone, :document_id
             FROM {temp_table_name} t
             WHERE EXISTS (
-                SELECT 1
-                FROM {parent_child_table} edges
-                WHERE
-                    edges.parent_path = t.geo_id
-                    OR edges.child_path = t.geo_id
+                {exists_clause}
             )
             RETURNING *
         )
