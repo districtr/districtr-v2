@@ -31,4 +31,3 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS get_unassigned_bboxes(doc_uuid uuid);")
-    pass

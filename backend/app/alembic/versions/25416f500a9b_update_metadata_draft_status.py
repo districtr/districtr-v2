@@ -23,9 +23,7 @@ def upgrade() -> None:
     with Path(SQL_DIR, "update_metadata_draft_status.sql").open() as f:
         sql = f.read()
         op.execute(sql)
-    pass
 
 
 def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS update_metadata_draft_status")
-    pass

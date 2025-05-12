@@ -25,7 +25,6 @@ def upgrade() -> None:
         with open(f"{SQL_DIR}/{udf}") as f:
             query = f.read()
             op.execute(sa.text(query))
-    pass
 
 
 def downgrade() -> None:
@@ -33,4 +32,3 @@ def downgrade() -> None:
         with open(f"{SQL_DIR}/{udf}") as f:
             query = f.read()
             op.execute(sa.text(query))
-    pass
