@@ -42,12 +42,23 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         {Boolean(availableMaps) && (
           <>
             {availableMaps!.map((view, i) => (
-              <CreateButton
-                key={i}
-                view={{
-                  ...view,
-                }}
-              />
+              <Flex className="items-center" direction="column" gapY="4" py="4">
+                <object
+                  type="image/png"
+                  data="https://tilesets1.cdn.districtr.org/thumbnails/null.png"
+                  width="150"
+                  height="150"
+                  aria-label="Preview with map outline"
+                >
+                  <img src="/home-megaphone.png" alt="Fallback image" width="150" height="150" />
+                </object>
+                <CreateButton
+                  key={i}
+                  view={{
+                    ...view,
+                  }}
+                />
+              </Flex>
             ))}
           </>
         )}
