@@ -1,3 +1,4 @@
+from uuid import uuid4
 from fastapi import Depends
 from sqlalchemy.sql.functions import count
 from app.core.db import get_session
@@ -79,7 +80,8 @@ def batch_insert_assignments(
     )
     districtr_map = session.exec(stmt).one()
 
-    temp_table_name = "temp_assignments"
+    (load_id, _) = str(uuid4()).split("-", maxsplit=1)
+    temp_table_name = f"temp_assignments_{load_id}"
 
     session.execute(
         text(f"CREATE TEMP TABLE {temp_table_name} (geo_id TEXT, zone INT)")
@@ -138,15 +140,16 @@ def batch_insert_assignments(
         # Using a temp index can improve performance for large datasets
         session.execute(
             text(
-                f"CREATE INDEX IF NOT EXISTS temptable_geo_id_idx ON {temp_table_name} (geo_id)"
+                f"CREATE INDEX IF NOT EXISTS temptable_geo_id_idx_{load_id} ON {temp_table_name} (geo_id)"
             )
         )
 
         # All children belonging to a single part which share a zone can be healed
         # to the parent
+        uniform_vtds = f"uniform_vtds_{load_id}"
         session.execute(
             text(f"""
-            CREATE TEMPORARY TABLE uniform_vtds AS
+            CREATE TEMPORARY TABLE {uniform_vtds} AS
             SELECT parent_path, MIN(zone) AS zone
             FROM {parent_child_table}
             JOIN {temp_table_name} ON geo_id = {parent_child_table}.child_path
@@ -158,7 +161,7 @@ def batch_insert_assignments(
         session.execute(
             text(f"""
             INSERT INTO {temp_table_name} (geo_id, zone)
-            SELECT parent_path, zone FROM uniform_vtds
+            SELECT parent_path, zone FROM {uniform_vtds}
         """)
         )
 
@@ -168,7 +171,7 @@ def batch_insert_assignments(
             WHERE geo_id IN (
                 SELECT child_path FROM {parent_child_table}
                 WHERE parent_path IN (
-                    SELECT parent_path FROM uniform_vtds
+                    SELECT parent_path FROM {uniform_vtds}
                 )
             )
         """)
