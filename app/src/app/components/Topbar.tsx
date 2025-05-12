@@ -87,28 +87,38 @@ export const Topbar: React.FC = () => {
               </IconButton>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
+              <DropdownMenu.Item>
+                <Link href="/" color="gray">
+                  Home
+                </Link>
+              </DropdownMenu.Item>
               <DropdownMenu.Sub>
-                <DropdownMenu.Item>
-                  <Link href="/">Home</Link>
-                </DropdownMenu.Item>
                 <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
-                  <DropdownMenu.SubTrigger>Select Map</DropdownMenu.SubTrigger>
+                  <DropdownMenu.SubTrigger>Create new map</DropdownMenu.SubTrigger>
                 </Tooltip>
                 <DropdownMenu.SubContent>
-                  {data?.length ? (
-                    data?.map((view, index) => (
-                      <DropdownMenu.Item key={index} onClick={() => handleSelectMap(view)}>
-                        {view.name}
-                      </DropdownMenu.Item>
-                    ))
-                  ) : (
-                    <DropdownMenu.Item disabled>Loading geographies...</DropdownMenu.Item>
-                  )}
+                  <DropdownMenu.Sub>
+                    <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
+                    <DropdownMenu.SubContent>
+                      {data?.length ? (
+                        data?.map((view, index) => (
+                          <DropdownMenu.Item key={index} onClick={() => handleSelectMap(view)}>
+                            {view.name}
+                          </DropdownMenu.Item>
+                        ))
+                      ) : (
+                        <DropdownMenu.Item disabled>Loading geographies...</DropdownMenu.Item>
+                      )}
+                    </DropdownMenu.SubContent>
+                  </DropdownMenu.Sub>
+                  <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
+                    Upload block assignments
+                  </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
               <DropdownMenu.Sub>
                 <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
-                  Export Assignments
+                  Export assignments
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.SubContent>
                   <DropdownMenu.Item>
@@ -117,7 +127,7 @@ export const Topbar: React.FC = () => {
                         href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=ZoneAssignments`}
                         download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
                       >
-                        VTD Assignments (CSV)
+                        VTD assignments (CSV)
                       </a>
                     </Tooltip>
                   </DropdownMenu.Item>
@@ -127,7 +137,7 @@ export const Topbar: React.FC = () => {
                         href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=ZoneAssignments`}
                         download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
                       >
-                        VTD Assignments (GeoJSON)
+                        VTD assignments (GeoJSON)
                       </a>
                     </Tooltip>
                   </DropdownMenu.Item>
@@ -137,7 +147,7 @@ export const Topbar: React.FC = () => {
                         href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=BlockZoneAssignments`}
                         download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
                       >
-                        Block Assignment (CSV)
+                        Block assignment (CSV)
                       </a>
                     </Tooltip>
                   </DropdownMenu.Item>
@@ -153,15 +163,12 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
-                Upload Block Assignments
-              </DropdownMenu.Item>
               <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={!showRecentMaps}>
-                View Recent Maps
+                View recent maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
                 <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
-                  Reset Map
+                  Reset map
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.SubContent>
                   <Text size="2" className="w-[50vw] max-w-60 p-3">
@@ -169,7 +176,7 @@ export const Topbar: React.FC = () => {
                     <b>Resetting your map cannot be undone.</b>
                   </Text>
                   <DropdownMenu.Item onClick={handleReset} color="red">
-                    Reset Map
+                    Reset map
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
