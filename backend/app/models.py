@@ -245,9 +245,12 @@ class DocumentPublic(BaseModel):
         DocumentEditStatus.unlocked
     )  # locked, unlocked, checked_out
     genesis: str | None = None
-    inserted_assignments: int
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
+
+
+class DocumentCreatePublic(DocumentPublic):
+    inserted_assignments: int
 
 
 class AssignmentsBase(SQLModel):

@@ -42,6 +42,7 @@ from app.models import (
     DistrictrMapsToGroups,
     Document,
     DocumentCreate,
+    DocumentCreatePublic,
     DocumentPublic,
     DocumentEditStatus,
     GEOIDS,
@@ -205,7 +206,7 @@ async def unlock_map(
 # matches createMapObject in apiHandlers.ts
 @app.post(
     "/api/create_document",
-    response_model=DocumentPublic,
+    response_model=DocumentCreatePublic,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_document(
