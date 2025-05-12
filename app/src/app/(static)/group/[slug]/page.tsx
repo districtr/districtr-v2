@@ -3,13 +3,14 @@ import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getGroup} from '@/app/utils/api/apiHandlers/getGroup';
 import {Box, Flex, Grid, Heading, Link} from '@radix-ui/themes';
+import Image from 'next/image';
 import {cookies} from 'next/headers';
 
 export default async function Page({params}: {params: Promise<{slug: string}>}) {
   const [{slug}, userCookies] = await Promise.all([params, cookies()]);
   const [groupContent, maps] = await Promise.all([
     getGroup(slug),
-    getAvailableDistrictrMaps(),
+    getAvailableDistrictrMaps(slug),
   ]).catch(() => [null, null]);
 
   if (!groupContent) {
@@ -42,7 +43,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         {Boolean(availableMaps) && (
           <>
             {availableMaps!.map((view, i) => (
-              <Flex className="items-center" direction="column" gapY="4" py="4">
+              <Flex key={i} className="items-center" direction="column" gapY="4" py="4">
                 <object
                   type="image/png"
                   data="https://tilesets1.cdn.districtr.org/thumbnails/null.png"
@@ -50,7 +51,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
                   height="150"
                   aria-label="Preview with map outline"
                 >
-                  <img src="/home-megaphone.png" alt="Fallback image" width="150" height="150" />
+                  <Image src="/home-megaphone.png" alt="Fallback image" width="150" height="150" />
                 </object>
                 <CreateButton
                   key={i}

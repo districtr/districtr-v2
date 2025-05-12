@@ -12,7 +12,7 @@ from typing import Annotated
 import botocore.exceptions
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
 from fastapi.responses import FileResponse
-from sqlalchemy import text
+from sqlalchemy import text, and_
 from sqlmodel import Session, String, select, true, update
 from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
@@ -333,10 +333,7 @@ async def update_assignments(
         if len(assignments) > 0:
             updated_at = update_timestamp(session, document_id)
         session.commit()
-        return {
-            "assignments_upserted": len(assignments),
-            "updated_at": data["updated_at"],
-        }
+        return {"assignments_upserted": len(assignments), "updated_at": updated_at}
     else:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -467,8 +464,7 @@ async def update_colors(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug
-            == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -562,9 +558,7 @@ async def get_document(
             ).label("status"),
             coalesce(
                 access_type,
-            ).label(
-                "access"
-            ),  # read or edit
+            ).label("access"),  # read or edit
             # add access - read or edit
         )  # pyright: ignore
         .where(Document.document_id == document_id)
@@ -694,8 +688,7 @@ def _get_districtr_map(
         select(DistrictrMap)
         .join(
             Document,
-            Document.districtr_map_slug
-            == DistrictrMap.districtr_map_slug,  # pyright: ignore
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
         .where(Document.document_id == document_id)
@@ -1232,28 +1225,35 @@ async def get_group(
     session: Session = Depends(get_session),
     group_slug: str,
 ):
-    stmt = select(
-        MapGroup,
-        DistrictrMap.districtr_map_slug,
-    ).join(
-        DistrictrMapsToGroups,
-        DistrictrMapsToGroups.group_slug == MapGroup.slug,
-    ).join(
-        DistrictrMap,
-        DistrictrMap.uuid == DistrictrMapsToGroups.districtrmap_uuid
-    ).where(
-        MapGroup.slug == group_slug,
-        DistrictrMap.visible == True,
+    stmt = (
+        select(
+            MapGroup,
+            DistrictrMap.districtr_map_slug,
+        )
+        .outerjoin(
+            DistrictrMapsToGroups,
+            DistrictrMapsToGroups.group_slug == MapGroup.slug,
+        )
+        .outerjoin(
+            DistrictrMap,
+            and_(DistrictrMap.uuid == DistrictrMapsToGroups.districtrmap_uuid),
+        )
+        .where(
+            MapGroup.slug == group_slug,
+        )
     )
     results = session.execute(
         statement=stmt,
     ).all()
 
     if not results:
-        return {"group": None, "maps": []}
+        return {"group": None, "map_slugs": []}
 
     group = results[0][0]
-    maps = [row[1] for row in results]
+    maps = []
+    for row in results:
+        if row[1] is not None:
+            maps.append(row[1])
 
     return {
         "group": group,
