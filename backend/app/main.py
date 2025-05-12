@@ -530,11 +530,12 @@ async def get_document(
     lock_status: DocumentEditStatus | None = None,
 ):
     # TODO: Rather than being a separate query, this should be part of the main query
-    check_lock_status = (
-        check_map_lock(document_id, user_id, session)
-        if not lock_status == DocumentEditStatus.locked
-        else lock_status
-    )
+    if access_type == DocumentShareStatus.read:
+        check_lock_status = DocumentEditStatus.locked
+    elif lock_status != DocumentEditStatus.locked:
+        check_lock_status = check_map_lock(document_id, user_id, session)
+    else:
+        check_lock_status = lock_status
 
     stmt = (
         select(
