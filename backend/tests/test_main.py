@@ -894,6 +894,29 @@ def test_new_document_from_block_assignments_no_matched_parents(
     assert data.get("inserted_assignments") == 6
 
 
+def test_new_document_from_block_assignments_no_data(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    # No parent geoids are inferrable
+    assert data.get("inserted_assignments") == 0
+
+
 def test_new_document_from_block_assignments_some_matched_parents(
     client, simple_shatterable_districtr_map
 ):
