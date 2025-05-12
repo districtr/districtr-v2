@@ -193,7 +193,7 @@ export const processFile = ({
     GEOID: number;
   };
 }) => {
-  const {setErrorNotification} = useMapStore.getState();
+  const {setErrorNotification, userID} = useMapStore.getState();
   if (!file) {
     setErrorNotification({
       message: 'No file selected',
@@ -269,6 +269,7 @@ export const processFile = ({
             !row[ZONE] ? '' : String(+row[ZONE]),
           ]),
           districtr_map_slug: districtrMap.districtr_map_slug,
+          user_id: userID,
         });
         batch++;
       }

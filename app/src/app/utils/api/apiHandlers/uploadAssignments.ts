@@ -11,11 +11,13 @@ import axios from 'axios';
 export const uploadAssignments: (updateData: {
   assignments: [string, string][];
   districtr_map_slug: string;
-}) => Promise<{document_id: string}> = async ({assignments, districtr_map_slug}) => {
+  user_id: string | null;
+}) => Promise<{document_id: string}> = async ({assignments, districtr_map_slug, user_id}) => {
   return await axios
-    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
+    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
       assignments,
       districtr_map_slug,
+      user_id,
     })
     .then(res => res.data);
 };

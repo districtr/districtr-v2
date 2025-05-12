@@ -1,5 +1,4 @@
 from fastapi import Depends
-from sqlalchemy.sql.functions import count
 from app.core.db import get_session
 from sqlalchemy import text
 from sqlmodel import Session, select
@@ -17,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 
 def duplicate_document_assignments(
     from_document_id: str, to_document_id: str, session: Session = Depends(get_session)
-) -> int | None:
+) -> None:
     """
     Copy all assignments from `from_document_id` to another document, `to_document_id`.
 
@@ -39,17 +38,11 @@ def duplicate_document_assignments(
         literal(to_document_id).label("document_id"),
     ).where(Assignments.document_id == from_document_id)
 
-    create_copy_stmt = (
-        insert(Assignments)
-        .from_select(["geo_id", "zone", "document_id"], prev_assignments)
-        .returning(count())
+    create_copy_stmt = insert(Assignments).from_select(
+        ["geo_id", "zone", "document_id"], prev_assignments
     )
 
-    inserted_assignments = session.execute(create_copy_stmt).scalar()
-    logger.info(
-        f"Inserted {inserted_assignments} assignments to document `{to_document_id}`"
-    )
-    return inserted_assignments
+    session.execute(create_copy_stmt).scalar()
 
 
 def batch_insert_assignments(
@@ -100,7 +93,7 @@ def batch_insert_assignments(
         f"{import_errors} rows in the assignments provided failed to be written"
     )
 
-    parent_child_table = f'"parentchildedges_{districtr_map.child_layer}"'
+    parent_child_table = f'"parentchildedges_{districtr_map.uuid}"'
 
     # Shattered map
     if districtr_map.child_layer is not None:
@@ -147,17 +140,20 @@ def batch_insert_assignments(
 
     inserted_assignments = session.execute(
         text(f"""
-        INSERT INTO document.assignments (geo_id, zone, document_id)
-        SELECT geo_id, zone, :document_id
-        FROM {temp_table_name}
-        LEFT JOIN {parent_child_table} edges1
-            ON geo_id = edges1.parent_path
-        LEFT JOIN {parent_child_table} edges2
-            ON geo_id = edges2.child_path
-        WHERE
-            edges1.parent_path IS NOT NULL
-            OR edges2.child_path IS NOT NULL
-        RETURNING COUNT(*)
+        WITH inserted_geoids AS (
+            INSERT INTO document.assignments (geo_id, zone, document_id)
+            SELECT geo_id, zone, :document_id
+            FROM {temp_table_name} t
+            WHERE EXISTS (
+                SELECT 1
+                FROM {parent_child_table} edges
+                WHERE
+                    edges.parent_path = t.geo_id
+                    OR edges.child_path = t.geo_id
+            )
+            RETURNING *
+        )
+        SELECT COUNT(*) FROM inserted_geoids
         """),
         {"document_id": document_id},
     ).scalar()
