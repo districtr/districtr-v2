@@ -76,7 +76,9 @@ def cli():
 @click.option("--gpkg", "-g", help="Path or URL to GeoPackage file", required=True)
 @click.option("--rm", "-r", help="Delete file after loading to postgres", is_flag=True)
 @with_session
-def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
+def import_gerrydb_view(
+    session: Session, layer: str, gpkg: str, replace: bool, rm: bool
+):
     _import_gerrydb_view(
         session=session,
         layer=layer,
