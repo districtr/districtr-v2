@@ -240,13 +240,14 @@ async def create_document(
         plan_genesis = "copied"
 
     elif data.assignments is not None and len(data.assignments) > 0:
-        if len(data.assignments) > 914_231:
+        max_records = 914_231
+        if len(data.assignments) > max_records:
             # Texas had 914_231 in the 2010 Census
             # https://www.census.gov/geographies/reference-files/time-series/geo/tallies.html
             # We don't expect any maps larger than that
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail="Upload size exceeds maximum allowed limit (1,000,000 records)",
+                detail=f"Upload size exceeds maximum allowed limit ({max_records} records)",
             )
 
         try:

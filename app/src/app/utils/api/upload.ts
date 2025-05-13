@@ -4,6 +4,7 @@ import Papa from 'papaparse';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {uploadAssignments} from './apiHandlers/uploadAssignments';
 import {useMapStore} from '@/app/store/mapStore';
+import {AxiosError} from 'axios';
 
 const MAX_ROWS = 914_231;
 const ROWS_TO_TEST = 200;
@@ -155,7 +156,7 @@ export const processFile = ({
       let result: {document_id: string} | undefined;
       let geoidHandler = (geoid: string | number) => `${geoid}`.padStart(15, '0');
 
-      // Get all rows (skip header)
+      // All rows without the header
       const rows = results.data.slice(1) as string[][];
 
       if (rows.length > MAX_ROWS) {
@@ -165,19 +166,33 @@ export const processFile = ({
         });
       }
 
-      result = await uploadAssignments({
-        assignments: rows.map(row => [
-          geoidHandler(row[GEOID]),
-          !row[ZONE] ? '' : String(+row[ZONE]),
-        ]),
-        districtr_map_slug: districtrMap.districtr_map_slug,
-        user_id: userID,
-      });
-      result &&
-        setMapLinks(mapLinks => [
-          ...mapLinks,
-          {...districtrMap, document_id: result.document_id, filename: file.name},
-        ]);
+      try {
+        result = await uploadAssignments({
+          assignments: rows.map(row => [
+            geoidHandler(row[GEOID]),
+            !row[ZONE] ? '' : String(+row[ZONE]),
+          ]),
+          districtr_map_slug: districtrMap.districtr_map_slug,
+          user_id: userID,
+        });
+        result &&
+          setMapLinks(mapLinks => [
+            ...mapLinks,
+            // @ts-ignore
+            {...districtrMap, document_id: result.document_id, filename: file.name},
+          ]);
+      } catch (error: unknown) {
+        if (error instanceof AxiosError) {
+          setError({
+            ok: false,
+            detail: {
+              message: error.response?.data.detail,
+            },
+          });
+        } else {
+          setError('Unknown error encountered');
+        }
+      }
     },
   });
 };

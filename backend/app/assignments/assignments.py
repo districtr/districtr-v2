@@ -150,11 +150,18 @@ def batch_insert_assignments(
         session.execute(
             text(f"""
             CREATE TEMPORARY TABLE {uniform_vtds} AS
-            SELECT parent_path, MIN(zone) AS zone
-            FROM {parent_child_table}
-            JOIN {temp_table_name} ON geo_id = {parent_child_table}.child_path
-            GROUP BY parent_path
-            HAVING COUNT(DISTINCT COALESCE(zone, -1)) = 1
+            SELECT
+                parent_path,
+                MIN(zone) AS zone
+            FROM
+                {parent_child_table}
+            LEFT JOIN
+                {temp_table_name} ON geo_id = {parent_child_table}.child_path
+            GROUP BY
+                parent_path
+            HAVING
+                COUNT(DISTINCT COALESCE(zone, -1)) = 1
+                AND COUNT(parent_path) = COUNT(*) FILTER (WHERE zone IS NOT NULL)
         """)
         )
 

@@ -226,6 +226,12 @@ export const UploadError: React.FC<{
           <Button onClick={() => handleRetry()}>Retry</Button>
         </Flex>
       );
+    case 'Upload size exceeds maximum allowed limit (914231 records)':
+      return (
+        <Blockquote className="max-w-96 mt-2" color="red">
+          <Text>{error.detail.message}.</Text> Please upload a CSV with fewer assignments.
+        </Blockquote>
+      );
     case 'Columns are ambiguous':
     case 'Missing columns':
       return (
@@ -274,6 +280,10 @@ export const UploadError: React.FC<{
       );
 
     default:
-      return null;
+      return (
+        <Blockquote className="max-w-96 mt-2" color="red">
+          <Text>{error.detail.message}.</Text>
+        </Blockquote>
+      );
   }
 };
