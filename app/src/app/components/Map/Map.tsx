@@ -13,7 +13,6 @@ import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';
-import {RoadLayers} from './RoadLayers';
 import {VtdBlockLayers} from './VtdBlockLayers';
 import {MetaLayers} from './MetaLayers';
 // @ts-ignore plugin has no types
@@ -162,7 +161,6 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         interactiveLayerIds={INTERACTIVE_LAYERS}
       >
         <CountyLayers />
-        <RoadLayers />
         <VtdBlockLayers isDemographicMap={isDemographicMap} />
         <MetaLayers isDemographicMap={isDemographicMap} />
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />

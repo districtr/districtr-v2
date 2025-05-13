@@ -605,6 +605,45 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     },
   },
   {
+    id: 'roads_minor',
+    type: 'line',
+    source: 'protomaps',
+    'source-layer': 'roads',
+    filter: [
+      'all',
+      ['==', 'pmap:level', 0],
+      ['==', 'pmap:kind', 'minor_road'],
+      ['!=', 'pmap:kind_detail', 'service'],
+    ],
+    paint: {
+      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 11, '#ebebeb', 15, '#d5d5d5'],
+      'line-width': [
+        'interpolate',
+        ['exponential', 1.6],
+        ['zoom'],
+        11,
+        0,
+        12.5,
+        0.5,
+        15,
+        2,
+        18,
+        11,
+      ],
+    },
+  },
+  {
+    id: 'roads_medium',
+    type: 'line',
+    source: 'protomaps',
+    'source-layer': 'roads',
+    filter: ['all', ['==', 'pmap:level', 0], ['==', 'pmap:kind', 'medium_road']],
+    paint: {
+      'line-color': '#d5d5d5',
+      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 7, 0, 12, 1.2, 15, 3, 18, 13],
+    },
+  },
+  {
     id: 'roads_major_casing_early',
     type: 'line',
     source: 'protomaps',
@@ -617,7 +656,17 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
       'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 9, 0, 9.5, 1],
     },
   },
-
+  {
+    id: 'roads_major',
+    type: 'line',
+    source: 'protomaps',
+    'source-layer': 'roads',
+    filter: ['all', ['==', 'pmap:level', 0], ['==', 'pmap:kind', 'major_road']],
+    paint: {
+      'line-color': ['interpolate', ['exponential', 1.6], ['zoom'], 6, '#ebebeb', 12, '#d5d5d5'],
+      'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 6, 0, 12, 1.6, 15, 3, 18, 13],
+    },
+  },
   {
     id: 'roads_highway_casing_early',
     type: 'line',
@@ -939,6 +988,26 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     },
   },
   {
+    id: 'roads_labels_minor',
+    type: 'symbol',
+    source: 'protomaps',
+    'source-layer': 'roads',
+    minzoom: 14,
+    filter: ['any', ['in', 'pmap:kind', 'minor_road', 'other', 'path']],
+    layout: {
+      'symbol-sort-key': ['get', 'pmap:min_zoom'],
+      'symbol-placement': 'line',
+      'text-font': ['Barlow Bold'],
+      'text-field': ['get', 'name'],
+      'text-size': 14,
+    },
+    paint: {
+      'text-color': '#9d9d9d',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 2,
+    },
+  },
+  {
     id: 'physical_point_ocean',
     type: 'symbol',
     source: 'protomaps',
@@ -971,6 +1040,26 @@ export const BASEMAP_LAYERS: LayerSpecification[] = [
     },
     paint: {
       'text-color': '#adadad',
+    },
+  },
+  {
+    id: 'roads_labels_major',
+    type: 'symbol',
+    source: 'protomaps',
+    'source-layer': 'roads',
+    minzoom: 11,
+    filter: ['any', ['in', 'pmap:kind', 'highway', 'major_road', 'medium_road']],
+    layout: {
+      'symbol-sort-key': ['get', 'pmap:min_zoom'],
+      'symbol-placement': 'line',
+      'text-font': ['Barlow Bold'],
+      'text-field': ['get', 'name'],
+      'text-size': 14,
+    },
+    paint: {
+      'text-color': '#8d8d8d',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 2,
     },
   },
   {
