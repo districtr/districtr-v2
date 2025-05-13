@@ -6,12 +6,12 @@ import {Box, Flex, Grid, Heading, Link} from '@radix-ui/themes';
 import Image from 'next/image';
 import {cookies} from 'next/headers';
 
+const placeImages = ['/home-megaphone.png', '/home-hands.png', '/community.svg'];
+
 export default async function Page({params}: {params: Promise<{slug: string}>}) {
   const [{slug}, userCookies] = await Promise.all([params, cookies()]);
-  const [groupContent, maps] = await Promise.all([
-    getGroup(slug),
-    getAvailableDistrictrMaps(slug),
-  ]).catch(() => [null, null]);
+  const [groupContent] = await Promise.all([getGroup(slug)]).catch(() => [null]);
+  const availableMaps = groupContent?.maps;
 
   if (!groupContent) {
     return (
@@ -20,10 +20,6 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
       </Flex>
     );
   }
-
-  const availableMaps =
-    groupContent.map_slugs &&
-    maps?.filter(m => groupContent.map_slugs!.includes(m.districtr_map_slug));
 
   return (
     <Flex direction="column" width="100%" className="max-w-screen-lg mx-auto py-4">
@@ -51,7 +47,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
                   height="150"
                   aria-label="Preview with map outline"
                 >
-                  <Image src="/home-megaphone.png" alt="Fallback image" width="150" height="150" />
+                  <Image src={placeImages[i % 3]} alt="Fallback image" width="150" height="150" />
                 </object>
                 <CreateButton
                   key={i}

@@ -93,5 +93,5 @@ export type MapGroupResponse = {
     name: string;
     slug: string;
   };
-  map_slugs: string[];
+  maps: DistrictrMap[];
 };

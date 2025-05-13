@@ -322,5 +322,5 @@ class DistrictrMapsToGroups(SQLModel, table=True):
 
 
 class MapGroupResponse(SQLModel):
-    group: MapGroup
-    map_slugs: list[str]
+    group: Optional[MapGroup]
+    maps: list[DistrictrMapPublic]

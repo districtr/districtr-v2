@@ -1228,7 +1228,7 @@ async def get_group(
     stmt = (
         select(
             MapGroup,
-            DistrictrMap.districtr_map_slug,
+            DistrictrMap,
         )
         .outerjoin(
             DistrictrMapsToGroups,
@@ -1241,21 +1241,30 @@ async def get_group(
         .where(
             MapGroup.slug == group_slug,
         )
+        .order_by(DistrictrMap.name)
     )
     results = session.execute(
         statement=stmt,
     ).all()
 
     if not results:
-        return {"group": None, "map_slugs": []}
+        return {"group": None, "maps": []}
 
     group = results[0][0]
     maps = []
     for row in results:
         if row[1] is not None:
-            maps.append(row[1])
+            map: DistrictrMap = row[1]
+            maps.append(
+                {
+                    "name": map.name,
+                    "districtr_map_slug": map.districtr_map_slug,
+                    "parent_layer": map.parent_layer,
+                    "visible": True,
+                }
+            )
 
     return {
         "group": group,
-        "map_slugs": maps,
+        "maps": maps,
     }
