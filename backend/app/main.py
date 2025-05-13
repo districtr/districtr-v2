@@ -1248,7 +1248,10 @@ async def get_group(
     ).all()
 
     if not results:
-        return {"group": None, "maps": []}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Group matching {group_slug} does not exist.",
+        )
 
     group = results[0][0]
     maps = []
