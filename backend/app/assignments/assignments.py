@@ -144,8 +144,8 @@ def batch_insert_assignments(
             )
         )
 
-        # All children belonging to a single part which share a zone can be healed
-        # to the parent
+        # All children belonging to a single parent which share a zone can be healed
+        # to the parent if all parent children are accounted for
         uniform_vtds = f"uniform_vtds_{load_id}"
         session.execute(
             text(f"""
