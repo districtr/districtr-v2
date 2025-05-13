@@ -1,0 +1,659 @@
+gerrydb_views:
+  - gpkg: connersville_in.gpkg
+    table_name: connersville_in
+    layer: connersville_in
+  - gpkg: hamilton_in.gpkg
+    table_name: hamilton_in
+    layer: hamilton_in
+  - gpkg: jasonville_in.gpkg
+    table_name: jasonville_in
+    layer: jasonville_in
+  - gpkg: loogootee_in.gpkg
+    table_name: loogootee_in
+    layer: loogootee_in
+  - gpkg: arcadia_in.gpkg
+    table_name: arcadia_in
+    layer: arcadia_in
+  - gpkg: speedway_in.gpkg
+    table_name: speedway_in
+    layer: speedway_in
+  - gpkg: dillsboro_in.gpkg
+    table_name: dillsboro_in
+    layer: dillsboro_in
+  - gpkg: monroeville_in.gpkg
+    table_name: monroeville_in
+    layer: monroeville_in
+  - gpkg: westville_in.gpkg
+    table_name: westville_in
+    layer: westville_in
+  - gpkg: jonesboro_in.gpkg
+    table_name: jonesboro_in
+    layer: jonesboro_in
+  - gpkg: paoli_in.gpkg
+    table_name: paoli_in
+    layer: paoli_in
+  - gpkg: elwood_in.gpkg
+    table_name: elwood_in
+    layer: elwood_in
+  - gpkg: frankton_in.gpkg
+    table_name: frankton_in
+    layer: frankton_in
+  - gpkg: kouts_in.gpkg
+    table_name: kouts_in
+    layer: kouts_in
+  - gpkg: hebron_in.gpkg
+    table_name: hebron_in
+    layer: hebron_in
+  - gpkg: logansport_in.gpkg
+    table_name: logansport_in
+    layer: logansport_in
+  - gpkg: centerville_in.gpkg
+    table_name: centerville_in
+    layer: centerville_in
+  - gpkg: upland_in.gpkg
+    table_name: upland_in
+    layer: upland_in
+  - gpkg: linton_in.gpkg
+    table_name: linton_in
+    layer: linton_in
+  - gpkg: beech_grove_in.gpkg
+    table_name: beech_grove_in
+    layer: beech_grove_in
+  - gpkg: newburgh_in.gpkg
+    table_name: newburgh_in
+    layer: newburgh_in
+  - gpkg: fairview_park_in.gpkg
+    table_name: fairview_park_in
+    layer: fairview_park_in
+  - gpkg: ellettsville_in.gpkg
+    table_name: ellettsville_in
+    layer: ellettsville_in
+  - gpkg: portland_in.gpkg
+    table_name: portland_in
+    layer: portland_in
+  - gpkg: tipton_in.gpkg
+    table_name: tipton_in
+    layer: tipton_in
+  - gpkg: owensville_in.gpkg
+    table_name: owensville_in
+    layer: owensville_in
+  - gpkg: attica_in.gpkg
+    table_name: attica_in
+    layer: attica_in
+  - gpkg: wakarusa_in.gpkg
+    table_name: wakarusa_in
+    layer: wakarusa_in
+  - gpkg: georgetown_in.gpkg
+    table_name: georgetown_in
+    layer: georgetown_in
+  - gpkg: rockport_in.gpkg
+    table_name: rockport_in
+    layer: rockport_in
+  - gpkg: nappanee_in.gpkg
+    table_name: nappanee_in
+    layer: nappanee_in
+  - gpkg: ossian_in.gpkg
+    table_name: ossian_in
+    layer: ossian_in
+  - gpkg: ligonier_in.gpkg
+    table_name: ligonier_in
+    layer: ligonier_in
+  - gpkg: sullivan_in.gpkg
+    table_name: sullivan_in
+    layer: sullivan_in
+  - gpkg: mitchell_in.gpkg
+    table_name: mitchell_in
+    layer: mitchell_in
+  - gpkg: marion_in.gpkg
+    table_name: marion_in
+    layer: marion_in
+  - gpkg: pendleton_in.gpkg
+    table_name: pendleton_in
+    layer: pendleton_in
+  - gpkg: tell_city_in.gpkg
+    table_name: tell_city_in
+    layer: tell_city_in
+  - gpkg: peru_in.gpkg
+    table_name: peru_in
+    layer: peru_in
+  - gpkg: porter_in.gpkg
+    table_name: porter_in
+    layer: porter_in
+  - gpkg: winchester_in.gpkg
+    table_name: winchester_in
+    layer: winchester_in
+  - gpkg: brownstown_in.gpkg
+    table_name: brownstown_in
+    layer: brownstown_in
+  - gpkg: mooresville_in.gpkg
+    table_name: mooresville_in
+    layer: mooresville_in
+  - gpkg: gas_city_in.gpkg
+    table_name: gas_city_in
+    layer: gas_city_in
+  - gpkg: petersburg_in.gpkg
+    table_name: petersburg_in
+    layer: petersburg_in
+  - gpkg: wanatah_in.gpkg
+    table_name: wanatah_in
+    layer: wanatah_in
+  - gpkg: garrett_in.gpkg
+    table_name: garrett_in
+    layer: garrett_in
+  - gpkg: dunkirk_in.gpkg
+    table_name: dunkirk_in
+    layer: dunkirk_in
+  - gpkg: monticello_in.gpkg
+    table_name: monticello_in
+    layer: monticello_in
+  - gpkg: lawrenceburg_in.gpkg
+    table_name: lawrenceburg_in
+    layer: lawrenceburg_in
+  - gpkg: orleans_in.gpkg
+    table_name: orleans_in
+    layer: orleans_in
+  - gpkg: union_city_in.gpkg
+    table_name: union_city_in
+    layer: union_city_in
+  - gpkg: alexandria_in.gpkg
+    table_name: alexandria_in
+    layer: alexandria_in
+  - gpkg: austin_in.gpkg
+    table_name: austin_in
+    layer: austin_in
+  - gpkg: kingsford_heights_in.gpkg
+    table_name: kingsford_heights_in
+    layer: kingsford_heights_in
+  - gpkg: hartford_city_in.gpkg
+    table_name: hartford_city_in
+    layer: hartford_city_in
+  - gpkg: rensselaer_in.gpkg
+    table_name: rensselaer_in
+    layer: rensselaer_in
+  - gpkg: knox_in.gpkg
+    table_name: knox_in
+    layer: knox_in
+  - gpkg: princeton_in.gpkg
+    table_name: princeton_in
+    layer: princeton_in
+  - gpkg: rising_sun_in.gpkg
+    table_name: rising_sun_in
+    layer: rising_sun_in
+  - gpkg: cloverdale_in.gpkg
+    table_name: cloverdale_in
+    layer: cloverdale_in
+  - gpkg: bloomfield_in.gpkg
+    table_name: bloomfield_in
+    layer: bloomfield_in
+  - gpkg: lagrange_in.gpkg
+    table_name: lagrange_in
+    layer: lagrange_in
+  - gpkg: southport_in.gpkg
+    table_name: southport_in
+    layer: southport_in
+  - gpkg: rochester_in.gpkg
+    table_name: rochester_in
+    layer: rochester_in
+  - gpkg: delphi_in.gpkg
+    table_name: delphi_in
+    layer: delphi_in
+  - gpkg: aurora_in.gpkg
+    table_name: aurora_in
+    layer: aurora_in
+  - gpkg: monrovia_in.gpkg
+    table_name: monrovia_in
+    layer: monrovia_in
+  - gpkg: worthington_in.gpkg
+    table_name: worthington_in
+    layer: worthington_in
+  - gpkg: greensburg_in.gpkg
+    table_name: greensburg_in
+    layer: greensburg_in
+  - gpkg: clinton_in.gpkg
+    table_name: clinton_in
+    layer: clinton_in
+  - gpkg: syracuse_in.gpkg
+    table_name: syracuse_in
+    layer: syracuse_in
+  - gpkg: covington_in.gpkg
+    table_name: covington_in
+    layer: covington_in
+districtr_maps:
+- name: "Connersville in"
+  districtr_map_slug: connersville_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: connersville_in
+  tiles_s3_path: 'tilesets/connersville_in.pmtiles'
+  group_slug: indiana
+- name: "Hamilton in"
+  districtr_map_slug: hamilton_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: hamilton_in
+  tiles_s3_path: 'tilesets/hamilton_in.pmtiles'
+  group_slug: indiana
+- name: "Jasonville in"
+  districtr_map_slug: jasonville_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: jasonville_in
+  tiles_s3_path: 'tilesets/jasonville_in.pmtiles'
+  group_slug: indiana
+- name: "Loogootee in"
+  districtr_map_slug: loogootee_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: loogootee_in
+  tiles_s3_path: 'tilesets/loogootee_in.pmtiles'
+  group_slug: indiana
+- name: "Arcadia in"
+  districtr_map_slug: arcadia_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: arcadia_in
+  tiles_s3_path: 'tilesets/arcadia_in.pmtiles'
+  group_slug: indiana
+- name: "Speedway in"
+  districtr_map_slug: speedway_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: speedway_in
+  tiles_s3_path: 'tilesets/speedway_in.pmtiles'
+  group_slug: indiana
+- name: "Dillsboro in"
+  districtr_map_slug: dillsboro_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: dillsboro_in
+  tiles_s3_path: 'tilesets/dillsboro_in.pmtiles'
+  group_slug: indiana
+- name: "Monroeville in"
+  districtr_map_slug: monroeville_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: monroeville_in
+  tiles_s3_path: 'tilesets/monroeville_in.pmtiles'
+  group_slug: indiana
+- name: "Westville in"
+  districtr_map_slug: westville_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: westville_in
+  tiles_s3_path: 'tilesets/westville_in.pmtiles'
+  group_slug: indiana
+- name: "Jonesboro in"
+  districtr_map_slug: jonesboro_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: jonesboro_in
+  tiles_s3_path: 'tilesets/jonesboro_in.pmtiles'
+  group_slug: indiana
+- name: "Paoli in"
+  districtr_map_slug: paoli_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: paoli_in
+  tiles_s3_path: 'tilesets/paoli_in.pmtiles'
+  group_slug: indiana
+- name: "Elwood in"
+  districtr_map_slug: elwood_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: elwood_in
+  tiles_s3_path: 'tilesets/elwood_in.pmtiles'
+  group_slug: indiana
+- name: "Frankton in"
+  districtr_map_slug: frankton_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: frankton_in
+  tiles_s3_path: 'tilesets/frankton_in.pmtiles'
+  group_slug: indiana
+- name: "Kouts in"
+  districtr_map_slug: kouts_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: kouts_in
+  tiles_s3_path: 'tilesets/kouts_in.pmtiles'
+  group_slug: indiana
+- name: "Hebron in"
+  districtr_map_slug: hebron_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: hebron_in
+  tiles_s3_path: 'tilesets/hebron_in.pmtiles'
+  group_slug: indiana
+- name: "Logansport in"
+  districtr_map_slug: logansport_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: logansport_in
+  tiles_s3_path: 'tilesets/logansport_in.pmtiles'
+  group_slug: indiana
+- name: "Centerville in"
+  districtr_map_slug: centerville_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: centerville_in
+  tiles_s3_path: 'tilesets/centerville_in.pmtiles'
+  group_slug: indiana
+- name: "Upland in"
+  districtr_map_slug: upland_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: upland_in
+  tiles_s3_path: 'tilesets/upland_in.pmtiles'
+  group_slug: indiana
+- name: "Linton in"
+  districtr_map_slug: linton_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: linton_in
+  tiles_s3_path: 'tilesets/linton_in.pmtiles'
+  group_slug: indiana
+- name: "Beech grove in"
+  districtr_map_slug: beech_grove_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: beech_grove_in
+  tiles_s3_path: 'tilesets/beech_grove_in.pmtiles'
+  group_slug: indiana
+- name: "Newburgh in"
+  districtr_map_slug: newburgh_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: newburgh_in
+  tiles_s3_path: 'tilesets/newburgh_in.pmtiles'
+  group_slug: indiana
+- name: "Fairview park in"
+  districtr_map_slug: fairview_park_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: fairview_park_in
+  tiles_s3_path: 'tilesets/fairview_park_in.pmtiles'
+  group_slug: indiana
+- name: "Ellettsville in"
+  districtr_map_slug: ellettsville_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: ellettsville_in
+  tiles_s3_path: 'tilesets/ellettsville_in.pmtiles'
+  group_slug: indiana
+- name: "Portland in"
+  districtr_map_slug: portland_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: portland_in
+  tiles_s3_path: 'tilesets/portland_in.pmtiles'
+  group_slug: indiana
+- name: "Tipton in"
+  districtr_map_slug: tipton_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: tipton_in
+  tiles_s3_path: 'tilesets/tipton_in.pmtiles'
+  group_slug: indiana
+- name: "Owensville in"
+  districtr_map_slug: owensville_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: owensville_in
+  tiles_s3_path: 'tilesets/owensville_in.pmtiles'
+  group_slug: indiana
+- name: "Attica in"
+  districtr_map_slug: attica_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: attica_in
+  tiles_s3_path: 'tilesets/attica_in.pmtiles'
+  group_slug: indiana
+- name: "Wakarusa in"
+  districtr_map_slug: wakarusa_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: wakarusa_in
+  tiles_s3_path: 'tilesets/wakarusa_in.pmtiles'
+  group_slug: indiana
+- name: "Georgetown in"
+  districtr_map_slug: georgetown_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: georgetown_in
+  tiles_s3_path: 'tilesets/georgetown_in.pmtiles'
+  group_slug: indiana
+- name: "Rockport in"
+  districtr_map_slug: rockport_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: rockport_in
+  tiles_s3_path: 'tilesets/rockport_in.pmtiles'
+  group_slug: indiana
+- name: "Nappanee in"
+  districtr_map_slug: nappanee_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: nappanee_in
+  tiles_s3_path: 'tilesets/nappanee_in.pmtiles'
+  group_slug: indiana
+- name: "Ossian in"
+  districtr_map_slug: ossian_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: ossian_in
+  tiles_s3_path: 'tilesets/ossian_in.pmtiles'
+  group_slug: indiana
+- name: "Ligonier in"
+  districtr_map_slug: ligonier_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: ligonier_in
+  tiles_s3_path: 'tilesets/ligonier_in.pmtiles'
+  group_slug: indiana
+- name: "Sullivan in"
+  districtr_map_slug: sullivan_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: sullivan_in
+  tiles_s3_path: 'tilesets/sullivan_in.pmtiles'
+  group_slug: indiana
+- name: "Mitchell in"
+  districtr_map_slug: mitchell_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: mitchell_in
+  tiles_s3_path: 'tilesets/mitchell_in.pmtiles'
+  group_slug: indiana
+- name: "Marion in"
+  districtr_map_slug: marion_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: marion_in
+  tiles_s3_path: 'tilesets/marion_in.pmtiles'
+  group_slug: indiana
+- name: "Pendleton in"
+  districtr_map_slug: pendleton_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: pendleton_in
+  tiles_s3_path: 'tilesets/pendleton_in.pmtiles'
+  group_slug: indiana
+- name: "Tell city in"
+  districtr_map_slug: tell_city_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: tell_city_in
+  tiles_s3_path: 'tilesets/tell_city_in.pmtiles'
+  group_slug: indiana
+- name: "Peru in"
+  districtr_map_slug: peru_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: peru_in
+  tiles_s3_path: 'tilesets/peru_in.pmtiles'
+  group_slug: indiana
+- name: "Porter in"
+  districtr_map_slug: porter_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: porter_in
+  tiles_s3_path: 'tilesets/porter_in.pmtiles'
+  group_slug: indiana
+- name: "Winchester in"
+  districtr_map_slug: winchester_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: winchester_in
+  tiles_s3_path: 'tilesets/winchester_in.pmtiles'
+  group_slug: indiana
+- name: "Brownstown in"
+  districtr_map_slug: brownstown_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: brownstown_in
+  tiles_s3_path: 'tilesets/brownstown_in.pmtiles'
+  group_slug: indiana
+- name: "Mooresville in"
+  districtr_map_slug: mooresville_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: mooresville_in
+  tiles_s3_path: 'tilesets/mooresville_in.pmtiles'
+  group_slug: indiana
+- name: "Gas city in"
+  districtr_map_slug: gas_city_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: gas_city_in
+  tiles_s3_path: 'tilesets/gas_city_in.pmtiles'
+  group_slug: indiana
+- name: "Petersburg in"
+  districtr_map_slug: petersburg_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: petersburg_in
+  tiles_s3_path: 'tilesets/petersburg_in.pmtiles'
+  group_slug: indiana
+- name: "Wanatah in"
+  districtr_map_slug: wanatah_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: wanatah_in
+  tiles_s3_path: 'tilesets/wanatah_in.pmtiles'
+  group_slug: indiana
+- name: "Garrett in"
+  districtr_map_slug: garrett_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: garrett_in
+  tiles_s3_path: 'tilesets/garrett_in.pmtiles'
+  group_slug: indiana
+- name: "Dunkirk in"
+  districtr_map_slug: dunkirk_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: dunkirk_in
+  tiles_s3_path: 'tilesets/dunkirk_in.pmtiles'
+  group_slug: indiana
+- name: "Monticello in"
+  districtr_map_slug: monticello_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: monticello_in
+  tiles_s3_path: 'tilesets/monticello_in.pmtiles'
+  group_slug: indiana
+- name: "Lawrenceburg in"
+  districtr_map_slug: lawrenceburg_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: lawrenceburg_in
+  tiles_s3_path: 'tilesets/lawrenceburg_in.pmtiles'
+  group_slug: indiana
+- name: "Orleans in"
+  districtr_map_slug: orleans_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: orleans_in
+  tiles_s3_path: 'tilesets/orleans_in.pmtiles'
+  group_slug: indiana
+- name: "Union city in"
+  districtr_map_slug: union_city_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: union_city_in
+  tiles_s3_path: 'tilesets/union_city_in.pmtiles'
+  group_slug: indiana
+- name: "Alexandria in"
+  districtr_map_slug: alexandria_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: alexandria_in
+  tiles_s3_path: 'tilesets/alexandria_in.pmtiles'
+  group_slug: indiana
+- name: "Austin in"
+  districtr_map_slug: austin_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: austin_in
+  tiles_s3_path: 'tilesets/austin_in.pmtiles'
+  group_slug: indiana
+- name: "Kingsford heights in"
+  districtr_map_slug: kingsford_heights_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: kingsford_heights_in
+  tiles_s3_path: 'tilesets/kingsford_heights_in.pmtiles'
+  group_slug: indiana
+- name: "Hartford city in"
+  districtr_map_slug: hartford_city_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: hartford_city_in
+  tiles_s3_path: 'tilesets/hartford_city_in.pmtiles'
+  group_slug: indiana
+- name: "Rensselaer in"
+  districtr_map_slug: rensselaer_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: rensselaer_in
+  tiles_s3_path: 'tilesets/rensselaer_in.pmtiles'
+  group_slug: indiana
+- name: "Knox in"
+  districtr_map_slug: knox_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: knox_in
+  tiles_s3_path: 'tilesets/knox_in.pmtiles'
+  group_slug: indiana
+- name: "Princeton in"
+  districtr_map_slug: princeton_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: princeton_in
+  tiles_s3_path: 'tilesets/princeton_in.pmtiles'
+  group_slug: indiana
+- name: "Rising sun in"
+  districtr_map_slug: rising_sun_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: rising_sun_in
+  tiles_s3_path: 'tilesets/rising_sun_in.pmtiles'
+  group_slug: indiana
+- name: "Cloverdale in"
+  districtr_map_slug: cloverdale_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: cloverdale_in
+  tiles_s3_path: 'tilesets/cloverdale_in.pmtiles'
+  group_slug: indiana
+- name: "Bloomfield in"
+  districtr_map_slug: bloomfield_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: bloomfield_in
+  tiles_s3_path: 'tilesets/bloomfield_in.pmtiles'
+  group_slug: indiana
+- name: "Lagrange in"
+  districtr_map_slug: lagrange_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: lagrange_in
+  tiles_s3_path: 'tilesets/lagrange_in.pmtiles'
+  group_slug: indiana
+- name: "Southport in"
+  districtr_map_slug: southport_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: southport_in
+  tiles_s3_path: 'tilesets/southport_in.pmtiles'
+  group_slug: indiana
+- name: "Rochester in"
+  districtr_map_slug: rochester_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: rochester_in
+  tiles_s3_path: 'tilesets/rochester_in.pmtiles'
+  group_slug: indiana
+- name: "Delphi in"
+  districtr_map_slug: delphi_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: delphi_in
+  tiles_s3_path: 'tilesets/delphi_in.pmtiles'
+  group_slug: indiana
+- name: "Aurora in"
+  districtr_map_slug: aurora_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: aurora_in
+  tiles_s3_path: 'tilesets/aurora_in.pmtiles'
+  group_slug: indiana
+- name: "Monrovia in"
+  districtr_map_slug: monrovia_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: monrovia_in
+  tiles_s3_path: 'tilesets/monrovia_in.pmtiles'
+  group_slug: indiana
+- name: "Worthington in"
+  districtr_map_slug: worthington_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: worthington_in
+  tiles_s3_path: 'tilesets/worthington_in.pmtiles'
+  group_slug: indiana
+- name: "Greensburg in"
+  districtr_map_slug: greensburg_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: greensburg_in
+  tiles_s3_path: 'tilesets/greensburg_in.pmtiles'
+  group_slug: indiana
+- name: "Clinton in"
+  districtr_map_slug: clinton_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: clinton_in
+  tiles_s3_path: 'tilesets/clinton_in.pmtiles'
+  group_slug: indiana
+- name: "Syracuse in"
+  districtr_map_slug: syracuse_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: syracuse_in
+  tiles_s3_path: 'tilesets/syracuse_in.pmtiles'
+  group_slug: indiana
+- name: "Covington in"
+  districtr_map_slug: covington_in
+  gerrydb_table_name: gerrydbtable
+  parent_layer_name: covington_in
+  tiles_s3_path: 'tilesets/covington_in.pmtiles'
+  group_slug: indiana
