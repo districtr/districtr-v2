@@ -1,5 +1,4 @@
 import pytest
-import os
 from app.utils import (
     add_districtr_map_to_map_group,
     create_districtr_map,
@@ -30,7 +29,7 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-nln",
@@ -269,10 +268,13 @@ def test_create_shatterable_gerrydb_view(
 
 
 def test_create_parent_child_edges(
-    session: Session, simple_shatterable_districtr_map: str, gerrydb_simple_geos_view
+    session: Session,
+    simple_shatterable_districtr_map_no_edges_yet: str,
+    gerrydb_simple_geos_view,
 ):
     create_parent_child_edges(
-        session=session, districtr_map_uuid=simple_shatterable_districtr_map
+        session=session,
+        districtr_map_uuid=simple_shatterable_districtr_map_no_edges_yet,
     )
     session.commit()
 
@@ -281,9 +283,6 @@ def test_create_parent_child_edges(
 def document_id_fixture(
     client, session: Session, simple_shatterable_districtr_map, gerrydb_simple_geos_view
 ):
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=simple_shatterable_districtr_map
-    )
     response = client.post(
         "/api/create_document",
         json={

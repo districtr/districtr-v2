@@ -179,10 +179,11 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentCreate(BaseModel):
-    districtr_map_slug: str | None
-    user_id: str | None
+    districtr_map_slug: str
+    user_id: str
     metadata: Optional[DistrictrMapMetadata] | None = None
     copy_from_doc: Optional[str] | None = None  # document_id to copy from
+    assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
 class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
@@ -246,6 +247,10 @@ class DocumentPublic(BaseModel):
     genesis: str | None = None
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
+
+
+class DocumentCreatePublic(DocumentPublic):
+    inserted_assignments: int
 
 
 class AssignmentsBase(SQLModel):

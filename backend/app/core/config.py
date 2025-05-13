@@ -83,6 +83,8 @@ class Settings(BaseSettings):
             path=self.POSTGRES_DB,
         )
 
+    ECHO_DB: bool = ENVIRONMENT != Environment.production
+
     # Security
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
