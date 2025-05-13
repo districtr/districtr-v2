@@ -976,6 +976,35 @@ def test_new_document_from_block_assignments_some_nulls(
     assert data.get("inserted_assignments") == 3
 
 
+def test_new_document_from_block_assignments_some_null_geoids(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", ""],
+                ["", "1"],
+                ["", ""],
+                ["e", "1"],
+                ["f", "3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    assert data.get("inserted_assignments") == 2
+
+
 def test_new_document_from_block_assignments_non_integer_mapping(
     client, simple_shatterable_districtr_map
 ):

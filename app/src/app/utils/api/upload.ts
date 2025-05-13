@@ -5,74 +5,13 @@ import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {uploadAssignments} from './apiHandlers/uploadAssignments';
 import {useMapStore} from '@/app/store/mapStore';
 
-const ROWS_PER_BATCH = 914_231;
+const MAX_ROWS = 914_231;
 const ROWS_TO_TEST = 200;
-// 20mb
-const MAX_FILE_SIZE = 2_000_000_000;
-const PREFIX_MAP = {
-  AL: '01',
-  NE: '31',
-  AK: '02',
-  NV: '32',
-  AZ: '04',
-  NH: '33',
-  AR: '05',
-  NJ: '34',
-  CA: '06',
-  NM: '35',
-  CO: '08',
-  NY: '36',
-  CT: '09',
-  NC: '37',
-  DE: '10',
-  ND: '38',
-  DC: '11',
-  OH: '39',
-  FL: '12',
-  OK: '40',
-  GA: '13',
-  OR: '41',
-  HI: '15',
-  PA: '42',
-  ID: '16',
-  PR: '72',
-  IL: '17',
-  RI: '44',
-  IN: '18',
-  SC: '45',
-  IA: '19',
-  SD: '46',
-  KS: '20',
-  TN: '47',
-  KY: '21',
-  TX: '48',
-  LA: '22',
-  UT: '49',
-  ME: '23',
-  VT: '50',
-  MD: '24',
-  VA: '51',
-  MA: '25',
-  VI: '78',
-  MI: '26',
-  WA: '53',
-  MN: '27',
-  WV: '54',
-  MS: '28',
-  WI: '55',
-  MO: '29',
-  WY: '56',
-  MT: '30',
-} as const;
+const MAX_FILE_SIZE = 2_000_000_000; // 20mb
 
 export type MapLink = DistrictrMap & {
   document_id: string;
   filename: string;
-};
-
-const getPrefix = (map: DistrictrMap) => {
-  const state = map.gerrydb_table_name.split('_')[0].toUpperCase() as keyof typeof PREFIX_MAP;
-  return PREFIX_MAP[state];
 };
 
 const getRowTests = (map: DistrictrMap) => [
@@ -114,6 +53,7 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
       });
     });
   });
+
   const columnsAreAmbiguous = Object.values(candidateIndices).some(key => {
     const values = Object.values(key);
     const max = Math.max(...values);
@@ -161,14 +101,6 @@ const validateRows = (rows: Array<Array<string>>, plan: DistrictrMap) => {
         headerRow,
       },
     };
-  }
-
-  for (let i = 0; i < tests.length; i++) {
-    if (tests[i].strict) {
-      if (candidateIndices[tests[i].name][mostLikelyColumns[tests[i].name]] !== rowstoTest.length) {
-        throw new Error(`Column ${tests[i].name} should be at index ${i}`);
-      }
-    }
   }
 
   return {
@@ -220,59 +152,27 @@ export const processFile = ({
       }
 
       const {GEOID, ZONE} = validation.colIndices;
-      const statePrefix = getPrefix(districtrMap);
-      // const documentId = await createMapDocument({
-      //   gerrydb_table: districtrMap.gerrydb_table_name,
-      // })
-      let batch = 0;
       let result: {document_id: string} | undefined;
       let geoidHandler = (geoid: string | number) => `${geoid}`.padStart(15, '0');
 
-      while (batch * ROWS_PER_BATCH < results.data.length) {
-        const rows = results.data.slice(
-          1 + batch * ROWS_PER_BATCH,
-          1 + (batch + 1) * ROWS_PER_BATCH
-        ) as string[][];
-        if (batch === 0) {
-          // skip header row
-          for (let i = 1; i < ROWS_TO_TEST; i++) {
-            const row = rows[i];
-            // handle empty rows
-            if (!row || (row.length === 1 && !row[0])) continue;
-            const geoid = geoidHandler(row[GEOID]);
-            if (!geoid.startsWith(statePrefix)) {
-              const receivedPrefix = geoid.slice(0, 2);
-              const receivedState = Object.keys(PREFIX_MAP).find(
-                // @ts-ignore
-                key => PREFIX_MAP[key] === receivedPrefix
-              );
-              setError({
-                ok: false,
-                detail: {
-                  message: 'Block GEOID does not match state prefix',
-                  row: row,
-                  districtrMap,
-                  expectedPrefix: statePrefix,
-                  expectedState: districtrMap.gerrydb_table_name.split('_')[0].toUpperCase(),
-                  receivedState,
-                  receivedPrefix,
-                },
-              });
-              return;
-            }
-          }
-        }
+      // Get all rows (skip header)
+      const rows = results.data.slice(1) as string[][];
 
-        result = await uploadAssignments({
-          assignments: rows.map(row => [
-            geoidHandler(row[GEOID]),
-            !row[ZONE] ? '' : String(+row[ZONE]),
-          ]),
-          districtr_map_slug: districtrMap.districtr_map_slug,
-          user_id: userID,
+      if (rows.length > MAX_ROWS) {
+        setError({
+          ok: false,
+          detail: {message: `Cannot upload more than ${MAX_ROWS} rows at once`},
         });
-        batch++;
       }
+
+      result = await uploadAssignments({
+        assignments: rows.map(row => [
+          geoidHandler(row[GEOID]),
+          !row[ZONE] ? '' : String(+row[ZONE]),
+        ]),
+        districtr_map_slug: districtrMap.districtr_map_slug,
+        user_id: userID,
+      });
       result &&
         setMapLinks(mapLinks => [
           ...mapLinks,
