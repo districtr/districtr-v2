@@ -837,23 +837,8 @@ def test_document_checkout(client, document_id):
     assert response.json().get("status") == DocumentEditStatus.checked_out
 
 
-@pytest.fixture(name="ks_demo_view_census_total_vap_blocks_districtrmap")
 def test_group_data(client, session: Session):
     group_slug = "map_group_two"
     create_map_group(session=session, group_name="Map Group Two", slug=group_slug)
     response = client.get(f"/api/group/{group_slug}")
-    assert response.json().get("group")["slug"] == group_slug
-    assert len(response.json().get("maps")) == 0
-
-    create_districtr_map(
-        session=session,
-        name=f"Districtr map {GERRY_DB_TOTAL_VAP_FIXTURE_NAME}",
-        districtr_map_slug=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
-        gerrydb_table_name=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
-        parent_layer=GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
-        group_slug=group_slug,
-    )
-    session.commit()
-
-    response2 = client.get(f"/api/group/{group_slug}")
-    assert len(response2.json().get("maps")) == 1
+    assert response.json().get("name") == "Map Group Two"

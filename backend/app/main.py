@@ -12,7 +12,7 @@ from typing import Annotated
 import botocore.exceptions
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
 from fastapi.responses import FileResponse
-from sqlalchemy import text, and_
+from sqlalchemy import text
 from sqlmodel import Session, String, select, true, update
 from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
@@ -55,7 +55,6 @@ from app.models import (
     DocumentShareStatus,
     BBoxGeoJSONs,
     MapGroup,
-    MapGroupResponse,
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
@@ -969,7 +968,7 @@ async def get_projects(
         )
         .filter(DistrictrMapsToGroups.group_slug == group)
         .filter(DistrictrMap.visible == true())  # pyright: ignore
-        .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
+        .order_by(DistrictrMap.name.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)
     ).all()
@@ -1219,55 +1218,27 @@ async def get_survey_results(
         )
 
 
-@app.get("/api/group/{group_slug}", response_model=MapGroupResponse)
+@app.get("/api/group/{group_slug}", response_model=MapGroup)
 async def get_group(
     *,
     session: Session = Depends(get_session),
     group_slug: str,
 ):
-    stmt = (
-        select(
-            MapGroup,
-            DistrictrMap,
-        )
-        .outerjoin(
-            DistrictrMapsToGroups,
-            DistrictrMapsToGroups.group_slug == MapGroup.slug,
-        )
-        .outerjoin(
-            DistrictrMap,
-            and_(DistrictrMap.uuid == DistrictrMapsToGroups.districtrmap_uuid),
-        )
-        .where(
-            MapGroup.slug == group_slug,
-        )
-        .order_by(DistrictrMap.name)
+    stmt = select(
+        MapGroup,
+    ).where(
+        MapGroup.slug == group_slug,
     )
-    results = session.execute(
+    group = session.execute(
         statement=stmt,
-    ).all()
+    ).first()
 
-    if not results:
+    if not group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Group matching {group_slug} does not exist.",
         )
-
-    group = results[0][0]
-    maps = []
-    for row in results:
-        if row[1] is not None:
-            map: DistrictrMap = row[1]
-            maps.append(
-                {
-                    "name": map.name,
-                    "districtr_map_slug": map.districtr_map_slug,
-                    "parent_layer": map.parent_layer,
-                    "visible": True,
-                }
-            )
-
     return {
-        "group": group,
-        "maps": maps,
+        "name": group[0].name,
+        "slug": group[0].slug,
     }

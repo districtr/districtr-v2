@@ -88,10 +88,7 @@ export type RemoteAssignmentsResponse = {
 
 export type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | null>;
 
-export type MapGroupResponse = {
-  group: {
-    name: string;
-    slug: string;
-  };
-  maps: DistrictrMap[];
+export type MapGroup = {
+  name: string;
+  slug: string;
 };

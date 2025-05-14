@@ -319,8 +319,3 @@ class DistrictrMapsToGroups(SQLModel, table=True):
     __tablename__ = "districtrmaps_to_groups"  # pyright: ignore
     districtrmap_uuid: str = Field(primary_key=True, foreign_key="districtrmap.uuid")
     group_slug: str = Field(primary_key=True, foreign_key="map_groups.slug")
-
-
-class MapGroupResponse(SQLModel):
-    group: MapGroup
-    maps: list[DistrictrMapPublic]

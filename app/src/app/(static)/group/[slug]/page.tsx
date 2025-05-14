@@ -10,10 +10,12 @@ const placeImages = ['/home-megaphone.png', '/home-hands.png', '/community.svg']
 
 export default async function Page({params}: {params: Promise<{slug: string}>}) {
   const [{slug}, userCookies] = await Promise.all([params, cookies()]);
-  const [groupContent] = await Promise.all([getGroup(slug)]).catch(() => [null]);
-  const availableMaps = groupContent?.maps;
+  const [group, availableMaps] = await Promise.all([
+    getGroup(slug),
+    getAvailableDistrictrMaps({group: slug, limit: 100}),
+  ]).catch(() => [null, null]);
 
-  if (!groupContent) {
+  if (!group) {
     return (
       <Flex className="size-full" justify="center" align="center">
         <Heading>Content not found</Heading>
@@ -24,7 +26,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   return (
     <Flex direction="column" width="100%" className="max-w-screen-lg mx-auto py-4">
       <Heading as="h1" size="6" mb="4">
-        Group: {groupContent?.group?.name}
+        Group: {group?.name}
       </Heading>
       <Heading as="h3">Available Maps</Heading>
 
