@@ -54,13 +54,24 @@ const PopulationTextLayer = () => {
         layout={{
           'text-field': ['get', 'total_pop_20'],
           'text-font': ['Barlow Bold'],
-          'text-size': 14,
+          'text-size': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            0,
+            0,
+            10,
+            8, // At zoom level 10, text size is 10
+            14,
+            10, // At zoom level 14, text size is 14
+            18,
+            18, // At zoom level 18, text size is 18
+          ],
           'text-anchor': 'center',
           'text-offset': [0, 0],
           // padding
           'text-padding': 1,
           'text-allow-overlap': true,
-
         }}
         paint={{
           'text-color': '#000',
