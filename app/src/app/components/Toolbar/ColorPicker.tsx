@@ -1,7 +1,5 @@
 import React, {useEffect, useRef} from 'react';
-import {Button, CheckboxGroup, Flex, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
-import {extendColorArray} from '@/app/utils/colors';
 import {NullableZone} from '@/app/constants/types';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {ColorRadioGroup} from './ColorRadioGroup';
@@ -37,8 +35,6 @@ export const ColorPicker = <T extends boolean>({
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-  const colorArray =
-    numDistricts > colorScheme.length ? extendColorArray(colorScheme, numDistricts) : colorScheme;
 
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
