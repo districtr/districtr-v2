@@ -141,7 +141,7 @@ export const Topbar: React.FC = () => {
                       </a>
                     </Tooltip>
                   </DropdownMenu.Item>
-                  <DropdownMenu.Item disabled={!mapDocument?.child_layer}>
+                  <DropdownMenu.Item>
                     <Tooltip content="Download a CSV of Census Block GEOIDs and zone IDs">
                       <a
                         href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=BlockZoneAssignments`}
