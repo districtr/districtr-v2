@@ -22,7 +22,7 @@ const RuleSection: React.FC<{
 
 export default function GuidePage() {
   return (
-    <Flex direction="column" gapY="4" className="max-w-screen-lg mx-auto">
+    <Flex direction="column" gapY="4">
       <Heading as="h1">Rules of Redistricting</Heading>
       <Text size="3">
         A combination of national, state, and local rules guide the redistricting process. While the

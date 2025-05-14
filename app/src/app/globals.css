@@ -32,3 +32,12 @@ body {
 .maplibregl-canvas:focus-visible {
   outline: none;
 }
+
+.radix-themes {
+	--default-font-family: var(--font-nunito), serif;
+	--heading-font-family: var(--font-nunito), serif;
+	--code-font-family: var(--font-nunito), serif;
+	--strong-font-family: var(--font-nunito), serif;
+	--em-font-family: var(--font-nunito), serif;
+	--quote-font-family: var(--font-nunito), serif;
+}

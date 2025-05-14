@@ -5,7 +5,7 @@ import {Box, Flex, Heading, Text} from '@radix-ui/themes';
 
 export default function GuidePage() {
   return (
-    <Flex className="w-full mx-auto max-w-screen-lg" direction="column" gapY="4">
+    <Flex direction="column" gapY="4">
       <Box>
         <Heading size="8" as="h1">
           Tutorial

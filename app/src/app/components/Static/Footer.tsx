@@ -6,18 +6,8 @@ import {PlaceMapModal} from './PlaceMap/PlaceMapModal';
 
 export const Footer: React.FC = () => (
   <>
-    <Box className="p-4 mt-12 pt-0 bg-gray-800">
+    <Box className="p-4 mt-12 bg-gray-800">
       <Box id="footer-content" className="mx-auto max-w-screen-lg">
-        <Box className="translate-y-[-50%]">
-          <Box className="bg-gray-200 p-4 w-fit">
-            <Image src="/districtr-splash-clear.png" alt="Districtr" width={100} height={100} />
-          </Box>
-        </Box>
-        <NextLink href="/">
-          <Heading as="h3" className="text-lg font-bold text-white cursor-pointer">
-            Districtr
-          </Heading>
-        </NextLink>
         <Grid
           columns={{
             initial: '1',
@@ -27,6 +17,11 @@ export const Footer: React.FC = () => (
           gap="9"
         >
           <Flex direction="column" gapY="4">
+            <NextLink href="/">
+              <Heading as="h3" className="text-lg font-bold text-white cursor-pointer">
+                Districtr
+              </Heading>
+            </NextLink>
             <Text className="text-white font-bold">
               <i>You</i> draw the lines.
             </Text>
@@ -40,13 +35,13 @@ export const Footer: React.FC = () => (
               START DRAWING
             </Text>
             <NextLink href="/places" legacyBehavior className="">
-              <Link className=" !cursor-pointer !text-districtrLightBlue">Places</Link>
+              <Link className=" !cursor-pointer !text-districtrLightBlue">List</Link>
             </NextLink>
             <NextLink href="/tags" legacyBehavior>
               <Link className=" !cursor-pointer !text-districtrLightBlue">Tags</Link>
             </NextLink>
             <PlaceMapModal>
-              <Link className=" !cursor-pointer !text-districtrLightBlue">Explore maps</Link>
+              <Link className=" !cursor-pointer !text-districtrLightBlue">Map</Link>
             </PlaceMapModal>
           </Flex>
           <Flex direction="column" className="text-white">
@@ -54,11 +49,11 @@ export const Footer: React.FC = () => (
               LEARN MORE
             </Text>
 
-            <NextLink href="/guide" legacyBehavior>
-              <Link className=" !cursor-pointer !text-districtrLightBlue">Guide</Link>
-            </NextLink>
             <NextLink href="/about" legacyBehavior>
               <Link className=" !cursor-pointer !text-districtrLightBlue">About</Link>
+            </NextLink>
+            <NextLink href="/guide" legacyBehavior>
+              <Link className=" !cursor-pointer !text-districtrLightBlue">Guide</Link>
             </NextLink>
             <NextLink href="/data" legacyBehavior>
               <Link className=" !cursor-pointer !text-districtrLightBlue">Data</Link>
@@ -73,7 +68,7 @@ export const Footer: React.FC = () => (
 
           <Flex direction="column" className="text-white">
             <Text className="text-white font-bold mb-4" size="2">
-              GET IN TOUCH
+              BIG PICTURE
             </Text>
 
             <NextLink href="/contact" legacyBehavior>

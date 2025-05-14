@@ -4,6 +4,7 @@ import {Card, Flex, Grid, Heading, Link, Text} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 3600;
 
 export default async function TagsPage() {
   const cmsContent = await listCMSContent('places');
@@ -18,7 +19,7 @@ export default async function TagsPage() {
   if (!entries) return null;
 
   return (
-    <Flex direction={'column'} className="max-w-screen-xl mx-auto p-4">
+    <Flex direction={'column'}>
       <Heading as="h1" size="6" mb="4">
         Places
       </Heading>
