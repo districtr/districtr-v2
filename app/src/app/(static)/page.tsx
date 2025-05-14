@@ -20,8 +20,8 @@ const Main: React.FC = () => {
         </Text>
         <Text size="4" className="py-4 text-center">
           This is a beta release of Districtr 2.0. We have a limited selection of states available
-          for mapping, and are accepting user feedback via the green "Feedback" button in the bottom
-          right corner.
+          for mapping, and are accepting user feedback via the green &quot;Feedback&quot; button in
+          the bottom right corner.
         </Text>
       </Flex>
       <ContentSection
