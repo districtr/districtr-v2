@@ -1,5 +1,6 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useMapStore} from '@/app/store/mapStore';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
@@ -21,20 +22,26 @@ const PopulationTextLayer = () => {
   const showBlockPopulationNumbers = useMapStore(
     state => state.mapOptions.showBlockPopulationNumbers
   );
+  const showPopulationNumbers = useMapStore(state => state.mapOptions.showPopulationNumbers);
 
   useEffect(() => {
-    if (captiveIds.size === 0) {
+    if (showPopulationNumbers) {
+      const ids = demographyCache.table?.dedupe('path').column('path') ?? [];
+      GeometryWorker?.getPropertiesCentroids(Array.from(ids)).then(setPointFeatureCollection);
+    } else if (captiveIds.size === 0) {
       setPointFeatureCollection(EMPTY_FT_COLLECTION);
       return;
-    }
-    if (showBlockPopulationNumbers) {
+    } else if (showBlockPopulationNumbers) {
       GeometryWorker?.getPropertiesCentroids(Array.from(captiveIds)).then(
         setPointFeatureCollection
       );
     }
-  }, [captiveIds, showBlockPopulationNumbers]);
+  }, [captiveIds, showBlockPopulationNumbers, showPopulationNumbers]);
 
-  if (!showBlockPopulationNumbers || !pointFeatureCollection.features.length || !captiveIds.size) {
+  if (
+    !showPopulationNumbers &&
+    (!showBlockPopulationNumbers || !pointFeatureCollection.features.length || !captiveIds.size)
+  ) {
     return null;
   }
 
@@ -47,9 +54,13 @@ const PopulationTextLayer = () => {
         layout={{
           'text-field': ['get', 'total_pop_20'],
           'text-font': ['Barlow Bold'],
-          'text-size': 18,
+          'text-size': 14,
           'text-anchor': 'center',
           'text-offset': [0, 0],
+          // padding
+          'text-padding': 1,
+          'text-allow-overlap': true,
+
         }}
         paint={{
           'text-color': '#000',
