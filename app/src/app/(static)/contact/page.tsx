@@ -8,7 +8,7 @@ export default function GuidePage() {
         Contact
       </Heading>
       <Text size="3">
-        If you have a bug to report, a feature to request, or want to talk about using districtr for
+        If you have a bug to report, a feature to request, or want to talk about using Districtr for
         your community, please reach out.
       </Text>{' '}
       <Text size="3">

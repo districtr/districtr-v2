@@ -8,7 +8,7 @@ export default function UpdatesPage() {
       </Heading>
       <Heading as="h2" size="5" className="text-balance max-w-prose">
         After many years of faithful service, and thousands of community based maps drawn, we
-        decided that districtr needed a revamp. On the backend, our team implemented the latest and
+        decided that Districtr needed a revamp. On the backend, our team implemented the latest and
         greatest in GIS packages. This allowed us to implement tons of exciting new features in v2,
         as well as set us up for long term success maintaining and upgrading the site!
       </Heading>
