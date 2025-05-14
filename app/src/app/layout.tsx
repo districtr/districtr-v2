@@ -1,12 +1,17 @@
 import type {Metadata} from 'next';
-import {Inter} from 'next/font/google';
-import './globals.css';
+import {Nunito} from 'next/font/google';
 import {Theme} from '@radix-ui/themes';
-import '@radix-ui/themes/styles.css';
 import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 import {FeedbackForm} from './components/FeedbackForm';
+import '@radix-ui/themes/styles.css';
+import './globals.css';
 
-const inter = Inter({subsets: ['latin']});
+const nunito = Nunito({
+  subsets: ['latin'],
+  weight: ['200', '300', '400', '500', '600', '700', '800', '900'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+});
 
 type MetadataProps = {
   searchParams: Promise<{document_id?: string | string[] | undefined}>;
@@ -66,7 +71,7 @@ export default function RootLayout({
           data-website-id="035a9218-84f6-4a19-80fc-92951dfa62ff"
         />
       </head>
-      <body className={inter.className}>
+      <body className={nunito.className}>
         <Theme accentColor="indigo" grayColor="gray" radius="large" scaling="95%">
           <main>{children}</main>
           <FeedbackForm />

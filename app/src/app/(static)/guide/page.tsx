@@ -5,7 +5,7 @@ import {Box, Flex, Heading, Text} from '@radix-ui/themes';
 
 export default function GuidePage() {
   return (
-    <Flex className="w-full mx-auto max-w-screen-lg" direction="column" gapY="4">
+    <Flex direction="column" gapY="4">
       <Box>
         <Heading size="8" as="h1">
           Tutorial
@@ -229,28 +229,20 @@ export default function GuidePage() {
           </Heading>
           <Text size="3">Your map automatically saves as you work.</Text>
           <Text size="3">
-            Clicking the “Status” button in the upper right hand corner of the map allows you to
-            save your current map with a map name and any comments about the map.
+            Clicking the “Save/Status” button in the upper right hand corner of the map allows you
+            to save your current map with a map name and any comments about the map. Optionally, you
+            can toggle your map from a draft to “Ready to Share” if you are fully finished.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/save_map.webm`}
           />
           <Text size="3">
-            {' '}
             This allows you to return to your map from the “Recent Maps” tab in the upper left hand
             drop down menu.
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/recent_maps.webm`}
           />
-          <Text size="3">
-            Optionally, you can toggle your map from a draft to “Ready to Share” if you are fully
-            finished.
-          </Text>
-          <LoopVideoPlayer
-            videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/ready_to_share.webm`}
-          />
-
           <Heading as="h3" size="4">
             Sharing your Map
           </Heading>
@@ -262,6 +254,31 @@ export default function GuidePage() {
           </Text>
           <LoopVideoPlayer
             videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/share_map.webm`}
+          />
+        </Flex>
+      </ContentSection>
+      <ContentSection title="Saving and Sharing">
+        <Flex direction="column" gapY="4">
+          <Heading as="h3" size="4">
+            Exporting/Importing Maps
+          </Heading>
+          <Text size="3">
+            Districtr provides the option to export a map in several formats. The most compatible
+            format with other platforms is a CSV assignment file which maps Census blocks to
+            districts. Click on the Districtr menu in the upper left corner and select “Export
+            assignments”, then “Block assignments”. Note that even if you built your map entirely
+            out of VTDs, this will create a block assignment file.
+          </Text>
+          <LoopVideoPlayer
+            videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/block_export.webm`}
+          />
+          <Text size="3">
+            Districtr allows users to import maps from CSV block assignment files. Click on the
+            Districtr menu in the upper left corner and select “Create new map” and then “Upload
+            block assignments”. From here, upload your assignment file.
+          </Text>
+          <LoopVideoPlayer
+            videoUrl={`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/videos/block_import.webm`}
           />
         </Flex>
       </ContentSection>

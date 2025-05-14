@@ -10,7 +10,12 @@ from fastapi import (
 )
 from typing import Annotated
 import botocore.exceptions
-from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
+from sqlalchemy.exc import (
+    MultipleResultsFound,
+    NoResultFound,
+    DataError,
+    IntegrityError,
+)
 from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlmodel import Session, String, select, true, update
@@ -18,11 +23,12 @@ from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam, literal
+from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
 from datetime import datetime, UTC, timedelta
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
+from app.assignments import duplicate_document_assignments, batch_insert_assignments
 from app.core.db import get_session
 from app.core.dependencies import get_document as _get_document
 from app.core.config import settings
@@ -41,6 +47,7 @@ from app.models import (
     DistrictrMapsToGroups,
     Document,
     DocumentCreate,
+    DocumentCreatePublic,
     DocumentPublic,
     DocumentEditStatus,
     GEOIDS,
@@ -48,7 +55,6 @@ from app.models import (
     GEOIDSResponse,
     AssignedGEOIDS,
     UUIDType,
-    DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
     TokenRequest,
@@ -95,8 +101,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-
-# Module routers
 app.include_router(cms.router)
 app.include_router(thumbnails.router)
 
@@ -208,7 +212,7 @@ async def unlock_map(
 # matches createMapObject in apiHandlers.ts
 @app.post(
     "/api/create_document",
-    response_model=DocumentPublic,
+    response_model=DocumentCreatePublic,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_document(
@@ -222,35 +226,54 @@ async def create_document(
     plan_genesis = "created"
     document_id = results.one()[0]  # should be only one row, one column of results
 
-    lock_status = check_map_lock(
-        document_id, data.user_id, session
-    )  # this will properly create a lock record
+    # Checking a document's lock status will create one if none is found, as in
+    # the case of new documents
+    lock_status = check_map_lock(document_id, data.user_id, session)
 
-    copy_from_doc = getattr(data, "copy_from_doc", None)
+    total_assignments = 0
 
-    # if copy from doc, need to get assignments from that document, copy them for the new doc
-    if copy_from_doc:
-        prev_assignments = Assignments.__table__.select().where(
-            Assignments.document_id == copy_from_doc
+    if data.copy_from_doc is not None:
+        total_assignments = duplicate_document_assignments(
+            from_document_id=data.copy_from_doc,
+            to_document_id=document_id,
+            session=session,
         )
-        # create a new copy with the fresh document id
-        # set document id to new document id
-        prev_assignments = select(
-            Assignments.geo_id,
-            Assignments.zone,
-            literal(document_id).label("document_id"),
-        ).where(Assignments.document_id == copy_from_doc)
-
-        create_copy_stmt = insert(Assignments).from_select(
-            ["geo_id", "zone", "document_id"], prev_assignments
-        )
-
-        session.execute(create_copy_stmt)
         plan_genesis = "copied"
 
-    # check if there is a metadata item in the request
-    if data.metadata:
-        update_districtrmap_metadata(document_id, data.metadata.dict(), session)
+    elif data.assignments is not None and len(data.assignments) > 0:
+        max_records = 914_231
+        if len(data.assignments) > max_records:
+            # Texas had 914_231 in the 2010 Census
+            # https://www.census.gov/geographies/reference-files/time-series/geo/tallies.html
+            # We don't expect any maps larger than that
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Upload size exceeds maximum allowed limit ({max_records} records)",
+            )
+
+        try:
+            total_assignments = batch_insert_assignments(
+                document_id=document_id,
+                assignments=data.assignments,
+                districtr_map_slug=data.districtr_map_slug,
+                session=session,
+            )
+        except NoResultFound:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No districtr map found matching requested map",
+            )
+        except IntegrityError as e:
+            if "psycopg.errors.UniqueViolation" in str(e):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Duplicate geoids found in input data. Ensure all geoids are unique",
+                )
+
+    if data.metadata is not None:
+        await update_districtrmap_metadata(
+            document_id=document_id, metadata=data.metadata.dict(), session=session
+        )
 
     stmt = (
         select(
@@ -266,6 +289,7 @@ async def create_document(
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             coalesce(plan_genesis).label("genesis"),
+            coalesce(total_assignments).label("inserted_assignments"),
             # send metadata as a null object on init of document
             coalesce(
                 None,
@@ -283,11 +307,11 @@ async def create_document(
         )
         .limit(1)
     )
-    # Document id has a unique constraint so I'm not sure we need to hit the DB again here
-    # more valuable would be to check that the assignments table
+
     doc = session.exec(
         stmt,
-    ).one()  # again if we've got more than one, we have problems.
+    ).one()
+
     if not doc.map_uuid:
         session.rollback()
         raise HTTPException(
@@ -331,6 +355,7 @@ async def update_assignments(
         updated_at = None
         if len(assignments) > 0:
             updated_at = update_timestamp(session, document_id)
+            logger.info(f"Document updated at {updated_at}")
         session.commit()
         return {"assignments_upserted": len(assignments), "updated_at": updated_at}
     else:
@@ -930,12 +955,12 @@ async def get_connected_component_bboxes(
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
-    document: Annotated[Document, Depends(_get_document)],
+    document_id: str,
     metadata: dict = Body(...),
     session: Session = Depends(get_session),
 ):
     try:
-        # update document record with metadata
+        document = _get_document(document_id, session=session)
         stmt = (
             update(Document)
             .where(Document.document_id == document.document_id)
@@ -952,7 +977,10 @@ async def update_districtrmap_metadata(
         )
 
 
-@app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
+@app.get(
+    "/api/gerrydb/views",
+    #  response_model=list[DistrictrMapPublic]
+)
 async def get_projects(
     *,
     session: Session = Depends(get_session),
@@ -1163,7 +1191,7 @@ async def checkout_plan(
 
 
 @app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
-async def get_survey_results(
+async def export_document(
     *,
     document: Annotated[Document, Depends(_get_document)],
     background_tasks: BackgroundTasks,
