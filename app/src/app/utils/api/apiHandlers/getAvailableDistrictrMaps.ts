@@ -3,7 +3,7 @@ import {DistrictrMap} from './types';
 import {API_URL} from '../constants';
 
 export const getAvailableDistrictrMaps = async (
-  limit = 10,
+  limit = 100,
   offset = 0
 ): Promise<DistrictrMap[]> => {
   return await axios
