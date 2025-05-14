@@ -1,7 +1,6 @@
 import {CTA} from '@/app/components/Static/Content/CTA';
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {Flex, Heading, Text, Link, Box, Grid, Blockquote} from '@radix-ui/themes';
-import Image from 'next/image';
 import NextLink from 'next/link';
 
 const RuleSection: React.FC<{
@@ -15,7 +14,7 @@ const RuleSection: React.FC<{
       <Text>
         <b>{title}:</b> {description}
       </Text>
-      <Image src={image} alt={imageAlt} width={200} height={200} />
+      <img src={image} alt={imageAlt} width={200} height='auto' />
     </Flex>
   );
 };
