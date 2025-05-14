@@ -216,16 +216,6 @@ export const Topbar: React.FC = () => {
                 {status === 'locked' ? 'Share' : 'Share'}
               </Button>
             )}
-            {!!statusText && (
-              <Button
-                variant="outline"
-                className="mr-2"
-                disabled={!mapDocument?.document_id}
-                onClick={() => setModalOpen('recents')}
-              >
-                {statusText}
-              </Button>
-            )}
             {!!(statusText && statusColor) && (
               <Tooltip content={statusTooltip}>
                 <Badge
