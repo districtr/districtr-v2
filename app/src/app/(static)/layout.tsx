@@ -16,7 +16,7 @@ export default function RootLayout({
   return (
     <Flex direction="column" className="min-h-[100vh]" justify="center">
       <Header />
-      <Box className="w-full flex-grow p-4 max-w-screen-lg mx-auto px-4">{children}</Box>
+      <Box className="w-full flex-grow p-4 max-w-screen-lg mx-auto px-4 xl:px-0">{children}</Box>
       <Footer />
     </Flex>
   );
