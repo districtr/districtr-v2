@@ -13,7 +13,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
   const language = userCookies.get('language')?.value ?? 'en';
   const [cmsData, maps] = await Promise.all([
     getCMSContent(slug, language, 'tags'),
-    getAvailableDistrictrMaps(),
+    getAvailableDistrictrMaps({}),
   ]).catch(() => [null, null]);
 
   if (!cmsData?.content?.published_content || !maps) {

@@ -60,6 +60,7 @@ from app.models import (
     TokenRequest,
     DocumentShareStatus,
     BBoxGeoJSONs,
+    MapGroup,
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
@@ -356,10 +357,7 @@ async def update_assignments(
             updated_at = update_timestamp(session, document_id)
             logger.info(f"Document updated at {updated_at}")
         session.commit()
-        return {
-            "assignments_upserted": len(assignments),
-            "updated_at": data["updated_at"],
-        }
+        return {"assignments_upserted": len(assignments), "updated_at": updated_at}
     else:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -998,7 +996,7 @@ async def get_projects(
         )
         .filter(DistrictrMapsToGroups.group_slug == group)
         .filter(DistrictrMap.visible == true())  # pyright: ignore
-        .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
+        .order_by(DistrictrMap.name.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)
     ).all()
@@ -1246,3 +1244,29 @@ async def export_document(
         return FileResponse(
             path=_out_file, media_type=media_type, filename=out_file_name
         )
+
+
+@app.get("/api/group/{group_slug}", response_model=MapGroup)
+async def get_group(
+    *,
+    session: Session = Depends(get_session),
+    group_slug: str,
+):
+    stmt = select(
+        MapGroup,
+    ).where(
+        MapGroup.slug == group_slug,
+    )
+    group = session.execute(
+        statement=stmt,
+    ).first()
+
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Group matching {group_slug} does not exist.",
+        )
+    return {
+        "name": group[0].name,
+        "slug": group[0].slug,
+    }

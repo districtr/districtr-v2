@@ -836,6 +836,13 @@ def test_document_checkout(client, document_id):
     assert response.json().get("status") == DocumentEditStatus.checked_out
 
 
+def test_group_data(client, session: Session):
+    group_slug = "map_group_two"
+    create_map_group(session=session, group_name="Map Group Two", slug=group_slug)
+    response = client.get(f"/api/group/{group_slug}")
+    assert response.json().get("name") == "Map Group Two"
+
+    
 def test_new_document_from_block_assignments(client, simple_shatterable_districtr_map):
     response = client.post(
         "/api/create_document",
