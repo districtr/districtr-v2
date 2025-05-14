@@ -4,6 +4,7 @@ import {Card, Flex, Grid, Heading, Link, Text} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 3600;
 
 export default async function TagsPage() {
   const cmsContent = await listCMSContent('tags');
