@@ -26,7 +26,7 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>}> = ({view}) =>
   };
 
   return (
-    <Button onClick={handleCreatePlan} className="w-min">
+    <Button onClick={handleCreatePlan} className="w-fit h-auto px-2 py-1">
       {view.name}
     </Button>
   );
