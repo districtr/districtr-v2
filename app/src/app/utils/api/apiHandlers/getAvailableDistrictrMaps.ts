@@ -10,7 +10,7 @@ interface AvailableDistrictrMapsParams {
 
 export const getAvailableDistrictrMaps = async ({
   group = 'states',
-  limit = 10,
+  limit = 100,
   offset = 0,
 }: AvailableDistrictrMapsParams): Promise<DistrictrMap[]> => {
   return await axios

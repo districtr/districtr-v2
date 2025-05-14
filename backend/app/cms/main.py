@@ -14,7 +14,6 @@ from app.cms.models import (
     CmsContentUpdate,
     CMS_MODEL_MAP,
     CMSContentTypesEnum,
-    AllCMSContentPublic,
     ContentUpdateResponse,
     CmsContent,
     LANGUAGE_MAP,
@@ -178,9 +177,7 @@ async def list_cms_content(
     return results
 
 
-@router.get(
-    "/content/{content_type}/list/authored", response_model=list[AllCMSContentPublic]
-)
+@router.get("/content/{content_type}/list/authored")
 async def list_editor_cms_content(
     content_type: CMSContentTypesEnum,
     language: LanguageEnum | None = None,
