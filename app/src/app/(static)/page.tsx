@@ -18,9 +18,9 @@ const Main: React.FC = () => {
         <Text size="4">
           Districtr is a free browser-based tool for drawing districts and mapping your community.
         </Text>
-        <Text size="4">
+        <Text size="4" className="py-4 text-center">
           This is a beta release of Districtr 2.0. We have a limited selection of states available
-          for mapping, and are accepting user feedback via the gren "Feedback" button in the bottom
+          for mapping, and are accepting user feedback via the green "Feedback" button in the bottom
           right corner.
         </Text>
       </Flex>
