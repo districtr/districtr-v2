@@ -1,15 +1,13 @@
-import RichTextRenderer from '@/app/components/RichTextRenderer/RichTextRenderer';
 import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getGroup} from '@/app/utils/api/apiHandlers/getGroup';
 import {Box, Flex, Grid, Heading, Link} from '@radix-ui/themes';
 import Image from 'next/image';
-import {cookies} from 'next/headers';
 
 const placeImages = ['/home-megaphone.png', '/home-hands.png', '/community.svg'];
 
 export default async function Page({params}: {params: Promise<{slug: string}>}) {
-  const [{slug}, userCookies] = await Promise.all([params, cookies()]);
+  const {slug} = await params;
   const [group, availableMaps] = await Promise.all([
     getGroup(slug),
     getAvailableDistrictrMaps({group: slug, limit: 100}),
