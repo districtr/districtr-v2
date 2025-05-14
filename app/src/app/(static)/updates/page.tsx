@@ -2,7 +2,7 @@ import {Flex, Heading, Text} from '@radix-ui/themes';
 
 export default function UpdatesPage() {
   return (
-    <Flex className="w-full mx-auto max-w-screen-lg" direction="column" gapY="4">
+    <Flex direction="column" gapY="4">
       <Heading as="h1" size="8">
         Updates
       </Heading>

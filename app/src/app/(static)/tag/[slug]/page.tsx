@@ -28,7 +28,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
     maps.find(m => m.districtr_map_slug === cmsData.content.districtr_map_slug);
 
   return (
-    <Flex direction="column" width="100%" className="max-w-screen-lg mx-auto py-4">
+    <Flex direction="column" width="100%">
       <Heading as="h1" size="6" mb="4">
         {cmsData.content.published_content.title}
       </Heading>

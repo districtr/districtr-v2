@@ -19,7 +19,7 @@ export default async function TagsPage() {
   if (!entries) return null;
 
   return (
-    <Flex direction={'column'} className="max-w-screen-xl mx-auto p-4">
+    <Flex direction={'column'}>
       <Heading as="h1" size="6" mb="4">
         Places
       </Heading>
