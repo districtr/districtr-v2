@@ -102,6 +102,11 @@ class DistrictrMapPublic(BaseModel):
     visible: bool = True
 
 
+class ConfigMapGroup(BaseModel):
+    districtr_map_slug: str
+    group_slug: str
+
+
 class DistrictrMapUpdate(BaseModel):
     districtr_map_slug: str
     gerrydb_table_name: str | None
