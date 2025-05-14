@@ -8,3 +8,5 @@ export const LANG_MAPPING = {
   zh: 'Chinese',
   ja: 'Japanese',
 } as const;
+
+export const MAX_TITLE_LENGTH = 36;

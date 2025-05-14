@@ -24,11 +24,10 @@ import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
 
 import {SaveMapModal} from '@/app/components/Toolbar/SaveMapModal';
-import {useMapStatus} from '../hooks/useMapStatus';
-import {useMapMetadata} from '../hooks/useMapMetadata';
-import {PasswordPopover} from './Toolbar/PasswordPopover';
-import {PasswordPromptModal} from './Toolbar/PasswordPromptModal';
-import {UploaderModal} from './Toolbar/UploaderModal';
+import {useMapStatus} from '../../hooks/useMapStatus';
+import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
+import {UploaderModal} from '../Toolbar/UploaderModal';
+import { MapHeader } from './MapTitle';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -43,13 +42,6 @@ export const Topbar: React.FC = () => {
   const passwordPrompt = useMapStore(state => state.passwordPrompt);
   const {statusText, statusColor, statusTooltip} = useMapStatus();
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
-  const mapMetadata = useMapMetadata(mapDocument?.document_id);
-  const mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
-  const mapTableName = useMapStore(
-    state =>
-      state.userMaps.find(userMap => userMap.document_id === state.mapDocument?.document_id)
-        ?.name ?? ''
-  );
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
 
@@ -182,24 +174,12 @@ export const Topbar: React.FC = () => {
               </DropdownMenu.Sub>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
-          <Flex direction="row" align="center" gapX="2">
-            {/*map name */}
-            <Button variant="ghost" onClick={() => setModalOpen('save')}>
-              <Text size="3" className="text-black-500">
-                {mapName || ''}
-              </Text>
-            </Button>
-            {/*map slug */}
-            {/*source table name */}
-            <Text size="3" className="text-gray-500">
-              {mapTableName || ''}
-            </Text>
-          </Flex>
-          <Flex direction="row" align="center" gapX="2">
+          <MapHeader />
+          <Flex direction="row" align="center" gapX="1">
             {!!statusText && (
               <Button
                 variant="outline"
-                className="mr-2"
+                size="1"
                 disabled={!mapDocument?.document_id}
                 onClick={() => setModalOpen('save')}
               >
@@ -209,31 +189,33 @@ export const Topbar: React.FC = () => {
             {!!statusText && (
               <Button
                 variant="outline"
-                className="mr-2"
                 disabled={!mapDocument?.document_id}
                 onClick={() => setModalOpen('share')}
+                size="1"
               >
                 {status === 'locked' ? 'Share' : 'Share'}
               </Button>
             )}
             {!!(statusText && statusColor) && (
               <Tooltip content={statusTooltip}>
-                <Badge
-                  color={statusColor}
-                  size={'3'}
-                  variant={'soft'}
-                  className={statusTooltip?.length ? '' : `pointer-events-none`}
-                >
-                  {statusText} {!!statusTooltip?.length && <InfoCircledIcon />}
-                </Badge>
+                <Flex align="center" gapX="1" direction="row">
+                  <Text
+                    color={statusColor}
+                    size={'1'}
+                    className={`${statusTooltip?.length ? '' : `pointer-events-none`} p-1`}
+                  >
+                    {statusText}
+                  </Text>
+                  {!!statusTooltip?.length && <InfoCircledIcon />}
+                </Flex>
               </Tooltip>
             )}
-            {passwordPrompt && <PasswordPopover />}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
+              size="1"
               onClick={() => setSettingsOpen(prev => !prev)}
             >
-              <GearIcon width="28" height="28" className="p-1" />
+              <GearIcon className="size-full p-1" />
             </IconButton>
           </Flex>
           {settingsOpen && (
