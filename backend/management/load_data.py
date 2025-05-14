@@ -8,6 +8,7 @@ from app.utils import (
     create_shatterable_gerrydb_view,
     add_extent_to_districtrmap,
     create_spatial_index,
+    add_districtr_map_to_map_group,
 )
 from app.core.io import get_local_or_s3_path
 from app.main import get_session
@@ -15,7 +16,7 @@ from app.core.config import settings
 from functools import wraps
 import logging
 from sqlmodel import Session
-from app.models import DistrictrMapPublic, DistrictrMap
+from app.models import DistrictrMapPublic, DistrictrMap, ConfigMapGroup
 from pydantic import BaseModel, computed_field
 from app.constants import GERRY_DB_SCHEMA
 import subprocess
@@ -157,6 +158,7 @@ class Config(BaseModel):
     gerrydb_views: list[GerryDBViewImport] | None = None
     shatterable_views: list[ShatterableViewImport] | None = None
     districtr_maps: list[DistrictrMapPublic] | None = None
+    map_groups: list[ConfigMapGroup] | None = None
 
     @computed_field
     @property
@@ -172,6 +174,11 @@ class Config(BaseModel):
     @property
     def _districtr_maps(self) -> list[DistrictrMapPublic]:
         return self.districtr_maps or []
+
+    @computed_field
+    @property
+    def _map_groups(self) -> list[ConfigMapGroup]:
+        return self.map_groups or []
 
     @classmethod
     def from_file(cls, file_path: str) -> "Config":
@@ -297,3 +304,11 @@ def load_sample_data(
             _create_parent_child_edges(session=session, districtr_map_uuid=str(u))
 
         session.commit()
+
+    for group in config._map_groups:
+        session = next(get_session())
+        add_districtr_map_to_map_group(
+            session=session,
+            districtr_map_slug=group.districtr_map_slug,
+            group_slug=group.group_slug,
+        )
