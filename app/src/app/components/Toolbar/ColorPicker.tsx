@@ -60,10 +60,12 @@ export const ColorPicker = <T extends boolean>({
       // if key is digit, set selected zone to that digit
       if (!event.code.includes('Digit')) return;
       let value = event.key;
+      const numDistricts = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+      const numDigits = numDistricts.toString().length;
       if (numDistricts >= 10) {
         hotkeyRef.current = (hotkeyRef.current || '') + value;
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        if (hotkeyRef?.current?.length === 2) {
+        if (hotkeyRef?.current?.length === numDigits) {
           handleKeyPressSubmit();
         } else {
           timeoutRef.current = setTimeout(() => {
