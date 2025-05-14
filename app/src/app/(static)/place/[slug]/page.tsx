@@ -16,7 +16,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
     getCMSContent(slug, language, 'places'),
     getAvailableDistrictrMaps(),
   ]).catch(() => [null, null]);
-
+  
   if (!cmsData?.content?.published_content || !maps) {
     return (
       <Flex className="size-full" justify="center" align="center">
@@ -24,6 +24,8 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
       </Flex>
     );
   }
+  console.log('!!!PlacePageContent', JSON.stringify(cmsData, null, 2));
+  console.log('!!!MapsViews', JSON.stringify(maps, null, 2));
 
   const availableMaps =
     cmsData.content.districtr_map_slugs &&
