@@ -14,7 +14,7 @@ const RuleSection: React.FC<{
       <Text>
         <b>{title}:</b> {description}
       </Text>
-      <img src={image} alt={imageAlt} width={200} height='auto' />
+      <img src={image} alt={imageAlt} width={200} height="auto" />
     </Flex>
   );
 };
