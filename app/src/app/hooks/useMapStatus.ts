@@ -5,7 +5,7 @@ import {useMapMetadata} from './useMapMetadata';
 import {BadgeProps} from '@radix-ui/themes';
 import {useSearchParams} from 'next/navigation';
 import {useShareJwt} from './useShareJwt';
-import {EyeOpenIcon, LockClosedIcon, LockOpen1Icon} from '@radix-ui/react-icons';
+import {EyeOpenIcon, LockClosedIcon, LockOpen1Icon, Pencil2Icon} from '@radix-ui/react-icons';
 
 export const useMapStatus = () => {
   const document_id = useMapStore(state => state.mapDocument?.document_id);
@@ -28,7 +28,7 @@ export const useMapStatus = () => {
     if (status === 'locked' && access === 'edit') {
       return [LockClosedIcon, STATUS_TOOLTIPS.checkedOut, 'bronze'];
     }
-    return [STATUS_TEXT.ready, STATUS_TOOLTIPS.editing, 'green'];
+    return [Pencil2Icon, STATUS_TOOLTIPS.editing, 'green'];
   }, [status, access, document_id, mapMetadata, shareUrl]) as [
     React.FC,
     string,
