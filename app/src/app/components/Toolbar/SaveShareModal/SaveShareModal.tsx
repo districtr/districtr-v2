@@ -27,7 +27,6 @@ export const SaveShareModal: React.FC<{
   const generateLink = useSaveShareStore(state => state.generateLink);
   const handleMetadataChange = (updates: Partial<DocumentMetadata>) =>
     setInnerFormState(prev => ({...prev, ...updates}));
-  console.log('!!!', mapMetadata);
   const handleSave = () => saveMap({...mapMetadata, ...innerFormState}).then(_ => onClose());
   useEffect(() => handleMetadataChange(mapMetadata ?? DEFAULT_MAP_METADATA), [mapMetadata]);
   useEffect(() => {
