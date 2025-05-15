@@ -4,7 +4,6 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
-    BackgroundTasks,
     Body,
     Form,
 )
@@ -16,7 +15,6 @@ from sqlalchemy.exc import (
     DataError,
     IntegrityError,
 )
-from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlmodel import Session, String, select, true, update
 from sqlalchemy.sql.functions import coalesce
@@ -37,6 +35,7 @@ import jwt
 from uuid import uuid4
 import app.contiguity.main as contiguity
 import app.cms.main as cms
+import app.exports.main as exports
 import app.thumbnails.main as thumbnails
 from networkx import Graph, connected_components
 from app.models import (
@@ -66,12 +65,6 @@ from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from app.utils import _cleanup_expired_locks, _remove_all_locks
-from app.core.io import remove_file
-from app.exports import (
-    get_export_sql_method,
-    DocumentExportType,
-    DocumentExportFormat,
-)
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
@@ -102,6 +95,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(cms.router)
+app.include_router(exports.router)
 app.include_router(thumbnails.router)
 
 logger = logging.getLogger(__name__)
@@ -1188,62 +1182,6 @@ async def checkout_plan(
         lock_status = check_map_lock(document.document_id, params["user_id"], session)
 
         return {"status": lock_status, "access": DocumentShareStatus.edit}
-
-
-@app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
-async def export_document(
-    *,
-    document: Annotated[Document, Depends(_get_document)],
-    background_tasks: BackgroundTasks,
-    format: str = "CSV",
-    export_type: str = "ZoneAssignments",
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=10_000, ge=0),
-    session: Session = Depends(get_session),
-) -> FileResponse:
-    try:
-        _format = DocumentExportFormat(format)
-        _export_type = DocumentExportType(export_type)
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error),
-        )
-
-    timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
-    out_file_name = f"{document.document_id}_{_export_type.value}_{timestamp}.{_format.value.lower()}"
-
-    try:
-        get_sql = get_export_sql_method(_format)
-        sql, params = get_sql(
-            _export_type,
-            document_id=document.document_id,
-            offset=offset,
-            limit=limit,
-        )
-    except NotImplementedError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
-        )
-
-    conn = session.connection().connection
-    _out_file = f"/tmp/{out_file_name}"
-    background_tasks.add_task(remove_file, _out_file)
-
-    with conn.cursor().copy(sql, params=params) as copy:
-        with open(_out_file, "wb") as f:
-            while data := copy.read():
-                f.write(data)
-            f.close()
-
-        media_type = {
-            DocumentExportFormat.csv: "text/csv; charset=utf-8",
-            DocumentExportFormat.geojson: "application/json",
-        }.get(_format, "text/plain; charset=utf-8")
-        return FileResponse(
-            path=_out_file, media_type=media_type, filename=out_file_name
-        )
 
 
 @app.get("/api/group/{group_slug}", response_model=MapGroup)

@@ -38,6 +38,7 @@ import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
 import {CheckboxGroupIndicator} from '@radix-ui/themes/dist/esm/components/checkbox-group.primitive.js';
+import {extendColorArray} from '../utils/colors';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -482,7 +483,10 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         password: mapDocument.password,
       },
       activeTool: mapDocument.access === 'edit' ? currentActiveTool : undefined,
-      colorScheme: mapDocument.color_scheme ?? DefaultColorScheme,
+      colorScheme: extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        mapDocument.num_districts ?? FALLBACK_NUM_DISTRICTS
+      ),
       sidebarPanels: ['population'],
       appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
       mapRenderingState:

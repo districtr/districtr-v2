@@ -1,9 +1,11 @@
 export const extendColorArray = (colorArray: string[], numDistricts: number) => {
   let newColorArray = [...colorArray];
   while (newColorArray.length < numDistricts) {
-    newColorArray = newColorArray.concat(newColorArray);
+    newColorArray = newColorArray
+      .concat(...colorArray.map(hexshift))
+      .filter((color, index, array) => array.findIndex(c => c === color) === index);
   }
-  return newColorArray;
+  return newColorArray.slice(0, numDistricts);
 };
 
 function hexshift(color: string): string {
