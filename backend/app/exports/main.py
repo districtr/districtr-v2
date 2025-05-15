@@ -6,6 +6,7 @@ from fastapi import APIRouter, status, BackgroundTasks, Depends, HTTPException, 
 from fastapi.responses import FileResponse
 from sqlmodel import Session
 from psycopg.sql import SQL, Composed, Identifier, Literal
+from psycopg.errors import RaiseException
 from typing import Callable, Any
 from app.core.dependencies import get_document
 from app.core.db import get_session
@@ -163,9 +164,15 @@ async def export_document(
 
     with conn.cursor().copy(sql, params=params) as copy:
         with open(_out_file, "wb") as f:
-            while data := copy.read():
-                f.write(data)
-            f.close()
+            try:
+                while data := copy.read():
+                    f.write(data)
+                f.close()
+            except RaiseException as error:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(error),
+                )
 
         media_type = {
             DocumentExportFormat.csv: "text/csv; charset=utf-8",
