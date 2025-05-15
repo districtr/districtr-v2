@@ -196,9 +196,7 @@ export const handleMapIdle = (e: MapEvent) => {
   }
 };
 
-export const handleMapMoveEnd = e => {
-  console.log(e.target.getZoom());
-};
+export const handleMapMoveEnd = () => {};
 
 export const handleMapZoomEnd = (e: ViewStateChangeEvent) => {};
 
