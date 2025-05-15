@@ -41,7 +41,7 @@ const PopulationTextLayer = () => {
     if (!missingIds.length) {
       return;
     }
-    GeometryWorker?.getPropertiesCentroids(missingIds).then(data => {
+    GeometryWorker?.getCentroidsByIds(missingIds).then(data => {
       setPointFeatureCollection(prev => ({
         type: 'FeatureCollection',
         // Filter out old, irrelevant features (eg broken parents)
