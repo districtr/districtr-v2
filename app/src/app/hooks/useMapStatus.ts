@@ -25,10 +25,13 @@ export const useMapStatus = () => {
       return [STATUS_TEXT.checkedOut, STATUS_TOOLTIPS.checkedOut, 'bronze'];
     }
     if (status === 'locked') return [STATUS_TEXT.frozen, STATUS_TOOLTIPS.viewOnly, 'blue'];
-    if (!mapMetadata || !mapMetadata.draft_status) return [STATUS_TEXT.start, null, 'blue'];
-    if (mapMetadata.draft_status === 'scratch') return [STATUS_TEXT.scratch, null, 'gray'];
-    if (mapMetadata.draft_status === 'in_progress') return [STATUS_TEXT.progress, null, 'blue'];
-    return [STATUS_TEXT.ready, null, 'green'];
+    if (!mapMetadata || !mapMetadata.draft_status)
+      return [STATUS_TEXT.start, STATUS_TOOLTIPS.editing, 'blue'];
+    if (mapMetadata.draft_status === 'scratch_work')
+      return [STATUS_TEXT.scratch, STATUS_TOOLTIPS.editing, 'gray'];
+    if (mapMetadata.draft_status === 'in_progress')
+      return [STATUS_TEXT.progress, STATUS_TOOLTIPS.editing, 'blue'];
+    return [STATUS_TEXT.ready, STATUS_TOOLTIPS.editing, 'green'];
   }, [status, access, document_id, mapMetadata, shareUrl]) as [string, string, BadgeProps['color']];
 
   const frozenMessage = useMemo(() => {
