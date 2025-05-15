@@ -30,6 +30,7 @@ const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
   activeGeometries: {},
   zoneAssignments: {},
+  cachedCentroids: {},
   shatterIds: {
     parents: [],
     children: [],
@@ -96,6 +97,7 @@ const GeometryWorker: GeometryWorkerClass = {
     this.geometries = {};
     this.activeGeometries = {};
     this.previousCentroids = {};
+    this.cachedCentroids = {};
     this.shatterIds = {
       parents: [],
       children: [],
@@ -438,20 +440,25 @@ const GeometryWorker: GeometryWorkerClass = {
         return await this.getNonCollidingRandomCentroids(bounds, activeZones);
     }
   },
-  getPropertiesCentroids(ids) {
+  getCentroidsByIds(ids) {
     const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
-
+    let missingIds = [];
     ids.forEach(id => {
       const f = this.geometries[id];
       if (f) {
-        let center = centerOfMass(f);
-        center.properties = f.properties;
-        features.push(center);
+        if (this.cachedCentroids[id]) {
+          features.push(this.cachedCentroids[id]);
+        } else {
+          let center = centerOfMass(f);
+          center.properties = f.properties;
+          features.push(center);
+          this.cachedCentroids[id] = center;
+        }
       } else {
-        console.log('Could not find geography', id);
+        missingIds.push(id);
       }
     });
-
+    console.log(`Missing ${missingIds.length} geometries for centroid labels.`);
     return {
       type: 'FeatureCollection',
       features,

@@ -238,8 +238,10 @@ export interface MapStore {
    */
   zonesLastUpdated: Map<Zone, string>;
   assignmentsHash: string;
-  lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
+  lastUpdatedHash: string;
+  workerUpdateHash: string;
+  setWorkerUpdateHash: (hash: string) => void;
   loadZoneAssignments: (assignmentsData: RemoteAssignmentsResponse) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
@@ -966,8 +968,10 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   zoneAssignments: new Map(),
   zonesLastUpdated: new Map(),
   assignmentsHash: '',
-  lastUpdatedHash: new Date().toISOString(),
   setAssignmentsHash: hash => set({assignmentsHash: hash}),
+  lastUpdatedHash: new Date().toISOString(),
+  workerUpdateHash: new Date().toISOString(),
+  setWorkerUpdateHash: hash => set({workerUpdateHash: hash}),
   accumulatedGeoids: new Set<string>(),
   setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
   allPainted: new Set<string>(),
