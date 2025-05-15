@@ -1,4 +1,5 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
+import { useDemographyStore } from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
@@ -23,20 +24,35 @@ const PopulationTextLayer = () => {
     state => state.mapOptions.showBlockPopulationNumbers
   );
   const showPopulationNumbers = useMapStore(state => state.mapOptions.showPopulationNumbers);
+  const workerUpdateHash = useMapStore(state => state.workerUpdateHash);
+  const demographyHash = useDemographyStore(state => state.dataHash);
 
   useEffect(() => {
-    if (showPopulationNumbers) {
-      const ids = demographyCache.table?.dedupe('path').column('path') ?? [];
-      GeometryWorker?.getPropertiesCentroids(Array.from(ids)).then(setPointFeatureCollection);
-    } else if (captiveIds.size === 0) {
+    if ((!showPopulationNumbers && !showBlockPopulationNumbers) || (showBlockPopulationNumbers && !captiveIds.size)) {
       setPointFeatureCollection(EMPTY_FT_COLLECTION);
       return;
-    } else if (showBlockPopulationNumbers) {
-      GeometryWorker?.getPropertiesCentroids(Array.from(captiveIds)).then(
-        setPointFeatureCollection
-      );
     }
-  }, [captiveIds, showBlockPopulationNumbers, showPopulationNumbers]);
+
+    const idSet: Set<string> = showPopulationNumbers 
+      ? new Set(demographyCache.table?.dedupe('path').column('path') ?? []) 
+      : captiveIds;
+    const currIds = new Set(pointFeatureCollection.features.map(f => f.properties?.path))
+    const missingIds = Array.from(idSet).filter(id => !currIds.has(id))
+    if (!missingIds.length) {
+      return;
+    }
+    GeometryWorker?.getPropertiesCentroids(missingIds).then(data => {
+      setPointFeatureCollection(prev => ({
+        type: 'FeatureCollection',
+        // Filter out old, irrelevant features (eg broken parents)
+        features: [...prev.features.filter(f => idSet.has(f.properties?.path)), ...data.features]
+      }));
+    });
+    // Trigger on captiveIds changes (shatter/break)
+    // Option changes (showBlockPopulationNumbers, showPopulationNumbers)
+    // Data loads to the worker (workerUpdateHash)
+    // Demography data loads (demographyHash)
+  }, [captiveIds, showBlockPopulationNumbers, showPopulationNumbers, workerUpdateHash, demographyHash]);
 
   if (
     !showPopulationNumbers &&
@@ -60,18 +76,18 @@ const PopulationTextLayer = () => {
             ['zoom'],
             0,
             0,
-            10,
-            8, // At zoom level 10, text size is 10
+            10, // z 10 font 8
+            8, 
+            12,
+            12,
             14,
-            10, // At zoom level 14, text size is 14
-            18,
-            18, // At zoom level 18, text size is 18
+            14, // At zoom level 18, text size is 18
           ],
           'text-anchor': 'center',
           'text-offset': [0, 0],
           // padding
-          'text-padding': 1,
-          'text-allow-overlap': true,
+          'text-padding': 0,
+          'text-allow-overlap': ['step', ['zoom'], false, 12, true],
         }}
         paint={{
           'text-color': '#000',
