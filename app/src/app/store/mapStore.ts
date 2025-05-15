@@ -426,7 +426,10 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       allPainted,
       mapOptions,
     } = get();
-    const documentIsSame = currentMapDocument?.document_id === mapDocument.document_id;
+    const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
+    const accessIsSame = currentMapDocument?.access === mapDocument.access;
+    const statusIsSame = currentMapDocument?.status === mapDocument.status;
+    const documentIsSame = idIsSame && accessIsSame && statusIsSame;
     const bothHaveData =
       typeof currentMapDocument?.updated_at === 'string' &&
       typeof mapDocument?.updated_at === 'string';
