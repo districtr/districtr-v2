@@ -196,7 +196,9 @@ export const handleMapIdle = (e: MapEvent) => {
   }
 };
 
-export const handleMapMoveEnd = () => {};
+export const handleMapMoveEnd = e => {
+  console.log(e.target.getZoom());
+};
 
 export const handleMapZoomEnd = (e: ViewStateChangeEvent) => {};
 
@@ -247,9 +249,9 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
 };
 
 export const handleDataLoad = (e: MapSourceDataEvent) => {
-  const {mapDocument, shatterMappings, setMapOptions, setMapRenderingState} =
+  const {mapDocument, setMapOptions, setMapRenderingState, setWorkerUpdateHash} =
     useMapStore.getState();
-  const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {};
+  const {tiles_s3_path, parent_layer} = mapDocument || {};
   if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
   const tileData = e?.tile?.latestFeatureIndex;
   if (!tileData) return;
@@ -267,6 +269,7 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
       mapDocument,
       idProp: 'path',
     });
+    setWorkerUpdateHash(new Date().toISOString());
   }
 };
 
