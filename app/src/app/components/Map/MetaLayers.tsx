@@ -28,7 +28,8 @@ const PopulationTextLayer = () => {
   const demographyHash = useDemographyStore(state => state.dataHash);
 
   useEffect(() => {
-    if ((!showPopulationNumbers && !showBlockPopulationNumbers) || (showBlockPopulationNumbers && !captiveIds.size)) {
+    const shouldShow = (showPopulationNumbers || showBlockPopulationNumbers) || (showBlockPopulationNumbers && captiveIds.size)
+    if (!shouldShow) {
       setPointFeatureCollection(EMPTY_FT_COLLECTION);
       return;
     }
@@ -36,6 +37,7 @@ const PopulationTextLayer = () => {
     const idSet: Set<string> = showPopulationNumbers 
       ? new Set(demographyCache.table?.dedupe('path').column('path') ?? []) 
       : captiveIds;
+
     const currIds = new Set(pointFeatureCollection.features.map(f => f.properties?.path))
     const missingIds = Array.from(idSet).filter(id => !currIds.has(id))
     if (!missingIds.length) {
