@@ -21,18 +21,16 @@ import {useTemporalStore} from '@store/temporalStore';
 import {document} from '@utils/api/mutations';
 import {DistrictrMap} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
-import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
-
-import {SaveMapModal} from '@/app/components/Toolbar/SaveMapModal';
 import {useMapStatus} from '../../hooks/useMapStatus';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
-import { MapHeader } from './MapHeader';
-import { EditStatus } from './EditStatus';
+import {MapHeader} from './MapHeader';
+import {EditStatus} from './EditStatus';
+import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
-  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | 'share' | 'save' | null>(
+  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | 'save-share' | null>(
     null
   );
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -182,7 +180,7 @@ export const Topbar: React.FC = () => {
               <Button
                 variant="outline"
                 disabled={!mapDocument?.document_id}
-                onClick={() => setModalOpen('share')}
+                onClick={() => setModalOpen('save-share')}
                 size="1"
               >
                 Save and Share
@@ -205,8 +203,7 @@ export const Topbar: React.FC = () => {
         <MobileDataTabs />
       </Flex>
       <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(null)} />
-      <ShareMapsModal open={modalOpen === 'share'} onClose={() => setModalOpen(null)} />
-      <SaveMapModal open={modalOpen === 'save'} onClose={() => setModalOpen(null)} />
+      <SaveShareModal open={modalOpen === 'save-share'} onClose={() => setModalOpen(null)} />
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>

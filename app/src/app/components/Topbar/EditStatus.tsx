@@ -27,7 +27,7 @@ export const EditStatus: React.FC<{
   status?: DocumentObject['status'];
 }> = ({access, status}) => {
   const {statusTooltip} = useMapStatus();
-  console.log(statusTooltip);
+
   return (
     <Tooltip content={statusTooltip}>
       <IconButton variant="ghost" size="1">
