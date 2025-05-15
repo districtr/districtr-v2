@@ -1,9 +1,11 @@
 import {useMemo} from 'react';
 import {useMapStore} from '../store/mapStore';
-import {FROZEN_CONDITIONS, STATUS_TEXT, STATUS_TOOLTIPS} from '../constants/notifications';
+import {STATUS_TEXT, STATUS_TOOLTIPS} from '../constants/notifications';
 import {useMapMetadata} from './useMapMetadata';
 import {BadgeProps} from '@radix-ui/themes';
 import {useSearchParams} from 'next/navigation';
+import {useShareJwt} from './useShareJwt';
+import {EyeOpenIcon, LockClosedIcon, LockOpen1Icon} from '@radix-ui/react-icons';
 
 export const useMapStatus = () => {
   const document_id = useMapStore(state => state.mapDocument?.document_id);
@@ -12,46 +14,32 @@ export const useMapStatus = () => {
   const access = mapStatus?.access;
   const mapMetadata = useMapMetadata(document_id);
   const shareUrl = useSearchParams().get('share');
+  const shareToken = useShareJwt();
+  const setPasswordPrompt = useMapStore(state => state.setPasswordPrompt);
 
-  const [statusText, statusTooltip, statusColor] = useMemo(() => {
-    if (!document_id) return [null, null, null];
-    if (access === 'read') {
-      return [STATUS_TEXT.frozen, STATUS_TOOLTIPS.viewOnly, 'blue'];
+  const [StatusIcon, statusTooltip, statusColor] = useMemo(() => {
+    if (!document_id) return [() => null, null, null];
+    if (shareToken?.password_required) {
+      return [LockOpen1Icon, STATUS_TOOLTIPS.lockedWithPW, 'cyan'];
     }
-    if (status === 'locked' && access === 'edit' && shareUrl) {
-      return [STATUS_TEXT.sharedWithPw, STATUS_TOOLTIPS.lockedWithPW, 'cyan'];
+    if (access === 'read') {
+      return [EyeOpenIcon, STATUS_TOOLTIPS.viewOnly, 'blue'];
     }
     if (status === 'locked' && access === 'edit') {
-      return [STATUS_TEXT.checkedOut, STATUS_TOOLTIPS.checkedOut, 'bronze'];
+      return [LockClosedIcon, STATUS_TOOLTIPS.checkedOut, 'bronze'];
     }
-    if (status === 'locked') return [STATUS_TEXT.frozen, STATUS_TOOLTIPS.viewOnly, 'blue'];
-    if (!mapMetadata || !mapMetadata.draft_status)
-      return [STATUS_TEXT.start, STATUS_TOOLTIPS.editing, 'blue'];
-    if (mapMetadata.draft_status === 'scratch')
-      return [STATUS_TEXT.scratch, STATUS_TOOLTIPS.editing, 'gray'];
-    if (mapMetadata.draft_status === 'in_progress')
-      return [STATUS_TEXT.progress, STATUS_TOOLTIPS.editing, 'blue'];
     return [STATUS_TEXT.ready, STATUS_TOOLTIPS.editing, 'green'];
-  }, [status, access, document_id, mapMetadata, shareUrl]) as [string, string, BadgeProps['color']];
+  }, [status, access, document_id, mapMetadata, shareUrl]) as [
+    React.FC,
+    string,
+    BadgeProps['color'],
+  ];
 
-  const frozenMessage = useMemo(() => {
-    if (typeof window === 'undefined') return null;
-    if (status === 'locked' && access === 'edit' && shareUrl) {
-      return FROZEN_CONDITIONS.lockedWithPW;
-    }
-    if (status === 'locked' && access === 'edit') {
-      return FROZEN_CONDITIONS.checkedOut;
-    }
-    if (access === 'read') {
-      return FROZEN_CONDITIONS.viewOnly;
-    }
-    return null;
-  }, [mapStatus, access, status]);
-
+  const onClick = shareToken?.password_required ? () => setPasswordPrompt(true) : null;
   return {
-    statusText,
+    StatusIcon,
     statusTooltip,
     statusColor,
-    frozenMessage,
+    onClick,
   };
 };

@@ -21,7 +21,6 @@ import {useTemporalStore} from '@store/temporalStore';
 import {document} from '@utils/api/mutations';
 import {DistrictrMap} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
-import {useMapStatus} from '../../hooks/useMapStatus';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
@@ -39,7 +38,6 @@ export const Topbar: React.FC = () => {
   const access = useMapStore(state => state.mapStatus?.access);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
-  const {statusText} = useMapStatus();
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
@@ -175,8 +173,7 @@ export const Topbar: React.FC = () => {
           </DropdownMenu.Root>
           <MapHeader />
           <Flex direction="row" align="center" gapX="1">
-            <EditStatus access={access} status={status} />
-            {!!statusText && (
+            <EditStatus />
               <Button
                 variant="outline"
                 disabled={!mapDocument?.document_id}
@@ -185,7 +182,6 @@ export const Topbar: React.FC = () => {
               >
                 Save and Share
               </Button>
-            )}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               size="1"

@@ -11,7 +11,7 @@ export const useMapBrowserEvents = () => {
   // VISIBILITY BEHAVIOR
   const {isVisible} = useVisibilityState();
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
-
+  const setPasswordPrompt = useMapStore(state => state.setPasswordPrompt);
   useEffect(() => {
     if (isVisible) {
       // resume temporal states on tab re-focus
@@ -45,14 +45,20 @@ export const useMapBrowserEvents = () => {
     if (shareToken && !receivedShareToken) {
       const decodedToken = jwtDecode(shareToken);
       setReceivedShareToken((decodedToken as any).token as string);
-      sharedDocument.mutate({
-        token: (decodedToken as any).token as string,
-        password: null,
-        access: (decodedToken as any).access as string,
-        status: (decodedToken as any).status as string,
-      });
+      if ((decodedToken as any)?.password_required) {
+        setPasswordPrompt(true);
+      } else {
+        setReceivedShareToken((decodedToken as any).token as string);
+        sharedDocument.mutate({
+          token: (decodedToken as any).token as string,
+          password: null,
+          access: (decodedToken as any).access as string,
+          status: (decodedToken as any).status as string,
+        });
+
+      }
     }
-  }, [documentId, shareToken, receivedShareToken, setReceivedShareToken]);
+  }, [documentId, shareToken, receivedShareToken, setReceivedShareToken, setPasswordPrompt]);
 
   // UNLOAD BEHAVIOR
   const handleUnload = useCallback(() => {
