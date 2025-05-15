@@ -53,6 +53,8 @@ const getDocumentFunction = (documentId?: string) => {
 const updateDocumentFromId = new QueryObserver<DocumentObject | null>(queryClient, {
   queryKey: ['mapDocument', undefined],
   queryFn: getDocumentFunction(),
+  staleTime: 0,
+  placeholderData: _ => null,
 });
 
 updateDocumentFromId.subscribe(mapDocument => {
