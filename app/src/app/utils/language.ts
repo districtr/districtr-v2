@@ -19,5 +19,5 @@ export const DEFAULT_MAP_METADATA: DocumentMetadata = {
   tags: null,
   description: null,
   eventId: null,
-  draft_status: 'scratch_work',
+  draft_status: 'scratch',
 };

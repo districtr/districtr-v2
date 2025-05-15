@@ -34,7 +34,7 @@ export interface StatusObject {
   password?: string | null;
 }
 
-export type DraftStatus = 'scratch_work' | 'in_progress' | 'ready_to_share';
+export type DraftStatus = 'scratch' | 'in_progress' | 'ready_to_share';
 
 export interface DocumentMetadata {
   name: string | null;
