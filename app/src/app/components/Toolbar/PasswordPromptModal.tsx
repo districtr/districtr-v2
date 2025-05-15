@@ -28,7 +28,13 @@ export const PasswordPromptModal = () => {
   };
 
   return (
-    <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
+    <Dialog.Root open={dialogOpen} onOpenChange={open => {
+      if (!open) {
+        handleProceed(false);
+        setPassword(null);
+        setDialogOpen(false);
+      }
+    }}>
       <Dialog.Content>
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Password Required</Dialog.Title>
