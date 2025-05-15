@@ -442,6 +442,7 @@ const GeometryWorker: GeometryWorkerClass = {
   },
   getCentroidsByIds(ids) {
     const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
+    let missingIds = [];
     ids.forEach(id => {
       const f = this.geometries[id];
       if (f) {
@@ -454,10 +455,10 @@ const GeometryWorker: GeometryWorkerClass = {
           this.cachedCentroids[id] = center;
         }
       } else {
-        console.log('Could not find geography', id);
+        missingIds.push(id);
       }
     });
-
+    console.log(`Missing ${missingIds.length} geometries for centroid labels.`);
     return {
       type: 'FeatureCollection',
       features,
