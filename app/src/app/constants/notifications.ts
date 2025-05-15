@@ -12,6 +12,7 @@ export const STATUS_TOOLTIPS = {
   checkedOut:
     'Another user is actively editing this map.  You can choose to make a duplicate copy to edit or you can wait and return to this later.',
   lockedWithPW: 'This map is password protected. Enter the password to continue editing.',
+  editing: 'You are currently editing this map.',
 } as const;
 
 export const STATUS_TEXT = {
