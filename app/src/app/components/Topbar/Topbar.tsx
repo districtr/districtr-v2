@@ -1,7 +1,6 @@
 'use client';
 import {
   Button,
-  Badge,
   Text,
   DropdownMenu,
   Flex,
@@ -16,7 +15,7 @@ import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ToolSettings} from '@components/Toolbar/Settings';
-import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon, InfoCircledIcon} from '@radix-ui/react-icons';
+import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
 import {useTemporalStore} from '@store/temporalStore';
 import {document} from '@utils/api/mutations';
 import {DistrictrMap} from '@utils/api/apiHandlers/types';
@@ -34,8 +33,6 @@ export const Topbar: React.FC = () => {
   );
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const status = useMapStore(state => state.mapStatus?.status);
-  const access = useMapStore(state => state.mapStatus?.access);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
