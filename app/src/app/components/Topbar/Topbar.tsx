@@ -27,7 +27,8 @@ import {SaveMapModal} from '@/app/components/Toolbar/SaveMapModal';
 import {useMapStatus} from '../../hooks/useMapStatus';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
-import { MapHeader } from './MapTitle';
+import { MapHeader } from './MapHeader';
+import { EditStatus } from './EditStatus';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -37,10 +38,10 @@ export const Topbar: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const status = useMapStore(state => state.mapStatus?.status);
+  const access = useMapStore(state => state.mapStatus?.access);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
-  const passwordPrompt = useMapStore(state => state.passwordPrompt);
-  const {statusText, statusColor, statusTooltip} = useMapStatus();
+  const {statusText} = useMapStatus();
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
@@ -176,16 +177,7 @@ export const Topbar: React.FC = () => {
           </DropdownMenu.Root>
           <MapHeader />
           <Flex direction="row" align="center" gapX="1">
-            {!!statusText && (
-              <Button
-                variant="outline"
-                size="1"
-                disabled={!mapDocument?.document_id}
-                onClick={() => setModalOpen('save')}
-              >
-                Save / Status
-              </Button>
-            )}
+            <EditStatus access={access} status={status} />
             {!!statusText && (
               <Button
                 variant="outline"
@@ -193,22 +185,8 @@ export const Topbar: React.FC = () => {
                 onClick={() => setModalOpen('share')}
                 size="1"
               >
-                {status === 'locked' ? 'Share' : 'Share'}
+                Save and Share
               </Button>
-            )}
-            {!!(statusText && statusColor) && (
-              <Tooltip content={statusTooltip}>
-                <Flex align="center" gapX="1" direction="row">
-                  <Text
-                    color={statusColor}
-                    size={'1'}
-                    className={`${statusTooltip?.length ? '' : `pointer-events-none`} p-1`}
-                  >
-                    {statusText}
-                  </Text>
-                  {!!statusTooltip?.length && <InfoCircledIcon />}
-                </Flex>
-              </Tooltip>
             )}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
