@@ -16,7 +16,7 @@ from sqlalchemy.exc import (
     IntegrityError,
 )
 from sqlalchemy import text
-from sqlmodel import Session, String, select, true, update
+from sqlmodel import Session, String, select, true, update, literal
 from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
@@ -28,7 +28,12 @@ import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.assignments import duplicate_document_assignments, batch_insert_assignments
 from app.core.db import get_session
-from app.core.dependencies import get_document as _get_document, get_document_public
+from app.core.dependencies import (
+    get_document as _get_document,
+    get_document_public,
+    get_protected_document,
+    get_districtr_map as _get_districtr_map,
+)
 from app.core.config import settings
 import app.contiguity.main as contiguity
 import app.cms.main as cms
@@ -480,14 +485,16 @@ async def update_colors(
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(
-    document: Annotated[Document, Depends(_get_document)],
+    document_id: str,
+    document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
     stmt = (
         select(
             Assignments.geo_id,
             Assignments.zone,
-            Assignments.document_id,
+            # Obsured document.document_id
+            literal(document_id).label("document_id"),
             ParentChildEdges.parent_path,
         )
         .join(Document, onclause=Assignments.document_id == Document.document_id)
@@ -531,12 +538,12 @@ async def get_document_object(
 
 @app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
 async def get_unassigned_geoids(
-    document: Annotated[Document, Depends(_get_document)],
+    document: Annotated[Document, Depends(get_protected_document)],
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
     stmt = text(
-        "SELECT * from get_unassigned_bboxes(:doc_uuid, :exclude_ids)"
+        "SELECT bbox from get_unassigned_bboxes(:doc_uuid, :exclude_ids)"
     ).bindparams(
         bindparam(key="doc_uuid", type_=UUIDType),
         bindparam(key="exclude_ids", type_=ARRAY(String)),
@@ -545,46 +552,12 @@ async def get_unassigned_geoids(
         results = session.execute(
             stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
         ).fetchall()
-        print(results)
     except DataError:
-        # could not return null - no results found
+        # TODO: When is this happening? Should investigate
+        logger.warning("No results found for unassigned geoids")
         results = []
 
-    print(results)
-    # returns a list of multipolygons of bboxes
     return {"features": [row[0] for row in results if row[0] is not None]}
-
-
-def _get_districtr_map(
-    document_id: str,
-    session: Session = Depends(get_session),
-) -> DistrictrMap:
-    stmt = (
-        select(DistrictrMap)
-        .join(
-            Document,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
-            isouter=True,
-        )
-        .where(Document.document_id == document_id)
-    )
-
-    try:
-        districtr_map = session.exec(
-            stmt,
-        ).one()
-    except NoResultFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document with ID {document_id} not found",
-        )
-    except MultipleResultsFound:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Multiple DistrictrMaps found for Document with ID {document_id}",
-        )
-
-    return districtr_map
 
 
 async def _get_graph(gerrydb_name: str) -> Graph:
@@ -634,10 +607,12 @@ async def _get_graph(gerrydb_name: str) -> Graph:
 @app.get("/api/document/{document_id}/contiguity")
 async def check_document_contiguity(
     document_id: str,
+    document: Annotated[Document, Depends(get_protected_document)],
     districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
+    assert document.document_id is not None
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"
@@ -645,7 +620,7 @@ async def check_document_contiguity(
         gerrydb_name = districtr_map.child_layer
         kwargs = {"zones": zone} if len(zone) > 0 else {}
         zone_assignments = contiguity.get_block_assignments(
-            session, document_id, **kwargs
+            session, document.document_id, **kwargs
         )
     else:
         gerrydb_name = districtr_map.parent_layer
@@ -665,7 +640,7 @@ async def check_document_contiguity(
             GROUP BY
                 zone"""
         )
-        result = session.execute(sql, {"document_id": document_id}).fetchall()
+        result = session.execute(sql, {"document_id": document.document_id}).fetchall()
         zone_assignments = [
             contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
         ]
@@ -685,17 +660,19 @@ async def check_document_contiguity(
 @app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
 async def get_connected_component_bboxes(
     document_id: str,
-    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
     zone: int,
+    document: Annotated[Document, Depends(get_protected_document)],
+    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
     session: Session = Depends(get_session),
 ):
+    assert document.document_id is not None
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"
         )
         gerrydb_name = districtr_map.child_layer
         zone_assignments = contiguity.get_block_assignments_bboxes(
-            session, document_id, zones=[zone]
+            session, document.document_id, zones=[zone]
         )
         if len(zone_assignments) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
@@ -725,7 +702,9 @@ async def get_connected_component_bboxes(
                 AND zone = :zone"""
         )
 
-        results = session.execute(sql, {"document_id": document_id, "zone": zone}).all()
+        results = session.execute(
+            sql, {"document_id": document.document_id, "zone": zone}
+        ).all()
 
         if not results or len(results) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
@@ -807,7 +786,7 @@ async def get_connected_component_bboxes(
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
     document_id: str,
-    metadata: dict = Body(...),
+    metadata: dict = Body(...),  # TODO: Type this properly
     session: Session = Depends(get_session),
 ):
     try:

@@ -6,8 +6,10 @@ from sqlmodel import (
     TIMESTAMP,
     Column,
     String,
+    MetaData,
 )
 from enum import Enum
+from app.constants import DOCUMENT_SCHEMA
 from app.core.models import TimeStampMixin, UUIDType
 
 
@@ -41,11 +43,14 @@ class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
     Deliberately no user id for now, so that a user could theoretically re-access a plan from another machine.
     """
 
-    __tablename__ = "map_document_token"
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
+    __tablename__ = "map_document_token"  # pyright: ignore
     token_id: str = Field(
         UUIDType,
         primary_key=True,
     )
+    # TODO: This should be a foreign key
+    document_id: str = Field(sa_column=Column(UUIDType))
     password_hash: str = Field(
         sa_column=Column(String, nullable=True)  # optional password
     )

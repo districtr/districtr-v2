@@ -1,6 +1,8 @@
 from sqlalchemy import text
+from fastapi import Depends
 from sqlmodel import Session
 import logging
+from app.core.db import get_session
 from app.save_share.models import DocumentEditStatus
 
 logger = logging.getLogger(__name__)
@@ -8,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def check_map_lock(
-    document_id: str, user_id: str, session: Session
+    document_id: str, user_id: str, session: Session = Depends(get_session)
 ) -> DocumentEditStatus:
     # Try to fetch an existing lock for this document
     result = session.execute(
