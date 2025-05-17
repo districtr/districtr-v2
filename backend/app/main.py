@@ -23,19 +23,17 @@ from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
-from datetime import datetime, UTC, timedelta
+from datetime import datetime
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
 from app.assignments import duplicate_document_assignments, batch_insert_assignments
 from app.core.db import get_session
-from app.core.dependencies import get_document as _get_document
+from app.core.dependencies import get_document as _get_document, get_document_public
 from app.core.config import settings
-from app.utils import hash_password, verify_password
-import jwt
-from uuid import uuid4
 import app.contiguity.main as contiguity
 import app.cms.main as cms
 import app.exports.main as exports
+import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
 from networkx import Graph, connected_components
 from app.models import (
@@ -50,21 +48,24 @@ from app.models import (
     DocumentPublic,
     DocumentEditStatus,
     GEOIDS,
-    UserID,
     GEOIDSResponse,
     AssignedGEOIDS,
     UUIDType,
     ParentChildEdges,
     ShatterResult,
-    TokenRequest,
-    DocumentShareStatus,
     BBoxGeoJSONs,
     MapGroup,
+    AssignmentsCreate,
 )
+from app.save_share.models import UserID
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
-from app.utils import _cleanup_expired_locks, _remove_all_locks
+from app.save_share.locks import (
+    cleanup_expired_locks as _cleanup_expired_locks,
+    remove_all_locks,
+    check_map_lock,
+)
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
@@ -90,12 +91,13 @@ async def lifespan(app: FastAPI):
     await cleanup_expired_locks()
     yield
     session = next(get_session())
-    _remove_all_locks(session=session)
+    remove_all_locks(session=session)
 
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(cms.router)
 app.include_router(exports.router)
+app.include_router(save_share.router)
 app.include_router(thumbnails.router)
 
 logger = logging.getLogger(__name__)
@@ -145,37 +147,6 @@ async def db_is_alive(session: Session = Depends(get_session)):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="DB is unreachable"
         )
-
-
-# TODO Move document functions to core/document.py
-def check_map_lock(document_id, user_id, session):
-    # Try to fetch an existing lock for this document
-    result = session.execute(
-        text(
-            """SELECT user_id FROM document.map_document_user_session
-               WHERE document_id = :document_id
-               LIMIT 1;"""
-        ),
-        {"document_id": document_id},
-    ).fetchone()
-
-    if result:
-        # If a record exists, check if the current user is the one who locked it
-        if result.user_id == user_id:
-            return DocumentEditStatus.checked_out
-        else:
-            return DocumentEditStatus.locked
-
-    # If no record exists, insert a new one and return checked_out
-    session.execute(
-        text(
-            """INSERT INTO document.map_document_user_session (document_id, user_id)
-               VALUES (:document_id, :user_id);"""
-        ),
-        {"document_id": document_id, "user_id": user_id},
-    )
-    session.commit()
-    return DocumentEditStatus.checked_out
 
 
 @app.post("/api/document/{document_id}/unload", status_code=status.HTTP_200_OK)
@@ -332,12 +303,11 @@ async def create_document(
 
 @app.patch("/api/update_assignments")
 async def update_assignments(
-    data: dict = Body(...), session: Session = Depends(get_session)
+    data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
-    # todo: type the input instead of dict
-    assignments = data["assignments"]
-    document_id = assignments[0]["document_id"]
-    lock_status = check_map_lock(document_id, data["user_id"], session)
+    document_id = data.assignments[0].document_id
+    assignments = assignments = data.model_dump()["assignments"]
+    lock_status = check_map_lock(document_id, data.user_id, session)
 
     if lock_status == DocumentEditStatus.checked_out:
         stmt = insert(Assignments).values(assignments)
@@ -347,11 +317,11 @@ async def update_assignments(
         )
         session.execute(stmt)
         updated_at = None
-        if len(assignments) > 0:
+        if len(data.assignments) > 0:
             updated_at = update_timestamp(session, document_id)
             logger.info(f"Document updated at {updated_at}")
         session.commit()
-        return {"assignments_upserted": len(assignments), "updated_at": updated_at}
+        return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
     else:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -536,60 +506,17 @@ async def get_assignments(
     return session.execute(stmt).fetchall()
 
 
-async def get_document(
+@app.post("/api/document/{document_id}", response_model=DocumentPublic)
+async def get_document_object(
     document_id: str,
-    user_id: UserID,
-    session: Session,
-    shared: bool = False,
-    access_type: DocumentShareStatus = DocumentShareStatus.edit,
-    # optional lock status param
-    lock_status: DocumentEditStatus | None = None,
+    data: UserID,
+    session: Session = Depends(get_session),
+    status_code=status.HTTP_200_OK,
 ):
-    # TODO: Rather than being a separate query, this should be part of the main query
-    if access_type == DocumentShareStatus.read:
-        check_lock_status = DocumentEditStatus.locked
-    elif lock_status != DocumentEditStatus.locked:
-        check_lock_status = check_map_lock(document_id, user_id, session)
-    else:
-        check_lock_status = lock_status
-
-    stmt = (
-        select(
-            Document.document_id,
-            Document.created_at,
-            Document.districtr_map_slug,
-            Document.gerrydb_table,
-            Document.updated_at,
-            Document.color_scheme,
-            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
-            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
-            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
-            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
-            DistrictrMap.extent.label("extent"),  # pyright: ignore
-            # get metadata as a json object
-            Document.map_metadata.label("map_metadata"),  # pyright: ignore
-            coalesce(
-                "shared" if shared else "created",
-            ).label("genesis"),
-            coalesce(
-                check_lock_status,  # locked, unlocked, checked_out
-            ).label("status"),
-            coalesce(
-                access_type,
-            ).label("access"),  # read or edit
-            # add access - read or edit
-        )  # pyright: ignore
-        .where(Document.document_id == document_id)
-        .join(
-            DistrictrMap,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
-            isouter=True,
-        )
-    )
-    result = session.exec(stmt)
-
     try:
-        return result.one()
+        return get_document_public(
+            document_id=document_id, user_id=data.user_id, session=session
+        )
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -600,76 +527,6 @@ async def get_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Multiple documents found for ID: {document_id}",
         )
-
-
-@app.post("/api/document/{document_id}", response_model=DocumentPublic)
-async def get_document_object(
-    document_id: str,
-    data: UserID = Body(...),
-    session: Session = Depends(get_session),
-    status_code=status.HTTP_200_OK,
-):
-    return await get_document(document_id, data.user_id, session)
-
-
-@app.post("/api/document/{document_id}/unlock")
-async def unlock_document(
-    document_id: str, data: UserID = Body(...), session: Session = Depends(get_session)
-):
-    try:
-        session.execute(
-            text(
-                """DELETE FROM document.map_document_user_session
-                WHERE document_id = :document_id AND user_id = :user_id"""
-            )
-            .bindparams(
-                bindparam(key="document_id", type_=UUIDType),
-                bindparam(key="user_id", type_=String),
-            )
-            .params(document_id=document_id, user_id=data.user_id)
-        )
-
-        session.commit()
-        print("Document unlocked")
-        return {"status": DocumentEditStatus.unlocked}
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/document/{document_id}/status")
-async def get_document_status(
-    document_id: str, data: UserID = Body(...), session: Session = Depends(get_session)
-):
-    stmt = (
-        text(
-            "SELECT * from document.map_document_user_session WHERE document_id = :document_id"
-        )
-        .bindparams(bindparam(key="document_id", type_=UUIDType))
-        .params(document_id=document_id)
-    )
-    result = session.execute(stmt).fetchone()
-    if result:
-        # if user id matches, return the document checked out, otherwise return locked
-        if result.user_id == data.user_id:
-            # there's already a record so no need to create
-            return {"status": DocumentEditStatus.checked_out}
-
-        # the map is already checked out; should return as locked
-        return {"status": DocumentEditStatus.locked}
-    else:
-        # the map is able to be checked out;
-        # should return as unlocked, but should now
-        # create a record in the map_document_user_session table
-        session.execute(
-            text(
-                f"""INSERT INTO document.map_document_user_session (document_id, user_id)
-                VALUES ('{document_id}', '{data.user_id}')"""
-            )
-        )
-        session.commit()
-
-        return {"status": DocumentEditStatus.checked_out}
 
 
 @app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
@@ -995,193 +852,6 @@ async def get_projects(
         .limit(limit)
     ).all()
     return gerrydb_views
-
-
-@app.post("/api/document/{document_id}/share")
-async def share_districtr_plan(
-    document: Annotated[Document, Depends(_get_document)],
-    params: dict = Body(...),
-    session: Session = Depends(get_session),
-):
-    # check if there's already a record for a document
-    existing_token = session.execute(
-        text(
-            """
-            SELECT token_id, password_hash FROM document.map_document_token
-            WHERE document_id = :doc_id
-            """
-        ),
-        {"doc_id": document.document_id},
-    ).fetchone()
-
-    if existing_token:
-        token_uuid = existing_token.token_id
-
-        if params["password"] is not None and not existing_token.password_hash:
-            hashed_password = hash_password(params["password"])
-            session.execute(
-                text(
-                    """
-                    UPDATE document.map_document_token
-                    SET password_hash = :password_hash
-                    WHERE token_id = :token_id
-                    """
-                ),
-                {"password_hash": hashed_password, "token_id": token_uuid},
-            )
-            session.commit()
-
-        elif params["password"] is None:
-            payload = {
-                "token": token_uuid,
-                "access": (
-                    params["access_type"]
-                    if params["access_type"]
-                    else DocumentShareStatus.read
-                ),
-            }
-
-        payload = {
-            "token": token_uuid,
-            "access": (
-                params["access_type"]
-                if "access_type" in params
-                else DocumentShareStatus.read
-            ),
-            "password_required": bool(existing_token.password_hash),
-        }
-        token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
-        return {"token": token}
-
-    else:
-        token_uuid = str(uuid4())
-        hashed_password = (
-            hash_password(params["password"]) if params["password"] else None
-        )
-        expiry = (
-            datetime.now(UTC) + timedelta(days=params["expiry_days"])
-            if "expiry_days" in params
-            else None
-        )
-
-        session.execute(
-            text(
-                """
-                INSERT INTO document.map_document_token (token_id, document_id, password_hash, expiration_date)
-                VALUES (:token_id, :document_id, :password_hash, :expiration_date)
-                """
-            ),
-            {
-                "token_id": token_uuid,
-                "document_id": document.document_id,
-                "password_hash": hashed_password,
-                "expiration_date": expiry,
-            },
-        )
-
-        session.commit()
-
-    payload = {
-        "token": token_uuid,
-        "access": (
-            params["access_type"] if params["access_type"] else DocumentShareStatus.read
-        ),
-        "password_required": bool(hashed_password),
-    }
-
-    token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
-    return {"token": token}
-
-
-@app.post("/api/share/load_plan_from_share", response_model=DocumentPublic)
-async def load_plan_from_share(
-    data: TokenRequest,
-    session: Session = Depends(get_session),
-):
-    token_id = data.token
-    result = session.execute(
-        text(
-            """
-            SELECT document_id, password_hash, expiration_date
-            FROM document.map_document_token
-            WHERE token_id = :token
-            """
-        ),
-        {"token": token_id},
-    ).fetchone()
-
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Token not found",
-        )
-
-    set_is_locked = False
-    if result.password_hash:
-        # password is required
-        if data.password is None:
-            set_is_locked = True
-        if data.password and not verify_password(data.password, result.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid password",
-            )
-
-    # return the document to the user with the password
-    return await get_document(
-        str(result.document_id),
-        data.user_id,
-        session,
-        shared=True,
-        access_type=data.access,
-        lock_status=(
-            DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
-        ),
-    )
-
-
-@app.post("/api/document/{document_id}/checkout", status_code=status.HTTP_200_OK)
-async def checkout_plan(
-    document: Annotated[Document, Depends(_get_document)],
-    params: dict = Body(...),
-    session: Session = Depends(get_session),
-):
-    """
-    check user-provided password against database. if matches, check if map is checked out
-    - if pw matches and not checked out, check map out to user
-    - if pw matches and checked out, return warning that map is still locked but switch access to edit
-    """
-
-    token_id = params["token"]
-    result = session.execute(
-        text(
-            """
-            SELECT document_id, password_hash, expiration_date
-            FROM document.map_document_token
-            WHERE token_id = :token
-            """
-        ),
-        {"token": token_id},
-    ).fetchone()
-
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Token not found",
-        )
-    if params["password"] and not verify_password(
-        params["password"], result.password_hash
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password",
-        )
-
-    if verify_password(params["password"], result.password_hash):
-        # check lock status
-        lock_status = check_map_lock(document.document_id, params["user_id"], session)
-
-        return {"status": lock_status, "access": DocumentShareStatus.edit}
 
 
 @app.get("/api/group/{group_slug}", response_model=MapGroup)
