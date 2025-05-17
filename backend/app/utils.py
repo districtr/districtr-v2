@@ -3,7 +3,6 @@ from sqlalchemy import bindparam, Integer, String, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, Float, Boolean
 import logging
-import bcrypt
 from app.constants import GERRY_DB_SCHEMA
 from sqlmodel import select
 
@@ -12,14 +11,6 @@ from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-
-def verify_password(password: str, hashed_password: str) -> bool:
-    return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
 def create_districtr_map(
@@ -279,68 +270,6 @@ def add_extent_to_districtrmap(
         """
     )
     session.execute(stmt)
-
-
-def _cleanup_expired_locks(session: Session, hours: int) -> list[str] | None:
-    """
-    Delete expired locks from the database.
-
-    Args:
-        hours (int): The number of hours to keep locks.
-
-    Returns:
-        list[str]: A list of document IDs that had their locks deleted.
-
-    Note:
-    This feels like a DB concern and could be implemented with pg_cron.
-    Did a brief spike trying to get pg_cron set up. Definitely a bit of a hassle
-    so this will work for now.
-    """
-    stmt = text("DELETE FROM locks WHERE created_at < NOW() - INTERVAL :n_hours HOUR")
-    try:
-        stmt = text(
-            """DELETE FROM document.map_document_user_session
-            WHERE updated_at < NOW() - make_interval(hours => :n_hours)
-            RETURNING document_id"""
-        )
-
-        result = session.execute(stmt, {"n_hours": hours}).scalars()
-        locks = list(result)
-        session.commit()
-        logger.info(
-            f"Deleted {len(locks)} expired locks: [{' '.join(map(str, locks))}]"
-        )
-        return locks
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Error deleting expired locks: {e}")
-
-
-def _remove_all_locks(session: Session) -> list[str] | None:
-    """
-    Delete all locks from the database.
-
-    Args:
-        session (Session): The database session.
-
-    Returns:
-        list[str]: A list of document IDs that had their locks deleted.
-    """
-    stmt = text("DELETE FROM locks")
-    try:
-        stmt = text(
-            """DELETE FROM document.map_document_user_session
-            RETURNING document_id"""
-        )
-
-        result = session.execute(stmt).scalars()
-        locks = list(result)
-        session.commit()
-        logger.info(f"Deleted {len(locks)} locks: [{' '.join(map(str, locks))}]")
-        return locks
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Error deleting all locks: {e}")
 
 
 def create_spatial_index(
