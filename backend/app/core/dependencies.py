@@ -36,11 +36,11 @@ def get_document_public(
 ) -> DocumentPublic:
     # TODO: Rather than being a separate query, this should be part of the main query
     if access_type == DocumentShareStatus.read:
-        check_lock_status = DocumentEditStatus.locked
+        lock_status = DocumentEditStatus.locked
     elif lock_status != DocumentEditStatus.locked:
-        check_lock_status = check_map_lock(document_id, user_id, session)
+        lock_status = check_map_lock(document_id, user_id, session)
     else:
-        check_lock_status = lock_status
+        lock_status = lock_status
 
     stmt = (
         select(
@@ -61,12 +61,11 @@ def get_document_public(
                 "shared" if shared else "created",
             ).label("genesis"),
             coalesce(
-                check_lock_status,  # locked, unlocked, checked_out
+                lock_status,
             ).label("status"),
             coalesce(
                 access_type,
-            ).label("access"),  # read or edit
-            # add access - read or edit
+            ).label("access"),
         )  # pyright: ignore
         .where(Document.document_id == document_id)
         .join(
