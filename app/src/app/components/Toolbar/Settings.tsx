@@ -40,6 +40,7 @@ export const ToolSettings: React.FC = () => {
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
   const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
+  const mapType = useMapStore(state => state.mapDocument?.map_type);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
@@ -135,40 +136,44 @@ export const ToolSettings: React.FC = () => {
             Customize district colors
           </Button>
         </CheckboxGroup.Root>
-        <Heading as="h3" weight="bold" size="3">
-          Boundaries
-        </Heading>
-        <CheckboxGroup.Root
-          name="contextualLayers"
-          value={[
-            mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
-            mapOptions.prominentCountyNames === true ? 'prominentCountyNames' : '',
-          ]}
-        >
-          <CheckboxGroup.Item
-            value="showCountyBoundaries"
-            onClick={() =>
-              setMapOptions({
-                showCountyBoundaries: !mapOptions.showCountyBoundaries,
-              })
-            }
-          >
-            Show county boundaries
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="prominentCountyNames"
-            onClick={() =>
-              setMapOptions({
-                prominentCountyNames: !mapOptions.prominentCountyNames,
-              })
-            }
-          >
-            Emphasize county names
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item value="2" disabled>
-            Show tribes and communities
-          </CheckboxGroup.Item>
-        </CheckboxGroup.Root>
+        {mapType !== 'local' ? (
+          <>
+            <Heading as="h3" weight="bold" size="3">
+              Boundaries
+            </Heading>
+            <CheckboxGroup.Root
+              name="contextualLayers"
+              value={[
+                mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
+                mapOptions.prominentCountyNames === true ? 'prominentCountyNames' : '',
+              ]}
+            >
+              <CheckboxGroup.Item
+                value="showCountyBoundaries"
+                onClick={() =>
+                  setMapOptions({
+                    showCountyBoundaries: !mapOptions.showCountyBoundaries,
+                  })
+                }
+              >
+                Show county boundaries
+              </CheckboxGroup.Item>
+              <CheckboxGroup.Item
+                value="prominentCountyNames"
+                onClick={() =>
+                  setMapOptions({
+                    prominentCountyNames: !mapOptions.prominentCountyNames,
+                  })
+                }
+              >
+                Emphasize county names
+              </CheckboxGroup.Item>
+              <CheckboxGroup.Item value="2" disabled>
+                Show tribes and communities
+              </CheckboxGroup.Item>
+            </CheckboxGroup.Root>
+          </>
+        ) : null}
 
         <CheckboxGroup.Root
           defaultValue={[]}

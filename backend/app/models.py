@@ -89,6 +89,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
+    map_type: str | None = None
 
 
 class DistrictrMapPublic(BaseModel):
@@ -252,6 +253,7 @@ class DocumentPublic(BaseModel):
     genesis: str | None = None
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
+    map_type: str | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):
