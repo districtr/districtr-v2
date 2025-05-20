@@ -17,7 +17,6 @@ export const MapHeader: React.FC = () => {
       state.userMaps.find(userMap => userMap.document_id === state.mapDocument?.document_id)
         ?.name ?? ''
   );
-
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     await saveMap({
       ...(mapMetadata || DEFAULT_MAP_METADATA),
@@ -27,12 +26,6 @@ export const MapHeader: React.FC = () => {
 
   return (
     <Flex direction="row" align="center" gapX="2">
-      {/*map name */}
-      {/* <Button variant="ghost" onClick={() => {}}>
-        <Text size="3" className="text-black-500">
-        </Text>
-      </Button> */}
-
       <MapStatus
         mapDocument={mapDocument}
         mapMetadata={mapMetadata}
@@ -43,8 +36,6 @@ export const MapHeader: React.FC = () => {
         mapDocument={mapDocument}
         handleMetadataChange={handleMetadataChange}
       />
-      {/*map slug */}
-      {/*source table name */}
       <Text size="2" className="text-gray-500">
         {mapTableName || ''}
       </Text>
