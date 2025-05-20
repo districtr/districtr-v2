@@ -48,7 +48,7 @@ export const MapTitleDisplay: React.FC<{
           <Flex align="center" gapX="1" direction="row" className="cursor-pointer">
             <Tooltip content={_mapName} className={`${isTruncated ? 'w-full' : 'w-fit'}`}>
               <Flex align="center" gapX="1" direction="row">
-                <Text size="2">{mapName || '(Edit Map Title)'}</Text>
+                <Text size="2">{mapName || '(Edit Map Name)'}</Text>
                 <Pencil1Icon />
               </Flex>
             </Tooltip>
