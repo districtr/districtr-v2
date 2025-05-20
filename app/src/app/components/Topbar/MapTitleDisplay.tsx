@@ -1,13 +1,5 @@
 'use client';
-import {
-  Button,
-  Text,
-  Flex,
-  Tooltip,
-  TextField,
-  Popover,
-  TextArea,
-} from '@radix-ui/themes';
+import {Button, Text, Flex, Tooltip, TextField, Popover, TextArea} from '@radix-ui/themes';
 import {MAX_TITLE_LENGTH} from '@/app/utils/language';
 import {useEffect, useState} from 'react';
 import {DocumentMetadata, DocumentObject} from '@/app/utils/api/apiHandlers/types';

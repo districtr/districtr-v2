@@ -1,5 +1,5 @@
-import { jwtDecode } from "jwt-decode";
-import { useSearchParams } from "next/navigation"
+import {jwtDecode} from 'jwt-decode';
+import {useSearchParams} from 'next/navigation';
 
 export const useShareJwt = () => {
   const searchParams = useSearchParams();
@@ -11,4 +11,3 @@ export const useShareJwt = () => {
     password_required: boolean;
   };
 };
-

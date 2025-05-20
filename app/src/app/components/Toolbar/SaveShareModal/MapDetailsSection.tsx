@@ -24,7 +24,11 @@ export const MapDetailsSection: React.FC<{
       </Box>
       <Box>
         <Text>Status</Text>
-        <Flex direction="row" gap="2" className={!isEditing ? 'opacity-50 pointer-events-none' : ''}>
+        <Flex
+          direction="row"
+          gap="2"
+          className={!isEditing ? 'opacity-50 pointer-events-none' : ''}
+        >
           <MapStatusButtons
             draftStatus={mapMetadata.draft_status}
             onChange={status => onChange({draft_status: status})}

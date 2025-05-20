@@ -1,15 +1,12 @@
 'use client';
-import {
-  Text,
-  Flex,
-} from '@radix-ui/themes';
+import {Text, Flex} from '@radix-ui/themes';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {useMapStore} from '@/app/store/mapStore';
-import { MapTitleDisplay } from './MapTitleDisplay';
-import { MapStatus } from './MapStatus';
-import { DocumentMetadata } from '@/app/utils/api/apiHandlers/types';
-import { DEFAULT_MAP_METADATA } from '@/app/utils/language';
-import { saveMap } from '@/app/utils/api/apiHandlers/saveMap';
+import {MapTitleDisplay} from './MapTitleDisplay';
+import {MapStatus} from './MapStatus';
+import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
+import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
+import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
 
 export const MapHeader: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -26,7 +23,7 @@ export const MapHeader: React.FC = () => {
       ...(mapMetadata || DEFAULT_MAP_METADATA),
       ...updates,
     });
-  }
+  };
 
   return (
     <Flex direction="row" align="center" gapX="2">
@@ -35,9 +32,17 @@ export const MapHeader: React.FC = () => {
         <Text size="3" className="text-black-500">
         </Text>
       </Button> */}
-      
-      <MapStatus mapDocument={mapDocument} mapMetadata={mapMetadata} handleMetadataChange={handleMetadataChange} />
-      <MapTitleDisplay mapMetadata={mapMetadata} mapDocument={mapDocument} handleMetadataChange={handleMetadataChange} />
+
+      <MapStatus
+        mapDocument={mapDocument}
+        mapMetadata={mapMetadata}
+        handleMetadataChange={handleMetadataChange}
+      />
+      <MapTitleDisplay
+        mapMetadata={mapMetadata}
+        mapDocument={mapDocument}
+        handleMetadataChange={handleMetadataChange}
+      />
       {/*map slug */}
       {/*source table name */}
       <Text size="2" className="text-gray-500">

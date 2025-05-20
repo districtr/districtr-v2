@@ -842,7 +842,7 @@ def test_group_data(client, session: Session):
     response = client.get(f"/api/group/{group_slug}")
     assert response.json().get("name") == "Map Group Two"
 
-    
+
 def test_new_document_from_block_assignments(client, simple_shatterable_districtr_map):
     response = client.post(
         "/api/create_document",

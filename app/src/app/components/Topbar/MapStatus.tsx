@@ -43,9 +43,7 @@ export const MapStatus: React.FC<{
       <Popover.Trigger>
         <Box>
           <Tooltip content={StatusText}>
-            <IconButton variant="ghost" color="gray" disabled={!editing}
-              className="cursor-pointer"
-            >
+            <IconButton variant="ghost" color="gray" disabled={!editing} className="cursor-pointer">
               <Icon />
             </IconButton>
           </Tooltip>

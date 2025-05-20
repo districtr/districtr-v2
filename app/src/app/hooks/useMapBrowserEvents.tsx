@@ -55,7 +55,6 @@ export const useMapBrowserEvents = () => {
           access: (decodedToken as any).access as string,
           status: (decodedToken as any).status as string,
         });
-
       }
     }
   }, [documentId, shareToken, receivedShareToken, setReceivedShareToken, setPasswordPrompt]);

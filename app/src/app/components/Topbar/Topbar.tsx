@@ -171,14 +171,14 @@ export const Topbar: React.FC = () => {
           <MapHeader />
           <Flex direction="row" align="center" gapX="1">
             <EditStatus />
-              <Button
-                variant="outline"
-                disabled={!mapDocument?.document_id}
-                onClick={() => setModalOpen('save-share')}
-                size="1"
-              >
-                Save and Share
-              </Button>
+            <Button
+              variant="outline"
+              disabled={!mapDocument?.document_id}
+              onClick={() => setModalOpen('save-share')}
+              size="1"
+            >
+              Save and Share
+            </Button>
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               size="1"

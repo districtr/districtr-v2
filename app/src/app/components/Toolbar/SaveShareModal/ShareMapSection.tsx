@@ -1,5 +1,5 @@
 import {useMapStore} from '@/app/store/mapStore';
-import { useSaveShareStore } from '@/app/store/saveShareStore';
+import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Heading, Select, Text, TextField} from '@radix-ui/themes';
 import {useState} from 'react';
