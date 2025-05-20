@@ -11,7 +11,7 @@ export const MapTitleDisplay: React.FC<{
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
 }> = ({mapMetadata, mapDocument, handleMetadataChange}) => {
   const [mapTitleInner, setMapTitleInner] = useState<string>('');
-  const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? "";
+  const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '';
 
   const isTruncated = _mapName.length > MAX_TITLE_LENGTH;
   const mapName = isTruncated ? `${_mapName.slice(0, MAX_TITLE_LENGTH)}...` : _mapName;
