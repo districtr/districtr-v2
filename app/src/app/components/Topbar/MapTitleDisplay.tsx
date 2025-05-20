@@ -11,7 +11,7 @@ export const MapTitleDisplay: React.FC<{
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;
 }> = ({mapMetadata, mapDocument, handleMetadataChange}) => {
   const [mapTitleInner, setMapTitleInner] = useState<string>('');
-  const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? '(Edit map name)';
+  const _mapName = mapMetadata?.name ?? mapDocument?.map_metadata?.name ?? "";
 
   const isTruncated = _mapName.length > MAX_TITLE_LENGTH;
   const mapName = isTruncated ? `${_mapName.slice(0, MAX_TITLE_LENGTH)}...` : _mapName;
@@ -48,7 +48,7 @@ export const MapTitleDisplay: React.FC<{
           <Flex align="center" gapX="1" direction="row" className="cursor-pointer">
             <Tooltip content={_mapName} className={`${isTruncated ? 'w-full' : 'w-fit'}`}>
               <Flex align="center" gapX="1" direction="row">
-                <Text size="2">{mapName || '(Edit Map Name)'}</Text>
+                <Text size="2">{mapName || '(Edit map name)'}</Text>
                 <Pencil1Icon />
               </Flex>
             </Tooltip>
@@ -59,6 +59,7 @@ export const MapTitleDisplay: React.FC<{
             <Text size="2">Edit Map Name</Text>
             <TextArea
               value={mapTitleInner}
+              placeholder="Map name"
               onChange={e => setMapTitleInner(e.target.value)}
               onBlur={handleChangeMapName}
               className={`h-auto ${isTruncated ? 'w-full' : 'w-fit'}`}
