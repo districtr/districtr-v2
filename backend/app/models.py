@@ -253,7 +253,7 @@ class DocumentPublic(BaseModel):
     genesis: str | None = None
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
-    map_type: str = "default"
+    map_type: str
 
 
 class DocumentCreatePublic(DocumentPublic):
