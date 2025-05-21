@@ -56,6 +56,7 @@ export interface DocumentObject extends StatusObject {
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
+  map_type: 'default' | 'local';
 }
 
 export interface DocumentCreate {

@@ -282,6 +282,7 @@ async def create_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
+            DistrictrMap.map_type.label("map_type"),  # pyright: ignore
             coalesce(plan_genesis).label("genesis"),
             coalesce(total_assignments).label("inserted_assignments"),
             # send metadata as a null object on init of document
@@ -568,6 +569,7 @@ async def get_document(
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             # get metadata as a json object
             Document.map_metadata.label("map_metadata"),  # pyright: ignore
+            DistrictrMap.map_type.label("map_type"),  # pyright: ignore
             coalesce(
                 "shared" if shared else "created",
             ).label("genesis"),
