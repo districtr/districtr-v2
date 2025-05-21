@@ -42,7 +42,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
               <Flex key={i} className="items-center" direction="column" gapY="4" py="4">
                 <object
                   type="image/png"
-                  data="https://tilesets1.cdn.districtr.org/thumbnails/null.png"
+                  data={`https://tilesets1.cdn.districtr.org/thumbnails/${view.districtr_map_slug}.png`}
                   width="150"
                   height="150"
                   aria-label="Preview with map outline"
