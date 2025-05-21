@@ -69,6 +69,7 @@ services:
     volumes:
       - ./pipelines:/app
       - ./data:/data
+      - ./tmp:/tmp
     env_file:
       - ./pipelines/.env
 
