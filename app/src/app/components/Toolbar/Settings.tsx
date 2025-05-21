@@ -1,5 +1,6 @@
 import React from 'react';
 import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes';
+import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
@@ -40,7 +41,7 @@ export const ToolSettings: React.FC = () => {
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
   const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
-  const mapType = useMapStore(state => state.mapDocument?.map_type);
+  const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
@@ -136,7 +137,7 @@ export const ToolSettings: React.FC = () => {
             Customize district colors
           </Button>
         </CheckboxGroup.Root>
-        {!(mapType === 'local') && (
+        {boundarySettings && (
           <>
             <Heading as="h3" weight="bold" size="3">
               Boundaries
@@ -173,7 +174,7 @@ export const ToolSettings: React.FC = () => {
               </CheckboxGroup.Item>
             </CheckboxGroup.Root>
           </>
-        ) : null}
+        )}
 
         <CheckboxGroup.Root
           defaultValue={[]}

@@ -1,6 +1,7 @@
 import {getQueriesResultsSubs} from '../utils/api/queries';
 import {shallowCompareArray} from '../utils/helpers';
 import {useDemographyStore} from './demography/demographyStore';
+import {useFeatureFlagStore} from './featureFlagStore';
 import {getMapEditSubs} from './mapEditSubs';
 import {MapStore, useMapStore} from './mapStore';
 
@@ -33,11 +34,19 @@ export const initSubs = () => {
     }
   );
 
+  const featureFlagSub = useMapStore.subscribe<[MapStore['mapDocument']]>(
+    state => [state.mapDocument],
+    ([mapDocument]) => {
+      useFeatureFlagStore.getState().updateData(mapDocument);
+    }
+  );
+
   const unsub = () => {
     querySubs();
     mapEditSubs.forEach(sub => sub());
     healSub();
     demogSub();
+    featureFlagSub();
   };
   return unsub;
 };
