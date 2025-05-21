@@ -1,6 +1,6 @@
 import os
 import pytest
-from tests.constants import FIXTURES_PATH, USER_ID
+from tests.constants import FIXTURES_PATH, USER_ID, GERRY_DB_FIXTURE_NAME
 from unittest.mock import patch
 
 
@@ -54,6 +54,34 @@ def test_thumbnail_generator(client, document_id_with_assignments):
         assert response.status_code == 200
         assert (
             response.json().get("message") == "Generating thumbnail in background task"
+        )
+
+        mock_generate_thumbnail.assert_called_once()
+        assert os.path.exists(out_path)
+        assert os.stat(out_path).st_size > 0
+        os.remove(out_path)
+
+
+def test_blank_thumbnail_generator(client, document_id):
+    payload = {
+        "user_id": USER_ID,
+        "gerrydb_table": GERRY_DB_FIXTURE_NAME,
+    }
+    response = client.post(f"/api/document/{document_id}", json=payload)
+    districtrmap_slug = response.json().get("districtr_map_slug")
+    with patch(
+        "app.thumbnails.main.get_document_thumbnail_file_path"
+    ) as mock_generate_thumbnail:
+        out_path = f"{FIXTURES_PATH}/{districtrmap_slug}.png"
+        mock_generate_thumbnail.return_value = out_path
+
+        response = client.post(
+            f"/api/gerrydb/{districtrmap_slug}/thumbnail",
+        )
+        assert response.status_code == 200
+        assert (
+            response.json().get("message")
+            == "Generating blank map thumbnail in background task"
         )
 
         mock_generate_thumbnail.assert_called_once()

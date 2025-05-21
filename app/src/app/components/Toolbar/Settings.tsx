@@ -55,7 +55,8 @@ export const ToolSettings: React.FC = () => {
             mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
             mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
             mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-            mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
+            mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
+            mapOptions.showPopulationNumbers === true ? 'showPopulationNumbers' : '',
             mapOptions.lockPaintedAreas.length ===
             (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
               ? 'lockAll'
@@ -82,12 +83,23 @@ export const ToolSettings: React.FC = () => {
             Show population tooltip
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
+            value="showPopulationNumbers"
+            onClick={() =>
+              setMapOptions({
+                showPopulationNumbers: !mapOptions.showPopulationNumbers,
+              })
+            }
+          >
+            Show total population labels on all geometries
+          </CheckboxGroup.Item>
+          <CheckboxGroup.Item
             value="showBlockPopulationNumbers"
             onClick={() =>
               setMapOptions({
                 showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
               })
             }
+            disabled={!mapDocument?.child_layer}
           >
             Show total population labels on blocks
           </CheckboxGroup.Item>
