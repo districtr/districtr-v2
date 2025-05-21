@@ -117,6 +117,7 @@ class DistrictrMapUpdate(BaseModel):
     tiles_s3_path: str | None = None
     num_districts: int | None = None
     visible: bool | None = None
+    map_type: str = "default"
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
