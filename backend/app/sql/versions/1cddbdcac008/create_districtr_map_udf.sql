@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION create_districtr_map(
     parent_layer_name VARCHAR,
     child_layer_name VARCHAR,
     visibility BOOLEAN DEFAULT TRUE,
-    map_type VARCHAR DEFAULT 'default'
+    map_type maptype DEFAULT 'default'
 )
 RETURNS UUID AS $$
 DECLARE
