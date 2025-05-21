@@ -3,6 +3,7 @@ from core.settings import settings
 
 S3_BASEMAPS_PREFIX = "basemaps"
 S3_TABULAR_PREFIX = "tabular"
+S3_GERRYDB_PREFIX = "gerrydb"
 # County TIGER layers
 
 S3_TILESETS_PREFIX = "tilesets"
