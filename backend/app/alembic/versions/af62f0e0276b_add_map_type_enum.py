@@ -31,5 +31,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_column("mytable", "map_type")
+    op.drop_column("districtrmap", "map_type")
     maptype_enum.drop(op.get_bind(), checkfirst=True)

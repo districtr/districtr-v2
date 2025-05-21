@@ -136,7 +136,7 @@ export const ToolSettings: React.FC = () => {
             Customize district colors
           </Button>
         </CheckboxGroup.Root>
-        {mapType !== 'local' ? (
+        {!(mapType === 'local') && (
           <>
             <Heading as="h3" weight="bold" size="3">
               Boundaries

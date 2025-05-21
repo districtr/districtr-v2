@@ -13,7 +13,7 @@ export const BrushControls = () => {
         <Box className="flex-grow" style={{flexGrow: 1}}>
           <BrushSizeSelector />
         </Box>
-        {mapType !== 'local' ? (
+        {!(mapType === 'local') && (
           <Box minWidth="75px">
             <PaintByCounty />{' '}
           </Box>
