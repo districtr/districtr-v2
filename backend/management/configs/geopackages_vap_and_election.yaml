@@ -59,6 +59,12 @@ gerrydb_views:
   - gpkg: wa_vtd_districtr_view.gpkg
     table_name: wa_vtd_districtr_view
     layer: wa_vtd_districtr_view
+  - gpkg: wv_block_districtr_view.gpkg
+    table_name: wv_block_districtr_view
+    layer: wv_block_districtr_view
+  - gpkg: wv_cbg_districtr_view.gpkg
+    table_name: wv_cbg_districtr_view
+    layer: wv_cbg_districtr_view
 shatterable_views:
   - gerrydb_table_name: ak_districtr_view
     districtr_map_slug: ak_districtr_view
@@ -100,6 +106,10 @@ shatterable_views:
     districtr_map_slug: wa_districtr_view
     parent_layer: wa_vtd_districtr_view
     child_layer: wa_block_districtr_view
+  - gerrydb_table_name: wv_districtr_view
+    districtr_map_slug: wv_districtr_view
+    parent_layer: wv_cbg_districtr_view
+    child_layer: wv_block_districtr_view
 districtr_maps:
   - name: Alaska State Senate (20)
     num_districts: 20
