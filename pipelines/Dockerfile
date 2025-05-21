@@ -1,5 +1,5 @@
-# Use the official Python image from the Docker Hub
-FROM python:3.12-slim
+# Use the UV Python image
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm
 
 # Install system dependencies for GDAL and Tippecanoe
 RUN apt-get update && apt-get install -y \
@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install -y \
     libgdal-dev \
     build-essential \
     git \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the environment variable for GDAL
@@ -21,8 +20,6 @@ RUN git clone https://github.com/felt/tippecanoe.git /tippecanoe \
     && make install \
     && rm -rf /tippecanoe
 
-# Install UV
-RUN curl -sSf https://astral.sh/uv/install.sh | sh
 
 # Set the working directory in the container
 WORKDIR /app
@@ -31,7 +28,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install the required Python packages using UV
-RUN uv pip install --no-cache -r requirements.txt
+RUN uv pip install --no-cache -r requirements.txt --system
 
 # Copy the rest of the application code into the container
 COPY . .
