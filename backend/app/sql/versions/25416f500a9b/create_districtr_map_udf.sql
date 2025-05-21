@@ -6,8 +6,7 @@ CREATE OR REPLACE FUNCTION create_districtr_map(
     tiles_s3_path VARCHAR,
     parent_layer_name VARCHAR,
     child_layer_name VARCHAR,
-    visibility BOOLEAN DEFAULT TRUE,
-    map_type VARCHAR DEFAULT 'default'
+    visibility BOOLEAN DEFAULT TRUE
 )
 RETURNS UUID AS $$
 DECLARE
@@ -23,8 +22,7 @@ BEGIN
         tiles_s3_path,
         parent_layer,
         child_layer,
-        visible,
-        map_type
+        visible
     )
     VALUES (
         now(),
@@ -36,8 +34,7 @@ BEGIN
         tiles_s3_path,
         parent_layer_name,
         child_layer_name,
-        visibility,
-        map_type::maptype
+        visibility
     )
     RETURNING uuid INTO inserted_districtr_uuid;
 
