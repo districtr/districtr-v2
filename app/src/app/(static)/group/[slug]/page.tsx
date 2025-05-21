@@ -39,13 +39,14 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         {Boolean(availableMaps) && (
           <>
             {availableMaps!.map((view, i) => (
-              <Flex key={i} className="items-center" direction="column" gapY="4" py="4">
+              <Flex key={i} className="items-center capitalize" direction="column" gapY="4" py="4">
                 <object
                   type="image/png"
                   data={`https://tilesets1.cdn.districtr.org/thumbnails/${view.districtr_map_slug}.png`}
                   width="150"
                   height="150"
                   aria-label="Preview with map outline"
+                  style={{borderRadius: 10}}
                 >
                   <Image src={placeImages[i % 3]} alt="Fallback image" width="150" height="150" />
                 </object>
