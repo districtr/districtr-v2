@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     libgdal-dev \
     build-essential \
     git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the environment variable for GDAL
@@ -20,14 +21,17 @@ RUN git clone https://github.com/felt/tippecanoe.git /tippecanoe \
     && make install \
     && rm -rf /tippecanoe
 
+# Install UV
+RUN curl -sSf https://astral.sh/uv/install.sh | sh
+
 # Set the working directory in the container
 WORKDIR /app
 
 # Copy the requirements file into the container
 COPY requirements.txt .
 
-# Install the required Python packages
-RUN pip install --no-cache-dir -r requirements.txt
+# Install the required Python packages using UV
+RUN uv pip install --no-cache -r requirements.txt
 
 # Copy the rest of the application code into the container
 COPY . .
