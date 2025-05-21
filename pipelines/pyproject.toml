@@ -11,8 +11,20 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "shapely>=2.0.0",
+]
+
 [tool.setuptools]
-packages = ["core", "tilesets", "tabular"]
+packages = ["core", "tilesets", "tabular", "cleaning"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.yml", "*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=cleaning --cov-report=term-missing"

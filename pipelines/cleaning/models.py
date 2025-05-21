@@ -47,7 +47,7 @@ class AggregateConfig(BaseModel):
 
         parent_path = self.blocks_geopackage
 
-        if blocks_url.scheme == "s3":
+        if blocks_url.scheme == "s3":  # pragma: no cover
             assert s3, "S3 client is not available"
             parent_path = download_file_from_s3(s3, blocks_url, self.replace)
 
@@ -125,7 +125,7 @@ class AggregateConfig(BaseModel):
             edges.to_sql(self.graph_layer_name, conn, if_exists="replace", index=False)
             conn.close()
 
-        if self.upload:
+        if self.upload:  # pragma: no cover
             s3_client = settings.get_s3_client()
             if not s3_client:
                 raise ValueError("Failed to get S3 client")

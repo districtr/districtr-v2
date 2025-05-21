@@ -20,7 +20,6 @@ RUN git clone https://github.com/felt/tippecanoe.git /tippecanoe \
     && make install \
     && rm -rf /tippecanoe
 
-
 # Set the working directory in the container
 WORKDIR /app
 
@@ -32,3 +31,13 @@ RUN uv pip install --no-cache -r requirements.txt --system
 
 # Copy the rest of the application code into the container
 COPY . .
+
+# Install test dependencies
+RUN uv pip install --no-cache ".[test]" --system
+
+# Set environment variables for testing
+ENV PYTHONPATH=/app
+ENV TESTING=1
+
+# Default command to run tests
+CMD ["pytest", "cleaning/tests", "-v", "--cov=cleaning", "--cov-report=term-missing"]
