@@ -5,6 +5,7 @@ import {DocumentObject} from '@utils/api/apiHandlers/types';
 interface FeatureFlagStore {
   boundarySettings: boolean;
   paintCounties: boolean;
+  updateData: (mapDocument: DocumentObject | null) => void;
 }
 
 export const useFeatureFlagStore = create(
