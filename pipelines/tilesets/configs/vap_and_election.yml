@@ -71,7 +71,10 @@ tilesets:
     - gpkg: wa_block_districtr_view.gpkg
       layer_name: wa_block_districtr_view
       new_layer_name: wa_block_districtr_view
-  # wv_districtr_view:
-  #   - gpkg: wv_block_districtr_view.gpkg
-  #     layer_name: wv_block_districtr_view
-  #     new_layer_name: wv_block_districtr_view
+  wv_districtr_view:
+    - gpkg: wv_cbg_districtr_view.gpkg
+      layer_name: wv_cbg_districtr_view
+      new_layer_name: wv_cbg_districtr_view
+    - gpkg: wv_block_districtr_view.gpkg
+      layer_name: wv_block_districtr_view
+      new_layer_name: wv_block_districtr_view
