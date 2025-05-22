@@ -92,11 +92,11 @@ class AggregateConfig(BaseModel):
         # Trim the IDs to the appropriate length for the aggregation level
         # Any block contiguity between parent IDs
         # will remain true when aggregated to the parents
-        block_edges["path_1"] = block_edges["path"].str[
+        block_edges["path_1"] = block_edges["path_1"].str[
             : AGGREGATE_ID_LENS[self.aggregate_to]
         ]
-        block_edges["path_2"] = block_edges["path"].str[
-            AGGREGATE_ID_LENS[self.aggregate_to] :
+        block_edges["path_2"] = block_edges["path_2"].str[
+            : AGGREGATE_ID_LENS[self.aggregate_to]
         ]
         # Remove internal block edges and duplicates
         block_edges = block_edges.query("path_1 != path_2").drop_duplicates(
