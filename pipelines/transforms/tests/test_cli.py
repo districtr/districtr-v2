@@ -2,7 +2,7 @@ import pytest
 from click.testing import CliRunner
 import geopandas as gpd
 from shapely.geometry import Polygon
-from cleaning.cli import cleaning
+from transforms.cli import transforms
 import os
 
 
@@ -44,7 +44,7 @@ def test_aggregate_command_basic(runner, sample_blocks_gpkg, tmp_path):
     out_path = str(tmp_path / "output.gpkg")
 
     result = runner.invoke(
-        cleaning,
+        transforms,
         [
             "aggregate",
             "--blocks-gpkg",
@@ -75,7 +75,7 @@ def test_aggregate_command_with_edges(runner, sample_blocks_gpkg, tmp_path):
     out_path = str(tmp_path / "output.gpkg")
 
     result = runner.invoke(
-        cleaning,
+        transforms,
         [
             "aggregate",
             "--blocks-gpkg",
@@ -108,7 +108,7 @@ def test_aggregate_command_invalid_aggregation(runner, sample_blocks_gpkg, tmp_p
     out_path = str(tmp_path / "output.gpkg")
 
     result = runner.invoke(
-        cleaning,
+        transforms,
         [
             "aggregate",
             "--blocks-gpkg",
@@ -129,7 +129,7 @@ def test_aggregate_command_invalid_aggregation(runner, sample_blocks_gpkg, tmp_p
 def test_aggregate_command_missing_required(runner):
     """Test aggregation with missing required parameters."""
     result = runner.invoke(
-        cleaning,
+        transforms,
         ["aggregate"],
     )
 
@@ -144,7 +144,7 @@ def test_aggregate_command_with_upload(
     out_path = str(tmp_path / "output.gpkg")
 
     result = runner.invoke(
-        cleaning,
+        transforms,
         [
             "aggregate",
             "--blocks-gpkg",

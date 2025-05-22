@@ -7,12 +7,12 @@ logger = logging.getLogger(__name__)
 
 
 @click.group()
-def cleaning() -> None:
-    """Cleaning pipeline commands."""
+def transforms() -> None:
+    """Data transforms pipeline commands."""
     pass
 
 
-@cleaning.command("aggregate")
+@transforms.command("aggregate")
 @click.option(
     "--blocks-gpkg",
     "-b",
@@ -33,11 +33,16 @@ def cleaning() -> None:
     required=True,
 )
 @click.option(
-    "--build-edges",
-    "-e",
-    help="Build graph edges between adjacent geometries",
-    is_flag=True,
-    default=False,
+    "--parent-gpkg",
+    "-p",
+    help="Path or URL to parent GeoPackage file. If URL, must be s3 URI",
+    required=True,
+)
+@click.option(
+    "--parent-layer-name",
+    "-n",
+    help="Name of the layer in the parent GeoPackage file",
+    required=True,
 )
 @click.option(
     "--graph-layer-name",

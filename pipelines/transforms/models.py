@@ -1,14 +1,13 @@
 from pydantic import BaseModel
 import geopandas as gpd
+import pandas as pd
 from typing import Literal
 from core.settings import settings
 from core.utils import download_file_from_s3
 from urllib.parse import urlparse
 import logging
-import libpysal
-import pandas as pd
-import sqlite3
 from core.constants import S3_GERRYDB_PREFIX
+import sqlite3
 
 LOGGER = logging.getLogger(__name__)
 AGGREGATE_ID_LENS = {"block-group": 12, "tract": 11, "county": 5}
@@ -25,7 +24,8 @@ class AggregateConfig(BaseModel):
     blocks_geopackage: str
     layer_name: str
     aggregate_to: Literal["block-group", "tract", "county"]
-    build_edges: bool
+    parent_gpkg: str
+    parent_layer_name: str
     graph_layer_name: str | None = "gerrydb_graph_edge"
     out_path: str
     replace: bool
@@ -65,43 +65,37 @@ class AggregateConfig(BaseModel):
             gpd.GeoDataFrame: The aggregated geographic data
         """
         gdf = self.get_gdf()
-        gdf["agg_path"] = gdf["path"].str[: AGGREGATE_ID_LENS[self.aggregate_to]]
-        dissolved_geos = (
-            gdf[["agg_path", "geometry"]].dissolve(by="agg_path").reset_index()
-        )
-        stat_columns = [
-            col for col in gdf.columns if col not in ["agg_path", "path", "geometry"]
-        ]
+        gdf["path"] = gdf["path"].str[: AGGREGATE_ID_LENS[self.aggregate_to]]
+        stat_columns = [col for col in gdf.columns if col not in ["path", "geometry"]]
         grouped_stats = (
-            gdf[stat_columns + ["agg_path"]]
-            .groupby("agg_path")
+            gdf[stat_columns + ["path"]]
+            .groupby("path")
             .sum(numeric_only=True)
             .reset_index()
         )
-        merged = dissolved_geos.merge(grouped_stats, on="agg_path", how="left")
-        merged["path"] = merged["agg_path"]
-        merged.drop(columns=["agg_path"], inplace=True)
-        return merged
+        parent_geos = gpd.read_file(self.parent_gpkg, layer=self.parent_layer_name)[
+            ["path", "geometry"]
+        ]
+        return parent_geos.merge(grouped_stats, on="path", how="left")
 
-    def get_edges(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    def get_edges(self) -> pd.DataFrame:
         """
-        Creates an adjacency graph from the geographic data.
-
-        Uses rook contiguity to determine adjacency between geographic units.
-
-        Args:
-            gdf (gpd.GeoDataFrame): The geographic data to create edges from
+        Extracts edge graph from gerrydb blocks data.
 
         Returns:
             pd.DataFrame: A DataFrame containing edge relationships between geographic units
         """
-        rook_weights = libpysal.weights.Rook.from_dataframe(gdf, geom_col="geometry")
-        edges = []
-        for index, row in gdf.iterrows():
-            neighbors = rook_weights.neighbors[index]
-            for neighbor in neighbors:
-                edges.append((row["path"], gdf.iloc[neighbor]["path"], "{}"))
-        return pd.DataFrame(edges, columns=["path_1", "path_2", "weights"])
+        block_edges = gpd.read_file(self.blocks_geopackage, layer=self.graph_layer_name)
+        block_edges["path_1"] = block_edges["path"].str[
+            : AGGREGATE_ID_LENS[self.aggregate_to]
+        ]
+        block_edges["path_2"] = block_edges["path"].str[
+            AGGREGATE_ID_LENS[self.aggregate_to] :
+        ]
+        block_edges = block_edges.query("path_1 != path_2").drop_duplicates(
+            ["path_1", "path_2"]
+        )
+        return block_edges
 
     def generate_aggregated_gpkg(self) -> gpd.GeoDataFrame:
         """
@@ -113,18 +107,14 @@ class AggregateConfig(BaseModel):
         Returns:
             tuple: A tuple containing (aggregated GeoDataFrame, edges DataFrame or None)
         """
-        gdf = self.aggregate_gdf()
-        edges = self.get_edges(gdf) if self.build_edges else None
+        aggregated = self.aggregate_gdf()
+        aggregated.to_file(settings.OUT_SCRATCH / self.out_path, driver="GPKG")
 
-        # output to out_scratch
-        gdf.to_file(settings.OUT_SCRATCH / self.out_path, driver="GPKG")
-        if edges is not None:
-            # Add to existing gpkg with null geometry
-            # Convert edges DataFrame to SQLite and append to the GeoPackage file
-            conn = sqlite3.connect(settings.OUT_SCRATCH / self.out_path)
-            edges.to_sql(self.graph_layer_name, conn, if_exists="replace", index=False)
-            conn.close()
+        edges = self.get_edges()
+        conn = sqlite3.connect(settings.OUT_SCRATCH / self.out_path)
+        edges.to_sql(self.graph_layer_name, conn, if_exists="replace", index=False)
 
+        conn.close()
         if self.upload:  # pragma: no cover
             s3_client = settings.get_s3_client()
             if not s3_client:
@@ -135,4 +125,4 @@ class AggregateConfig(BaseModel):
                 settings.OUT_SCRATCH / self.out_path, settings.S3_BUCKET, s3_key
             )
 
-        return gdf, edges
+        return aggregated, edges
