@@ -54,12 +54,12 @@ jobs:
               if: github.event.action != 'closed'
               run: |              
                 DB_NAME="${{ github.event.repository.name }}-${{ github.event.number }}-db"
-                if flyctl postgres list | grep -q $DB_NAME; then
+                if flyctl mpg list | grep -q $DB_NAME; then
                   echo "DB $DB_NAME already exists"                  
                 else
                   echo "Creating database $DB_NAME"
                   
-                  flyctl postgres create \
+                  flyctl mpg create \
                   --name $DB_NAME \
                   --region ewr \
                   --initial-cluster-size 1 \
