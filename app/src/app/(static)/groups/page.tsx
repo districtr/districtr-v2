@@ -31,7 +31,7 @@ export default async function GroupsPage() {
         }}
         gap="4"
       >
-        {entries.length === 0 && <Text>No places available.</Text>}
+        {entries.length === 0 && <Text>No groups available.</Text>}
         {entries.map(content => (
           <Card key={content.slug}>
             <Heading as="h3" size="4">
