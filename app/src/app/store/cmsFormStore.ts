@@ -7,6 +7,7 @@ import {
   listEditorCMSContent,
   PlacesCMSContent,
   TagsCMSContent,
+  GroupsCMSContent,
   createCMSContent,
   updateCMSContent,
   CMSContentCreate,
@@ -16,9 +17,10 @@ import {
 } from '../utils/api/cms';
 import {LANG_MAPPING} from '../utils/language';
 import {subscribeWithSelector} from 'zustand/middleware';
-import {DistrictrMap} from '../utils/api/apiHandlers/types';
+import {DistrictrMap, MapGroup} from '../utils/api/apiHandlers/types';
 import {getAvailableDistrictrMaps} from '../utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {ClientSession} from '@/app/lib/auth0';
+import {getGroupList} from '../utils/api/apiHandlers/getGroupList';
 
 // Base form data interface with common fields
 interface BaseFormData {
@@ -38,6 +40,10 @@ type ContentTypeConfig = {
   places: {
     formData: BaseFormData & {districtr_map_slugs: string[]};
     cmsContent: PlacesCMSContent;
+  };
+  groups: {
+    formData: BaseFormData & {group_slugs: string[]};
+    cmsContent: GroupsCMSContent;
   };
 };
 
@@ -59,6 +65,7 @@ const baseFormData: BaseFormData = {
 const defaultFormData: {[K in CmsContentTypes]: FormDataType<K>} = {
   tags: {...baseFormData, districtr_map_slug: ''},
   places: {...baseFormData, districtr_map_slugs: []},
+  groups: {...baseFormData, group_slugs: []},
 };
 
 // Unified type guard - checks if a contentType matches a specific type
@@ -83,6 +90,7 @@ interface CmsFormStore {
   content: AllCmsLists | null;
   contentType: CmsContentTypes | null;
   maps: DistrictrMap[];
+  groups: MapGroup[];
   formData: TypedFormData<CmsContentTypes> | null;
   error: string;
   success: string;
@@ -94,7 +102,10 @@ interface CmsFormStore {
   setPreviewData: (data: MinimalPreviewData) => void;
   loadData: (contentType: CmsContentTypes) => Promise<void>;
   loadMapList: () => Promise<DistrictrMap[] | undefined>;
-  handleChange: <T extends keyof BaseFormData | 'districtr_map_slug' | 'districtr_map_slugs'>(
+  loadGroupList: () => Promise<MapGroup[] | undefined>;
+  handleChange: <
+    T extends keyof BaseFormData | 'districtr_map_slug' | 'districtr_map_slugs' | 'group_slugs',
+  >(
     property: T,
     multiple?: boolean
   ) => (value: any) => void;
@@ -114,6 +125,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
   content: null,
   contentType: null,
   maps: [],
+  groups: [],
   formData: null,
   error: '',
   success: '',
@@ -130,6 +142,11 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
     if (existingMaps.length) return existingMaps;
     return await getAvailableDistrictrMaps({limit: 100});
   },
+  loadGroupList: async () => {
+    const existingGroups = get().groups;
+    if (existingGroups.length) return existingGroups;
+    return await getGroupList();
+  },
 
   // Load content for a specific type
   loadData: async contentType => {
@@ -141,9 +158,10 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
     }
 
     try {
-      const [content, mapsData] = await Promise.all([
+      const [content, mapsData, groupsData] = await Promise.all([
         listEditorCMSContent(contentType, {}, session),
         get().loadMapList(),
+        get().loadGroupList(),
       ]);
 
       // Create typed form data from defaults
@@ -156,6 +174,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
         content,
         contentType,
         maps: mapsData,
+        groups: groupsData,
         formData,
       });
     } catch (err) {
@@ -236,6 +255,9 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
       } else if (isContentType(contentType, 'places')) {
         content.updates.districtr_map_slugs =
           (formData.content as FormDataType<'places'>).districtr_map_slugs || null;
+      } else if (isContentType(contentType, 'groups')) {
+        content.updates.group_slugs =
+          (formData.content as FormDataType<'groups'>).group_slugs || null;
       }
       const r = await updateCMSContent({body: content, session});
       if (r.ok) {
@@ -260,6 +282,8 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
         content.districtr_map_slugs = (
           formData.content as FormDataType<'places'>
         ).districtr_map_slugs;
+      } else if (isContentType(contentType, 'groups')) {
+        content.group_slugs = (formData.content as FormDataType<'groups'>).group_slugs;
       }
 
       const r = await createCMSContent({body: content, session});
@@ -349,6 +373,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
 
   // Edit existing content
   handleEdit: _item => {
+    console.log('!!!', _item);
     const contentType = get().contentType;
     if (!contentType) return;
 
@@ -401,6 +426,19 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
         formData: createTypedFormData('places', {
           ...baseFormFields,
           districtr_map_slugs: placesItem.districtr_map_slugs || [],
+        }),
+      });
+    } else if (isContentType(contentType, 'groups')) {
+      const groupsItem = item as GroupsCMSContent;
+
+      set({
+        editingContent: {
+          contentType: 'groups',
+          content: groupsItem,
+        } as AllCmsEntries,
+        formData: createTypedFormData('groups', {
+          ...baseFormFields,
+          group_slugs: groupsItem.group_slugs || [],
         }),
       });
     }

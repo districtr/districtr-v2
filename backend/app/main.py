@@ -1210,3 +1210,11 @@ async def get_group(
         "name": group[0].name,
         "slug": group[0].slug,
     }
+
+
+@app.get("/api/groups/list", response_model=list[MapGroup])
+async def get_group_list(
+    *,
+    session: Session = Depends(get_session),
+):
+    return session.exec(select(MapGroup)).all()

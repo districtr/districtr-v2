@@ -55,7 +55,9 @@ export const ToolSettings: React.FC = () => {
             mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
             mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
             mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-            mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
+            mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true
+              ? 'showBlockPopulationNumbers'
+              : '',
             mapOptions.showPopulationNumbers === true ? 'showPopulationNumbers' : '',
             mapOptions.lockPaintedAreas.length ===
             (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)

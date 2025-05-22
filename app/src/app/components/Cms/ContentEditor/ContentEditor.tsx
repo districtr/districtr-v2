@@ -4,7 +4,7 @@ import {LANG_MAPPING} from '@/app/utils/language';
 import {Box, Button, Flex, Grid, Heading, Select, Text, TextField} from '@radix-ui/themes';
 import dynamic from 'next/dynamic';
 import {CheckCircledIcon} from '@radix-ui/react-icons';
-import {PlacesCMSContent} from '@/app/utils/api/cms';
+import {PlacesCMSContent, GroupsCMSContent} from '@/app/utils/api/cms';
 
 const RichTextEditor = dynamic(() => import('@/app/components/Cms/RichTextEditor'), {ssr: false});
 
@@ -14,6 +14,7 @@ export const ContentEditor: React.FC = () => {
   const handleChange = useCmsFormStore(state => state.handleChange);
   const formData = useCmsFormStore(state => state.formData);
   const maps = useCmsFormStore(state => state.maps);
+  const groups = useCmsFormStore(state => state.groups);
   // const setFormData = useCmsFormStore(state => state.setFormData);
   const cancelEdit = useCmsFormStore(state => state.cancelEdit);
   const handleSubmit = useCmsFormStore(state => state.handleSubmit);
@@ -162,6 +163,40 @@ export const ContentEditor: React.FC = () => {
                         <CheckCircledIcon color="green" />
                       ) : null}
                       <Text>{map.name}</Text>
+                    </Flex>
+                  </Select.Item>
+                ))}
+              </Select.Content>
+            </Select.Root>
+          </Flex>
+        )}
+
+        {contentType === 'groups' && (
+          <Flex direction="column">
+            <Text as="label" htmlFor="group_slugs">
+              Groups (optional)
+            </Text>
+            <Select.Root
+              value={formData?.content.group_slugs}
+              onValueChange={handleChange('group_slugs', true)}
+            >
+              <Select.Trigger>
+                <Text>
+                  {(formData?.content as unknown as GroupsCMSContent)?.group_slugs?.length
+                    ? (formData?.content as unknown as GroupsCMSContent)?.group_slugs
+                        ?.length + ' groups selected'
+                    : 'Select groups'}
+                </Text>
+              </Select.Trigger>
+              <Select.Content>
+                {/* This would ideally use a list of available groups */}
+                {groups.map((group, i) => (
+                  <Select.Item key={i} value={group.slug}>
+                    <Flex direction="row" gapX="1">
+                      {formData?.content.group_slugs?.includes(group.slug) ? (
+                        <CheckCircledIcon color="green" />
+                      ) : null}
+                      <Text>{group.name}</Text>
                     </Flex>
                   </Select.Item>
                 ))}

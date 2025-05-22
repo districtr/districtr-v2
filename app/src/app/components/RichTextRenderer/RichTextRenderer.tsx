@@ -6,7 +6,8 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import BoilerplateNode from '../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNode';
+import BoilerplateNode from '../Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNode';
+import GroupNode from '../Cms/RichTextEditor/extensions/Group/GroupNode';
 import parse from 'html-react-parser';
 import {domNodeReplacers} from './CustomRenderers/DomNodeRenderers';
 
@@ -27,6 +28,7 @@ const extensions = [
   }),
   Image,
   BoilerplateNode,
+  GroupNode,
 ];
 
 const RichTextRenderer: React.FC<RichTextRendererProps> = ({content, className = ''}) => {
