@@ -26,6 +26,7 @@ class AggregateConfig(BaseModel):
     aggregate_to: Literal["block-group", "tract", "county"]
     parent_gpkg: str
     parent_layer_name: str
+    parent_id_column: str
     graph_layer_name: str | None = "gerrydb_graph_edge"
     out_path: str
     replace: bool
@@ -65,7 +66,9 @@ class AggregateConfig(BaseModel):
             bool: True if the dissolved children geometries match the parent geometries, False otherwise
         """
         dissolved_blocks = blocks_gdf[["path", "geometry"]].dissolve(by="path")
-        return gpd.testing.is_close(dissolved_blocks.geometry, parent_gdf.geometry)
+        return gpd.assert_geoseries_equal(
+            dissolved_blocks.geometry, parent_gdf.geometry
+        )
 
     def aggregate_gdf(self) -> gpd.GeoDataFrame:
         """
@@ -87,8 +90,8 @@ class AggregateConfig(BaseModel):
             .reset_index()
         )
         parent_geos = gpd.read_file(self.parent_gpkg, layer=self.parent_layer_name)[
-            ["path", "geometry"]
-        ]
+            [self.parent_id_column, "geometry"]
+        ].rename(columns={self.parent_id_column: "path"})
         if parent_geos.crs != gdf.crs:
             parent_geos = parent_geos.to_crs(gdf.crs)
             assert self.check_dissolved_children_vs_parent(
@@ -104,12 +107,15 @@ class AggregateConfig(BaseModel):
             pd.DataFrame: A DataFrame containing edge relationships between geographic units
         """
         block_edges = gpd.read_file(self.blocks_geopackage, layer=self.graph_layer_name)
+        # Any block contiguity between parent IDs
+        # will remain true when aggregated to the parents
         block_edges["path_1"] = block_edges["path"].str[
             : AGGREGATE_ID_LENS[self.aggregate_to]
         ]
         block_edges["path_2"] = block_edges["path"].str[
             AGGREGATE_ID_LENS[self.aggregate_to] :
         ]
+        # Remove internal block edges and duplicates
         block_edges = block_edges.query("path_1 != path_2").drop_duplicates(
             ["path_1", "path_2"]
         )

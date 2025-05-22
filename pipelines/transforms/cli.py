@@ -45,6 +45,12 @@ def transforms() -> None:
     required=True,
 )
 @click.option(
+    "--parent-id-column",
+    "-i",
+    help="Name of the column in the parent GeoPackage file that contains the ID",
+    required=True,
+)
+@click.option(
     "--graph-layer-name",
     "-g",
     help="Name of the graph edges layer in output GeoPackage",
@@ -76,6 +82,7 @@ def aggregate(
     aggregate_to: str,
     parent_gpkg: str,
     parent_layer_name: str,
+    parent_id_column: str,
     graph_layer_name: str,
     out_path: str,
     replace: bool,
@@ -90,6 +97,7 @@ def aggregate(
         layer_name=layer_name,
         parent_gpkg=parent_gpkg,
         parent_layer_name=parent_layer_name,
+        parent_id_column=parent_id_column,
         aggregate_to=aggregate_to,
         graph_layer_name=graph_layer_name,
         out_path=out_path,
