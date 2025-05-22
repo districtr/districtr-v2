@@ -1,6 +1,6 @@
 import click
 import logging
-from .models import AggregateConfig
+from transforms.models import AggregateConfig
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

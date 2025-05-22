@@ -3,7 +3,7 @@ import geopandas as gpd
 import pandas as pd
 from typing import Literal
 from core.settings import settings
-from core.utils import download_file_from_s3
+from core.io import download_file_from_s3
 from urllib.parse import urlparse
 import logging
 from core.constants import S3_GERRYDB_PREFIX
