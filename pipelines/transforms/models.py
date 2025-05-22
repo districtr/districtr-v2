@@ -107,6 +107,7 @@ class AggregateConfig(BaseModel):
             pd.DataFrame: A DataFrame containing edge relationships between geographic units
         """
         block_edges = gpd.read_file(self.blocks_geopackage, layer=self.graph_layer_name)
+        # Trim the IDs to the appropriate length for the aggregation level
         # Any block contiguity between parent IDs
         # will remain true when aggregated to the parents
         block_edges["path_1"] = block_edges["path"].str[
