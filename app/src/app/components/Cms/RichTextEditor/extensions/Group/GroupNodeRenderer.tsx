@@ -72,7 +72,7 @@ const GroupNodeRenderer: React.FC<GroupNodeRendererProps> = ({customContent, gro
         }}
       >
         {groupMaps.map((view, i) => (
-          <Flex key={i} className="items-center capitalize" direction="column" gapY="4" py="4">
+          <Flex key={view.districtr_map_slug} className="items-center capitalize" direction="column" gapY="4" py="4">
             <object
               type="image/png"
               data={`https://tilesets1.cdn.districtr.org/thumbnails/${view.districtr_map_slug}.png`}
