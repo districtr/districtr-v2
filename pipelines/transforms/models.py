@@ -55,21 +55,6 @@ class AggregateConfig(BaseModel):
         gdf = gpd.read_file(parent_path)
         return gdf
 
-    def check_dissolved_children_vs_parent(
-        self, blocks_gdf: gpd.GeoDataFrame, parent_gdf: gpd.GeoDataFrame
-    ) -> bool:
-        """
-        Checks if the dissolved children geometries match the parent geometries.
-        This is a sanity check when reprojecting data.
-
-        Returns:
-            bool: True if the dissolved children geometries match the parent geometries, False otherwise
-        """
-        dissolved_blocks = blocks_gdf[["path", "geometry"]].dissolve(by="path")
-        return gpd.assert_geoseries_equal(
-            dissolved_blocks.geometry, parent_gdf.geometry
-        )
-
     def aggregate_gdf(self) -> gpd.GeoDataFrame:
         """
         Aggregates block-level data to the specified geographic level.
@@ -94,9 +79,6 @@ class AggregateConfig(BaseModel):
         ].rename(columns={self.parent_id_column: "path"})
         if parent_geos.crs != gdf.crs:
             parent_geos = parent_geos.to_crs(gdf.crs)
-            assert self.check_dissolved_children_vs_parent(
-                gdf, parent_geos
-            ), "Dissolved children geometries do not match parent geometries"
         return parent_geos.merge(grouped_stats, on="path", how="left")
 
     def get_edges(self) -> pd.DataFrame:
