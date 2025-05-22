@@ -177,7 +177,9 @@ export const ContentEditor: React.FC = () => {
               Groups (optional)
             </Text>
             <Select.Root
+              // @ts-ignore
               value={formData?.content.group_slugs}
+              // @ts-ignore
               onValueChange={handleChange('group_slugs', true)}
             >
               <Select.Trigger>
@@ -193,7 +195,9 @@ export const ContentEditor: React.FC = () => {
                 {groups.map((group, i) => (
                   <Select.Item key={i} value={group.slug}>
                     <Flex direction="row" gapX="1">
-                      {formData?.content.group_slugs?.includes(group.slug) ? (
+                      {(formData?.content as unknown as GroupsCMSContent)?.group_slugs?.includes(
+                        group.slug
+                      ) ? (
                         <CheckCircledIcon color="green" />
                       ) : null}
                       <Text>{group.name}</Text>
