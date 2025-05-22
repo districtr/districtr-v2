@@ -86,18 +86,45 @@ class PlacesCMSContent(TimeStampMixin, SQLModel, table=True):
     )
 
 
+class GroupsCMSContent(TimeStampMixin, SQLModel, table=True):
+    __tablename__ = "groups_content"
+    metadata = MetaData(schema=CMS_SCHEMA)
+    id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
+    slug: str = Field(nullable=False, index=True)
+    language: LanguageEnum = Field(
+        default=LanguageEnum.ENGLISH, nullable=False, index=True
+    )
+    draft_content: Dict[str, Any] | None = Field(sa_column=Column(JSONB, nullable=True))
+    published_content: Dict[str, Any] | None = Field(
+        sa_column=Column(JSONB, nullable=True)
+    )
+    group_slugs: list[str] | None = Field(
+        sa_column=Column(
+            ARRAY(String),
+            nullable=True,
+            index=True,
+        )
+    )
+    author: str | None = Field(sa_column=Column(String, nullable=True))
+    __table_args__ = (
+        UniqueConstraint("slug", "language", name="groups_slug_language_unique"),
+    )
+
+
 class CMSContentTypesEnum(str, Enum):
     tags = "tags"
     places = "places"
+    groups = "groups"
 
 
 CMS_MODEL_MAP = {
     CMSContentTypesEnum.tags: TagsCMSContent,
     CMSContentTypesEnum.places: PlacesCMSContent,
+    CMSContentTypesEnum.groups: GroupsCMSContent,
 }
 
 
-CmsContent = PlacesCMSContent | TagsCMSContent
+CmsContent = PlacesCMSContent | TagsCMSContent | GroupsCMSContent
 
 
 class CMSContentCreate(BaseModel):
@@ -108,6 +135,7 @@ class CMSContentCreate(BaseModel):
     published_content: Dict[str, Any] | None = None
     districtr_map_slug: str | None = None
     districtr_map_slugs: list[str] | None = None
+    group_slugs: list[str] | None = None
 
     @field_validator("slug")
     @classmethod
@@ -130,6 +158,7 @@ class CmsContentUpdateFields(BaseModel):
     published_content: Dict[str, Any] | None = None
     districtr_map_slug: str | None = None
     districtr_map_slugs: list[str] | None = None
+    group_slugs: list[str] | None = None
 
 
 class CmsContentUpdate(BaseModel):
@@ -156,7 +185,13 @@ class PlacesCMSContentPublic(BaseCMSContentPublic):
     districtr_map_slugs: list[str] | None = None
 
 
-AllCMSContentPublic = TagsCMSContentPublic | PlacesCMSContentPublic
+class GroupsCMSContentPublic(BaseCMSContentPublic):
+    group_slugs: list[str] | None = None
+
+
+AllCMSContentPublic = (
+    TagsCMSContentPublic | PlacesCMSContentPublic | GroupsCMSContentPublic
+)
 
 
 class ContentUpdateResponse(BaseModel):
@@ -167,6 +202,7 @@ class ContentUpdateResponse(BaseModel):
 class AllCmsFields(BaseCMSContentPublic):
     districtr_map_slug: str | None = None
     districtr_map_slugs: list[str] | None = None
+    group_slugs: list[str] | None = None
 
 
 class CMSContentPublicWithLanguages(BaseModel):
