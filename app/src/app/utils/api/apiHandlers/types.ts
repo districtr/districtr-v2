@@ -34,13 +34,15 @@ export interface StatusObject {
   password?: string | null;
 }
 
+export type DraftStatus = 'scratch' | 'in_progress' | 'ready_to_share';
+
 export interface DocumentMetadata {
   name: string | null;
   group: string | null;
   tags: string | null;
   description: string | null;
   eventId: string | null;
-  draft_status: string | null;
+  draft_status: DraftStatus | null;
 }
 
 export interface DocumentObject extends StatusObject {
