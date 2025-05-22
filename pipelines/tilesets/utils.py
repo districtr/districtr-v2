@@ -4,7 +4,7 @@ from subprocess import run
 from urllib.parse import urlparse
 
 from core.settings import settings
-from core.utils import download_file_from_s3
+from core.io import download_file_from_s3
 
 
 LOGGER = logging.getLogger(__name__)
