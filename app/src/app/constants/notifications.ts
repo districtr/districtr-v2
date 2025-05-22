@@ -25,4 +25,4 @@ export const STATUS_TEXT = {
   ready: 'Status: Ready to Share',
 } as const;
 
-export const PLACE_IMAGES = ['/home-megaphone.png', '/home-hands.png', '/community.svg'];
+export const FALLBACK_PLACE_IMAGES = ['/home-megaphone.png', '/home-hands.png', '/community.svg'];

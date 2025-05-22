@@ -10,7 +10,7 @@ import Image from 'next/image';
 import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
-import {PLACE_IMAGES} from '@/app/constants/notifications';
+import {FALLBACK_PLACE_IMAGES} from '@/app/constants/notifications';
 import RichTextEditor from '../../RichTextEditor';
 import RichTextRenderer from '@/app/components/RichTextRenderer/RichTextRenderer';
 
@@ -81,7 +81,7 @@ const GroupNodeRenderer: React.FC<GroupNodeRendererProps> = ({customContent, gro
               aria-label="Preview with map outline"
               style={{borderRadius: 10}}
             >
-              <Image src={PLACE_IMAGES[i % 3]} alt="Fallback image" width="150" height="150" />
+              <Image src={FALLBACK_PLACE_IMAGES[i % 3]} alt="Fallback image" width="150" height="150" />
             </object>
             <CreateButton
               key={i}
