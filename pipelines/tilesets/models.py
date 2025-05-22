@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from typing import Iterable
 from core.models import Config
 from core.settings import settings
-from tilesets.files import download_file_from_s3
+from core.io import download_file_from_s3
 from tilesets.utils import merge_tilesets
 from core.constants import S3_TILESETS_PREFIX
 from pathlib import Path

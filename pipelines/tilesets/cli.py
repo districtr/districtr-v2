@@ -5,7 +5,7 @@ import logging
 from urllib.parse import urlparse
 from subprocess import run
 from typing import Iterable
-from tilesets.files import download_and_unzip_zipfile, exists_in_s3
+from core.io import download_and_unzip_zipfile, exists_in_s3
 from core.settings import settings
 from tilesets.models import GerryDBTileset, TilesetBatch
 from tilesets.utils import merge_tilesets
