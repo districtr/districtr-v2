@@ -192,6 +192,6 @@ districtr_maps:
     num_districts: 2
     gerrydb_table_name: wv_districtr_view
     districtr_map_slug: wv_districtr_view
-    parent_layer: wv_cbg_districtr_view
+    parent_layer: wv_bg_districtr_view
     child_layer: wv_block_districtr_view
     tiles_s3_path: tilesets/wv_districtr_view.pmtiles
