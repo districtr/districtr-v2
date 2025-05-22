@@ -86,4 +86,3 @@ urllib3==2.2.1
     # via
     #   botocore
     #   requests
-pytest==7.4.3
