@@ -1,5 +1,5 @@
-# Use the UV Python image
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm
+# Use the official Python image from the Docker Hub
+FROM python:3.12-slim
 
 # Install system dependencies for GDAL and Tippecanoe
 RUN apt-get update && apt-get install -y \
@@ -26,18 +26,8 @@ WORKDIR /app
 # Copy the requirements file into the container
 COPY requirements.txt .
 
-# Install the required Python packages using UV
-RUN uv pip install --no-cache -r requirements.txt --system
+# Install the required Python packages
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code into the container
 COPY . .
-
-# Install test dependencies
-RUN uv pip install --no-cache ".[test]" --system
-
-# Set environment variables for testing
-ENV PYTHONPATH=/app
-ENV TESTING=1
-
-# Default command to run tests
-CMD ["pytest", "cleaning/tests", "-v", "--cov=cleaning", "--cov-report=term-missing"]
