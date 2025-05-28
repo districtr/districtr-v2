@@ -1210,3 +1210,35 @@ async def get_group(
         "name": group[0].name,
         "slug": group[0].slug,
     }
+
+
+@app.get(
+    "/api/documents/{districtr_map_slug}",
+    response_model=list[DocumentPublic],
+)
+async def get_public_documents(
+    districtr_map_slug: str, session: Session = Depends(get_session)
+):
+    stmt = (
+        select(
+            Document.document_id,
+            Document.created_at,
+            Document.districtr_map_slug,
+            Document.gerrydb_table,
+            Document.updated_at,
+            Document.map_metadata,
+            DistrictrMap.map_type,
+            DistrictrMap.parent_layer,
+            DistrictrMap.child_layer,
+        )  # pyright: ignore
+        .where(Document.districtr_map_slug == districtr_map_slug)
+        .order_by(text("created_at DESC"))
+        .join(
+            DistrictrMap, Document.districtr_map_slug == DistrictrMap.districtr_map_slug
+        )
+        .where(DistrictrMap.visible == true())
+        .limit(30)
+    )
+
+    results = session.exec(stmt).all()
+    return results
