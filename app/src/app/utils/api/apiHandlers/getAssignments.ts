@@ -5,16 +5,16 @@ import {useMapStore} from '@store/mapStore';
 export const getAssignments = async (
   mapDocument: DocumentObject | null
 ): GetAssignmentsResponse => {
-  if (
-    mapDocument &&
-    mapDocument.document_id === useMapStore.getState().loadedMapId &&
-    useMapStore.getState().assignmentsHash
-  ) {
+  const {loadedMapId, assignmentsHash, setAppLoadingState, setMapLock} = useMapStore.getState();
+  if (mapDocument && mapDocument.document_id === loadedMapId && assignmentsHash) {
     console.log(
       'Map already loaded, skipping assignment load in handlers',
       mapDocument.document_id,
-      useMapStore.getState().loadedMapId
+      loadedMapId
     );
+    // clear spinner / shade conditions
+    setAppLoadingState('loaded');
+    setMapLock(false);
     return null;
   }
   if (mapDocument?.document_id) {
