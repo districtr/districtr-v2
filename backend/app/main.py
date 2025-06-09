@@ -62,7 +62,6 @@ from app.models import (
     MapGroup,
     AssignmentsCreate,
 )
-from app.save_share.models import UserID
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
@@ -513,16 +512,16 @@ async def get_assignments(
     return session.execute(stmt).fetchall()
 
 
-@app.post("/api/document/{document_id}", response_model=DocumentPublic)
+@app.get("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document_object(
     document_id: str,
-    data: UserID,
+    user_id: str | None = None,
     session: Session = Depends(get_session),
     status_code=status.HTTP_200_OK,
 ):
     try:
         return get_document_public(
-            document_id=document_id, user_id=data.user_id, session=session
+            document_id=document_id, user_id=user_id, session=session
         )
     except NoResultFound:
         raise HTTPException(

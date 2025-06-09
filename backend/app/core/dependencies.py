@@ -35,7 +35,7 @@ def get_protected_document(
     document_id: str, session: Session = Depends(get_session)
 ) -> Document:
     """
-    Returns a if the token_id was used instead of the document_id. This function
+    Always returns a document even if the token_id was used instead of the document_id. This function
     should be used for safe endpoints (i.e. GET requests). Any requests that modify
     data should use `get_document`. DO NOT return the result of this function
     from safe endpoints as this would leak the real document id.
@@ -65,22 +65,24 @@ def get_protected_document(
 
 
 def get_document_public(
-    document_id: str,
-    user_id: str,
     session: Session,
+    document_id: str,
+    user_id: str | None = None,
     shared: bool = False,
-    access_type: DocumentShareStatus = DocumentShareStatus.edit,
     lock_status: DocumentEditStatus | None = None,
 ) -> DocumentPublic:
     document = get_protected_document(document_id=document_id, session=session)
     # TODO: Rather than being a separate query, this should be part of the main query
     assert document.document_id is not None
-    if access_type == DocumentShareStatus.read:
-        lock_status = DocumentEditStatus.locked
-    elif lock_status != DocumentEditStatus.locked:
-        lock_status = check_map_lock(document.document_id, user_id, session)
-    else:
-        lock_status = lock_status
+
+    access_type = DocumentShareStatus.read
+    lock_status = DocumentEditStatus.locked
+
+    if document.document_id == document_id:
+        access_type = DocumentShareStatus.edit
+        lock_status = check_map_lock(
+            document.document_id, user_id=user_id, session=session
+        )
 
     stmt = (
         select(

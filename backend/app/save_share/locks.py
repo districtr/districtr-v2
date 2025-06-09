@@ -10,9 +10,10 @@ logging.basicConfig(level=logging.INFO)
 
 
 def check_map_lock(
-    document_id: str, user_id: str, session: Session = Depends(get_session)
+    document_id: str,
+    user_id: str | None = None,
+    session: Session = Depends(get_session),
 ) -> DocumentEditStatus:
-    # Try to fetch an existing lock for this document
     result = session.execute(
         text(
             """SELECT user_id FROM document.map_document_user_session
@@ -29,7 +30,6 @@ def check_map_lock(
         else:
             return DocumentEditStatus.locked
 
-    # If no record exists, insert a new one and return checked_out
     session.execute(
         text(
             """INSERT INTO document.map_document_user_session (document_id, user_id)

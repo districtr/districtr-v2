@@ -2,7 +2,6 @@ from fastapi import (
     status,
     Depends,
     HTTPException,
-    Body,
     APIRouter,
 )
 from typing import Annotated
@@ -10,7 +9,6 @@ from sqlalchemy import text, bindparam
 from sqlalchemy.exc import NoResultFound
 from sqlmodel import Session, String
 import logging
-from datetime import datetime, UTC, timedelta
 from app.core.db import get_session
 from app.core.dependencies import get_document as _get_document
 from app.core.config import settings
@@ -28,6 +26,7 @@ from app.save_share.models import (
     DocumentShareStatus,
     DocumentEditStatus,
     UserID,
+    DocumentShareRequest,
 )
 import bcrypt
 
@@ -110,7 +109,7 @@ async def get_document_status(
 @router.post("/api/document/{document_id}/share")
 async def share_districtr_plan(
     document: Annotated[Document, Depends(_get_document)],
-    params: dict = Body(...),
+    data: DocumentShareRequest,
     session: Session = Depends(get_session),
 ):
     # check if there's already a record for a document
@@ -127,8 +126,8 @@ async def share_districtr_plan(
     if existing_token:
         token_uuid = existing_token.token_id
 
-        if params["password"] is not None and not existing_token.password_hash:
-            hashed_password = hash_password(params["password"])
+        if data.password is not None and not existing_token.password_hash:
+            hashed_password = hash_password(data.password)
             session.execute(
                 text(
                     """
@@ -141,23 +140,9 @@ async def share_districtr_plan(
             )
             session.commit()
 
-        elif params["password"] is None:
-            payload = {
-                "token": token_uuid,
-                "access": (
-                    params["access_type"]
-                    if params["access_type"]
-                    else DocumentShareStatus.read
-                ),
-            }
-
         payload = {
             "token": token_uuid,
-            "access": (
-                params["access_type"]
-                if "access_type" in params
-                else DocumentShareStatus.read
-            ),
+            "access": data.access_type,
             "password_required": bool(existing_token.password_hash),
         }
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
@@ -165,27 +150,19 @@ async def share_districtr_plan(
 
     else:
         token_uuid = str(uuid4())
-        hashed_password = (
-            hash_password(params["password"]) if params["password"] else None
-        )
-        expiry = (
-            datetime.now(UTC) + timedelta(days=params["expiry_days"])
-            if "expiry_days" in params
-            else None
-        )
+        hashed_password = hash_password(data.password) if data.password else None
 
         session.execute(
             text(
                 """
-                INSERT INTO document.map_document_token (token_id, document_id, password_hash, expiration_date)
-                VALUES (:token_id, :document_id, :password_hash, :expiration_date)
+                INSERT INTO document.map_document_token (token_id, document_id, password_hash)
+                VALUES (:token_id, :document_id, :password_hash)
                 """
             ),
             {
                 "token_id": token_uuid,
                 "document_id": document.document_id,
                 "password_hash": hashed_password,
-                "expiration_date": expiry,
             },
         )
 
@@ -193,9 +170,7 @@ async def share_districtr_plan(
 
     payload = {
         "token": token_uuid,
-        "access": (
-            params["access_type"] if params["access_type"] else DocumentShareStatus.read
-        ),
+        "access": data.access_type,
         "password_required": bool(hashed_password),
     }
 
@@ -212,7 +187,7 @@ async def load_plan_from_share(
     result = session.execute(
         text(
             """
-            SELECT document_id, password_hash, expiration_date
+            SELECT document_id, password_hash
             FROM document.map_document_token
             WHERE token_id = :token
             """
@@ -246,7 +221,6 @@ async def load_plan_from_share(
         user_id=data.user_id,
         session=session,
         shared=True,
-        access_type=data.access,
         lock_status=(
             DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
         ),
@@ -269,7 +243,7 @@ async def checkout_plan(
         result = session.execute(
             text(
                 """
-                SELECT document_id, password_hash, expiration_date
+                SELECT document_id, password_hash
                 FROM document.map_document_token
                 WHERE token_id = :token
                 """
@@ -282,7 +256,7 @@ async def checkout_plan(
             detail="Token not found",
         )
 
-    if verify_password(data.password, result.password_hash):
+    if data.password and verify_password(data.password, result.password_hash):
         assert document.document_id
         lock_status = check_map_lock(
             document_id=document.document_id, user_id=data.user_id, session=session
@@ -292,5 +266,5 @@ async def checkout_plan(
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password",
+            detail="Invalid password or none provided",
         )
