@@ -82,6 +82,7 @@ export const ToolSettings: React.FC = () => {
                 showPopulationTooltip: !mapOptions.showPopulationTooltip,
               })
             }
+            disabled={access === 'read'}
           >
             Show population tooltip
           </CheckboxGroup.Item>
@@ -208,6 +209,7 @@ export const ToolSettings: React.FC = () => {
           <CheckboxGroup.Item
             value="customizeToolbar"
             onClick={() => setCustomzieToolbar(!customizeToolbar)}
+            disabled={access === 'read'}
           >
             Enable draggable toolbar
           </CheckboxGroup.Item>

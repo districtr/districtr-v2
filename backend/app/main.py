@@ -608,11 +608,15 @@ async def _get_graph(gerrydb_name: str) -> Graph:
 async def check_document_contiguity(
     document_id: str,
     document: Annotated[Document, Depends(get_protected_document)],
-    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
     assert document.document_id is not None
+
+    districtr_map = _get_districtr_map(
+        session=session, document_id=document.document_id
+    )
+
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"
@@ -662,10 +666,14 @@ async def get_connected_component_bboxes(
     document_id: str,
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
-    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
     session: Session = Depends(get_session),
 ):
     assert document.document_id is not None
+
+    districtr_map = _get_districtr_map(
+        session=session, document_id=document.document_id
+    )
+
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"

@@ -98,10 +98,7 @@ export const Topbar: React.FC = () => {
                       )}
                     </DropdownMenu.SubContent>
                   </DropdownMenu.Sub>
-                  <DropdownMenu.Item
-                    onClick={() => setModalOpen('upload')}
-                    disabled={access === 'read'}
-                  >
+                  <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
                     Upload block assignments
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
