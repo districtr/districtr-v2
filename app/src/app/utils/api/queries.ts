@@ -1,9 +1,8 @@
 import {QueryObserver} from '@tanstack/react-query';
 import {queryClient} from './queryClient';
-import {DistrictrMap, RemoteAssignmentsResponse, DocumentObject} from './apiHandlers/types';
+import {DistrictrMap, DocumentObject} from './apiHandlers/types';
 
 import {getAvailableDistrictrMaps} from '@utils/api/apiHandlers/getAvailableDistrictrMaps';
-import {getAssignments} from '@utils/api/apiHandlers/getAssignments';
 import {getDocument} from '@utils/api/apiHandlers/getDocument';
 import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
@@ -38,17 +37,8 @@ const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
   });
 };
 
-const getDocumentFunction = (documentId?: string) => {
-  return async () => {
-    const currentId = useMapStore.getState().mapDocument?.document_id;
-    if (documentId) {
-      useMapStore.getState().setAppLoadingState('loading');
-      return await getDocument(documentId);
-    } else {
-      return null;
-    }
-  };
-};
+const getDocumentFunction = (documentId?: string) => async () =>
+  documentId ? getDocument(documentId) : null;
 
 const updateDocumentFromId = new QueryObserver<DocumentObject | null>(queryClient, {
   queryKey: ['mapDocument', undefined],
@@ -82,29 +72,6 @@ const updateGetDocumentFromId = (documentId: string) => {
     queryFn: getDocumentFunction(documentId),
   });
 };
-
-export const fetchAssignments = new QueryObserver<null | RemoteAssignmentsResponse>(queryClient, {
-  queryKey: ['assignments'],
-  queryFn: () => getAssignments(useMapStore.getState().mapDocument),
-  staleTime: 0,
-  placeholderData: _ => null,
-});
-
-const updateAssignments = (mapDocument: DocumentObject) => {
-  fetchAssignments.setOptions({
-    queryFn: () => getAssignments(mapDocument),
-    queryKey: ['assignments', performance.now()],
-  });
-};
-
-fetchAssignments.subscribe(assignments => {
-  if (assignments.data) {
-    const {loadZoneAssignments, setAppLoadingState} = useMapStore.getState();
-    loadZoneAssignments(assignments.data);
-    useMapStore.temporal.getState().clear();
-    setAppLoadingState('loaded');
-  }
-});
 
 const fetchDemography = new QueryObserver<null | {
   columns: AllTabularColumns[number][];
@@ -183,7 +150,6 @@ export {
   getQueriesResultsSubs,
   mapViewsQuery,
   updateGetDocumentFromId,
-  updateAssignments,
   updateDocumentFromId,
   fetchDemography,
 };

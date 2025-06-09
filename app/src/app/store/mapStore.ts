@@ -993,10 +993,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   loadZoneAssignments: assignmentsData => {
     lastSentAssignments.clear();
-    const {mapDocument} = get();
-    if (mapDocument?.document_id !== assignmentsData.documentId) {
-      return;
-    }
+    useMapStore.temporal.getState().clear();
     const assignments = assignmentsData.assignments;
     const zoneAssignments = new Map<string, number>();
     const shatterIds = {

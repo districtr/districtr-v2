@@ -4,9 +4,9 @@ import {FormatAssignments} from '../utils/api/apiHandlers/formatAssignments';
 import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
-import {updateAssignments} from '../utils/api/queries';
 import GeometryWorker from '../utils/GeometryWorker';
 import {demographyCache} from '../utils/demography/demographyCache';
+import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
@@ -56,7 +56,29 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
 
   const fetchAssignmentsSub = useMapStore.subscribe(
     state => state.mapDocument,
-    mapDocument => mapDocument && updateAssignments(mapDocument)
+    (curr, prev) => {
+      const {loadZoneAssignments, setErrorNotification} = useMapStore.getState();
+      if (curr === prev) return;
+      const isInitialDocument = !prev;
+      const remoteHasUpdated =
+        curr?.updated_at &&
+        prev?.updated_at &&
+        new Date(curr.updated_at) > new Date(prev.updated_at);
+      const mapDocumentChanged = curr?.document_id !== prev?.document_id;
+      if (isInitialDocument || remoteHasUpdated || mapDocumentChanged) {
+        getAssignments(curr).then(data => {
+          if (data === null) {
+            setErrorNotification({
+              severity: 2,
+              id: 'assignments-not-found',
+              message: 'Assignments not found',
+            });
+          } else {
+            loadZoneAssignments(data);
+          }
+        });
+      }
+    }
   );
 
   const healAfterEdits = useMapStore.subscribe<[MapStore['parentsToHeal'], MapStore['mapOptions']]>(
