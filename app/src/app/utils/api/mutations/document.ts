@@ -13,12 +13,8 @@ export const document = new MutationObserver(queryClient, {
     console.error('Error creating map document: ', error);
   },
   onSuccess: data => {
-    const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} =
-      useMapStore.getState();
+    const {setMapDocument, setAssignmentsHash, setAppLoadingState} = useMapStore.getState();
     setMapDocument(data);
-    if (data.genesis === 'created' || data.genesis === 'copied') {
-      setLoadedMapId(data.document_id);
-    }
     setAssignmentsHash(Date.now().toString());
     setAppLoadingState('loaded');
     const documentUrl = new URL(window.location.toString());

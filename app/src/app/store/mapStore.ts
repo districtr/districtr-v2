@@ -90,8 +90,6 @@ export interface MapStore {
   setMapStatus: (status: Partial<StatusObject>) => void;
   colorScheme: string[];
   setColorScheme: (colors: string[]) => void;
-  loadedMapId: string;
-  setLoadedMapId: (mapId: string) => void;
 
   // SHATTERING
   /**
@@ -496,7 +494,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       mapRenderingState:
         mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
       shatterIds: {parents: new Set(), children: new Set()},
-      loadedMapId: undefined,
     });
   },
   mapStatus: null,
@@ -506,21 +503,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   colorScheme: DefaultColorScheme,
   setColorScheme: colorScheme => set({colorScheme}),
-  loadedMapId: '',
-  setLoadedMapId: loadedMapId => set({loadedMapId}),
-
-  // TODO: Refactor to something like this
-  // featureStates: {
-  //   locked: [],
-  //   hovered: [],
-  //   focused: [],
-  //   highlighted: []
-  // },
-  // setFeatureStates: (
-  //   features, state, action
-  // ) => {
-  //   if
-  // },
   lockedFeatures: new Set(),
   lockFeature: (id, lock) => {
     const lockedFeatures = new Set(get().lockedFeatures);
@@ -1021,7 +1003,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       shatterIds,
       shatterMappings,
       appLoadingState: 'loaded',
-      loadedMapId: assignmentsData.documentId,
     });
   },
   zonePopulations: new Map(),

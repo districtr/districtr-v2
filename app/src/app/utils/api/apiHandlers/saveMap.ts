@@ -4,15 +4,8 @@ import {handleCreateBlankMetadataObject} from '../../helpers';
 import {DocumentMetadata} from '../apiHandlers/types';
 
 export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
-  const {
-    mapDocument,
-    mapStatus,
-    setMapStatus,
-    upsertUserMap,
-    setLoadedMapId,
-    setMapDocument,
-    setShareMapMessage,
-  } = useMapStore.getState();
+  const {mapDocument, mapStatus, setMapStatus, upsertUserMap, setMapDocument, setShareMapMessage} =
+    useMapStore.getState();
 
   if (!mapDocument?.document_id) return;
 
@@ -33,9 +26,7 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
 
         upsertUserMap({documentId: data.document_id, mapDocument: updatedMapDoc});
         setMapDocument(updatedMapDoc);
-
         // TODO Neither of these two settings seem to properly tell the client that the document can be edited
-        setLoadedMapId(updatedMapDoc.document_id);
         setMapStatus({
           access: updatedMapDoc.access,
           status: updatedMapDoc.status,
