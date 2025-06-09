@@ -8,6 +8,7 @@ export function ZoneLockPicker() {
   const lockedZones = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const mapDocument = useMapStore(state => state.mapDocument);
   const colorScheme = useMapStore(state => state.colorScheme);
+  const access = useMapStore(state => state.mapStatus?.access);
   const numDistricts = mapDocument?.num_districts || 40;
   const allDistrictsNumbers = new Array(numDistricts).fill(null).map((_, i) => i + 1);
   const pickerValue = Array.isArray(lockedZones)
@@ -26,13 +27,13 @@ export function ZoneLockPicker() {
   const unlockAll = () => setLockedZones([]);
 
   return (
-    <div>
+    <div style={access === 'read' ? {pointerEvents: 'none', opacity: 0.5} : {}}>
       <ColorPicker onValueChange={handleChange} defaultValue={[]} value={pickerValue} multiple />
-      <Button onClick={lockAll} mr="2" mt="2" variant="outline">
+      <Button onClick={lockAll} mr="2" mt="2" variant="outline" disabled={access === 'read'}>
         <LockClosedIcon />
         Lock all
       </Button>
-      <Button onClick={unlockAll} mt="2" variant="outline">
+      <Button onClick={unlockAll} mt="2" variant="outline" disabled={access === 'read'}>
         <LockOpen2Icon />
         Unlock all
       </Button>

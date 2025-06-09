@@ -34,7 +34,6 @@ export const ColorPicker = <T extends boolean>({
   const colorScheme = useMapStore(state => state.colorScheme);
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
 
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
@@ -60,7 +59,8 @@ export const ColorPicker = <T extends boolean>({
       // if key is digit, set selected zone to that digit
       if (!event.code.includes('Digit')) return;
       let value = event.key;
-      const numDistricts = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+      const numDistricts =
+        useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
       const numDigits = numDistricts.toString().length;
       if (numDistricts >= 10) {
         hotkeyRef.current = (hotkeyRef.current || '') + value;

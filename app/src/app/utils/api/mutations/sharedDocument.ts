@@ -52,6 +52,12 @@ export const sharedDocument = new MutationObserver(queryClient, {
       documentUrl.searchParams.delete('share'); // remove share + token from url
       documentUrl.searchParams.set('document_id', data.document_id);
       history.pushState({}, '', documentUrl.toString());
+    } else if (data.access === 'read') {
+      // For read-only access, remove share token but keep the document_id as token ID
+      const documentUrl = new URL(window.location.toString());
+      documentUrl.searchParams.delete('share');
+      documentUrl.searchParams.set('document_id', data.document_id);
+      history.pushState({}, '', documentUrl.toString());
     }
   },
 });

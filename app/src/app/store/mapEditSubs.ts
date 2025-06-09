@@ -15,15 +15,15 @@ let allowSendZoneUpdates = true;
 
 const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
   // locked during break or heal
-  const {mapLock, mapDocument, shatterIds, shatterMappings, lastUpdatedHash, userID} =
-    _useMapStore.getState();
+  const {mapLock, mapDocument, mapStatus, lastUpdatedHash, userID} = _useMapStore.getState();
   const document_id = mapDocument?.document_id;
   if (
     !mapLock &&
     getMapRef?.() &&
     zoneAssignments?.size &&
     appLoadingState === 'loaded' &&
-    document_id
+    document_id &&
+    mapStatus?.access === 'edit'
   ) {
     const assignments = FormatAssignments();
     if (assignments.length) {
@@ -133,8 +133,9 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const _addColorSchemeSub = useMapStore.subscribe<MapStore['colorScheme']>(
     state => state.colorScheme,
     colorScheme => {
-      const {mapDocument} = useMapStore.getState();
-      if (mapDocument) {
+      const {mapDocument, mapStatus} = useMapStore.getState();
+      if (mapDocument && mapStatus?.access === 'edit') {
+        console.log('Color scheme updating:', colorScheme, mapStatus);
         saveColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
       }
     },

@@ -40,6 +40,7 @@ export const ToolSettings: React.FC = () => {
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
   const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
+  const access = useMapStore(state => state.mapStatus?.access);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
@@ -131,7 +132,13 @@ export const ToolSettings: React.FC = () => {
           >
             Highlight broken precincts
           </CheckboxGroup.Item>
-          <Button onClick={() => setColorModalOpen(true)} variant="outline" size="1" mt="2">
+          <Button
+            onClick={() => setColorModalOpen(true)}
+            variant="outline"
+            size="1"
+            mt="2"
+            disabled={access === 'read'}
+          >
             Customize district colors
           </Button>
         </CheckboxGroup.Root>

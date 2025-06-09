@@ -345,6 +345,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       accumulatedGeoids,
       activeTool,
       mapDocument,
+      mapStatus,
       getMapRef,
       selectedZone: _selectedZone,
       allPainted,
@@ -354,7 +355,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     const updateHash = new Date().toISOString();
     const map = getMapRef();
     const selectedZone = activeTool === 'eraser' ? null : _selectedZone;
-    if (!map || !mapDocument?.document_id) {
+    if (!map || !mapDocument?.document_id || mapStatus?.access === 'read') {
       return;
     }
     // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`

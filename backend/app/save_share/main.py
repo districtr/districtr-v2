@@ -237,8 +237,12 @@ async def load_plan_from_share(
                 detail="Invalid password",
             )
 
+    document_id = (
+        token_id if data.access == DocumentShareStatus.read else str(result.document_id)
+    )
+
     return get_document_public(
-        document_id=str(result.document_id),
+        document_id=document_id,
         user_id=data.user_id,
         session=session,
         shared=True,

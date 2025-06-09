@@ -7,6 +7,11 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
   const {mapDocument, mapStatus, upsertUserMap, setMapDocument, setShareMapMessage} =
     useMapStore.getState();
   if (mapDocument?.document_id) {
+    // Read-only users cannot save - show error message
+    if (mapStatus?.access === 'read') {
+      setShareMapMessage('Cannot save changes in read-only mode. Create a copy to make edits.');
+      return;
+    }
     if (mapStatus?.status === 'locked') {
       // atp doesn't matter that it's locked, even with pw; should be able to copy map
       // what we need is a pw entry field to open if there's a pw required in the url

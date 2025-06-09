@@ -38,6 +38,7 @@ export const Topbar: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const status = useMapStore(state => state.mapStatus?.status);
+  const access = useMapStore(state => state.mapStatus?.access);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
   const passwordPrompt = useMapStore(state => state.passwordPrompt);
@@ -111,7 +112,10 @@ export const Topbar: React.FC = () => {
                       )}
                     </DropdownMenu.SubContent>
                   </DropdownMenu.Sub>
-                  <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
+                  <DropdownMenu.Item
+                    onClick={() => setModalOpen('upload')}
+                    disabled={access === 'read'}
+                  >
                     Upload block assignments
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
@@ -167,7 +171,7 @@ export const Topbar: React.FC = () => {
                 View recent maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
+                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id || access === 'read'}>
                   Reset map
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.SubContent>

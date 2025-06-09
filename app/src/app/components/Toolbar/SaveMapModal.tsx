@@ -43,6 +43,7 @@ export const SaveMapModal: React.FC<{
   const appLoadingState = useMapStore(store => store.appLoadingState);
   const mapDocument = useMapStore(store => store.mapDocument);
   const status = useMapStore(store => store.mapStatus?.status);
+  const access = useMapStore(store => store.mapStatus?.access);
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
   const [mapNameIsSaved, setMapNameIsSaved] = React.useState(false);
@@ -311,7 +312,7 @@ export const SaveMapModal: React.FC<{
             variant="solid"
             className="flex items-center "
             onClick={handleMapSave}
-            disabled={mapIsSaved}
+            disabled={mapIsSaved || access === 'read'}
           >
             {status !== 'locked' && mapIsSaved
               ? 'Saved!'

@@ -24,7 +24,7 @@ class DocumentShareStatus(str, Enum):
 
 class TokenRequest(BaseModel):
     token: str
-    password: str
+    password: str | None = None
     user_id: str
     access: DocumentShareStatus = DocumentShareStatus.read
 

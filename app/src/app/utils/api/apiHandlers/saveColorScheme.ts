@@ -19,9 +19,10 @@ export const saveColorScheme = async ({
       return res.data;
     })
     .catch(err => {
+      console.error(err);
       const setErrorNotification = useMapStore.getState().setErrorNotification;
       setErrorNotification({
-        message: err.response.data.message,
+        message: err.response?.data?.message,
         severity: 2,
         id: `change-colors-${document_id}-${colors.join('-')}`,
       });
