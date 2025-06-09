@@ -8,7 +8,7 @@ import {
 } from '@utils/helpers';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
-import {useDemographyStore as _useDemographyStore} from '../../store/demographyStore';
+import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
 import {useHoverStore as _useHoverStore, HoverFeatureStore} from '../../store/hoverFeatures';
 import {demographyCache} from '../demography/demographyCache';
 import {FocusState, ShatterState} from './types';
@@ -158,7 +158,6 @@ export class MapRenderSubscriber {
         cursor = 'url(break.png) 12 12, pointer';
         this.useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
         break;
-      case 'lock':
       default:
         cursor = '';
     }

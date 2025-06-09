@@ -1,0 +1,43 @@
+name: vap and election batch dataset load
+version: 0.1.0
+datasets:
+  ak_districtr_view:
+    parent_gpkg: ak_vtd_districtr_view.gpkg
+    child_gpkg: ak_block_districtr_view.gpkg
+    out_path: ak_districtr_view.parquet
+  co_districtr_view:
+    parent_gpkg: co_vtd_districtr_view.gpkg
+    child_gpkg: co_block_districtr_view.gpkg
+    out_path: co_districtr_view.parquet
+  fl_districtr_view:
+    parent_gpkg: fl_vtd_districtr_view.gpkg
+    child_gpkg: fl_block_districtr_view.gpkg
+    out_path: fl_districtr_view.parquet
+  ks_districtr_view:
+    parent_gpkg: ks_vtd_districtr_view.gpkg
+    child_gpkg: ks_block_districtr_view.gpkg
+    out_path: ks_districtr_view.parquet
+  ma_districtr_view:
+    parent_gpkg: ma_vtd_districtr_view.gpkg
+    child_gpkg: ma_block_districtr_view.gpkg
+    out_path: ma_districtr_view.parquet
+  mt_districtr_view:
+    parent_gpkg: mt_vtd_districtr_view.gpkg
+    child_gpkg: mt_block_districtr_view.gpkg
+    out_path: mt_districtr_view.parquet
+  nc_districtr_view:
+    parent_gpkg: nc_vtd_districtr_view.gpkg
+    child_gpkg: nc_block_districtr_view.gpkg
+    out_path: nc_districtr_view.parquet
+  pa_districtr_view:
+    parent_gpkg: pa_vtd_districtr_view.gpkg
+    child_gpkg: pa_block_districtr_view.gpkg
+    out_path: pa_districtr_view.parquet
+  tx_districtr_view:
+    parent_gpkg: tx_vtd_districtr_view.gpkg
+    child_gpkg: tx_block_districtr_view.gpkg
+    out_path: tx_districtr_view.parquet
+  wa_districtr_view:
+    parent_gpkg: wa_vtd_districtr_view.gpkg
+    child_gpkg: wa_block_districtr_view.gpkg
+    out_path: wa_districtr_view.parquet

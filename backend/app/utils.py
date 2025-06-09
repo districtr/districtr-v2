@@ -3,27 +3,14 @@ from sqlalchemy import bindparam, Integer, String, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, Float, Boolean
 import logging
-from urllib.parse import ParseResult
-import os
-from app.core.config import settings
-import bcrypt
-from urllib.parse import urlparse
-from pathlib import Path
 from app.constants import GERRY_DB_SCHEMA
+from sqlmodel import select
 
 
-from app.models import SummaryStatisticType, UUIDType, DistrictrMap, DistrictrMapUpdate
+from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-
-def verify_password(password: str, hashed_password: str) -> bool:
-    return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
 def create_districtr_map(
@@ -35,6 +22,8 @@ def create_districtr_map(
     gerrydb_table_name: str | None = None,
     num_districts: int | None = None,
     tiles_s3_path: str | None = None,
+    group_slug: str | None = None,
+    map_type: str = "default",
     visibility: bool = True,
 ) -> str:
     """
@@ -46,6 +35,7 @@ def create_districtr_map(
         districtr_map_slug: The slug of the districtr map.
         parent_layer_name: The name of the parent layer.
         child_layer_name: The name of the child layer.
+        group_slug: The slug of the map group.
         gerrydb_table_name: The name of the gerrydb table.
         num_districts: The number of districts.
         tiles_s3_path: The S3 path to the tiles.
@@ -65,7 +55,8 @@ def create_districtr_map(
         :tiles_s3_path,
         :parent_layer_name,
         :child_layer_name,
-        :visibility
+        :visibility,
+        :map_type
     )"""
     ).bindparams(
         bindparam(key="map_name", type_=String),
@@ -76,6 +67,7 @@ def create_districtr_map(
         bindparam(key="parent_layer_name", type_=String),
         bindparam(key="child_layer_name", type_=String),
         bindparam(key="visibility", type_=Boolean),
+        bindparam(key="map_type", type_=String),
     )
 
     (inserted_map_uuid,) = session.execute(
@@ -89,8 +81,17 @@ def create_districtr_map(
             "parent_layer_name": parent_layer,
             "child_layer_name": child_layer,
             "visibility": visibility,
+            "map_type": map_type,
         },
     )
+
+    if group_slug is not None:
+        add_districtr_map_to_map_group(
+            session=session,
+            districtr_map_slug=districtr_map_slug,
+            group_slug=group_slug,
+        )
+
     return inserted_map_uuid[0]  # pyright: ignore
 
 
@@ -275,214 +276,6 @@ def add_extent_to_districtrmap(
     session.execute(stmt)
 
 
-def get_available_summary_stats(session: Session, gerrydb_table_name: str):
-    """
-    Get the available summary statistics for a given gerrydb table.
-
-    Args:
-        session: The database session.
-        gerrydb_table_name: The name of the gerrydb table.
-    """
-    stmt = text("SELECT * FROM get_available_summary_stats(:gerrydb_table_name)")
-    return session.execute(
-        stmt,
-        {
-            "gerrydb_table_name": gerrydb_table_name,
-        },
-    ).all()
-
-
-def add_available_summary_stats_to_districtrmap(
-    session: Session, districtr_map_uuid: str, summary_stats: list[str] | None = None
-) -> list[SummaryStatisticType] | None:
-    """
-    Add the available summary statistics to the districtr map.
-
-    Args:
-        session: The database session.
-        districtr_map_uuid: The UUID of the districtr map.
-        summary_stats: The summary statistics to add.
-    """
-    if summary_stats is not None:
-        raise NotImplementedError(
-            "Manually adding summary stats to a districtr map is not yet implemented."
-        )
-
-    stmt = text(
-        """
-        UPDATE districtrmap
-        SET available_summary_stats =
-            CASE WHEN child_layer IS NOT NULL THEN
-                (
-                SELECT ARRAY_AGG(summary_stat) FROM get_available_summary_stats(child_layer)
-                INTERSECT
-                SELECT ARRAY_AGG(summary_stat) FROM get_available_summary_stats(parent_layer)
-                )
-            ELSE
-                (SELECT ARRAY_AGG(summary_stat) FROM get_available_summary_stats(parent_layer))
-            END
-        WHERE uuid = :districtr_map_uuid
-        RETURNING available_summary_stats
-        """
-    ).bindparams(
-        bindparam(key="districtr_map_uuid", type_=UUIDType),
-    )
-    result = session.execute(
-        stmt,
-        {
-            "districtr_map_uuid": districtr_map_uuid,
-            "summary_stats": summary_stats,
-        },
-    )
-    (available_summary_stats,) = result.one()
-    logger.info(
-        f"Updated available summary stats for districtr map {districtr_map_uuid} to {available_summary_stats}"
-    )
-    return available_summary_stats
-
-
-def download_file_from_s3(
-    s3, url: ParseResult, out_path: str | None = None, replace=False
-) -> str:
-    """
-    Download a file from S3 to the local volume path.
-
-    Args:
-        s3: S3 client
-        url (ParseResult): URL of the file to download
-        replace (bool): If True, replace the file if it already exists
-
-    Returns the path to the downloaded file.
-    """
-    if not s3:
-        raise ValueError("S3 client is not available")
-
-    s3_prefix = url.path.lstrip("/")
-    logger.info("File name: %s", s3_prefix)
-    object_information = s3.head_object(Bucket=url.netloc, Key=s3_prefix)
-
-    if object_information["ResponseMetadata"]["HTTPStatusCode"] != 200:
-        raise ValueError(f"File {s3_prefix} not found in S3 bucket {url.netloc}")
-
-    logger.info("Downloading file from s3. Got response:\n%s", object_information)
-
-    if not out_path:
-        out_path = s3_prefix
-
-    path = os.path.join(settings.VOLUME_PATH, out_path)
-    logger.info("Path: %s", path)
-
-    if os.path.exists(path) and not replace:
-        logger.info("File already exists. Skipping download.")
-    else:
-        logger.info("Downloading file...")
-
-        path_dir = Path(path).parent
-        logger.info("Creating directory: %s", path_dir)
-        path_dir.mkdir(parents=True, exist_ok=True)
-        s3.download_file(url.netloc, s3_prefix, path)
-
-    return path
-
-
-def get_local_or_s3_path(file_path: str, replace: bool = False) -> str:
-    """
-    Get the local or S3 path for a file.
-
-    Args:
-        file_path (str): The path to the file.
-        replace (bool): If True, replace the file if it already exists
-
-    Returns the path to the downloaded file.
-    """
-    url = urlparse(file_path)
-    logger.info("URL: %s", url)
-
-    if url.scheme == "s3":
-        s3 = settings.get_s3_client()
-        assert s3, "S3 client is not available"
-        return download_file_from_s3(s3=s3, url=url, replace=replace)
-
-    return file_path
-
-
-def remove_file(filename: str) -> None:
-    """
-    Remove a file, quietly warning of failure rather than raising an Error.
-
-    Args:
-        filename (str): The name of the file to remove.
-    """
-    try:
-        os.remove(filename)
-        logger.info(f"Removed file {filename}")
-    except FileNotFoundError:
-        logger.warning(f"File {filename} not found")
-        pass
-
-
-def _cleanup_expired_locks(session: Session, hours: int) -> list[str] | None:
-    """
-    Delete expired locks from the database.
-
-    Args:
-        hours (int): The number of hours to keep locks.
-
-    Returns:
-        list[str]: A list of document IDs that had their locks deleted.
-
-    Note:
-    This feels like a DB concern and could be implemented with pg_cron.
-    Did a brief spike trying to get pg_cron set up. Definitely a bit of a hassle
-    so this will work for now.
-    """
-    stmt = text("DELETE FROM locks WHERE created_at < NOW() - INTERVAL :n_hours HOUR")
-    try:
-        stmt = text(
-            """DELETE FROM document.map_document_user_session
-            WHERE updated_at < NOW() - make_interval(hours => :n_hours)
-            RETURNING document_id"""
-        )
-
-        result = session.execute(stmt, {"n_hours": hours}).scalars()
-        locks = list(result)
-        session.commit()
-        logger.info(
-            f"Deleted {len(locks)} expired locks: [{' '.join(map(str, locks))}]"
-        )
-        return locks
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Error deleting expired locks: {e}")
-
-
-def _remove_all_locks(session: Session) -> list[str] | None:
-    """
-    Delete all locks from the database.
-
-    Args:
-        session (Session): The database session.
-
-    Returns:
-        list[str]: A list of document IDs that had their locks deleted.
-    """
-    stmt = text("DELETE FROM locks")
-    try:
-        stmt = text(
-            """DELETE FROM document.map_document_user_session
-            RETURNING document_id"""
-        )
-
-        result = session.execute(stmt).scalars()
-        locks = list(result)
-        session.commit()
-        logger.info(f"Deleted {len(locks)} locks: [{' '.join(map(str, locks))}]")
-        return locks
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Error deleting all locks: {e}")
-
-
 def create_spatial_index(
     session: Session,
     table_name: str,
@@ -500,5 +293,54 @@ def create_spatial_index(
     session.execute(
         text(f"CREATE INDEX ON {GERRY_DB_SCHEMA}.{table_name} USING GIST ({geometry})"),
     )
+    if autocommit:
+        session.commit()
+
+
+def create_map_group(
+    session: Session,
+    group_name: str,
+    slug: str,
+    autocommit: bool = True,
+):
+    """
+    Create a MapGroup which can organize multiple DistrictrMaps.
+
+    Args:
+        session (Session): The database session.
+        group_name (str): The name of the group.
+        slug (str): The slug for the group used in URLs and queries.
+    """
+    session.execute(
+        text("INSERT INTO map_group (name, slug) VALUES (:group_name, :slug)"),
+        {
+            "group_name": group_name,
+            "slug": slug,
+        },
+    )
+    if autocommit:
+        session.commit()
+
+
+def add_districtr_map_to_map_group(
+    session: Session, districtr_map_slug: str, group_slug: str, autocommit: bool = True
+):
+    districtr_map = session.exec(
+        select(DistrictrMap).where(
+            DistrictrMap.districtr_map_slug == districtr_map_slug  # pyright: ignore
+        )
+    ).one()
+
+    group_stmt = text("""
+        INSERT INTO districtrmaps_to_groups (group_slug, districtrmap_uuid)
+        VALUES (:slug, :uuid)""")
+    session.execute(
+        group_stmt,
+        {
+            "uuid": districtr_map.uuid,
+            "slug": group_slug,
+        },
+    )
+
     if autocommit:
         session.commit()

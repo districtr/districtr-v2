@@ -3,9 +3,9 @@ import {useMapStore} from '@store/mapStore';
 import {useChartStore} from '@store/chartStore';
 import {useMemo} from 'react';
 import {demographyCache} from '@utils/demography/demographyCache';
-import {SummaryRecord} from '../utils/demography/types';
-import {useDemographyStore} from '../store/demographyStore';
+import {useDemographyStore} from '../store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '../constants/layers';
+import {SummaryRecord} from '../utils/api/summaryStats';
 
 /**
  * Custom hook to retrieve and process demography data.
@@ -22,7 +22,7 @@ import {FALLBACK_NUM_DISTRICTS} from '../constants/layers';
  * - Applies any painted changes to the population data.
  * - Sorts the population data by zone.
  */
-export const useDemography = (includeUnassigned?: boolean) => {
+export const useZonePopulations = (includeUnassigned?: boolean) => {
   const demogHash = useDemographyStore(state => state.dataHash);
   const chartHash = useChartStore(state => state.dataUpdateHash);
   const paintedChanges = useChartStore(state => state.paintedChanges);
@@ -30,7 +30,7 @@ export const useDemography = (includeUnassigned?: boolean) => {
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
   const mapDocument = useMapStore(state => state.mapDocument);
-
+  const demoIsLoaded = mapDocument?.document_id && demogHash.includes(mapDocument.document_id);
   // TODO: Could be refactored in the main demographyCache class
   const populationData = useMemo(() => {
     let cleanedData = structuredClone(demographyCache.populations).filter(row =>
@@ -40,7 +40,7 @@ export const useDemography = (includeUnassigned?: boolean) => {
     if (zonesPresent.length < numDistricts) {
       for (let i = 1; i <= numDistricts; i++) {
         if (!zonesPresent.includes(i)) {
-          cleanedData.push({zone: i, total_pop_20: 0} as SummaryRecord);
+          cleanedData.push({zone: i, total_pop_20: 0} as unknown as SummaryRecord);
         }
       }
     }
@@ -56,5 +56,6 @@ export const useDemography = (includeUnassigned?: boolean) => {
 
   return {
     populationData,
+    demoIsLoaded,
   };
 };

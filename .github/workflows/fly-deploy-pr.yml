@@ -115,7 +115,11 @@ jobs:
                     BACKEND_CORS_ORIGINS="https://${{ github.event.repository.name }}-${{ github.event.number }}-app.fly.dev,https://districtr-v2-frontend.fly.dev" \
                     DATABASE_URL="postgresql+psycopg://postgres:${{ secrets.FLY_PR_PG_PASSWORD }}@${{ steps.fork-db.outputs.name }}.flycast:5433/districtr_v2_api?sslmode=disable&options=-csearch_path%3Dpublic" \
                     AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-                    AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                    AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
+                    AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }} \
+                    AUTH0_API_AUDIENCE=${{ secrets.AUTH0_API_AUDIENCE }} \
+                    AUTH0_ISSUER=${{ secrets.AUTH0_ISSUER }} \
+                    AUTH0_ALGORITHMS=RS256
                     
                     flyctl deploy \
                     --config fly.toml --app "${{ github.event.repository.name }}-${{ github.event.number }}-api" \
@@ -140,7 +144,7 @@ jobs:
                   flyctl launch \
                   --no-deploy --copy-config --name "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
                   --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
-                  --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com
+                  --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
             
                   echo "App $app launched successfully."
                 fi
@@ -159,12 +163,19 @@ jobs:
                 -a "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
                 ENVIRONMENT="qa" \
                 NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
-                NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com
+                NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org \
+                AUTH0_CLIENT_ID=${{ secrets.AUTH0_CLIENT_ID }} \
+                AUTH0_CLIENT_SECRET=${{ secrets.AUTH0_CLIENT_SECRET }} \
+                AUTH0_DOMAIN=${{ secrets.AUTH0_DOMAIN }} \
+                AUTH0_ISSUER=${{ secrets.AUTH0_ISSUER }} \
+                AUTH0_AUDIENCE=${{ secrets.AUTH0_API_AUDIENCE }} \
+                APP_BASE_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-app.fly.dev" \
+                AUTH0_SECRET=${{ secrets.AUTH0_SECRET }}
             
                 # Deploy the app
                 flyctl deploy --config "$config" --app "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
                 --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
-                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://districtr-v2-dev.s3.amazonaws.com \
+                --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org \
                 --strategy immediate '--ha=false' \
                 --vm-cpu-kind shared --vm-cpus 1 --vm-memory 256
               working-directory: app

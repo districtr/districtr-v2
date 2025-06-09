@@ -63,7 +63,7 @@ def test_load_gml(connected_graph):
 
 @fixture(name="file_path")
 def gerrydb_simple_child_geos_graph_path() -> str:
-    return str(FIXTURES_PATH / "simple_child_geos.gml")
+    return str(FIXTURES_PATH / "contiguity" / "simple_child_geos.gml")
 
 
 def test_get_gerrydb_block_graph(file_path: str):
@@ -105,9 +105,6 @@ def simple_geos_graph(file_path: str) -> Graph:
 def document_id_fixture(
     client, session: Session, simple_shatterable_districtr_map, gerrydb_simple_geos_view
 ):
-    create_parent_child_edges(
-        session=session, districtr_map_uuid=simple_shatterable_districtr_map
-    )
     response = client.post(
         "/api/create_document",
         json={"districtr_map_slug": "simple_geos", "user_id": USER_ID},
@@ -129,6 +126,7 @@ def simple_contigous_assignments(client: TestClient, document_id: str) -> str:
                 {"document_id": document_id, "geo_id": "C", "zone": 1},
             ],
             "updated_at": "2023-10-01T00:00:00Z",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -156,14 +154,14 @@ def test_subset_of_zones_contiguous(
 
 
 def test_graph_from_gpkg():
-    G = graph_from_gpkg(FIXTURES_PATH / "ks_ellis_county_block.gpkg")
+    G = graph_from_gpkg(FIXTURES_PATH / "gerrydb" / "ks_ellis_county_block.gpkg")
     assert len(G.edges) == 5439
     assert len(G.nodes) == 2296
 
 
 @fixture(name="gpkg_block_graph")
 def ri_vtd_p4_view_graph_fixture() -> Graph:
-    return graph_from_gpkg(FIXTURES_PATH / "ks_ellis_county_block.gpkg")
+    return graph_from_gpkg(FIXTURES_PATH / "gerrydb" / "ks_ellis_county_block.gpkg")
 
 
 def test_write_graph_to_gml(gpkg_block_graph: Graph):
@@ -185,7 +183,7 @@ def test_write_graph_to_gml(gpkg_block_graph: Graph):
 @fixture
 def mock_gerrydb_graph_file(monkeypatch):
     def mock_get_file(gerrydb_name: str) -> str:
-        return f"{FIXTURES_PATH}/{gerrydb_name}.pkl"
+        return f"{FIXTURES_PATH}/contiguity/{gerrydb_name}.pkl"
 
     monkeypatch.setattr(contiguity, "get_gerrydb_graph_file", mock_get_file)
 
@@ -250,12 +248,21 @@ def test_simple_geos_discontiguity(
     # See `simple_geos_graph` fixture for graph diagram and
     # `simple_contigous_assignments` fixture for existing assignments
     response = client.patch(
-        f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}
+        f"/api/update_assignments/{document_id}/shatter_parents",
+        json={
+            "geoids": ["A"],
+            "user_id": USER_ID,
+            "updated_at": "2023-10-01T00:00:00Z",
+        },
     )
     assert response.status_code == 200
     response = client.patch(
         "/api/update_assignments",
-        json={"assignments": [{"document_id": document_id, "geo_id": "e", "zone": 2}]},
+        json={
+            "assignments": [{"document_id": document_id, "geo_id": "e", "zone": 2}],
+            "user_id": USER_ID,
+            "updated_at": "2023-10-01T00:00:00Z",
+        },
     )
     assert response.status_code == 200
 
@@ -280,12 +287,21 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
     # See `simple_geos_graph` fixture for graph diagram and
     # `simple_contigous_assignments` fixture for existing assignments
     response = client.patch(
-        f"/api/update_assignments/{document_id}/shatter_parents", json={"geoids": ["A"]}
+        f"/api/update_assignments/{document_id}/shatter_parents",
+        json={
+            "geoids": ["A"],
+            "user_id": USER_ID,
+            "updated_at": "2023-10-01T00:00:00Z",
+        },
     )
     assert response.status_code == 200
     response = client.patch(
         "/api/update_assignments",
-        json={"assignments": [{"document_id": document_id, "geo_id": "e", "zone": 2}]},
+        json={
+            "assignments": [{"document_id": document_id, "geo_id": "e", "zone": 2}],
+            "user_id": USER_ID,
+            "updated_at": "2023-10-01T00:00:00Z",
+        },
     )
     assert response.status_code == 200
 
@@ -352,6 +368,7 @@ def ks_ellis_assignments(client: TestClient, ks_ellis_document_id: str) -> str:
                 {"document_id": document_id, "geo_id": "vtd:2005100003A", "zone": 3},
             ],
             "updated_at": "2023-10-01T00:00:00Z",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -382,6 +399,7 @@ def test_fix_ks_ellis_geos_contiguity(
                 {"document_id": document_id, "geo_id": "vtd:20051900100", "zone": 2},
             ],
             "updated_at": "2023-10-01T00:00:00Z",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -439,6 +457,7 @@ def ks_ellis_parent_only_assignments(
                 {"document_id": document_id, "geo_id": "200510730001184", "zone": 2},
             ],
             "updated_at": "2023-10-01T00:00:00Z",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200, response.json()

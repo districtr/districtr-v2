@@ -1,14 +1,11 @@
 from datetime import datetime
-from typing import Optional, Any
-from pydantic import UUID4, BaseModel, ConfigDict
+from typing import Optional
+from pydantic import UUID4, BaseModel
 from sqlmodel import (
     Field,
     ForeignKey,
     SQLModel,
-    UUID,
-    TIMESTAMP,
     UniqueConstraint,
-    text,
     Column,
     MetaData,
     String,
@@ -16,56 +13,17 @@ from sqlmodel import (
     Integer,
     Text,
 )
-from sqlalchemy.types import ARRAY, TEXT
+from sqlalchemy.types import ARRAY
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import Float
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
-from enum import Enum
-
-
-class UUIDType(UUID):
-    def __init__(self, *args, **kwargs):
-        kwargs["as_uuid"] = False
-        super().__init__(*args, **kwargs)
-
-
-class DocumentShareStatus(str, Enum):
-    read = "read"
-    edit = "edit"
-
-
-class TokenRequest(BaseModel):
-    token: str
-    password: str | None = None
-    user_id: str | None = None
-    access: DocumentShareStatus = DocumentShareStatus.read
-
-
-class TimeStampMixin(SQLModel):
-    created_at: Optional[datetime] = Field(
-        sa_type=TIMESTAMP(timezone=True),
-        sa_column_kwargs={
-            "server_default": text("CURRENT_TIMESTAMP"),
-        },
-        nullable=False,
-        default=None,
-    )
-
-    updated_at: Optional[datetime] = Field(
-        sa_type=TIMESTAMP(timezone=True),
-        sa_column_kwargs={
-            "server_default": text("CURRENT_TIMESTAMP"),
-        },
-        nullable=False,
-        default=None,
-    )
-
-
-class SummaryStatisticType(Enum):
-    TOTPOP = "Population by Race"
-    VAP = "Hispanic or Latino, and Not Hispanic or Latino by Race Voting Age Population"
-    VHISTORY = "Voting History"
+from app.core.models import UUIDType, TimeStampMixin
+from app.save_share.models import (
+    DocumentDraftStatus,
+    DocumentEditStatus,
+    DocumentShareStatus,
+)
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -95,9 +53,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
-    available_summary_stats: list[SummaryStatisticType] | None = Field(
-        sa_column=Column(ARRAY(TEXT), nullable=True, default=[])
-    )
+    map_type: str = Field(nullable=False, default="default")
 
 
 class DistrictrMapPublic(BaseModel):
@@ -109,7 +65,11 @@ class DistrictrMapPublic(BaseModel):
     tiles_s3_path: str | None = None
     num_districts: int | None = None
     visible: bool = True
-    available_summary_stats: list[str] | None = None
+
+
+class ConfigMapGroup(BaseModel):
+    districtr_map_slug: str
+    group_slug: str
 
 
 class DistrictrMapUpdate(BaseModel):
@@ -121,7 +81,7 @@ class DistrictrMapUpdate(BaseModel):
     tiles_s3_path: str | None = None
     num_districts: int | None = None
     visible: bool | None = None
-    available_summary_stats: list[str] | None = None
+    map_type: str = "default"
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -153,12 +113,12 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
 
 
 class DistrictrMapMetadata(BaseModel):
-    name: Optional[str] | None = None
-    group: Optional[str] | None = None
-    tags: Optional[list[str]] | None = None
-    description: Optional[str] | None = None
-    event_id: Optional[str] | None = None
-    is_draft: bool = True
+    name: str | None = None
+    group: str | None = None
+    tags: list[str] | None = None
+    description: str | None = None
+    event_id: str | None = None
+    draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
@@ -183,10 +143,11 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentCreate(BaseModel):
-    districtr_map_slug: str | None
-    user_id: str | None
+    districtr_map_slug: str
+    user_id: str
     metadata: Optional[DistrictrMapMetadata] | None = None
     copy_from_doc: Optional[str] | None = None  # document_id to copy from
+    assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
 class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
@@ -201,37 +162,6 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     user_id: str = Field(sa_column=Column(String, nullable=False))
 
 
-class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
-    """
-    Manages sharing of plans between users.
-
-    Deliberately no user id for now, so that a user could theoretically re-access a plan from another machine.
-    """
-
-    __tablename__ = "map_document_token"
-    token_id: str = Field(
-        UUIDType,
-        primary_key=True,
-    )
-    password_hash: str = Field(
-        sa_column=Column(String, nullable=True)  # optional password
-    )
-    expiration_date: datetime = Field(
-        sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
-    )
-
-
-class DocumentEditStatus(str, Enum):
-    locked = "locked"
-    unlocked = "unlocked"
-    checked_out = "checked_out"
-
-
-class DocumentGenesis(str, Enum):
-    created = "created"
-    shared = "shared"
-
-
 class DocumentPublic(BaseModel):
     document_id: UUID4
     districtr_map_slug: str | None
@@ -243,7 +173,6 @@ class DocumentPublic(BaseModel):
     created_at: datetime
     updated_at: datetime
     extent: list[float] | None = None
-    available_summary_stats: list[str] | None = None
     map_metadata: DistrictrMapMetadata | None
     status: DocumentEditStatus = (
         DocumentEditStatus.unlocked
@@ -251,6 +180,11 @@ class DocumentPublic(BaseModel):
     genesis: str | None = None
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
+    map_type: str
+
+
+class DocumentCreatePublic(DocumentPublic):
+    inserted_assignments: int
 
 
 class AssignmentsBase(SQLModel):
@@ -271,6 +205,7 @@ class Assignments(AssignmentsBase, table=True):
 
 class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
+    user_id: str
 
 
 class AssignmentsResponse(SQLModel):
@@ -286,10 +221,6 @@ class GEOIDS(BaseModel):
 
 class GEOIDSResponse(GEOIDS):
     updated_at: datetime
-
-
-class UserID(BaseModel):
-    user_id: str
 
 
 class AssignedGEOIDS(GEOIDS):
@@ -314,46 +245,13 @@ class ColorsSetResult(BaseModel):
     colors: list[str]
 
 
-class ZonePopulation(BaseModel):
-    zone: int
-    total_pop: int
+class MapGroup(SQLModel, table=True):
+    __tablename__ = "map_group"  # pyright: ignore
+    slug: str = Field(primary_key=True, nullable=False)
+    name: str = Field(nullable=False)
 
 
-class SummaryStats(BaseModel):
-    summary_stat: SummaryStatisticType
-    results: list[Any]
-
-
-class PopulationStatsTOTPOP(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    other_pop_20: int
-    amin_pop_20: int
-    asian_nhpi_pop_20: int
-    bpop_20: int
-    hpop_20: int
-    white_pop_20: int
-    total_pop_20: int
-
-
-class SummaryStatsTOTPOP(PopulationStatsTOTPOP):
-    zone: int
-
-
-class PopulationStatsVAP(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    white_vap_20: int
-    other_vap_20: int
-    amin_vap_20: int
-    asian_nhpi_vap_20: int
-    hvap_20: int
-    bvap_20: int
-    total_vap_20: int
-
-
-class SummaryStatsVAP(PopulationStatsVAP):
-    zone: int
-
-
-class SummaryStatisticColumnLists(Enum):
-    TOTPOP = PopulationStatsTOTPOP.model_fields.keys()
-    VAP = PopulationStatsVAP.model_fields.keys()
+class DistrictrMapsToGroups(SQLModel, table=True):
+    __tablename__ = "districtrmaps_to_groups"  # pyright: ignore
+    districtrmap_uuid: str = Field(primary_key=True, foreign_key="districtrmap.uuid")
+    group_slug: str = Field(primary_key=True, foreign_key="map_groups.slug")

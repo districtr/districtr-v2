@@ -1,19 +1,22 @@
 import {listCMSContent} from '@/app/utils/api/cms';
 import {onlyUniqueProperty} from '@/app/utils/arrays';
-import {Card, Flex, Grid, Heading, Link} from '@radix-ui/themes';
+import {Card, Flex, Grid, Heading, Link, Text} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 3600;
 
 export default async function TagsPage() {
   const cmsContent = await listCMSContent('tags');
-  const entries = cmsContent.content
-    .filter(content => content.published_content)
+  const entries = cmsContent
+    ?.filter(content => content.published_content)
     .filter(onlyUniqueProperty('slug'))
     .sort((a, b) => a.published_content!.title.localeCompare(b.published_content!.title));
 
+  if (!entries) return null;
+
   return (
-    <Flex direction={'column'} className="max-w-screen-lg mx-auto p-4">
+    <Flex direction={'column'}>
       <Heading as="h1" size="6" mb="4">
         Tags
       </Heading>
@@ -25,6 +28,7 @@ export default async function TagsPage() {
         }}
         gap="4"
       >
+        {entries.length === 0 && <Text>No tags found</Text>}
         {entries.map(content => (
           <Card key={content.slug}>
             <Heading as="h3" size="4">

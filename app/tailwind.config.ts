@@ -17,6 +17,7 @@ const config: Config = {
         sidebar: 'var(--sidebar-width)',
       },
       colors: {
+        districtrLightBlue: '#ccf2ff',
         districtrBlue: '#0099cd',
         districtrDarkBlue: '#006b9c',
         districtrIndigo: 'rgba(0, 0, 139)'

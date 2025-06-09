@@ -11,7 +11,7 @@ export interface AxiosErrorData {
 export const checkoutDocument = new MutationObserver(queryClient, {
   mutationFn: checkoutMapDocument,
   onSuccess: data => {
-    const {mapDocument, setMapStatus, upsertUserMap, loadedMapId} = useMapStore.getState();
+    const {mapDocument, setMapStatus, upsertUserMap} = useMapStore.getState();
     if (!mapDocument) return;
     upsertUserMap({
       documentId: mapDocument.document_id,

@@ -3,18 +3,16 @@ import {getContiguity} from '@/app/utils/api/apiHandlers/getContiguity';
 import {Blockquote, Box, Flex, Table, Text} from '@radix-ui/themes';
 import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
-import {useEffect, useMemo, useState} from 'react';
-import {CheckCircledIcon, DashIcon} from '@radix-ui/react-icons';
-import {colorScheme} from '@/app/constants/colors';
+import {useEffect, useMemo} from 'react';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {isAxiosError} from 'axios';
 import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDisplay';
-import ZoomToConnectedComponents from './ZoomToConnectedComponents';
+import ContiguityDetail from './ContiguityDetail';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const {data, error, isLoading, isFetched, refetch} = useQuery(
+  const colorScheme = useMapStore(store => store.colorScheme);
+  const {data, error, isLoading, refetch, dataUpdatedAt} = useQuery(
     {
       queryKey: ['Contiguity', mapDocument?.document_id],
       queryFn: () => mapDocument && getContiguity(mapDocument),
@@ -25,16 +23,11 @@ export const Contiguity = () => {
     },
     queryClient
   );
-
-  const update = async () => {
-    setLastUpdated(null);
-    await refetch();
-    setLastUpdated(new Date().toLocaleString());
-  };
+  const lastUpdatedContiguity = dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null;
 
   useEffect(() => {
-    setLastUpdated(new Date().toLocaleString());
-  }, [isFetched]);
+    refetch();
+  }, [mapDocument?.document_id, refetch]);
 
   const tableData = useMemo(() => {
     if (!data) return [];
@@ -89,7 +82,7 @@ export const Contiguity = () => {
                     style={{
                       width: '15px',
                       height: '15px',
-                      backgroundColor: colorScheme[(row.zone % colorScheme.length) - 1],
+                      backgroundColor: colorScheme[(row.zone - 1) % colorScheme.length],
                       borderRadius: '4px',
                     }}
                   />
@@ -97,26 +90,20 @@ export const Contiguity = () => {
                 </Flex>
               </Table.Cell>
               <Table.Cell>
-                {row.contiguity === null ? (
-                  <DashIcon color="gray" />
-                ) : row.contiguity == 1 ? (
-                  <CheckCircledIcon color="green" />
-                ) : (
-                  <ZoomToConnectedComponents
-                    zone={row.zone}
-                    contiguity={row.contiguity}
-                    updateTrigger={lastUpdated}
-                    handleUpdateParent={update}
-                  />
-                )}
+                <ContiguityDetail
+                  zone={row.zone}
+                  contiguity={row.contiguity}
+                  lastUpdated={lastUpdatedContiguity}
+                  handleUpdateParent={refetch}
+                />
               </Table.Cell>
             </Table.Row>
           ))}
         </Table.Body>
       </Table.Root>
       <Flex direction="row" gapX="4" pt="4" align="center">
-        <RefreshButton onClick={update} />
-        <TimestampDisplay timestamp={lastUpdated} />
+        <RefreshButton onClick={refetch} />
+        {Boolean(lastUpdatedContiguity) && <TimestampDisplay timestamp={lastUpdatedContiguity} />}
       </Flex>
     </Box>
   );

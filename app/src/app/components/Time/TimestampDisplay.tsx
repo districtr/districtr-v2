@@ -20,7 +20,7 @@ export const TimestampDisplay = ({timestamp}: {timestamp: string | null}) => {
 
 export const RefreshButton = ({onClick}: {onClick: () => void}) => {
   return (
-    <Button onClick={onClick} variant="outline" className="block text-wrap">
+    <Button onClick={onClick} variant="outline">
       <ReloadIcon /> Refresh
     </Button>
   );

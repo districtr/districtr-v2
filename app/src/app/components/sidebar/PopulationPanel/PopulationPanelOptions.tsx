@@ -5,6 +5,7 @@ import {GearIcon} from '@radix-ui/react-icons';
 import InfoTip from '@components/InfoTip';
 import {ChartStore} from '@store/chartStore';
 import {ColorChangeModal} from '../../Toolbar/ColorChangeModal';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const PopulationPanelOptions: React.FC<{
   chartOptions: ChartStore['chartOptions'];
@@ -12,6 +13,7 @@ export const PopulationPanelOptions: React.FC<{
   idealPopulation?: number;
 }> = ({chartOptions, setChartOptions, idealPopulation}) => {
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
+  const access = useMapStore(state => state.mapStatus?.access);
   return (
     <>
       <Popover.Root>
@@ -63,7 +65,13 @@ export const PopulationPanelOptions: React.FC<{
               Show district zone numbers
             </CheckboxGroup.Item>
           </CheckboxGroup.Root>
-          <Button onClick={() => setColorModalOpen(true)} variant="outline" size="1" mt="2">
+          <Button
+            onClick={() => setColorModalOpen(true)}
+            variant="outline"
+            size="1"
+            mt="2"
+            disabled={access === 'read'}
+          >
             Customize district colors
           </Button>
           <Flex direction="column" gap="1" py="2" mt="2">

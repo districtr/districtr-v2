@@ -10,6 +10,7 @@ import Protobuf from 'pbf';
 import booleanWithin from '@turf/boolean-within';
 import distance from '@turf/distance';
 import {getCoords} from '@turf/invariant';
+import union from '@turf/union';
 
 const CENTROID_BUFFER_KM = 10;
 
@@ -29,10 +30,15 @@ const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
   activeGeometries: {},
   zoneAssignments: {},
+  cachedCentroids: {},
   shatterIds: {
     parents: [],
     children: [],
   },
+  setMaxParentZoom(zoom) {
+    this.maxParentZoom = zoom;
+  },
+  maxParentZoom: 0,
   previousCentroids: {},
   getPropsById(ids: string[]) {
     const features: MinGeoJSONFeature[] = [];
@@ -91,6 +97,7 @@ const GeometryWorker: GeometryWorkerClass = {
     this.geometries = {};
     this.activeGeometries = {};
     this.previousCentroids = {};
+    this.cachedCentroids = {};
     this.shatterIds = {
       parents: [],
       children: [],
@@ -107,20 +114,34 @@ const GeometryWorker: GeometryWorkerClass = {
     const childLayer = mapDocument.child_layer;
     for (const layerName in tile.layers) {
       const isParent = layerName === parentLayer;
+      if (isParent && this.maxParentZoom !== 0 && tileID.z > this.maxParentZoom) continue;
       const layer = tile.layers[layerName];
-
       // Extract features from the layer
       for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
         const id = feature?.properties?.[idProp] as string;
-        const prevZoom = this.geometries?.[id]?.zoom;
+        if (!id) continue;
+        const childNotBroken = !isParent && !this.shatterIds.children.includes(id);
+        if (childNotBroken) continue;
+        const previousFeature = this.geometries[id];
+        const zoomDiff = previousFeature?.zoom && tileID.z - previousFeature.zoom;
+        if (zoomDiff && zoomDiff < 0) continue;
 
-        if (!id || (prevZoom && prevZoom > tileID.z)) continue;
         let geojsonFeature: any = feature.toGeoJSON(tileID.x, tileID.y, tileID.z);
         geojsonFeature.zoom = tileID.z;
         geojsonFeature.id = id;
         geojsonFeature.sourceLayer = layerName;
         geojsonFeature.properties = feature.properties;
+        if (zoomDiff === 0) {
+          // merge geometries
+          const unioned = union({
+            type: 'FeatureCollection',
+            features: [previousFeature, geojsonFeature],
+          });
+          if (unioned) {
+            geojsonFeature.geometry = unioned.geometry;
+          }
+        }
         this.geometries[id as string] = geojsonFeature;
         if (
           (isParent && !this.shatterIds.parents.includes(id)) ||
@@ -419,20 +440,25 @@ const GeometryWorker: GeometryWorkerClass = {
         return await this.getNonCollidingRandomCentroids(bounds, activeZones);
     }
   },
-  getPropertiesCentroids(ids) {
+  getCentroidsByIds(ids) {
     const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
-
+    let missingIds = [];
     ids.forEach(id => {
       const f = this.geometries[id];
       if (f) {
-        let center = centerOfMass(f);
-        center.properties = f.properties;
-        features.push(center);
+        if (this.cachedCentroids[id]) {
+          features.push(this.cachedCentroids[id]);
+        } else {
+          let center = centerOfMass(f);
+          center.properties = f.properties;
+          features.push(center);
+          this.cachedCentroids[id] = center;
+        }
       } else {
-        console.log('Could not find geography', id);
+        missingIds.push(id);
       }
     });
-
+    console.log(`Missing ${missingIds.length} geometries for centroid labels.`);
     return {
       type: 'FeatureCollection',
       features,

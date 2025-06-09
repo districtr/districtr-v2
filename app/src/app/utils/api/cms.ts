@@ -1,8 +1,7 @@
-import axios from 'axios';
-import {API_URL} from './constants';
 import {LANG_MAPPING} from '../language';
+import {get, patch, post, del} from './factory';
+import {ClientSession} from '@/app/lib/auth0';
 
-// Define interfaces for CMS content
 export interface CMSContentCreate {
   slug: string;
   content_type: 'tags' | 'places';
@@ -17,6 +16,11 @@ export interface CMSContentUpdate {
   content_type: 'tags' | 'places';
   content_id: string;
   updates: Partial<CMSContentCreate>;
+}
+
+export interface CMSContentId {
+  content_type: 'tags' | 'places';
+  content_id: string;
 }
 
 export interface CMSContent {
@@ -38,14 +42,9 @@ export interface PlacesCMSContent extends CMSContent {
 
 export type AllCmsContent = TagsCMSContent | PlacesCMSContent;
 export type AllCmsLists =
-  | {
-      contentType: 'tags';
-      content: TagsCMSContent[];
-    }
-  | {
-      contentType: 'places';
-      content: PlacesCMSContent[];
-    };
+  | TagsCMSContent[]
+  | PlacesCMSContent[]
+  | (TagsCMSContent | PlacesCMSContent)[];
 
 export type AllCmsEntries =
   | {
@@ -70,91 +69,69 @@ export interface CMSContentResponseWithLanguages<
   available_languages: string[];
 }
 
-// API functions for CMS operations
-export const createCMSContent = async (
-  content: CMSContentCreate
-): Promise<TagsCMSContent | PlacesCMSContent> => {
-  try {
-    const response = await axios.post(`${API_URL}/api/cms/content`, content);
-    return response.data;
-  } catch (error) {
-    console.error('Error creating CMS content:', error);
-    throw error;
-  }
-};
+export const createCMSContent = post<CMSContentCreate, Promise<TagsCMSContent | PlacesCMSContent>>(
+  'cms/content'
+);
 
-export const updateCMSContent = async (
-  updates: CMSContentUpdate
-): Promise<TagsCMSContent | PlacesCMSContent> => {
-  try {
-    const response = await axios.patch(`${API_URL}/api/cms/content`, updates);
-    return response.data;
-  } catch (error) {
-    console.error('Error updating CMS content:', error);
-    throw error;
-  }
-};
+export const updateCMSContent = patch<CMSContentUpdate, Promise<TagsCMSContent | PlacesCMSContent>>(
+  'cms/content'
+);
 
-export const deleteCMSContent = async (contentId: string, type: CmsContentTypes): Promise<void> => {
-  try {
-    await axios.post(`${API_URL}/api/cms/content/delete`, {
-      content_id: contentId,
-      content_type: type,
-    });
-  } catch (error) {
-    console.error('Error deleting CMS content:', error);
-    throw error;
-  }
-};
+export const publishCMSContent = post<CMSContentId, Promise<TagsCMSContent | PlacesCMSContent>>(
+  'cms/content/publish'
+);
 
-export const publishCMSContent = async (
-  contentId: string,
-  type: CmsContentTypes
-): Promise<TagsCMSContent | PlacesCMSContent> => {
-  try {
-    const response = await axios.post(`${API_URL}/api/cms/content/publish`, {
-      content_id: contentId,
-      content_type: type,
-    });
-    return response.data;
-  } catch (error) {
-    console.error('Error publishing CMS content:', error);
-    throw error;
-  }
+export const deleteCMSContent = async ({
+  body: {content_id, content_type},
+  session,
+}: {
+  body: {content_id: string; content_type: CmsContentTypes};
+  session: ClientSession;
+}) => {
+  const url = `cms/content/${content_type}/${content_id}`;
+  return await del(url)({session});
 };
 
 export const getCMSContent = async <T extends CmsContentTypes>(
   slug: string,
   language: string = 'en',
   type: T
-): Promise<CMSContentResponseWithLanguages<T>> => {
-  try {
-    const url = new URL(`${API_URL}/api/cms/content/${type}/slug/${slug}`);
-    if (language) url.searchParams.append('language', language);
-    const response = await axios.get(url.toString());
-    return response.data;
-  } catch (error) {
-    console.error('Error getting CMS content:', error);
-    throw error;
+): Promise<CMSContentResponseWithLanguages<T> | null> => {
+  let url = `cms/content/${type}/slug/${slug}?language=${language}`;
+  const content = await get<Promise<CMSContentResponseWithLanguages<T>>>(url)({});
+  if (content.ok) {
+    return content.response;
+  } else {
+    console.error(content.error);
+    return null;
   }
 };
 
 export const listCMSContent = async (
   type: CmsContentTypes,
   params: {language?: string; districtr_map_slug?: string} = {}
-): Promise<AllCmsLists> => {
-  try {
-    const url = new URL(`${API_URL}/api/cms/content/${type}/list`);
-    if (params.language) url.searchParams.append('language', params.language);
-    if (params.districtr_map_slug)
-      url.searchParams.append('districtr_map_slug', params.districtr_map_slug);
-    const response = await axios.get(url.toString());
-    return {
-      contentType: type,
-      content: response.data,
-    };
-  } catch (error) {
-    console.error('Error listing CMS content:', error);
-    throw error;
+): Promise<AllCmsLists | null> => {
+  const url = `cms/content/${type}/list`;
+  const content = await get<Promise<AllCmsLists>>(url.toString())({});
+  if (content.ok) {
+    return content.response;
+  } else {
+    console.error(content.error);
+    return null;
+  }
+};
+
+export const listEditorCMSContent = async (
+  type: CmsContentTypes,
+  params: {language?: string; districtr_map_slug?: string} = {},
+  session: ClientSession
+): Promise<AllCmsLists | null> => {
+  const url = `cms/content/${type}/list/authored`;
+  const content = await get<Promise<AllCmsLists>>(url.toString())({body: {}, session});
+  if (content.ok) {
+    return content.response;
+  } else {
+    console.error(content.error);
+    return null;
   }
 };

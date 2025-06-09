@@ -83,6 +83,8 @@ class Settings(BaseSettings):
             path=self.POSTGRES_DB,
         )
 
+    ECHO_DB: bool = ENVIRONMENT not in (Environment.production, Environment.test)
+
     # Security
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
@@ -111,6 +113,7 @@ class Settings(BaseSettings):
     # R2
 
     R2_BUCKET_NAME: str | None = None
+    CDN_URL: str | None = None
     ACCOUNT_ID: str | None = None
     AWS_S3_BUCKET: str | None = None
     AWS_S3_ENDPOINT: str | None = None
@@ -135,6 +138,21 @@ class Settings(BaseSettings):
             aws_secret_access_key=self.AWS_SECRET_ACCESS_KEY,
             **kwargs,
         )
+
+    @computed_field
+    @property
+    def cnd_url(self) -> str | None:
+        if self.CDN_URL is not None:
+            return self.CDN_URL
+
+        return f"https://{self.R2_BUCKET_NAME}.s3.amazonaws.com"
+
+    # Auth0
+
+    AUTH0_DOMAIN: str
+    AUTH0_API_AUDIENCE: str
+    AUTH0_ISSUER: str
+    AUTH0_ALGORITHMS: str
 
 
 @lru_cache()

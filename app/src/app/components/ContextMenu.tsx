@@ -8,6 +8,7 @@ export const MapContextMenu: React.FC = () => {
   const contextMenu = useMapStore(state => state.contextMenu);
   const handleShatter = useMapStore(state => state.handleShatter);
   const shatterMappings = useMapStore(state => state.shatterMappings);
+  const access = useMapStore(state => state.mapStatus?.access);
 
   if (!contextMenu?.data?.layer) return null;
   const canShatter = Boolean(
@@ -57,7 +58,10 @@ export const MapContextMenu: React.FC = () => {
           </Text>
         </ContextMenu.Label>
         {!isChild && (
-          <ContextMenu.Item disabled={!mapDocument?.child_layer} onSelect={handleSelect}>
+          <ContextMenu.Item
+            disabled={!mapDocument?.child_layer || access === 'read'}
+            onSelect={handleSelect}
+          >
             Break to Blocks
           </ContextMenu.Item>
         )}
@@ -68,7 +72,10 @@ export const MapContextMenu: React.FC = () => {
                 Parent: {parent}
               </Text>
             </ContextMenu.Label>
-            <ContextMenu.Item disabled={!mapDocument?.child_layer} onSelect={handleSelect}>
+            <ContextMenu.Item
+              disabled={!mapDocument?.child_layer || access === 'read'}
+              onSelect={handleSelect}
+            >
               Break Parent to Blocks
             </ContextMenu.Item>
           </>
