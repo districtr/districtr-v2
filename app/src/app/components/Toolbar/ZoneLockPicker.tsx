@@ -1,5 +1,5 @@
 import React from 'react';
-import {Button} from '@radix-ui/themes';
+import {Button, Box} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
 import {ColorPicker} from './ColorPicker';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
@@ -27,7 +27,7 @@ export function ZoneLockPicker() {
   const unlockAll = () => setLockedZones([]);
 
   return (
-    <div style={access === 'read' ? {pointerEvents: 'none', opacity: 0.5} : {}}>
+    <Box className={access === 'read' ? 'pointer-events-none opacity-50' : ''}>
       <ColorPicker onValueChange={handleChange} defaultValue={[]} value={pickerValue} multiple />
       <Button onClick={lockAll} mr="2" mt="2" variant="outline" disabled={access === 'read'}>
         <LockClosedIcon />
@@ -37,6 +37,6 @@ export function ZoneLockPicker() {
         <LockOpen2Icon />
         Unlock all
       </Button>
-    </div>
+    </Box>
   );
 }

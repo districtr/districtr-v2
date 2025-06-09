@@ -1,4 +1,5 @@
 import React from 'react';
+import {Box} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
 import {ColorPicker} from './ColorPicker';
 
@@ -14,8 +15,8 @@ export function ZonePicker() {
   };
 
   return (
-    <div style={access === 'read' ? {pointerEvents: 'none', opacity: 0.5} : {}}>
+    <Box className={access === 'read' ? 'pointer-events-none opacity-50' : ''}>
       <ColorPicker onValueChange={handleRadioChange} defaultValue={0} value={selectedZone - 1} />
-    </div>
+    </Box>
   );
 }

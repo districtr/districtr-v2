@@ -3,16 +3,15 @@ import {DocumentObject} from './types';
 import {useMapStore} from '@store/mapStore';
 
 export const getDocument = async (document_id: string): Promise<DocumentObject> => {
-  let url = `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`;
-
   if (!document_id) throw new Error('No document id found');
 
+  const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}`);
   const userID = useMapStore.getState().userID;
   if (userID) {
-    url += `?user_id=${userID}`;
+    url.searchParams.set('user_id', userID);
   }
 
-  return await axios.get(url).then(res => {
+  return await axios.get(url.toString()).then(res => {
     return res.data;
   });
 };
