@@ -2,7 +2,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
 import {TwitterPicker, type ColorResult} from 'react-color';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {Box, Flex, Dialog, RadioGroup, Text, Heading} from '@radix-ui/themes';
+import {Box, Flex, Dialog, Heading} from '@radix-ui/themes';
 import {ColorPicker} from './ColorPicker';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
 

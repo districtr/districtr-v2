@@ -10,7 +10,7 @@ export const saveColorScheme = async ({
   document_id: string;
   colors: string[];
 }): Promise<ColorsSet | undefined> => {
-  if (colors === DefaultColorScheme) {
+  if (colors === DefaultColorScheme || !document_id) {
     return;
   }
   return await axios
