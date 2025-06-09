@@ -42,6 +42,7 @@ export const ToolSettings: React.FC = () => {
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
   const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
+  const access = useMapStore(state => state.mapStatus?.access);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
