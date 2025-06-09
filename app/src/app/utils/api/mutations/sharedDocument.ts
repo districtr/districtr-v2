@@ -38,7 +38,7 @@ export const sharedDocument = new MutationObserver(queryClient, {
     }
   },
   onSuccess: data => {
-    const {mapDocument, setMapDocument, setLoadedMapId, setAppLoadingState, setPasswordPrompt} =
+    const {mapDocument, setMapDocument, setAppLoadingState, setPasswordPrompt, setShareMapMessage} =
       useMapStore.getState();
     useMapStore.getState().setLoadedMapId('');
     getAssignments(data);
@@ -46,7 +46,15 @@ export const sharedDocument = new MutationObserver(queryClient, {
       setMapDocument(data);
     }
     setAppLoadingState('loaded');
-    setPasswordPrompt(data.status === 'locked' && data.access === 'edit');
+
+    setShareMapMessage('');
+
+    if (data.status === 'unlocked') {
+      setPasswordPrompt(false);
+    } else {
+      setPasswordPrompt(data.status === 'locked' && data.access === 'edit');
+    }
+
     if (data.status !== 'locked' && data.access === 'edit') {
       const documentUrl = new URL(window.location.toString());
       documentUrl.searchParams.delete('share'); // remove share + token from url
