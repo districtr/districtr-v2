@@ -16,7 +16,7 @@ export const document = new MutationObserver(queryClient, {
     const {setMapDocument, setLoadedMapId, setAssignmentsHash, setAppLoadingState} =
       useMapStore.getState();
     setMapDocument(data);
-    if (data.genesis === 'created') {
+    if (data.genesis === 'created' || data.genesis === 'copied') {
       setLoadedMapId(data.document_id);
     }
     setAssignmentsHash(Date.now().toString());
