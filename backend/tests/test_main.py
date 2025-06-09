@@ -284,12 +284,7 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
 
 def test_get_document(client, document_id):
     doc_uuid = uuid.UUID(document_id)
-    payload = {
-        "user_id": USER_ID,
-        "gerrydb_table": GERRY_DB_FIXTURE_NAME,
-    }
-
-    response = client.post(f"/api/document/{doc_uuid}", json=payload)
+    response = client.get(f"/api/document/{doc_uuid}?user_id={USER_ID}")
     assert response.status_code == 200
 
     data = response.json()
@@ -298,8 +293,6 @@ def test_get_document(client, document_id):
     assert data.get("updated_at")
     assert data.get("created_at")
     assert data.get("status") in ["locked", "unlocked", "checked_out"]
-
-    # assert data.get("tiles_s3_path") is None
 
 
 def test_patch_assignments(client, document_id):

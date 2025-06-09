@@ -10,7 +10,7 @@ from fastapi import Form
 
 def test_share_districtr_plan(client, document_id):
     """Test sharing a document when a pw exists"""
-    share_payload = {"password": "password", "access_type": "view"}
+    share_payload = {"password": "password", "access_type": "read"}
 
     response = client.post(
         f"/api/document/{document_id}/share",
@@ -25,7 +25,7 @@ def test_share_districtr_plan(client, document_id):
     assert "token" in data
 
     decoded_token = jwt.decode(data["token"], settings.SECRET_KEY, algorithms=["HS256"])
-    assert decoded_token["access"] == "view"
+    assert decoded_token["access"] == "read"
     assert decoded_token["password_required"]
 
     # test sharing from an existing token
@@ -113,7 +113,7 @@ def test_load_plan_from_share(client, document_id):
     document_id = response.json().get("document_id")
 
     # share the document
-    share_payload = {"password": "password", "access_type": "view"}
+    share_payload = {"password": "password", "access_type": "read"}
 
     response = client.post(
         f"/api/document/{document_id}/share",
@@ -152,7 +152,7 @@ def test_document_checkout(client, document_id):
     document_id = response.json().get("document_id")
 
     # share the document
-    share_payload = {"password": "password", "access_type": "view"}
+    share_payload = {"password": "password", "access_type": "read"}
 
     response = client.post(
         f"/api/document/{document_id}/share",
