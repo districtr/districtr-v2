@@ -3,7 +3,7 @@ import {ImageResponse} from 'next/og';
 import fs from 'fs';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 
-export async function GET(request: Request, {params}: {params: Promise<{id: string}>}) {
+export async function GET(_: Request, {params}: {params: Promise<{id: string}>}) {
   const {id} = await params;
   const mapDocument = await fetch(`${API_URL}/api/document/${id}`).then(res =>
     res.ok ? (res.json() as Promise<NonNullable<DocumentObject>>) : null
@@ -12,7 +12,7 @@ export async function GET(request: Request, {params}: {params: Promise<{id: stri
     return new ImageResponse(<p>Map not found</p>);
   }
   const title = mapDocument.map_metadata.name;
-  const logoImage = fs.readFileSync('./public/districtr_logo.jpg');
+  const logoImage = fs.readFileSync('./public/districtr_logo.jpg') as any;
   const base64Image = Buffer.from(logoImage).toString('base64');
   const dataURI = 'data:image/jpeg;base64,' + base64Image;
 
