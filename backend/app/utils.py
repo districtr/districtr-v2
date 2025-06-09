@@ -23,6 +23,7 @@ def create_districtr_map(
     num_districts: int | None = None,
     tiles_s3_path: str | None = None,
     group_slug: str | None = None,
+    map_type: str = "default",
     visibility: bool = True,
 ) -> str:
     """
@@ -54,7 +55,8 @@ def create_districtr_map(
         :tiles_s3_path,
         :parent_layer_name,
         :child_layer_name,
-        :visibility
+        :visibility,
+        :map_type
     )"""
     ).bindparams(
         bindparam(key="map_name", type_=String),
@@ -65,6 +67,7 @@ def create_districtr_map(
         bindparam(key="parent_layer_name", type_=String),
         bindparam(key="child_layer_name", type_=String),
         bindparam(key="visibility", type_=Boolean),
+        bindparam(key="map_type", type_=String),
     )
 
     (inserted_map_uuid,) = session.execute(
@@ -78,6 +81,7 @@ def create_districtr_map(
             "parent_layer_name": parent_layer,
             "child_layer_name": child_layer,
             "visibility": visibility,
+            "map_type": map_type,
         },
     )
 

@@ -131,7 +131,8 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
 @click.option("--parent-layer-name", help="Parent gerrydb layer name", required=True)
 @click.option("--districtr-map-slug", help="Slug of the districtr map", required=True)
 @click.option("--child-layer-name", help="Child gerrydb layer name", required=False)
-@click.option("--group-slug", help="Map group slug", required=False)
+@click.option("--group-slug", help="Map group slug", type=str, required=False)
+@click.option("--map-type", help="Map UI type", type=str, required=False)
 @click.option("--gerrydb-table-name", help="Name of the GerryDB table", required=True)
 @click.option("--num-districts", help="Number of districts", required=False)
 @click.option("--tiles-s3-path", help="S3 path to the tileset", required=False)
@@ -160,6 +161,7 @@ def create_districtr_map(
     no_extent: bool = False,
     bounds: list[float] | None = None,
     group_slug: str = "states",
+    map_type: str = "default",
 ):
     logger.info("Creating districtr map...")
     districtr_map_uuid = _create_districtr_map(
@@ -169,6 +171,7 @@ def create_districtr_map(
         child_layer=child_layer_name,
         districtr_map_slug=districtr_map_slug,
         group_slug=group_slug,
+        map_type=map_type,
         gerrydb_table_name=gerrydb_table_name,
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
@@ -205,6 +208,7 @@ def create_districtr_map(
     "--tiles-s3-path", help="S3 path to the tileset", type=str, required=False
 )
 @click.option("--visibility", "-v", help="Visibility", type=bool, required=False)
+@click.option("--map-type", help="Map UI type", type=str, required=False)
 @click.option(
     "--bounds",
     "-b",
@@ -226,6 +230,7 @@ def update_districtr_map(
     tiles_s3_path: str | None,
     visibility: bool = False,
     bounds: list[float] | None = None,
+    map_type: str | None = None,
 ):
     logger.info("Updating districtr map...")
 
@@ -243,6 +248,7 @@ def update_districtr_map(
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
         visible=visibility,
+        map_type=map_type,
         bounds=_bounds,
     )
     logger.info(f"Districtr map updated successfully {result}")

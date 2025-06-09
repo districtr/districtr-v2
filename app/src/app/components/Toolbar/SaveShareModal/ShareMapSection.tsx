@@ -1,0 +1,96 @@
+import {useMapStore} from '@/app/store/mapStore';
+import {useSaveShareStore} from '@/app/store/saveShareStore';
+import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon} from '@radix-ui/react-icons';
+import {Button, Flex, Heading, Select, Text, TextField} from '@radix-ui/themes';
+import {useState} from 'react';
+
+export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => {
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+
+  const password = useSaveShareStore(state => state.password);
+  const setPassword = useSaveShareStore(state => state.setPassword);
+  const sharingMode = useSaveShareStore(state => state.sharingMode);
+  const setSharingMode = useSaveShareStore(state => state.setSharingMode);
+
+  const upsertUserMap = useMapStore(state => state.upsertUserMap);
+  const userMap = useMapStore(state =>
+    state.userMaps.find(map => map.document_id === state.mapDocument?.document_id)
+  );
+  const mapDocument = useMapStore(state => state.mapDocument);
+
+  const displayPassword = userMap?.password
+    ? showPassword
+      ? userMap.password
+      : userMap.password
+          .split('')
+          .map(() => '•')
+          .join('')
+    : password;
+
+  if (!mapDocument || !isEditing) {
+    return null;
+  }
+
+  const handleSetPassword = (password: string) =>
+    upsertUserMap({
+      documentId: mapDocument?.document_id,
+      mapDocument: {
+        ...mapDocument,
+        password: password,
+      },
+    });
+
+  return (
+    <Flex direction="column" gap="2">
+      <Heading as="h3" size="5">
+        Map sharing
+      </Heading>
+      <Select.Root onValueChange={setSharingMode} value={sharingMode} size="3">
+        <Select.Trigger className="h-auto" />
+        <Select.Content>
+          <Select.Item value="read" className="h-auto">
+            <Flex direction="row" gap="2" align="center" className="max-w-full py-2">
+              <EyeOpenIcon />
+              <Flex direction="column">
+                <Text weight="bold">Frozen</Text>
+                <Text>Share a read-only copy of the plan. Viewers can make a copy.</Text>
+              </Flex>
+            </Flex>
+          </Select.Item>
+          <Select.Item value="edit" className="h-auto">
+            <Flex direction="row" gap="2" align="center" className="max-w-full py-2">
+              <Pencil1Icon />
+              <Flex direction="column">
+                <Text weight="bold">Editable</Text>
+                <Text>Anyone with the password can take turns updating the plan.</Text>
+              </Flex>
+            </Flex>
+          </Select.Item>
+        </Select.Content>
+      </Select.Root>
+      {sharingMode === 'edit' && (
+        <Flex direction="column" gap="2">
+          <Text>Password</Text>
+          <Flex direction="row" gap="2">
+            <TextField.Root
+              value={displayPassword}
+              onChange={e => setPassword(e.target.value)}
+              disabled={!!userMap?.password}
+              className="flex-1"
+              placeholder={displayPassword || 'Enter a password for your map'}
+            />
+            {userMap?.password ? (
+              <Button variant="soft" onClick={() => setShowPassword(p => !p)}>
+                {showPassword ? <EyeClosedIcon /> : <EyeOpenIcon />}
+              </Button>
+            ) : password.length > 0 ? (
+              <Button variant="soft" onClick={() => handleSetPassword(password)}>
+                Save
+              </Button>
+            ) : null}
+          </Flex>
+        </Flex>
+      )}
+    </Flex>
+  );
+};

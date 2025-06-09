@@ -1,6 +1,5 @@
 import {MutationObserver} from '@tanstack/query-core';
 import {queryClient} from '../queryClient';
-import {getAssignments} from '../apiHandlers/getAssignments';
 import {getLoadPlanFromShare} from '../apiHandlers/getLoadPlanFromShare';
 import {useMapStore} from '@/app/store/mapStore';
 import type {AxiosError} from 'axios';
@@ -22,7 +21,6 @@ export const sharedDocument = new MutationObserver(queryClient, {
     status: string | null;
     access: string;
   }) => {
-    const passwordRequired = useMapStore.getState().passwordPrompt;
     useMapStore.getState().setAppLoadingState('loading');
   },
   onError: error => {
@@ -38,25 +36,11 @@ export const sharedDocument = new MutationObserver(queryClient, {
     }
   },
   onSuccess: data => {
-    const {mapDocument, setMapDocument, setAppLoadingState, setPasswordPrompt, setShareMapMessage} =
-      useMapStore.getState();
-    useMapStore.getState().setLoadedMapId('');
-    getAssignments(data);
-    if (!mapDocument) {
-      setMapDocument(data);
-    }
-    setAppLoadingState('loaded');
-
-    setShareMapMessage('');
-
-    if (data.status === 'unlocked') {
-      setPasswordPrompt(false);
-    } else {
-      setPasswordPrompt(data.status === 'locked' && data.access === 'edit');
-    }
-
-    if (data.status !== 'locked' && data.access === 'edit') {
-      const documentUrl = new URL(window.location.toString());
+    const {setPasswordPrompt, setMapDocument} = useMapStore.getState();
+    setPasswordPrompt(false);
+    setMapDocument(data);
+    const documentUrl = new URL(window.location.toString());
+    if (data.access === 'edit') {
       documentUrl.searchParams.delete('share'); // remove share + token from url
       documentUrl.searchParams.set('document_id', data.document_id);
       history.pushState({}, '', documentUrl.toString());

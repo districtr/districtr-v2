@@ -1,5 +1,6 @@
 import React from 'react';
 import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes';
+import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
@@ -40,7 +41,7 @@ export const ToolSettings: React.FC = () => {
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
   const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
-  const access = useMapStore(state => state.mapStatus?.access);
+  const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
@@ -54,7 +55,10 @@ export const ToolSettings: React.FC = () => {
             mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
             mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
             mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-            mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
+            mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true
+              ? 'showBlockPopulationNumbers'
+              : '',
+            mapOptions.showPopulationNumbers === true ? 'showPopulationNumbers' : '',
             mapOptions.lockPaintedAreas.length ===
             (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
               ? 'lockAll'
@@ -81,12 +85,23 @@ export const ToolSettings: React.FC = () => {
             Show population tooltip
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
+            value="showPopulationNumbers"
+            onClick={() =>
+              setMapOptions({
+                showPopulationNumbers: !mapOptions.showPopulationNumbers,
+              })
+            }
+          >
+            Show total population labels on all geometries
+          </CheckboxGroup.Item>
+          <CheckboxGroup.Item
             value="showBlockPopulationNumbers"
             onClick={() =>
               setMapOptions({
                 showBlockPopulationNumbers: !mapOptions.showBlockPopulationNumbers,
               })
             }
+            disabled={!mapDocument?.child_layer}
           >
             Show total population labels on blocks
           </CheckboxGroup.Item>
@@ -142,40 +157,44 @@ export const ToolSettings: React.FC = () => {
             Customize district colors
           </Button>
         </CheckboxGroup.Root>
-        <Heading as="h3" weight="bold" size="3">
-          Boundaries
-        </Heading>
-        <CheckboxGroup.Root
-          name="contextualLayers"
-          value={[
-            mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
-            mapOptions.prominentCountyNames === true ? 'prominentCountyNames' : '',
-          ]}
-        >
-          <CheckboxGroup.Item
-            value="showCountyBoundaries"
-            onClick={() =>
-              setMapOptions({
-                showCountyBoundaries: !mapOptions.showCountyBoundaries,
-              })
-            }
-          >
-            Show county boundaries
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="prominentCountyNames"
-            onClick={() =>
-              setMapOptions({
-                prominentCountyNames: !mapOptions.prominentCountyNames,
-              })
-            }
-          >
-            Emphasize county names
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item value="2" disabled>
-            Show tribes and communities
-          </CheckboxGroup.Item>
-        </CheckboxGroup.Root>
+        {boundarySettings && (
+          <>
+            <Heading as="h3" weight="bold" size="3">
+              Boundaries
+            </Heading>
+            <CheckboxGroup.Root
+              name="contextualLayers"
+              value={[
+                mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
+                mapOptions.prominentCountyNames === true ? 'prominentCountyNames' : '',
+              ]}
+            >
+              <CheckboxGroup.Item
+                value="showCountyBoundaries"
+                onClick={() =>
+                  setMapOptions({
+                    showCountyBoundaries: !mapOptions.showCountyBoundaries,
+                  })
+                }
+              >
+                Show county boundaries
+              </CheckboxGroup.Item>
+              <CheckboxGroup.Item
+                value="prominentCountyNames"
+                onClick={() =>
+                  setMapOptions({
+                    prominentCountyNames: !mapOptions.prominentCountyNames,
+                  })
+                }
+              >
+                Emphasize county names
+              </CheckboxGroup.Item>
+              <CheckboxGroup.Item value="2" disabled>
+                Show tribes and communities
+              </CheckboxGroup.Item>
+            </CheckboxGroup.Root>
+          </>
+        )}
 
         <CheckboxGroup.Root
           defaultValue={[]}

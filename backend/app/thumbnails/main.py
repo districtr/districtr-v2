@@ -4,6 +4,7 @@ import io
 import logging
 import math
 import matplotlib.pyplot as plt
+import random
 from sqlalchemy import text
 from sqlmodel import Session
 from app.core.config import settings
@@ -146,7 +147,6 @@ def generate_thumbnail(
         WHERE zone IS NOT NULL
         GROUP BY zone)"""
 
-    session.connection
     conn = session.connection().connection
     gdf = geopandas.read_postgis(sql=sql, con=conn).to_crs(epsg=3857)  # pyright: ignore
     gdf["color"] = gdf.apply(lambda row: coloration(row), axis=1)
@@ -200,3 +200,84 @@ async def make_thumbnail(
         out_directory=THUMBNAIL_BUCKET,
     )
     return {"message": "Generating thumbnail in background task"}
+
+
+def generate_blank(
+    session: Session, districtr_map_slug: str, out_directory: str | None
+) -> str:
+    """
+    Generate a preview image of a blank DistrictrMap using GeoPandas.
+
+    Args:
+        session: The database session.
+        districtr_map_slug: The ID for the base map
+        out_directory: Directory to which the thumbnail should be written.
+
+    Returns:
+        Path to thumbnail file.
+    """
+    stmt = text("""
+        SELECT parent_layer
+        FROM districtrmap
+        WHERE districtr_map_slug = :districtr_map_slug
+    """)
+    results = session.execute(stmt, {"districtr_map_slug": districtr_map_slug})
+    [parent_layer] = results.one()
+
+    sql = f"""
+    SELECT geometry AS geom
+    FROM gerrydb.{parent_layer}
+    """
+
+    conn = session.connection().connection
+    gdf = geopandas.read_postgis(sql=sql, con=conn).to_crs(epsg=3857)  # pyright: ignore
+
+    # faint background coloring
+    bg_colors = [
+        (0.8, 0.8, 0.8, 0.4),  # light gray
+        (0.7, 0.7, 1.0, 0.4),  # light blue
+        (0.75, 1.0, 0.75, 0.4),  # light green
+        (0.75, 0.85, 1.0, 0.4),  # lavender
+    ]
+    bg_color = random.choice(bg_colors)
+
+    _, ax = plt.subplots(figsize=(5.6, 5.6), facecolor=bg_color)
+    geoplt = gdf.plot(
+        ax=ax, figsize=(5.6, 5.6), color="#fbeeac", linewidth=0.5, edgecolor="#444444"
+    )
+    geoplt.set_axis_off()
+    pic_IObytes = io.BytesIO()
+    geoplt.figure.savefig(pic_IObytes, format="png")
+    plt.close(geoplt.figure)
+    pic_IObytes.seek(0)
+
+    out_file = get_document_thumbnail_file_path(districtr_map_slug)
+    try:
+        write_image(out_file, pic_IObytes)
+    except (ValueError, S3UploadFailedError) as e:
+        logger.error(f"Could not upload blank map thumbnail for {districtr_map_slug}")
+        raise e
+    finally:
+        pic_IObytes.close()
+        logger.info(f"Thumbnail uploaded for {districtr_map_slug}")
+
+    return out_file
+
+
+@router.post(
+    "/api/gerrydb/{districtr_map_slug}/thumbnail", status_code=status.HTTP_200_OK
+)
+async def make_districtrmap_thumbnail(
+    *,
+    districtr_map_slug: str,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+):
+    background_tasks.add_task(
+        generate_blank,
+        session=session,
+        districtr_map_slug=districtr_map_slug,
+        out_directory=THUMBNAIL_BUCKET,
+    )
+    return {"message": "Generating blank map thumbnail in background task"}

@@ -9,7 +9,7 @@ import {ErrorNotification} from '@components/ErrorNotification';
 import {DraggableToolbar, Toolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
-import {Topbar} from '@components/Topbar';
+import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';

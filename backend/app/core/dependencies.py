@@ -98,6 +98,7 @@ def get_document_public(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
+            DistrictrMap.map_type.label("map_type"),  # pyright: ignore
             # get metadata as a json object
             Document.map_metadata.label("map_metadata"),  # pyright: ignore
             coalesce(

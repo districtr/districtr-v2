@@ -53,6 +53,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
+    map_type: str = Field(nullable=False, default="default")
 
 
 class DistrictrMapPublic(BaseModel):
@@ -80,6 +81,7 @@ class DistrictrMapUpdate(BaseModel):
     tiles_s3_path: str | None = None
     num_districts: int | None = None
     visible: bool | None = None
+    map_type: str = "default"
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -178,6 +180,7 @@ class DocumentPublic(BaseModel):
     genesis: str | None = None
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
+    map_type: str
 
 
 class DocumentCreatePublic(DocumentPublic):
