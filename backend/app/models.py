@@ -5,10 +5,7 @@ from sqlmodel import (
     Field,
     ForeignKey,
     SQLModel,
-    UUID,
-    TIMESTAMP,
     UniqueConstraint,
-    text,
     Column,
     MetaData,
     String,
@@ -21,45 +18,12 @@ from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy import Float
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
-from enum import Enum
-
-
-class UUIDType(UUID):
-    def __init__(self, *args, **kwargs):
-        kwargs["as_uuid"] = False
-        super().__init__(*args, **kwargs)
-
-
-class DocumentShareStatus(str, Enum):
-    read = "read"
-    edit = "edit"
-
-
-class TokenRequest(BaseModel):
-    token: str
-    password: str | None = None
-    user_id: str | None = None
-    access: DocumentShareStatus = DocumentShareStatus.read
-
-
-class TimeStampMixin(SQLModel):
-    created_at: Optional[datetime] = Field(
-        sa_type=TIMESTAMP(timezone=True),
-        sa_column_kwargs={
-            "server_default": text("CURRENT_TIMESTAMP"),
-        },
-        nullable=False,
-        default=None,
-    )
-
-    updated_at: Optional[datetime] = Field(
-        sa_type=TIMESTAMP(timezone=True),
-        sa_column_kwargs={
-            "server_default": text("CURRENT_TIMESTAMP"),
-        },
-        nullable=False,
-        default=None,
-    )
+from app.core.models import UUIDType, TimeStampMixin
+from app.save_share.models import (
+    DocumentDraftStatus,
+    DocumentEditStatus,
+    DocumentShareStatus,
+)
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -148,20 +112,13 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
-class DocumentDraftStatus(str, Enum):
-    in_progress = "in_progress"
-    scratch = "scratch"
-    ready_to_share = "ready_to_share"
-    # perhaps others down the road e.g. accepted, archived, etc.
-
-
 class DistrictrMapMetadata(BaseModel):
-    name: Optional[str] | None = None
-    group: Optional[str] | None = None
-    tags: Optional[list[str]] | None = None
-    description: Optional[str] | None = None
-    event_id: Optional[str] | None = None
-    draft_status: Optional[DocumentDraftStatus] = DocumentDraftStatus.scratch
+    name: str | None = None
+    group: str | None = None
+    tags: list[str] | None = None
+    description: str | None = None
+    event_id: str | None = None
+    draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
@@ -203,37 +160,6 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(Integer, primary_key=True, autoincrement=True)
     )
     user_id: str = Field(sa_column=Column(String, nullable=False))
-
-
-class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
-    """
-    Manages sharing of plans between users.
-
-    Deliberately no user id for now, so that a user could theoretically re-access a plan from another machine.
-    """
-
-    __tablename__ = "map_document_token"
-    token_id: str = Field(
-        UUIDType,
-        primary_key=True,
-    )
-    password_hash: str = Field(
-        sa_column=Column(String, nullable=True)  # optional password
-    )
-    expiration_date: datetime = Field(
-        sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
-    )
-
-
-class DocumentEditStatus(str, Enum):
-    locked = "locked"
-    unlocked = "unlocked"
-    checked_out = "checked_out"
-
-
-class DocumentGenesis(str, Enum):
-    created = "created"
-    shared = "shared"
 
 
 class DocumentPublic(BaseModel):
@@ -279,6 +205,7 @@ class Assignments(AssignmentsBase, table=True):
 
 class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
+    user_id: str
 
 
 class AssignmentsResponse(SQLModel):
@@ -294,10 +221,6 @@ class GEOIDS(BaseModel):
 
 class GEOIDSResponse(GEOIDS):
     updated_at: datetime
-
-
-class UserID(BaseModel):
-    user_id: str
 
 
 class AssignedGEOIDS(GEOIDS):

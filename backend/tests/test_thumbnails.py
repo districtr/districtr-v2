@@ -1,6 +1,6 @@
 import os
 import pytest
-from tests.constants import FIXTURES_PATH, USER_ID, GERRY_DB_FIXTURE_NAME
+from tests.constants import FIXTURES_PATH, USER_ID
 from unittest.mock import patch
 
 
@@ -63,11 +63,7 @@ def test_thumbnail_generator(client, document_id_with_assignments):
 
 
 def test_blank_thumbnail_generator(client, document_id):
-    payload = {
-        "user_id": USER_ID,
-        "gerrydb_table": GERRY_DB_FIXTURE_NAME,
-    }
-    response = client.post(f"/api/document/{document_id}", json=payload)
+    response = client.get(f"/api/document/{document_id}?user_id={USER_ID}")
     districtrmap_slug = response.json().get("districtr_map_slug")
     with patch(
         "app.thumbnails.main.get_document_thumbnail_file_path"

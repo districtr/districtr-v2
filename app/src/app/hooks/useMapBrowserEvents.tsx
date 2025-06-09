@@ -3,13 +3,15 @@ import {updateDocumentFromId, updateGetDocumentFromId} from '@utils/api/queries'
 import {jwtDecode} from 'jwt-decode';
 import {sharedDocument} from '@utils/api/mutations';
 import {unlockMapDocument} from '@utils/api/apiHandlers/unlockMapDocument';
-import {useCallback, useEffect} from 'react';
+import {useCallback, useEffect, useRef} from 'react';
 import {useSearchParams} from 'next/navigation';
 import {useVisibilityState} from './useVisibilityState';
+import {FE_UNLOCK_DELAY} from '../utils/api/constants';
 
 export const useMapBrowserEvents = () => {
   // VISIBILITY BEHAVIOR
   const {isVisible} = useVisibilityState();
+  const unloadTimepoutRef = useRef<NodeJS.Timeout | null>(null);
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
   const setPasswordPrompt = useMapStore(state => state.setPasswordPrompt);
   useEffect(() => {
@@ -20,14 +22,22 @@ export const useMapBrowserEvents = () => {
       updateDocumentFromId.refetch(); // confirms map lock status on tab re-focus
     } else {
       // prevent temporal states from generating while tab is not visible
+      unloadTimepoutRef.current && clearTimeout(unloadTimepoutRef.current);
       useMapStore.temporal.getState().pause();
       setAppLoadingState('blurred');
       // unlock map doc on blurred
       const documentId = useMapStore.getState().mapDocument?.document_id;
       if (documentId) {
-        unlockMapDocument(documentId);
+        unloadTimepoutRef.current = setTimeout(() => {
+          unlockMapDocument(documentId);
+        }, FE_UNLOCK_DELAY);
       }
     }
+    return () => {
+      if (unloadTimepoutRef.current) {
+        clearTimeout(unloadTimepoutRef.current);
+      }
+    };
   }, [isVisible]);
 
   // SHARE BEHAVIOR

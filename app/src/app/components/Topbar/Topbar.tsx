@@ -33,6 +33,7 @@ export const Topbar: React.FC = () => {
   );
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
+  const access = useMapStore(state => state.mapStatus?.access);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
@@ -153,7 +154,7 @@ export const Topbar: React.FC = () => {
                 View recent maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
+                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id || access === 'read'}>
                   Reset map
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.SubContent>

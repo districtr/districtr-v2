@@ -10,7 +10,7 @@ export const saveColorScheme = async ({
   document_id: string;
   colors: string[];
 }): Promise<ColorsSet | undefined> => {
-  if (colors === DefaultColorScheme) {
+  if (colors === DefaultColorScheme || !document_id) {
     return;
   }
   return await axios
@@ -19,9 +19,10 @@ export const saveColorScheme = async ({
       return res.data;
     })
     .catch(err => {
+      console.error(err);
       const setErrorNotification = useMapStore.getState().setErrorNotification;
       setErrorNotification({
-        message: err.response.data.message,
+        message: err.response?.data?.message,
         severity: 2,
         id: `change-colors-${document_id}-${colors.join('-')}`,
       });

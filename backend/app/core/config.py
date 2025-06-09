@@ -83,7 +83,7 @@ class Settings(BaseSettings):
             path=self.POSTGRES_DB,
         )
 
-    ECHO_DB: bool = ENVIRONMENT != Environment.production
+    ECHO_DB: bool = ENVIRONMENT not in (Environment.production, Environment.test)
 
     # Security
 

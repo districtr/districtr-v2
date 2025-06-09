@@ -42,6 +42,7 @@ export const ToolSettings: React.FC = () => {
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
   const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
+  const access = useMapStore(state => state.mapStatus?.access);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
@@ -55,7 +56,9 @@ export const ToolSettings: React.FC = () => {
             mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
             mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
             mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-            mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
+            mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true
+              ? 'showBlockPopulationNumbers'
+              : '',
             mapOptions.showPopulationNumbers === true ? 'showPopulationNumbers' : '',
             mapOptions.lockPaintedAreas.length ===
             (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
@@ -79,6 +82,7 @@ export const ToolSettings: React.FC = () => {
                 showPopulationTooltip: !mapOptions.showPopulationTooltip,
               })
             }
+            disabled={access === 'read'}
           >
             Show population tooltip
           </CheckboxGroup.Item>
@@ -145,7 +149,13 @@ export const ToolSettings: React.FC = () => {
           >
             Highlight broken precincts
           </CheckboxGroup.Item>
-          <Button onClick={() => setColorModalOpen(true)} variant="outline" size="1" mt="2">
+          <Button
+            onClick={() => setColorModalOpen(true)}
+            variant="outline"
+            size="1"
+            mt="2"
+            disabled={access === 'read'}
+          >
             Customize district colors
           </Button>
         </CheckboxGroup.Root>
@@ -199,6 +209,7 @@ export const ToolSettings: React.FC = () => {
           <CheckboxGroup.Item
             value="customizeToolbar"
             onClick={() => setCustomzieToolbar(!customizeToolbar)}
+            disabled={access === 'read'}
           >
             Enable draggable toolbar
           </CheckboxGroup.Item>

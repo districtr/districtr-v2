@@ -5,6 +5,7 @@ import {useTemporalStore} from '@/app/store/temporalStore';
 
 export const ResetMapButton: React.FC<{dialogOnly?: boolean}> = ({dialogOnly}) => {
   const noZonesAreAssigned = useMapStore(state => !state.zoneAssignments.size);
+  const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
   const clear = useTemporalStore(state => state.clear);
   const handleClickResetMap = () => {
@@ -15,7 +16,7 @@ export const ResetMapButton: React.FC<{dialogOnly?: boolean}> = ({dialogOnly}) =
   return (
     <AlertDialog.Root defaultOpen={dialogOnly}>
       {!dialogOnly && (
-        <AlertDialog.Trigger disabled={noZonesAreAssigned}>
+        <AlertDialog.Trigger disabled={noZonesAreAssigned || access === 'read'}>
           <Button variant="outline">Reset Map</Button>
         </AlertDialog.Trigger>
       )}
