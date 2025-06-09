@@ -266,5 +266,5 @@ async def checkout_plan(
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password or none provided",
+            detail="Invalid password",
         )
