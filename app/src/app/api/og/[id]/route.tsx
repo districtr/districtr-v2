@@ -17,11 +17,13 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
   const dataURI = 'data:image/jpeg;base64,' + base64Image;
 
   const thumbnail = await fetch(`${API_URL}/api/document/${id}/thumbnail`).then(res =>
-    res.ok ? res.arrayBuffer() : null
+    res.ok ? res.arrayBuffer() : (fs.readFileSync('./public/home-megaphone-square.png') as any)
   );
-  const thumbnailURI = thumbnail
-    ? 'data:image/png;base64,' + Buffer.from(thumbnail).toString('base64')
-    : null;
+  const thumbnailURI = 'data:image/png;base64,' + Buffer.from(thumbnail).toString('base64');
+  // Load the font in an edge-compatible way
+  const nunitoBold = fs.readFileSync('./public/Nunito-Bold.ttf');
+  const nunitoMedium = fs.readFileSync('./public/Nunito-Medium.ttf');
+
   return new ImageResponse(
     (
       <>
@@ -29,6 +31,7 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
           style={{
             border: '20px solid #0099cd',
             boxSizing: 'border-box',
+            fontFamily: "'Nunito', sans-serif",
             display: 'flex',
             flexDirection: 'row',
             height: '600px',
@@ -56,8 +59,8 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
               <h1
                 style={{
                   fontSize: '72px',
-                  fontFamily: 'Nunito',
-                  fontWeight: 'bold',
+                  fontFamily: "'Nunito', sans-serif",
+                  fontWeight: '700',
                   textAlign: 'center',
                   padding: '0',
                   margin: '0',
@@ -138,6 +141,20 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
     {
       width: 1128,
       height: 600,
+      fonts: [
+        {
+          name: 'Nunito',
+          data: nunitoMedium,
+          style: 'normal',
+          weight: 400,
+        },
+        {
+          name: 'Nunito',
+          data: nunitoBold,
+          style: 'normal',
+          weight: 700,
+        },
+      ],
     }
   );
 }
