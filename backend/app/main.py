@@ -202,8 +202,12 @@ async def create_document(
     total_assignments = 0
 
     if data.copy_from_doc is not None:
+        copied_document = get_protected_document(
+            document_id=data.copy_from_doc, session=session
+        )
+        assert copied_document.document_id is not None
         total_assignments = duplicate_document_assignments(
-            from_document_id=data.copy_from_doc,
+            from_document_id=copied_document.document_id,
             to_document_id=document_id,
             session=session,
         )
