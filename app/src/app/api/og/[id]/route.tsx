@@ -11,7 +11,7 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
   if (!mapDocument) {
     return new ImageResponse(<p>Map not found</p>);
   }
-  const title = mapDocument.map_metadata.name;
+  const title = mapDocument.map_metadata?.name ?? 'Districtr Map';
   const logoImage = fs.readFileSync('./public/districtr_logo.jpg') as any;
   const base64Image = Buffer.from(logoImage).toString('base64');
   const dataURI = 'data:image/jpeg;base64,' + base64Image;
@@ -69,11 +69,11 @@ export async function GET(_: Request, {params}: {params: Promise<{id: string}>})
                 {title}
               </h1>
               <div style={{display: 'flex', flexDirection: 'row', gap: '10px'}}>
-                {mapDocument.map_metadata.draft_status === 'ready_to_share' ? (
+                {mapDocument.map_metadata?.draft_status === 'ready_to_share' ? (
                   <p style={{color: 'green', textTransform: 'uppercase'}}>Ready to Share</p>
-                ) : mapDocument.map_metadata.draft_status === 'in_progress' ? (
+                ) : mapDocument.map_metadata?.draft_status === 'in_progress' ? (
                   <p style={{color: 'blue', textTransform: 'uppercase'}}>In Progress</p>
-                ) : mapDocument.map_metadata.draft_status === 'scratch' ? (
+                ) : mapDocument.map_metadata?.draft_status === 'scratch' ? (
                   <p style={{color: 'orange', textTransform: 'uppercase'}}>Scratch Work</p>
                 ) : null}
                 <p>{mapDocument.num_districts} districts</p>
