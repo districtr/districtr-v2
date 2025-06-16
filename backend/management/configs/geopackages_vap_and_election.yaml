@@ -178,3 +178,5 @@ districtr_maps:
     parent_layer: wa_vtd_districtr_view
     child_layer: wa_block_districtr_view
     tiles_s3_path: tilesets/wa_districtr_view.pmtiles
+map_groups:
+  - states

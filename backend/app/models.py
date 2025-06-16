@@ -12,9 +12,10 @@ from sqlmodel import (
     Boolean,
     Integer,
     Text,
+    Index,
 )
 from sqlalchemy.types import ARRAY
-from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.dialects.postgresql import JSON, ENUM
 from sqlalchemy import Float
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
@@ -53,7 +54,13 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
-    map_type: str = Field(nullable=False, default="default")
+    map_type: str = Field(
+        sa_column=Column(
+            ENUM("default", "local", name="maptype"),
+            nullable=False,
+            server_default="default",
+        )
+    )
 
 
 class DistrictrMapPublic(BaseModel):
@@ -98,8 +105,15 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
             "child_path",
             name="districtr_map_parent_child_edge_unique",
         ),
+        Index(
+            "idx_parentchildedges_child_path_districtr_map",
+            "child_path",
+            "districtr_map",
+        ),
         {"postgresql_partition_by": "LIST (districtr_map)"},
     )
+    __tablename__ = "parentchildedges"  # pyright: ignore
+
     districtr_map: str = Field(
         sa_column=Column(
             UUIDType,
@@ -155,7 +169,8 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     Tracks the user session for a given document
     """
 
-    __tablename__ = "map_document_user_session"
+    __tablename__ = "map_document_user_session"  # pyright: ignore
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
     session_id: int = Field(
         sa_column=Column(Integer, primary_key=True, autoincrement=True)
     )
@@ -253,5 +268,13 @@ class MapGroup(SQLModel, table=True):
 
 class DistrictrMapsToGroups(SQLModel, table=True):
     __tablename__ = "districtrmaps_to_groups"  # pyright: ignore
-    districtrmap_uuid: str = Field(primary_key=True, foreign_key="districtrmap.uuid")
-    group_slug: str = Field(primary_key=True, foreign_key="map_groups.slug")
+    districtrmap_uuid: str = Field(
+        sa_column=Column(UUIDType, ForeignKey("districtrmap.uuid"), primary_key=True)
+    )
+    group_slug: str = Field(
+        sa_column=Column(
+            String,
+            ForeignKey("map_group.slug"),
+            primary_key=True,
+        )
+    )
