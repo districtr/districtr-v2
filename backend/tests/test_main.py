@@ -1,4 +1,3 @@
-import os
 import pytest
 from sqlmodel import Session
 from app.core.db import get_session
@@ -12,14 +11,7 @@ from tests.constants import (
     GERRY_DB_FIXTURE_NAME,
     USER_ID,
 )
-from app.utils import (
-    create_districtr_map,
-    add_available_summary_stats_to_districtrmap,
-)
-from app.models import DocumentEditStatus, DocumentShareStatus
-import jwt
-from app.core.config import settings
-from fastapi import Form
+from app.utils import create_districtr_map, create_map_group
 
 
 def test_read_main(client):
@@ -53,7 +45,7 @@ def ks_demo_view_census_blocks_total_vap_fixture(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-lco",
@@ -99,7 +91,7 @@ def ks_demo_view_census_blocks_no_pop_fixture(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-lco",
@@ -147,6 +139,7 @@ def districtr_map_fixtures(
             districtr_map_slug=f"districtr_map_{i}",
             gerrydb_table_name=f"districtr_map_{i}",
             parent_layer=GERRY_DB_FIXTURE_NAME,
+            group_slug="states",
         )
     session.commit()
 
@@ -220,6 +213,7 @@ def assignments_fixture(client, document_id_all_stats):
                 },
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -238,6 +232,7 @@ def assignments_total_vap_fixture(client, document_id_total_vap):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -256,6 +251,7 @@ def assignments_no_gerrydb_pop_fixture(client, document_no_gerrydb_pop):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -288,12 +284,7 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
 
 def test_get_document(client, document_id):
     doc_uuid = uuid.UUID(document_id)
-    payload = {
-        "user_id": USER_ID,
-        "gerrydb_table": GERRY_DB_FIXTURE_NAME,
-    }
-
-    response = client.post(f"/api/document/{doc_uuid}", json=payload)
+    response = client.get(f"/api/document/{doc_uuid}?user_id={USER_ID}")
     assert response.status_code == 200
 
     data = response.json()
@@ -302,8 +293,6 @@ def test_get_document(client, document_id):
     assert data.get("updated_at")
     assert data.get("created_at")
     assert data.get("status") in ["locked", "unlocked", "checked_out"]
-
-    # assert data.get("tiles_s3_path") is None
 
 
 def test_patch_assignments(client, document_id):
@@ -316,6 +305,7 @@ def test_patch_assignments(client, document_id):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -334,6 +324,7 @@ def test_patch_assignments_nulls(client, document_id):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": None},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -351,6 +342,7 @@ def test_patch_assignments_twice(client, document_id):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 0},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -366,6 +358,7 @@ def test_patch_assignments_twice(client, document_id):
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 1},
             ],
             "updated_at": "2023-01-01T00:00:00",
+            "user_id": USER_ID,
         },
     )
     assert response.status_code == 200
@@ -393,77 +386,11 @@ def test_patch_reset_assignments(client, document_id):
     assert len(assignments.json()) == 0
 
 
-def test_get_document_population_totals_null_assignments(
-    client, document_id_all_stats, ks_demo_view_census_blocks
-):
-    response = client.patch(
-        "/api/update_assignments",
-        json={
-            "assignments": [
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "202090441022004",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "202090428002008",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "200979691001108",
-                    "zone": None,
-                },
-            ],
-            "updated_at": "2023-01-01T00:00:00",
-        },
-    )
-    assert response.status_code == 200, response.json()
-    data = response.json()
-    assert data.get("assignments_upserted") == 3
-    assert data.get("updated_at") is not None
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    assert result.status_code == 200, result.json()
-    data = result.json()
-    assert data == [{"zone": 1, "total_pop": 43}]
-
-
-def test_get_document_population_totals(
-    client, assignments_document_id, ks_demo_view_census_blocks
-):
-    doc_uuid = str(uuid.UUID(assignments_document_id))
-    result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    assert result.status_code == 200
-    data = result.json()
-    assert data == [{"zone": 1, "total_pop": 43}, {"zone": 2, "total_pop": 13}]
-
-
-def test_get_document_vap_totals(
-    client, assignments_document_id_total_vap, ks_demo_view_census_blocks_total_vap
-):
-    doc_uuid = str(uuid.UUID(assignments_document_id_total_vap))
-    result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    assert result.status_code == 404
-    assert result.json() == {"detail": "Population column not found in GerryDB view"}
-
-
-def test_get_document_population_totals_no_gerrydb_pop_view(
-    client, assignments_document_no_gerrydb_pop_id, ks_demo_view_census_blocks
-):
-    doc_uuid = str(uuid.UUID(assignments_document_no_gerrydb_pop_id))
-    result = client.get(f"/api/document/{doc_uuid}/total_pop")
-    data = result.json()
-    assert result.status_code == 404, data
-    assert data == {"detail": "Population column not found in GerryDB view"}
-
-
 def test_list_gerydb_views(client, districtr_maps):
     response = client.get("/api/gerrydb/views")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 5
+    assert len(data) == 4
 
 
 def test_list_gerydb_views_limit(client, districtr_maps):
@@ -477,7 +404,7 @@ def test_list_gerydb_views_offset(client, districtr_maps):
     response = client.get("/api/gerrydb/views?offset=1")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 4
+    assert len(data) == 3
 
 
 def test_list_gerydb_views_offset_and_limit(client, districtr_maps):
@@ -485,6 +412,35 @@ def test_list_gerydb_views_offset_and_limit(client, districtr_maps):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
+
+
+@pytest.fixture(name="map_group_two")
+def map_group_two_fixture(session: Session):
+    create_map_group(session=session, group_name="Map Group Two", slug="map_group_two")
+    return "map_group_two"
+
+
+@pytest.fixture(name="districtr_maps_diff_group")
+def districtr_map_diff_group_fixtures(
+    session: Session, map_group_two: str, ks_demo_view_census_blocks_districtrmap
+):
+    for i in range(4):
+        create_districtr_map(
+            session=session,
+            name=f"Districtr map {i}",
+            districtr_map_slug=f"districtr_map_{i}",
+            gerrydb_table_name=f"districtr_map_{i}",
+            parent_layer=GERRY_DB_FIXTURE_NAME,
+            group_slug=map_group_two,
+        )
+    session.commit()
+
+
+def test_list_gerydb_views_diff_map_group(client, districtr_maps_diff_group):
+    response = client.get("/api/gerrydb/views?group=map_group_two")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 4
 
 
 @pytest.fixture(name="districtr_maps_soft_deleted")
@@ -501,6 +457,7 @@ def districtr_map_soft_deleted_fixture(
             visibility=bool(
                 i
             ),  # Should have one hidden (index 0) and one visible (index 1)
+            group_slug="states",
         )
     session.commit()
 
@@ -511,17 +468,16 @@ def test_list_gerydb_views_soft_deleted_map(
     response = client.get("/api/gerrydb/views")
     assert response.status_code == 200
     data = response.json()
-    # One visible from `ks_demo_view_census_blocks_districtrmap`
     # One hidden from `districtr_maps_soft_deleted`
     # One visible from `districtr_maps_soft_deleted`
-    assert len(data) == 2
+    assert len(data) == 1
 
     # Check that the hidden map is there
     stmt = text("SELECT * FROM districtrmap WHERE not visible")
     result = session.execute(stmt).one()
     assert result is not None
     assert not result.visible
-    assert data[0]["name"] == "Districtr map ks_demo_view_census_blocks"
+    assert data[0]["name"] == "Districtr map 1"
 
 
 @pytest.fixture(name=GERRY_DB_TOTPOP_FIXTURE_NAME)
@@ -533,7 +489,7 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-nln",
@@ -553,19 +509,13 @@ def ks_demo_view_census_blocks_summary_stats(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    districtr_map_uuid = create_districtr_map(
+    create_districtr_map(
         session=session,
         name="DistrictMap with TOTPOP view",
         parent_layer=layer,
         districtr_map_slug=layer,
         gerrydb_table_name=layer,
     )
-    summary_stats = add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-    assert summary_stats == [
-        "TOTPOP"
-    ], f"Expected TOTPOP to be available, got {summary_stats}"
 
     session.commit()
 
@@ -583,7 +533,7 @@ def ks_demo_view_census_blocks_summary_stats_vap(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-nln",
@@ -603,20 +553,13 @@ def ks_demo_view_census_blocks_summary_stats_vap(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    districtr_map_uuid = create_districtr_map(
+    create_districtr_map(
         session=session,
         name="DistrictMap with VAP view",
         parent_layer=layer,
         districtr_map_slug=layer,
         gerrydb_table_name=layer,
     )
-    summary_stats = add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-    assert summary_stats == [
-        "VAP"
-    ], f"Expected VAP to be available, got {summary_stats}"
-
     session.commit()
 
     if result.returncode != 0:
@@ -633,7 +576,7 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-nln",
@@ -653,7 +596,7 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
 
     session.execute(upsert_query, {"name": layer})
 
-    districtr_map_uuid = create_districtr_map(
+    create_districtr_map(
         session=session,
         name="DistrictMap with TOTPOP AND VAP view",
         parent_layer=layer,
@@ -661,61 +604,11 @@ def ks_demo_view_census_blocks_summary_stats_all_stats(session: Session):
         gerrydb_table_name=layer,
         num_districts=4,
     )
-    summary_stats = add_available_summary_stats_to_districtrmap(
-        session=session, districtr_map_uuid=districtr_map_uuid
-    )
-    assert (
-        "TOTPOP" in summary_stats
-    ), f"Expected TOTPOP to be available, got {summary_stats}"
-    assert "VAP" in summary_stats, f"Expected VAP to be available, got {summary_stats}"
-
     session.commit()
 
     if result.returncode != 0:
         print(f"ogr2ogr failed. Got {result}")
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
-
-
-def test_get_demography_table(
-    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
-):
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(f"/api/document/{doc_uuid}/demography")
-    print(result.json())
-    assert result.status_code == 200
-    data = result.json()
-    assert "columns" in data
-    assert "results" in data
-    assert len(data["columns"]) == 15
-    assert len(data["results"]) == 10
-
-
-def test_get_demography_select_ids(
-    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
-):
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(
-        f"/api/document/{doc_uuid}/demography?ids=202090441022004&ids=202090428002008"
-    )
-    assert result.status_code == 200
-    data = result.json()
-    assert len(data["results"]) == 2
-    assert data["results"][0][0] == "202090441022004"
-    assert data["results"][1][0] == "202090428002008"
-
-
-def test_get_demography_select_ids_and_select_table(
-    client, document_id_all_stats, ks_demo_view_census_blocks_summary_stats_all_stats
-):
-    doc_uuid = str(uuid.UUID(document_id_all_stats))
-    result = client.get(
-        f"/api/document/{doc_uuid}/demography?ids=202090441022004&ids=202090428002008&stats=TOTPOP"
-    )
-    assert result.status_code == 200
-    data = result.json()
-    assert len(data["results"]) == 2
-    assert "total_pop_20" in data["columns"]
-    assert "total_vap_20" not in data["columns"]
 
 
 def test_change_colors(
@@ -761,172 +654,296 @@ def test_update_districtrmap_metadata(client, document_id):
     assert response.status_code == 200
 
 
-def test_share_districtr_plan(client, document_id):
-    """Test sharing a document when a pw exists"""
-    share_payload = {"password": "password", "access_type": "view"}
+def test_group_data(client, session: Session):
+    group_slug = "map_group_two"
+    create_map_group(session=session, group_name="Map Group Two", slug=group_slug)
+    response = client.get(f"/api/group/{group_slug}")
+    assert response.json().get("name") == "Map Group Two"
 
+
+def test_new_document_from_block_assignments(client, simple_shatterable_districtr_map):
     response = client.post(
-        f"/api/document/{document_id}/share",
+        "/api/create_document",
         json={
-            "password": share_payload["password"],
-            "access_type": share_payload["access_type"],
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", "2"],
+                ["c", "2"],
+                ["d", "2"],
+                ["e", "1"],
+                ["f", "3"],
+            ],
         },
     )
-
-    assert response.status_code == 200
     data = response.json()
-    assert "token" in data
-
-    decoded_token = jwt.decode(data["token"], settings.SECRET_KEY, algorithms=["HS256"])
-    assert decoded_token["access"] == "view"
-    assert decoded_token["password_required"]
-
-    # test sharing from an existing token
-    response = client.post(
-        f"/api/document/{document_id}/share",
-        json={
-            "password": share_payload["password"],
-            "access_type": share_payload["access_type"],
-        },
-    )
-
-    assert response.status_code == 200
-    assert "token" in data
-
-
-def test_unlock_map(client, document_id):
-    # create document
-    response = client.post(
-        "/api/create_document",
-        json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
-        },
-    )
-    document_id = response.json().get("document_id")
-    # unlock document
-    response = client.post(
-        f"/api/document/{document_id}/unlock", json={"user_id": USER_ID}
-    )
-    assert response.status_code == 200
-
-
-def test_get_document_status(client, document_id):
-    # create document
-    response = client.post(
-        "/api/create_document",
-        json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
-        },
-    )
-    document_id = response.json().get("document_id")
-
-    # check doc status
-    response = client.post(
-        f"/api/document/{document_id}/status", json={"user_id": USER_ID}
-    )
-    document_status = response.json().get("status")
-
     assert (
-        document_status == DocumentEditStatus.checked_out
-    )  # since it was made fresh by this user
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    # All parent geoids are inferrable
+    assert data.get("inserted_assignments") == 3
 
 
-def test_document_unload(client, document_id):
-    # create document
+def test_new_document_from_block_assignments_no_matched_parents(
+    client, simple_shatterable_districtr_map
+):
     response = client.post(
         "/api/create_document",
         json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "districtr_map_slug": "simple_geos",
             "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", "2"],
+                ["c", "1"],
+                ["d", "2"],
+                ["e", "2"],
+                ["f", "1"],
+            ],
         },
     )
-    document_id = response.json().get("document_id")
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    # No parent geoids are inferrable
+    assert data.get("inserted_assignments") == 6
 
-    # unload document
-    response = client.post(
-        f"/api/document/{document_id}/unload",
-        data={"user_id": Form(USER_ID)},
-    )
 
-    assert response.status_code == 200
-    assert response.json().get("status") == DocumentEditStatus.unlocked
-
-
-def test_load_plan_from_share(client, document_id):
-    # create document
+def test_new_document_from_block_assignments_no_data(
+    client, simple_shatterable_districtr_map
+):
     response = client.post(
         "/api/create_document",
         json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "districtr_map_slug": "simple_geos",
             "user_id": USER_ID,
+            "assignments": [],
         },
     )
-    document_id = response.json().get("document_id")
-
-    # share the document
-    share_payload = {"password": "password", "access_type": "view"}
-
-    response = client.post(
-        f"/api/document/{document_id}/share",
-        json={
-            "password": share_payload["password"],
-            "access_type": share_payload["access_type"],
-        },
-    )
-    decoded_token = jwt.decode(
-        response.json()["token"], settings.SECRET_KEY, algorithms=["HS256"]
-    )
-
-    # load the document
-    response = client.post(
-        "/api/share/load_plan_from_share",
-        json={
-            "user_id": USER_ID,
-            "password": "password",
-            "token": decoded_token["token"],
-            "access": DocumentShareStatus.read,
-        },
-    )
-
-    assert response.status_code == 200
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    # No parent geoids are inferrable
+    assert data.get("inserted_assignments") == 0
 
 
-def test_document_checkout(client, document_id):
-    # create a document
+def test_new_document_from_block_assignments_some_matched_parents(
+    client, simple_shatterable_districtr_map
+):
     response = client.post(
         "/api/create_document",
         json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "districtr_map_slug": "simple_geos",
             "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", "2"],
+                ["c", "1"],
+                ["d", "2"],
+                ["e", "1"],
+                ["f", "3"],
+            ],
         },
     )
-    document_id = response.json().get("document_id")
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    # Some parent geoids are inferrable
+    assert data.get("inserted_assignments") == 5
 
-    # share the document
-    share_payload = {"password": "password", "access_type": "view"}
 
+def test_new_document_from_block_assignments_some_nulls(
+    client, simple_shatterable_districtr_map
+):
     response = client.post(
-        f"/api/document/{document_id}/share",
+        "/api/create_document",
         json={
-            "password": share_payload["password"],
-            "access_type": share_payload["access_type"],
-        },
-    )
-    decoded_token = jwt.decode(
-        response.json()["token"], settings.SECRET_KEY, algorithms=["HS256"]
-    )
-
-    # chck the document out
-    response = client.post(
-        f"/api/document/{document_id}/checkout",
-        json={
+            "districtr_map_slug": "simple_geos",
             "user_id": USER_ID,
-            "password": "password",
-            "token": decoded_token["token"],
+            "assignments": [
+                ["a", "1"],
+                ["b", ""],
+                ["c", "1"],
+                ["d", ""],
+                ["e", "1"],
+                ["f", "3"],
+            ],
         },
     )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    assert data.get("inserted_assignments") == 3
 
-    assert response.status_code == 200
-    assert response.json().get("status") == DocumentEditStatus.checked_out
+
+def test_new_document_from_block_assignments_some_null_geoids(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", ""],
+                ["", "1"],
+                ["", ""],
+                ["e", "1"],
+                ["f", "3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    assert data.get("inserted_assignments") == 2
+
+
+def test_new_document_from_block_assignments_non_integer_mapping(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "My zone 1"],
+                ["b", ""],
+                ["c", "My zone 1"],
+                ["d", ""],
+                ["e", "My zone 1"],
+                ["f", "My zone 3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    assert data.get("inserted_assignments") == 3
+
+
+def test_new_document_from_block_assignments_too_many_unique_zones(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["b", "2"],
+                ["c", "3"],
+                ["d", "4"],
+                ["e", "1"],
+                ["f", "5"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "simple_geos"
+    # Maximum number of districts is three
+    # - a + e => parent A
+    # - b -> still valid so single block
+    # - c -> still valid so single block
+    # - d and f are skipped
+    assert data.get("inserted_assignments") == 3
+
+
+def test_new_document_from_block_assignments_no_children(
+    client, ks_demo_view_census_blocks_districtrmap
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "ks_demo_view_census_blocks",
+            "user_id": USER_ID,
+            "assignments": [
+                ["202090441022004", "1"],
+                ["202090428002008", "1"],
+                ["202090443032011", "2"],
+                ["200979691001108", "3"],
+            ],
+        },
+    )
+    data = response.json()
+    assert (
+        response.status_code == 201
+    ), f"Unexpected result: {response.status_code} {data.get('detail')}"
+    document_id = data.get("document_id", None)
+    assert document_id
+    assert isinstance(uuid.UUID(document_id), uuid.UUID)
+    assert data.get("districtr_map_slug") == "ks_demo_view_census_blocks"
+    assert data.get("inserted_assignments") == 4
+
+
+def test_new_document_from_block_assignments_duplicate_blocks_in_input(
+    client, simple_shatterable_districtr_map
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": "simple_geos",
+            "user_id": USER_ID,
+            "assignments": [
+                ["a", "1"],
+                ["a", "1"],  # Dupe!
+                ["b", "2"],
+                ["c", "1"],
+                ["d", "2"],
+                ["e", "2"],
+                ["f", "1"],
+            ],
+        },
+    )
+    data = response.json()
+    detail = data.get("detail")
+    assert (
+        response.status_code == 400
+    ), f"Unexpected result: {response.status_code} {detail}"
+    assert (
+        detail == "Duplicate geoids found in input data. Ensure all geoids are unique"
+    )

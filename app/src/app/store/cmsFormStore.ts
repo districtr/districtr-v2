@@ -4,7 +4,7 @@ import {
   AllCmsLists,
   AllCmsEntries,
   CmsContentTypes,
-  listCMSContent,
+  listEditorCMSContent,
   PlacesCMSContent,
   TagsCMSContent,
   createCMSContent,
@@ -18,6 +18,7 @@ import {LANG_MAPPING} from '../utils/language';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {DistrictrMap} from '../utils/api/apiHandlers/types';
 import {getAvailableDistrictrMaps} from '../utils/api/apiHandlers/getAvailableDistrictrMaps';
+import {ClientSession} from '@/app/lib/auth0';
 
 // Base form data interface with common fields
 interface BaseFormData {
@@ -102,295 +103,321 @@ interface CmsFormStore {
   handlePublish: (id: string) => Promise<void>;
   handleEdit: (item: AllCmsEntries['content']) => void;
   cancelEdit: () => void;
+
+  // Auth
+  session: ClientSession | null;
+  setSession: (session: CmsFormStore['session']) => void;
 }
 
-export const useCmsFormStore = create(
-  subscribeWithSelector<CmsFormStore>((set, get) => ({
-    // Initial state
-    content: null,
-    contentType: null,
-    maps: [],
-    formData: null,
-    error: '',
-    success: '',
-    previewData: null,
-    editingContent: null,
+export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
+  // Initial state
+  content: null,
+  contentType: null,
+  maps: [],
+  formData: null,
+  error: '',
+  success: '',
+  previewData: null,
+  editingContent: null,
 
-    // Simple setters
-    setContent: content => set({content}),
-    setPreviewData: data => set({previewData: data}),
+  // Simple setters
+  setContent: content => set({content}),
+  setPreviewData: data => set({previewData: data}),
 
-    // Load map data
-    loadMapList: async () => {
-      const existingMaps = get().maps;
-      if (existingMaps.length) return existingMaps;
-      return await getAvailableDistrictrMaps(100);
-    },
+  // Load map data
+  loadMapList: async () => {
+    const existingMaps = get().maps;
+    if (existingMaps.length) return existingMaps;
+    return await getAvailableDistrictrMaps({limit: 100});
+  },
 
-    // Load content for a specific type
-    loadData: async contentType => {
-      console.log('Loading...');
-      try {
-        const [content, mapsData] = await Promise.all([
-          listCMSContent(contentType),
-          get().loadMapList(),
-        ]);
+  // Load content for a specific type
+  loadData: async contentType => {
+    set({contentType});
+    const {session} = get();
 
-        // Create typed form data from defaults
-        const formData = createTypedFormData(
-          contentType,
-          structuredClone(defaultFormData[contentType])
-        );
+    if (!session) {
+      return;
+    }
 
-        set({
-          content,
-          contentType,
-          maps: mapsData,
-          formData,
-        });
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        set({error: 'Failed to load data. Please try again.'});
+    try {
+      const [content, mapsData] = await Promise.all([
+        listEditorCMSContent(contentType, {}, session),
+        get().loadMapList(),
+      ]);
+
+      // Create typed form data from defaults
+      const formData = createTypedFormData(
+        contentType,
+        structuredClone(defaultFormData[contentType])
+      );
+
+      set({
+        content,
+        contentType,
+        maps: mapsData,
+        formData,
+      });
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      set({error: `Failed to load data. Please try again. ${err}`});
+    }
+  },
+
+  // Handle form field changes
+  handleChange:
+    (property, multiple = false) =>
+    value => {
+      const {contentType, formData: _formData} = get();
+      if (!_formData || !contentType) return;
+
+      if (!multiple) {
+        // Create a new form data object with updated property
+        const newFormData = {
+          contentType: _formData.contentType,
+          content: {
+            ..._formData.content,
+            [property]: value,
+          },
+        };
+        set({formData: newFormData});
+      } else {
+        let newValue = (_formData.content[property as keyof typeof _formData.content] ??
+          []) as string[];
+        if (newValue.includes(value)) {
+          newValue = newValue.filter(v => v !== value);
+        } else {
+          newValue.push(value);
+        }
+        const newFormData = {
+          contentType: _formData.contentType,
+          content: {
+            ..._formData.content,
+            [property]: newValue,
+          },
+        };
+        set({formData: newFormData});
       }
     },
 
-    // Handle form field changes
-    handleChange:
-      (property, multiple = false) =>
-      value => {
-        const {contentType, formData: _formData} = get();
-        if (!_formData || !contentType) return;
+  // Submit form data (create or update)
+  handleSubmit: async () => {
+    set({error: '', success: ''});
 
-        if (!multiple) {
-          // Create a new form data object with updated property
-          const newFormData = {
-            contentType: _formData.contentType,
-            content: {
-              ..._formData.content,
-              [property]: value,
-            },
-          };
-          set({formData: newFormData});
-        } else {
-          let newValue = (_formData.content[property as keyof typeof _formData.content] ??
-            []) as string[];
-          if (newValue.includes(value)) {
-            newValue = newValue.filter(v => v !== value);
-          } else {
-            newValue.push(value);
-          }
-          const newFormData = {
-            contentType: _formData.contentType,
-            content: {
-              ..._formData.content,
-              [property]: newValue,
-            },
-          };
-          set({formData: newFormData});
-        }
-      },
+    const {formData, editingContent, contentType} = get();
+    if (!formData?.content || !contentType) return;
 
-    // Submit form data (create or update)
-    handleSubmit: async () => {
-      set({error: '', success: ''});
+    const draftContent = {
+      title: formData.content.title,
+      subtitle: formData.content.subtitle,
+      body: formData.content.body,
+    };
+    const {session} = get();
+    if (!session) {
+      set({error: 'Failed to authenticate.'});
+      return;
+    }
+    if (editingContent) {
+      // Updating existing content
+      let content: CMSContentUpdate = {
+        content_type: contentType,
+        content_id: editingContent.content.id,
+        updates: {
+          slug: formData.content.slug,
+          language: formData.content.language,
+          draft_content: draftContent,
+        },
+      };
 
-      const {formData, editingContent, contentType} = get();
-      if (!formData?.content || !contentType) return;
+      // Add type-specific fields based on content type
+      if (isContentType(contentType, 'tags')) {
+        content.updates.districtr_map_slug =
+          (formData.content as FormDataType<'tags'>).districtr_map_slug || undefined;
+      } else if (isContentType(contentType, 'places')) {
+        content.updates.districtr_map_slugs =
+          (formData.content as FormDataType<'places'>).districtr_map_slugs || null;
+      }
+      const r = await updateCMSContent({body: content, session});
+      if (r.ok) {
+        set({success: 'Content updated successfully!', editingContent: null});
+      } else {
+        set({error: r.error?.detail, success: undefined});
+      }
+    } else {
+      // Creating new content
+      let content: CMSContentCreate = {
+        content_type: contentType,
+        slug: formData.content.slug,
+        language: formData.content.language,
+        draft_content: draftContent,
+        published_content: null,
+      };
 
-      try {
-        // Common draft content object
-        const draftContent = {
-          title: formData.content.title,
-          subtitle: formData.content.subtitle,
-          body: formData.content.body,
-        };
+      // Add type-specific fields based on content type
+      if (isContentType(contentType, 'tags')) {
+        content.districtr_map_slug = (formData.content as FormDataType<'tags'>).districtr_map_slug;
+      } else if (isContentType(contentType, 'places')) {
+        content.districtr_map_slugs = (
+          formData.content as FormDataType<'places'>
+        ).districtr_map_slugs;
+      }
 
-        if (editingContent) {
-          // Updating existing content
-          let content: CMSContentUpdate = {
-            content_type: contentType,
-            content_id: editingContent.content.id,
-            updates: {
-              slug: formData.content.slug,
-              language: formData.content.language,
-              draft_content: draftContent,
-            },
-          };
+      const r = await createCMSContent({body: content, session});
 
-          // Add type-specific fields based on content type
-          if (isContentType(contentType, 'tags')) {
-            content.updates.districtr_map_slug =
-              (formData.content as FormDataType<'tags'>).districtr_map_slug || undefined;
-          } else if (isContentType(contentType, 'places')) {
-            content.updates.districtr_map_slugs =
-              (formData.content as FormDataType<'places'>).districtr_map_slugs || null;
-          }
-          await updateCMSContent(content);
-          set({success: 'Content updated successfully!', editingContent: null});
-        } else {
-          // Creating new content
-          let content: CMSContentCreate = {
-            content_type: contentType,
-            slug: formData.content.slug,
-            language: formData.content.language,
-            draft_content: draftContent,
-            published_content: null,
-          };
-
-          // Add type-specific fields based on content type
-          if (isContentType(contentType, 'tags')) {
-            content.districtr_map_slug = (
-              formData.content as FormDataType<'tags'>
-            ).districtr_map_slug;
-          } else if (isContentType(contentType, 'places')) {
-            content.districtr_map_slugs = (
-              formData.content as FormDataType<'places'>
-            ).districtr_map_slugs;
-          }
-
-          await createCMSContent(content);
-          set({success: 'Content created successfully!'});
-        }
-
+      if (r.ok) {
+        set({success: 'Content created successfully!'});
         // Refresh content list and reset form
-        const newContent = await listCMSContent(contentType);
+        const newContent = await listEditorCMSContent(contentType, {}, session);
         const resetFormData = createTypedFormData(
           contentType,
           structuredClone(defaultFormData[contentType])
         );
-
         set({
           formData: resetFormData,
           content: newContent,
           editingContent: null,
         });
-      } catch (err: any) {
-        console.error('Error saving content:', err);
-        set({error: err.response?.data?.detail || 'Failed to save content. Please try again.'});
+      } else {
+        set({error: r.error?.detail, success: undefined});
       }
-    },
+    }
+  },
 
-    // Delete content
-    handleDelete: async id => {
-      if (!confirm('Are you sure you want to delete this content?')) return;
+  // Delete content
+  handleDelete: async id => {
+    if (!confirm('Are you sure you want to delete this content?')) return;
+    const {session, contentType} = get();
 
-      try {
-        const contentType = get().contentType;
-        if (!contentType) {
-          set({error: 'Failed to delete content. Please try again.'});
-          return;
-        }
+    if (!session) {
+      set({error: 'Failed to delete content. Please try again.'});
+      return;
+    }
 
-        await deleteCMSContent(id, contentType);
+    if (!contentType) {
+      set({error: 'Failed to delete content. Please try again.'});
+      return;
+    }
 
-        const currentContent = get().content;
-        if (!currentContent) return;
+    let r = await deleteCMSContent({
+      body: {content_id: id, content_type: contentType},
+      session: session,
+    });
+    if (r.ok) {
+      const currentContent = get().content;
+      if (!currentContent) return;
 
-        // Update content list without the deleted item
-        const updatedContent = {
-          contentType: currentContent.contentType,
-          content: currentContent.content.filter(item => item.id !== id),
-        } as AllCmsLists;
-
-        set({
-          success: 'Content deleted successfully!',
-          content: updatedContent,
-        });
-      } catch (err) {
-        console.error('Error deleting content:', err);
-        set({error: 'Failed to delete content. Please try again.'});
-      }
-    },
-
-    // Publish content
-    handlePublish: async id => {
-      try {
-        const contentType = get().contentType;
-        if (!contentType) {
-          set({error: 'Failed to publish content. Please try again.'});
-          return;
-        }
-
-        await publishCMSContent(id, contentType);
-        const updatedContent = await listCMSContent(contentType);
-        set({
-          success: 'Content published successfully!',
-          content: updatedContent,
-        });
-      } catch (err) {
-        console.error('Error publishing content:', err);
-        set({error: 'Failed to publish content. Please try again.'});
-      }
-    },
-
-    // Edit existing content
-    handleEdit: _item => {
-      const contentType = get().contentType;
-      if (!contentType) return;
-
-      // Prepare item with proper content and status
-      const item = {
-        ..._item,
-        draft_content: _item.draft_content ?? _item.published_content ?? null,
-        status:
-          _item.published_content && _item.draft_content
-            ? 'new'
-            : _item.published_content
-              ? 'published'
-              : 'draft',
-      };
-
-      // Common base form fields
-      const baseFormFields: BaseFormData = {
-        slug: item.slug,
-        language: item.language,
-        title: item.draft_content?.title || '',
-        subtitle: item.draft_content?.subtitle || '',
-        body: item.draft_content?.body || {
-          type: 'doc',
-          content: [{type: 'paragraph', content: []}],
-        },
-      };
-
-      // Handle different content types
-      if (isContentType(contentType, 'tags')) {
-        const tagsItem = item as TagsCMSContent;
-
-        set({
-          editingContent: {
-            contentType: 'tags',
-            content: tagsItem,
-          } as AllCmsEntries,
-          formData: createTypedFormData('tags', {
-            ...baseFormFields,
-            districtr_map_slug: tagsItem.districtr_map_slug || '',
-          }),
-        });
-      } else if (isContentType(contentType, 'places')) {
-        const placesItem = item as PlacesCMSContent;
-
-        set({
-          editingContent: {
-            contentType: 'places',
-            content: placesItem,
-          } as AllCmsEntries,
-          formData: createTypedFormData('places', {
-            ...baseFormFields,
-            districtr_map_slugs: placesItem.districtr_map_slugs || [],
-          }),
-        });
-      }
-    },
-
-    // Cancel edit mode
-    cancelEdit: () => {
-      const contentType = get().contentType;
-      if (!contentType) return;
+      // Update content list without the deleted item
+      const updatedContent = currentContent.filter(item => item.id !== id);
 
       set({
-        editingContent: null,
-        formData: createTypedFormData(contentType, structuredClone(defaultFormData[contentType])),
+        success: 'Content deleted successfully!',
+        content: updatedContent,
       });
-    },
-  }))
-);
+    } else {
+      set({error: r.error?.detail, success: undefined});
+    }
+  },
+
+  // Publish content
+  handlePublish: async id => {
+    const {session, contentType} = get();
+
+    if (!session) {
+      set({error: 'Failed to authenticate. Please try again.'});
+      return;
+    }
+
+    if (!contentType) {
+      set({error: 'Failed to publish content. Please try again.'});
+      return;
+    }
+
+    const r = await publishCMSContent({
+      body: {content_id: id, content_type: contentType},
+      session: session,
+    });
+    if (r.ok) {
+      const updatedContent = await listEditorCMSContent(contentType, {}, session);
+      set({
+        success: 'Content published successfully!',
+        content: updatedContent,
+      });
+    } else {
+      set({error: r.error?.detail, success: undefined});
+    }
+  },
+
+  // Edit existing content
+  handleEdit: _item => {
+    const contentType = get().contentType;
+    if (!contentType) return;
+
+    // Prepare item with proper content and status
+    const item = {
+      ..._item,
+      draft_content: _item.draft_content ?? _item.published_content ?? null,
+      status:
+        _item.published_content && _item.draft_content
+          ? 'new'
+          : _item.published_content
+            ? 'published'
+            : 'draft',
+    };
+
+    // Common base form fields
+    const baseFormFields: BaseFormData = {
+      slug: item.slug,
+      language: item.language,
+      title: item.draft_content?.title || '',
+      subtitle: item.draft_content?.subtitle || '',
+      body: item.draft_content?.body || {
+        type: 'doc',
+        content: [{type: 'paragraph', content: []}],
+      },
+    };
+
+    // Handle different content types
+    if (isContentType(contentType, 'tags')) {
+      const tagsItem = item as TagsCMSContent;
+
+      set({
+        editingContent: {
+          contentType: 'tags',
+          content: tagsItem,
+        } as AllCmsEntries,
+        formData: createTypedFormData('tags', {
+          ...baseFormFields,
+          districtr_map_slug: tagsItem.districtr_map_slug || '',
+        }),
+      });
+    } else if (isContentType(contentType, 'places')) {
+      const placesItem = item as PlacesCMSContent;
+
+      set({
+        editingContent: {
+          contentType: 'places',
+          content: placesItem,
+        } as AllCmsEntries,
+        formData: createTypedFormData('places', {
+          ...baseFormFields,
+          districtr_map_slugs: placesItem.districtr_map_slugs || [],
+        }),
+      });
+    }
+  },
+
+  // Cancel edit mode
+  cancelEdit: () => {
+    const contentType = get().contentType;
+    if (!contentType) return;
+
+    set({
+      editingContent: null,
+      formData: createTypedFormData(contentType, structuredClone(defaultFormData[contentType])),
+    });
+  },
+
+  // Auth
+  session: null,
+  setSession: session => set({session}),
+}));

@@ -1,5 +1,4 @@
-import {NullableZone} from '@constants/types';
-import {SummaryTypes} from '../summaryStats';
+import {SummaryStatConfig} from '../summaryStats';
 
 export interface Assignment {
   document_id: string;
@@ -35,13 +34,15 @@ export interface StatusObject {
   password?: string | null;
 }
 
+export type DraftStatus = 'scratch' | 'in_progress' | 'ready_to_share';
+
 export interface DocumentMetadata {
   name: string | null;
   group: string | null;
   tags: string | null;
   description: string | null;
   eventId: string | null;
-  is_draft: boolean;
+  draft_status: DraftStatus | null;
 }
 
 export interface DocumentObject extends StatusObject {
@@ -56,8 +57,8 @@ export interface DocumentObject extends StatusObject {
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
-  available_summary_stats: Array<SummaryTypes>;
   color_scheme: string[] | null;
+  map_type: 'default' | 'local';
 }
 
 export interface DocumentCreate {
@@ -89,3 +90,8 @@ export type RemoteAssignmentsResponse = {
 };
 
 export type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | null>;
+
+export type MapGroup = {
+  name: string;
+  slug: string;
+};

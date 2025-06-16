@@ -1,4 +1,5 @@
 import {Flex, Tabs} from '@radix-ui/themes';
+import {useMapStore} from '@/app/store/mapStore';
 import {Contiguity} from './Contiguity';
 import {ZoomToUnassigned} from './ZoomToUnassigned';
 import {useState} from 'react';
@@ -14,7 +15,10 @@ const mapValidationPanel = [
   },
 ];
 export const MapValidation = () => {
-  const [activePanel, setActivePanel] = useState(mapValidationPanel[0].label);
+  const mapType = useMapStore(state => state.mapDocument?.map_type);
+  const [activePanel, setActivePanel] = useState(
+    mapValidationPanel[mapType === 'local' ? 1 : 0].label
+  );
   const Component = mapValidationPanel.find(panel => panel.label === activePanel)?.component;
   return (
     <Flex direction="column" gap="2">

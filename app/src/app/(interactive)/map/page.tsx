@@ -1,20 +1,18 @@
-import React from 'react';
-import type {Metadata} from 'next';
-import MapPageComponent from './component';
-import {getDocument} from '@utils/api/apiHandlers/getDocument';
-import {type DocumentObject} from '@utils/api/apiHandlers/types';
+import {Metadata} from 'next';
+import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
+import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
+import MapPage from '@/app/components/Map/MapPage';
+import {API_URL} from '@/app/utils/api/constants';
+
+const DISTRICTR_LOGO = {
+  url: 'https://beta.districtr.org/districtr_logo.jpg',
+  width: 1136,
+  height: 423,
+};
 
 type MetadataProps = {
   searchParams: Promise<{document_id?: string | string[] | undefined}>;
 };
-
-const DISTRICTR_LOGO = [
-  {
-    url: 'https://districtr-v2-frontend.fly.dev/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
-    width: 1136,
-    height: 423,
-  },
-];
 
 export async function generateMetadata({searchParams}: MetadataProps): Promise<Metadata> {
   const resolvedParams = await searchParams;
@@ -22,7 +20,9 @@ export async function generateMetadata({searchParams}: MetadataProps): Promise<M
   const singularDocumentId = Array.isArray(document_id) ? document_id[0] : document_id;
   let mapDocument: DocumentObject | null = null;
   if (singularDocumentId) {
-    mapDocument = await getDocument(singularDocumentId);
+    mapDocument = await fetch(`${API_URL}/api/document/${singularDocumentId}`).then(res =>
+      res.ok ? (res.json() as Promise<NonNullable<DocumentObject>>) : null
+    );
   }
   const districtCount = mapDocument?.num_districts ? `${mapDocument.num_districts} districts` : '';
   return {
@@ -33,11 +33,18 @@ export async function generateMetadata({searchParams}: MetadataProps): Promise<M
         : (mapDocument?.map_metadata?.name ?? 'Get Started'),
       description: mapDocument?.map_metadata?.description ?? 'Create districting maps',
       siteName: 'Districtr 2.0',
-      images: DISTRICTR_LOGO,
+      images: [
+        {
+          url: `https://beta.districtr.org/api/og/${singularDocumentId}`,
+          width: 1128,
+          height: 600,
+        },
+        DISTRICTR_LOGO,
+      ],
     },
   };
 }
 
 export default function Map() {
-  return <MapPageComponent />;
+  return <MapPage />;
 }

@@ -25,9 +25,6 @@ const ToolControlsConfig: Record<
   eraser: {
     Component: BrushControls,
   },
-  lock: {
-    Component: ZoneLockPicker,
-  },
   shatter: {
     Component: () => {
       const focusFeatures = useMapStore(state => state.focusFeatures);
@@ -44,8 +41,9 @@ export const ToolControls: React.FC<{
   isMobile?: boolean;
 }> = ({isMobile}) => {
   const {Component} = useMapStore(state => ToolControlsConfig[state.activeTool] || {});
-  const {x, y, maxXY, rotation, customizeToolbar} = useToolbarStore();
-  const isHorizontal = !customizeToolbar || rotation === 'horizontal';
+  const {x, y, maxXY, rotation, customizeToolbar, toolbarLocation} = useToolbarStore();
+  const isHorizontal =
+    toolbarLocation === 'sidebar' || !customizeToolbar || rotation === 'horizontal';
   const ContainerRef = useRef<HTMLDivElement | null>(null);
   const [shouldFlip, setShouldFlip] = useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -55,7 +53,9 @@ export const ToolControls: React.FC<{
     if (bbox === undefined || y === null || x === null || maxXY === null) {
       return;
     }
-    if (isMobile || !customizeToolbar) {
+    if (toolbarLocation === 'sidebar') {
+      setShouldFlip(true);
+    } else if (isMobile || !customizeToolbar) {
       setShouldFlip(false);
     } else if (rotation === 'horizontal') {
       const midPoint = maxXY.maxY ? maxXY.maxY / 2 : 0;
@@ -64,7 +64,7 @@ export const ToolControls: React.FC<{
       const midPoint = maxXY.maxX ? maxXY.maxX / 2 : 0;
       setShouldFlip(x > midPoint);
     }
-  }, [y, x, rotation, Component]);
+  }, [y, x, rotation, Component, toolbarLocation]);
 
   if (!Component) {
     return null;
@@ -74,12 +74,12 @@ export const ToolControls: React.FC<{
       ref={ContainerRef}
       style={{
         bottom: isHorizontal ? (shouldFlip ? undefined : '100%') : undefined,
-        top: isHorizontal ? (shouldFlip ? '100%' : undefined) : '10px',
-        left: isHorizontal ? '0' : shouldFlip ? 'undefined' : '100%',
+        top: isHorizontal ? (shouldFlip ? '100%' : undefined) : '12px',
+        left: isHorizontal ? '12px' : shouldFlip ? 'undefined' : '100%',
         right: isHorizontal ? 0 : shouldFlip ? '100%' : undefined,
-        minWidth: isHorizontal ? '100%' : 'min(20rem, 30vw)',
+        minWidth: isHorizontal ? 'calc(100% - 24px)' : 'min(20rem, 30vw)',
       }}
-      className="bg-white shadow-sm border-[1px] border-gray-500 w-full absolute p-4 overflow-hidden"
+      className={`bg-white w-full ${toolbarLocation === 'sidebar' ? '' : 'absolute shadow-sm border-[1px] border-gray-500 overflow-hidden'} p-4 `}
     >
       <Component />
       <ExitBlockViewButtons />

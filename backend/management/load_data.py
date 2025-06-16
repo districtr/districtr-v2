@@ -6,17 +6,17 @@ from app.utils import (
     create_parent_child_edges,
     create_districtr_map,
     create_shatterable_gerrydb_view,
-    get_local_or_s3_path,
     add_extent_to_districtrmap,
-    add_available_summary_stats_to_districtrmap,
     create_spatial_index,
+    add_districtr_map_to_map_group,
 )
+from app.core.io import get_local_or_s3_path
 from app.main import get_session
 from app.core.config import settings
 from functools import wraps
 import logging
 from sqlmodel import Session
-from app.models import DistrictrMapPublic, DistrictrMap
+from app.models import DistrictrMapPublic, DistrictrMap, ConfigMapGroup
 from pydantic import BaseModel, computed_field
 from app.constants import GERRY_DB_SCHEMA
 import subprocess
@@ -65,6 +65,8 @@ def import_gerrydb_view(
         logger.error("ogr2ogr failed. Got %s", result)
         raise ValueError(f"ogr2ogr failed with return code {result.returncode}")
 
+    # Commit before trying to build index
+    session.commit()
     logger.info(f"GerryDB view {table_name} imported successfully")
 
     if rm:
@@ -156,6 +158,7 @@ class Config(BaseModel):
     gerrydb_views: list[GerryDBViewImport] | None = None
     shatterable_views: list[ShatterableViewImport] | None = None
     districtr_maps: list[DistrictrMapPublic] | None = None
+    map_groups: list[ConfigMapGroup] | None = None
 
     @computed_field
     @property
@@ -171,6 +174,11 @@ class Config(BaseModel):
     @property
     def _districtr_maps(self) -> list[DistrictrMapPublic]:
         return self.districtr_maps or []
+
+    @computed_field
+    @property
+    def _map_groups(self) -> list[ConfigMapGroup]:
+        return self.map_groups or []
 
     @classmethod
     def from_file(cls, file_path: str) -> "Config":
@@ -290,12 +298,17 @@ def load_sample_data(
         logger.info(f"Adding extent to districtr map with UUID {u}")
         add_extent_to_districtrmap(session=session, districtr_map_uuid=u)
 
-        logger.info(f"Adding available summary stats to districtr map with UUID {u}")
-        _ = add_available_summary_stats_to_districtrmap(
-            session=session, districtr_map_uuid=u
-        )
-
         if view.child_layer is not None:
+            # Commit districtr views
+            session.commit()
             _create_parent_child_edges(session=session, districtr_map_uuid=str(u))
 
         session.commit()
+
+    for group in config._map_groups:
+        session = next(get_session())
+        add_districtr_map_to_map_group(
+            session=session,
+            districtr_map_slug=group.districtr_map_slug,
+            group_slug=group.group_slug,
+        )

@@ -24,9 +24,9 @@ import {
   resetZoneColors,
   setZones,
 } from '../utils/helpers';
-import {patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
+import {checkoutDocument, patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
-import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../constants/layers';
+import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
@@ -36,7 +36,9 @@ import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {demographyCache} from '../utils/demography/demographyCache';
-import {useDemographyStore} from './demographyStore';
+import {useDemographyStore} from './demography/demographyStore';
+import {CheckboxGroupIndicator} from '@radix-ui/themes/dist/esm/components/checkbox-group.primitive.js';
+import {extendColorArray} from '../utils/colors';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -88,8 +90,6 @@ export interface MapStore {
   setMapStatus: (status: Partial<StatusObject>) => void;
   colorScheme: string[];
   setColorScheme: (colors: string[]) => void;
-  loadedMapId: string;
-  setLoadedMapId: (mapId: string) => void;
 
   // SHATTERING
   /**
@@ -219,7 +219,7 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
-  sidebarPanels: Array<'layers' | 'population' | 'evaluation' | 'demography' | 'mapValidation'>;
+  sidebarPanels: Array<'layers' | 'population' | 'demography' | 'election' | 'mapValidation'>;
   setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
   activeTool: ActiveTool;
@@ -230,9 +230,16 @@ export interface MapStore {
   setSelectedZone: (zone: Zone) => void;
   zoneAssignments: Map<string, NullableZone>; // geoid -> zone
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
+  /**
+   * Map of ISO timestamps.
+   * Keeps track of when a zone was last to keep track of when to refetch data
+   */
+  zonesLastUpdated: Map<Zone, string>;
   assignmentsHash: string;
-  lastUpdatedHash: string;
   setAssignmentsHash: (hash: string) => void;
+  lastUpdatedHash: string;
+  workerUpdateHash: string;
+  setWorkerUpdateHash: (hash: string) => void;
   loadZoneAssignments: (assignmentsData: RemoteAssignmentsResponse) => void;
   resetZoneAssignments: () => void;
   zonePopulations: Map<Zone, number>;
@@ -266,7 +273,7 @@ export interface MapStore {
     userMapDocumentId?: string;
     userMapData?: MapStore['userMaps'][number];
   }) => void;
-
+  deleteUserMap: (documentId: string) => void;
   mapName: () => string | undefined;
   mapMetadata: DocumentObject['map_metadata'];
   updateMetadata: (
@@ -276,11 +283,12 @@ export interface MapStore {
     description?: any,
     group?: any,
     eventId?: any,
-    is_draft?: boolean
+    draft_status?: any
   ) => void;
   // SHARE MAP
   passwordPrompt: boolean;
   setPasswordPrompt: (prompt: boolean) => void;
+  handleUnlockWithPassword: (password: string | null) => void;
   password: string | null;
   setPassword: (password: string | null | undefined) => void;
   receivedShareToken: string | null;
@@ -337,14 +345,17 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       accumulatedGeoids,
       activeTool,
       mapDocument,
+      mapStatus,
       getMapRef,
       selectedZone: _selectedZone,
       allPainted,
+      zonesLastUpdated,
     } = get();
 
+    const updateHash = new Date().toISOString();
     const map = getMapRef();
     const selectedZone = activeTool === 'eraser' ? null : _selectedZone;
-    if (!map || !mapDocument?.document_id) {
+    if (!map || !mapDocument?.document_id || mapStatus?.access === 'read') {
       return;
     }
     // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
@@ -359,7 +370,9 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     // PAINT
     const popChanges: Record<number, number> = {};
     selectedZone !== null && (popChanges[selectedZone] = 0);
-
+    if (features?.length && selectedZone) {
+      zonesLastUpdated.set(selectedZone, updateHash);
+    }
     features?.forEach(feature => {
       const id = feature?.id?.toString() ?? undefined;
       if (!id || !feature.sourceLayer) return;
@@ -371,7 +384,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       const shouldSkip =
         accumulatedGeoids.has(id) || state?.['locked'] || prevAssignment === selectedZone || false;
       if (shouldSkip) return;
-
+      zonesLastUpdated.set(prevAssignment, updateHash);
       accumulatedGeoids.add(feature.properties?.path);
       // TODO: Tiles should have population values as numbers, not strings
       const popValue = parseInt(feature.properties?.total_pop_20);
@@ -397,7 +410,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     useChartStore.getState().setPaintedChanges(popChanges);
     set({
       isTemporalAction: false,
-      assignmentsHash: new Date().toISOString(),
+      assignmentsHash: updateHash,
+      zonesLastUpdated: new Map(zonesLastUpdated),
     });
   },
   mapViews: {isPending: true},
@@ -407,18 +421,29 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     demographyCache.clear();
     const {
       mapDocument: currentMapDocument,
+      activeTool: currentActiveTool,
       setFreshMap,
       resetZoneAssignments,
       upsertUserMap,
       allPainted,
       mapOptions,
     } = get();
-    if (currentMapDocument?.document_id === mapDocument.document_id) {
+    const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
+    const accessIsSame = currentMapDocument?.access === mapDocument.access;
+    const statusIsSame = currentMapDocument?.status === mapDocument.status;
+    const documentIsSame = idIsSame && accessIsSame && statusIsSame;
+    const bothHaveData =
+      typeof currentMapDocument?.updated_at === 'string' &&
+      typeof mapDocument?.updated_at === 'string';
+    const remoteIsNewer = bothHaveData && currentMapDocument.updated_at! < mapDocument.updated_at!;
+    if (documentIsSame && !remoteIsNewer) {
       return;
     }
+
     const initialMapOptions = useMapStore.getInitialState().mapOptions;
     if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
       GeometryWorker?.clear();
+      GeometryWorker?.resetZones();
     } else {
       GeometryWorker?.resetZones();
     }
@@ -459,9 +484,15 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         token: mapDocument.token,
         password: mapDocument.password,
       },
-      colorScheme: DefaultColorScheme,
+      activeTool: mapDocument.access === 'edit' ? currentActiveTool : undefined,
+      colorScheme: extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        mapDocument.num_districts ?? FALLBACK_NUM_DISTRICTS
+      ),
       sidebarPanels: ['population'],
-      appLoadingState: 'initializing',
+      appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
+      mapRenderingState:
+        mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
       shatterIds: {parents: new Set(), children: new Set()},
     });
   },
@@ -472,21 +503,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   colorScheme: DefaultColorScheme,
   setColorScheme: colorScheme => set({colorScheme}),
-  loadedMapId: '',
-  setLoadedMapId: loadedMapId => set({loadedMapId}),
-
-  // TODO: Refactor to something like this
-  // featureStates: {
-  //   locked: [],
-  //   hovered: [],
-  //   focused: [],
-  //   highlighted: []
-  // },
-  // setFeatureStates: (
-  //   features, state, action
-  // ) => {
-  //   if
-  // },
   lockedFeatures: new Set(),
   lockFeature: (id, lock) => {
     const lockedFeatures = new Set(get().lockedFeatures);
@@ -781,6 +797,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
           ...documentInfo,
           ...userMaps[documentIndex],
           ...mapDocument,
+          map_metadata: mapDocument.map_metadata ?? userMaps[documentIndex].map_metadata,
         };
       } else {
         userMaps = [{...mapDocument, ...documentInfo}, ...userMaps];
@@ -799,6 +816,11 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     set({
       userMaps,
     });
+  },
+  deleteUserMap: documentId => {
+    set(state => ({
+      userMaps: state.userMaps.filter(map => map.document_id !== documentId),
+    }));
   },
   shatterIds: {
     parents: new Set(),
@@ -884,6 +906,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     showCountyBoundaries: true,
     showPaintedDistricts: true,
     showZoneNumbers: true,
+    overlayOpacity: OVERLAY_OPACITY,
   },
   setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
   sidebarPanels: ['population'],
@@ -910,7 +933,12 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     });
   },
   activeTool: 'pan',
-  setActiveTool: tool => set({activeTool: tool}),
+  setActiveTool: tool => {
+    const canEdit = get().mapDocument?.access === 'edit';
+    if (canEdit) {
+      set({activeTool: tool});
+    }
+  },
   spatialUnit: 'tract',
   setSpatialUnit: unit => set({spatialUnit: unit}),
   selectedZone: 1,
@@ -924,9 +952,12 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     }
   },
   zoneAssignments: new Map(),
+  zonesLastUpdated: new Map(),
   assignmentsHash: '',
-  lastUpdatedHash: Date.now().toString(),
   setAssignmentsHash: hash => set({assignmentsHash: hash}),
+  lastUpdatedHash: new Date().toISOString(),
+  workerUpdateHash: new Date().toISOString(),
+  setWorkerUpdateHash: hash => set({workerUpdateHash: hash}),
   accumulatedGeoids: new Set<string>(),
   setAccumulatedGeoids: accumulatedGeoids => set({accumulatedGeoids}),
   allPainted: new Set<string>(),
@@ -944,6 +975,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   loadZoneAssignments: assignmentsData => {
     lastSentAssignments.clear();
+    useMapStore.temporal.getState().clear();
     const assignments = assignmentsData.assignments;
     const zoneAssignments = new Map<string, number>();
     const shatterIds = {
@@ -971,7 +1003,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       shatterIds,
       shatterMappings,
       appLoadingState: 'loaded',
-      loadedMapId: assignmentsData.documentId,
     });
   },
   zonePopulations: new Map(),
@@ -984,7 +1015,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       };
     }),
   resetZoneAssignments: () => set({zoneAssignments: new Map()}),
-  brushSize: 50,
+  brushSize: 1,
   setBrushSize: size => set({brushSize: size}),
   isPainting: false,
   setIsPainting: isPainting => {
@@ -997,7 +1028,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         assignmentsHash,
         lastUpdatedHash,
       } = get();
-      if (assignmentsHash !== lastUpdatedHash) {
+      if (assignmentsHash !== lastUpdatedHash && accumulatedGeoids.size > 0) {
         const zone = activeTool === 'eraser' ? null : selectedZone;
         setZoneAssignments(zone, accumulatedGeoids);
       }
@@ -1036,7 +1067,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     description: null,
     eventId: null,
     group: null,
-    is_draft: true,
+    draft_status: null,
   },
   updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
     set(state => {
@@ -1060,6 +1091,34 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
   password: null,
   setPassword: password => set({password}),
+  handleUnlockWithPassword: password => {
+    const {mapDocument, receivedShareToken} = get();
+    if (!password) {
+      set({
+        errorNotification: {
+          message: 'Please provide a password',
+          severity: 1,
+        },
+      });
+    } else if (mapDocument?.document_id && receivedShareToken?.length) {
+      checkoutDocument
+        .mutate({
+          document_id: mapDocument.document_id,
+          token: receivedShareToken,
+          password,
+        })
+        .then(response => {
+          set({passwordPrompt: false});
+        });
+    } else {
+      set({
+        errorNotification: {
+          message: 'No document ID or share token found',
+          severity: 1,
+        },
+      });
+    }
+  },
   receivedShareToken: null,
   setReceivedShareToken: token => set({receivedShareToken: token}),
   shareMapMessage: null,

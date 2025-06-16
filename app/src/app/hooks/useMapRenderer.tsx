@@ -3,7 +3,7 @@ import {MapRef} from 'react-map-gl/maplibre';
 import {MapRenderSubscriber} from '../utils/map/mapRenderSubs';
 import {useMapStore} from '../store/mapStore';
 import {useHoverStore} from '../store/hoverFeatures';
-import {useDemographyStore} from '../store/demographyStore';
+import {useDemographyStore} from '../store/demography/demographyStore';
 
 export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main') => {
   const mapRef = useRef<MapRef | null>(null);

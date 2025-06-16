@@ -4,10 +4,12 @@ import Image from 'next/image';
 import NextLink from 'next/link';
 import {ContentSection} from '../components/Static/ContentSection';
 import {ResponsivePlaceMap} from '../components/Static/PlaceMap/PlaceMap';
+import {DevTeam} from '../components/Static/Content/DevTeam';
+import {CTA} from '../components/Static/Content/CTA';
 
 const Main: React.FC = () => {
   return (
-    <Flex direction="column" className="px-12 max-w-screen-xl mx-auto" gapY="9">
+    <Flex direction="column" gapY="9">
       <Flex direction="column" align="center" justify="center">
         <Image src="/districtr_logo.jpg" alt="logo" width={800} height={300} />
         <Heading size="7" as="h2" className="pb-4">
@@ -15,6 +17,11 @@ const Main: React.FC = () => {
         </Heading>
         <Text size="4">
           Districtr is a free browser-based tool for drawing districts and mapping your community.
+        </Text>
+        <Text size="4" className="py-4 text-center">
+          This is a beta release of Districtr 2.0. We have a limited selection of states available
+          for mapping, and are accepting user feedback via the green &quot;Feedback&quot; button in
+          the bottom right corner.
         </Text>
       </Flex>
       <ContentSection
@@ -24,7 +31,7 @@ const Main: React.FC = () => {
         <Text size="5">
           Districtr is a project of the{' '}
           <Link href="https://mggg.org/" target="_blank">
-            MGGG Redistricting Lab
+            Data and Democracy Lab
           </Link>
           , intended to promote public participation in redistricting around the United States.
           Redistricting is dividing up a jurisdiction (like a state, county, or city) into pieces
@@ -55,7 +62,7 @@ const Main: React.FC = () => {
           >
             <Flex direction={'column'}>
               <Heading size="6" as="h3" className="text-purple-700 mb-4">
-                You can draw districts.
+                You can draw districts (in limited states)
               </Heading>
               <Text size="5">
                 In the U.S., there&apos;s a big redistricting cycle every 10 years after new Census
@@ -91,7 +98,7 @@ const Main: React.FC = () => {
           >
             <Flex direction={'column'} gapY="4">
               <Heading size="6" as="h3" className="text-orange-700 mb-4">
-                You can draw your community.
+                You can draw your community (coming soon)
               </Heading>
               <Text size="5">
                 Communities of Interest (known as “COIs”) are groups or neighborhoods with
@@ -107,11 +114,11 @@ const Main: React.FC = () => {
               <Text size="5">
                 Districtr lets you put your community on the map (literally!) by marking places that
                 matter to make your shared interests visible. If you are interested in learning more
-                about best practices for COI map collection, check out our{' '}
-                <NextLink legacyBehavior href="/training">
-                  <Link>training materials</Link>
+                about best practices for COI map collection email us at{' '}
+                <NextLink legacyBehavior href="mailto:Districtr@mggg.org">
+                  <Link>Districtr@mggg.org</Link>
                 </NextLink>
-                .{' '}
+                .
               </Text>
               <Text size="5">
                 For a detailed walkthrough of Districtr, visit our{' '}
@@ -129,12 +136,6 @@ const Main: React.FC = () => {
         <Box className="w-full aspect-square mx-auto lg:aspect-video">
           <ResponsivePlaceMap />
         </Box>
-        <Heading size="6" as="h3" className="text-right mt-4">
-          Import an existing plan or community map (coming soon)
-        </Heading>
-        <Heading size="6" as="h3" className="text-right mt-4">
-          Features available by jurisdiction (coming soon)
-        </Heading>
       </ContentSection>
       <ContentSection title="About Districtr">
         <Flex direction="column" gapY="4" py="4">
@@ -184,7 +185,8 @@ const Main: React.FC = () => {
 
           <Text size="5">
             <b>Openness and transparency.</b> The entire project is open source, with permissive
-            licenses. We don&apos;t collect any information about users.
+            licenses. We respect your privacy, and only collect anonymized usage data like page
+            views, how you found Districtr, and what size screen you are using.
           </Text>
 
           <Text size="5">
@@ -218,24 +220,10 @@ const Main: React.FC = () => {
 
           <Text size="5">Our team aims to respond to requests for new modules within a week.</Text>
 
-          <Heading className="text-districtrIndigo pt-6">Development Team</Heading>
-
-          <Text size="5">
-            <b>Project Manager</b>: Liz Kopecky
-          </Text>
-
-          <Text size="5">
-            {' '}
-            <b>Originating Team:</b> Max Hully, Ruth Buck
-          </Text>
-
-          <Text size="5">
-            <b>Contributors:</b> Jamie Atlas, Eion Blanchard, Jack Deschler, Nick Doiron, Moon
-            Duchin, Chris Gernon, Peter Horvath, Muniba Khan, Zhenghong Lieu, JN Matthews, Anthony
-            Pizzimenti, Heather Rosenfeld, Anna Schall, and many more
-          </Text>
+          <DevTeam />
         </Flex>
       </ContentSection>
+      <CTA />
     </Flex>
   );
 };

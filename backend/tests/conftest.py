@@ -2,6 +2,7 @@ import os
 import pytest
 from app.main import app
 from app.core.db import get_session
+from app.core.security import auth
 from fastapi.testclient import TestClient
 from sqlalchemy.event import listens_for
 from sqlmodel import create_engine, Session
@@ -17,9 +18,14 @@ from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     GERRY_DB_FIXTURE_NAME,
     USER_ID,
+    ACCOUNT_AUTH0_ID,
 )
 from app.constants import GERRY_DB_SCHEMA
-from app.utils import create_districtr_map, create_shatterable_gerrydb_view
+from app.utils import (
+    create_districtr_map,
+    create_shatterable_gerrydb_view,
+    create_parent_child_edges,
+)
 
 client = TestClient(app)
 
@@ -29,7 +35,11 @@ def client_fixture(session: Session):
     def get_session_override():
         return session
 
+    def get_auth_result_override():
+        return {"sub": ACCOUNT_AUTH0_ID}
+
     app.dependency_overrides[get_session] = get_session_override
+    app.dependency_overrides[auth.verify] = get_auth_result_override
 
     client = TestClient(app, headers={"origin": "http://localhost:5173"})
     yield client
@@ -138,7 +148,7 @@ def ks_demo_view_census_blocks_fixture(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-lco",
@@ -197,7 +207,7 @@ def simple_parent_geos_fixture(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-nln",
@@ -223,7 +233,7 @@ def simple_child_geos_fixture(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.geojson"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.geojson",
             "-lco",
             "OVERWRITE=yes",
             "-nln",
@@ -286,14 +296,48 @@ def gerrydb_simple_geos_view_fixture(
 
 @pytest.fixture(name="simple_shatterable_districtr_map")
 def simple_parent_child_geos_districtr_map_fixture(
-    session: Session, simple_parent_geos_gerrydb, simple_child_geos_gerrydb
+    session: Session, gerrydb_simple_geos_view
+):
+    """
+    Parents     Children
+    A – C       a – e – f
+    |   |       |   |   |
+    B ––        c – b ––
+                |   |
+                d ––
+
+    where
+    - A = { a, e }
+    - B = { b, c, d}
+    - C = { f }
+    """
+    inserted_districtr_map = create_districtr_map(
+        session,
+        name="Simple shatterable layer",
+        districtr_map_slug="simple_geos",
+        gerrydb_table_name="simple_geos",
+        num_districts=3,
+        tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
+        parent_layer="simple_parent_geos",
+        child_layer="simple_child_geos",
+    )
+    create_parent_child_edges(
+        session=session, districtr_map_uuid=inserted_districtr_map
+    )
+    session.commit()
+    return inserted_districtr_map
+
+
+@pytest.fixture
+def simple_shatterable_districtr_map_no_edges_yet(
+    session: Session, gerrydb_simple_geos_view
 ):
     inserted_districtr_map = create_districtr_map(
         session,
         name="Simple shatterable layer",
         districtr_map_slug="simple_geos",
         gerrydb_table_name="simple_geos",
-        num_districts=10,
+        num_districts=3,
         tiles_s3_path="tilesets/simple_shatterable_layer.pmtiles",
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",
@@ -311,7 +355,7 @@ def ks_ellis_county_vtd_fixture(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.gpkg"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.gpkg",
             "ks_ellis_county_vap_data_vtd",
             "-lco",
             "OVERWRITE=yes",
@@ -338,7 +382,7 @@ def ks_ellis_county_block_fixture(session: Session):
             "-f",
             "PostgreSQL",
             OGR2OGR_PG_CONNECTION_STRING,
-            os.path.join(FIXTURES_PATH, f"{layer}.gpkg"),
+            FIXTURES_PATH / "gerrydb" / f"{layer}.gpkg",
             "ks_ellis_county_vap_data_block",
             "-lco",
             "OVERWRITE=yes",

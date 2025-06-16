@@ -1,5 +1,7 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
@@ -21,20 +23,52 @@ const PopulationTextLayer = () => {
   const showBlockPopulationNumbers = useMapStore(
     state => state.mapOptions.showBlockPopulationNumbers
   );
+  const showPopulationNumbers = useMapStore(state => state.mapOptions.showPopulationNumbers);
+  const workerUpdateHash = useMapStore(state => state.workerUpdateHash);
+  const demographyHash = useDemographyStore(state => state.dataHash);
 
   useEffect(() => {
-    if (captiveIds.size === 0) {
+    const shouldShow =
+      showPopulationNumbers ||
+      showBlockPopulationNumbers ||
+      (showBlockPopulationNumbers && captiveIds.size);
+    if (!shouldShow) {
       setPointFeatureCollection(EMPTY_FT_COLLECTION);
       return;
     }
-    if (showBlockPopulationNumbers) {
-      GeometryWorker?.getPropertiesCentroids(Array.from(captiveIds)).then(
-        setPointFeatureCollection
-      );
-    }
-  }, [captiveIds, showBlockPopulationNumbers]);
 
-  if (!showBlockPopulationNumbers || !pointFeatureCollection.features.length || !captiveIds.size) {
+    const idSet: Set<string> = showPopulationNumbers
+      ? new Set(demographyCache.table?.dedupe('path').column('path') ?? [])
+      : captiveIds;
+
+    const currIds = new Set(pointFeatureCollection.features.map(f => f.properties?.path));
+    const missingIds = Array.from(idSet).filter(id => !currIds.has(id));
+    if (!missingIds.length) {
+      return;
+    }
+    GeometryWorker?.getCentroidsByIds(missingIds).then(data => {
+      setPointFeatureCollection(prev => ({
+        type: 'FeatureCollection',
+        // Filter out old, irrelevant features (eg broken parents)
+        features: [...prev.features.filter(f => idSet.has(f.properties?.path)), ...data.features],
+      }));
+    });
+    // Trigger on captiveIds changes (shatter/break)
+    // Option changes (showBlockPopulationNumbers, showPopulationNumbers)
+    // Data loads to the worker (workerUpdateHash)
+    // Demography data loads (demographyHash)
+  }, [
+    captiveIds,
+    showBlockPopulationNumbers,
+    showPopulationNumbers,
+    workerUpdateHash,
+    demographyHash,
+  ]);
+
+  if (
+    !showPopulationNumbers &&
+    (!showBlockPopulationNumbers || !pointFeatureCollection.features.length || !captiveIds.size)
+  ) {
     return null;
   }
 
@@ -47,9 +81,24 @@ const PopulationTextLayer = () => {
         layout={{
           'text-field': ['get', 'total_pop_20'],
           'text-font': ['Barlow Bold'],
-          'text-size': 18,
+          'text-size': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            0,
+            0,
+            10, // z 10 font 8
+            8,
+            12,
+            12,
+            14,
+            14, // At zoom level 18, text size is 18
+          ],
           'text-anchor': 'center',
           'text-offset': [0, 0],
+          // padding
+          'text-padding': 0,
+          'text-allow-overlap': ['step', ['zoom'], false, 12, true],
         }}
         paint={{
           'text-color': '#000',
@@ -63,6 +112,7 @@ const PopulationTextLayer = () => {
 
 const ZoneNumbersLayer = () => {
   const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
+  const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
   const zoneAssignments = useMapStore(state => state.zoneAssignments);
   const colorScheme = useMapStore(state => state.colorScheme);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
@@ -125,7 +175,7 @@ const ZoneNumbersLayer = () => {
     setZoneNumberData(EMPTY_FT_COLLECTION);
   }, [mapDocumentId]);
 
-  if (!showZoneNumbers) {
+  if (!showZoneNumbers || !showPaintedDistricts) {
     return null;
   }
   return (

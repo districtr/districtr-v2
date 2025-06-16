@@ -4,69 +4,71 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
-    BackgroundTasks,
     Body,
     Form,
 )
 from typing import Annotated
 import botocore.exceptions
-from sqlalchemy.exc import MultipleResultsFound, NoResultFound, DataError
-from fastapi.responses import FileResponse
-from sqlalchemy import text, update
 from sqlalchemy.exc import (
-    ProgrammingError,
-    InternalError,
+    MultipleResultsFound,
+    NoResultFound,
+    DataError,
+    IntegrityError,
 )
-from sqlmodel import Session, String, select, true
+from sqlalchemy import text
+from sqlmodel import Session, String, select, true, update, literal
 from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam, literal
+from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
-from datetime import datetime, UTC, timedelta
+from datetime import datetime
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
+from app.assignments import duplicate_document_assignments, batch_insert_assignments
 from app.core.db import get_session
+from app.core.dependencies import (
+    get_document as _get_document,
+    get_document_public,
+    get_protected_document,
+    get_districtr_map as _get_districtr_map,
+)
 from app.core.config import settings
-from app.utils import hash_password, verify_password
-import jwt
-from uuid import uuid4
 import app.contiguity.main as contiguity
 import app.cms.main as cms
+import app.exports.main as exports
+import app.save_share.main as save_share
+import app.thumbnails.main as thumbnails
 from networkx import Graph, connected_components
 from app.models import (
     Assignments,
-    AssignmentsCreate,
     AssignmentsResponse,
     ColorsSetResult,
     DistrictrMap,
+    DistrictrMapsToGroups,
     Document,
     DocumentCreate,
+    DocumentCreatePublic,
     DocumentPublic,
     DocumentEditStatus,
     GEOIDS,
-    UserID,
     GEOIDSResponse,
     AssignedGEOIDS,
     UUIDType,
-    ZonePopulation,
-    DistrictrMapPublic,
     ParentChildEdges,
     ShatterResult,
-    TokenRequest,
-    DocumentShareStatus,
     BBoxGeoJSONs,
-    SummaryStatisticColumnLists,
+    MapGroup,
+    AssignmentsCreate,
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
-from app.utils import remove_file, _cleanup_expired_locks, _remove_all_locks
-from app.exports import (
-    get_export_sql_method,
-    DocumentExportType,
-    DocumentExportFormat,
+from app.save_share.locks import (
+    cleanup_expired_locks as _cleanup_expired_locks,
+    remove_all_locks,
+    check_map_lock,
 )
 from aiocache import Cache
 from contextlib import asynccontextmanager
@@ -93,13 +95,14 @@ async def lifespan(app: FastAPI):
     await cleanup_expired_locks()
     yield
     session = next(get_session())
-    _remove_all_locks(session=session)
+    remove_all_locks(session=session)
 
 
 app = FastAPI(lifespan=lifespan)
-
-# Include the CMS router
 app.include_router(cms.router)
+app.include_router(exports.router)
+app.include_router(save_share.router)
+app.include_router(thumbnails.router)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -150,36 +153,6 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
-def check_map_lock(document_id, user_id, session):
-    # Try to fetch an existing lock for this document
-    result = session.execute(
-        text(
-            """SELECT user_id FROM document.map_document_user_session
-               WHERE document_id = :document_id
-               LIMIT 1;"""
-        ),
-        {"document_id": document_id},
-    ).fetchone()
-
-    if result:
-        # If a record exists, check if the current user is the one who locked it
-        if result.user_id == user_id:
-            return DocumentEditStatus.checked_out
-        else:
-            return DocumentEditStatus.locked
-
-    # If no record exists, insert a new one and return checked_out
-    session.execute(
-        text(
-            """INSERT INTO document.map_document_user_session (document_id, user_id)
-               VALUES (:document_id, :user_id);"""
-        ),
-        {"document_id": document_id, "user_id": user_id},
-    )
-    session.commit()
-    return DocumentEditStatus.checked_out
-
-
 @app.post("/api/document/{document_id}/unload", status_code=status.HTTP_200_OK)
 async def unlock_map(
     document_id: str, user_id: str = Form(...), session: Session = Depends(get_session)
@@ -208,7 +181,7 @@ async def unlock_map(
 # matches createMapObject in apiHandlers.ts
 @app.post(
     "/api/create_document",
-    response_model=DocumentPublic,
+    response_model=DocumentCreatePublic,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_document(
@@ -222,35 +195,58 @@ async def create_document(
     plan_genesis = "created"
     document_id = results.one()[0]  # should be only one row, one column of results
 
-    lock_status = check_map_lock(
-        document_id, data.user_id, session
-    )  # this will properly create a lock record
+    # Checking a document's lock status will create one if none is found, as in
+    # the case of new documents
+    lock_status = check_map_lock(document_id, data.user_id, session)
 
-    copy_from_doc = getattr(data, "copy_from_doc", None)
+    total_assignments = 0
 
-    # if copy from doc, need to get assignments from that document, copy them for the new doc
-    if copy_from_doc:
-        prev_assignments = Assignments.__table__.select().where(
-            Assignments.document_id == copy_from_doc
+    if data.copy_from_doc is not None:
+        copied_document = get_protected_document(
+            document_id=data.copy_from_doc, session=session
         )
-        # create a new copy with the fresh document id
-        # set document id to new document id
-        prev_assignments = select(
-            Assignments.geo_id,
-            Assignments.zone,
-            literal(document_id).label("document_id"),
-        ).where(Assignments.document_id == copy_from_doc)
-
-        create_copy_stmt = insert(Assignments).from_select(
-            ["geo_id", "zone", "document_id"], prev_assignments
+        assert copied_document.document_id is not None
+        total_assignments = duplicate_document_assignments(
+            from_document_id=copied_document.document_id,
+            to_document_id=document_id,
+            session=session,
         )
-
-        session.execute(create_copy_stmt)
         plan_genesis = "copied"
 
-    # check if there is a metadata item in the request
-    if data.metadata:
-        update_districtrmap_metadata(document_id, data.metadata.dict(), session)
+    elif data.assignments is not None and len(data.assignments) > 0:
+        max_records = 914_231
+        if len(data.assignments) > max_records:
+            # Texas had 914_231 in the 2010 Census
+            # https://www.census.gov/geographies/reference-files/time-series/geo/tallies.html
+            # We don't expect any maps larger than that
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Upload size exceeds maximum allowed limit ({max_records} records)",
+            )
+
+        try:
+            total_assignments = batch_insert_assignments(
+                document_id=document_id,
+                assignments=data.assignments,
+                districtr_map_slug=data.districtr_map_slug,
+                session=session,
+            )
+        except NoResultFound:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No districtr map found matching requested map",
+            )
+        except IntegrityError as e:
+            if "psycopg.errors.UniqueViolation" in str(e):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Duplicate geoids found in input data. Ensure all geoids are unique",
+                )
+
+    if data.metadata is not None:
+        await update_districtrmap_metadata(
+            document_id=document_id, metadata=data.metadata.dict(), session=session
+        )
 
     stmt = (
         select(
@@ -265,8 +261,9 @@ async def create_document(
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
+            DistrictrMap.map_type.label("map_type"),  # pyright: ignore
             coalesce(plan_genesis).label("genesis"),
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
+            coalesce(total_assignments).label("inserted_assignments"),
             # send metadata as a null object on init of document
             coalesce(
                 None,
@@ -284,11 +281,11 @@ async def create_document(
         )
         .limit(1)
     )
-    # Document id has a unique constraint so I'm not sure we need to hit the DB again here
-    # more valuable would be to check that the assignments table
+
     doc = session.exec(
         stmt,
-    ).one()  # again if we've got more than one, we have problems.
+    ).one()
+
     if not doc.map_uuid:
         session.rollback()
         raise HTTPException(
@@ -317,33 +314,28 @@ async def create_document(
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
-    assignments = data.model_dump()["assignments"]
-    stmt = insert(Assignments).values(assignments)
-    stmt = stmt.on_conflict_do_update(
-        constraint=Assignments.__table__.primary_key, set_={"zone": stmt.excluded.zone}
-    )
-    session.execute(stmt)
-    updated_at = None
-    if len(data.assignments) > 0:
-        updated_at = update_timestamp(session, assignments[0]["document_id"])
-    session.commit()
-    return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
+    document_id = data.assignments[0].document_id
+    assignments = assignments = data.model_dump()["assignments"]
+    lock_status = check_map_lock(document_id, data.user_id, session)
 
-
-def _get_document(
-    document_id: str, session: Session = Depends(get_session)
-) -> Document:
-    try:
-        document = session.exec(
-            select(Document).filter(Document.document_id == document_id)  # pyright: ignore
-        ).one()
-    except NoResultFound:
-        raise HTTPException(status_code=404, detail="Document not found")
-    except Exception as e:
-        logger.error(f"Error loading document: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error loading document")
-
-    return document
+    if lock_status == DocumentEditStatus.checked_out:
+        stmt = insert(Assignments).values(assignments)
+        stmt = stmt.on_conflict_do_update(
+            constraint=Assignments.__table__.primary_key,
+            set_={"zone": stmt.excluded.zone},
+        )
+        session.execute(stmt)
+        updated_at = None
+        if len(data.assignments) > 0:
+            updated_at = update_timestamp(session, document_id)
+            logger.info(f"Document updated at {updated_at}")
+        session.commit()
+        return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Document is locked by another user",
+        )
 
 
 @app.patch(
@@ -497,23 +489,26 @@ async def update_colors(
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(
-    document: Annotated[Document, Depends(_get_document)],
+    document_id: str,
+    document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
     stmt = (
         select(
             Assignments.geo_id,
             Assignments.zone,
-            Assignments.document_id,
+            # Obsured document.document_id
+            literal(document_id).label("document_id"),
             ParentChildEdges.parent_path,
         )
-        .join(Document, Assignments.document_id == Document.document_id)
+        .join(Document, onclause=Assignments.document_id == Document.document_id)
         .join(
-            DistrictrMap, Document.districtr_map_slug == DistrictrMap.districtr_map_slug
+            DistrictrMap,
+            onclause=Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
         )
         .outerjoin(
             ParentChildEdges,
-            (Assignments.geo_id == ParentChildEdges.child_path)
+            onclause=(Assignments.geo_id == ParentChildEdges.child_path)
             & (ParentChildEdges.districtr_map == DistrictrMap.uuid),
         )
         .where(Assignments.document_id == document.document_id)
@@ -522,60 +517,17 @@ async def get_assignments(
     return session.execute(stmt).fetchall()
 
 
-async def get_document(
+@app.get("/api/document/{document_id}", response_model=DocumentPublic)
+async def get_document_object(
     document_id: str,
-    user_id: UserID,
-    session: Session,
-    shared: bool = False,
-    access_type: DocumentShareStatus = DocumentShareStatus.edit,
-    # optional lock status param
-    lock_status: DocumentEditStatus | None = None,
+    user_id: str | None = None,
+    session: Session = Depends(get_session),
+    status_code=status.HTTP_200_OK,
 ):
-    # TODO: Rather than being a separate query, this should be part of the main query
-    check_lock_status = (
-        check_map_lock(document_id, user_id, session)
-        if not lock_status == DocumentEditStatus.locked
-        else lock_status
-    )
-
-    stmt = (
-        select(
-            Document.document_id,
-            Document.created_at,
-            Document.districtr_map_slug,
-            Document.gerrydb_table,
-            Document.updated_at,
-            Document.color_scheme,
-            DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
-            DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
-            DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
-            DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
-            DistrictrMap.extent.label("extent"),  # pyright: ignore
-            DistrictrMap.available_summary_stats.label("available_summary_stats"),  # pyright: ignore
-            # get metadata as a json object
-            Document.map_metadata.label("map_metadata"),  # pyright: ignore
-            coalesce(
-                "shared" if shared else "created",
-            ).label("genesis"),
-            coalesce(
-                check_lock_status,  # locked, unlocked, checked_out
-            ).label("status"),
-            coalesce(
-                access_type,
-            ).label("access"),  # read or edit
-            # add access - read or edit
-        )  # pyright: ignore
-        .where(Document.document_id == document_id)
-        .join(
-            DistrictrMap,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
-            isouter=True,
-        )
-    )
-    result = session.exec(stmt)
-
     try:
-        return result.one()
+        return get_document_public(
+            document_id=document_id, user_id=user_id, session=session
+        )
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -588,114 +540,14 @@ async def get_document(
         )
 
 
-@app.post("/api/document/{document_id}", response_model=DocumentPublic)
-async def get_document_object(
-    document_id: str,
-    data: UserID = Body(...),
-    session: Session = Depends(get_session),
-    status_code=status.HTTP_200_OK,
-):
-    return await get_document(document_id, data.user_id, session)
-
-
-@app.post("/api/document/{document_id}/unlock")
-async def unlock_document(
-    document_id: str, data: UserID = Body(...), session: Session = Depends(get_session)
-):
-    try:
-        session.execute(
-            text(
-                """DELETE FROM document.map_document_user_session
-                WHERE document_id = :document_id AND user_id = :user_id"""
-            )
-            .bindparams(
-                bindparam(key="document_id", type_=UUIDType),
-                bindparam(key="user_id", type_=String),
-            )
-            .params(document_id=document_id, user_id=data.user_id)
-        )
-
-        session.commit()
-        return {"status": DocumentEditStatus.unlocked}
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/document/{document_id}/status")
-async def get_document_status(
-    document_id: str, data: UserID = Body(...), session: Session = Depends(get_session)
-):
-    stmt = (
-        text(
-            "SELECT * from document.map_document_user_session WHERE document_id = :document_id"
-        )
-        .bindparams(bindparam(key="document_id", type_=UUIDType))
-        .params(document_id=document_id)
-    )
-    result = session.execute(stmt).fetchone()
-    if result:
-        # if user id matches, return the document checked out, otherwise return locked
-        if result.user_id == data.user_id:
-            # there's already a record so no need to create
-            return {"status": DocumentEditStatus.checked_out}
-
-        # the map is already checked out; should return as locked
-        return {"status": DocumentEditStatus.locked}
-    else:
-        # the map is able to be checked out;
-        # should return as unlocked, but should now
-        # create a record in the map_document_user_session table
-        session.execute(
-            text(
-                f"""INSERT INTO document.map_document_user_session (document_id, user_id)
-                VALUES ('{document_id}', '{data.user_id}')"""
-            )
-        )
-        session.commit()
-
-        return {"status": DocumentEditStatus.checked_out}
-
-
-@app.get("/api/document/{document_id}/total_pop", response_model=list[ZonePopulation])
-async def get_total_population(
-    document: Annotated[Document, Depends(_get_document)],
-    session: Session = Depends(get_session),
-):
-    stmt = text(
-        "SELECT * from get_total_population(:document_id) WHERE zone IS NOT NULL"
-    )
-    try:
-        result = session.execute(stmt, {"document_id": document.document_id})
-        return [
-            ZonePopulation(zone=zone, total_pop=pop) for zone, pop in result.fetchall()
-        ]
-    except (ProgrammingError, InternalError) as e:
-        logger.error(e)
-        error_text = str(e)
-        if (
-            f"Table name not found for document_id: {document.document_id}"
-            in error_text
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document.document_id} not found",
-            )
-        elif "Population column not found for gerrydbview" in error_text:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Population column not found in GerryDB view",
-            )
-
-
 @app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
 async def get_unassigned_geoids(
-    document: Annotated[Document, Depends(_get_document)],
+    document: Annotated[Document, Depends(get_protected_document)],
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
     stmt = text(
-        "SELECT * from get_unassigned_bboxes(:doc_uuid, :exclude_ids)"
+        "SELECT bbox from get_unassigned_bboxes(:doc_uuid, :exclude_ids)"
     ).bindparams(
         bindparam(key="doc_uuid", type_=UUIDType),
         bindparam(key="exclude_ids", type_=ARRAY(String)),
@@ -704,46 +556,12 @@ async def get_unassigned_geoids(
         results = session.execute(
             stmt, {"doc_uuid": document.document_id, "exclude_ids": exclude_ids}
         ).fetchall()
-        print(results)
     except DataError:
-        # could not return null - no results found
+        # TODO: When is this happening? Should investigate
+        logger.warning("No results found for unassigned geoids")
         results = []
 
-    print(results)
-    # returns a list of multipolygons of bboxes
     return {"features": [row[0] for row in results if row[0] is not None]}
-
-
-def _get_districtr_map(
-    document_id: str,
-    session: Session = Depends(get_session),
-) -> DistrictrMap:
-    stmt = (
-        select(DistrictrMap)
-        .join(
-            Document,
-            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
-            isouter=True,
-        )
-        .where(Document.document_id == document_id)
-    )
-
-    try:
-        districtr_map = session.exec(
-            stmt,
-        ).one()
-    except NoResultFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document with ID {document_id} not found",
-        )
-    except MultipleResultsFound:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Multiple DistrictrMaps found for Document with ID {document_id}",
-        )
-
-    return districtr_map
 
 
 async def _get_graph(gerrydb_name: str) -> Graph:
@@ -793,10 +611,16 @@ async def _get_graph(gerrydb_name: str) -> Graph:
 @app.get("/api/document/{document_id}/contiguity")
 async def check_document_contiguity(
     document_id: str,
-    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
+    document: Annotated[Document, Depends(get_protected_document)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
+    assert document.document_id is not None
+
+    districtr_map = _get_districtr_map(
+        session=session, document_id=document.document_id
+    )
+
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"
@@ -804,7 +628,7 @@ async def check_document_contiguity(
         gerrydb_name = districtr_map.child_layer
         kwargs = {"zones": zone} if len(zone) > 0 else {}
         zone_assignments = contiguity.get_block_assignments(
-            session, document_id, **kwargs
+            session, document.document_id, **kwargs
         )
     else:
         gerrydb_name = districtr_map.parent_layer
@@ -824,7 +648,7 @@ async def check_document_contiguity(
             GROUP BY
                 zone"""
         )
-        result = session.execute(sql, {"document_id": document_id}).fetchall()
+        result = session.execute(sql, {"document_id": document.document_id}).fetchall()
         zone_assignments = [
             contiguity.ZoneBlockNodes(zone=row.zone, nodes=row.nodes) for row in result
         ]
@@ -844,17 +668,23 @@ async def check_document_contiguity(
 @app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
 async def get_connected_component_bboxes(
     document_id: str,
-    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
     zone: int,
+    document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
+    assert document.document_id is not None
+
+    districtr_map = _get_districtr_map(
+        session=session, document_id=document.document_id
+    )
+
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document_id}"
         )
         gerrydb_name = districtr_map.child_layer
         zone_assignments = contiguity.get_block_assignments_bboxes(
-            session, document_id, zones=[zone]
+            session, document.document_id, zones=[zone]
         )
         if len(zone_assignments) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
@@ -884,7 +714,9 @@ async def get_connected_component_bboxes(
                 AND zone = :zone"""
         )
 
-        results = session.execute(sql, {"document_id": document_id, "zone": zone}).all()
+        results = session.execute(
+            sql, {"document_id": document.document_id, "zone": zone}
+        ).all()
 
         if not results or len(results) == 0:
             raise HTTPException(status_code=404, detail="Zone not found")
@@ -963,94 +795,14 @@ async def get_connected_component_bboxes(
     return BBoxGeoJSONs(features=bboxes)
 
 
-@app.get("/api/document/{document_id}/demography")
-async def get_map_demography(
-    document_id: str,
-    districtr_map: Annotated[DistrictrMap, Depends(_get_districtr_map)],
-    ids: list[str] = Query(default=[]),
-    stats: list[str] = Query(default=[]),
-    session: Session = Depends(get_session),
-):
-    if not districtr_map.visible:
-        raise HTTPException(
-            status_code=status.HTTP_410_GONE,
-            detail="This map is no longer supported",
-        )
-
-    columns = []
-    if districtr_map.available_summary_stats is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str("Summary statistic not available for this map"),
-        )
-    # by default use all available columns otherwise the requested columns
-
-    available_summary_stats = (
-        districtr_map.available_summary_stats if len(stats) == 0 else stats
-    )
-    # By default, provide all summary stats
-
-    for summary_stat in available_summary_stats:
-        if summary_stat not in SummaryStatisticColumnLists.__members__:
-            continue
-        else:
-            stat_cols = SummaryStatisticColumnLists[summary_stat]
-            columns.extend(stat_cols.value)
-
-    if len(ids) > 0:
-        # If the user sends a selection of IDs, just use those
-        # This bypasses the document.assignments and gerrydb.parent full query
-        # Essentially we use the user provided IDs as start of the join
-        # This could be a where clause at the end, but this should be faster
-        ids_subquery = text(
-            """
-            SELECT DISTINCT * FROM (VALUES {}) as inner_ids (geo_id)
-        """.format(",".join(f"(:id{i})" for i in range(len(ids))))
-        )
-        # This is for efficiency but slightly slippery
-        # Adding the format here provides some safety
-        params = {f"id{i}": id for i, id in enumerate(ids)}
-    else:
-        # direct string interpolation of dm.parent_layer is safe
-        # since it always comes from the database
-        # This gives us all VTDs
-        # and any shattered children
-        # The FE will filter for shattered parents
-        ids_subquery = text(
-            f"""SELECT distinct geo_id
-            FROM document.assignments
-            WHERE document_id = :document_id
-            UNION
-            SELECT path as geo_id
-            FROM gerrydb.{districtr_map.parent_layer}"""
-        )
-        params = {"document_id": document_id}
-
-    stmt = text(
-        f"""
-        SELECT path, {",".join(columns)}
-        FROM ({ids_subquery}) as ids
-        LEFT JOIN gerrydb.{districtr_map.gerrydb_table_name} gdb
-        on gdb.path = ids.geo_id
-        WHERE path is not null
-    """
-    )
-
-    results = session.execute(stmt, params).fetchall()
-    return {
-        "columns": ["path", *columns],
-        "results": [[*row] for row in results],
-    }
-
-
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
-    document: Annotated[Document, Depends(_get_document)],
-    metadata: dict = Body(...),
+    document_id: str,
+    metadata: dict = Body(...),  # TODO: Type this properly
     session: Session = Depends(get_session),
 ):
     try:
-        # update document record with metadata
+        document = _get_document(document_id, session=session)
         stmt = (
             update(Document)
             .where(Document.document_id == document.document_id)
@@ -1067,261 +819,53 @@ async def update_districtrmap_metadata(
         )
 
 
-@app.get("/api/gerrydb/views", response_model=list[DistrictrMapPublic])
+@app.get(
+    "/api/gerrydb/views",
+    #  response_model=list[DistrictrMapPublic]
+)
 async def get_projects(
     *,
     session: Session = Depends(get_session),
+    group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
 ):
     gerrydb_views = session.exec(
         select(DistrictrMap)
+        .join(
+            DistrictrMapsToGroups,
+            DistrictrMapsToGroups.districtrmap_uuid == DistrictrMap.uuid,
+        )
+        .filter(DistrictrMapsToGroups.group_slug == group)
         .filter(DistrictrMap.visible == true())  # pyright: ignore
-        .order_by(DistrictrMap.created_at.asc())  # pyright: ignore
+        .order_by(DistrictrMap.name.asc())  # pyright: ignore
         .offset(offset)
         .limit(limit)
     ).all()
     return gerrydb_views
 
 
-@app.post("/api/document/{document_id}/share")
-async def share_districtr_plan(
-    document: Annotated[Document, Depends(_get_document)],
-    params: dict = Body(...),
-    session: Session = Depends(get_session),
-):
-    # check if there's already a record for a document
-    existing_token = session.execute(
-        text(
-            """
-            SELECT token_id, password_hash FROM document.map_document_token
-            WHERE document_id = :doc_id
-            """
-        ),
-        {"doc_id": document.document_id},
-    ).fetchone()
-
-    if existing_token:
-        token_uuid = existing_token.token_id
-
-        if params["password"] is not None and not existing_token.password_hash:
-            hashed_password = hash_password(params["password"])
-            session.execute(
-                text(
-                    """
-                    UPDATE document.map_document_token
-                    SET password_hash = :password_hash
-                    WHERE token_id = :token_id
-                    """
-                ),
-                {"password_hash": hashed_password, "token_id": token_uuid},
-            )
-            session.commit()
-
-        elif params["password"] is None:
-            payload = {
-                "token": token_uuid,
-                "access": (
-                    params["access_type"]
-                    if params["access_type"]
-                    else DocumentShareStatus.read
-                ),
-            }
-
-        payload = {
-            "token": token_uuid,
-            "access": (
-                params["access_type"]
-                if "access_type" in params
-                else DocumentShareStatus.read
-            ),
-            "password_required": bool(existing_token.password_hash),
-        }
-        token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
-        return {"token": token}
-
-    else:
-        token_uuid = str(uuid4())
-        hashed_password = (
-            hash_password(params["password"]) if params["password"] else None
-        )
-        expiry = (
-            datetime.now(UTC) + timedelta(days=params["expiry_days"])
-            if "expiry_days" in params
-            else None
-        )
-
-        session.execute(
-            text(
-                """
-                INSERT INTO document.map_document_token (token_id, document_id, password_hash, expiration_date)
-                VALUES (:token_id, :document_id, :password_hash, :expiration_date)
-                """
-            ),
-            {
-                "token_id": token_uuid,
-                "document_id": document.document_id,
-                "password_hash": hashed_password,
-                "expiration_date": expiry,
-            },
-        )
-
-        session.commit()
-
-    payload = {
-        "token": token_uuid,
-        "access": (
-            params["access_type"] if params["access_type"] else DocumentShareStatus.read
-        ),
-        "password_required": bool(hashed_password),
-    }
-
-    token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
-    return {"token": token}
-
-
-@app.post("/api/share/load_plan_from_share", response_model=DocumentPublic)
-async def load_plan_from_share(
-    data: TokenRequest,
-    session: Session = Depends(get_session),
-):
-    token_id = data.token
-    result = session.execute(
-        text(
-            """
-            SELECT document_id, password_hash, expiration_date
-            FROM document.map_document_token
-            WHERE token_id = :token
-            """
-        ),
-        {"token": token_id},
-    ).fetchone()
-
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Token not found",
-        )
-
-    set_is_locked = False
-    if result.password_hash:
-        # password is required
-        if data.password is None:
-            set_is_locked = True
-        if data.password and not verify_password(data.password, result.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid password",
-            )
-
-    # return the document to the user with the password
-    return await get_document(
-        str(result.document_id),
-        data.user_id,
-        session,
-        shared=True,
-        access_type=data.access,
-        lock_status=(
-            DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
-        ),
-    )
-
-
-@app.post("/api/document/{document_id}/checkout", status_code=status.HTTP_200_OK)
-async def checkout_plan(
-    document: Annotated[Document, Depends(_get_document)],
-    params: dict = Body(...),
-    session: Session = Depends(get_session),
-):
-    """
-    check user-provided password against database. if matches, check if map is checked out
-    - if pw matches and not checked out, check map out to user
-    - if pw matches and checked out, return warning that map is still locked but switch access to edit
-    """
-
-    token_id = params["token"]
-    result = session.execute(
-        text(
-            """
-            SELECT document_id, password_hash, expiration_date
-            FROM document.map_document_token
-            WHERE token_id = :token
-            """
-        ),
-        {"token": token_id},
-    ).fetchone()
-
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Token not found",
-        )
-    if params["password"] and not verify_password(
-        params["password"], result.password_hash
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password",
-        )
-
-    if verify_password(params["password"], result.password_hash):
-        # check lock status
-        lock_status = check_map_lock(document.document_id, params["user_id"], session)
-
-        return {"status": lock_status, "access": DocumentShareStatus.edit}
-
-
-@app.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
-async def get_survey_results(
+@app.get("/api/group/{group_slug}", response_model=MapGroup)
+async def get_group(
     *,
-    document: Annotated[Document, Depends(_get_document)],
-    background_tasks: BackgroundTasks,
-    format: str = "CSV",
-    export_type: str = "ZoneAssignments",
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=10_000, ge=0),
     session: Session = Depends(get_session),
-) -> FileResponse:
-    try:
-        _format = DocumentExportFormat(format)
-        _export_type = DocumentExportType(export_type)
-    except ValueError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error),
-        )
+    group_slug: str,
+):
+    stmt = select(
+        MapGroup,
+    ).where(
+        MapGroup.slug == group_slug,
+    )
+    group = session.execute(
+        statement=stmt,
+    ).first()
 
-    timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
-    out_file_name = f"{document.document_id}_{_export_type.value}_{timestamp}.{_format.value.lower()}"
-
-    try:
-        get_sql = get_export_sql_method(_format)
-        sql, params = get_sql(
-            _export_type,
-            document_id=document.document_id,
-            offset=offset,
-            limit=limit,
-        )
-    except NotImplementedError as error:
+    if not group:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
+            detail=f"Group matching {group_slug} does not exist.",
         )
-
-    conn = session.connection().connection
-    _out_file = f"/tmp/{out_file_name}"
-    background_tasks.add_task(remove_file, _out_file)
-
-    with conn.cursor().copy(sql, params=params) as copy:
-        with open(_out_file, "wb") as f:
-            while data := copy.read():
-                f.write(data)
-            f.close()
-
-        media_type = {
-            DocumentExportFormat.csv: "text/csv; charset=utf-8",
-            DocumentExportFormat.geojson: "application/json",
-        }.get(_format, "text/plain; charset=utf-8")
-        return FileResponse(
-            path=_out_file, media_type=media_type, filename=out_file_name
-        )
+    return {
+        "name": group[0].name,
+        "slug": group[0].slug,
+    }
