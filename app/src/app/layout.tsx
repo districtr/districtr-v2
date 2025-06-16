@@ -1,7 +1,7 @@
 import type {Metadata} from 'next';
 import {Nunito} from 'next/font/google';
 import {Theme} from '@radix-ui/themes';
-import '@radix-ui/themes/styles.css';
+import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 import {FeedbackForm} from './components/FeedbackForm';
 import '@radix-ui/themes/styles.css';
 import './globals.css';
