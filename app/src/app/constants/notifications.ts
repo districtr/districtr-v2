@@ -24,3 +24,5 @@ export const STATUS_TEXT = {
   scratch: 'Scratch Work Only',
   ready: 'Status: Ready to Share',
 } as const;
+
+export const FALLBACK_PLACE_IMAGES = ['/home-megaphone.png', '/home-hands.png', '/community.svg'];
