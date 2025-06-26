@@ -91,7 +91,7 @@ class DemographyCache {
   update(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
     if (hash === this.hash) return;
     this.availableColumns = columns;
-    this.table = table(data).derive(getColumnDerives(columns));
+    this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
@@ -249,8 +249,9 @@ class DemographyCache {
     });
 
     this.summaryStats.totalPopulation = summaries.total_pop_20;
-    this.summaryStats.idealpop =
-      summaries.total_pop_20 / (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS);
+    this.summaryStats.idealpop = Math.round(
+      summaries.total_pop_20 / (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
+    );
 
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
   }

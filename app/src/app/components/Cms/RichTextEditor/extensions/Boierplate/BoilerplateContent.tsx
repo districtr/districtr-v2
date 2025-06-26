@@ -88,9 +88,9 @@ const AboutTheDataBoilerplate = (
       Demographer&apos;s Office and were digitized from maps provided by the county. Those counties
       are: Boulder, Denver, Douglas, and El Paso. For Las Animas county, the voter file was geocoded
       and used to identify precinct boundaries. Demographic data were aggregated from the census
-      block level and precincts were assigned to districts using{' '}
+      block level and precincts were assigned to districts using the{' '}
       <Link target="_blank" href="https://github.com/mggg/maup">
-        MGGG&apos;s proration software
+        Data and Democracy Lab&apos;s proration software
       </Link>
       .
     </Text>

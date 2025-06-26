@@ -1,4 +1,5 @@
 'use client';
+import {pages} from './config';
 
 export default function AdminHome() {
   return (
@@ -9,20 +10,20 @@ export default function AdminHome() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white overflow-hidden shadow rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg font-medium text-gray-900">Content Management</h3>
-            <p className="mt-2 text-sm text-gray-500">
-              Create and manage content pages, blog posts, and other static content.
-            </p>
-            <a
-              href="/admin/cms"
-              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Go to CMS
-            </a>
+        {pages.map(page => (
+          <div key={page.title} className="bg-white overflow-hidden shadow rounded-lg">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg font-medium text-gray-900">{page.title}</h3>
+              <p className="mt-2 text-sm text-gray-500">{page.description}</p>
+              <a
+                href={page.href}
+                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                {page.cta}
+              </a>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     </div>
   );

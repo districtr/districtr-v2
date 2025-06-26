@@ -8,6 +8,7 @@ import {ZoneLayerGroup} from './ZoneLayerGroup';
 import {DemographicLayer} from './DemographicLayer';
 import {HighlightOverlayerLayerGroup} from './HighlightOverlayLayerGroup';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {useClearMap} from '@/app/hooks/useClearMap';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
@@ -17,25 +18,27 @@ export const VtdBlockLayers: React.FC<{
   const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap);
   const demographicVariable = useDemographyStore(state => state.variable);
   const demographicVariant = useDemographyStore(state => state.variant);
+  const [loadedTiles, setLoadedTiles] = useState('');
   const setScale = useDemographyStore(state => state.setScale);
   const demographyDataHash = useDemographyStore(state => state.dataHash);
   const shatterIds = useMapStore(state => state.shatterIds);
-  const [clearOldSource, setClearOldSource] = useState(false);
   const showDemography = isDemographicMap || showDemographicMap === 'overlay';
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
+  useClearMap(mapDocument?.document_id);
 
-  useEffect(() => {
-    // clears old source before re-adding
-    // only happens on map document change
-    setClearOldSource(true);
-    setTimeout(() => {
-      setClearOldSource(false);
-      setMapRenderingState('loaded');
-    }, 10);
-  }, [mapDocument?.tiles_s3_path, mapDocument?.document_id]);
+  useLayoutEffect(() => {
+    // on mount, set map rendering state to loaded
+    setMapRenderingState('loaded');
+  }, []);
 
-  const handleDemographyRender = ({numberOfBins}: {numberOfBins?: number}) => {
+  useLayoutEffect(() => {
+    if (mapDocument?.tiles_s3_path) {
+      setLoadedTiles(mapDocument.tiles_s3_path);
+    }
+  }, [mapDocument?.tiles_s3_path]);
+
+  const handleChoroplethRender = ({numberOfBins}: {numberOfBins?: number}) => {
     const _map = mapRef.current?.getMap();
     if (_map) {
       const updateFn = () => {
@@ -67,7 +70,7 @@ export const VtdBlockLayers: React.FC<{
 
   useLayoutEffect(() => {
     if (showDemography) {
-      handleDemographyRender({numberOfBins});
+      handleChoroplethRender({numberOfBins});
     }
   }, [
     numberOfBins,
@@ -78,8 +81,7 @@ export const VtdBlockLayers: React.FC<{
     mapDocument,
     demographicVariant,
   ]);
-
-  if (!mapDocument || clearOldSource) return null;
+  if (!mapDocument || loadedTiles !== mapDocument.tiles_s3_path) return null;
 
   return (
     <>

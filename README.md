@@ -13,9 +13,16 @@ The Districtr reboot monorepo.
 
 The backend (Python), frontend (NextJS), and database (postgres) can be run locally using Docker.
 
-- Install and configure [Docker](https://www.docker.com/) for your machine
-- From the repo root, run `docker-compose up --build`
-- To load in data, add data to a folder `sample_data` in the repo root, and in `docker-compose.yml` set `services > backend > environment > LOAD_GERRY_DB_DATA` to `true`. You can change where the script looks for available data with the `GPKG_DATA_DIR` variable.
+1. Install and configure [Docker](https://www.docker.com/) for your machine
+1. `cp ./backend/.env.docker.example && ./backend/.env.docker` and fill in missing variables.
+1. From the repo root, run `docker-compose up --build`
+1. Add data as necessary by following the steps in [Loading data](#loading-data) below
+
+### Loading data
+
+The default build will not load any data. To load data, create a `.env` in the repo root set `LOAD_DATA=true`. Alternatively, shell env vars will be given priority so you can run `LOAD_DATA=true docker-compose up --build`. (You can [double-check your configuration](https://docs.docker.com/compose/how-tos/environment-variables/variable-interpolation/) is picking up the env var with `docker compose config`.)
+
+By default the script will attempt to pull data from `s3://districtr-v2-dev/gerrydb/`. You can change where the script looks for available data with the `GPKG_DATA_DIR` variable.
 
 ## Districtr reboot architecture
 

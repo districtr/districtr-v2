@@ -19,10 +19,14 @@ export const PopulationPanel = () => {
   const {summaryStats, zoneStats} = useSummaryStats();
   const idealPopulation = summaryStats?.idealpop;
   const unassigned = summaryStats.unassigned;
+  const mapDocument = useMapStore(state => state.mapDocument);
   const numDistricts = useMapStore(
     state => state.mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS
   );
-  const allPainted = numDistricts === populationData.length;
+  const allPainted =
+    numDistricts === populationData.length &&
+    zoneStats.minPopulation !== undefined &&
+    zoneStats.minPopulation > 0;
 
   const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
@@ -31,7 +35,9 @@ export const PopulationPanel = () => {
   const setLockedZones = useMapStore(state => state.setLockedZones);
   const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
   const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
-
+  const setSelectedZone = useMapStore(state => state.setSelectedZone);
+  const selectedZone = useMapStore(state => state.selectedZone);
+  const access = useMapStore(state => state.mapStatus?.access);
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
@@ -44,6 +50,15 @@ export const PopulationPanel = () => {
       <Text color="gray" size="2">
         No data to display
       </Text>
+    );
+  }
+  if (!mapDocument) {
+    return (
+      <Flex dir="column" justify="center" align="center" p="4">
+        <Text size="2" className="ml-2">
+          Choose a map to display population data
+        </Text>
+      </Flex>
     );
   }
   if (!demoIsLoaded) {
@@ -76,7 +91,7 @@ export const PopulationPanel = () => {
           justify={'between'}
         >
           <Flex justify="end">
-            <IconButton onClick={toggleLockAllAreas} variant="ghost">
+            <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'}>
               {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
             </IconButton>
           </Flex>
@@ -85,13 +100,22 @@ export const PopulationPanel = () => {
             <Flex
               key={d.zone}
               direction={'row'}
-              gap={'1'}
+              gapY={'1'}
+              gapX="3"
               align={'center'}
               className="p-0 m-0"
               justify={'between'}
             >
-              {!!showDistrictNumbers && <Text weight={'bold'}>{d.zone}</Text>}
-              <IconButton onClick={() => handleLockChange(d.zone)} variant="ghost">
+              {!!showDistrictNumbers && (
+                <IconButton variant="ghost" onClick={() => setSelectedZone(d.zone)}>
+                  <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
+                </IconButton>
+              )}
+              <IconButton
+                onClick={() => handleLockChange(d.zone)}
+                variant="ghost"
+                disabled={access === 'read'}
+              >
                 {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
               </IconButton>
             </Flex>
@@ -133,14 +157,15 @@ export const PopulationPanel = () => {
             <br />
             {allPainted &&
             zoneStats?.range !== undefined &&
-            zoneStats.maxPopulation !== undefined ? (
+            zoneStats.maxPopulation !== undefined &&
+            zoneStats.maxPopulation !== 0 ? (
               <>
                 <b>{formatNumber(zoneStats.range / zoneStats.maxPopulation, 'percent')}</b> (
                 {formatNumber(zoneStats.range || 0, 'string')})
               </>
             ) : (
               ' will appear when all districts are started'
-            )}{' '}
+            )}
           </Text>
         </Flex>
       )}

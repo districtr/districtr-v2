@@ -1,18 +1,21 @@
 import click
 import logging
+import re
 
 from app.core.db import engine
 from app.core.config import settings
 from sqlalchemy import text
 from app.utils import (
     create_districtr_map as _create_districtr_map,
+    create_map_group as _create_map_group,
     create_shatterable_gerrydb_view as _create_shatterable_gerrydb_view,
     create_parent_child_edges as _create_parent_child_edges,
     add_extent_to_districtrmap as _add_extent_to_districtrmap,
+    add_districtr_map_to_map_group as _add_districtr_map_to_map_group,
     update_districtrmap as _update_districtrmap,
-    get_local_or_s3_path,
     create_spatial_index as _create_spatial_index,
 )
+from app.core.io import get_local_or_s3_path
 from app.constants import GERRY_DB_SCHEMA
 from app.contiguity.main import write_graph, graph_from_gpkg, GraphFileFormat
 from functools import wraps
@@ -128,6 +131,8 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
 @click.option("--parent-layer-name", help="Parent gerrydb layer name", required=True)
 @click.option("--districtr-map-slug", help="Slug of the districtr map", required=True)
 @click.option("--child-layer-name", help="Child gerrydb layer name", required=False)
+@click.option("--group-slug", help="Map group slug", type=str, required=False)
+@click.option("--map-type", help="Map UI type", type=str, required=False)
 @click.option("--gerrydb-table-name", help="Name of the GerryDB table", required=True)
 @click.option("--num-districts", help="Number of districts", required=False)
 @click.option("--tiles-s3-path", help="S3 path to the tileset", required=False)
@@ -155,6 +160,8 @@ def create_districtr_map(
     tiles_s3_path: str | None,
     no_extent: bool = False,
     bounds: list[float] | None = None,
+    group_slug: str = "states",
+    map_type: str = "default",
 ):
     logger.info("Creating districtr map...")
     districtr_map_uuid = _create_districtr_map(
@@ -163,6 +170,8 @@ def create_districtr_map(
         parent_layer=parent_layer_name,
         child_layer=child_layer_name,
         districtr_map_slug=districtr_map_slug,
+        group_slug=group_slug,
+        map_type=map_type,
         gerrydb_table_name=gerrydb_table_name,
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
@@ -199,6 +208,7 @@ def create_districtr_map(
     "--tiles-s3-path", help="S3 path to the tileset", type=str, required=False
 )
 @click.option("--visibility", "-v", help="Visibility", type=bool, required=False)
+@click.option("--map-type", help="Map UI type", type=str, required=False)
 @click.option(
     "--bounds",
     "-b",
@@ -220,6 +230,7 @@ def update_districtr_map(
     tiles_s3_path: str | None,
     visibility: bool = False,
     bounds: list[float] | None = None,
+    map_type: str | None = None,
 ):
     logger.info("Updating districtr map...")
 
@@ -237,6 +248,7 @@ def update_districtr_map(
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
         visible=visibility,
+        map_type=map_type,
         bounds=_bounds,
     )
     logger.info(f"Districtr map updated successfully {result}")
@@ -385,6 +397,40 @@ def create_spatial_index(
             autocommit=True,
         )
         logger.info(f"Created spatial index successfully for table {table}.")
+
+
+@cli.command("create-group")
+@click.option("--name", "-n", help="Group name", required=True)
+@click.option("--map-group-slug", "-s", help="Group slug", required=False)
+@with_session
+def create_map_group(session: Session, name: str, map_group_slug: str | None):
+    # generate slug as lowercase a-z, no spaces
+    if map_group_slug is None:
+        map_group_slug = "".join(re.findall(r"[a-z]", name.lower()))
+
+    _create_map_group(
+        session=session,
+        group_name=name,
+        slug=map_group_slug,
+        autocommit=True,
+    )
+    logger.info(f"Created map group named {name} and slug `{map_group_slug}`.")
+
+
+@cli.command("add-districtr-map-to-map-group")
+@click.option("--districtr-map-slug", "-d", help="DistrictrMap slug", required=True)
+@click.option("--map-group-slug", "-s", help="Group slug", required=True)
+@with_session
+def add_districtr_map_to_map_group(
+    session: Session, districtr_map_slug: str, map_group_slug: str
+):
+    _add_districtr_map_to_map_group(
+        session=session,
+        districtr_map_slug=districtr_map_slug,
+        group_slug=map_group_slug,
+        autocommit=True,
+    )
+    logger.info(f"Added {districtr_map_slug} to `{map_group_slug}`.")
 
 
 if __name__ == "__main__":

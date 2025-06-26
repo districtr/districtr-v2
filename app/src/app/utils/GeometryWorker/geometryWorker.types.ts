@@ -25,6 +25,11 @@ export type GeometryWorkerClass = {
     parents: string[];
     children: string[];
   };
+  /**
+   * The maximum zoom level of the parent layer.
+   */
+  maxParentZoom: number;
+  setMaxParentZoom: (zoom: number) => void;
   zoneAssignments: Record<string, number>;
   previousCentroids: Record<number, GeoJSON.Feature<GeoJSON.Point>>;
   /**
@@ -124,7 +129,16 @@ export type GeometryWorkerClass = {
     canvasWidth?: number;
     canvasHeight?: number;
   }) => Promise<CentroidReturn>;
-  getPropertiesCentroids: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
+  /**
+   * Retrieves the centroids of the geometries with the given IDs.
+   * @param ids - The IDs of the geometries to retrieve.
+   * @returns The centroids of the geometries.
+   */
+  getCentroidsByIds: (ids: string[]) => GeoJSON.FeatureCollection<GeoJSON.Point>;
+  /**
+   * The cached centroids of the geometries.
+   */
+  cachedCentroids: Record<string, GeoJSON.Feature<GeoJSON.Point>>;
   /**
    * Retrieves a collection of geometries without a zone assignment.
    * @returns The collection of unassigned geometries.

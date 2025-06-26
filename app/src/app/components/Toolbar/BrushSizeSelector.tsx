@@ -16,6 +16,7 @@ const BRUSH_MAX_SIZE = 100;
 export function BrushSizeSelector() {
   const brushSize = useMapStore(state => state.brushSize);
   const setBrushSize = useMapStore(state => state.setBrushSize);
+  const access = useMapStore(state => state.mapStatus?.access);
 
   const handleChangeEnd = (value: Array<number>) => {
     setBrushSize(value.length ? value[0] : 0);
@@ -53,7 +54,11 @@ export function BrushSizeSelector() {
   }, []);
 
   return (
-    <Flex direction="row" width={'100%'}>
+    <Flex
+      direction="row"
+      width={'100%'}
+      style={access === 'read' ? {pointerEvents: 'none', opacity: 0.5} : {}}
+    >
       <Flex direction="column" width="100%" gap="1">
         <Text size="1">Brush Size</Text>
         <Flex direction="row" gapX="2" mb="3" align="center" width="100%">
@@ -61,9 +66,10 @@ export function BrushSizeSelector() {
             defaultValue={[brushSize]}
             size="2"
             value={[brushSize]}
-            onValueChange={handleChangeEnd}
+            onValueChange={access === 'read' ? () => {} : handleChangeEnd}
             min={BRUSH_MIN_SIZE}
             max={BRUSH_MAX_SIZE}
+            disabled={access === 'read'}
           />
           <Text size="1" as="span" color="gray">
             {brushSize}

@@ -1,7 +1,5 @@
 import React, {useEffect, useRef} from 'react';
-import {Button, CheckboxGroup, Flex, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
-import {extendColorArray} from '@/app/utils/colors';
 import {NullableZone} from '@/app/constants/types';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {ColorRadioGroup} from './ColorRadioGroup';
@@ -36,9 +34,6 @@ export const ColorPicker = <T extends boolean>({
   const colorScheme = useMapStore(state => state.colorScheme);
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-  const colorArray =
-    numDistricts > colorScheme.length ? extendColorArray(colorScheme, numDistricts) : colorScheme;
 
   const handleKeyPressSubmit = () => {
     if (!hotkeyRef.current) return;
@@ -64,10 +59,13 @@ export const ColorPicker = <T extends boolean>({
       // if key is digit, set selected zone to that digit
       if (!event.code.includes('Digit')) return;
       let value = event.key;
+      const numDistricts =
+        useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+      const numDigits = numDistricts.toString().length;
       if (numDistricts >= 10) {
         hotkeyRef.current = (hotkeyRef.current || '') + value;
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        if (hotkeyRef?.current?.length === 2) {
+        if (hotkeyRef?.current?.length === numDigits) {
           handleKeyPressSubmit();
         } else {
           timeoutRef.current = setTimeout(() => {

@@ -72,11 +72,7 @@ export const derivedRollups = {
         },
         {
           total: curr.columns[0].replace('_dem', '_total'),
-          col: curr.columns[0],
-        },
-        {
-          total: curr.columns[0].replace('_dem', '_total'),
-          col: curr.columns[1],
+          col: curr.columns[0].replace('_dem', '_lean'),
         },
       ];
     },

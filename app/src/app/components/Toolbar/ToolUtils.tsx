@@ -1,14 +1,7 @@
 import {IconButtonProps, IconProps} from '@radix-ui/themes';
 import {ActiveTool} from '@constants/types';
 import {useMapStore} from '@/app/store/mapStore';
-import {
-  EraserIcon,
-  Pencil2Icon,
-  HandIcon,
-  LockOpen1Icon,
-  ViewGridIcon,
-  ResetIcon,
-} from '@radix-ui/react-icons';
+import {EraserIcon, Pencil2Icon, HandIcon, ViewGridIcon, ResetIcon} from '@radix-ui/react-icons';
 import {useTemporalStore} from '@/app/store/temporalStore';
 import {useCallback} from 'react';
 import {debounce} from 'lodash';
@@ -29,6 +22,7 @@ export type ActiveToolConfig = {
 export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const status = useMapStore(state => state.mapStatus?.status);
+  const access = useMapStore(state => state.mapStatus?.access);
   const {futureStates, pastStates, redo, undo} = useTemporalStore(state => state); // TemporalState<MapStore>
   const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
@@ -50,7 +44,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'P',
       mode: 'brush',
-      disabled: !mapDocument?.document_id || status === 'locked',
+      disabled: !mapDocument?.document_id || status === 'locked' || access === 'read',
       label: 'Paint',
       icon: Pencil2Icon,
       hotKeyAccessor: e => {
@@ -60,7 +54,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'E',
       mode: 'eraser',
-      disabled: !mapDocument?.document_id || status === 'locked',
+      disabled: !mapDocument?.document_id || status === 'locked' || access === 'read',
       label: 'Erase',
       icon: EraserIcon,
       hotKeyAccessor: e => {
@@ -70,7 +64,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: `${metaKey} + Z`,
       mode: 'undo',
-      disabled: pastStates.length === 0,
+      disabled: pastStates.length === 0 || access === 'read',
       label: 'Undo',
       icon: ResetIcon,
       onClick: () => {
@@ -85,7 +79,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: `${metaKey} + Shift + Z`,
       mode: 'redo',
-      disabled: futureStates.length === 0,
+      disabled: futureStates.length === 0 || access === 'read',
       label: 'Redo',
       icon: ResetIcon,
       iconStyle: {transform: 'rotateY(180deg)'},
@@ -106,16 +100,6 @@ export const useActiveTools = () => {
       icon: ViewGridIcon,
       hotKeyAccessor: e => {
         return e.code === 'KeyB';
-      },
-    },
-    {
-      hotKeyLabel: 'L',
-      mode: 'lock',
-      disabled: !mapDocument?.document_id || status === 'locked',
-      label: 'Lock',
-      icon: LockOpen1Icon,
-      hotKeyAccessor: e => {
-        return e.code === 'KeyL';
       },
     },
   ];

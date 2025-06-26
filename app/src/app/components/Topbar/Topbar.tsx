@@ -20,30 +20,27 @@ import {useTemporalStore} from '@store/temporalStore';
 import {document} from '@utils/api/mutations';
 import {DistrictrMap} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
-import {ShareMapsModal} from '@components/Toolbar/ShareMapsModal';
-import {PasswordPromptModal} from '@components/Toolbar/PasswordPromptModal';
-import {useMapStatus} from '../hooks/useMapStatus';
+import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
+import {UploaderModal} from '../Toolbar/UploaderModal';
+import {MapHeader} from './MapHeader';
+import {EditStatus} from './EditStatus';
+import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
-  const [recentMapsModalOpen, setRecentMapsModalOpen] = React.useState(false);
-  const [shareMapsModal, setShareMapsModal] = React.useState(false);
-  const [saveMapsModal, setSaveMapsModal] = React.useState(false);
+  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | 'save-share' | null>(
+    null
+  );
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const status = useMapStore(state => state.mapStatus?.status);
+  const access = useMapStore(state => state.mapStatus?.access);
   const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
-  const {statusText} = useMapStatus();
-
+  const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
   const clear = useTemporalStore(store => store.clear);
   const data = mapViews?.data || [];
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
-    if (selectedMap.districtr_map_slug === mapDocument?.districtr_map_slug) {
-      console.log('No document or same document');
-      return;
-    }
     clear();
     document.mutate({
       districtr_map_slug: selectedMap.districtr_map_slug,
@@ -77,28 +74,38 @@ export const Topbar: React.FC = () => {
               </IconButton>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
+              <DropdownMenu.Item>
+                <Link href="/" color="gray">
+                  Home
+                </Link>
+              </DropdownMenu.Item>
               <DropdownMenu.Sub>
-                <DropdownMenu.Item>
-                  <Link href="/">Home</Link>
-                </DropdownMenu.Item>
                 <Tooltip open={!mapDocument?.document_id} content="Start by selecting a geography">
-                  <DropdownMenu.SubTrigger>Select Map</DropdownMenu.SubTrigger>
+                  <DropdownMenu.SubTrigger>Create new map</DropdownMenu.SubTrigger>
                 </Tooltip>
                 <DropdownMenu.SubContent>
-                  {data?.length ? (
-                    data?.map((view, index) => (
-                      <DropdownMenu.Item key={index} onClick={() => handleSelectMap(view)}>
-                        {view.name}
-                      </DropdownMenu.Item>
-                    ))
-                  ) : (
-                    <DropdownMenu.Item disabled>Loading geographies...</DropdownMenu.Item>
-                  )}
+                  <DropdownMenu.Sub>
+                    <DropdownMenu.SubTrigger>Select a geography</DropdownMenu.SubTrigger>
+                    <DropdownMenu.SubContent>
+                      {data?.length ? (
+                        data?.map((view, index) => (
+                          <DropdownMenu.Item key={index} onClick={() => handleSelectMap(view)}>
+                            {view.name}
+                          </DropdownMenu.Item>
+                        ))
+                      ) : (
+                        <DropdownMenu.Item disabled>Loading geographies...</DropdownMenu.Item>
+                      )}
+                    </DropdownMenu.SubContent>
+                  </DropdownMenu.Sub>
+                  <DropdownMenu.Item onClick={() => setModalOpen('upload')}>
+                    Upload block assignments
+                  </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
               <DropdownMenu.Sub>
                 <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
-                  Export Assignments
+                  Export assignments
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.SubContent>
                   <DropdownMenu.Item>
@@ -107,7 +114,7 @@ export const Topbar: React.FC = () => {
                         href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=ZoneAssignments`}
                         download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
                       >
-                        VTD Assignments (CSV)
+                        VTD assignments (CSV)
                       </a>
                     </Tooltip>
                   </DropdownMenu.Item>
@@ -117,7 +124,7 @@ export const Topbar: React.FC = () => {
                         href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=GeoJSON&export_type=ZoneAssignments`}
                         download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
                       >
-                        VTD Assignments (GeoJSON)
+                        VTD assignments (GeoJSON)
                       </a>
                     </Tooltip>
                   </DropdownMenu.Item>
@@ -127,7 +134,7 @@ export const Topbar: React.FC = () => {
                         href={`${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument?.document_id}/export?format=CSV&export_type=BlockZoneAssignments`}
                         download={`districtr-block-assignments-${mapDocument?.document_id}-${new Date().toDateString()}.csv`}
                       >
-                        Block Assignment (CSV)
+                        Block assignment (CSV)
                       </a>
                     </Tooltip>
                   </DropdownMenu.Item>
@@ -143,12 +150,12 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setRecentMapsModalOpen(true)}>
-                Recent Maps
+              <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={!showRecentMaps}>
+                View recent maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
-                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id}>
-                  Reset Map
+                <DropdownMenu.SubTrigger disabled={!mapDocument?.document_id || access === 'read'}>
+                  Reset map
                 </DropdownMenu.SubTrigger>
                 <DropdownMenu.SubContent>
                   <Text size="2" className="w-[50vw] max-w-60 p-3">
@@ -156,38 +163,29 @@ export const Topbar: React.FC = () => {
                     <b>Resetting your map cannot be undone.</b>
                   </Text>
                   <DropdownMenu.Item onClick={handleReset} color="red">
-                    Reset Map
+                    Reset map
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
-          <Flex direction="row" align="center" gapX="2">
-            {!!statusText && (
-              <Button
-                variant="outline"
-                className="mr-2"
-                disabled={!mapDocument?.document_id}
-                onClick={() => setShareMapsModal(true)}
-              >
-                {status === 'locked' ? 'Share' : 'Share'}
-              </Button>
-            )}
-            {!!statusText && (
-              <Button
-                variant="outline"
-                className="mr-2"
-                disabled={!mapDocument?.document_id}
-                onClick={() => setRecentMapsModalOpen(true)}
-              >
-                {statusText}
-              </Button>
-            )}
+          <MapHeader />
+          <Flex direction="row" align="center" gapX="1">
+            <EditStatus />
+            <Button
+              variant="outline"
+              disabled={!mapDocument?.document_id}
+              onClick={() => setModalOpen('save-share')}
+              size="1"
+            >
+              Save and Share
+            </Button>
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
+              size="1"
               onClick={() => setSettingsOpen(prev => !prev)}
             >
-              <GearIcon width="28" height="28" className="p-1" />
+              <GearIcon className="size-full p-1" />
             </IconButton>
           </Flex>
           {settingsOpen && (
@@ -198,8 +196,9 @@ export const Topbar: React.FC = () => {
         </Flex>
         <MobileDataTabs />
       </Flex>
-      <RecentMapsModal open={recentMapsModalOpen} onClose={() => setRecentMapsModalOpen(false)} />
-      <ShareMapsModal open={shareMapsModal} onClose={() => setShareMapsModal(false)} />
+      <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(null)} />
+      <SaveShareModal open={modalOpen === 'save-share'} onClose={() => setModalOpen(null)} />
+      <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>
   );

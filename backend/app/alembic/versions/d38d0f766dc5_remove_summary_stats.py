@@ -36,7 +36,6 @@ def upgrade() -> None:
     op.drop_column("districtrmap", "available_summary_stats", schema="public")
     for udf in summary_udfs:
         op.execute(f"DROP FUNCTION IF EXISTS {udf['name']} CASCADE")
-    pass
 
 
 def downgrade() -> None:
@@ -50,7 +49,7 @@ def downgrade() -> None:
         with open(f"{SQL_DIR}/{udf['filepath']}", "r") as f:
             sql = f.read()
         op.execute(sa.text(sql))
-        
+
     op.execute(
         sa.text(
             """
@@ -70,4 +69,3 @@ def downgrade() -> None:
     """
         )
     )
-    pass

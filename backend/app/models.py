@@ -5,61 +5,26 @@ from sqlmodel import (
     Field,
     ForeignKey,
     SQLModel,
-    UUID,
-    TIMESTAMP,
     UniqueConstraint,
-    text,
     Column,
     MetaData,
     String,
     Boolean,
     Integer,
     Text,
+    Index,
 )
 from sqlalchemy.types import ARRAY
-from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.dialects.postgresql import JSON, ENUM
 from sqlalchemy import Float
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
-from enum import Enum
-
-
-class UUIDType(UUID):
-    def __init__(self, *args, **kwargs):
-        kwargs["as_uuid"] = False
-        super().__init__(*args, **kwargs)
-
-
-class DocumentShareStatus(str, Enum):
-    read = "read"
-    edit = "edit"
-
-
-class TokenRequest(BaseModel):
-    token: str
-    password: str | None = None
-    user_id: str | None = None
-    access: DocumentShareStatus = DocumentShareStatus.read
-
-
-class TimeStampMixin(SQLModel):
-    created_at: Optional[datetime] = Field(
-        sa_type=TIMESTAMP(timezone=True),
-        sa_column_kwargs={
-            "server_default": text("CURRENT_TIMESTAMP"),
-        },
-        nullable=False,
-        default=None,
-    )
-
-    updated_at: Optional[datetime] = Field(
-        sa_type=TIMESTAMP(timezone=True),
-        sa_column_kwargs={
-            "server_default": text("CURRENT_TIMESTAMP"),
-        },
-        nullable=False,
-        default=None,
-    )
+from app.core.models import UUIDType, TimeStampMixin
+from app.save_share.models import (
+    DocumentDraftStatus,
+    DocumentEditStatus,
+    DocumentShareStatus,
+)
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -89,6 +54,13 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # when you create the view, pull the columns that you need
     # we'll want discrete management steps
     visible: bool = Field(sa_column=Column(Boolean, nullable=False, default=True))
+    map_type: str = Field(
+        sa_column=Column(
+            ENUM("default", "local", name="maptype"),
+            nullable=False,
+            server_default="default",
+        )
+    )
 
 
 class DistrictrMapPublic(BaseModel):
@@ -102,6 +74,11 @@ class DistrictrMapPublic(BaseModel):
     visible: bool = True
 
 
+class ConfigMapGroup(BaseModel):
+    districtr_map_slug: str
+    group_slug: str
+
+
 class DistrictrMapUpdate(BaseModel):
     districtr_map_slug: str
     gerrydb_table_name: str | None
@@ -111,6 +88,7 @@ class DistrictrMapUpdate(BaseModel):
     tiles_s3_path: str | None = None
     num_districts: int | None = None
     visible: bool | None = None
+    map_type: str = "default"
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -127,8 +105,15 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
             "child_path",
             name="districtr_map_parent_child_edge_unique",
         ),
+        Index(
+            "idx_parentchildedges_child_path_districtr_map",
+            "child_path",
+            "districtr_map",
+        ),
         {"postgresql_partition_by": "LIST (districtr_map)"},
     )
+    __tablename__ = "parentchildedges"  # pyright: ignore
+
     districtr_map: str = Field(
         sa_column=Column(
             UUIDType,
@@ -142,12 +127,12 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
 
 
 class DistrictrMapMetadata(BaseModel):
-    name: Optional[str] | None = None
-    group: Optional[str] | None = None
-    tags: Optional[list[str]] | None = None
-    description: Optional[str] | None = None
-    event_id: Optional[str] | None = None
-    is_draft: bool = True
+    name: str | None = None
+    group: str | None = None
+    tags: list[str] | None = None
+    description: str | None = None
+    event_id: str | None = None
+    draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
 
 
 class Document(TimeStampMixin, SQLModel, table=True):
@@ -172,10 +157,11 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentCreate(BaseModel):
-    districtr_map_slug: str | None
-    user_id: str | None
+    districtr_map_slug: str
+    user_id: str
     metadata: Optional[DistrictrMapMetadata] | None = None
     copy_from_doc: Optional[str] | None = None  # document_id to copy from
+    assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
 class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
@@ -183,42 +169,12 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     Tracks the user session for a given document
     """
 
-    __tablename__ = "map_document_user_session"
+    __tablename__ = "map_document_user_session"  # pyright: ignore
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
     session_id: int = Field(
         sa_column=Column(Integer, primary_key=True, autoincrement=True)
     )
     user_id: str = Field(sa_column=Column(String, nullable=False))
-
-
-class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
-    """
-    Manages sharing of plans between users.
-
-    Deliberately no user id for now, so that a user could theoretically re-access a plan from another machine.
-    """
-
-    __tablename__ = "map_document_token"
-    token_id: str = Field(
-        UUIDType,
-        primary_key=True,
-    )
-    password_hash: str = Field(
-        sa_column=Column(String, nullable=True)  # optional password
-    )
-    expiration_date: datetime = Field(
-        sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
-    )
-
-
-class DocumentEditStatus(str, Enum):
-    locked = "locked"
-    unlocked = "unlocked"
-    checked_out = "checked_out"
-
-
-class DocumentGenesis(str, Enum):
-    created = "created"
-    shared = "shared"
 
 
 class DocumentPublic(BaseModel):
@@ -239,6 +195,11 @@ class DocumentPublic(BaseModel):
     genesis: str | None = None
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
+    map_type: str
+
+
+class DocumentCreatePublic(DocumentPublic):
+    inserted_assignments: int
 
 
 class AssignmentsBase(SQLModel):
@@ -259,6 +220,7 @@ class Assignments(AssignmentsBase, table=True):
 
 class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
+    user_id: str
 
 
 class AssignmentsResponse(SQLModel):
@@ -274,10 +236,6 @@ class GEOIDS(BaseModel):
 
 class GEOIDSResponse(GEOIDS):
     updated_at: datetime
-
-
-class UserID(BaseModel):
-    user_id: str
 
 
 class AssignedGEOIDS(GEOIDS):
@@ -300,3 +258,23 @@ class ShatterResult(BaseModel):
 
 class ColorsSetResult(BaseModel):
     colors: list[str]
+
+
+class MapGroup(SQLModel, table=True):
+    __tablename__ = "map_group"  # pyright: ignore
+    slug: str = Field(primary_key=True, nullable=False)
+    name: str = Field(nullable=False)
+
+
+class DistrictrMapsToGroups(SQLModel, table=True):
+    __tablename__ = "districtrmaps_to_groups"  # pyright: ignore
+    districtrmap_uuid: str = Field(
+        sa_column=Column(UUIDType, ForeignKey("districtrmap.uuid"), primary_key=True)
+    )
+    group_slug: str = Field(
+        sa_column=Column(
+            String,
+            ForeignKey("map_group.slug"),
+            primary_key=True,
+        )
+    )

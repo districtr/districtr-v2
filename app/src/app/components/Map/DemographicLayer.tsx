@@ -17,6 +17,7 @@ export const DemographicLayer: React.FC<{
   const mapDocument = useMapStore(state => state.mapDocument);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   const isOverlay = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+  const overlayOpacity = useMapStore(state => state.mapOptions.overlayOpacity);
   const lineWidth = child ? 1 : 2;
   const layerFilter = useLayerFilter(child);
 
@@ -34,7 +35,7 @@ export const DemographicLayer: React.FC<{
           visibility: 'visible',
         }}
         paint={{
-          'fill-opacity': isOverlay ? OVERLAY_OPACITY : 0.9,
+          'fill-opacity': isOverlay ? overlayOpacity : 0.9,
           'fill-color': [
             'case',
             ['boolean', ['feature-state', 'hasColor'], false],

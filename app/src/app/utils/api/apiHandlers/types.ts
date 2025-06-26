@@ -34,13 +34,15 @@ export interface StatusObject {
   password?: string | null;
 }
 
+export type DraftStatus = 'scratch' | 'in_progress' | 'ready_to_share';
+
 export interface DocumentMetadata {
   name: string | null;
   group: string | null;
   tags: string | null;
   description: string | null;
   eventId: string | null;
-  is_draft: boolean;
+  draft_status: DraftStatus | null;
 }
 
 export interface DocumentObject extends StatusObject {
@@ -56,6 +58,7 @@ export interface DocumentObject extends StatusObject {
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
+  map_type: 'default' | 'local';
 }
 
 export interface DocumentCreate {
@@ -87,3 +90,8 @@ export type RemoteAssignmentsResponse = {
 };
 
 export type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | null>;
+
+export type MapGroup = {
+  name: string;
+  slug: string;
+};

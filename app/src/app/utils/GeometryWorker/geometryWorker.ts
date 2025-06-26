@@ -36,10 +36,15 @@ const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
   activeGeometries: {},
   zoneAssignments: {},
+  cachedCentroids: {},
   shatterIds: {
     parents: [],
     children: [],
   },
+  setMaxParentZoom(zoom) {
+    this.maxParentZoom = zoom;
+  },
+  maxParentZoom: 0,
   previousCentroids: {},
   _internalTileZoom: null,
   getPropsById(ids: string[]) {
@@ -100,6 +105,7 @@ const GeometryWorker: GeometryWorkerClass = {
     this.geometries = {};
     this.activeGeometries = {};
     this.previousCentroids = {};
+    this.cachedCentroids = {};
     this.shatterIds = {
       parents: [],
       children: [],
@@ -124,6 +130,7 @@ const GeometryWorker: GeometryWorkerClass = {
     for (const layerName in tile.layers) {
       if (layerName === childLayer) continue;
       const isParent = layerName === parentLayer;
+      if (isParent && this.maxParentZoom !== 0 && tileID.z > this.maxParentZoom) continue;
       const layer = tile.layers[layerName];
       // Extract features from the layer
       for (let i = 0; i < layer.length; i++) {
@@ -132,7 +139,12 @@ const GeometryWorker: GeometryWorkerClass = {
         // const prevZoom = this.geometries?.[id]?.zoom;
         if (!id) continue;
         const previousFeature = this.geometries[id];
-        // if (!id || (prevZoom && prevZoom > tileID.z)) continue;
+
+        const childNotBroken = !isParent && !this.shatterIds.children.includes(id);
+        if (childNotBroken) continue;
+        const zoomDiff = previousFeature?.zoom && tileID.z - previousFeature.zoom;
+        if (zoomDiff && zoomDiff < 0) continue;
+
         let geojsonFeature: any = feature.toGeoJSON(tileID.x, tileID.y, tileID.z);
 
         try {
@@ -152,6 +164,16 @@ const GeometryWorker: GeometryWorkerClass = {
         geojsonFeature.id = id;
         geojsonFeature.sourceLayer = layerName;
         geojsonFeature.properties = feature.properties;
+        if (zoomDiff === 0) {
+          // merge geometries
+          const unioned = union({
+            type: 'FeatureCollection',
+            features: [previousFeature, geojsonFeature],
+          });
+          if (unioned) {
+            geojsonFeature.geometry = unioned.geometry;
+          }
+        }
         this.geometries[id as string] = geojsonFeature;
         if (
           (isParent && !this.shatterIds.parents.includes(id)) ||
@@ -494,20 +516,25 @@ const GeometryWorker: GeometryWorkerClass = {
         return await this.getNonCollidingRandomCentroids(bounds, activeZones);
     }
   },
-  getPropertiesCentroids(ids) {
+  getCentroidsByIds(ids) {
     const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
-
+    let missingIds = [];
     ids.forEach(id => {
       const f = this.geometries[id];
       if (f) {
-        let center = centerOfMass(f);
-        center.properties = f.properties;
-        features.push(center);
+        if (this.cachedCentroids[id]) {
+          features.push(this.cachedCentroids[id]);
+        } else {
+          let center = centerOfMass(f);
+          center.properties = f.properties;
+          features.push(center);
+          this.cachedCentroids[id] = center;
+        }
       } else {
-        console.log('Could not find geography', id);
+        missingIds.push(id);
       }
     });
-
+    console.log(`Missing ${missingIds.length} geometries for centroid labels.`);
     return {
       type: 'FeatureCollection',
       features,

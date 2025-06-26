@@ -114,7 +114,7 @@ export const getFeatureUnderCursor = (
   brushSize: number,
   layers: string[] = [BLOCK_HOVER_LAYER_ID]
 ): MapGeoJSONFeature[] | undefined => {
-  return filterFeatures(map?.queryRenderedFeatures(e.point, {layers}) || [], true);
+  return filterFeatures(map?.queryRenderedFeatures(e.point, {layers}) || [], true, undefined, true);
 };
 
 /**
@@ -431,7 +431,8 @@ export const checkIfSameZone = (
 const filterFeatures = (
   features: MapGeoJSONFeature[],
   filterLocked: boolean = true,
-  additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = []
+  additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = [],
+  allowOutsideCaptiveIds: boolean = false
 ) => {
   const {
     activeTool,
@@ -445,7 +446,7 @@ const filterFeatures = (
   } = useMapStore.getState();
   const parentIdsToHeal: MapStore['parentsToHeal'] = [];
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
-  if (captiveIds.size) {
+  if (captiveIds.size && !allowOutsideCaptiveIds) {
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
   }
   if (filterLocked) {
@@ -490,7 +491,7 @@ export const handleCreateBlankMetadataObject = (): DocumentMetadata => {
     group: null,
     tags: null,
     description: null,
-    is_draft: true,
+    draft_status: 'scratch',
     eventId: null,
   };
 };

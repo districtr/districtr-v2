@@ -9,11 +9,12 @@ import {ErrorNotification} from '@components/ErrorNotification';
 import {DraggableToolbar, Toolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
-import {Topbar} from '@components/Topbar';
+import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEvents';
 
 export default function Map() {
   const showDemographicMap = useMapStore(
@@ -24,6 +25,7 @@ export default function Map() {
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
 
+  useMapBrowserEvents();
   useEffect(() => {
     !userID && setUserID();
   }, [userID, setUserID]);

@@ -6,10 +6,14 @@ import type {
   MapLayerMouseEvent,
   MapLayerTouchEvent,
   MapGeoJSONFeature,
-  MapStyleDataEvent,
   MapSourceDataEvent,
 } from 'maplibre-gl';
-import type {MapRef as MapLibreMap, MapRef, ViewStateChangeEvent} from 'react-map-gl/maplibre';
+import type {
+  MapEvent,
+  MapRef as MapLibreMap,
+  MapRef,
+  ViewStateChangeEvent,
+} from 'react-map-gl/maplibre';
 import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
@@ -22,7 +26,6 @@ import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/hoverFeatures';
-import {getFeatureUnderCursor} from '../helpers';
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -181,7 +184,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   } else {
     useTooltipStore.getState().setTooltip(null);
   }
-}, 25);
+}, 5);
 
 export const handleMapZoom = (e: ViewStateChangeEvent) => {};
 
@@ -189,7 +192,12 @@ export const handleMapIdle = (e: maplibregl.MapLibreEvent) => {
   const mapRef = e.target;
   const layers = mapRef.getStyle().layers;
   const layerNames = layers.map(l => l.id);
-  console.log('!!!LAYER NAMES', layerNames.includes('blocks'));
+
+  const mapDocument = useMapStore.getState().mapDocument;
+  const currentZoom = e.target.getZoom();
+  if (GeometryWorker && mapDocument) {
+    GeometryWorker.setMaxParentZoom(currentZoom);
+  }
 };
 
 export const handleMapMoveEnd = () => {};
@@ -243,8 +251,9 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
 };
 
 export const handleDataLoad = (e: MapSourceDataEvent) => {
-  const {mapDocument, shatterMappings} = useMapStore.getState();
-  const {tiles_s3_path, parent_layer, child_layer} = mapDocument || {};
+  const {mapDocument, setMapOptions, setMapRenderingState, setWorkerUpdateHash} =
+    useMapStore.getState();
+  const {tiles_s3_path, parent_layer} = mapDocument || {};
   if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
   const tileData = e?.tile?.latestFeatureIndex;
   if (!tileData) return;
@@ -253,7 +262,8 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
   }
   const ft = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer];
   const currentStateFp = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
-  currentStateFp && useMapStore.getState().setMapOptions({currentStateFp});
+  currentStateFp && setMapOptions({currentStateFp});
+  setMapRenderingState('loaded');
   if (mapDocument) {
     GeometryWorker?.loadTileData({
       tileData: e.tile.latestRawTileData,
@@ -261,6 +271,7 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
       mapDocument,
       idProp: 'path',
     });
+    setWorkerUpdateHash(new Date().toISOString());
   }
 };
 
