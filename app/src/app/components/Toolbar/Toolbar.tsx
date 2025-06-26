@@ -10,6 +10,8 @@ import {ToolControls} from '@/app/components/Toolbar/ToolControls';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import {ToolButtons} from './ToolButtons';
 
+const TOOLBAR_PADDING = 12;
+
 export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = () => {
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
