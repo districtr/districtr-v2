@@ -115,8 +115,8 @@ export const DraggableToolbar = () => {
     setToolbarHeight(toolbarHeight);
     
     setMaxXY(
-      width - toolbarWidth + 12,
-      height - 12
+      width - toolbarWidth + TOOLBAR_PADDING,
+      height - TOOLBAR_PADDING
     );
     setDefaultXY(
       containerRef.getBoundingClientRect().width / 2 - (toolbarWidth ?? 0) / 2,
