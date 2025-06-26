@@ -185,7 +185,12 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
 
 export const handleMapZoom = (e: ViewStateChangeEvent) => {};
 
-export const handleMapIdle = () => {};
+export const handleMapIdle = (e: maplibregl.MapLibreEvent) => {
+  const mapRef = e.target;
+  const layers = mapRef.getStyle().layers;
+  const layerNames = layers.map(l => l.id);
+  console.log('!!!LAYER NAMES', layerNames.includes('blocks'));
+};
 
 export const handleMapMoveEnd = () => {};
 

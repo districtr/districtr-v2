@@ -10,9 +10,16 @@ import Protobuf from 'pbf';
 import booleanWithin from '@turf/boolean-within';
 import distance from '@turf/distance';
 import {getCoords} from '@turf/invariant';
+import union from '@turf/union';
+import buffer from '@turf/buffer';
+import simplify from '@turf/simplify';
+import {featureCollection, feature as featureHelper} from '@turf/helpers';
 
+const SIMPLIFY_OPTIONS = {
+  tolerance: 0.00001,
+  highQuality: false,
+};
 const CENTROID_BUFFER_KM = 10;
-
 const explodeMultiPolygonToPolygons = (
   feature: GeoJSON.MultiPolygon
 ): Array<GeoJSON.Feature<GeoJSON.Polygon>> => {
@@ -34,6 +41,7 @@ const GeometryWorker: GeometryWorkerClass = {
     children: [],
   },
   previousCentroids: {},
+  _internalTileZoom: null,
   getPropsById(ids: string[]) {
     const features: MinGeoJSONFeature[] = [];
     ids.forEach(id => {
@@ -54,13 +62,14 @@ const GeometryWorker: GeometryWorkerClass = {
     };
   },
   updateZones(entries) {
-    this.zoneAssignments = entries.reduce(
-      (acc, [id, zone]) => {
-        acc[id] = zone as number;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
+    let hasUpdated = false;
+    entries.forEach(([id, zone]) => {
+      if (this.zoneAssignments[id] !== zone) {
+        hasUpdated = true;
+        this.zoneAssignments[id as string] = zone as number;
+      }
+    });
+    console.log('!!!HAS UPDATED', hasUpdated);
   },
   handleShatterHeal({parents, children}) {
     const toAdd = [
@@ -100,23 +109,45 @@ const GeometryWorker: GeometryWorkerClass = {
     this.zoneAssignments = {};
   },
   loadTileData({tileData, tileID, mapDocument, idProp}) {
+    const t0 = performance.now();
     const returnData = [];
     const tile = new VectorTile(new Protobuf(tileData));
     // Iterate through each layer in the tile
     const parentLayer = mapDocument.parent_layer;
     const childLayer = mapDocument.child_layer;
+    if (this._internalTileZoom === null) {
+      this._internalTileZoom = tileID.z;
+    }
+    if (this._internalTileZoom !== tileID.z) {
+      return;
+    }
     for (const layerName in tile.layers) {
+      if (layerName === childLayer) continue;
       const isParent = layerName === parentLayer;
       const layer = tile.layers[layerName];
-
       // Extract features from the layer
       for (let i = 0; i < layer.length; i++) {
         const feature = layer.feature(i);
         const id = feature?.properties?.[idProp] as string;
-        const prevZoom = this.geometries?.[id]?.zoom;
-
-        if (!id || (prevZoom && prevZoom > tileID.z)) continue;
+        // const prevZoom = this.geometries?.[id]?.zoom;
+        if (!id) continue;
+        const previousFeature = this.geometries[id];
+        // if (!id || (prevZoom && prevZoom > tileID.z)) continue;
         let geojsonFeature: any = feature.toGeoJSON(tileID.x, tileID.y, tileID.z);
+
+        try {
+          if (previousFeature?.geometry && geojsonFeature?.geometry) {
+            const unioned = union(
+              featureCollection([featureHelper(previousFeature.geometry), geojsonFeature])
+            );
+            if (unioned?.geometry) {
+              geojsonFeature.geometry = unioned?.geometry;
+            }
+          } else if (!previousFeature?.geometry) {
+          }
+        } catch (e) {
+          console.log('Error parsing geometry', e);
+        }
         geojsonFeature.zoom = tileID.z;
         geojsonFeature.id = id;
         geojsonFeature.sourceLayer = layerName;
@@ -135,7 +166,9 @@ const GeometryWorker: GeometryWorkerClass = {
         }
       }
     }
-    return returnData;
+    const _t1 = performance.now();
+    console.log(`loaded tile data in took ${_t1 - t0} milliseconds`);
+    // return returnData;
   },
   loadGeometry(featuresOrStringified, idProp) {
     const features: MapGeoJSONFeature[] =
@@ -268,7 +301,48 @@ const GeometryWorker: GeometryWorkerClass = {
 
     return [lng, lat];
   },
+  getDissolvedByZone() {
+    const t0 = performance.now();
+    const featuresToDissolve: Record<number, GeoJSON.Feature[]> = {};
+    this.getGeos().features.forEach((f, i) => {
+      const zone = this.zoneAssignments[f.properties?.path];
+      if (zone === null || zone === undefined) return;
+      if (!featuresToDissolve[zone]) {
+        featuresToDissolve[zone] = [];
+      }
+      featuresToDissolve[zone].push(f);
+    });
+    const _t0 = performance.now();
+    console.log(`got features in took ${_t0 - t0} milliseconds`);
+    const unionedFeatures = Object.entries(featuresToDissolve).map(([zone, features]) => {
+      let unioned = union({
+        type: 'FeatureCollection',
+        features: features as GeoJSON.Feature<GeoJSON.Polygon>[],
+      });
+      const buffered = buffer(buffer(unioned, 1000, {units: 'meters'}), -1000, {units: 'meters'});
+      // keep only outer ring
+      const outerRing = buffered?.geometry?.coordinates[0];
+      return {
+        type: 'Feature',
+        properties: {
+          zone: +zone,
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [outerRing],
+        },
+      } as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
+    });
+    const t1 = performance.now();
+    console.log(`dissolved in took ${t1 - _t0} milliseconds`);
+    console.log(`getDissolvedByZone took ${t1 - t0} milliseconds`);
+    return {
+      type: 'FeatureCollection',
+      features: unionedFeatures,
+    };
+  },
   async getCentersOfMass(bounds, activeZones, canvasWidth, canvasHeight) {
+    console.log('!!!GET CENTERS OF MASS');
     const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
     if (!activeZones.length) {
       return {
@@ -276,6 +350,7 @@ const GeometryWorker: GeometryWorkerClass = {
         dissolved,
       };
     }
+    const _dissolved = this.getDissolvedByZone();
     const clippedFeatures: Record<number, GeoJSON.Feature[]> = {};
     this.getGeos().features.forEach((f, i) => {
       const zone = this.zoneAssignments[f.properties?.path];
@@ -322,7 +397,7 @@ const GeometryWorker: GeometryWorkerClass = {
     });
     return {
       centroids,
-      dissolved,
+      dissolved: _dissolved,
     };
   },
   async getNonCollidingRandomCentroids(bounds, activeZones, minBuffer) {
