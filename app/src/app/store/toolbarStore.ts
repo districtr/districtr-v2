@@ -27,7 +27,7 @@ export type ToolbarState = {
 };
 const [MIN_X, MIN_Y] = [-14, 26];
 const SNAP_THRESHOLD = 60;
-const EDGE_SNAP_DISTANCE = 10;
+
 export const useToolbarStore = create(
   persist<ToolbarState>(
     (set, get) => ({
