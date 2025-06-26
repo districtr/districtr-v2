@@ -75,11 +75,20 @@ export const useToolbarStore = create(
             y = maxY;
           }
 
-          // Auto-rotation logic when in middle of screen sides
-          const isMiddleX = _x > maxX * 0.3 && _x < maxX * 0.7;
-          const isMiddleY = _y > maxY * 0.3 && _y < maxY * 0.7;
+          // Auto-rotation logic when hitting edges
+          const isMiddleX = _x > maxX * 0.2 && _x < maxX * 0.8;
+          const isMiddleY = _y > maxY * 0.2 && _y < maxY * 0.8;
 
-          if ((snapToTop || snapToBottom) && isMiddleX) {
+          // Rotate to horizontal when hitting top/bottom edges
+          if (snapToTop || snapToBottom) {
+            newRotation = 'horizontal';
+          }
+          // Rotate to vertical when hitting left/right edges
+          else if (snapToLeft || snapToRight) {
+            newRotation = 'vertical';
+          }
+          // Additional rotation for middle positions
+          else if ((snapToTop || snapToBottom) && isMiddleX) {
             newRotation = 'horizontal';
           } else if ((snapToLeft || snapToRight) && isMiddleY) {
             newRotation = 'vertical';
