@@ -88,6 +88,8 @@ export const DraggableToolbar = () => {
     defaultY,
     setIsMobile,
     isMobile,
+    setToolbarWidth,
+    setToolbarHeight,
   } = useToolbarStore(state => state);
   const [hovered, setHovered] = useState(false);
   const mapRef = useMapStore(state => state.getMapRef());
@@ -107,9 +109,14 @@ export const DraggableToolbar = () => {
     };
     const {width: toolbarWidth, height: toolbarHeight} =
       toolbarItemsRef.current?.getBoundingClientRect() || {width: 0, height: 0};
+    
+    // Update toolbar dimensions in store
+    setToolbarWidth(toolbarWidth);
+    setToolbarHeight(toolbarHeight);
+    
     setMaxXY(
-      Math.round((width - toolbarWidth) / 10) * 10 - 25,
-      Math.round((height - toolbarHeight) / 10) * 10 - 25
+      width - toolbarWidth + 12,
+      height - 12
     );
     setDefaultXY(
       containerRef.getBoundingClientRect().width / 2 - (toolbarWidth ?? 0) / 2,

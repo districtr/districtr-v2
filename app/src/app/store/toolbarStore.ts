@@ -20,8 +20,14 @@ export type ToolbarState = {
   setIsMobile: (isMobile: boolean) => void;
   toolbarLocation: 'map' | 'sidebar';
   setToolbarLocation: (location: 'map' | 'sidebar') => void;
+  toolbarWidth: number;
+  setToolbarWidth: (width: number) => void;
+  toolbarHeight: number;
+  setToolbarHeight: (height: number) => void;
 };
 const [MIN_X, MIN_Y] = [-14, 26];
+const SNAP_THRESHOLD = 60;
+const EDGE_SNAP_DISTANCE = 10;
 export const useToolbarStore = create(
   persist<ToolbarState>(
     (set, get) => ({
@@ -35,15 +41,60 @@ export const useToolbarStore = create(
       setIsMobile: isMobile => set({isMobile}),
       rotation: 'horizontal',
       setXY: (_x, _y, rectify) => {
-        const {maxX, maxY} = get().maxXY;
-        if (maxX && _x > maxX) {
+        const state = get();
+        const {maxX, maxY} = state.maxXY;
+        const {toolbarWidth, toolbarHeight} = state;
+
+        // Check if toolbar should move to sidebar
+        if (maxX && _x > maxX + toolbarWidth) {
+          set({toolbarLocation: 'sidebar'});
           return;
         }
-        const x = rectify ? Math.min(Math.max(_x, MIN_X), maxX || Math.pow(2, 16)) : _x;
-        const y = rectify ? Math.min(Math.max(_y, MIN_Y), maxY || Math.pow(2, 16)) : _y;
+
+        let x = _x;
+        let y = _y;
+        let newRotation = state.rotation;
+
+        if (rectify && maxX && maxY) {
+          // Edge snapping logic
+          const snapToLeft = _x < SNAP_THRESHOLD;
+          const snapToRight = _x > maxX - SNAP_THRESHOLD;
+          const snapToTop = _y < SNAP_THRESHOLD;
+          const snapToBottom = _y > maxY - SNAP_THRESHOLD;
+
+          // Snap to edges
+          if (snapToLeft) {
+            x = MIN_X;
+          } else if (snapToRight) {
+            x = maxX;
+          }
+
+          if (snapToTop) {
+            y = MIN_Y;
+          } else if (snapToBottom) {
+            y = maxY;
+          }
+
+          // Auto-rotation logic when in middle of screen sides
+          const isMiddleX = _x > maxX * 0.3 && _x < maxX * 0.7;
+          const isMiddleY = _y > maxY * 0.3 && _y < maxY * 0.7;
+
+          if ((snapToTop || snapToBottom) && isMiddleX) {
+            newRotation = 'horizontal';
+          } else if ((snapToLeft || snapToRight) && isMiddleY) {
+            newRotation = 'vertical';
+          }
+
+          // Constrain within bounds
+          console.log('x', x, 'min_x', MIN_X, 'maxX', maxX);
+          x = Math.min(Math.max(x, MIN_X), maxX);
+          y = Math.min(Math.max(y, MIN_Y), maxY);
+        }
+
         set({
           x,
           y,
+          rotation: newRotation,
         });
       },
       setDefaultXY: (x, y) => {
@@ -65,6 +116,10 @@ export const useToolbarStore = create(
       setToolbarSize: size => set({toolbarSize: size}),
       customizeToolbar: false,
       setCustomzieToolbar: customize => set({customizeToolbar: customize}),
+      toolbarWidth: 0,
+      setToolbarWidth: width => set({toolbarWidth: width}),
+      toolbarHeight: 0,
+      setToolbarHeight: height => set({toolbarHeight: height}),
     }),
     {
       name: 'toolbarStore',
