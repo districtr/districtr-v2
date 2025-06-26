@@ -91,7 +91,7 @@ class DemographyCache {
   update(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
     if (hash === this.hash) return;
     this.availableColumns = columns;
-    this.table = table(data).derive(getColumnDerives(columns));
+    this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
