@@ -95,7 +95,6 @@ export const useToolbarStore = create(
           }
 
           // Constrain within bounds
-          console.log('x', x, 'min_x', MIN_X, 'maxX', maxX);
           x = Math.min(Math.max(x, MIN_X), maxX);
           y = Math.min(Math.max(y, MIN_Y), maxY);
         }
