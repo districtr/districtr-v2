@@ -30,7 +30,7 @@ export const useToolbarStore = create(
       defaultX: null,
       defaultY: null,
       isMobile: false,
-      toolbarLocation: 'map',
+      toolbarLocation: 'sidebar',
       setToolbarLocation: toolbarLocation => set({toolbarLocation}),
       setIsMobile: isMobile => set({isMobile}),
       rotation: 'horizontal',
