@@ -4,7 +4,7 @@ import {ContentSection} from '@/app/components/Static/ContentSection';
 import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getCMSContent} from '@/app/utils/api/cms';
-import {Box, Flex, Grid, Heading, Link} from '@radix-ui/themes';
+import {Flex, Grid, Heading} from '@radix-ui/themes';
 import {cookies} from 'next/headers';
 
 export const revalidate = 3600;

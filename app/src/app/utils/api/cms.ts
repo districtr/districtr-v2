@@ -4,22 +4,23 @@ import {ClientSession} from '@/app/lib/auth0';
 
 export interface CMSContentCreate {
   slug: string;
-  content_type: 'tags' | 'places';
+  content_type: 'tags' | 'places' | 'groups';
   districtr_map_slug?: string | undefined;
   districtr_map_slugs?: string[] | undefined;
+  group_slugs?: string[] | undefined;
   language: string;
   draft_content?: Record<string, any> | null;
   published_content?: Record<string, any> | null;
 }
 
 export interface CMSContentUpdate {
-  content_type: 'tags' | 'places';
+  content_type: 'tags' | 'places' | 'groups';
   content_id: string;
   updates: Partial<CMSContentCreate>;
 }
 
 export interface CMSContentId {
-  content_type: 'tags' | 'places';
+  content_type: 'tags' | 'places' | 'groups';
   content_id: string;
 }
 
@@ -40,11 +41,16 @@ export interface PlacesCMSContent extends CMSContent {
   districtr_map_slugs: string[] | null;
 }
 
-export type AllCmsContent = TagsCMSContent | PlacesCMSContent;
+export interface GroupsCMSContent extends CMSContent {
+  group_slugs: string[] | null;
+}
+
+export type AllCmsContent = TagsCMSContent | PlacesCMSContent | GroupsCMSContent;
 export type AllCmsLists =
   | TagsCMSContent[]
   | PlacesCMSContent[]
-  | (TagsCMSContent | PlacesCMSContent)[];
+  | GroupsCMSContent[]
+  | (TagsCMSContent | PlacesCMSContent | GroupsCMSContent)[];
 
 export type AllCmsEntries =
   | {
@@ -54,12 +60,17 @@ export type AllCmsEntries =
   | {
       contentType: 'places';
       content: PlacesCMSContent;
+    }
+  | {
+      contentType: 'groups';
+      content: GroupsCMSContent;
     };
 
-export type CmsContentTypes = 'tags' | 'places';
+export type CmsContentTypes = 'tags' | 'places' | 'groups';
 interface CmsContentTypesEnum {
   tags: TagsCMSContent;
   places: PlacesCMSContent;
+  groups: GroupsCMSContent;
 }
 
 export interface CMSContentResponseWithLanguages<
