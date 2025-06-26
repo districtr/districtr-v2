@@ -40,7 +40,7 @@ export const ToolSettings: React.FC = () => {
   const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
-  const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
+  const setCustomizeToolbar = useToolbarStore(state => state.setCustomizeToolbar);
   const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
   const access = useMapStore(state => state.mapStatus?.access);
 
@@ -208,7 +208,7 @@ export const ToolSettings: React.FC = () => {
           </Heading>
           <CheckboxGroup.Item
             value="customizeToolbar"
-            onClick={() => setCustomzieToolbar(!customizeToolbar)}
+            onClick={() => setCustomizeToolbar(!customizeToolbar)}
             disabled={access === 'read'}
           >
             Enable draggable toolbar

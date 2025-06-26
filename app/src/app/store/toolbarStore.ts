@@ -15,7 +15,7 @@ export type ToolbarState = {
   toolbarSize: number;
   setToolbarSize: (size: ToolbarState['toolbarSize']) => void;
   customizeToolbar: boolean;
-  setCustomzieToolbar: (customize: boolean) => void;
+  setCustomizeToolbar: (customize: boolean) => void;
   isMobile: boolean;
   setIsMobile: (isMobile: boolean) => void;
   toolbarLocation: 'map' | 'sidebar';
@@ -123,7 +123,7 @@ export const useToolbarStore = create(
       toolbarSize: 40,
       setToolbarSize: size => set({toolbarSize: size}),
       customizeToolbar: false,
-      setCustomzieToolbar: customize => set({customizeToolbar: customize}),
+      setCustomizeToolbar: customize => set({customizeToolbar: customize}),
       toolbarWidth: 0,
       setToolbarWidth: width => set({toolbarWidth: width}),
       toolbarHeight: 0,
