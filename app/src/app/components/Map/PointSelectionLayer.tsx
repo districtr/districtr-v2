@@ -5,7 +5,7 @@ import { asyncBufferFromUrl, parquetReadObjects } from 'hyparquet';
 import React, {useEffect, useRef, useState} from 'react';
 import {Layer, Source} from 'react-map-gl/dist/esm/exports-maplibre';
 
-const generateGeojson = (pointData: any[], mapDocument: MapDocument, child: boolean) => {
+const generateGeojson = (pointData: any[], mapDocument: any, child: boolean) => {
   const source = child ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID;
   const sourceLayer = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   return {
