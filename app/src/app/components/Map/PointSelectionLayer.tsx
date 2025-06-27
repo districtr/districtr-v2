@@ -1,4 +1,4 @@
-import {BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD, BLOCK_POINTS_LAYER_ID, BLOCK_POINTS_LAYER_ID_CHILD} from '@/app/constants/layers';
+import {BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD, BLOCK_POINTS_LAYER_ID, BLOCK_POINTS_LAYER_ID_CHILD, EMPTY_FT_COLLECTION} from '@/app/constants/layers';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';
 import { asyncBufferFromUrl, parquetReadObjects } from 'hyparquet';
@@ -65,7 +65,7 @@ export const PointSelectionLayer: React.FC<{child?: boolean}> = ({child = false}
   }, [child, brokenChildIds, dataHash]);
 
   return (
-    <Source id={sourceID} type="geojson" promoteId="path" data={data.current || undefined}>
+    <Source id={sourceID} type="geojson" promoteId="path" data={data.current || EMPTY_FT_COLLECTION}>
       <Layer
         id={child ? BLOCK_POINTS_LAYER_ID_CHILD : BLOCK_POINTS_LAYER_ID}
         source={sourceID}
