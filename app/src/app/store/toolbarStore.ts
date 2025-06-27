@@ -122,7 +122,7 @@ export const useToolbarStore = create(
       },
       toolbarSize: 40,
       setToolbarSize: size => set({toolbarSize: size}),
-      customizeToolbar: false,
+      customizeToolbar: true,
       setCustomizeToolbar: customize => set({customizeToolbar: customize}),
       toolbarWidth: 0,
       setToolbarWidth: width => set({toolbarWidth: width}),
