@@ -18,6 +18,8 @@ import {useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
+  BLOCK_POINTS_LAYER_ID,
+  BLOCK_POINTS_LAYER_ID_CHILD,
   INTERACTIVE_LAYERS,
 } from '@/app/constants/layers';
 import {ResetMapSelectState} from '@utils/events/handlers';
@@ -47,7 +49,13 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
     return [BLOCK_HOVER_LAYER_ID];
   }
 
-  return child_layer ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD] : [BLOCK_HOVER_LAYER_ID];
+  return child_layer
+    ? [
+        BLOCK_POINTS_LAYER_ID,
+        BLOCK_POINTS_LAYER_ID_CHILD,
+        // BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD,
+      ]
+    : [BLOCK_POINTS_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 }
 
 /**

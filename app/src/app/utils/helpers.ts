@@ -15,6 +15,7 @@ import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {demographyCache} from './demography/demographyCache';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
+import {onlyUniqueProperty} from './arrays';
 
 /**
  * PaintEventHandler
@@ -94,10 +95,9 @@ export const getFeaturesInBbox = (
     : captiveIds.size
       ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
       : [BLOCK_HOVER_LAYER_ID];
-
   let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
-
-  return filterFeatures(features, filterLocked);
+  const filtered = filterFeatures(features, filterLocked);
+  return filtered;
 };
 
 /**
@@ -429,11 +429,13 @@ export const checkIfSameZone = (
  * The function returns an array of features that pass all the filtering criteria.
  */
 const filterFeatures = (
-  features: MapGeoJSONFeature[],
+  _features: MapGeoJSONFeature[],
   filterLocked: boolean = true,
   additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = [],
   allowOutsideCaptiveIds: boolean = false
 ) => {
+  // // first, dedupe
+  const features = _features;
   const {
     activeTool,
     captiveIds,
