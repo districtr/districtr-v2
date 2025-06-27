@@ -53,7 +53,8 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
     ? [
         BLOCK_POINTS_LAYER_ID,
         BLOCK_POINTS_LAYER_ID_CHILD,
-        // BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD,
+        BLOCK_HOVER_LAYER_ID,
+        BLOCK_HOVER_LAYER_ID_CHILD,
       ]
     : [BLOCK_POINTS_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 }
