@@ -17,7 +17,7 @@ export const useChartStore = create(
     subscribeWithSelector<ChartStore>((set, get) => ({
       chartOptions: {
         popShowPopNumbers: true,
-        popShowTopBottomDeviation: false,
+        popShowTopBottomDeviation: true,
         popShowDistrictNumbers: true,
         popBarScaleToCurrent: false,
       },

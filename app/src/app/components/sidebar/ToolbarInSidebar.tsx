@@ -26,7 +26,7 @@ export const ToolbarInSidebar = () => {
       >
         <Flex direction={'row'} align="center" gapX="2" p="1">
           <PinLeftIcon fontSize={'1'} />
-          <Text size="1">Return toolbar to map area</Text>
+          <Text size="1">Move toolbar to map area</Text>
         </Flex>
       </Button>
       <Toolbar />
