@@ -29,15 +29,15 @@ def check_map_lock(
             return DocumentEditStatus.checked_out
         else:
             return DocumentEditStatus.locked
-
-    session.execute(
-        text(
-            """INSERT INTO document.map_document_user_session (document_id, user_id)
-               VALUES (:document_id, :user_id);"""
-        ),
-        {"document_id": document_id, "user_id": user_id},
-    )
-    session.commit()
+    if user_id is not None:
+        session.execute(
+            text(
+                """INSERT INTO document.map_document_user_session (document_id, user_id)
+                VALUES (:document_id, :user_id);"""
+            ),
+            {"document_id": document_id, "user_id": user_id},
+        )
+        session.commit()
     return DocumentEditStatus.checked_out
 
 
