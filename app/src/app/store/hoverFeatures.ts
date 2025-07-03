@@ -22,12 +22,11 @@ export var useHoverStore = create(
       setHoverFeatures: _features => {
         const hoverFeatures = _features
           ? _features.map(f => ({
-              source: f.source,
-              sourceLayer: f.sourceLayer,
+              source: f.properties.__source || f.source,
+              sourceLayer: f.properties.__sourceLayer || f.sourceLayer,
               id: f.id,
             }))
           : [];
-
         set({hoverFeatures});
       },
     })),
