@@ -15,7 +15,7 @@ import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {demographyCache} from './demography/demographyCache';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
-import {onlyUniqueProperty} from './arrays';
+import {dedupeOnProperty} from './arrays';
 
 /**
  * PaintEventHandler
@@ -436,7 +436,8 @@ const filterFeatures = (
   allowOutsideCaptiveIds: boolean = false
 ) => {
   // first, dedupe
-  const features = _features.filter(onlyUniqueProperty('id'));
+  const features: MapGeoJSONFeature[] = _features.filter(dedupeOnProperty<MapGeoJSONFeature>('id'));
+
   const {
     activeTool,
     captiveIds,
