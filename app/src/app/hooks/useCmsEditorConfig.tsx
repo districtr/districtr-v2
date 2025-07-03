@@ -7,7 +7,8 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import BoilerplateNode from '../components/Cms/RichTextEditor/extensions/Boierplate/BoilerplateNode';
+import BoilerplateNode from '../components/Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNode';
+import GroupNode from '../components/Cms/RichTextEditor/extensions/Group/GroupNode';
 import {
   FontBoldIcon,
   FontItalicIcon,
@@ -18,6 +19,7 @@ import {
   StrikethroughIcon,
   UnderlineIcon,
   InfoCircledIcon,
+  GridIcon,
 } from '@radix-ui/react-icons';
 
 export const useCmsEditorConfig = (content: string | object, onChange: (json: object) => void) => {
@@ -37,6 +39,7 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         allowBase64: true,
       }),
       BoilerplateNode,
+      GroupNode,
     ],
     content: typeof content === 'string' ? content : content,
     onUpdate: ({editor}) => {
@@ -190,6 +193,15 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         editor.chain().focus().setBoilerplate().run();
       },
       active: () => editor.isActive('boilerplateNode'),
+    },
+    {
+      title: 'Insert Group Gallery',
+      icon: GridIcon,
+      onClick: () => {
+        // Insert a group node with empty content that can be edited in place
+        editor.chain().focus().setGroup().run();
+      },
+      active: () => editor.isActive('groupNode'),
     },
   ];
 
