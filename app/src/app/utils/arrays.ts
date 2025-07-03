@@ -1,7 +1,38 @@
+/**
+ * onlyUnique
+ * A filter function that returns true only for the first occurrence of each unique value in an array.
+ *
+ * @param {unknown} value - The current element being processed
+ * @param {number} index - The index of the current element
+ * @param {unknown[]} self - The array being filtered
+ * @returns {boolean} - True if this is the first occurrence of the value, false otherwise
+ */
 export const onlyUnique = (value: unknown, index: number, self: unknown[]) => {
   return self.indexOf(value) === index;
 };
+
+/**
+ * onlyUniqueProperty
+ * Creates a filter function that returns true only for the first occurrence of each unique property value in an array.
+ *
+ * @param {string} property - The property name to check for uniqueness
+ * @returns {(element: any, index: number, array: unknown[]) => boolean} - A filter function that can be used with Array.filter()
+ */
 export const onlyUniqueProperty =
   (property: string) => (element: any, index: number, array: unknown[]) => {
     return array.findIndex((row: any) => row[property] === element[property]) === index;
+  };
+
+/**
+ * dedupeOnProperty
+ * Creates a type-safe filter function that returns true only for the first occurrence of each unique property value in an array.
+ *
+ * @template T - The type of objects in the array
+ * @param {keyof T} property - The property key to check for uniqueness
+ * @returns {(element: T, index: number, array: T[]) => boolean} - A type-safe filter function that can be used with Array.filter()
+ */
+export const dedupeOnProperty =
+  <T extends object>(property: keyof T) =>
+  (element: T, index: number, array: T[]) => {
+    return array.findIndex((row: T) => row[property] === element[property]) === index;
   };
