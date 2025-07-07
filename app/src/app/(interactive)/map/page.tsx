@@ -14,7 +14,7 @@ import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {useMapBrowserEventsV2} from '@/app/hooks/useMapBrowserEventsV2';
+import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEventsV2';
 import {useSearchParams} from 'next/navigation';
 
 export default function Map() {
@@ -30,7 +30,7 @@ export default function Map() {
   // This page is for legacy URL support with document_id query parameter
   const documentId = searchParams.get('document_id');
 
-  useMapBrowserEventsV2({
+  useMapBrowserEvents({
     mapId: '',
     isEditing: false,
   });

@@ -17,7 +17,10 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
         districtr_map_slug: mapDocument?.districtr_map_slug ?? '',
         metadata: latestMetadata ?? handleCreateBlankMetadataObject(),
         user_id: useMapStore.getState().userID,
-        copy_from_doc: mapDocument?.document_id,
+        copy_from_doc:
+          mapDocument?.access === 'read' && mapDocument?.public_id
+            ? mapDocument?.public_id
+            : mapDocument?.document_id,
       })
       .then(data => {
         const updatedMetadata = latestMetadata ?? handleCreateBlankMetadataObject();

@@ -1,10 +1,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {updateDocumentFromId, updateGetDocumentFromId} from '@utils/api/queries';
-import {jwtDecode} from 'jwt-decode';
-import {sharedDocument} from '@utils/api/mutations';
 import {unlockMapDocument} from '@utils/api/apiHandlers/unlockMapDocument';
 import {useCallback, useEffect, useRef} from 'react';
-import {useSearchParams} from 'next/navigation';
 import {useVisibilityState} from './useVisibilityState';
 import {FE_UNLOCK_DELAY} from '../utils/api/constants';
 
@@ -13,13 +10,13 @@ interface UseMapBrowserEventsV2Props {
   isEditing: boolean;
 }
 
-export const useMapBrowserEventsV2 = ({mapId, isEditing}: UseMapBrowserEventsV2Props) => {
+export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Props) => {
   // VISIBILITY BEHAVIOR
   const {isVisible} = useVisibilityState();
   const unloadTimepoutRef = useRef<NodeJS.Timeout | null>(null);
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
-  const setPasswordPrompt = useMapStore(state => state.setPasswordPrompt);
   const setIsEditing = useMapStore(state => state.setIsEditing);
+  const mapDocument = useMapStore(state => state.mapDocument);
 
   // Set editing mode
   useEffect(() => {
@@ -54,40 +51,11 @@ export const useMapBrowserEventsV2 = ({mapId, isEditing}: UseMapBrowserEventsV2P
     };
   }, [isVisible, isEditing]);
 
-  // SHARE BEHAVIOR
-  const receivedShareToken = useMapStore(state => state.receivedShareToken);
-  const setReceivedShareToken = useMapStore(state => state.setReceivedShareToken);
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const searchParams = useSearchParams();
-  const shareToken = searchParams.get('share');
-
   useEffect(() => {
     if (mapId && mapId !== mapDocument?.document_id) {
       updateGetDocumentFromId(mapId);
     }
-    if (shareToken && !receivedShareToken) {
-      const decodedToken = jwtDecode(shareToken);
-      setReceivedShareToken((decodedToken as any).token as string);
-      if ((decodedToken as any)?.password_required) {
-        setPasswordPrompt(true);
-      } else {
-        setReceivedShareToken((decodedToken as any).token as string);
-        sharedDocument.mutate({
-          token: (decodedToken as any).token as string,
-          password: null,
-          access: (decodedToken as any).access as string,
-          status: (decodedToken as any).status as string,
-        });
-      }
-    }
-  }, [
-    mapId,
-    shareToken,
-    receivedShareToken,
-    setReceivedShareToken,
-    setPasswordPrompt,
-    mapDocument?.document_id,
-  ]);
+  }, [mapId, mapDocument?.document_id]);
 
   // UNLOAD BEHAVIOR (only in edit mode)
   const handleUnload = useCallback(() => {

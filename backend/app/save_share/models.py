@@ -17,14 +17,17 @@ class UserID(BaseModel):
     user_id: str
 
 
+class UnlockFromPublicId(UserID):
+    password: str | None = None
+
+
 class DocumentShareStatus(str, Enum):
     read = "read"
     edit = "edit"
 
 
-class DocumentShareRequest(BaseModel):
+class DocumentPasswordRequest(BaseModel):
     password: str | None = None
-    access_type: DocumentShareStatus = DocumentShareStatus.read
 
 
 class TokenRequest(BaseModel):

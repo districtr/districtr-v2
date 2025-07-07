@@ -73,6 +73,7 @@ from app.save_share.locks import (
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
+from app.utils import get_document_by_public_id, generate_public_id
 
 
 if settings.ENVIRONMENT in ("production", "qa"):
@@ -202,6 +203,10 @@ async def create_document(
     total_assignments = 0
 
     if data.copy_from_doc is not None:
+        if isinstance(data.copy_from_doc, int):
+            document = get_document_by_public_id(session, data.copy_from_doc)
+            data.copy_from_doc = document.document_id
+
         copied_document = get_protected_document(
             document_id=data.copy_from_doc, session=session
         )
@@ -493,6 +498,12 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
+    # if document_id is uuid, use it, otherwise use the public_id
+    if document_id.isdigit():
+        # get the document by public_id
+        _document = get_document_by_public_id(session, int(document_id))
+        document_id = _document.document_id
+
     stmt = (
         select(
             Assignments.geo_id,
@@ -837,6 +848,18 @@ async def update_districtrmap_metadata(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred",
         )
+
+
+@app.get("/api/document/{document_id}/public_id", status_code=status.HTTP_200_OK)
+async def get_public_id(
+    document_id: str,
+    session: Session = Depends(get_session),
+):
+    document = _get_document(document_id, session=session)
+    if document.public_id is None:
+        return generate_public_id(session, document)
+    else:
+        return document.public_id
 
 
 @app.get(

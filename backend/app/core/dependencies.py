@@ -125,7 +125,9 @@ def get_document_public(
     stmt = (
         select(
             # Obsured document ID
-            literal(document_id).label("document_id"),
+            literal("anonymous" if force_read_only else document_id).label(
+                "document_id"
+            ),
             Document.created_at,
             Document.districtr_map_slug,
             Document.gerrydb_table,

@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import MapPage from '@/app/components/MapPage/MapPage';
-import {useMapBrowserEventsV2} from '@/app/hooks/useMapBrowserEventsV2';
+import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEventsV2';
 import {Metadata} from 'next';
 import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 
@@ -43,7 +43,7 @@ export default function EditPage({params}: EditPageProps) {
   const {map_uuid} = params;
 
   // Use the new browser events hook with edit mode
-  useMapBrowserEventsV2({
+  useMapBrowserEvents({
     mapId: map_uuid,
     isEditing: true,
   });

@@ -37,7 +37,6 @@ import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
-import {CheckboxGroupIndicator} from '@radix-ui/themes/dist/esm/components/checkbox-group.primitive.js';
 import {extendColorArray} from '../utils/colors';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
@@ -291,11 +290,8 @@ export interface MapStore {
   // SHARE MAP
   passwordPrompt: boolean;
   setPasswordPrompt: (prompt: boolean) => void;
-  handleUnlockWithPassword: (password: string | null) => void;
   password: string | null;
   setPassword: (password: string | null | undefined) => void;
-  receivedShareToken: string | null;
-  setReceivedShareToken: (token: string | null) => void;
   shareMapMessage: string | null;
   setShareMapMessage: (message: string | null) => void;
 }
@@ -1097,36 +1093,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
   password: null,
   setPassword: password => set({password}),
-  handleUnlockWithPassword: password => {
-    const {mapDocument, receivedShareToken} = get();
-    if (!password) {
-      set({
-        errorNotification: {
-          message: 'Please provide a password',
-          severity: 1,
-        },
-      });
-    } else if (mapDocument?.document_id && receivedShareToken?.length) {
-      checkoutDocument
-        .mutate({
-          document_id: mapDocument.document_id,
-          token: receivedShareToken,
-          password,
-        })
-        .then(response => {
-          set({passwordPrompt: false});
-        });
-    } else {
-      set({
-        errorNotification: {
-          message: 'No document ID or share token found',
-          severity: 1,
-        },
-      });
-    }
-  },
-  receivedShareToken: null,
-  setReceivedShareToken: token => set({receivedShareToken: token}),
   shareMapMessage: null,
   setShareMapMessage: message => set({shareMapMessage: message}),
 }));

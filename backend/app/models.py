@@ -161,7 +161,7 @@ class DocumentCreate(BaseModel):
     districtr_map_slug: str
     user_id: str
     metadata: Optional[DistrictrMapMetadata] | None = None
-    copy_from_doc: Optional[str] | None = None  # document_id to copy from
+    copy_from_doc: Optional[str | int] | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
@@ -179,7 +179,7 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentPublic(BaseModel):
-    document_id: UUID4
+    document_id: UUID4 | str
     districtr_map_slug: str | None
     gerrydb_table: str | None
     parent_layer: str
