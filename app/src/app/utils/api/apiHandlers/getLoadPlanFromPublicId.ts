@@ -1,22 +1,18 @@
 import axios from 'axios';
 import {useMapStore} from '@store/mapStore';
 
-export const getLoadPlanFromShare = async ({
-  token,
+export const getLoadPlanFromPublicId = async ({
+  public_id,
   password,
-  access,
 }: {
-  token: string;
+  public_id: number;
   password?: string | null;
-  access: string;
 }) => {
   const res = await axios.post(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/share/load_plan_from_share`,
+    `${process.env.NEXT_PUBLIC_API_URL}/api/share/public/${public_id}/unlock`,
     {
-      token: token,
       user_id: useMapStore.getState().userID,
       password: password ?? null,
-      access: access,
     },
     {headers: {'Content-Type': 'application/json'}}
   );

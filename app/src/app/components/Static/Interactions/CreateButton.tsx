@@ -21,7 +21,7 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>}> = ({view}) =>
         districtr_map_slug: view.districtr_map_slug,
         user_id: userID,
       }).then(data => {
-        router.push(`/map?document_id=${data.document_id}`);
+        router.push(`/map/edit/${data.document_id}`);
       });
   };
 

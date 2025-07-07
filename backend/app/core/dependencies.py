@@ -39,22 +39,52 @@ def get_protected_document(
     should be used for safe endpoints (i.e. GET requests). Any requests that modify
     data should use `get_document`. DO NOT return the result of this function
     from safe endpoints as this would leak the real document id.
+
+    Supports:
+    - UUID document IDs
+    - Token IDs (from sharing)
+    - Public IDs (numeric, for public sharing)
     """
     try:
-        document = session.exec(
-            select(Document).where(Document.document_id == document_id)
-        ).one_or_none()
+        # Check if it's a numeric public ID first
+        if document_id.isdigit():
+            public_id = int(document_id)
+            # Find the Document by public_id and ensure it's ready_to_share
+            document = session.exec(
+                select(Document).where(Document.public_id == public_id)
+            ).one_or_none()
 
-        if document is None:
-            stmt = (
-                select(Document)
-                .join(
-                    MapDocumentToken,
-                    onclause=MapDocumentToken.document_id == Document.document_id,  # pyright: ignore
+            if not document:
+                raise HTTPException(status_code=404, detail="Public document not found")
+
+            # Verify the document is in ready_to_share status
+            if (
+                document.map_metadata
+                and document.map_metadata.get("draft_status") != "ready_to_share"
+            ):
+                raise HTTPException(
+                    status_code=404, detail="Document is not publicly available"
                 )
-                .where(MapDocumentToken.token_id == document_id)
-            )
-            document = session.exec(stmt).one()
+        else:
+            # Try to get document by UUID first
+            document = session.exec(
+                select(Document).where(Document.document_id == document_id)
+            ).one_or_none()
+
+            if document is None:
+                # Try to find by token_id
+                stmt = (
+                    select(Document)
+                    .join(
+                        MapDocumentToken,
+                        onclause=MapDocumentToken.document_id == Document.document_id,  # pyright: ignore
+                    )
+                    .where(MapDocumentToken.token_id == document_id)
+                )
+                document = session.exec(stmt).one()
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is
+        raise
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Document not found")
     except Exception as e:
@@ -70,29 +100,40 @@ def get_document_public(
     user_id: str | None = None,
     shared: bool = False,
     lock_status: DocumentEditStatus | None = None,
+    force_read_only: bool = False,
 ) -> DocumentPublic:
     document = get_protected_document(document_id=document_id, session=session)
     # TODO: Rather than being a separate query, this should be part of the main query
     assert document.document_id is not None
 
     access_type = DocumentShareStatus.read
-    lock_status = DocumentEditStatus.locked
+    # Store if lock_status was explicitly provided
+    lock_status_provided = lock_status is not None
 
-    if document.document_id == document_id:
+    if document.document_id == document_id and not force_read_only:
         access_type = DocumentShareStatus.edit
-        lock_status = check_map_lock(
-            document.document_id, user_id=user_id, session=session
-        )
+        # Only check map lock if no lock_status was explicitly provided
+        if not lock_status_provided:
+            lock_status = check_map_lock(
+                document.document_id, user_id=user_id, session=session
+            )
+
+    # Set default lock_status if not provided and not already set
+    if lock_status is None:
+        lock_status = DocumentEditStatus.locked
 
     stmt = (
         select(
             # Obsured document ID
-            literal(document_id).label("document_id"),
+            literal("anonymous" if force_read_only else document_id).label(
+                "document_id"
+            ),
             Document.created_at,
             Document.districtr_map_slug,
             Document.gerrydb_table,
             Document.updated_at,
             Document.color_scheme,
+            Document.public_id.label("public_id"),  # pyright: ignore
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore

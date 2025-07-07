@@ -154,13 +154,14 @@ class Document(TimeStampMixin, SQLModel, table=True):
     map_metadata: DistrictrMapMetadata | None = Field(
         sa_column=Column(JSON, nullable=True)
     )
+    public_id: int | None = Field(sa_column=Column(Integer, nullable=True, unique=True))
 
 
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
     user_id: str
     metadata: Optional[DistrictrMapMetadata] | None = None
-    copy_from_doc: Optional[str] | None = None  # document_id to copy from
+    copy_from_doc: Optional[str | int] | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
@@ -178,7 +179,7 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentPublic(BaseModel):
-    document_id: UUID4
+    document_id: UUID4 | str
     districtr_map_slug: str | None
     gerrydb_table: str | None
     parent_layer: str
@@ -196,6 +197,7 @@ class DocumentPublic(BaseModel):
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
     map_type: str
+    public_id: int | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):

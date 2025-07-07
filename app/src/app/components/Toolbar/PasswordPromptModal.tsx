@@ -2,29 +2,35 @@ import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Dialog, Box, TextField} from '@radix-ui/themes';
-import {sharedDocument} from '@/app/utils/api/mutations';
-import {useShareJwt} from '@/app/hooks/useShareJwt';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { getLoadPlanFromPublicId } from '@/app/utils/api/apiHandlers/getLoadPlanFromPublicId';
 
 export const PasswordPromptModal = () => {
-  const passwordRequired = useMapStore(store => store.passwordPrompt);
-  const [dialogOpen, setDialogOpen] = React.useState(passwordRequired);
+  const router = useRouter();
+  const pwRequired = useSearchParams().get('pw');
+  const [dialogOpen, setDialogOpen] = React.useState(Boolean(pwRequired));
   const [password, setPassword] = React.useState<string | null>(null);
   const shareMapMessage = useMapStore(store => store.shareMapMessage);
-  const receivedShareToken = useMapStore(store => store.receivedShareToken ?? '');
-  const shareToken = useShareJwt();
+  const mapDocument = useMapStore(store => store.mapDocument);
 
   useEffect(() => {
-    setDialogOpen(passwordRequired);
-  }, [passwordRequired]);
+    setDialogOpen(Boolean(pwRequired));
+  }, [pwRequired]);
 
-  const handleProceed = (editAccess: boolean) => {
-    shareToken &&
-      sharedDocument.mutate({
-        token: receivedShareToken,
+  const handleProceed = async (editAccess: boolean) => {
+    if (!editAccess) {
+      // remove pw from url
+      router.replace(window.location.pathname);
+    } else if (mapDocument?.public_id) {
+      const res = await getLoadPlanFromPublicId({
+        public_id: mapDocument?.public_id,
         password: password,
-        access: editAccess ? shareToken.access : 'read',
-        status: null,
       });
+      if (res.document_id && res.document_id !== mapDocument?.document_id) {
+        // go to map/edit/res.document_id
+        router.replace(`/map/edit/${res.document_id}`);
+      }
+    }
   };
 
   return (

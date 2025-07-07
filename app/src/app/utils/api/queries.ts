@@ -56,10 +56,8 @@ updateDocumentFromId.subscribe(mapDocument => {
       id: 'map-document-not-found',
       message: `The requested map id "${documentId}" could not be found. Please make sure the URL is correct or select a different geography.`,
     });
-    // remove current document_id on search params
-    const url = new URL(window.location.href);
-    url.searchParams.delete('document_id');
-    window.history.replaceState({}, document.title, url.toString());
+    // redirect to home page when document not found
+    window.location.href = '/';
   }
   if (mapDocument.data) {
     useMapStore.getState().setMapDocument(mapDocument.data);

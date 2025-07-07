@@ -17,7 +17,6 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy import text
 from sqlmodel import Session, String, select, true, update, literal
-from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
@@ -65,6 +64,7 @@ from app.models import (
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
+from sqlalchemy.sql.functions import coalesce
 from app.save_share.locks import (
     cleanup_expired_locks as _cleanup_expired_locks,
     remove_all_locks,
@@ -73,6 +73,7 @@ from app.save_share.locks import (
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
+from app.utils import get_document_by_public_id, generate_public_id
 
 
 if settings.ENVIRONMENT in ("production", "qa"):
@@ -202,6 +203,10 @@ async def create_document(
     total_assignments = 0
 
     if data.copy_from_doc is not None:
+        if isinstance(data.copy_from_doc, int):
+            document = get_document_by_public_id(session, data.copy_from_doc)
+            data.copy_from_doc = document.document_id
+
         copied_document = get_protected_document(
             document_id=data.copy_from_doc, session=session
         )
@@ -493,6 +498,12 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
+    # if document_id is uuid, use it, otherwise use the public_id
+    if document_id.isdigit():
+        # get the document by public_id
+        _document = get_document_by_public_id(session, int(document_id))
+        document_id = _document.document_id
+
     stmt = (
         select(
             Assignments.geo_id,
@@ -803,6 +814,26 @@ async def update_districtrmap_metadata(
 ):
     try:
         document = _get_document(document_id, session=session)
+
+        # Check if draft_status is being set to ready_to_share
+        if metadata.get("draft_status") == "ready_to_share":
+            if document.public_id is None:
+                # Generate a new public_id by finding the next available number
+                max_public_id = session.exec(
+                    select(func.max(Document.public_id))
+                ).first()
+                next_public_id = (max_public_id or 0) + 1
+
+                # Update the Document with the new public_id
+                stmt = (
+                    update(Document)
+                    .where(Document.document_id == document.document_id)
+                    .values(public_id=next_public_id, map_metadata=metadata)
+                )
+                session.execute(stmt)
+                session.commit()
+                return document
+
         stmt = (
             update(Document)
             .where(Document.document_id == document.document_id)
@@ -817,6 +848,18 @@ async def update_districtrmap_metadata(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred",
         )
+
+
+@app.get("/api/document/{document_id}/public_id", status_code=status.HTTP_200_OK)
+async def get_public_id(
+    document_id: str,
+    session: Session = Depends(get_session),
+):
+    document = _get_document(document_id, session=session)
+    if document.public_id is None:
+        return generate_public_id(session, document)
+    else:
+        return document.public_id
 
 
 @app.get(

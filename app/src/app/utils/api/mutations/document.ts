@@ -17,10 +17,7 @@ export const document = new MutationObserver(queryClient, {
     setMapDocument(data);
     setAssignmentsHash(Date.now().toString());
     setAppLoadingState('loaded');
-    const documentUrl = new URL(window.location.toString());
-    documentUrl.searchParams.set('document_id', data.document_id);
-    // if searchParams has share, remove it
-    documentUrl.searchParams.delete('share');
-    history.pushState({}, '', documentUrl.toString());
+    // Navigate to edit mode after creating document
+    window.location.href = `/map/edit/${data.document_id}`;
   },
 });
