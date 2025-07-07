@@ -3,6 +3,7 @@ from fastapi import (
     Depends,
     HTTPException,
     APIRouter,
+    Query,
 )
 from typing import Annotated
 from sqlalchemy import text, bindparam
@@ -224,6 +225,138 @@ async def load_plan_from_share(
         lock_status=(
             DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
         ),
+    )
+
+
+@router.get("/api/share/public/{public_id}", response_model=DocumentPublic)
+async def load_plan_from_public_id(
+    public_id: int,
+    user_id: str = Query(default="anonymous"),
+    session: Session = Depends(get_session),
+):
+    """
+    Fetch a document by its public_id (read-only access).
+    If the document has a password, return it in locked state.
+    """
+    # Find the DistrictrMap by public_id
+    districtr_map = session.execute(
+        text(
+            """
+            SELECT uuid, districtr_map_slug FROM districtrmap 
+            WHERE public_id = :public_id
+            """
+        ),
+        {"public_id": public_id},
+    ).fetchone()
+
+    if not districtr_map:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Public document not found",
+        )
+
+    # Find a document for this map that has ready_to_share status
+    result = session.execute(
+        text(
+            """
+            SELECT d.document_id, t.password_hash
+            FROM document.document d
+            LEFT JOIN document.map_document_token t ON d.document_id = t.document_id
+            WHERE d.districtr_map_slug = :map_slug
+            AND d.map_metadata->>'draft_status' = 'ready_to_share'
+            LIMIT 1
+            """
+        ),
+        {"map_slug": districtr_map.districtr_map_slug},
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No public document found for this map",
+        )
+
+    set_is_locked = bool(result.password_hash)
+
+    return get_document_public(
+        document_id=str(result.document_id),
+        user_id=user_id,
+        session=session,
+        shared=True,
+        lock_status=(
+            DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
+        ),
+    )
+
+
+@router.post("/api/share/public/{public_id}/unlock", response_model=DocumentPublic)
+async def unlock_public_document(
+    public_id: int,
+    password: str = Query(...),
+    user_id: str = Query(default="anonymous"),
+    session: Session = Depends(get_session),
+):
+    """
+    Unlock a public document with password and return the private UUID for edit access.
+    """
+    # Find the DistrictrMap by public_id
+    districtr_map = session.execute(
+        text(
+            """
+            SELECT uuid, districtr_map_slug FROM districtrmap 
+            WHERE public_id = :public_id
+            """
+        ),
+        {"public_id": public_id},
+    ).fetchone()
+
+    if not districtr_map:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Public document not found",
+        )
+
+    # Find a document for this map that has ready_to_share status
+    result = session.execute(
+        text(
+            """
+            SELECT d.document_id, t.password_hash
+            FROM document.document d
+            LEFT JOIN document.map_document_token t ON d.document_id = t.document_id
+            WHERE d.districtr_map_slug = :map_slug
+            AND d.map_metadata->>'draft_status' = 'ready_to_share'
+            LIMIT 1
+            """
+        ),
+        {"map_slug": districtr_map.districtr_map_slug},
+    ).fetchone()
+
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No public document found for this map",
+        )
+
+    # Check password
+    if not result.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This document does not require a password",
+        )
+
+    if not verify_password(password, result.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid password",
+        )
+
+    # Return unlocked document with edit access
+    return get_document_public(
+        document_id=str(result.document_id),
+        user_id=user_id,
+        session=session,
+        shared=True,
+        lock_status=DocumentEditStatus.unlocked,
     )
 
 

@@ -17,7 +17,6 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy import text
 from sqlmodel import Session, String, select, true, update, literal
-from sqlalchemy.sql.functions import coalesce
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
@@ -64,7 +63,7 @@ from app.models import (
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, coalesce
 from app.save_share.locks import (
     cleanup_expired_locks as _cleanup_expired_locks,
     remove_all_locks,
@@ -803,6 +802,33 @@ async def update_districtrmap_metadata(
 ):
     try:
         document = _get_document(document_id, session=session)
+
+        # Check if draft_status is being set to ready_to_share
+        if metadata.get("draft_status") == "ready_to_share":
+            # Get the DistrictrMap for this document
+            districtr_map = session.exec(
+                select(DistrictrMap).where(
+                    DistrictrMap.districtr_map_slug == document.districtr_map_slug
+                )
+            ).first()
+
+            if districtr_map and districtr_map.public_id is None:
+                # Generate a new public_id by finding the next available number
+                max_public_id = session.exec(
+                    select(func.max(DistrictrMap.public_id))
+                ).first()
+                next_public_id = (max_public_id or 0) + 1
+
+                # Update the DistrictrMap with the new public_id
+                stmt = (
+                    update(DistrictrMap)
+                    .where(
+                        DistrictrMap.districtr_map_slug == document.districtr_map_slug
+                    )
+                    .values(public_id=next_public_id)
+                )
+                session.execute(stmt)
+
         stmt = (
             update(Document)
             .where(Document.document_id == document.document_id)

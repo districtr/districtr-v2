@@ -61,6 +61,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
             server_default="default",
         )
     )
+    public_id: int | None = Field(sa_column=Column(Integer, nullable=True, unique=True))
 
 
 class DistrictrMapPublic(BaseModel):
