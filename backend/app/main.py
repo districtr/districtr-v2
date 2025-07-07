@@ -63,7 +63,8 @@ from app.models import (
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
-from sqlalchemy.sql import func, coalesce
+from sqlalchemy.sql import func
+from sqlalchemy.sql.functions import coalesce
 from app.save_share.locks import (
     cleanup_expired_locks as _cleanup_expired_locks,
     remove_all_locks,

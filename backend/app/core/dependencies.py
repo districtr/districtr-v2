@@ -70,19 +70,27 @@ def get_document_public(
     user_id: str | None = None,
     shared: bool = False,
     lock_status: DocumentEditStatus | None = None,
+    force_read_only: bool = False,
 ) -> DocumentPublic:
     document = get_protected_document(document_id=document_id, session=session)
     # TODO: Rather than being a separate query, this should be part of the main query
     assert document.document_id is not None
 
     access_type = DocumentShareStatus.read
-    lock_status = DocumentEditStatus.locked
+    # Store if lock_status was explicitly provided
+    lock_status_provided = lock_status is not None
 
-    if document.document_id == document_id:
+    if document.document_id == document_id and not force_read_only:
         access_type = DocumentShareStatus.edit
-        lock_status = check_map_lock(
-            document.document_id, user_id=user_id, session=session
-        )
+        # Only check map lock if no lock_status was explicitly provided
+        if not lock_status_provided:
+            lock_status = check_map_lock(
+                document.document_id, user_id=user_id, session=session
+            )
+
+    # Set default lock_status if not provided and not already set
+    if lock_status is None:
+        lock_status = DocumentEditStatus.locked
 
     stmt = (
         select(

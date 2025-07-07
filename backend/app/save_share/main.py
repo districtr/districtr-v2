@@ -286,6 +286,7 @@ async def load_plan_from_public_id(
         lock_status=(
             DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
         ),
+        force_read_only=True,
     )
 
 
@@ -350,13 +351,14 @@ async def unlock_public_document(
             detail="Invalid password",
         )
 
-    # Return unlocked document with edit access
+    # Return unlocked document - still with read access for public unlock
     return get_document_public(
         document_id=str(result.document_id),
         user_id=user_id,
         session=session,
         shared=True,
         lock_status=DocumentEditStatus.unlocked,
+        force_read_only=True,
     )
 
 
