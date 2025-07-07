@@ -7,7 +7,7 @@ from app.save_share.models import (
     MapDocumentToken,
 )
 from sqlalchemy.sql.functions import coalesce
-from sqlalchemy import or_
+from sqlalchemy import or_, text
 from app.save_share.locks import check_map_lock
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 from app.core.db import get_session
@@ -39,22 +39,73 @@ def get_protected_document(
     should be used for safe endpoints (i.e. GET requests). Any requests that modify
     data should use `get_document`. DO NOT return the result of this function
     from safe endpoints as this would leak the real document id.
+
+    Supports:
+    - UUID document IDs
+    - Token IDs (from sharing)
+    - Public IDs (numeric, for public sharing)
     """
     try:
-        document = session.exec(
-            select(Document).where(Document.document_id == document_id)
-        ).one_or_none()
+        # Check if it's a numeric public ID first
+        if document_id.isdigit():
+            public_id = int(document_id)
+            # Find the DistrictrMap by public_id
+            result = session.execute(
+                text(
+                    """
+                    SELECT uuid, districtr_map_slug FROM districtrmap 
+                    WHERE public_id = :public_id
+                    """
+                ),
+                {"public_id": public_id},
+            ).fetchone()
 
-        if document is None:
-            stmt = (
-                select(Document)
-                .join(
-                    MapDocumentToken,
-                    onclause=MapDocumentToken.document_id == Document.document_id,  # pyright: ignore
+            if not result:
+                raise HTTPException(status_code=404, detail="Public document not found")
+
+            # Find a document for this map that has ready_to_share status
+            doc_result = session.execute(
+                text(
+                    """
+                    SELECT d.document_id
+                    FROM document.document d
+                    WHERE d.districtr_map_slug = :map_slug
+                    AND d.map_metadata->>'draft_status' = 'ready_to_share'
+                    LIMIT 1
+                    """
+                ),
+                {"map_slug": result.districtr_map_slug},
+            ).fetchone()
+
+            if not doc_result:
+                raise HTTPException(
+                    status_code=404, detail="No public document found for this map"
                 )
-                .where(MapDocumentToken.token_id == document_id)
-            )
-            document = session.exec(stmt).one()
+
+            # Get the actual document
+            document = session.exec(
+                select(Document).where(Document.document_id == doc_result.document_id)
+            ).one()
+        else:
+            # Try to get document by UUID first
+            document = session.exec(
+                select(Document).where(Document.document_id == document_id)
+            ).one_or_none()
+
+            if document is None:
+                # Try to find by token_id
+                stmt = (
+                    select(Document)
+                    .join(
+                        MapDocumentToken,
+                        onclause=MapDocumentToken.document_id == Document.document_id,  # pyright: ignore
+                    )
+                    .where(MapDocumentToken.token_id == document_id)
+                )
+                document = session.exec(stmt).one()
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is
+        raise
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Document not found")
     except Exception as e:
