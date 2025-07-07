@@ -61,7 +61,6 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
             server_default="default",
         )
     )
-    public_id: int | None = Field(sa_column=Column(Integer, nullable=True, unique=True))
 
 
 class DistrictrMapPublic(BaseModel):
@@ -155,6 +154,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
     map_metadata: DistrictrMapMetadata | None = Field(
         sa_column=Column(JSON, nullable=True)
     )
+    public_id: int | None = Field(sa_column=Column(Integer, nullable=True, unique=True))
 
 
 class DocumentCreate(BaseModel):
@@ -197,6 +197,7 @@ class DocumentPublic(BaseModel):
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
     map_type: str
+    public_id: int | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):

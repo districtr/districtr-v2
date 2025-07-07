@@ -1,7 +1,6 @@
 import type {Metadata} from 'next';
 import {Nunito} from 'next/font/google';
 import {Theme} from '@radix-ui/themes';
-import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 import {FeedbackForm} from './components/FeedbackForm';
 import '@radix-ui/themes/styles.css';
 import './globals.css';
@@ -13,10 +12,6 @@ const nunito = Nunito({
   display: 'swap',
 });
 
-type MetadataProps = {
-  searchParams: Promise<{document_id?: string | string[] | undefined}>;
-};
-
 const DISTRICTR_LOGO = [
   {
     url: 'https://districtr-v2-frontend.fly.dev/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
@@ -25,32 +20,13 @@ const DISTRICTR_LOGO = [
   },
 ];
 
-export async function generateMetadata({searchParams}: MetadataProps): Promise<Metadata> {
-  const resolvedParams = await searchParams;
-  const document_id = resolvedParams?.document_id ?? '';
-  const singularDocumentId = Array.isArray(document_id) ? document_id[0] : document_id;
-  if (!singularDocumentId) {
-    return {
-      title: 'Districtr 2.0',
-      description: 'Create districting maps',
-      openGraph: {
-        title: 'Get Started',
-        description: 'Create districting maps',
-        siteName: 'Districtr 2.0',
-        images: DISTRICTR_LOGO,
-      },
-    };
-  }
-
-  const mapDocument = await getDocument(singularDocumentId);
-  const districtCount = mapDocument?.num_districts ? `${mapDocument.num_districts} districts` : '';
+export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Districtr 2.0',
+    description: 'Create districting maps',
     openGraph: {
-      title: districtCount
-        ? `${districtCount} - ${mapDocument?.map_metadata?.name ?? 'Shared Map'}`
-        : (mapDocument?.map_metadata?.name ?? 'Get Started'),
-      description: mapDocument?.map_metadata?.description ?? 'Create districting maps',
+      title: 'Get Started',
+      description: 'Create districting maps',
       siteName: 'Districtr 2.0',
       images: DISTRICTR_LOGO,
     },

@@ -37,11 +37,8 @@ export const RecentMapsModal: React.FC<{
   const clear = useTemporalStore(store => store.clear);
 
   const handleUnloadMapDocument = () => {
-    // reset the map url
-    const urlParams = new URLSearchParams(searchParams.toString());
-    urlParams.delete('document_id');
-    urlParams.delete('share');
-    router.push(pathname + '?' + urlParams.toString());
+    // Navigate to home page
+    router.push('/');
     setMapDocument({} as DocumentObject);
     // release the lock on the map in the db
     unlockMapDocument(mapDocument?.document_id as string);
@@ -54,9 +51,8 @@ export const RecentMapsModal: React.FC<{
   const handleMapDocument = (data: DocumentObject) => {
     setMapDocument(data);
     clear();
-    const urlParams = new URLSearchParams(searchParams.toString());
-    urlParams.set('document_id', data.document_id);
-    router.push(pathname + '?' + urlParams.toString());
+    // Navigate to edit mode with the UUID
+    router.push(`/map/edit/${data.document_id}`);
 
     // open the correct accordion item
     setOpenItem(data.document_id);

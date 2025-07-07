@@ -14,10 +14,12 @@ import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {useMapBrowserEventsV2} from '@/app/hooks/useMapBrowserEventsV2';
-import {useSearchParams} from 'next/navigation';
 
-export default function Map() {
+interface MapPageProps {
+  isEditing: boolean;
+}
+
+export default function MapPage({isEditing}: MapPageProps) {
   const showDemographicMap = useMapStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
@@ -25,15 +27,12 @@ export default function Map() {
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
-  const searchParams = useSearchParams();
+  const setIsEditing = useMapStore(state => state.setIsEditing);
 
-  // This page is for legacy URL support with document_id query parameter
-  const documentId = searchParams.get('document_id');
-
-  useMapBrowserEventsV2({
-    mapId: '',
-    isEditing: false,
-  });
+  // Set editing mode based on the route
+  useEffect(() => {
+    setIsEditing(isEditing);
+  }, [isEditing, setIsEditing]);
 
   useEffect(() => {
     !userID && setUserID();
@@ -46,14 +45,6 @@ export default function Map() {
       unsub();
     };
   }, []);
-
-  // Handle legacy redirect after hooks have been called
-  useEffect(() => {
-    if (documentId) {
-      // Redirect to new URL structure
-      window.location.href = `/map/edit/${documentId}`;
-    }
-  }, [documentId]);
 
   if (queryClient) {
     return (

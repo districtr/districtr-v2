@@ -39,17 +39,13 @@ export const sharedDocument = new MutationObserver(queryClient, {
     const {setPasswordPrompt, setMapDocument} = useMapStore.getState();
     setPasswordPrompt(false);
     setMapDocument(data);
-    const documentUrl = new URL(window.location.toString());
+    // Navigate to appropriate mode based on access level
     if (data.access === 'edit') {
-      documentUrl.searchParams.delete('share'); // remove share + token from url
-      documentUrl.searchParams.set('document_id', data.document_id);
-      history.pushState({}, '', documentUrl.toString());
+      window.location.href = `/map/edit/${data.document_id}`;
     } else if (data.access === 'read') {
-      // For read-only access, remove share token but keep the document_id as token ID
-      const documentUrl = new URL(window.location.toString());
-      documentUrl.searchParams.delete('share');
-      documentUrl.searchParams.set('document_id', data.document_id);
-      history.pushState({}, '', documentUrl.toString());
+      // For read-only access, check if we have a public_id to use for view mode
+      const publicId = data.public_id || data.document_id;
+      window.location.href = `/map/${publicId}`;
     }
   },
 });

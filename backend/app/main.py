@@ -806,29 +806,22 @@ async def update_districtrmap_metadata(
 
         # Check if draft_status is being set to ready_to_share
         if metadata.get("draft_status") == "ready_to_share":
-            # Get the DistrictrMap for this document
-            districtr_map = session.exec(
-                select(DistrictrMap).where(
-                    DistrictrMap.districtr_map_slug == document.districtr_map_slug
-                )
-            ).first()
-
-            if districtr_map and districtr_map.public_id is None:
+            if document.public_id is None:
                 # Generate a new public_id by finding the next available number
                 max_public_id = session.exec(
-                    select(func.max(DistrictrMap.public_id))
+                    select(func.max(Document.public_id))
                 ).first()
                 next_public_id = (max_public_id or 0) + 1
 
-                # Update the DistrictrMap with the new public_id
+                # Update the Document with the new public_id
                 stmt = (
-                    update(DistrictrMap)
-                    .where(
-                        DistrictrMap.districtr_map_slug == document.districtr_map_slug
-                    )
-                    .values(public_id=next_public_id)
+                    update(Document)
+                    .where(Document.document_id == document.document_id)
+                    .values(public_id=next_public_id, map_metadata=metadata)
                 )
                 session.execute(stmt)
+                session.commit()
+                return document
 
         stmt = (
             update(Document)

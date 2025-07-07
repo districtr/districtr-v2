@@ -32,10 +32,8 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
           status: updatedMapDoc.status,
         });
 
-        const documentUrl = new URL(window.location.toString());
-        documentUrl.searchParams.delete('share'); // remove share + token from url
-        documentUrl.searchParams.set('document_id', data.document_id);
-        history.pushState({}, '', documentUrl.toString());
+        // Navigate to edit mode after copying/saving
+        window.location.href = `/map/edit/${data.document_id}`;
       })
       .catch(err => {
         setShareMapMessage(

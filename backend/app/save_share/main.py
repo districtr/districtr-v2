@@ -238,42 +238,24 @@ async def load_plan_from_public_id(
     Fetch a document by its public_id (read-only access).
     If the document has a password, return it in locked state.
     """
-    # Find the DistrictrMap by public_id
-    districtr_map = session.execute(
-        text(
-            """
-            SELECT uuid, districtr_map_slug FROM districtrmap 
-            WHERE public_id = :public_id
-            """
-        ),
-        {"public_id": public_id},
-    ).fetchone()
-
-    if not districtr_map:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Public document not found",
-        )
-
-    # Find a document for this map that has ready_to_share status
+    # Find the Document by public_id
     result = session.execute(
         text(
             """
             SELECT d.document_id, t.password_hash
             FROM document.document d
             LEFT JOIN document.map_document_token t ON d.document_id = t.document_id
-            WHERE d.districtr_map_slug = :map_slug
+            WHERE d.public_id = :public_id
             AND d.map_metadata->>'draft_status' = 'ready_to_share'
-            LIMIT 1
             """
         ),
-        {"map_slug": districtr_map.districtr_map_slug},
+        {"public_id": public_id},
     ).fetchone()
 
     if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No public document found for this map",
+            detail="Public document not found",
         )
 
     set_is_locked = bool(result.password_hash)
@@ -300,42 +282,24 @@ async def unlock_public_document(
     """
     Unlock a public document with password and return the private UUID for edit access.
     """
-    # Find the DistrictrMap by public_id
-    districtr_map = session.execute(
-        text(
-            """
-            SELECT uuid, districtr_map_slug FROM districtrmap 
-            WHERE public_id = :public_id
-            """
-        ),
-        {"public_id": public_id},
-    ).fetchone()
-
-    if not districtr_map:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Public document not found",
-        )
-
-    # Find a document for this map that has ready_to_share status
+    # Find the Document by public_id
     result = session.execute(
         text(
             """
             SELECT d.document_id, t.password_hash
             FROM document.document d
             LEFT JOIN document.map_document_token t ON d.document_id = t.document_id
-            WHERE d.districtr_map_slug = :map_slug
+            WHERE d.public_id = :public_id
             AND d.map_metadata->>'draft_status' = 'ready_to_share'
-            LIMIT 1
             """
         ),
-        {"map_slug": districtr_map.districtr_map_slug},
+        {"public_id": public_id},
     ).fetchone()
 
     if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No public document found for this map",
+            detail="Public document not found",
         )
 
     # Check password

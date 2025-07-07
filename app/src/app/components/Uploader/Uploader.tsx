@@ -34,7 +34,7 @@ export const Uploader: React.FC<{
     if (redirect) {
       const newestMap = mapLinks[mapLinks.length - 1];
       if (newestMap) {
-        window.location.href = `/map?document_id=${newestMap.document_id}`;
+        window.location.href = `/map/edit/${newestMap.document_id}`;
         onFinish?.();
       }
     }

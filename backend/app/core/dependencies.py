@@ -7,7 +7,7 @@ from app.save_share.models import (
     MapDocumentToken,
 )
 from sqlalchemy.sql.functions import coalesce
-from sqlalchemy import or_, text
+from sqlalchemy import or_
 from app.save_share.locks import check_map_lock
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 from app.core.db import get_session
@@ -49,43 +49,22 @@ def get_protected_document(
         # Check if it's a numeric public ID first
         if document_id.isdigit():
             public_id = int(document_id)
-            # Find the DistrictrMap by public_id
-            result = session.execute(
-                text(
-                    """
-                    SELECT uuid, districtr_map_slug FROM districtrmap 
-                    WHERE public_id = :public_id
-                    """
-                ),
-                {"public_id": public_id},
-            ).fetchone()
+            # Find the Document by public_id and ensure it's ready_to_share
+            document = session.exec(
+                select(Document).where(Document.public_id == public_id)
+            ).one_or_none()
 
-            if not result:
+            if not document:
                 raise HTTPException(status_code=404, detail="Public document not found")
 
-            # Find a document for this map that has ready_to_share status
-            doc_result = session.execute(
-                text(
-                    """
-                    SELECT d.document_id
-                    FROM document.document d
-                    WHERE d.districtr_map_slug = :map_slug
-                    AND d.map_metadata->>'draft_status' = 'ready_to_share'
-                    LIMIT 1
-                    """
-                ),
-                {"map_slug": result.districtr_map_slug},
-            ).fetchone()
-
-            if not doc_result:
+            # Verify the document is in ready_to_share status
+            if (
+                document.map_metadata
+                and document.map_metadata.get("draft_status") != "ready_to_share"
+            ):
                 raise HTTPException(
-                    status_code=404, detail="No public document found for this map"
+                    status_code=404, detail="Document is not publicly available"
                 )
-
-            # Get the actual document
-            document = session.exec(
-                select(Document).where(Document.document_id == doc_result.document_id)
-            ).one()
         else:
             # Try to get document by UUID first
             document = session.exec(
@@ -152,6 +131,7 @@ def get_document_public(
             Document.gerrydb_table,
             Document.updated_at,
             Document.color_scheme,
+            Document.public_id.label("public_id"),  # pyright: ignore
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore

@@ -58,6 +58,9 @@ export interface MapStore {
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
   isTemporalAction: boolean;
   setIsTemporalAction: (isTemporal: boolean) => void;
+  // EDITING MODE
+  isEditing: boolean;
+  setIsEditing: (isEditing: boolean) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
   setMapRef: (map: MutableRefObject<MapRef | null>) => void;
@@ -298,7 +301,9 @@ export interface MapStore {
 }
 
 const initialLoadingState =
-  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('document_id')
+  typeof window !== 'undefined' &&
+  (window.location.pathname.startsWith('/map/') ||
+    window.location.pathname.startsWith('/map/edit/'))
     ? 'loading'
     : 'initializing';
 
@@ -309,6 +314,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setMapRenderingState: mapRenderingState => set({mapRenderingState}),
   isTemporalAction: false,
   setIsTemporalAction: (isTemporalAction: boolean) => set({isTemporalAction}),
+  isEditing: false,
+  setIsEditing: (isEditing: boolean) => set({isEditing}),
   captiveIds: new Set<string>(),
   exitBlockView: (lock: boolean = false) => {
     const {focusFeatures, mapOptions, zoneAssignments, shatterMappings, lockFeatures} = get();
@@ -807,9 +814,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       if (userMapData) {
         userMaps.splice(i, 1, userMapData); // Replace the map at index i with the new data
       } else {
-        const urlParams = new URL(window.location.href).searchParams;
-        urlParams.delete('document_id'); // Remove the document_id parameter
-        window.history.pushState({}, '', window.location.pathname + '?' + urlParams.toString()); // Update the URL without document_id
+        // Navigate to home page when deleting current map
+        window.location.href = '/';
         userMaps.splice(i, 1);
       }
     }
