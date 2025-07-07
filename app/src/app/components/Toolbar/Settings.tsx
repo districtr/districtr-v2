@@ -94,7 +94,7 @@ export const ToolSettings: React.FC = () => {
               })
             }
           >
-            Show total population labels on all geometries
+            Show population labels on whole precincts
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="showBlockPopulationNumbers"
@@ -105,7 +105,7 @@ export const ToolSettings: React.FC = () => {
             }
             disabled={!mapDocument?.child_layer}
           >
-            Show total population labels on blocks
+            Show population labels on exposed blocks
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="showPaintedDistricts"
