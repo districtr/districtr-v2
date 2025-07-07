@@ -20,12 +20,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("districtrmap", sa.Column("public_id", sa.Integer(), nullable=True))
-    op.create_index(
-        "idx_districtrmap_public_id", "districtrmap", ["public_id"], unique=True
+    op.add_column(
+        "document",
+        sa.Column("public_id", sa.Integer(), nullable=True),
+        schema="document",
+    )
+    op.create_unique_constraint(
+        "uq_document_public_id", "document", ["public_id"], schema="document"
     )
 
 
 def downgrade() -> None:
-    op.drop_index("idx_districtrmap_public_id", table_name="districtrmap")
-    op.drop_column("districtrmap", "public_id")
+    op.drop_constraint("uq_document_public_id", "document", schema="document")
+    op.drop_column("document", "public_id", schema="document")
