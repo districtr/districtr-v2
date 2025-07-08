@@ -12,18 +12,6 @@ export const onlyUnique = (value: unknown, index: number, self: unknown[]) => {
 };
 
 /**
- * onlyUniqueProperty
- * Creates a filter function that returns true only for the first occurrence of each unique property value in an array.
- *
- * @param {string} property - The property name to check for uniqueness
- * @returns {(element: any, index: number, array: unknown[]) => boolean} - A filter function that can be used with Array.filter()
- */
-export const onlyUniqueProperty =
-  (property: string) => (element: any, index: number, array: unknown[]) => {
-    return array.findIndex((row: any) => row[property] === element[property]) === index;
-  };
-
-/**
  * dedupeOnProperty
  * Creates a type-safe filter function that returns true only for the first occurrence of each unique property value in an array.
  *
