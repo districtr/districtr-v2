@@ -12,27 +12,35 @@ export const onlyUnique = (value: unknown, index: number, self: unknown[]) => {
 };
 
 /**
- * onlyUniqueProperty
- * Creates a filter function that returns true only for the first occurrence of each unique property value in an array.
+ * fastUniqBy
+ * Efficiently removes duplicate objects from an array based on a specified property.
+ * Uses a Set for O(1) lookup performance and a vanilla for loop for optimal speed.
  *
- * @param {string} property - The property name to check for uniqueness
- * @returns {(element: any, index: number, array: unknown[]) => boolean} - A filter function that can be used with Array.filter()
- */
-export const onlyUniqueProperty =
-  (property: string) => (element: any, index: number, array: unknown[]) => {
-    return array.findIndex((row: any) => row[property] === element[property]) === index;
-  };
-
-/**
- * dedupeOnProperty
- * Creates a type-safe filter function that returns true only for the first occurrence of each unique property value in an array.
+ * @template T - The type of objects in the array, must extend object
+ * @param {T[]} array - The array of objects to deduplicate
+ * @param {keyof T} property - The property key to use for determining uniqueness
+ * @returns {T[]} - A new array with duplicates removed, preserving the first occurrence of each unique value
  *
- * @template T - The type of objects in the array
- * @param {keyof T} property - The property key to check for uniqueness
- * @returns {(element: T, index: number, array: T[]) => boolean} - A type-safe filter function that can be used with Array.filter()
+ * @example
+ * const users = [
+ *   { id: 1, name: 'Alice' },
+ *   { id: 2, name: 'Bob' },
+ *   { id: 1, name: 'Alice' } // duplicate
+ * ];
+ * const uniqueUsers = fastUniqBy(users, 'id');
+ * // Result: [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]
  */
-export const dedupeOnProperty =
-  <T extends object>(property: keyof T) =>
-  (element: T, index: number, array: T[]) => {
-    return array.findIndex((row: T) => row[property] === element[property]) === index;
-  };
+export const fastUniqBy = <T extends object>(array: T[], property: keyof T) => {
+  const seen = new Set<T[keyof T]>();
+  const result = [];
+  for (let i = 0; i < array.length; i++) {
+    const item = array[i];
+    const value = item[property];
+    if (seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    result.push(item);
+  }
+  return result;
+};
