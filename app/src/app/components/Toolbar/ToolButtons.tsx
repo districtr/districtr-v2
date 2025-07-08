@@ -44,8 +44,12 @@ export const ToolButtons: React.FC<{
               >
                 <IconButton
                   key={`${tool.mode}-flex`}
-                  className={`cursor-pointer ${i === 0 ? 'rounded-l-lg' : ''} ${
-                    i === activeTools.length - 1 ? 'rounded-r-lg' : ''
+                  className={`cursor-pointer ${i === 0 ? (rotation === 'horizontal' ? 'rounded-l-lg' : 'rounded-t-lg') : ''} ${
+                    i === activeTools.length - 1
+                      ? rotation === 'horizontal'
+                        ? 'rounded-r-lg'
+                        : 'rounded-b-lg'
+                      : ''
                   } ${toolbarLocation === 'map' ? '' : 'flex-grow'}
                   `}
                   onMouseEnter={() => setActiveTooltip(tool.mode)}
