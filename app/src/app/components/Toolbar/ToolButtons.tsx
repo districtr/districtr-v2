@@ -27,7 +27,7 @@ export const ToolButtons: React.FC<{
       align={toolbarLocation === 'map' ? 'center' : 'start'}
       ref={toolbarItemsRef}
       direction={rotation === 'horizontal' ? 'row' : 'column'}
-      className={`${toolbarLocation === 'map' ? 'shadow-md overflow-hidden bg-white' : ''}`}
+      className={`${toolbarLocation === 'map' ? 'shadow-md overflow-hidden bg-white rounded-lg' : ''}`}
       width="100%"
       wrap={isSidebar ? 'wrap' : 'nowrap'}
     >
