@@ -181,7 +181,7 @@ export const DraggableToolbar = () => {
             <Tooltip content="Move the toolbar">
               <IconButton
                 id="handle"
-                className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+                className={`cursor-move w-min rounded-none ${hovered ? '' : 'hidden'}`}
                 variant="ghost"
                 style={{
                   background: 'rgba(255,255,255,0.8)',
@@ -195,7 +195,7 @@ export const DraggableToolbar = () => {
               <IconButton
                 id="rotate"
                 onClick={() => setRotation(rotation === 'horizontal' ? 'vertical' : 'horizontal')}
-                className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+                className={`cursor-move w-min rounded-none ${hovered ? '' : 'hidden'}`}
                 variant="ghost"
                 style={{
                   background: 'rgba(255,255,255,0.8)',
@@ -211,7 +211,7 @@ export const DraggableToolbar = () => {
                 onClick={() => {
                   setToolbarLocation('sidebar');
                 }}
-                className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+                className={`cursor-move w-min rounded-none ${hovered ? '' : 'hidden'}`}
                 variant="ghost"
                 style={{
                   background: 'rgba(255,255,255,0.8)',
