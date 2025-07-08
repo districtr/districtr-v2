@@ -42,9 +42,10 @@ export const useToolbarStore = create(
       rotation: 'horizontal',
       setXY: (_x, _y, rectify) => {
         const state = get();
-        const {maxX, maxY} = state.maxXY;
+        const {maxX: _maxX, maxY: _maxY} = state.maxXY;
         const {toolbarWidth, toolbarHeight} = state;
-
+        let maxX = _maxX;
+        let maxY = _maxY;
         // Check if toolbar should move to sidebar
         if (maxX && _x > maxX + toolbarWidth) {
           set({toolbarLocation: 'sidebar'});
@@ -61,19 +62,6 @@ export const useToolbarStore = create(
           const snapToRight = _x > maxX - SNAP_THRESHOLD;
           const snapToTop = _y < SNAP_THRESHOLD;
           const snapToBottom = _y > maxY - SNAP_THRESHOLD;
-
-          // Snap to edges
-          if (snapToLeft) {
-            x = MIN_X;
-          } else if (snapToRight) {
-            x = maxX;
-          }
-
-          if (snapToTop) {
-            y = MIN_Y;
-          } else if (snapToBottom) {
-            y = maxY;
-          }
 
           // Auto-rotation logic when hitting edges
           const isMiddleX = _x > maxX * 0.2 && _x < maxX * 0.8;
@@ -94,6 +82,22 @@ export const useToolbarStore = create(
             newRotation = 'vertical';
           }
 
+          // Snap to edges
+          if (snapToLeft) {
+            x = MIN_X;
+          } else if (snapToRight) {
+            if (state.rotation === 'horizontal') {
+              maxX = maxX + toolbarWidth - toolbarHeight;
+            }
+            x = maxX;
+          }
+
+          if (snapToTop) {
+            y = MIN_Y;
+          } else if (snapToBottom) {
+            y = maxY;
+          }
+
           // Constrain within bounds
           x = Math.min(Math.max(x, MIN_X), maxX);
           y = Math.min(Math.max(y, MIN_Y), maxY);
@@ -102,6 +106,7 @@ export const useToolbarStore = create(
         set({
           x,
           y,
+          maxXY: {maxX, maxY},
           rotation: newRotation,
         });
       },
