@@ -26,7 +26,7 @@ export type ToolbarState = {
   setToolbarHeight: (height: number) => void;
 };
 const [MIN_X, MIN_Y] = [-14, 26];
-const SNAP_THRESHOLD = 60;
+const SNAP_THRESHOLD = 30;
 
 export const useToolbarStore = create(
   persist<ToolbarState>(
@@ -57,15 +57,15 @@ export const useToolbarStore = create(
         let newRotation = state.rotation;
 
         if (rectify && maxX && maxY) {
-          // Edge snapping logic
-          const snapToLeft = _x < SNAP_THRESHOLD;
-          const snapToRight = _x > maxX - SNAP_THRESHOLD;
-          const snapToTop = _y < SNAP_THRESHOLD;
-          const snapToBottom = _y > maxY - SNAP_THRESHOLD;
-
           // Auto-rotation logic when hitting edges
           const isMiddleX = _x > maxX * 0.2 && _x < maxX * 0.8;
           const isMiddleY = _y > maxY * 0.2 && _y < maxY * 0.8;
+
+          // Edge snapping logic
+          const snapToLeft = _x < SNAP_THRESHOLD && isMiddleY;
+          const snapToRight = _x > maxX - SNAP_THRESHOLD && isMiddleY;
+          const snapToTop = _y < SNAP_THRESHOLD && isMiddleX;
+          const snapToBottom = _y > maxY - SNAP_THRESHOLD && isMiddleX;
 
           // Rotate to horizontal when hitting top/bottom edges
           if (snapToTop || snapToBottom) {
