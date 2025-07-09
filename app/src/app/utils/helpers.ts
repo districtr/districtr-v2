@@ -15,7 +15,7 @@ import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {demographyCache} from './demography/demographyCache';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
-import {onlyUniqueProperty} from './arrays';
+import {fastUniqBy} from './arrays';
 
 /**
  * PaintEventHandler
@@ -434,8 +434,8 @@ const filterFeatures = (
   additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = [],
   allowOutsideCaptiveIds: boolean = false
 ) => {
-  // // first, dedupe
-  const features = _features;
+  // first, dedupe
+  const features: MapGeoJSONFeature[] = fastUniqBy(_features, 'id');
   const {
     activeTool,
     captiveIds,

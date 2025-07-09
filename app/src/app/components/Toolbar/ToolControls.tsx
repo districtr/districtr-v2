@@ -41,30 +41,11 @@ export const ToolControls: React.FC<{
   isMobile?: boolean;
 }> = ({isMobile}) => {
   const {Component} = useMapStore(state => ToolControlsConfig[state.activeTool] || {});
-  const {x, y, maxXY, rotation, customizeToolbar, toolbarLocation} = useToolbarStore();
+  const {x, y, maxXY, rotation, customizeToolbar, toolbarLocation, toolbarWidth, toolbarHeight} = useToolbarStore();
   const isHorizontal =
     toolbarLocation === 'sidebar' || !customizeToolbar || rotation === 'horizontal';
   const ContainerRef = useRef<HTMLDivElement | null>(null);
-  const [shouldFlip, setShouldFlip] = useState(false);
-  const mapDocument = useMapStore(state => state.mapDocument);
-
-  useLayoutEffect(() => {
-    const bbox = ContainerRef?.current?.getBoundingClientRect?.();
-    if (bbox === undefined || y === null || x === null || maxXY === null) {
-      return;
-    }
-    if (toolbarLocation === 'sidebar') {
-      setShouldFlip(true);
-    } else if (isMobile || !customizeToolbar) {
-      setShouldFlip(false);
-    } else if (rotation === 'horizontal') {
-      const midPoint = maxXY.maxY ? maxXY.maxY / 2 : 0;
-      setShouldFlip(y < midPoint);
-    } else {
-      const midPoint = maxXY.maxX ? maxXY.maxX / 2 : 0;
-      setShouldFlip(x > midPoint);
-    }
-  }, [y, x, rotation, Component, toolbarLocation]);
+  const shouldFlip = rotation === 'horizontal' ? (y ?? 0) < 200 : (x ?? 0) > (maxXY?.maxX ?? 0) - 200
 
   if (!Component) {
     return null;

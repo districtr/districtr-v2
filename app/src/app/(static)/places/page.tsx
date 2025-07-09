@@ -1,5 +1,5 @@
 import {listCMSContent, PlacesCMSContent} from '@/app/utils/api/cms';
-import {onlyUniqueProperty} from '@/app/utils/arrays';
+import {fastUniqBy} from '@/app/utils/arrays';
 import {Card, Flex, Grid, Heading, Link, Text} from '@radix-ui/themes';
 import NextLink from 'next/link';
 
@@ -8,10 +8,10 @@ export const revalidate = 3600;
 
 export default async function TagsPage() {
   const cmsContent = await listCMSContent('places');
+  const cmsContentWithPublishedContent = cmsContent?.filter(content => content.published_content)
+  if (!cmsContentWithPublishedContent) return null;
 
-  const entries = cmsContent
-    ?.filter(content => content.published_content)
-    .filter(onlyUniqueProperty('slug'))
+  const entries = fastUniqBy(cmsContentWithPublishedContent, 'slug')
     .sort((a, b) =>
       a.published_content!.title.localeCompare(b.published_content!.title)
     ) as PlacesCMSContent[];
