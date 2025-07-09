@@ -74,6 +74,7 @@ sample_data/*
 !sample_data/config.json
 
 temp/*
+tmp/*
 pipelines/build_client_rects/output/*
 data/**/*
 backend/.env.docker
