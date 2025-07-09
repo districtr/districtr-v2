@@ -138,14 +138,15 @@ class GerryDBTileset(BaseModel):
         pop_columns = [col for col in self.columns if "pop" in col.lower()]
         # read the gpkg file
         gdf = gpd.read_file(path)
+        gdf["geometry"] = gdf.centroid
         # convert to EPSG:4326
         gdf = gdf.to_crs(epsg=4326)
         gdf["x"] = gdf["geometry"].x
         gdf["y"] = gdf["geometry"].y
-        gdf = gdf[["path", "x", "y"] + pop_columns]
+        gdf = gdf[["path", "x", "y"] + pop_columns].sort_values(by="path")
         # save to parquet using duckdb
         con = duckdb.connect()
-        duckdb.sql("CREATE TABLE points AS SELECT * FROM gdf")
+        con.sql("CREATE TABLE points AS SELECT * FROM gdf")
         con.execute("SET threads=1;")
         con.sql(
             f"""
@@ -155,7 +156,7 @@ class GerryDBTileset(BaseModel):
                       x,
                       y,
                       {", ".join(pop_columns)}
-                  FROM data
+                  FROM points
               )
               TO '{settings.OUT_SCRATCH / f"{self.layer_name}_points.parquet"}'
               (
