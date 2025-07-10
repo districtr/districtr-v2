@@ -10,6 +10,7 @@ import {HighlightOverlayerLayerGroup} from './HighlightOverlayLayerGroup';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {useClearMap} from '@/app/hooks/useClearMap';
 import {PointSelectionLayer} from './PointSelectionLayer';
+import {TILESET_URL} from '@/app/utils/api/constants';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
@@ -89,7 +90,7 @@ export const VtdBlockLayers: React.FC<{
       <Source
         id={BLOCK_SOURCE_ID}
         type="vector"
-        url={`pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/${mapDocument.tiles_s3_path}`}
+        url={`pmtiles://${TILESET_URL}/${mapDocument.tiles_s3_path}`}
         promoteId="path"
       >
         {!isDemographicMap && (

@@ -1,5 +1,6 @@
 'use client';
 import {useMapStore} from '@/app/store/mapStore';
+import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
@@ -20,7 +21,7 @@ export const CountyLayers = () => {
       <Source
         id="counties"
         type="vector"
-        url={`pmtiles://${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles`}
+        url={`pmtiles://${GEODATA_URL}/basemaps/tiger/tiger2023/tl_2023_us_county_full.pmtiles`}
       >
         <Layer
           id="counties_fill"
