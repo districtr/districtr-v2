@@ -2,13 +2,11 @@ import {unstable_noStore as noStore} from 'next/cache';
 
 export const GET = async () => {
   noStore();
-  const formUrl = process.env.NEXT_PUBLIC_FEEDBACK_FORM;
-  if (!formUrl || !URL.canParse(formUrl)) {
-    return new Response('Form URL not found', {status: 404});
-  }
+  console.log('!!!', process.env.NEXT_PUBLIC_DEBUG_SELECTION_POINTS);
   return new Response(
     JSON.stringify({
-      formUrl,
+      formUrl: process.env.NEXT_PUBLIC_FEEDBACK_FORM ?? null,
+      debugSelectionPoints: process.env.NEXT_PUBLIC_DEBUG_SELECTION_POINTS === 'true',
     }),
     {
       headers: {
