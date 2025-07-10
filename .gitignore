@@ -74,6 +74,7 @@ sample_data/*
 !sample_data/config.json
 
 temp/*
+tmp/*
 pipelines/build_client_rects/output/*
 data/**/*
 backend/.env.docker
@@ -83,3 +84,4 @@ app/.env.docker
 pipelines/districtr_pipelines.egg*
 docker-compose.override.yml
 app/.env.docker
+pipelines/build/*

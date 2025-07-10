@@ -107,7 +107,7 @@ def file_exists(file_path) -> bool:
 
     if url.scheme == "s3":
         bucket = url.netloc
-        key = url.path
+        key = url.path.lstrip("/")
         s3 = settings.get_s3_client()
         assert s3, "S3 client is not available"
         object_information = s3.head_object(

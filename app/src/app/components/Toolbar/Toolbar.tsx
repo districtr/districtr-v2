@@ -10,6 +10,8 @@ import {ToolControls} from '@/app/components/Toolbar/ToolControls';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import {ToolButtons} from './ToolButtons';
 
+const TOOLBAR_PADDING = 12;
+
 export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = () => {
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
@@ -88,6 +90,8 @@ export const DraggableToolbar = () => {
     defaultY,
     setIsMobile,
     isMobile,
+    setToolbarWidth,
+    setToolbarHeight,
   } = useToolbarStore(state => state);
   const [hovered, setHovered] = useState(false);
   const mapRef = useMapStore(state => state.getMapRef());
@@ -107,9 +111,14 @@ export const DraggableToolbar = () => {
     };
     const {width: toolbarWidth, height: toolbarHeight} =
       toolbarItemsRef.current?.getBoundingClientRect() || {width: 0, height: 0};
+    
+    // Update toolbar dimensions in store
+    setToolbarWidth(toolbarWidth);
+    setToolbarHeight(toolbarHeight);
+    
     setMaxXY(
-      Math.round((width - toolbarWidth) / 10) * 10 - 25,
-      Math.round((height - toolbarHeight) / 10) * 10 - 25
+      width - toolbarWidth + TOOLBAR_PADDING,
+      height - TOOLBAR_PADDING
     );
     setDefaultXY(
       containerRef.getBoundingClientRect().width / 2 - (toolbarWidth ?? 0) / 2,
@@ -172,7 +181,7 @@ export const DraggableToolbar = () => {
             <Tooltip content="Move the toolbar">
               <IconButton
                 id="handle"
-                className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+                className={`cursor-move w-min rounded-none ${hovered ? '' : 'hidden'}`}
                 variant="ghost"
                 style={{
                   background: 'rgba(255,255,255,0.8)',
@@ -186,7 +195,7 @@ export const DraggableToolbar = () => {
               <IconButton
                 id="rotate"
                 onClick={() => setRotation(rotation === 'horizontal' ? 'vertical' : 'horizontal')}
-                className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+                className={`cursor-move w-min rounded-none ${hovered ? '' : 'hidden'}`}
                 variant="ghost"
                 style={{
                   background: 'rgba(255,255,255,0.8)',
@@ -202,7 +211,7 @@ export const DraggableToolbar = () => {
                 onClick={() => {
                   setToolbarLocation('sidebar');
                 }}
-                className={`cursor-move w-12 rounded-full shadow-xl ${hovered ? '' : 'hidden'}`}
+                className={`cursor-move w-min rounded-none ${hovered ? '' : 'hidden'}`}
                 variant="ghost"
                 style={{
                   background: 'rgba(255,255,255,0.8)',
