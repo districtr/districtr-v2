@@ -1,7 +1,13 @@
-import {BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD, BLOCK_POINTS_LAYER_ID, BLOCK_POINTS_LAYER_ID_CHILD, EMPTY_FT_COLLECTION} from '@/app/constants/layers';
+import {
+  BLOCK_LAYER_ID,
+  BLOCK_LAYER_ID_CHILD,
+  BLOCK_POINTS_LAYER_ID,
+  BLOCK_POINTS_LAYER_ID_CHILD,
+  EMPTY_FT_COLLECTION,
+} from '@/app/constants/layers';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';
-import { asyncBufferFromUrl, parquetReadObjects } from 'hyparquet';
+import {asyncBufferFromUrl, parquetReadObjects} from 'hyparquet';
 import React, {useEffect, useRef, useState} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 
@@ -34,28 +40,32 @@ export const PointSelectionLayer: React.FC<{child?: boolean}> = ({child = false}
 
   useEffect(() => {
     const fetchData = async () => {
-    const layer = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
-    if (layer) {
-      const url = `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/dev/${layer}_points.parquet`;
-      const file = await asyncBufferFromUrl({ url }) // wrap url for async fetching
-      const parquetData = await parquetReadObjects({
-        file,
-        columns: ['path', 'x', 'y', 'total_pop_20'],
-      }) as any;
-      if (child) {
-        fullData.current = parquetData;
-        setDataHash(new Date().toISOString());
-      } else {
-        data.current = generateGeojson(parquetData, mapDocument, child);
-        setDataHash(new Date().toISOString());
+      const layer = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
+      if (layer) {
+        const url = `${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/dev/${layer}_points.parquet`;
+        const file = await asyncBufferFromUrl({url}); // wrap url for async fetching
+        const parquetData = (await parquetReadObjects({
+          file,
+          columns: ['path', 'x', 'y', 'total_pop_20'],
+        })) as any;
+        if (child) {
+          fullData.current = parquetData;
+          setDataHash(new Date().toISOString());
+        } else {
+          data.current = generateGeojson(parquetData, mapDocument, child);
+          setDataHash(new Date().toISOString());
+        }
       }
-    }
     };
     fetchData();
   }, [child ? mapDocument?.child_layer : mapDocument?.parent_layer]);
 
   useEffect(() => {
-    if (child && brokenChildIds.size > 0 && data.current?.features?.length !== brokenChildIds.size) {
+    if (
+      child &&
+      brokenChildIds.size > 0 &&
+      data.current?.features?.length !== brokenChildIds.size
+    ) {
       const newData = fullData.current?.filter((d: any) => brokenChildIds.has(d.path));
       if (newData) {
         data.current = generateGeojson(newData, mapDocument, child);
@@ -65,7 +75,12 @@ export const PointSelectionLayer: React.FC<{child?: boolean}> = ({child = false}
   }, [child, brokenChildIds, dataHash]);
 
   return (
-    <Source id={sourceID} type="geojson" promoteId="path" data={data.current || EMPTY_FT_COLLECTION}>
+    <Source
+      id={sourceID}
+      type="geojson"
+      promoteId="path"
+      data={data.current || EMPTY_FT_COLLECTION}
+    >
       <Layer
         id={child ? BLOCK_POINTS_LAYER_ID_CHILD : BLOCK_POINTS_LAYER_ID}
         source={sourceID}

@@ -9,7 +9,7 @@ import {DemographicLayer} from './DemographicLayer';
 import {HighlightOverlayerLayerGroup} from './HighlightOverlayLayerGroup';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {useClearMap} from '@/app/hooks/useClearMap';
-import { PointSelectionLayer } from './PointSelectionLayer';
+import {PointSelectionLayer} from './PointSelectionLayer';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;

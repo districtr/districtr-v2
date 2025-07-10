@@ -95,9 +95,9 @@ export const getFeaturesInBbox = (
     : captiveIds.size
       ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD]
       : [BLOCK_HOVER_LAYER_ID];
+
   let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
-  const filtered = filterFeatures(features, filterLocked);
-  return filtered;
+  return filterFeatures(features, filterLocked);
 };
 
 /**
