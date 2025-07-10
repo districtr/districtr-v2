@@ -65,10 +65,11 @@ services:
     build:
       context: ./pipelines
       dockerfile: Dockerfile
-    command: sh -c "pip install -e ."
+    command: sh -c "pip install '.[test]' && pip install -e ."
     volumes:
       - ./pipelines:/app
       - ./data:/data
+      - ./tmp:/tmp
     env_file:
       - ./pipelines/.env
 
