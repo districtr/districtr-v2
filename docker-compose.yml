@@ -8,6 +8,7 @@ services:
       - ./backend:/districtr-backend # Adjust volumes to point to the backend folder
       - ./sample_data:/districtr-backend/sample_data
       - ./data:/data
+      - ./tmp:/tmp
 
     env_file:
       - ./backend/.env.docker # Ensure the env file is also from the backend folder

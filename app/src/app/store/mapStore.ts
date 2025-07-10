@@ -375,9 +375,10 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     }
     features?.forEach(feature => {
       const id = feature?.id?.toString() ?? undefined;
-      if (!id || !feature.sourceLayer) return;
-      const state = featureStateCache[feature.sourceLayer]?.[id];
-      const stateChanges = featureStateChangesCache?.[feature.sourceLayer]?.[id];
+      const sourceLayer = feature.properties.__sourceLayer || feature.sourceLayer;
+      if (!id || !sourceLayer) return;
+      const state = featureStateCache[sourceLayer]?.[id];
+      const stateChanges = featureStateChangesCache?.[sourceLayer]?.[id];
 
       const prevAssignment = stateChanges?.zone || state?.zone || false;
 
@@ -401,7 +402,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         {
           source: BLOCK_SOURCE_ID,
           id,
-          sourceLayer: feature.sourceLayer,
+          sourceLayer,
         },
         {selected: true, zone: selectedZone}
       );

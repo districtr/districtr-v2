@@ -15,7 +15,7 @@ import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {demographyCache} from './demography/demographyCache';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
-import {dedupeOnProperty, fastUniqBy} from './arrays';
+import {fastUniqBy} from './arrays';
 
 /**
  * PaintEventHandler
@@ -97,7 +97,6 @@ export const getFeaturesInBbox = (
       : [BLOCK_HOVER_LAYER_ID];
 
   let features = map?.queryRenderedFeatures(bbox, {layers}) || [];
-
   return filterFeatures(features, filterLocked);
 };
 

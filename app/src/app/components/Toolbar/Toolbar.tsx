@@ -111,15 +111,12 @@ export const DraggableToolbar = () => {
     };
     const {width: toolbarWidth, height: toolbarHeight} =
       toolbarItemsRef.current?.getBoundingClientRect() || {width: 0, height: 0};
-    
+
     // Update toolbar dimensions in store
     setToolbarWidth(toolbarWidth);
     setToolbarHeight(toolbarHeight);
-    
-    setMaxXY(
-      width - toolbarWidth + TOOLBAR_PADDING,
-      height - TOOLBAR_PADDING
-    );
+
+    setMaxXY(width - toolbarWidth + TOOLBAR_PADDING, height - TOOLBAR_PADDING);
     setDefaultXY(
       containerRef.getBoundingClientRect().width / 2 - (toolbarWidth ?? 0) / 2,
       containerRef.getBoundingClientRect().height - 50
