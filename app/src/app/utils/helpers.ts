@@ -15,6 +15,7 @@ import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
 import {demographyCache} from './demography/demographyCache';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
+import {dedupeOnProperty, fastUniqBy} from './arrays';
 
 /**
  * PaintEventHandler
@@ -429,11 +430,13 @@ export const checkIfSameZone = (
  * The function returns an array of features that pass all the filtering criteria.
  */
 const filterFeatures = (
-  features: MapGeoJSONFeature[],
+  _features: MapGeoJSONFeature[],
   filterLocked: boolean = true,
   additionalFilters: Array<(f: MapGeoJSONFeature) => boolean> = [],
   allowOutsideCaptiveIds: boolean = false
 ) => {
+  // first, dedupe
+  const features: MapGeoJSONFeature[] = fastUniqBy(_features, 'id');
   const {
     activeTool,
     captiveIds,

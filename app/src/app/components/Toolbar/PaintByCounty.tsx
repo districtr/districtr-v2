@@ -7,6 +7,7 @@ export default function PaintByCounty() {
   const setPaintFunction = useMapStore(state => state.setPaintFunction);
   const paintByCounty = useMapStore(state => state.mapOptions.paintByCounty);
   const setMapOptions = useMapStore(state => state.setMapOptions);
+  const access = useMapStore(state => state.mapStatus?.access);
 
   const handleToggle = () => {
     if (!mapRef) return;
@@ -29,6 +30,7 @@ export default function PaintByCounty() {
           checked={paintByCounty}
           defaultChecked={false}
           onClick={handleToggle}
+          disabled={access === 'read'}
         />{' '}
       </Flex>
     </Text>

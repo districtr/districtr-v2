@@ -1,5 +1,6 @@
 import React from 'react';
 import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes';
+import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
@@ -39,7 +40,9 @@ export const ToolSettings: React.FC = () => {
   const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);
-  const setCustomzieToolbar = useToolbarStore(state => state.setCustomzieToolbar);
+  const setCustomizeToolbar = useToolbarStore(state => state.setCustomizeToolbar);
+  const boundarySettings = useFeatureFlagStore(state => state.boundarySettings);
+  const access = useMapStore(state => state.mapStatus?.access);
 
   const [colorModalOpen, setColorModalOpen] = React.useState(false);
 
@@ -53,7 +56,9 @@ export const ToolSettings: React.FC = () => {
             mapOptions.showPaintedDistricts === true ? 'showPaintedDistricts' : '',
             mapOptions.higlightUnassigned === true ? 'higlightUnassigned' : '',
             mapOptions.showPopulationTooltip === true ? 'showPopulationTooltip' : '',
-            mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true ? 'showBlockPopulationNumbers' : '',
+            mapDocument?.child_layer && mapOptions.showBlockPopulationNumbers === true
+              ? 'showBlockPopulationNumbers'
+              : '',
             mapOptions.showPopulationNumbers === true ? 'showPopulationNumbers' : '',
             mapOptions.lockPaintedAreas.length ===
             (mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS)
@@ -77,6 +82,7 @@ export const ToolSettings: React.FC = () => {
                 showPopulationTooltip: !mapOptions.showPopulationTooltip,
               })
             }
+            disabled={access === 'read'}
           >
             Show population tooltip
           </CheckboxGroup.Item>
@@ -88,7 +94,7 @@ export const ToolSettings: React.FC = () => {
               })
             }
           >
-            Show total population labels on all geometries
+            Show population labels on whole precincts
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="showBlockPopulationNumbers"
@@ -99,7 +105,7 @@ export const ToolSettings: React.FC = () => {
             }
             disabled={!mapDocument?.child_layer}
           >
-            Show total population labels on blocks
+            Show population labels on exposed blocks
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
             value="showPaintedDistricts"
@@ -143,44 +149,54 @@ export const ToolSettings: React.FC = () => {
           >
             Highlight broken precincts
           </CheckboxGroup.Item>
-          <Button onClick={() => setColorModalOpen(true)} variant="outline" size="1" mt="2">
+          <Button
+            onClick={() => setColorModalOpen(true)}
+            variant="outline"
+            size="1"
+            mt="2"
+            disabled={access === 'read'}
+          >
             Customize district colors
           </Button>
         </CheckboxGroup.Root>
-        <Heading as="h3" weight="bold" size="3">
-          Boundaries
-        </Heading>
-        <CheckboxGroup.Root
-          name="contextualLayers"
-          value={[
-            mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
-            mapOptions.prominentCountyNames === true ? 'prominentCountyNames' : '',
-          ]}
-        >
-          <CheckboxGroup.Item
-            value="showCountyBoundaries"
-            onClick={() =>
-              setMapOptions({
-                showCountyBoundaries: !mapOptions.showCountyBoundaries,
-              })
-            }
-          >
-            Show county boundaries
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item
-            value="prominentCountyNames"
-            onClick={() =>
-              setMapOptions({
-                prominentCountyNames: !mapOptions.prominentCountyNames,
-              })
-            }
-          >
-            Emphasize county names
-          </CheckboxGroup.Item>
-          <CheckboxGroup.Item value="2" disabled>
-            Show tribes and communities
-          </CheckboxGroup.Item>
-        </CheckboxGroup.Root>
+        {boundarySettings && (
+          <>
+            <Heading as="h3" weight="bold" size="3">
+              Boundaries
+            </Heading>
+            <CheckboxGroup.Root
+              name="contextualLayers"
+              value={[
+                mapOptions.showCountyBoundaries === true ? 'showCountyBoundaries' : '',
+                mapOptions.prominentCountyNames === true ? 'prominentCountyNames' : '',
+              ]}
+            >
+              <CheckboxGroup.Item
+                value="showCountyBoundaries"
+                onClick={() =>
+                  setMapOptions({
+                    showCountyBoundaries: !mapOptions.showCountyBoundaries,
+                  })
+                }
+              >
+                Show county boundaries
+              </CheckboxGroup.Item>
+              <CheckboxGroup.Item
+                value="prominentCountyNames"
+                onClick={() =>
+                  setMapOptions({
+                    prominentCountyNames: !mapOptions.prominentCountyNames,
+                  })
+                }
+              >
+                Emphasize county names
+              </CheckboxGroup.Item>
+              <CheckboxGroup.Item value="2" disabled>
+                Show tribes and communities
+              </CheckboxGroup.Item>
+            </CheckboxGroup.Root>
+          </>
+        )}
 
         <CheckboxGroup.Root
           defaultValue={[]}
@@ -192,7 +208,8 @@ export const ToolSettings: React.FC = () => {
           </Heading>
           <CheckboxGroup.Item
             value="customizeToolbar"
-            onClick={() => setCustomzieToolbar(!customizeToolbar)}
+            onClick={() => setCustomizeToolbar(!customizeToolbar)}
+            disabled={access === 'read'}
           >
             Enable draggable toolbar
           </CheckboxGroup.Item>

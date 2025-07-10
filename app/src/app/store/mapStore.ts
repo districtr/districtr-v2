@@ -90,8 +90,6 @@ export interface MapStore {
   setMapStatus: (status: Partial<StatusObject>) => void;
   colorScheme: string[];
   setColorScheme: (colors: string[]) => void;
-  loadedMapId: string;
-  setLoadedMapId: (mapId: string) => void;
 
   // SHATTERING
   /**
@@ -347,6 +345,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       accumulatedGeoids,
       activeTool,
       mapDocument,
+      mapStatus,
       getMapRef,
       selectedZone: _selectedZone,
       allPainted,
@@ -356,7 +355,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     const updateHash = new Date().toISOString();
     const map = getMapRef();
     const selectedZone = activeTool === 'eraser' ? null : _selectedZone;
-    if (!map || !mapDocument?.document_id) {
+    if (!map || !mapDocument?.document_id || mapStatus?.access === 'read') {
       return;
     }
     // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
@@ -429,7 +428,10 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       allPainted,
       mapOptions,
     } = get();
-    const documentIsSame = currentMapDocument?.document_id === mapDocument.document_id;
+    const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
+    const accessIsSame = currentMapDocument?.access === mapDocument.access;
+    const statusIsSame = currentMapDocument?.status === mapDocument.status;
+    const documentIsSame = idIsSame && accessIsSame && statusIsSame;
     const bothHaveData =
       typeof currentMapDocument?.updated_at === 'string' &&
       typeof mapDocument?.updated_at === 'string';
@@ -492,7 +494,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       mapRenderingState:
         mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
       shatterIds: {parents: new Set(), children: new Set()},
-      loadedMapId: undefined,
     });
   },
   mapStatus: null,
@@ -502,21 +503,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   colorScheme: DefaultColorScheme,
   setColorScheme: colorScheme => set({colorScheme}),
-  loadedMapId: '',
-  setLoadedMapId: loadedMapId => set({loadedMapId}),
-
-  // TODO: Refactor to something like this
-  // featureStates: {
-  //   locked: [],
-  //   hovered: [],
-  //   focused: [],
-  //   highlighted: []
-  // },
-  // setFeatureStates: (
-  //   features, state, action
-  // ) => {
-  //   if
-  // },
   lockedFeatures: new Set(),
   lockFeature: (id, lock) => {
     const lockedFeatures = new Set(get().lockedFeatures);
@@ -989,10 +975,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   loadZoneAssignments: assignmentsData => {
     lastSentAssignments.clear();
-    const {mapDocument} = get();
-    if (mapDocument?.document_id !== assignmentsData.documentId) {
-      return;
-    }
+    useMapStore.temporal.getState().clear();
     const assignments = assignmentsData.assignments;
     const zoneAssignments = new Map<string, number>();
     const shatterIds = {
@@ -1020,7 +1003,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       shatterIds,
       shatterMappings,
       appLoadingState: 'loaded',
-      loadedMapId: assignmentsData.documentId,
     });
   },
   zonePopulations: new Map(),

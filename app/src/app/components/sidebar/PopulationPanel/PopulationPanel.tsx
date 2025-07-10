@@ -37,6 +37,7 @@ export const PopulationPanel = () => {
   const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
   const setSelectedZone = useMapStore(state => state.setSelectedZone);
   const selectedZone = useMapStore(state => state.selectedZone);
+  const access = useMapStore(state => state.mapStatus?.access);
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {
       setLockedZones(lockPaintedAreas.filter(f => f !== zone));
@@ -90,7 +91,7 @@ export const PopulationPanel = () => {
           justify={'between'}
         >
           <Flex justify="end">
-            <IconButton onClick={toggleLockAllAreas} variant="ghost">
+            <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'}>
               {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
             </IconButton>
           </Flex>
@@ -110,7 +111,11 @@ export const PopulationPanel = () => {
                   <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
                 </IconButton>
               )}
-              <IconButton onClick={() => handleLockChange(d.zone)} variant="ghost">
+              <IconButton
+                onClick={() => handleLockChange(d.zone)}
+                variant="ghost"
+                disabled={access === 'read'}
+              >
                 {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
               </IconButton>
             </Flex>

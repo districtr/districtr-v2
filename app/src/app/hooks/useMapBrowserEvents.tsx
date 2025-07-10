@@ -3,15 +3,17 @@ import {updateDocumentFromId, updateGetDocumentFromId} from '@utils/api/queries'
 import {jwtDecode} from 'jwt-decode';
 import {sharedDocument} from '@utils/api/mutations';
 import {unlockMapDocument} from '@utils/api/apiHandlers/unlockMapDocument';
-import {useCallback, useEffect} from 'react';
+import {useCallback, useEffect, useRef} from 'react';
 import {useSearchParams} from 'next/navigation';
 import {useVisibilityState} from './useVisibilityState';
+import {FE_UNLOCK_DELAY} from '../utils/api/constants';
 
 export const useMapBrowserEvents = () => {
   // VISIBILITY BEHAVIOR
   const {isVisible} = useVisibilityState();
+  const unloadTimepoutRef = useRef<NodeJS.Timeout | null>(null);
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
-
+  const setPasswordPrompt = useMapStore(state => state.setPasswordPrompt);
   useEffect(() => {
     if (isVisible) {
       // resume temporal states on tab re-focus
@@ -20,14 +22,22 @@ export const useMapBrowserEvents = () => {
       updateDocumentFromId.refetch(); // confirms map lock status on tab re-focus
     } else {
       // prevent temporal states from generating while tab is not visible
+      unloadTimepoutRef.current && clearTimeout(unloadTimepoutRef.current);
       useMapStore.temporal.getState().pause();
       setAppLoadingState('blurred');
       // unlock map doc on blurred
       const documentId = useMapStore.getState().mapDocument?.document_id;
       if (documentId) {
-        unlockMapDocument(documentId);
+        unloadTimepoutRef.current = setTimeout(() => {
+          unlockMapDocument(documentId);
+        }, FE_UNLOCK_DELAY);
       }
     }
+    return () => {
+      if (unloadTimepoutRef.current) {
+        clearTimeout(unloadTimepoutRef.current);
+      }
+    };
   }, [isVisible]);
 
   // SHARE BEHAVIOR
@@ -45,14 +55,19 @@ export const useMapBrowserEvents = () => {
     if (shareToken && !receivedShareToken) {
       const decodedToken = jwtDecode(shareToken);
       setReceivedShareToken((decodedToken as any).token as string);
-      sharedDocument.mutate({
-        token: (decodedToken as any).token as string,
-        password: null,
-        access: (decodedToken as any).access as string,
-        status: (decodedToken as any).status as string,
-      });
+      if ((decodedToken as any)?.password_required) {
+        setPasswordPrompt(true);
+      } else {
+        setReceivedShareToken((decodedToken as any).token as string);
+        sharedDocument.mutate({
+          token: (decodedToken as any).token as string,
+          password: null,
+          access: (decodedToken as any).access as string,
+          status: (decodedToken as any).status as string,
+        });
+      }
     }
-  }, [documentId, shareToken, receivedShareToken, setReceivedShareToken]);
+  }, [documentId, shareToken, receivedShareToken, setReceivedShareToken, setPasswordPrompt]);
 
   // UNLOAD BEHAVIOR
   const handleUnload = useCallback(() => {
