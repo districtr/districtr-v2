@@ -4,8 +4,6 @@ import {getPointSelectionData} from '../utils/api/apiHandlers/getPointSelectionD
 import {BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD, EMPTY_FT_COLLECTION} from '../constants/layers';
 import {useQuery} from '@tanstack/react-query';
 
-
-
 const updateData = async (
   layer: string,
   child: boolean,
@@ -31,7 +29,7 @@ const updateData = async (
     layer,
     columns: ['path', 'x', 'y', 'total_pop_20'],
     filterIds: child ? exposedChildIds : undefined,
-    source: child ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID
+    source: child ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID,
   });
   return new Date().toISOString();
 };
@@ -42,7 +40,11 @@ export const usePointData = (child?: boolean) => {
   const exposedChildIds = useMapStore(state => state.shatterIds.children);
   const layer = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   useQuery({
-    queryKey: ['point-data', layer, child ? JSON.stringify(Array.from(exposedChildIds)) : undefined],
+    queryKey: [
+      'point-data',
+      layer,
+      child ? JSON.stringify(Array.from(exposedChildIds)) : undefined,
+    ],
     queryFn: () => layer && updateData(layer, Boolean(child), exposedChildIds, data),
   });
   return data;
