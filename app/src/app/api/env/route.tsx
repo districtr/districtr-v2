@@ -2,7 +2,6 @@ import {unstable_noStore as noStore} from 'next/cache';
 
 export const GET = async () => {
   noStore();
-  console.log('!!!', process.env.NEXT_PUBLIC_DEBUG_SELECTION_POINTS);
   return new Response(
     JSON.stringify({
       formUrl: process.env.NEXT_PUBLIC_FEEDBACK_FORM ?? null,
