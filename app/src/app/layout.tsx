@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     siteName: 'Districtr 2.0',
     images: [
       {
-        url: 'https://districtr-v2-frontend.fly.dev/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
+        url: 'https://beta.districtr.org/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
         width: 1136,
         height: 423,
       },
