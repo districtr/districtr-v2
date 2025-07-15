@@ -7,7 +7,8 @@ import {shallowCompareArray} from '../utils/helpers';
 import GeometryWorker from '../utils/GeometryWorker';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
-
+import {useGeometryWorkerStore as _useGeometryWorkerStore} from './geometryWorkerStore';
+import {proxy as comlinkProxy} from 'comlink';
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
 // We want to prevent intermediary state changes from being sent to the backend.
@@ -34,7 +35,14 @@ const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapS
 
 const debouncedZoneUpdate = debounce(zoneUpdates, 500);
 
-export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
+export const getMapEditSubs = (
+  useMapStore: typeof _useMapStore,
+  useGeometryWorkerStore: typeof _useGeometryWorkerStore
+) => {
+  // Set callback for geometry worker
+  const setGeometry = useGeometryWorkerStore.getState().setGeometry;
+  GeometryWorker?.setSendDataCallback(comlinkProxy(setGeometry));
+
   const sendZoneUpdatesOnUpdate = useMapStore.subscribe<
     [MapStore['zoneAssignments'], MapStore['appLoadingState']]
   >(

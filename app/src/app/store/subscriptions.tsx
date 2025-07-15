@@ -2,13 +2,14 @@ import {getQueriesResultsSubs} from '../utils/api/queries';
 import {shallowCompareArray} from '../utils/helpers';
 import {useDemographyStore} from './demography/demographyStore';
 import {useFeatureFlagStore} from './featureFlagStore';
+import { useGeometryWorkerStore } from './geometryWorkerStore';
 import {getMapEditSubs} from './mapEditSubs';
 import {MapStore, useMapStore} from './mapStore';
 
 export const initSubs = () => {
   // these need to initialize after the map store
   const querySubs = getQueriesResultsSubs(useMapStore);
-  const mapEditSubs = getMapEditSubs(useMapStore);
+  const mapEditSubs = getMapEditSubs(useMapStore, useGeometryWorkerStore);
 
   const healSub = useMapStore.subscribe<
     [MapStore['mapDocument'], MapStore['shatterIds'], MapStore['appLoadingState']]

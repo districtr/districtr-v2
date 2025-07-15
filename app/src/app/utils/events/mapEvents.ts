@@ -26,7 +26,7 @@ import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/hoverFeatures';
-
+import {transfer as comlinkTransfer} from 'comlink';
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
  MapEvent handling; these functions are called by the event listeners in the MapComponent
@@ -264,9 +264,9 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
   const currentStateFp = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
   currentStateFp && setMapOptions({currentStateFp});
   setMapRenderingState('loaded');
-  if (mapDocument) {
+  if (mapDocument && e.tile.tileID.canonical.z <= 8) {
     GeometryWorker?.loadTileData({
-      tileData: e.tile.latestRawTileData,
+      tileData: comlinkTransfer(e.tile.latestRawTileData, [e.tile.latestRawTileData.buffer]),
       tileID: e.tile.tileID.canonical,
       mapDocument,
       idProp: 'path',

@@ -6,6 +6,8 @@ import GeometryWorker from '@/app/utils/GeometryWorker';
 import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
+import euclideanDistance from '@turf/distance';
+import { useGeometryWorkerStore } from '@/app/store/geometryWorkerStore';
 
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
@@ -17,172 +19,169 @@ export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographi
 };
 
 const PopulationTextLayer = () => {
-  const captiveIds = useMapStore(state => state.captiveIds);
-  const [pointFeatureCollection, setPointFeatureCollection] =
-    useState<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
-  const showBlockPopulationNumbers = useMapStore(
-    state => state.mapOptions.showBlockPopulationNumbers
-  );
-  const showPopulationNumbers = useMapStore(state => state.mapOptions.showPopulationNumbers);
-  const workerUpdateHash = useMapStore(state => state.workerUpdateHash);
-  const demographyHash = useDemographyStore(state => state.dataHash);
+  // const captiveIds = useMapStore(state => state.captiveIds);
+  // const [pointFeatureCollection, setPointFeatureCollection] =
+  //   useState<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
+  // const showBlockPopulationNumbers = useMapStore(
+  //   state => state.mapOptions.showBlockPopulationNumbers
+  // );
+  // const showPopulationNumbers = useMapStore(state => state.mapOptions.showPopulationNumbers);
+  // const workerUpdateHash = useMapStore(state => state.workerUpdateHash);
+  // const demographyHash = useDemographyStore(state => state.dataHash);
 
-  useEffect(() => {
-    const shouldShow =
-      showPopulationNumbers ||
-      showBlockPopulationNumbers ||
-      (showBlockPopulationNumbers && captiveIds.size);
-    if (!shouldShow) {
-      setPointFeatureCollection(EMPTY_FT_COLLECTION);
-      return;
-    }
+  // useEffect(() => {
+  //   const shouldShow =
+  //     showPopulationNumbers ||
+  //     showBlockPopulationNumbers ||
+  //     (showBlockPopulationNumbers && captiveIds.size);
+  //   if (!shouldShow) {
+  //     setPointFeatureCollection(EMPTY_FT_COLLECTION);
+  //     return;
+  //   }
 
-    const idSet: Set<string> = showPopulationNumbers
-      ? new Set(demographyCache.table?.dedupe('path').column('path') ?? [])
-      : captiveIds;
+  //   const idSet: Set<string> = showPopulationNumbers
+  //     ? new Set(demographyCache.table?.dedupe('path').column('path') ?? [])
+  //     : captiveIds;
 
-    const currIds = new Set(pointFeatureCollection.features.map(f => f.properties?.path));
-    const missingIds = Array.from(idSet).filter(id => !currIds.has(id));
-    if (!missingIds.length) {
-      return;
-    }
-    GeometryWorker?.getCentroidsByIds(missingIds).then(data => {
-      setPointFeatureCollection(prev => ({
-        type: 'FeatureCollection',
-        // Filter out old, irrelevant features (eg broken parents)
-        features: [...prev.features.filter(f => idSet.has(f.properties?.path)), ...data.features],
-      }));
-    });
-    // Trigger on captiveIds changes (shatter/break)
-    // Option changes (showBlockPopulationNumbers, showPopulationNumbers)
-    // Data loads to the worker (workerUpdateHash)
-    // Demography data loads (demographyHash)
-  }, [
-    captiveIds,
-    showBlockPopulationNumbers,
-    showPopulationNumbers,
-    workerUpdateHash,
-    demographyHash,
-  ]);
+  //   const currIds = new Set(pointFeatureCollection.features.map(f => f.properties?.path));
+  //   const missingIds = Array.from(idSet).filter(id => !currIds.has(id));
+  //   if (!missingIds.length) {
+  //     return;
+  //   }
+  //   GeometryWorker?.getCentroidsByIds(missingIds).then(data => {
+  //     setPointFeatureCollection(prev => ({
+  //       type: 'FeatureCollection',
+  //       // Filter out old, irrelevant features (eg broken parents)
+  //       features: [...prev.features.filter(f => idSet.has(f.properties?.path)), ...data.features],
+  //     }));
+  //   });
+  //   // Trigger on captiveIds changes (shatter/break)
+  //   // Option changes (showBlockPopulationNumbers, showPopulationNumbers)
+  //   // Data loads to the worker (workerUpdateHash)
+  //   // Demography data loads (demographyHash)
+  // }, [
+  //   captiveIds,
+  //   showBlockPopulationNumbers,
+  //   showPopulationNumbers,
+  //   workerUpdateHash,
+  //   demographyHash,
+  // ]);
 
-  if (
-    !showPopulationNumbers &&
-    (!showBlockPopulationNumbers || !pointFeatureCollection.features.length || !captiveIds.size)
-  ) {
-    return null;
-  }
+  // if (
+  //   !showPopulationNumbers &&
+  //   (!showBlockPopulationNumbers || !pointFeatureCollection.features.length || !captiveIds.size)
+  // ) {
+  //   return null;
+  // }
 
-  return (
-    <Source id="population-text" type="geojson" data={pointFeatureCollection}>
-      <Layer
-        id="POPULATION_TEXT"
-        type="symbol"
-        source="POPULATION_TEXT"
-        layout={{
-          'text-field': ['get', 'total_pop_20'],
-          'text-font': ['Barlow Bold'],
-          'text-size': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            0,
-            0,
-            10, // z 10 font 8
-            8,
-            12,
-            12,
-            14,
-            14, // At zoom level 18, text size is 18
-          ],
-          'text-anchor': 'center',
-          'text-offset': [0, 0],
-          // padding
-          'text-padding': 0,
-          'text-allow-overlap': ['step', ['zoom'], false, 12, true],
-        }}
-        paint={{
-          'text-color': '#000',
-          'text-halo-color': '#fff',
-          'text-halo-width': 2,
-        }}
-      ></Layer>
-    </Source>
-  );
+  // return (
+  //   <Source id="population-text" type="geojson" data={pointFeatureCollection}>
+  //     <Layer
+  //       id="POPULATION_TEXT"
+  //       type="symbol"
+  //       source="POPULATION_TEXT"
+  //       layout={{
+  //         'text-field': ['get', 'total_pop_20'],
+  //         'text-font': ['Barlow Bold'],
+  //         'text-size': [
+  //           'interpolate',
+  //           ['linear'],
+  //           ['zoom'],
+  //           0,
+  //           0,
+  //           10, // z 10 font 8
+  //           8,
+  //           12,
+  //           12,
+  //           14,
+  //           14, // At zoom level 18, text size is 18
+  //         ],
+  //         'text-anchor': 'center',
+  //         'text-offset': [0, 0],
+  //         // padding
+  //         'text-padding': 0,
+  //         'text-allow-overlap': ['step', ['zoom'], false, 12, true],
+  //       }}
+  //       paint={{
+  //         'text-color': '#000',
+  //         'text-halo-color': '#fff',
+  //         'text-halo-width': 2,
+  //       }}
+  //     ></Layer>
+  //   </Source>
+  // );
+  return null;
 };
 
 const ZoneNumbersLayer = () => {
+  // SETTINGS
   const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
   const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
-  const zoneAssignments = useMapStore(state => state.zoneAssignments);
   const colorScheme = useMapStore(state => state.colorScheme);
-  const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
-  const getMapRef = useMapStore(state => state.getMapRef);
   const lockedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
-  const [zoneNumberData, setZoneNumberData] =
-    useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
-  const [outlineData, setOutlineData] = useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
-  const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
-  const mapRenderingState = useMapStore(state => state.mapRenderingState);
-  const appLoadingState = useMapStore(state => state.appLoadingState);
   const shouldHide = useMapStore(
     state => state.mapOptions.showBlockPopulationNumbers && state.focusFeatures.length
   );
 
-  const addZoneMetaLayers = async () => {
-    const showZoneNumbers = useMapStore.getState().mapOptions.showZoneNumbers;
-    const id = `${mapDocumentId}`;
-    if (showZoneNumbers) {
-      const geoms = await getDissolved();
-      if (geoms && mapDocumentId === id) {
-        setZoneNumberData(geoms.centroids);
-        setOutlineData(geoms.dissolved);
-      }
-    } else {
-      setZoneNumberData(EMPTY_FT_COLLECTION);
-    }
-  };
+  // MAP REF
+  const getMapRef = useMapStore(state => state.getMapRef);
 
-  const handleUpdate = () => {
-    if (!updateTimeout.current) {
-      addZoneMetaLayers();
-      updateTimeout.current = setTimeout(() => {
-        updateTimeout.current = null;
-      }, 100);
-    }
-  };
+  // DATA FROM WORKER
+  const outlineData = useGeometryWorkerStore(state => state.outlines);
+  const centroidData = useGeometryWorkerStore(state => state.centroids);
 
-  useLayoutEffect(handleUpdate, [
-    showZoneNumbers,
-    zoneAssignments,
-    mapRenderingState,
-    appLoadingState,
-  ]);
+
+  const updateViewbox = () => {
+    const currentView = getMapRef()?.getBounds();
+    if (!currentView) return;
+    GeometryWorker?.updateViewbox([
+      currentView.getWest(),
+      currentView.getSouth(),
+      currentView.getEast(),
+      currentView.getNorth(),
+    ]);
+  }
 
   useEffect(() => {
     const map = getMapRef();
     if (map) {
       map.loadImage('/lock.png').then(image => map.addImage('lock', image.data));
-      map.on('moveend', handleUpdate);
-      map.on('zoomend', handleUpdate);
+      map.on('moveend', updateViewbox);
+      map.on('zoomend', updateViewbox);
+      map.on('idle', updateViewbox);
     }
     return () => {
       if (map) {
-        map.off('moveend', handleUpdate);
-        map.off('zoomend', handleUpdate);
+        map.off('moveend', updateViewbox);
+        map.off('zoomend', updateViewbox);
+        map.off('idle', updateViewbox);
       }
     };
   }, [getMapRef]);
 
-  useEffect(() => {
-    setZoneNumberData(EMPTY_FT_COLLECTION);
-  }, [mapDocumentId]);
-
   if (!showZoneNumbers || !showPaintedDistricts) {
     return null;
   }
+  window.outlineData = outlineData;
+  window.centroidData = centroidData;
+  
   return (
     <>
-      <Source id="zone-label" type="geojson" data={zoneNumberData}>
+    <Source id="zone-outline" type="geojson" data={outlineData}>
+      <Layer
+        id="ZONE_OUTLINE_BORDER"
+        type="line"
+        source="zone-outline"
+        layout={{
+          visibility: shouldHide ? 'none' : 'visible',
+        }}
+        paint={{
+          'line-color': ZONE_LABEL_STYLE(colorScheme) || '#000',
+          'line-width': 2,
+        }}
+      ></Layer>
+    </Source>
+      <Source id="zone-label" type="geojson" data={centroidData}>
         <Layer
           id="ZONE_LABEL_BG"
           type="circle"
@@ -271,20 +270,6 @@ const ZoneNumbersLayer = () => {
             // get zone not in lockedAreas
             ['in', ['get', 'zone'], ['literal', lockedAreas]]
           }
-        ></Layer>
-      </Source>
-      <Source id="zone-outline" type="geojson" data={outlineData}>
-        <Layer
-          id="ZONE_OUTLINE_BORDER"
-          type="line"
-          source="zone-outline"
-          layout={{
-            visibility: shouldHide ? 'none' : 'visible',
-          }}
-          paint={{
-            'line-color': '#000',
-            'line-width': 10,
-          }}
         ></Layer>
       </Source>
     </>
