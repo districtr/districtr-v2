@@ -37,7 +37,11 @@ export type GeometryWorkerClass = {
   busy: boolean;
   geoOperationsTimeout: ReturnType<typeof setTimeout> | null;
 
-  debouncedRunGeoOperations: (runAll?: boolean, debounce?: number) => void;
+  debouncedRunGeoOperations: (
+    runAll?: boolean,
+    debounce?: number,
+    context?: GeometryWorkerClass
+  ) => void;
   runGeoOperations: (runAll?: boolean) => void;
   sendDataToMainThread:
     | ((data: {

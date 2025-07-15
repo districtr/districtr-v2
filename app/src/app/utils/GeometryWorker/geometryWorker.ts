@@ -376,8 +376,8 @@ const GeometryWorker: GeometryWorkerClass = {
           .filter(dc => dc.to === feature.properties?.zone)
           .forEach(dc => {
             if (!dc.geometry) return;
-            // @ts-expect-error
             const newGeometry = difference(
+              // @ts-expect-error
               featureCollection([feature, featureHelper(dc.geometry)])
             );
             // @ts-expect-error
@@ -400,6 +400,7 @@ const GeometryWorker: GeometryWorkerClass = {
     // buffer features to clean up
     // @ts-expect-error
     features = features.map(f =>
+      // @ts-expect-error
       buffer(buffer(f, 500, {units: 'meters'}), -500, {units: 'meters'})
     );
     this.zoneMasses = featureCollection(features);
