@@ -50,6 +50,13 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
   return child_layer ? [BLOCK_HOVER_LAYER_ID, BLOCK_HOVER_LAYER_ID_CHILD] : [BLOCK_HOVER_LAYER_ID];
 }
 
+export const updateWorkerViewbox = (e: maplibregl.MapLibreZoomEvent) => {
+  const mapRef = e.target;
+  const viewBox = mapRef.getBounds();
+  const bounds = [viewBox.getWest(), viewBox.getSouth(), viewBox.getEast(), viewBox.getNorth()];
+  GeometryWorker?.updateViewbox(bounds);
+};
+
 /**
  * What happens when the map is clicked on; incomplete implementation
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
@@ -188,27 +195,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
 
 export const handleMapZoom = (e: ViewStateChangeEvent) => {};
 
-export const handleMapIdle = (e: maplibregl.MapLibreEvent) => {
-  const mapRef = e.target;
-  const layers = mapRef.getStyle().layers;
-  const layerNames = layers.map(l => l.id);
-
-  const mapDocument = useMapStore.getState().mapDocument;
-  const currentZoom = e.target.getZoom();
-};
-
-export const handleMapMoveEnd = (e: maplibregl.MapLibreZoomEvent) => {
-  const mapRef = e.target;
-  const viewBox = mapRef.getBounds();
-  const bounds = [viewBox.getWest(), viewBox.getSouth(), viewBox.getEast(), viewBox.getNorth()];
-  try {
-    GeometryWorker?.updateViewbox(bounds);
-  } catch (e) {
-    console.log('!!!Error updating viewbox', e);
-  }
-};
-
-export const handleMapZoomEnd = (e: ViewStateChangeEvent) => {};
+export const handleMapIdle = (e: maplibregl.MapLibreEvent) => {};
 
 export const handleResetMapSelectState = (map: MapLibreMap | null) => {
   const mapStore = useMapStore.getState();
@@ -292,8 +279,8 @@ export const mapEventHandlers = {
   onMouseMove: handleMapMouseMove,
   onZoom: handleMapZoom,
   onIdle: handleMapIdle,
-  onMoveEnd: handleMapMoveEnd,
-  onZoomEnd: handleMapZoomEnd,
+  onMoveEnd: updateWorkerViewbox,
+  onZoomEnd: updateWorkerViewbox,
   onContextMenu: handleMapContextMenu,
   onData: handleDataLoad,
 } as const;

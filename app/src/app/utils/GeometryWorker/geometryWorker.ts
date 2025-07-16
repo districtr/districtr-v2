@@ -1,7 +1,7 @@
 import {expose} from 'comlink';
 import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
-import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
+import {GeometryWorkerClass, MinGeoJSONFeature, SendDataToMainThread} from './geometryWorker.types';
 import bboxClip from '@turf/bbox-clip';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import bbox from '@turf/bbox';
@@ -13,84 +13,23 @@ import buffer from '@turf/buffer';
 import {featureCollection, feature as featureHelper} from '@turf/helpers';
 import {randomPoint} from '@turf/random';
 import difference from '@turf/difference';
-
-const GEO_OPERATION_TIMEOUT = 1000;
-const GEO_OPERATION_DEBOUNCE_SHORT = 100;
-const MAX_CENTROID_RETRIES = 1000;
-/**
- * Round a single number to the nearest multiple of 1/factor.
- */
-const qValue = (v: number, factor: number) => Math.round(v * factor) / factor;
-
-/**
- * Recursively quantise any GeoJSON coordinate array.
- * Handles Point, LineString, Polygon, Multi* the same way.
- */
-const qCoords = (coords: any, factor: number): any =>
-  typeof coords[0] === 'number'
-    ? coords.map((d: number) => qValue(d, factor))
-    : coords.map((c: any) => qCoords(c, factor));
+import {
+  quantizeGeoJSON,
+  recursiveFindNotArray,
+  explodeMultiPolygonToPolygons,
+  GEO_OPERATION_DEBOUNCE_SHORT,
+  MAX_CENTROID_RETRIES,
+  GEO_CLEANUP_BUFFER_IN_M,
+  GEO_OPERATION_TIMEOUT,
+} from './workerUtilts';
 
 /**
- * Quantise a GeoJSON geometry object (in-place copy).
+ * This is a global function to send data back to the main thread state.
+ *
+ * This must be global because comlink, scope, and structured cloning
+ * do not play nicely together with a callback from the main thread.
  */
-const qGeometry = (geom: GeoJSON.Geometry, factor: number): GeoJSON.Geometry => ({
-  ...geom,
-  // @ts-expect-error
-  coordinates: qCoords(geom.coordinates, factor),
-});
-
-/**
- * Quantise a single Feature or an entire FeatureCollection.
- * Anything else is returned unchanged.
- */
-export const quantizeGeoJSON = <T extends GeoJSON.GeoJsonObject>(
-  input: T,
-  factor: number = 1e5 // default ≈ 1-m grid
-): T => {
-  if (input.type === 'Feature') {
-    // @ts-expect-error
-    const f = input as GeoJSON.Feature;
-    // @ts-expect-error
-    return {
-      ...f,
-      geometry: qGeometry(f.geometry, factor),
-    } as T;
-  }
-
-  if (input.type === 'FeatureCollection') {
-    // @ts-expect-error
-    const fc = input as GeoJSON.FeatureCollection;
-    // @ts-expect-error
-    return {
-      ...fc,
-      features: fc.features.map(f => ({
-        ...f,
-        geometry: qGeometry(f.geometry, factor),
-      })),
-    } as T;
-  }
-
-  // Geometry object passed directly
-  if ('coordinates' in input) {
-    // @ts-expect-error
-    return qGeometry(input as GeoJSON.Geometry, factor) as T;
-  }
-
-  return input; // Unsupported object (e.g. Topology) – leave unchanged
-};
-
-const explodeMultiPolygonToPolygons = (
-  feature: GeoJSON.MultiPolygon
-): Array<GeoJSON.Feature<GeoJSON.Polygon>> => {
-  return feature.coordinates.map(coords => ({
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: coords,
-    },
-  })) as Array<GeoJSON.Feature<GeoJSON.Polygon>>;
-};
+let sendDataToMainThread: SendDataToMainThread = null;
 
 const GeometryWorker: GeometryWorkerClass = {
   geometries: {},
@@ -102,7 +41,7 @@ const GeometryWorker: GeometryWorkerClass = {
   },
 
   zoneAssignments: {},
-  zoneUpdateLog: {},
+  zonesChanged: new Set<number>(),
   zoneMasses: null,
 
   loadedTiles: new Set<string>(),
@@ -116,16 +55,14 @@ const GeometryWorker: GeometryWorkerClass = {
         ? ([...bounds] as [number, number, number, number])
         : null;
     this.shouldGenerateCentroids = true;
-    // console.log("!!!Running geo operations from updateViewbox")
     this.debouncedRunGeoOperations(true);
   },
   busy: false,
   shouldGenerateOutlines: false,
   shouldGenerateCentroids: false,
   geoOperationsTimeout: null,
-  sendDataToMainThread: null,
   setSendDataCallback(callback) {
-    this.sendDataToMainThread = callback;
+    sendDataToMainThread = callback;
   },
   getGeos() {
     return {
@@ -133,14 +70,13 @@ const GeometryWorker: GeometryWorkerClass = {
       features: Object.values(this.activeGeometries),
     };
   },
-  debouncedRunGeoOperations: (
+  debouncedRunGeoOperations(
     runAll: boolean = false,
-    debounce: number = GEO_OPERATION_DEBOUNCE_SHORT,
-    context: typeof GeometryWorker = GeometryWorker
-  ) => {
-    context.geoOperationsTimeout && clearTimeout(context.geoOperationsTimeout);
-    context.geoOperationsTimeout = setTimeout(() => {
-      context.runGeoOperations.apply(context, [runAll]);
+    debounce: number = GEO_OPERATION_DEBOUNCE_SHORT
+  ) {
+    this.geoOperationsTimeout && clearTimeout(this.geoOperationsTimeout);
+    this.geoOperationsTimeout = setTimeout(() => {
+      this.runGeoOperations(runAll);
     }, debounce);
   },
   runGeoOperations(runAll: boolean = false) {
@@ -150,20 +86,16 @@ const GeometryWorker: GeometryWorkerClass = {
     }
     if (!this.shouldGenerateOutlines && !this.shouldGenerateCentroids) return;
     if (this.busy) {
-      console.log('!!!Busy at runGeoOperations');
-      this.debouncedRunGeoOperations(false, GEO_OPERATION_TIMEOUT);
-      this.busy = false;
+      this.debouncedRunGeoOperations(runAll);
       return;
     }
     this.busy = true;
     if (this.shouldGenerateOutlines) {
       const response = this.updateMasses();
       if (response.ok) {
-        console.log('!!!Sending outlines to main thread', response.data);
-        this.sendDataToMainThread?.({outlines: response.data});
+        sendDataToMainThread?.({outlines: response.data});
         this.shouldGenerateOutlines = false;
       } else {
-        this.debouncedRunGeoOperations(false, GEO_OPERATION_TIMEOUT);
         this.busy = false;
         return;
       }
@@ -171,11 +103,9 @@ const GeometryWorker: GeometryWorkerClass = {
     if (this.shouldGenerateCentroids) {
       const response = this.updateCentroids();
       if (response.ok) {
-        console.log('!!!Sending centroids to main thread', response.data);
-        this.sendDataToMainThread?.({centroids: response.data});
+        sendDataToMainThread?.({centroids: response.data});
         this.shouldGenerateCentroids = false;
       } else {
-        this.debouncedRunGeoOperations(false, GEO_OPERATION_TIMEOUT);
         this.busy = false;
         return;
       }
@@ -183,22 +113,18 @@ const GeometryWorker: GeometryWorkerClass = {
     this.busy = false;
   },
   updateZones(entries) {
-    this.busy = true;
     entries.forEach(([id, zone]) => {
       if (this.zoneAssignments[id] !== zone) {
-        const shouldUpdatePrevious =
-          this.zoneMasses && typeof this.zoneAssignments[id] === 'number';
-        shouldUpdatePrevious &&
-          (this.zoneUpdateLog[id] = {
-            from: this.zoneAssignments[id],
-            to: zone,
-          });
+        if (this.zoneMasses?.features?.length) {
+          this.zonesChanged.add(zone);
+          if (this.zoneAssignments[id]) {
+            this.zonesChanged.add(this.zoneAssignments[id]);
+          }
+        }
         this.zoneAssignments[id as string] = zone as number;
       }
     });
-    this.busy = false;
-    if (Object.keys(this.zoneUpdateLog).length || !this.zoneMasses) {
-      // console.log("!!!Running geo operations from zone updates")
+    if (this.zonesChanged.size || !this.zoneMasses) {
       this.debouncedRunGeoOperations(true);
     }
   },
@@ -242,11 +168,7 @@ const GeometryWorker: GeometryWorkerClass = {
     const tileKey = `${tileID.x}-${tileID.y}-${tileID.z}`;
     if (this.loadedTiles.has(tileKey)) return;
     this.busy = true;
-    if (this.geoOperationsTimeout) {
-      clearTimeout(this.geoOperationsTimeout);
-      console.log('!!!Cleared geo operations timeout');
-    }
-    const returnData = [];
+    this.geoOperationsTimeout && clearTimeout(this.geoOperationsTimeout);
     const tile = new VectorTile(new Protobuf(tileData));
     // Iterate through each layer in the tile
     const parentLayer = mapDocument.parent_layer;
@@ -268,10 +190,7 @@ const GeometryWorker: GeometryWorkerClass = {
         const zoomDiff = previousFeature?.zoom && tileID.z - previousFeature.zoom;
         if (zoomDiff && zoomDiff < 0) continue;
 
-        let geojsonFeature: any = quantizeGeoJSON(
-          feature.toGeoJSON(tileID.x, tileID.y, tileID.z),
-          1e4
-        );
+        let geojsonFeature: any = quantizeGeoJSON(feature.toGeoJSON(tileID.x, tileID.y, tileID.z));
 
         try {
           if (previousFeature?.geometry && geojsonFeature?.geometry) {
@@ -294,128 +213,84 @@ const GeometryWorker: GeometryWorkerClass = {
           (!isParent && this.shatterIds.children.includes(id))
         ) {
           this.activeGeometries[id] = geojsonFeature;
-          returnData.push({
-            id,
-            properties: feature.properties,
-            sourceLayer: layerName,
-          } as unknown as MinGeoJSONFeature);
         }
       }
     }
     this.busy = false;
     this.loadedTiles.add(tileKey);
-    console.log('!!!Running geo operations from loadTileData');
-    // In a worker thread, 'this' context can be tricky. Call the debounced function directly.
-
-    this.debouncedRunGeoOperations(true, GEO_OPERATION_TIMEOUT, this);
+    this.zoneMasses = null;
+    this.zonesChanged.clear();
+    this.debouncedRunGeoOperations(true, GEO_OPERATION_TIMEOUT);
   },
   updateMasses() {
-    if (!this.sendDataToMainThread) {
+    if (!sendDataToMainThread) {
       return {
         ok: false,
         error: 'No send data callback set',
       };
     }
-    let features: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[] = [];
-
-    if (!this.zoneMasses) {
-      const featuresToDissolve: Record<number, GeoJSON.Feature[]> = {};
-      console.log('!!!Getting geos from getGeos', this.getGeos().features.length);
-      this.getGeos().features.forEach((f, i) => {
-        const zone = this.zoneAssignments[f.properties?.path];
-        if (zone === null || zone === undefined) return;
-        if (!featuresToDissolve[zone]) {
-          featuresToDissolve[zone] = [];
+    let features: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[] = [
+      ...(this.zoneMasses?.features?.filter(f => !this.zonesChanged.has(f.properties?.zone)) ?? []),
+    ];
+    const currentZones = new Set(features.map(f => f.properties?.zone));
+    const featuresToDissolve: Record<number, GeoJSON.Feature[]> = {};
+    this.getGeos().features.forEach((f, i) => {
+      const zone = this.zoneAssignments[f.properties?.path];
+      if (zone === null || zone === undefined) return;
+      if (this.zonesChanged.size && !this.zonesChanged.has(zone)) return;
+      if (currentZones.has(zone)) return;
+      if (!featuresToDissolve[zone]) {
+        featuresToDissolve[zone] = [];
+      }
+      featuresToDissolve[zone].push(f);
+    });
+    const unionedFeatures = Object.entries(featuresToDissolve)
+      .map(([zone, features]) => {
+        const fc = featureCollection(features as GeoJSON.Feature<GeoJSON.Polygon>[]);
+        const unioned = features.length === 1 ? features[0] : union(fc);
+        if (!unioned?.geometry) {
+          console.error('No geometry found for unioned features', fc);
+          return null;
         }
-        featuresToDissolve[zone].push(f);
-      });
-
-      const unionedFeatures = Object.entries(featuresToDissolve).map(([zone, features]) => {
-        let unioned = union({
-          type: 'FeatureCollection',
-          features: features as GeoJSON.Feature<GeoJSON.Polygon>[],
-        });
         return {
           type: 'Feature',
           properties: {
             zone: +zone,
           },
-          geometry: unioned?.geometry,
+          geometry: unioned.geometry,
         } as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
-      });
-      features = unionedFeatures;
-    } else if (Object.keys(this.zoneUpdateLog).length) {
-      const differenceCollections: Array<{
-        from: number;
-        to: number;
-        features: Array<MinGeoJSONFeature>;
-      }> = [];
-      Object.entries(this.zoneUpdateLog).forEach(([id, {from, to}]) => {
-        const geometry = this.geometries[id];
-        if (!geometry) return;
-        const differenceCollectionIdx = differenceCollections.findIndex(dc => dc.from === from);
-        if (differenceCollectionIdx === -1) {
-          differenceCollections.push({
-            from,
-            to,
-            features: [geometry],
-          });
-        } else {
-          differenceCollections[differenceCollectionIdx].features.push(geometry);
+      })
+      .filter(f => f !== null);
+    unionedFeatures.forEach(f => {
+      const buffered = buffer(
+        buffer(f, GEO_CLEANUP_BUFFER_IN_M, {units: 'meters'}),
+        -GEO_CLEANUP_BUFFER_IN_M,
+        {
+          units: 'meters',
         }
-      });
-
-      this.zoneUpdateLog = {};
-      const differenceUnioned = differenceCollections.map(dc => {
-        // @ts-expect-error
-        const unioned = union(featureCollection(dc.features));
-        return {
-          from: dc.from,
-          to: dc.to,
-          geometry: unioned,
-        };
-      });
-      features = this.zoneMasses.features.map(_feature => {
-        let feature = structuredClone(_feature);
-        differenceUnioned
-          .filter(dc => dc.to === feature.properties?.zone)
-          .forEach(dc => {
-            if (!dc.geometry) return;
-            const newGeometry = difference(
-              // @ts-expect-error
-              featureCollection([feature, featureHelper(dc.geometry)])
-            );
-            // @ts-expect-error
-            feature.geometry = newGeometry?.geometry;
-          });
-        differenceUnioned
-          .filter(dc => dc.from === feature.properties?.zone)
-          .forEach(dc => {
-            if (!dc.geometry) return;
-            // @ts-expect-error
-            const newGeometry = union(featureCollection([feature, featureHelper(dc.geometry)]));
-            // @ts-expect-error
-            feature.geometry = newGeometry?.geometry;
-          });
-        return feature;
-      });
-    } else {
-      features = this.zoneMasses.features;
-    }
+      );
+      if (buffered) {
+        buffered.properties = f.properties;
+        features.push(buffered);
+      }
+    });
     // buffer features to clean up
-    // @ts-expect-error
-    features = features.map(f =>
-      // @ts-expect-error
-      buffer(buffer(f, 500, {units: 'meters'}), -500, {units: 'meters'})
-    );
-    this.zoneMasses = featureCollection(features);
-    return {
-      ok: true,
-      data: this.zoneMasses,
-    };
+    if (features.length === 0) {
+      return {
+        ok: false,
+        error: 'No features to update',
+      };
+    } else {
+      this.zoneMasses = featureCollection(features);
+      this.zonesChanged.clear();
+      return {
+        ok: true,
+        data: this.zoneMasses,
+      };
+    }
   },
   updateCentroids() {
-    if (!this.sendDataToMainThread || !this.zoneMasses) {
+    if (!sendDataToMainThread || !this.zoneMasses) {
       return {
         ok: false,
         error: 'No send data callback set or no zone masses',
@@ -426,12 +301,11 @@ const GeometryWorker: GeometryWorkerClass = {
       const geometry = this.viewbox
         ? bboxClip(_geo, this.viewbox)
         : (_geo as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>);
-      try {
-        const centroid = centerOfMass(geometry);
-      } catch (e) {
-        console.error('Error calculating centroid', e);
+      const geometryIsValid = recursiveFindNotArray(geometry.geometry.coordinates);
+      if (!geometryIsValid) {
         return;
       }
+
       const centroid = centerOfMass(geometry);
       if (!centroid) {
         console.error('No centroid found for geometry', _geo);

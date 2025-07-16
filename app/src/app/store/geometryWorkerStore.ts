@@ -15,7 +15,6 @@ export const useGeometryWorkerStore = create<GeometryWorkerStore>((set, get) => 
     centroids: EMPTY_FT_COLLECTION,
     outlines: EMPTY_FT_COLLECTION,
     setGeometry: data => {
-      console.log('!!!SET GEOMETRY', data);
       const {centroids, outlines} = get();
       set({
         centroids: data.centroids ?? centroids,

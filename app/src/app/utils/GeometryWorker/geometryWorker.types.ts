@@ -2,6 +2,9 @@ import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
 import {DocumentObject} from '../api/apiHandlers/types';
 
 export type CentroidReturn = GeoJSON.FeatureCollection<GeoJSON.Point>;
+export type SendDataToMainThread =
+  | ((data: {outlines?: GeoJSON.FeatureCollection; centroids?: GeoJSON.FeatureCollection}) => void)
+  | null;
 export type MinGeoJSONFeature = Pick<
   MapGeoJSONFeature,
   'type' | 'geometry' | 'properties' | 'sourceLayer'
@@ -43,27 +46,15 @@ export type GeometryWorkerClass = {
     context?: GeometryWorkerClass
   ) => void;
   runGeoOperations: (runAll?: boolean) => void;
-  sendDataToMainThread:
-    | ((data: {
-        outlines?: GeoJSON.FeatureCollection;
-        centroids?: GeoJSON.FeatureCollection;
-      }) => void)
-    | null;
-  setSendDataCallback: (callback: GeometryWorkerClass['sendDataToMainThread']) => void;
+  setSendDataCallback: (callback: SendDataToMainThread) => void;
 
   zoneAssignments: Record<string, number>;
+  zonesChanged: Set<number>;
   /**
    * Updates the zone assignments of the geometries.
    * @param entries - An array of [id, zone] pairs to update.
    */
   updateZones: (entries: Array<[string, number]>) => void;
-  zoneUpdateLog: Record<
-    string,
-    {
-      from: number;
-      to: number;
-    }
-  >;
 
   viewbox: [number, number, number, number] | null;
   updateViewbox: (bounds: number[]) => void;

@@ -51,7 +51,7 @@ export const getMapEditSubs = (
       if (appLoadingState === 'blurred' || !allowSendZoneUpdates) return;
       // Update GeometryWorker on first render
       const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
-      GeometryWorker?.updateZones(zoneEntries);
+      GeometryWorker?.updateZones(zoneEntries as [string, number][]);
       // Update caches / workers
       demographyCache.updatePopulations(zoneAssignments);
       // If previously not loaded, this is the initial render
