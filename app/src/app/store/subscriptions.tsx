@@ -2,7 +2,7 @@ import {getQueriesResultsSubs} from '../utils/api/queries';
 import {shallowCompareArray} from '../utils/helpers';
 import {useDemographyStore} from './demography/demographyStore';
 import {useFeatureFlagStore} from './featureFlagStore';
-import { useGeometryWorkerStore } from './geometryWorkerStore';
+import {useGeometryWorkerStore} from './geometryWorkerStore';
 import {getMapEditSubs} from './mapEditSubs';
 import {MapStore, useMapStore} from './mapStore';
 

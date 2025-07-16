@@ -195,9 +195,6 @@ export const handleMapIdle = (e: maplibregl.MapLibreEvent) => {
 
   const mapDocument = useMapStore.getState().mapDocument;
   const currentZoom = e.target.getZoom();
-  if (GeometryWorker && mapDocument) {
-    GeometryWorker.setMaxParentZoom(currentZoom);
-  }
 };
 
 export const handleMapMoveEnd = () => {};
