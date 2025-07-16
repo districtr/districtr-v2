@@ -66,7 +66,7 @@ export type GeometryWorkerClass = {
   >;
 
   viewbox: [number, number, number, number] | null;
-  updateViewbox: (bounds: [number, number, number, number]) => void;
+  updateViewbox: (bounds: number[]) => void;
 
   handleShatterHeal: (data: {parents: string[]; children: string[]}) => void;
   loadedTiles: Set<string>;

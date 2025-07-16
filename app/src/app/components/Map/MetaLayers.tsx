@@ -123,47 +123,14 @@ const ZoneNumbersLayer = () => {
     state => state.mapOptions.showBlockPopulationNumbers && state.focusFeatures.length
   );
 
-  // MAP REF
-  const getMapRef = useMapStore(state => state.getMapRef);
 
   // DATA FROM WORKER
   const outlineData = useGeometryWorkerStore(state => state.outlines);
   const centroidData = useGeometryWorkerStore(state => state.centroids);
 
-
-  const updateViewbox = () => {
-    const currentView = getMapRef()?.getBounds();
-    if (!currentView) return;
-    GeometryWorker?.updateViewbox([
-      currentView.getWest(),
-      currentView.getSouth(),
-      currentView.getEast(),
-      currentView.getNorth(),
-    ]);
-  }
-
-  useEffect(() => {
-    const map = getMapRef();
-    if (map) {
-      map.loadImage('/lock.png').then(image => map.addImage('lock', image.data));
-      map.on('moveend', updateViewbox);
-      map.on('zoomend', updateViewbox);
-      map.on('idle', updateViewbox);
-    }
-    return () => {
-      if (map) {
-        map.off('moveend', updateViewbox);
-        map.off('zoomend', updateViewbox);
-        map.off('idle', updateViewbox);
-      }
-    };
-  }, [getMapRef]);
-
   if (!showZoneNumbers || !showPaintedDistricts) {
     return null;
   }
-  window.outlineData = outlineData;
-  window.centroidData = centroidData;
   
   return (
     <>

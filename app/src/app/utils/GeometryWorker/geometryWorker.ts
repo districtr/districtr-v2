@@ -110,10 +110,14 @@ const GeometryWorker: GeometryWorkerClass = {
   viewbox: null,
 
   updateViewbox(bounds) {
-    this.viewbox = bounds;
+    // Defensive copy to avoid issues with structured cloning (DataCloneError)
+    this.viewbox =
+      Array.isArray(bounds) && bounds.length === 4
+        ? ([...bounds] as [number, number, number, number])
+        : null;
     this.shouldGenerateCentroids = true;
     // console.log("!!!Running geo operations from updateViewbox")
-    // this.debouncedRunGeoOperations(true);
+    this.debouncedRunGeoOperations(true);
   },
   busy: false,
   shouldGenerateOutlines: false,
@@ -147,7 +151,7 @@ const GeometryWorker: GeometryWorkerClass = {
     if (!this.shouldGenerateOutlines && !this.shouldGenerateCentroids) return;
     if (this.busy) {
       console.log('!!!Busy at runGeoOperations');
-      // this.debouncedRunGeoOperations(false, GEO_OPERATION_TIMEOUT);
+      this.debouncedRunGeoOperations(false, GEO_OPERATION_TIMEOUT);
       this.busy = false;
       return;
     }
@@ -155,11 +159,11 @@ const GeometryWorker: GeometryWorkerClass = {
     if (this.shouldGenerateOutlines) {
       const response = this.updateMasses();
       if (response.ok) {
-        console.log('!!!Sending outlines to main thread', response.data, this);
+        console.log('!!!Sending outlines to main thread', response.data);
         this.sendDataToMainThread?.({outlines: response.data});
         this.shouldGenerateOutlines = false;
       } else {
-        // this.debouncedRunGeoOperations(false, GEO_OPERATION_TIMEOUT);
+        this.debouncedRunGeoOperations(false, GEO_OPERATION_TIMEOUT);
         this.busy = false;
         return;
       }
@@ -167,10 +171,11 @@ const GeometryWorker: GeometryWorkerClass = {
     if (this.shouldGenerateCentroids) {
       const response = this.updateCentroids();
       if (response.ok) {
+        console.log('!!!Sending centroids to main thread', response.data);
         this.sendDataToMainThread?.({centroids: response.data});
         this.shouldGenerateCentroids = false;
       } else {
-        // this.debouncedRunGeoOperations(false, GEO_OPERATION_TIMEOUT);
+        this.debouncedRunGeoOperations(false, GEO_OPERATION_TIMEOUT);
         this.busy = false;
         return;
       }
@@ -194,7 +199,7 @@ const GeometryWorker: GeometryWorkerClass = {
     this.busy = false;
     if (Object.keys(this.zoneUpdateLog).length || !this.zoneMasses) {
       // console.log("!!!Running geo operations from zone updates")
-      // this.debouncedRunGeoOperations(true);
+      this.debouncedRunGeoOperations(true);
     }
   },
   handleShatterHeal({parents, children}) {
@@ -421,6 +426,12 @@ const GeometryWorker: GeometryWorkerClass = {
       const geometry = this.viewbox
         ? bboxClip(_geo, this.viewbox)
         : (_geo as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>);
+      try {
+        const centroid = centerOfMass(geometry);
+      } catch (e) {
+        console.error('Error calculating centroid', e);
+        return;
+      }
       const centroid = centerOfMass(geometry);
       if (!centroid) {
         console.error('No centroid found for geometry', _geo);

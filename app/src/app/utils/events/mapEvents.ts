@@ -197,7 +197,16 @@ export const handleMapIdle = (e: maplibregl.MapLibreEvent) => {
   const currentZoom = e.target.getZoom();
 };
 
-export const handleMapMoveEnd = () => {};
+export const handleMapMoveEnd = (e: maplibregl.MapLibreZoomEvent) => {
+  const mapRef = e.target;
+  const viewBox = mapRef.getBounds();
+  const bounds = [viewBox.getWest(), viewBox.getSouth(), viewBox.getEast(), viewBox.getNorth()];
+  try {
+    GeometryWorker?.updateViewbox(bounds);
+  } catch (e) {
+    console.log('!!!Error updating viewbox', e);
+  }
+};
 
 export const handleMapZoomEnd = (e: ViewStateChangeEvent) => {};
 
