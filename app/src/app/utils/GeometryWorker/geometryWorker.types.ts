@@ -1,16 +1,20 @@
-import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
+import {LngLatBoundsLike} from 'maplibre-gl';
 import {DocumentObject} from '../api/apiHandlers/types';
+import {type geos as GeosType} from 'geos-wasm';
 
 export type CentroidReturn = GeoJSON.FeatureCollection<GeoJSON.Point>;
 export type SendDataToMainThread =
   | ((data: {outlines?: GeoJSON.FeatureCollection; centroids?: GeoJSON.FeatureCollection}) => void)
   | null;
-export type MinGeoJSONFeature = Pick<
-  MapGeoJSONFeature,
-  'type' | 'geometry' | 'properties' | 'sourceLayer'
-> & {
+
+export type GeometryPointer = number;
+export type GeometryInfo = {
   zoom?: number;
+  sourceLayer?: string;
+  properties?: Record<string, any>;
+  geometry: GeometryPointer;
 };
+
 export type GeometryResponse =
   | {
       ok: true;
@@ -28,8 +32,8 @@ export type GeometryWorkerClass = {
    * A collection of geometries indexed by their IDs.
    * Stored as JSON records to make updating zones faster.
    */
-  geometries: {[id: string]: MinGeoJSONFeature};
-  activeGeometries: {[id: string]: MinGeoJSONFeature};
+  geometries: {[id: string]: GeometryInfo};
+  activeGeometries: {[id: string]: GeometryInfo};
   shatterIds: {
     parents: string[];
     children: string[];
@@ -84,12 +88,14 @@ export type GeometryWorkerClass = {
     dissolved: GeoJSON.FeatureCollection;
     overall: LngLatBoundsLike | null;
   }>;
-  /**
-   * Retrieves the collection of geometries.
-   * @returns The collection of geometries.
-   */
-  getGeos: () => GeoJSON.FeatureCollection;
   zoneMasses: GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null;
   updateMasses: () => GeometryResponse;
   updateCentroids: () => GeometryResponse;
+  getZoneGeometries: (
+    geos: GeosType,
+    currentZones: Set<number>
+  ) => Array<{
+    zone: number;
+    geometry: GeometryPointer;
+  }>;
 };
