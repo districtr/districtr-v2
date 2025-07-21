@@ -53,6 +53,7 @@ export interface DocumentObject extends StatusObject {
   child_layer: string | null;
   tiles_s3_path: string | null;
   num_districts: number | null;
+  map_geo_name: string | null;
   created_at: string;
   updated_at: string | null;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
