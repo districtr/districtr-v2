@@ -20,18 +20,22 @@ const DISTRICTR_LOGO = [
   },
 ];
 
-export async function generateMetadata(): Promise<Metadata> {
-  return {
-    title: 'Districtr 2.0',
+export const metadata: Metadata = {
+  title: 'Districtr 2.0',
+  description: 'Create districting maps',
+  openGraph: {
+    title: 'Get Started',
     description: 'Create districting maps',
-    openGraph: {
-      title: 'Get Started',
-      description: 'Create districting maps',
-      siteName: 'Districtr 2.0',
-      images: DISTRICTR_LOGO,
-    },
-  };
-}
+    siteName: 'Districtr 2.0',
+    images: [
+      {
+        url: 'https://beta.districtr.org/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
+        width: 1136,
+        height: 423,
+      },
+    ],
+  },
+};
 
 export default function RootLayout({
   children,

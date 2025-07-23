@@ -1,81 +1,60 @@
-'use client';
-import React, {useEffect} from 'react';
-import {MapContextMenu} from '@components/ContextMenu';
-import {MapComponent} from '@components/Map/Map';
-import SidebarComponent from '@components/sidebar/Sidebar';
-import {QueryClientProvider} from '@tanstack/react-query';
-import {queryClient} from '@utils/api/queryClient';
-import {ErrorNotification} from '@components/ErrorNotification';
-import {DraggableToolbar, Toolbar} from '@components/Toolbar/Toolbar';
-import {MapTooltip} from '@components/MapTooltip';
-import {MapLockShade} from '@components/MapLockShade';
-import {Topbar} from '@/app/components/Topbar/Topbar';
-import {Flex} from '@radix-ui/themes';
-import {useMapStore} from '@store/mapStore';
-import {initSubs} from '@store/subscriptions';
-import {useToolbarStore} from '@/app/store/toolbarStore';
-import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEventsV2';
-import {useSearchParams} from 'next/navigation';
+import {Metadata} from 'next';
+import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
+import MapPage from '@/app/components/MapPage/MapPage';
+import {API_URL} from '@/app/utils/api/constants';
+import {redirect} from 'next/navigation';
 
-export default function Map() {
-  const showDemographicMap = useMapStore(
-    state => state.mapOptions.showDemographicMap === 'side-by-side'
-  );
-  const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
-  // check if userid in local storage; if not, create one
-  const userID = useMapStore(state => state.userID);
-  const setUserID = useMapStore(state => state.setUserID);
-  const searchParams = useSearchParams();
+const DISTRICTR_LOGO = {
+  url: 'https://beta.districtr.org/districtr_logo.jpg',
+  width: 1136,
+  height: 423,
+};
 
-  // This page is for legacy URL support with document_id query parameter
-  const documentId = searchParams.get('document_id');
+type MetadataProps = {
+  searchParams: Promise<{document_id?: string | string[] | undefined}>;
+};
 
-  useMapBrowserEvents({
-    mapId: '',
-    isEditing: false,
-  });
-
-  useEffect(() => {
-    !userID && setUserID();
-  }, [userID, setUserID]);
-
-  useEffect(() => {
-    const unsub = initSubs();
-    return () => {
-      console.log('unsubscribing');
-      unsub();
-    };
-  }, []);
-
-  // Handle legacy redirect after hooks have been called
-  useEffect(() => {
-    if (documentId) {
-      // Redirect to new URL structure
-      window.location.href = `/map/edit/${documentId}`;
-    }
-  }, [documentId]);
-
-  if (queryClient) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
-          <SidebarComponent />
-          <div
-            className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}
-          >
-            <Topbar />
-            <Flex direction="row" height="100%">
-              <MapComponent />
-              {showDemographicMap && <MapComponent isDemographicMap />}
-            </Flex>
-            {toolbarLocation === 'map' && <DraggableToolbar />}
-            <MapLockShade />
-            <MapTooltip />
-          </div>
-          <MapContextMenu />
-          <ErrorNotification />
-        </div>
-      </QueryClientProvider>
+export async function generateMetadata({searchParams}: MetadataProps): Promise<Metadata> {
+  const resolvedParams = await searchParams;
+  const document_id = resolvedParams?.document_id ?? '';
+  const singularDocumentId = Array.isArray(document_id) ? document_id[0] : document_id;
+  let mapDocument: DocumentObject | null = null;
+  if (singularDocumentId) {
+    mapDocument = await fetch(`${API_URL}/api/document/${singularDocumentId}`).then(res =>
+      res.ok ? (res.json() as Promise<NonNullable<DocumentObject>>) : null
     );
   }
+  const districtCount = mapDocument?.num_districts ? `${mapDocument.num_districts} districts` : '';
+  return {
+    title: 'Districtr 2.0',
+    openGraph: {
+      title: districtCount
+        ? `${districtCount} - ${mapDocument?.map_metadata?.name ?? 'Shared Map'}`
+        : (mapDocument?.map_metadata?.name ?? 'Get Started'),
+      description: mapDocument?.map_metadata?.description ?? 'Create districting maps',
+      siteName: 'Districtr 2.0',
+      images: [
+        {
+          url: `https://beta.districtr.org/api/og/${singularDocumentId}`,
+          width: 1128,
+          height: 600,
+        },
+        DISTRICTR_LOGO,
+      ],
+    },
+  };
+}
+
+export default async function Map({
+  searchParams,
+}: {
+  searchParams: Promise<{document_id?: string | string[] | undefined}>;
+}) {
+  const params = await searchParams;
+  // if params.document_id is not undefined, redirect to edit/{document_id}
+  if (params.document_id) {
+    return redirect(`/map/edit/${params.document_id}`);
+  }
+
+  return <MapPage isEditing={false} mapId="" />;
 }
