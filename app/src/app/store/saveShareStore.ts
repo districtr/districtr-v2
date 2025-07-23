@@ -1,6 +1,6 @@
 import {create} from 'zustand';
 import {useMapStore} from './mapStore';
-import {patchDocumentPassword} from '../utils/api/mutations/patchDocumentPassword';
+import {sharePlan} from '../utils/api/mutations/sharePlan';
 
 interface SaveShareStore {
   password: string;
@@ -21,22 +21,30 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       setErrorNotification({message: 'No document found while generating share link', severity: 2});
       return;
     }
+    const status = await sharePlan.mutate({
+      document_id: mapDocument?.document_id,
+      password: password ?? null,
+      access_type: sharingMode,
+    });
 
     const publicId = mapDocument?.public_id ?? -999;
     let shareableLink = new URL(`${window.location.origin}/map/${publicId}`);
+    if (sharingMode === 'edit' && password === null) {
+      shareableLink.pathname = `/map/edit/${mapDocument.document_id}`;
+    } else {
+    }
     if (sharingMode === 'edit') {
-      if (password !== null) {
-        const status = await patchDocumentPassword.mutate({
-          document_id: mapDocument?.document_id,
-          password: password ?? null,
-        });
-        // copy to clipboard
-        if (status !== undefined) {
-          shareableLink.searchParams.set('pw', 'true');
-        }
-      } else {
-        shareableLink.pathname = `/map/edit/${mapDocument.document_id}`;
-      }
+      // if (password !== null) {
+      //   const status = await patchDocumentPassword.mutate({
+      //     document_id: mapDocument?.document_id,
+      //     password: password ?? null,
+      //   });
+      //   // copy to clipboard
+      //   if (status !== undefined) {
+      //     shareableLink.searchParams.set('pw', 'true');
+      //   }
+      // } else {
+      // }
     }
     navigator.clipboard.writeText(shareableLink.toString());
     upsertUserMap({

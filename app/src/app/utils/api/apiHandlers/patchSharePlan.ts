@@ -1,17 +1,20 @@
 import axios from 'axios';
 
-export const setPlanPassword = async ({
+export const patchSharePlan = async ({
   document_id,
   password,
+  access_type,
 }: {
   document_id: string | undefined;
   password: string | null;
+  access_type: string | undefined;
 }) => {
   try {
-    const res = await axios.patch<{status: string}>(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/password`,
+    const res = await axios.post<{status: string}>(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/share`,
       {
         password: password ?? null,
+        access_type: access_type ?? null,
       }
     );
     if (!res.data) {
