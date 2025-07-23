@@ -496,11 +496,11 @@ async def update_colors(
     "/api/get_assignments/{_document_id}", response_model=list[AssignmentsResponse]
 )
 async def get_assignments(
-    _document_id: str,
+    document_id: str,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    document_id = get_document_id(_document_id, session)
+    document_id = get_document_id(document_id, session)
     if not document_id:
         raise HTTPException(status_code=404, detail="Document not found")
 

@@ -51,7 +51,7 @@ def get_document(
 
 
 def get_protected_document(
-    _document_id: str, session: Session = Depends(get_session)
+    document_id: str, session: Session = Depends(get_session)
 ) -> Document:
     """
     Always returns a document even if the token_id was used instead of the document_id. This function
@@ -65,7 +65,7 @@ def get_protected_document(
     - Public IDs (numeric, for public sharing)
     """
     try:
-        document_id = get_document_id(_document_id, session)
+        document_id = get_document_id(document_id, session)
         if not document_id:
             raise HTTPException(status_code=404, detail="Document not found")
 
@@ -103,8 +103,16 @@ def get_document_public(
     user_id: str | None = None,
     shared: bool = False,
     lock_status: DocumentEditStatus | None = None,
-    force_read_only: bool = False,
 ) -> DocumentPublic:
+    if document_id.isdigit():
+        force_read_only = True
+        public_id = document_id
+    else:
+        force_read_only = False
+        public_id = None
+    document_id = get_document_id(document_id, session)
+    if not document_id:
+        raise HTTPException(status_code=404, detail="Document not found")
     document = get_protected_document(document_id=document_id, session=session)
     # TODO: Rather than being a separate query, this should be part of the main query
     assert document.document_id is not None
@@ -136,7 +144,7 @@ def get_document_public(
             Document.gerrydb_table,
             Document.updated_at,
             Document.color_scheme,
-            Document.public_id.label("public_id"),  # pyright: ignore
+            literal(public_id).label("public_id"),
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore

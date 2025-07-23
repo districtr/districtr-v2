@@ -20,7 +20,7 @@ from app.save_share.locks import check_map_lock
 from app.core.dependencies import get_document_public
 from app.core.config import settings
 import jwt
-from app.core.models import UUIDType, MapDocumentToken
+from app.core.models import UUIDType
 from app.save_share.models import (
     TokenRequest,
     DocumentShareStatus,
@@ -28,6 +28,7 @@ from app.save_share.models import (
     UserID,
     DocumentPasswordRequest,
     DocumentShareRequest,
+    MapDocumentToken,
 )
 import bcrypt
 from sqlalchemy.sql.functions import func
