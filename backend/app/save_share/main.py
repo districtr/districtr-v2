@@ -19,7 +19,9 @@ from app.models import (
 )
 from app.save_share.locks import check_map_lock
 from app.core.dependencies import get_document_public
-from app.core.models import UUIDType
+from app.core.config import settings
+import jwt
+from app.core.models import UUIDType, MapDocumentToken
 from app.save_share.models import (
     TokenRequest,
     DocumentShareStatus,
@@ -27,8 +29,11 @@ from app.save_share.models import (
     UserID,
     UnlockFromPublicId,
     DocumentPasswordRequest,
+    DocumentShareRequest,
 )
 import bcrypt
+from sqlalchemy.sql.functions import func
+from sqlmodel import select
 
 
 logger = logging.getLogger(__name__)
@@ -104,6 +109,82 @@ async def get_document_status(
         session.commit()
 
         return {"status": DocumentEditStatus.checked_out}
+
+
+@router.post("/api/document/{document_id}/share")
+async def share_districtr_plan(
+    document: Annotated[Document, Depends(_get_document)],
+    data: DocumentShareRequest,
+    session: Session = Depends(get_session),
+):
+    # check if there's already a record for a document
+    existing_token = session.execute(
+        text(
+            """
+            SELECT token_id, password_hash, public_id FROM document.map_document_token
+            WHERE document_id = :doc_id
+            """
+        ),
+        {"doc_id": document.document_id},
+    ).fetchone()
+
+    if existing_token:
+        token_uuid = existing_token.token_id
+
+        if data.password is not None and not existing_token.password_hash:
+            hashed_password = hash_password(data.password)
+            session.execute(
+                text(
+                    """
+                    UPDATE document.map_document_token
+                    SET password_hash = :password_hash
+                    WHERE token_id = :token_id
+                    """
+                ),
+                {"password_hash": hashed_password, "token_id": token_uuid},
+            )
+            session.commit()
+
+        payload = {
+            "token": token_uuid,
+            "access": data.access_type,
+            "password_required": bool(existing_token.password_hash),
+        }
+        token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+        return {"token": token, "public_id": existing_token.public_id}
+
+    else:
+        token_uuid = str(uuid4())
+        hashed_password = hash_password(data.password) if data.password else None
+        next_public_id = (
+            session.exec(select(func.max(MapDocumentToken.public_id))).first() + 1
+        )
+
+        session.execute(
+            text(
+                """
+                INSERT INTO document.map_document_token (token_id, document_id, password_hash, public_id)
+                VALUES (:token_id, :document_id, :password_hash, :public_id)
+                """
+            ),
+            {
+                "token_id": token_uuid,
+                "document_id": document.document_id,
+                "password_hash": hashed_password,
+                "public_id": next_public_id,
+            },
+        )
+
+        session.commit()
+
+    payload = {
+        "token": token_uuid,
+        "access": data.access_type,
+        "password_required": bool(hashed_password),
+    }
+
+    token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+    return {"token": token}
 
 
 @router.post("/api/share/load_plan_from_share", response_model=DocumentPublic)

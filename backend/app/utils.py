@@ -5,10 +5,9 @@ from sqlmodel import Session, Float, Boolean
 import logging
 from app.constants import GERRY_DB_SCHEMA
 from sqlmodel import select
-from sqlalchemy import func
 
 
-from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate, Document
+from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -345,22 +344,3 @@ def add_districtr_map_to_map_group(
 
     if autocommit:
         session.commit()
-
-
-def get_document_by_public_id(session: Session, public_id: int | str) -> Document:
-    return session.exec(select(Document).where(Document.public_id == public_id)).one()
-
-
-def generate_public_id(session: Session, document: Document) -> int:
-    max_public_id = session.exec(select(func.max(Document.public_id))).first()
-    next_public_id = (max_public_id or 0) + 1
-
-    # Update the Document with the new public_id
-    stmt = (
-        update(Document)
-        .where(Document.document_id == document.document_id)
-        .values(public_id=next_public_id)
-    )
-    session.execute(stmt)
-    session.commit()
-    return next_public_id

@@ -1,13 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
-from sqlmodel import (
-    Field,
-    SQLModel,
-    TIMESTAMP,
-    Column,
-    String,
-    MetaData,
-)
+from sqlmodel import Field, SQLModel, TIMESTAMP, Column, String, MetaData, Integer
 from enum import Enum
 from app.constants import DOCUMENT_SCHEMA
 from app.core.models import TimeStampMixin, UUIDType
@@ -28,6 +21,10 @@ class DocumentShareStatus(str, Enum):
 
 class DocumentPasswordRequest(BaseModel):
     password: str | None = None
+
+
+class DocumentShareRequest(DocumentPasswordRequest):
+    access_type: DocumentShareStatus = DocumentShareStatus.read
 
 
 class TokenRequest(BaseModel):
@@ -65,6 +62,7 @@ class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
     expiration_date: datetime = Field(
         sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
     )
+    public_id: int | None = Field(sa_column=Column(Integer, nullable=True, unique=True))
 
 
 class DocumentEditStatus(str, Enum):

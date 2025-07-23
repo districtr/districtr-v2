@@ -154,7 +154,6 @@ class Document(TimeStampMixin, SQLModel, table=True):
     map_metadata: DistrictrMapMetadata | None = Field(
         sa_column=Column(JSON, nullable=True)
     )
-    public_id: int | None = Field(sa_column=Column(Integer, nullable=True, unique=True))
 
 
 class DocumentCreate(BaseModel):

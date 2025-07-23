@@ -17,7 +17,26 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def get_document(document_id: str, session: Session = Depends(get_session)) -> Document:
+def get_document_id(
+    _document_id: str | int, session: Session = Depends(get_session)
+) -> str:
+    if _document_id.isdigit():
+        return session.exec(
+            select(MapDocumentToken.document_id).where(
+                MapDocumentToken.public_id == int(_document_id)
+            )
+        ).one_or_none()
+    else:
+        return _document_id
+
+
+def get_document(
+    _document_id: str | int, session: Session = Depends(get_session)
+) -> Document:
+    document_id = get_document_id(_document_id, session)
+    if not document_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+
     try:
         document = session.exec(
             select(Document).where(Document.document_id == document_id)
@@ -32,7 +51,7 @@ def get_document(document_id: str, session: Session = Depends(get_session)) -> D
 
 
 def get_protected_document(
-    document_id: str, session: Session = Depends(get_session)
+    _document_id: str, session: Session = Depends(get_session)
 ) -> Document:
     """
     Always returns a document even if the token_id was used instead of the document_id. This function
@@ -46,42 +65,26 @@ def get_protected_document(
     - Public IDs (numeric, for public sharing)
     """
     try:
-        # Check if it's a numeric public ID first
-        if document_id.isdigit():
-            public_id = int(document_id)
-            # Find the Document by public_id and ensure it's ready_to_share
-            document = session.exec(
-                select(Document).where(Document.public_id == public_id)
-            ).one_or_none()
+        document_id = get_document_id(_document_id, session)
+        if not document_id:
+            raise HTTPException(status_code=404, detail="Document not found")
 
-            if not document:
-                raise HTTPException(status_code=404, detail="Public document not found")
+        # Try to get document by UUID first
+        document = session.exec(
+            select(Document).where(Document.document_id == document_id)
+        ).one_or_none()
 
-            # Verify the document is in ready_to_share status
-            if (
-                document.map_metadata
-                and document.map_metadata.get("draft_status") != "ready_to_share"
-            ):
-                raise HTTPException(
-                    status_code=404, detail="Document is not publicly available"
+        if document is None:
+            # Try to find by token_id
+            stmt = (
+                select(Document)
+                .join(
+                    MapDocumentToken,
+                    onclause=MapDocumentToken.document_id == Document.document_id,  # pyright: ignore
                 )
-        else:
-            # Try to get document by UUID first
-            document = session.exec(
-                select(Document).where(Document.document_id == document_id)
-            ).one_or_none()
-
-            if document is None:
-                # Try to find by token_id
-                stmt = (
-                    select(Document)
-                    .join(
-                        MapDocumentToken,
-                        onclause=MapDocumentToken.document_id == Document.document_id,  # pyright: ignore
-                    )
-                    .where(MapDocumentToken.token_id == document_id)
-                )
-                document = session.exec(stmt).one()
+                .where(MapDocumentToken.token_id == document_id)
+            )
+            document = session.exec(stmt).one()
     except HTTPException:
         # Re-raise HTTPExceptions as-is
         raise
