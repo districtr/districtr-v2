@@ -20,7 +20,9 @@ logging.basicConfig(level=logging.INFO)
 def get_document_id(
     _document_id: str | int, session: Session = Depends(get_session)
 ) -> str:
-    if _document_id.isdigit():
+    if isinstance(_document_id, int) or (
+        isinstance(_document_id, str) and _document_id.isdigit()
+    ):
         return session.exec(
             select(MapDocumentToken.document_id).where(
                 MapDocumentToken.public_id == int(_document_id)
@@ -28,6 +30,25 @@ def get_document_id(
         ).one_or_none()
     else:
         return _document_id
+
+
+def get_public_id(
+    _document_id: str | int, session: Session = Depends(get_session)
+) -> int | None:
+    if isinstance(_document_id, int) or (
+        isinstance(_document_id, str) and _document_id.isdigit()
+    ):
+        return int(_document_id)
+    else:
+        # query document.map_document_token for the public_id
+        return (
+            session.exec(
+                select(MapDocumentToken.public_id).where(
+                    MapDocumentToken.document_id == _document_id
+                )
+            ).one_or_none()
+            or -999
+        )
 
 
 def get_document(
@@ -104,12 +125,14 @@ def get_document_public(
     shared: bool = False,
     lock_status: DocumentEditStatus | None = None,
 ) -> DocumentPublic:
-    if document_id.isdigit():
+    if isinstance(document_id, int) or (
+        isinstance(document_id, str) and document_id.isdigit()
+    ):
         force_read_only = True
-        public_id = document_id
     else:
         force_read_only = False
-        public_id = None
+
+    public_id = get_public_id(document_id, session)
     document_id = get_document_id(document_id, session)
     if not document_id:
         raise HTTPException(status_code=404, detail="Document not found")

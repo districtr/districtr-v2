@@ -1,6 +1,5 @@
 import {create} from 'zustand';
 import {useMapStore} from './mapStore';
-import {getPublicId} from '../utils/api/apiHandlers/getPublicId';
 import {patchDocumentPassword} from '../utils/api/mutations/patchDocumentPassword';
 
 interface SaveShareStore {
@@ -23,7 +22,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       return;
     }
 
-    const publicId = mapDocument?.public_id ?? (await getPublicId(mapDocument?.document_id));
+    const publicId = mapDocument?.public_id ?? -999;
     let shareableLink = new URL(`${window.location.origin}/map/${publicId}`);
     if (sharingMode === 'edit') {
       if (password !== null) {
