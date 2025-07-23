@@ -52,9 +52,9 @@ def get_public_id(
 
 
 def get_document(
-    _document_id: str | int, session: Session = Depends(get_session)
+    document_id: str | int, session: Session = Depends(get_session)
 ) -> Document:
-    document_id = get_document_id(_document_id, session)
+    document_id = get_document_id(document_id, session)
     if not document_id:
         raise HTTPException(status_code=404, detail="Document not found")
 

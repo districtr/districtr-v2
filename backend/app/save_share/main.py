@@ -183,7 +183,7 @@ async def share_districtr_plan(
     }
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
-    return {"token": token}
+    return {"token": token, "public_id": next_public_id}
 
 
 @router.post("/api/share/load_plan_from_share", response_model=DocumentPublic)
