@@ -41,11 +41,13 @@ export const ToolControls: React.FC<{
   isMobile?: boolean;
 }> = ({isMobile}) => {
   const {Component} = useMapStore(state => ToolControlsConfig[state.activeTool] || {});
-  const {x, y, maxXY, rotation, customizeToolbar, toolbarLocation, toolbarWidth, toolbarHeight} = useToolbarStore();
+  const {x, y, maxXY, rotation, customizeToolbar, toolbarLocation, toolbarWidth, toolbarHeight} =
+    useToolbarStore();
   const isHorizontal =
     toolbarLocation === 'sidebar' || !customizeToolbar || rotation === 'horizontal';
   const ContainerRef = useRef<HTMLDivElement | null>(null);
-  const shouldFlip = rotation === 'horizontal' ? (y ?? 0) < 200 : (x ?? 0) > (maxXY?.maxX ?? 0) - 200
+  const shouldFlip =
+    rotation === 'horizontal' ? (y ?? 0) < 200 : (x ?? 0) > (maxXY?.maxX ?? 0) - 200;
 
   if (!Component) {
     return null;

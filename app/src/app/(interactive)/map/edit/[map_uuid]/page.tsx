@@ -2,8 +2,6 @@
 import React from 'react';
 import MapPage from '@/app/components/MapPage/MapPage';
 import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEventsV2';
-import {Metadata} from 'next';
-import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 
 interface EditPageProps {
   params: {
@@ -48,5 +46,5 @@ export default function EditPage({params}: EditPageProps) {
     isEditing: true,
   });
 
-  return <MapPage isEditing={true} />;
+  return <MapPage isEditing={true} mapId={map_uuid} />;
 }

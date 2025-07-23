@@ -8,13 +8,12 @@ export const revalidate = 3600;
 
 export default async function TagsPage() {
   const cmsContent = await listCMSContent('tags');
-  const cmsContentWithPublishedContent = cmsContent?.filter(content => content.published_content)
+  const cmsContentWithPublishedContent = cmsContent?.filter(content => content.published_content);
   if (!cmsContentWithPublishedContent) return null;
 
-  const entries = fastUniqBy(cmsContentWithPublishedContent, 'slug')
-    .sort((a, b) =>
-      a.published_content!.title.localeCompare(b.published_content!.title)
-    ) as PlacesCMSContent[];
+  const entries = fastUniqBy(cmsContentWithPublishedContent, 'slug').sort((a, b) =>
+    a.published_content!.title.localeCompare(b.published_content!.title)
+  ) as PlacesCMSContent[];
 
   if (!entries) return null;
 

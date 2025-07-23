@@ -1,9 +1,5 @@
-'use client';
 import React from 'react';
 import MapPage from '@/app/components/MapPage/MapPage';
-import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEventsV2';
-import {Metadata} from 'next';
-import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 
 interface ViewPageProps {
   params: {
@@ -42,11 +38,5 @@ interface ViewPageProps {
 export default function ViewPage({params}: ViewPageProps) {
   const {map_id} = params;
 
-  // Use the new browser events hook with view mode
-  useMapBrowserEvents({
-    mapId: map_id,
-    isEditing: false,
-  });
-
-  return <MapPage isEditing={false} />;
+  return <MapPage isEditing={false} mapId={map_id} />;
 }

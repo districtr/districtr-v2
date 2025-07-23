@@ -14,12 +14,14 @@ import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEventsV2';
 
 interface MapPageProps {
   isEditing: boolean;
+  mapId: string;
 }
 
-export default function MapPage({isEditing}: MapPageProps) {
+export default function MapPage({isEditing, mapId}: MapPageProps) {
   const showDemographicMap = useMapStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
@@ -28,6 +30,11 @@ export default function MapPage({isEditing}: MapPageProps) {
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
   const setIsEditing = useMapStore(state => state.setIsEditing);
+
+  useMapBrowserEvents({
+    mapId,
+    isEditing,
+  });
 
   // Set editing mode based on the route
   useEffect(() => {

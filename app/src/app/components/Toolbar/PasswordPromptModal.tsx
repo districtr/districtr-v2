@@ -2,8 +2,8 @@ import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Dialog, Box, TextField} from '@radix-ui/themes';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { getLoadPlanFromPublicId } from '@/app/utils/api/apiHandlers/getLoadPlanFromPublicId';
+import {useRouter, useSearchParams} from 'next/navigation';
+import {getLoadPlanFromPublicId} from '@/app/utils/api/apiHandlers/getLoadPlanFromPublicId';
 
 export const PasswordPromptModal = () => {
   const router = useRouter();
