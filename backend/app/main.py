@@ -492,14 +492,13 @@ async def update_colors(
 
 
 # called by getAssignments in apiHandlers.ts
-@app.get(
-    "/api/get_assignments/{_document_id}", response_model=list[AssignmentsResponse]
-)
+@app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(
     document_id: str,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
+    public_id = document_id
     document_id = get_document_id(document_id, session)
     if not document_id:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -509,7 +508,7 @@ async def get_assignments(
             Assignments.geo_id,
             Assignments.zone,
             # Obsured document.document_id
-            literal(document_id).label("document_id"),
+            literal(public_id).label("document_id"),
             ParentChildEdges.parent_path,
         )
         .join(Document, onclause=Assignments.document_id == Document.document_id)
