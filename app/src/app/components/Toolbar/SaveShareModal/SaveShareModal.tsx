@@ -1,7 +1,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
 import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
-import {Box, Button, Dialog, Flex, Heading, Text} from '@radix-ui/themes';
+import {Button, Dialog, Flex, Heading, Text} from '@radix-ui/themes';
 import {useEffect, useState} from 'react';
 import {MapDetailsSection} from './MapDetailsSection';
 import {ShareMapSection} from './ShareMapSection';
@@ -34,6 +34,13 @@ export const SaveShareModal: React.FC<{
       setTimeout(() => setLinkCopied(false), 2000);
     }
   }, [linkCopied]);
+  useEffect(() => {
+    const isReadyToShare = mapMetadata?.draft_status === 'ready_to_share';
+    const isPublicIdNotSet = mapDocument?.public_id !== -999;
+    if (isReadyToShare && isPublicIdNotSet) {
+      generateLink();
+    }
+  }, [mapDocument?.public_id, mapMetadata?.draft_status])
 
   return (
     <Dialog.Root open={open} onOpenChange={onClose}>

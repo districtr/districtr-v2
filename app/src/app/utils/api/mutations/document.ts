@@ -13,11 +13,6 @@ export const document = new MutationObserver(queryClient, {
     console.error('Error creating map document: ', error);
   },
   onSuccess: data => {
-    const {setMapDocument, setAssignmentsHash, setAppLoadingState} = useMapStore.getState();
-    setMapDocument(data);
-    setAssignmentsHash(Date.now().toString());
-    setAppLoadingState('loaded');
-    // Navigate to edit mode after creating document
-    window.location.href = `/map/edit/${data.document_id}`;
+    return data;
   },
 });

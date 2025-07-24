@@ -10,13 +10,13 @@ export const patchSharePlan = async ({
   access_type: string | undefined;
 }) => {
   try {
-    const res = await axios.post<{status: string}>(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/share`,
-      {
-        password: password ?? null,
-        access_type: access_type ?? null,
-      }
-    );
+    const res = await axios.post<{
+      token: string;
+      public_id: number;
+    }>(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/share`, {
+      password: password ?? null,
+      access_type: access_type ?? null,
+    });
     if (!res.data) {
       throw new Error('No token returned from API');
     }

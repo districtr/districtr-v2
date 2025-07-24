@@ -26,9 +26,7 @@ export const RecentMapsModal: React.FC<{
   const deleteUserMap = useMapStore(store => store.deleteUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const setActiveTool = useMapStore(store => store.setActiveTool);
-  const setFreshMap = useMapStore(store => store.setFreshMap);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
-  const [openItem, setOpenItem] = React.useState<string | null>(null);
 
   useEffect(() => {
     setDialogOpen(open || false);
@@ -44,18 +42,10 @@ export const RecentMapsModal: React.FC<{
     unlockMapDocument(mapDocument?.document_id as string);
   };
 
-  const handleDeleteMap = (documentId: string) => {
-    deleteUserMap(documentId);
-  };
-
   const handleMapDocument = (data: DocumentObject) => {
-    setMapDocument(data);
     clear();
     // Navigate to edit mode with the UUID
     router.push(`/map/edit/${data.document_id}`);
-
-    // open the correct accordion item
-    setOpenItem(data.document_id);
 
     // close dialog
     setDialogOpen(false);

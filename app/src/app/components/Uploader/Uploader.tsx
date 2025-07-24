@@ -141,7 +141,7 @@ export const Uploader: React.FC<{
                   <Table.Cell>{map.name}</Table.Cell>
                   <Table.Cell>
                     <Link
-                      href={`/map?document_id=${map.document_id}`}
+                      href={`/map/edit/${map.document_id}`}
                       target={newTab ? '_blank' : undefined}
                     >
                       Go to map
