@@ -4,6 +4,8 @@ import {unlockMapDocument} from '@utils/api/apiHandlers/unlockMapDocument';
 import {useCallback, useEffect, useRef} from 'react';
 import {useVisibilityState} from './useVisibilityState';
 import {FE_UNLOCK_DELAY} from '../utils/api/constants';
+import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
+import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 
 interface UseMapBrowserEventsV2Props {
   mapId: string;
@@ -17,12 +19,48 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
   const setIsEditing = useMapStore(state => state.setIsEditing);
   const mapDocument = useMapStore(state => state.mapDocument);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const loadZoneAssignments = useMapStore(state => state.loadZoneAssignments);
+  const prevMapDocument = useRef<DocumentObject | null>(null);
 
-  // Set editing mode
+  // UPDATE MAP ID STATE ON URL CHANGE
+  useEffect(() => {
+    if (mapId && mapId !== mapDocument?.document_id) {
+      updateGetDocumentFromId(mapId);
+    }
+  }, [mapId, mapDocument?.document_id]);
+
+  // GET ASSIGNMENTS ON MAP DOCUMENT CHANGE
+  // TODO - this could be a useQuery that doesn't hold the assignments in state twice
+  useEffect(() => {
+    const prev = prevMapDocument.current;
+    const curr = mapDocument;
+    const isInitialDocument = !prev;
+    const remoteHasUpdated =
+      curr?.updated_at && prev?.updated_at && new Date(curr.updated_at) > new Date(prev.updated_at);
+    const mapDocumentChanged = curr?.document_id !== prev?.document_id;
+    if (curr && (isInitialDocument || remoteHasUpdated || mapDocumentChanged)) {
+      getAssignments(curr).then(data => {
+        if (data === null) {
+          setErrorNotification({
+            severity: 2,
+            id: 'assignments-not-found',
+            message: 'Assignments not found',
+          });
+        } else {
+          prevMapDocument.current = structuredClone(curr);
+          loadZoneAssignments(data);
+        }
+      });
+    }
+  }, [mapDocument, setErrorNotification, loadZoneAssignments]);
+
+  // SET EDITING MODE
   useEffect(() => {
     setIsEditing(isEditing);
   }, [isEditing, setIsEditing]);
 
+  // RESUME TEMPORAL STATES ON TAB RE-FOCUS
   useEffect(() => {
     if (isVisible) {
       // resume temporal states on tab re-focus
@@ -44,18 +82,13 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
         }
       }
     }
+
     return () => {
       if (unloadTimepoutRef.current) {
         clearTimeout(unloadTimepoutRef.current);
       }
     };
   }, [isVisible, isEditing]);
-
-  useEffect(() => {
-    if (mapId && mapId !== mapDocument?.document_id) {
-      updateGetDocumentFromId(mapId);
-    }
-  }, [mapId, mapDocument?.document_id]);
 
   // UNLOAD BEHAVIOR (only in edit mode)
   const handleUnload = useCallback(() => {

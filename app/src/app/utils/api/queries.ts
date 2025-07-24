@@ -49,17 +49,19 @@ const updateDocumentFromId = new QueryObserver<DocumentObject | null>(queryClien
 
 updateDocumentFromId.subscribe(mapDocument => {
   if (typeof window === 'undefined') return;
-  const documentId = new URLSearchParams(window.location.search).get('document_id');
-  if (mapDocument.error && documentId?.length) {
+  const id = window.location.pathname.split('/').at(-1);
+  if (!id || mapDocument.error) {
     useMapStore.getState().setErrorNotification({
       severity: 2,
       id: 'map-document-not-found',
-      message: `The requested map id "${documentId}" could not be found. Please make sure the URL is correct or select a different geography.`,
+      message: `The requested map id "${id}" could not be found. Please make sure the URL is correct or select a different geography.`,
     });
     // redirect to home page when document not found
-    window.location.href = '/';
+    window.location.href = '/map';
   }
-  if (mapDocument.data) {
+
+  const idIsCorrect = [mapDocument?.data?.document_id, mapDocument?.data?.public_id].includes(id);
+  if (mapDocument.data && idIsCorrect) {
     useMapStore.getState().setMapDocument(mapDocument.data);
   }
 });

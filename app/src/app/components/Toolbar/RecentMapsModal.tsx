@@ -18,8 +18,6 @@ export const RecentMapsModal: React.FC<{
   showTrigger?: boolean;
 }> = ({open, onClose, showTrigger}) => {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const mapDocument = useMapStore(store => store.mapDocument);
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
@@ -36,8 +34,8 @@ export const RecentMapsModal: React.FC<{
 
   const handleUnloadMapDocument = () => {
     // Navigate to home page
-    router.push('/');
     setMapDocument({} as DocumentObject);
+    router.push('/map');
     // release the lock on the map in the db
     unlockMapDocument(mapDocument?.document_id as string);
   };

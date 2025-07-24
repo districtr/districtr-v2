@@ -2,11 +2,12 @@ import {useMapStore} from '@/app/store/mapStore';
 import {document, metadata} from '../mutations';
 import {handleCreateBlankMetadataObject} from '../../helpers';
 import {DocumentMetadata} from '../apiHandlers/types';
+import {useRouter} from 'next/navigation';
 
 export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
-  const {mapDocument, mapStatus, setMapStatus, upsertUserMap, setMapDocument, setShareMapMessage} =
+  const {mapDocument, mapStatus, setMapStatus, upsertUserMap, setShareMapMessage} =
     useMapStore.getState();
-
+  const router = useRouter();
   if (!mapDocument?.document_id) return;
 
   if (mapStatus?.status === 'locked' || mapStatus?.access === 'read') {
@@ -28,15 +29,13 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
         const updatedMapDoc = {...data, map_metadata: {...updatedMetadata}};
 
         upsertUserMap({documentId: data.document_id, mapDocument: updatedMapDoc});
-        setMapDocument(updatedMapDoc);
         // TODO Neither of these two settings seem to properly tell the client that the document can be edited
         setMapStatus({
           access: updatedMapDoc.access,
           status: updatedMapDoc.status,
         });
 
-        // Navigate to edit mode after copying/saving
-        window.location.href = `/map/edit/${data.document_id}`;
+        router.push(`/map/edit/${data.document_id}`);
       })
       .catch(err => {
         setShareMapMessage(
