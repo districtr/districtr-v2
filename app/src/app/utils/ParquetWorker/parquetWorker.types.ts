@@ -1,14 +1,28 @@
 import {DocumentObject} from '../api/apiHandlers/types';
-import {AsyncBuffer, FileMetaData} from 'hyparquet';
+import {AsyncBuffer, FileMetaData, parquetReadObjects} from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
 
-type DistrictrView = string;
 type MetaInfo = {
   metadata: FileMetaData;
   url: string;
   byteLength: number;
   file: AsyncBuffer;
 };
+
+export type DemographyParquetData = {
+  parent_path: string;
+  path: string;
+  column_name: string;
+  value: number;
+};
+
+export type PointParquetData = {
+  path: string;
+  x: number;
+  y: number;
+  total_pop_20: number;
+};
+
 export type ColumnarTableData = {
   path: string[];
   sourceLayer: string[];
@@ -19,9 +33,24 @@ export type ColumnarTableData = {
 /**
  * Represents a class that handles parquet operations.
  */
+export type ParquetFileType = 'tabular' | 'points';
+
 export type ParquetWorkerClass = {
-  _metaCache: Record<DistrictrView, MetaInfo>;
+  _metaCache: Record<string, MetaInfo>;
   _idRgCache: Record<string, [number, number]>;
+  /**
+   * Parse the demography data into a columnar table data.
+   * @param data - The data to parse.
+   * @param mapDocument - The map document.
+   * @param brokenIds - The broken ids.
+   * @returns The columnar table data.
+   */
+  parseDemographyData: (
+    data: Array<DemographyParquetData>,
+    mapDocument: DocumentObject,
+    brokenIds?: string[]
+  ) => ColumnarTableData;
+
   /**
    * Get the demography for a given map document and broken ids.
    * @param mapDocument - The map document.
@@ -38,33 +67,54 @@ export type ParquetWorkerClass = {
    * @param id - The id.
    * @returns The row groups.
    */
-  getRowGroupsFromId: (meta: MetaInfo, id: string) => [number, number];
+  getRowGroupsFromParentValue: (
+    meta: MetaInfo,
+    value: string,
+    value_col: string
+  ) => [number, number];
+  /**
+   * Get the row groups for a given value.
+   * @param meta - The metadata.
+   * @param values - The values.
+   * @param values_col - The column name.
+   * @returns The row groups.
+   */
+  getRowGroupsFromChildValue: (
+    meta: MetaInfo,
+    values: string[],
+    values_col: string
+  ) => [number, number];
   /**
    * Get the data for a given range of rows
-   * @param view - Districtr map DocumentObject
+   * @param url - The URL to the parquet file.
    * @param range - The range of rows to get.
-   * @param ignoreIds - IDs to ignore/exclude from the data. Mostly for broken parents.
-   * @returns Promise<ColumnarTableData> ready for Arquero.table
+   * @param columns - The columns to select.
+   * @returns Promise<T[]> array of row objects
    */
-  getRowRange: (
-    view: DocumentObject,
-    range: [number, number],
-    ignoreIds?: string[]
-  ) => Promise<ColumnarTableData>;
+  getRowRange: <T = object>(
+    url: string,
+    range: [number, number] | undefined,
+    columns?: string[]
+  ) => Promise<T[]>;
   /**
-   * Convenience method for getRowRange. Needs id instead of range and looks up the range in the metadata.
-   * @param view - Districtr map DocumentObject
-   * @param id - The id of the rows to get.
-   * @param ignoreIds - IDs to ignore/exclude from the data. Mostly for broken parents.
-   * @returns Promise<ColumnarTableData> ready for Arquero.table
-   */
-  getRowSet: (view: DocumentObject, id: string, ignoreIds?: string[]) => Promise<ColumnarTableData>;
-  /**
-   * Get the metadata for a given view. Caches, so this resolves instantly after the first call.
-   * @param slug - The slug of the view.
+   * Get the metadata for a given parquet file. Caches, so this resolves instantly after the first call.
+   * @param url - The full URL to the parquet file.
    * @returns The metadata.
    */
-  getMetaData: (slug: DistrictrView) => Promise<MetaInfo>;
+  getMetaData: (url: string) => Promise<MetaInfo>;
+  /**
+   * Get point selection data with optional filtering by IDs.
+   * @param layer - The layer name.
+   * @param columns - The columns to select.
+   * @param filterIds - Optional set of IDs to filter by.
+   * @returns Promise<any[]> array of point objects
+   */
+  getPointData: (
+    layer: string,
+    columns: string[],
+    source: string,
+    filterIds?: Set<string>
+  ) => Promise<GeoJSON.FeatureCollection<GeoJSON.Point>>;
   // UTILS
   /**
    * Optimize requests for row ranges by merging overlapping ranges.
@@ -72,4 +122,10 @@ export type ParquetWorkerClass = {
    * @returns The merged ranges.
    */
   mergeRanges: (ranges: [number, number][]) => [number, number][];
+  generateGeojsonFromPointData: (
+    pointData: PointParquetData[],
+    layer: string,
+    source: string,
+    filterIds?: Set<string>
+  ) => GeoJSON.FeatureCollection<GeoJSON.Point>;
 };

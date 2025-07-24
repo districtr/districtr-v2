@@ -171,6 +171,7 @@ def get_document_public(
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+            DistrictrMap.name.label("map_module"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
