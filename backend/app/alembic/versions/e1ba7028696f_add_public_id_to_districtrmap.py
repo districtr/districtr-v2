@@ -20,28 +20,28 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.add_column(
-        "map_document_token",
+        "document",
         sa.Column("public_id", sa.Integer(), nullable=True),
         schema="document",
     )
     op.create_unique_constraint(
-        "uq_document_public_id", "map_document_token", ["public_id"], schema="document"
+        "uq_document_public_id", "document", ["public_id"], schema="document"
     )
     # update public_id to be row number
     op.execute(
         sa.text("""
-            WITH numbered_tokens AS (
-                SELECT token_id, row_number() OVER (ORDER BY token_id) AS rn
-                FROM document.map_document_token
+            WITH numbered_documents AS (
+                SELECT document_id, row_number() OVER (ORDER BY document_id) AS rn
+                FROM document.document
             )
-            UPDATE document.map_document_token AS t
+            UPDATE document.document AS t
             SET public_id = n.rn
-            FROM numbered_tokens AS n
-            WHERE t.token_id = n.token_id;
+            FROM numbered_documents AS n
+            WHERE t.document_id = n.document_id;
         """),
     )
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_document_public_id", "map_document_token", schema="document")
-    op.drop_column("map_document_token", "public_id", schema="document")
+    op.drop_constraint("uq_document_public_id", "document", schema="document")
+    op.drop_column("document", "public_id", schema="document")
