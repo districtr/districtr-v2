@@ -37,45 +37,6 @@ const getQueriesResultsSubs = (_useMapStore: typeof useMapStore) => {
   });
 };
 
-const getDocumentFunction = (documentId?: string) => async () =>
-  documentId ? getDocument(documentId) : null;
-
-const updateDocumentFromId = new QueryObserver<DocumentObject | null>(queryClient, {
-  queryKey: ['mapDocument', undefined],
-  queryFn: getDocumentFunction(),
-  staleTime: 0,
-  placeholderData: _ => null,
-});
-
-updateDocumentFromId.subscribe(mapDocument => {
-  if (typeof window === 'undefined') return;
-  const id = window.location.pathname.split('/').at(-1)?.toString();
-  if (!id || mapDocument.error) {
-    useMapStore.getState().setErrorNotification({
-      severity: 2,
-      id: 'map-document-not-found',
-      message: `The requested map id "${id}" could not be found. Please make sure the URL is correct or select a different geography.`,
-    });
-    // redirect to home page when document not found
-    window.location.href = '/map';
-  }
-
-  const idIsCorrect = [
-    mapDocument?.data?.document_id,
-    mapDocument?.data?.public_id?.toString(),
-  ].includes(id);
-  if (mapDocument.data && idIsCorrect) {
-    useMapStore.getState().setMapDocument(mapDocument.data);
-  }
-});
-
-const updateGetDocumentFromId = (documentId: string) => {
-  updateDocumentFromId.setOptions({
-    queryKey: ['mapDocument', documentId],
-    queryFn: getDocumentFunction(documentId),
-  });
-};
-
 const fetchDemography = new QueryObserver<null | {
   columns: AllTabularColumns[number][];
   results: ColumnarTableData;
@@ -148,11 +109,4 @@ fetchDemography.subscribe(demography => {
   }
 });
 
-export {
-  updateMapViews,
-  getQueriesResultsSubs,
-  mapViewsQuery,
-  updateGetDocumentFromId,
-  updateDocumentFromId,
-  fetchDemography,
-};
+export {updateMapViews, getQueriesResultsSubs, mapViewsQuery, fetchDemography};

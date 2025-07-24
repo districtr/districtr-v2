@@ -2,7 +2,7 @@ import axios from 'axios';
 import {DocumentObject, GetAssignmentsResponse} from './types';
 
 export const getAssignments = async (
-  mapDocument: DocumentObject | null
+  mapDocument: DocumentObject | null | undefined
 ): GetAssignmentsResponse => {
   if (!mapDocument) {
     throw new Error('No document provided');

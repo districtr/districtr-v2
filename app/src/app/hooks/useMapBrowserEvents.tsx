@@ -1,11 +1,13 @@
 import {useMapStore} from '@/app/store/mapStore';
-import {updateDocumentFromId, updateGetDocumentFromId} from '@utils/api/queries';
 import {unlockMapDocument} from '@utils/api/apiHandlers/unlockMapDocument';
 import {useCallback, useEffect, useRef} from 'react';
 import {useVisibilityState} from './useVisibilityState';
 import {FE_UNLOCK_DELAY} from '../utils/api/constants';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
+import {useQuery} from '@tanstack/react-query';
+import {queryClient} from '@/app/utils/api/queryClient';
+import {getDocument} from '../utils/api/apiHandlers/getDocument';
 
 interface UseMapBrowserEventsV2Props {
   mapId: string;
@@ -21,39 +23,43 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
   const mapDocument = useMapStore(state => state.mapDocument);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const loadZoneAssignments = useMapStore(state => state.loadZoneAssignments);
-  const prevMapDocument = useRef<DocumentObject | null>(null);
+  const setMapDocument = useMapStore(state => state.setMapDocument);
 
-  // UPDATE MAP ID STATE ON URL CHANGE
-  useEffect(() => {
-    if (mapId && mapId !== mapDocument?.document_id) {
-      updateGetDocumentFromId(mapId);
-    }
-  }, [mapId, mapDocument?.document_id]);
+  const {data: mapDocumentData, refetch: refetchMapDocument} = useQuery({
+    queryKey: ['mapDocument', mapId],
+    queryFn: () => getDocument(mapId),
+    staleTime: 0,
+    placeholderData: _ => null,
+  });
 
-  // GET ASSIGNMENTS ON MAP DOCUMENT CHANGE
-  // TODO - this could be a useQuery that doesn't hold the assignments in state twice
+  const {data: assignmentsData, refetch: refetchAssignments} = useQuery({
+    queryKey: ['assignments', mapDocumentData?.document_id],
+    queryFn: () => getAssignments(mapDocumentData),
+    staleTime: 0,
+    placeholderData: _ => null,
+  });
+
   useEffect(() => {
-    const prev = prevMapDocument.current;
-    const curr = mapDocument;
-    const isInitialDocument = !prev;
-    const remoteHasUpdated =
-      curr?.updated_at && prev?.updated_at && new Date(curr.updated_at) > new Date(prev.updated_at);
-    const mapDocumentChanged = curr?.document_id !== prev?.document_id;
-    if (curr && (isInitialDocument || remoteHasUpdated || mapDocumentChanged)) {
-      getAssignments(curr).then(data => {
-        if (data === null) {
-          setErrorNotification({
-            severity: 2,
-            id: 'assignments-not-found',
-            message: 'Assignments not found',
-          });
-        } else {
-          prevMapDocument.current = structuredClone(curr);
-          loadZoneAssignments(data);
-        }
-      });
+    if (mapDocumentData) {
+      const prevIsSameId = mapDocument?.document_id === mapDocumentData?.document_id;
+      const remoteHasUpdated =
+        mapDocumentData?.updated_at &&
+        mapDocument?.updated_at &&
+        new Date(mapDocumentData.updated_at) > new Date(mapDocument.updated_at);
+      if (!prevIsSameId || remoteHasUpdated) {
+        setMapDocument(mapDocumentData);
+      }
+      if (prevIsSameId && remoteHasUpdated) {
+        refetchAssignments();
+      }
     }
-  }, [mapDocument, setErrorNotification, loadZoneAssignments]);
+  }, [mapDocumentData, setMapDocument]);
+
+  useEffect(() => {
+    if (assignmentsData) {
+      loadZoneAssignments(assignmentsData);
+    }
+  }, [assignmentsData, loadZoneAssignments]);
 
   // SET EDITING MODE
   useEffect(() => {
@@ -66,7 +72,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
       // resume temporal states on tab re-focus
       useMapStore.temporal.getState().resume();
       setAppLoadingState('loaded');
-      updateDocumentFromId.refetch(); // confirms map lock status on tab re-focus
+      refetchMapDocument();
     } else {
       // prevent temporal states from generating while tab is not visible
       unloadTimepoutRef.current && clearTimeout(unloadTimepoutRef.current);

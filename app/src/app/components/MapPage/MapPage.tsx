@@ -21,7 +21,7 @@ interface MapPageProps {
   mapId: string;
 }
 
-export default function MapPage({isEditing, mapId}: MapPageProps) {
+function ChildMapPage({isEditing, mapId}: MapPageProps) {
   const showDemographicMap = useMapStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
@@ -53,26 +53,30 @@ export default function MapPage({isEditing, mapId}: MapPageProps) {
     };
   }, []);
 
+  return (
+    <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
+      <SidebarComponent />
+      <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
+        <Topbar />
+        <Flex direction="row" height="100%">
+          <MapComponent />
+          {showDemographicMap && <MapComponent isDemographicMap />}
+        </Flex>
+        {toolbarLocation === 'map' && <DraggableToolbar />}
+        <MapLockShade />
+        <MapTooltip />
+      </div>
+      <MapContextMenu />
+      <ErrorNotification />
+    </div>
+  );
+}
+
+export default function MapPage({isEditing, mapId}: MapPageProps) {
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
-        <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
-          <SidebarComponent />
-          <div
-            className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}
-          >
-            <Topbar />
-            <Flex direction="row" height="100%">
-              <MapComponent />
-              {showDemographicMap && <MapComponent isDemographicMap />}
-            </Flex>
-            {toolbarLocation === 'map' && <DraggableToolbar />}
-            <MapLockShade />
-            <MapTooltip />
-          </div>
-          <MapContextMenu />
-          <ErrorNotification />
-        </div>
+        <ChildMapPage isEditing={isEditing} mapId={mapId} />
       </QueryClientProvider>
     );
   }
