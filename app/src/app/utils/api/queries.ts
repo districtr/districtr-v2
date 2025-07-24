@@ -49,7 +49,7 @@ const updateDocumentFromId = new QueryObserver<DocumentObject | null>(queryClien
 
 updateDocumentFromId.subscribe(mapDocument => {
   if (typeof window === 'undefined') return;
-  const id = window.location.pathname.split('/').at(-1);
+  const id = window.location.pathname.split('/').at(-1)?.toString();
   if (!id || mapDocument.error) {
     useMapStore.getState().setErrorNotification({
       severity: 2,
@@ -60,7 +60,10 @@ updateDocumentFromId.subscribe(mapDocument => {
     window.location.href = '/map';
   }
 
-  const idIsCorrect = [mapDocument?.data?.document_id, mapDocument?.data?.public_id].includes(id);
+  const idIsCorrect = [
+    mapDocument?.data?.document_id,
+    mapDocument?.data?.public_id?.toString(),
+  ].includes(id);
   if (mapDocument.data && idIsCorrect) {
     useMapStore.getState().setMapDocument(mapDocument.data);
   }
