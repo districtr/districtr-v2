@@ -32,6 +32,7 @@ from app.core.dependencies import (
     get_document_public,
     get_protected_document,
     get_districtr_map as _get_districtr_map,
+    get_document_id_is_public,
     get_document_id,
 )
 from app.core.config import settings
@@ -203,7 +204,7 @@ async def create_document(
     total_assignments = 0
 
     if data.copy_from_doc is not None:
-        copy_document_id = get_document_id(data.copy_from_doc, session)
+        copy_document_id = data.copy_from_doc
         if not copy_document_id:
             raise HTTPException(status_code=404, detail="Document not found")
         data.copy_from_doc = copy_document_id
@@ -499,10 +500,14 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    public_id = document_id
-    document_id = get_document_id(document_id, session)
     if not document_id:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    id_is_public, document_id = get_document_id_is_public(document_id)
+    public_id = document_id
+
+    if id_is_public:
+        document_id = get_document_id(public_id, session)
 
     stmt = (
         select(

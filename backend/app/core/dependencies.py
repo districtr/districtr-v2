@@ -17,50 +17,40 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def get_document_id(
-    _document_id: str | int, session: Session = Depends(get_session)
-) -> str:
-    if isinstance(_document_id, int) or (
-        isinstance(_document_id, str) and _document_id.isdigit()
+def get_document_id_is_public(document_id: str | int) -> tuple[bool, int | str]:
+    if isinstance(document_id, int) or (
+        isinstance(document_id, str) and document_id.isdigit()
     ):
-        return session.exec(
-            select(MapDocumentToken.document_id).where(
-                MapDocumentToken.public_id == int(_document_id)
-            )
-        ).one_or_none()
+        return True, int(document_id)
     else:
-        return _document_id
+        return False, document_id
 
 
-def get_public_id(
-    _document_id: str | int, session: Session = Depends(get_session)
-) -> int | None:
-    if isinstance(_document_id, int) or (
-        isinstance(_document_id, str) and _document_id.isdigit()
-    ):
-        return int(_document_id)
-    else:
-        # query document.map_document_token for the public_id
-        return (
-            session.exec(
-                select(MapDocumentToken.public_id).where(
-                    MapDocumentToken.document_id == _document_id
-                )
-            ).one_or_none()
-            or -999
-        )
+def get_document_id(public_id: int, session: Session) -> str:
+    document_id = (
+        session.exec(select(Document).where(Document.public_id == public_id))
+        .one()
+        .document_id
+    )
+    if not document_id:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return document_id
 
 
 def get_document(
     document_id: str | int, session: Session = Depends(get_session)
 ) -> Document:
-    document_id = get_document_id(document_id, session)
     if not document_id:
         raise HTTPException(status_code=404, detail="Document not found")
+    id_is_public, document_id = get_document_id_is_public(document_id)
 
     try:
         document = session.exec(
-            select(Document).where(Document.document_id == document_id)
+            select(Document).where(
+                Document.document_id == document_id
+                if not id_is_public
+                else Document.public_id == document_id
+            )
         ).one()
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -85,16 +75,22 @@ def get_protected_document(
     - Token IDs (from sharing)
     - Public IDs (numeric, for public sharing)
     """
+    logger.info(f"GETTING DOCUMENT PROTECTED0: {document_id}")
+    id_is_public, document_id = get_document_id_is_public(document_id)
+
     try:
-        document_id = get_document_id(document_id, session)
         if not document_id:
             raise HTTPException(status_code=404, detail="Document not found")
 
         # Try to get document by UUID first
         document = session.exec(
-            select(Document).where(Document.document_id == document_id)
+            select(Document).where(
+                Document.document_id == document_id
+                if not id_is_public
+                else Document.public_id == document_id
+            )
         ).one_or_none()
-
+        logger.info(f"GETTING DOCUMENT PROTECTED1: {document}")
         if document is None:
             # Try to find by token_id
             stmt = (
@@ -132,8 +128,6 @@ def get_document_public(
     else:
         force_read_only = False
 
-    public_id = get_public_id(document_id, session)
-    document_id = get_document_id(document_id, session)
     if not document_id:
         raise HTTPException(status_code=404, detail="Document not found")
     document = get_protected_document(document_id=document_id, session=session)
@@ -155,7 +149,7 @@ def get_document_public(
     # Set default lock_status if not provided and not already set
     if lock_status is None:
         lock_status = DocumentEditStatus.locked
-
+    logger.info(f"GETTING DOCUMENT PUBLIC2: {document.document_id}")
     stmt = (
         select(
             # Obsured document ID
@@ -167,7 +161,7 @@ def get_document_public(
             Document.gerrydb_table,
             Document.updated_at,
             Document.color_scheme,
-            literal(public_id).label("public_id"),
+            Document.public_id,
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore

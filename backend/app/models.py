@@ -139,6 +139,9 @@ class Document(TimeStampMixin, SQLModel, table=True):
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
+    public_id: int | None = Field(
+        sa_column=Column(Integer, unique=True, primary_key=True)
+    )
     districtr_map_slug: str = Field(
         sa_column=Column(
             Text,
@@ -179,6 +182,7 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
 
 class DocumentPublic(BaseModel):
     document_id: UUID4 | str
+    public_id: int | None = None
     districtr_map_slug: str | None
     gerrydb_table: str | None
     parent_layer: str
