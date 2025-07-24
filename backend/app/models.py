@@ -196,6 +196,7 @@ class DocumentPublic(BaseModel):
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
     map_type: str
+    map_module: str | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):
