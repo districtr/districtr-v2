@@ -26,17 +26,6 @@ def get_document_id_is_public(document_id: str | int) -> tuple[bool, int | str]:
         return False, document_id
 
 
-def get_document_id(public_id: int, session: Session) -> str:
-    document_id = (
-        session.exec(select(Document).where(Document.public_id == public_id))
-        .one()
-        .document_id
-    )
-    if not document_id:
-        raise HTTPException(status_code=404, detail="Document not found")
-    return document_id
-
-
 def get_document(
     document_id: str | int, session: Session = Depends(get_session)
 ) -> Document:

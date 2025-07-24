@@ -33,7 +33,6 @@ from app.core.dependencies import (
     get_protected_document,
     get_districtr_map as _get_districtr_map,
     get_document_id_is_public,
-    get_document_id,
 )
 from app.core.config import settings
 import app.contiguity.main as contiguity
@@ -496,7 +495,7 @@ async def update_colors(
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(
-    document_id: str,
+    document_id: str | int,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
@@ -504,10 +503,8 @@ async def get_assignments(
         raise HTTPException(status_code=404, detail="Document not found")
 
     id_is_public, document_id = get_document_id_is_public(document_id)
-    public_id = document_id
-
-    if id_is_public:
-        document_id = get_document_id(public_id, session)
+    # Needs to be a string for the return type
+    public_id = document.document_id if not id_is_public else f"{document.public_id}"
 
     stmt = (
         select(
@@ -529,7 +526,6 @@ async def get_assignments(
         )
         .where(Assignments.document_id == document.document_id)
     )
-
     return session.execute(stmt).fetchall()
 
 
