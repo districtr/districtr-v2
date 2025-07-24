@@ -32,7 +32,7 @@ export const MapHeader: React.FC = () => {
         handleMetadataChange={handleMetadataChange}
       />
       <Text size="2" className="text-gray-500">
-        {mapDocument?.map_geo_name || ''}
+        {mapDocument?.map_module || ''}
       </Text>
     </Flex>
   );
