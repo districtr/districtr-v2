@@ -2,9 +2,9 @@ import re
 from datetime import datetime
 from typing import Any, Dict
 from pydantic import UUID4, BaseModel, field_validator
+from sqlalchemy.sql.schema import ForeignKey
 from sqlmodel import (
     Field,
-    SQLModel,
     UniqueConstraint,
     Column,
     MetaData,
@@ -12,12 +12,13 @@ from sqlmodel import (
 )
 from sqlalchemy.types import ARRAY
 from sqlalchemy.dialects.postgresql import JSONB
-from enum import Enum
-from app.models import TimeStampMixin, UUIDType
+import enum
+from app.core.models import TimeStampMixin, UUIDType, SQLModel
+from app.models import DistrictrMap
 from app.constants import CMS_SCHEMA
 
 
-class LanguageEnum(str, Enum):
+class LanguageEnum(str, enum.Enum):
     ENGLISH = "en"
     SPANISH = "es"
     CHINESE = "zh"
@@ -41,8 +42,10 @@ class TagsCMSContent(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=CMS_SCHEMA)
     id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     slug: str = Field(nullable=False, index=True)
-    language: LanguageEnum = Field(
-        default=LanguageEnum.ENGLISH, nullable=False, index=True
+    language: str = Field(
+        sa_column=Column(
+            String, default=LanguageEnum.ENGLISH, nullable=False, index=True
+        )
     )
     draft_content: Dict[str, Any] | None = Field(sa_column=Column(JSONB, nullable=True))
     published_content: Dict[str, Any] | None = Field(
@@ -50,7 +53,7 @@ class TagsCMSContent(TimeStampMixin, SQLModel, table=True):
     )
     districtr_map_slug: str | None = Field(
         sa_column=Column(
-            String,
+            ForeignKey(DistrictrMap.districtr_map_slug),
             nullable=True,
             index=True,
         )
@@ -66,8 +69,10 @@ class PlacesCMSContent(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=CMS_SCHEMA)
     id: str = Field(sa_column=Column(UUIDType, unique=True, primary_key=True))
     slug: str = Field(nullable=False, index=True)
-    language: LanguageEnum = Field(
-        default=LanguageEnum.ENGLISH, nullable=False, index=True
+    language: str = Field(
+        sa_column=Column(
+            String, default=LanguageEnum.ENGLISH, nullable=False, index=True
+        )
     )
     draft_content: Dict[str, Any] | None = Field(sa_column=Column(JSONB, nullable=True))
     published_content: Dict[str, Any] | None = Field(
@@ -86,7 +91,7 @@ class PlacesCMSContent(TimeStampMixin, SQLModel, table=True):
     )
 
 
-class CMSContentTypesEnum(str, Enum):
+class CMSContentTypesEnum(str, enum.Enum):
     tags = "tags"
     places = "places"
 
