@@ -10,7 +10,6 @@ from alembic import context
 from app.alembic.constants import POST_GIS_ALPINE_RESERVED_TABLES
 from app.core.models import SQLModel
 
-# from app.models import DistrictrMap, GerryDBTable, ParentChildEdges, Document, MapDocumentUserSession, Assignments, MapGroup, DistrictrMapsToGroups
 from app.models import Document, MapDocumentUserSession, Assignments
 from app.cms.models import TagsCMSContent, PlacesCMSContent
 from app.save_share.models import MapDocumentToken
@@ -30,17 +29,12 @@ if config.config_file_name is not None:
 # Can't quite figure out how to get the models regognized properly in the SQLModel.metadata object
 # so for now going with this workaround
 tables = [
-    # DistrictrMap,
-    # GerryDBTable,
-    # ParentChildEdges,
     Assignments,
     Document,
     MapDocumentUserSession,
     MapDocumentToken,
     PlacesCMSContent,
     TagsCMSContent,
-    # MapGroup,
-    # DistrictrMapsToGroups,
 ]
 
 target_metadata = [SQLModel.metadata]

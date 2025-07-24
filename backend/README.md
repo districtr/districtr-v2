@@ -31,6 +31,11 @@ Handy fly commands:
 
 ## Migrations
 
+> [!NOTE]
+> If you're adding tables in other schemas, make sure to import these in the [alembic env.py](backend/app/alembic/env.py) file.
+> Unfortunately, the `alembic` + `sqlmodel` combo seems to have issues picking up changes in other models (or more likely there's some user error...).
+> Adding these models manually to the `target_metadata` seems to do the trick.
+
 ### Revisions
 
 `alembic revision --autogenerate -m "{{ migration_name }}"`

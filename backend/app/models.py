@@ -142,9 +142,9 @@ class Document(TimeStampMixin, SQLModel, table=True):
     # Note: The following key is _not_ the Document primary key, that would be
     # document_id. This key is a key for fetching any published / public map
     # (see DocumentDraftStatus.ready_to_share).
-    # public_key: int = Field(
-    #     sa_column=Column(Integer, primary_key=False, autoincrement=True)
-    # )
+    public_key: int = Field(
+        sa_column=Column(Integer, primary_key=False, autoincrement=True)
+    )
     districtr_map_slug: str = Field(
         sa_column=Column(
             Text,
