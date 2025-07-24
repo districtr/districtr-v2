@@ -7,9 +7,11 @@ import {demographyCache} from '../utils/demography/demographyCache';
 export const FALLBACK_NUM_DISTRICTS = 4;
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
+export const BLOCK_POINTS_LAYER_ID = 'blocks-points';
 export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';
 export const BLOCK_LAYER_ID_HIGHLIGHT_CHILD = BLOCK_LAYER_ID + '-highlight-child';
 export const BLOCK_LAYER_ID_CHILD = 'blocks-child';
+export const BLOCK_POINTS_LAYER_ID_CHILD = 'blocks-points-child';
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 

@@ -1,4 +1,5 @@
 import {listCMSContent, PlacesCMSContent} from '@/app/utils/api/cms';
+import {GEODATA_URL} from '@/app/utils/api/constants';
 import * as topojson from 'topojson-client';
 import {create} from 'zustand';
 
@@ -20,7 +21,7 @@ export const usePlaceMapStore = create<{
   mapsBySlug: {},
   getData: async () => {
     const [topology, content] = await Promise.all([
-      fetch(`${process.env.NEXT_PUBLIC_S3_BUCKET_URL}/sprites/usa-topo.json`).then(r => r.json()),
+      fetch(`${GEODATA_URL}/sprites/usa-topo.json`).then(r => r.json()),
       listCMSContent('places') as Promise<PlacesCMSContent[]>,
     ]);
     const mapsBySlug = content?.reduce(
