@@ -8,6 +8,12 @@ from sqlalchemy import pool
 
 from alembic import context
 from app.alembic.constants import POST_GIS_ALPINE_RESERVED_TABLES
+from app.core.models import SQLModel
+
+# from app.models import DistrictrMap, GerryDBTable, ParentChildEdges, Document, MapDocumentUserSession, Assignments, MapGroup, DistrictrMapsToGroups
+from app.models import Document, MapDocumentUserSession, Assignments
+from app.cms.models import TagsCMSContent, PlacesCMSContent
+from app.save_share.models import MapDocumentToken
 
 dotenv.load_dotenv()
 
@@ -20,19 +26,26 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
+# They're being missed for some reason because they're in other schemas. Quite annoying!
+# Can't quite figure out how to get the models regognized properly in the SQLModel.metadata object
+# so for now going with this workaround
+tables = [
+    # DistrictrMap,
+    # GerryDBTable,
+    # ParentChildEdges,
+    Assignments,
+    Document,
+    MapDocumentUserSession,
+    MapDocumentToken,
+    PlacesCMSContent,
+    TagsCMSContent,
+    # MapGroup,
+    # DistrictrMapsToGroups,
+]
 
-from app.models import SQLModel  # noqa
-
-target_metadata = SQLModel.metadata
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
+target_metadata = [SQLModel.metadata]
+for table in tables:
+    target_metadata.append(table.metadata)
 
 
 def get_url():
@@ -45,10 +58,14 @@ def get_url():
 
 
 def include_object(object, name, type_, reflected, compare_to):
+    print(object, name, type_, reflected, compare_to)
     if name and (
         name in POST_GIS_ALPINE_RESERVED_TABLES
         or re.match(r"document.assignments_.+", name)
         or re.match(r"parentchildedges_.+", name)
+        or re.match(r".*_districtr_view+", name)
+        # For whatever reason alembic fails to recognize it already exists
+        or name == "document_geo_id_unique"
     ):
         return False
     return True
@@ -73,6 +90,7 @@ def run_migrations_offline():
         literal_binds=True,
         compare_type=True,
         include_object=include_object,
+        include_schemas=True,
     )
 
     with context.begin_transaction():
@@ -87,7 +105,9 @@ def run_migrations_online():
 
     """
     configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = get_url()
+    url = get_url()
+    print("URL", url)
+    configuration["sqlalchemy.url"] = url
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
@@ -100,6 +120,7 @@ def run_migrations_online():
             target_metadata=target_metadata,
             compare_type=True,
             include_object=include_object,
+            include_schemas=True,
         )
 
         with context.begin_transaction():

@@ -4,7 +4,6 @@ from pydantic import UUID4, BaseModel
 from sqlmodel import (
     Field,
     ForeignKey,
-    SQLModel,
     UniqueConstraint,
     Column,
     MetaData,
@@ -19,7 +18,7 @@ from sqlalchemy.dialects.postgresql import JSON, ENUM
 from sqlalchemy import Float
 import pydantic_geojson
 from app.constants import DOCUMENT_SCHEMA
-from app.core.models import UUIDType, TimeStampMixin
+from app.core.models import UUIDType, TimeStampMixin, SQLModel
 from app.save_share.models import (
     DocumentDraftStatus,
     DocumentEditStatus,
@@ -140,10 +139,16 @@ class Document(TimeStampMixin, SQLModel, table=True):
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
+    # Note: The following key is _not_ the Document primary key, that would be
+    # document_id. This key is a key for fetching any published / public map
+    # (see DocumentDraftStatus.ready_to_share).
+    # public_key: int = Field(
+    #     sa_column=Column(Integer, primary_key=False, autoincrement=True)
+    # )
     districtr_map_slug: str = Field(
         sa_column=Column(
             Text,
-            ForeignKey("public.districtrmap.districtr_map_slug"),
+            ForeignKey(DistrictrMap.districtr_map_slug),
             nullable=False,
         )
     )
@@ -175,6 +180,7 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(Integer, primary_key=True, autoincrement=True)
     )
     user_id: str = Field(sa_column=Column(String, nullable=False))
+    document_id: str = Field(sa_column=Column(UUIDType, nullable=False))
 
 
 class DocumentPublic(BaseModel):
@@ -202,20 +208,16 @@ class DocumentCreatePublic(DocumentPublic):
     inserted_assignments: int
 
 
-class AssignmentsBase(SQLModel):
-    metadata = MetaData(schema=DOCUMENT_SCHEMA)
-    document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
-    geo_id: str = Field(primary_key=True)
-    zone: int | None
-
-
-class Assignments(AssignmentsBase, table=True):
+class Assignments(SQLModel, table=True):
     # this is the empty parent table; not a partition itself
     __table_args__ = (
         UniqueConstraint("document_id", "geo_id", name="document_geo_id_unique"),
         {"postgresql_partition_by": "LIST (document_id)"},
     )
-    pass
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
+    document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
+    geo_id: str = Field(primary_key=True)
+    zone: int | None
 
 
 class AssignmentsCreate(BaseModel):
