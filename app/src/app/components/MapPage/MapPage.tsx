@@ -6,15 +6,15 @@ import SidebarComponent from '@components/sidebar/Sidebar';
 import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {ErrorNotification} from '@components/ErrorNotification';
-import {DraggableToolbar, Toolbar} from '@components/Toolbar/Toolbar';
+import {DraggableToolbar} from '@components/Toolbar/Toolbar';
 import {MapTooltip} from '@components/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
-import {useToolbarStore} from '@/app/store/toolbarStore';
-import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEventsV2';
+import {useToolbarStore} from '@/app/store/toolbarStore'; 
+import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEvents';
 
 interface MapPageProps {
   isEditing: boolean;
