@@ -3,10 +3,8 @@ import {unlockMapDocument} from '@utils/api/apiHandlers/unlockMapDocument';
 import {useCallback, useEffect, useRef} from 'react';
 import {useVisibilityState} from './useVisibilityState';
 import {FE_UNLOCK_DELAY} from '../utils/api/constants';
-import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {useQuery} from '@tanstack/react-query';
-import {queryClient} from '@/app/utils/api/queryClient';
 import {getDocument} from '../utils/api/apiHandlers/getDocument';
 
 interface UseMapBrowserEventsV2Props {
