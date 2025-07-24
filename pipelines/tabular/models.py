@@ -80,7 +80,7 @@ class TabularBatch(Config):
         con = duckdb.connect(database=":memory:")
         con.sql(
             f"""
-          CREATE TABLE data AS SELECT * FROM read_parquet('{settings.OUT_SCRATCH / out_path.replace('.parquet', '_temp_long.parquet')}')
+          CREATE TABLE data AS SELECT * FROM read_parquet('{settings.OUT_SCRATCH / out_path.replace(".parquet", "_temp_long.parquet")}')
           """
         )
         logger.info(f"Outputting data to {out_path}.")

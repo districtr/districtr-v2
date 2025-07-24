@@ -1,9 +1,16 @@
 from datetime import datetime
 from pydantic import BaseModel
-from sqlmodel import Field, SQLModel, TIMESTAMP, Column, String, MetaData, Integer
+from sqlmodel import (
+    Field,
+    TIMESTAMP,
+    Column,
+    String,
+    MetaData,
+    Integer,
+)
 from enum import Enum
 from app.constants import DOCUMENT_SCHEMA
-from app.core.models import TimeStampMixin, UUIDType
+from app.core.models import TimeStampMixin, UUIDType, SQLModel
 
 
 class UserID(BaseModel):
