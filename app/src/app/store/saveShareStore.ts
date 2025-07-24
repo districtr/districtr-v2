@@ -15,7 +15,11 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
   setPassword: password => set({password}),
   generateLink: async () => {
     const {password, sharingMode} = get();
-    const {upsertUserMap, setErrorNotification, mapDocument} = useMapStore.getState();
+    const {upsertUserMap, setErrorNotification, mapDocument, isEditing} = useMapStore.getState();
+
+    if (!isEditing) {
+      return;
+    }
 
     if (!mapDocument?.document_id) {
       setErrorNotification({message: 'No document found while generating share link', severity: 2});
