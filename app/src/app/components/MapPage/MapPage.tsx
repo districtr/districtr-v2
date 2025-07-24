@@ -13,7 +13,7 @@ import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
-import {useToolbarStore} from '@/app/store/toolbarStore'; 
+import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEvents';
 
 interface MapPageProps {

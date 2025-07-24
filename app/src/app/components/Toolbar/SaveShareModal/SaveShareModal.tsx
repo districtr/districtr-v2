@@ -40,7 +40,7 @@ export const SaveShareModal: React.FC<{
     if (isReadyToShare && isPublicIdNotSet) {
       generateLink();
     }
-  }, [mapDocument?.public_id, mapMetadata?.draft_status])
+  }, [mapDocument?.public_id, mapMetadata?.draft_status]);
 
   return (
     <Dialog.Root open={open} onOpenChange={onClose}>

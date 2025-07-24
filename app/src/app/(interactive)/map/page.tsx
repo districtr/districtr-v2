@@ -3,9 +3,9 @@ import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 import MapPage from '@/app/components/MapPage/MapPage';
 import {API_URL} from '@/app/utils/api/constants';
 import {redirect} from 'next/navigation';
-import { generateMapPageMetadata } from '@/app/utils/metadata/pageMetadataUtils';
+import {generateMapPageMetadata} from '@/app/utils/metadata/pageMetadataUtils';
 
-export const generateMetadata = generateMapPageMetadata
+export const generateMetadata = generateMapPageMetadata;
 
 export default async function Map({
   searchParams,
