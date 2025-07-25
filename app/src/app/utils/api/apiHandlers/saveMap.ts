@@ -31,7 +31,6 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
         access: updatedMapDoc.access,
         status: updatedMapDoc.status,
       });
-      console.log('!!!NEW DOCUMENT', newDocumentData);
       return newDocumentData;
     } catch (err) {
       console.error('Error saving map: ', err);

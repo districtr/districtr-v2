@@ -9,11 +9,13 @@ import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {Link1Icon} from '@radix-ui/react-icons';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
+import { useRouter } from 'next/navigation';
 
 export const SaveShareModal: React.FC<{
   open: boolean;
   onClose: () => void;
 }> = ({open, onClose}) => {
+  const router = useRouter();
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapMetadata = useMapMetadata(mapDocument?.document_id);
   const [innerFormState, setInnerFormState] = useState<DocumentMetadata>(
@@ -23,12 +25,20 @@ export const SaveShareModal: React.FC<{
   const isEditing = useMapStore(
     state => state.mapDocument?.access === 'edit' && state.mapDocument?.status === 'checked_out'
   );
-
   const generateLink = useSaveShareStore(state => state.generateLink);
+  
+  const handleSave = async () => {
+    const newMapDocument = await saveMap({...mapMetadata, ...innerFormState});
+    if (newMapDocument) {
+      router.push(`/map/edit/${newMapDocument.document_id}`);
+      onClose();
+    }
+  };
+  
   const handleMetadataChange = (updates: Partial<DocumentMetadata>) =>
     setInnerFormState(prev => ({...prev, ...updates}));
-  const handleSave = () => saveMap({...mapMetadata, ...innerFormState}).then(_ => onClose());
   useEffect(() => handleMetadataChange(mapMetadata ?? DEFAULT_MAP_METADATA), [mapMetadata]);
+
   useEffect(() => {
     if (linkCopied) {
       setTimeout(() => setLinkCopied(false), 2000);
