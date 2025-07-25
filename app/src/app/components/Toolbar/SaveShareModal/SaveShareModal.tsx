@@ -9,7 +9,7 @@ import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {Link1Icon} from '@radix-ui/react-icons';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
-import { useRouter } from 'next/navigation';
+import {useRouter} from 'next/navigation';
 
 export const SaveShareModal: React.FC<{
   open: boolean;
@@ -26,7 +26,7 @@ export const SaveShareModal: React.FC<{
     state => state.mapDocument?.access === 'edit' && state.mapDocument?.status === 'checked_out'
   );
   const generateLink = useSaveShareStore(state => state.generateLink);
-  
+
   const handleSave = async () => {
     const newMapDocument = await saveMap({...mapMetadata, ...innerFormState});
     if (newMapDocument) {
@@ -34,7 +34,7 @@ export const SaveShareModal: React.FC<{
       onClose();
     }
   };
-  
+
   const handleMetadataChange = (updates: Partial<DocumentMetadata>) =>
     setInnerFormState(prev => ({...prev, ...updates}));
   useEffect(() => handleMetadataChange(mapMetadata ?? DEFAULT_MAP_METADATA), [mapMetadata]);
@@ -44,15 +44,6 @@ export const SaveShareModal: React.FC<{
       setTimeout(() => setLinkCopied(false), 2000);
     }
   }, [linkCopied]);
-
-  useEffect(() => {
-    const isReadyToShare = mapMetadata?.draft_status === 'ready_to_share';
-    const isPublicIdNotSet = mapDocument?.public_id !== -999;
-    const canEdit = mapDocument?.access === 'edit' && mapDocument?.status === 'checked_out';
-    if (isReadyToShare && isPublicIdNotSet && canEdit) {
-      generateLink();
-    }
-  }, [mapDocument?.public_id, mapMetadata?.draft_status]);
 
   return (
     <Dialog.Root open={open} onOpenChange={onClose}>
