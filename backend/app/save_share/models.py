@@ -33,11 +33,17 @@ class DocumentShareRequest(DocumentPasswordRequest):
     access_type: DocumentShareStatus = DocumentShareStatus.read
 
 
-class TokenRequest(BaseModel):
-    token: str
+class CheckoutRequest(BaseModel):
     password: str | None = None
     user_id: str
-    access: DocumentShareStatus = DocumentShareStatus.read
+
+
+class CheckoutRequestFromPublicId(CheckoutRequest):
+    public_id: str | int
+
+
+class CheckoutRequestFromDocumentId(CheckoutRequest):
+    document_id: str
 
 
 class DocumentDraftStatus(str, Enum):
@@ -45,6 +51,11 @@ class DocumentDraftStatus(str, Enum):
     scratch = "scratch"
     ready_to_share = "ready_to_share"
     # perhaps others down the road e.g. accepted, archived, etc.
+
+
+class ShareUpsertResponse(BaseModel):
+    document_id: str
+    public_id: int
 
 
 class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
