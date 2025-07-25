@@ -6,7 +6,6 @@ from sqlmodel import (
     Column,
     String,
     MetaData,
-    Integer,
 )
 from enum import Enum
 from app.constants import DOCUMENT_SCHEMA
@@ -69,7 +68,6 @@ class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
     expiration_date: datetime = Field(
         sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
     )
-    public_id: int | None = Field(sa_column=Column(Integer, nullable=True, unique=True))
 
 
 class DocumentEditStatus(str, Enum):

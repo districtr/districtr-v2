@@ -139,8 +139,14 @@ class Document(TimeStampMixin, SQLModel, table=True):
     document_id: str | None = Field(
         sa_column=Column(UUIDType, unique=True, primary_key=True)
     )
-    public_id: int | None = Field(
-        sa_column=Column(Integer, unique=True, primary_key=True)
+    # All documents get a public id by default so we don't need to backfill this number
+    # and the document id can remain the universal unique identifier for documents.
+    # Whether the document can be accessed with the public id should be determined
+    # in the API business logic.
+    public_id: int = Field(
+        sa_column=Column(
+            Integer, nullable=False, unique=True, autoincrement=True, index=True
+        )
     )
     districtr_map_slug: str = Field(
         sa_column=Column(
