@@ -1,5 +1,5 @@
 'use client';
-import {Button, Text, Flex, IconButton, Box, Tooltip, Popover} from '@radix-ui/themes';
+import {Text, Flex, IconButton, Box, Tooltip, Popover, SegmentedControl} from '@radix-ui/themes';
 import {useState} from 'react';
 import {DocumentMetadata, DocumentObject, DraftStatus} from '@/app/utils/api/apiHandlers/types';
 import {InProgressIcon, ScratchWorkIcon, ReadyIcon} from './Icons';
@@ -49,7 +49,7 @@ export const MapStatus: React.FC<{
           </Tooltip>
         </Box>
       </Popover.Trigger>
-      <Popover.Content>
+      <Popover.Content className="max-w-none">
         <Flex direction="column" gap="2">
           <MapStatusButtons draftStatus={draftStatus} onChange={handleChangeStatus} />
         </Flex>
@@ -63,21 +63,15 @@ export const MapStatusButtons: React.FC<{
   onChange: (draftStatus: DraftStatus) => Promise<void>;
 }> = ({draftStatus, onChange}) => {
   return (
-    <>
+    <SegmentedControl.Root value={draftStatus as string} onValueChange={onChange} size="2">
       {iconOrder.map(status => (
-        <Button
-          key={status}
-          variant={status === draftStatus ? 'soft' : 'outline'}
-          color="gray"
-          onClick={() => onChange(status)}
-          className="justify-start"
-        >
+        <SegmentedControl.Item key={status} value={status}>
           <Flex direction="row" gap="2" align="center" justify="start">
             {statusIcons[status]({})}
             <Text>{statusText[status]}</Text>
           </Flex>
-        </Button>
+        </SegmentedControl.Item>
       ))}
-    </>
+    </SegmentedControl.Root>
   );
 };
