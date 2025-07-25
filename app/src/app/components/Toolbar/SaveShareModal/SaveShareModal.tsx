@@ -48,6 +48,12 @@ export const SaveShareModal: React.FC<{
   return (
     <Dialog.Root open={open} onOpenChange={onClose}>
       <Dialog.Content>
+        <Dialog.Title>Map Details</Dialog.Title>
+        {/* Hidden description for screen readers */}
+        <Dialog.Description className="invisible h-0 overflow-hidden">
+          A dialog menu to update the map name, status (scratch work, in progress, or ready to
+          share), advanced map details, and share link.
+        </Dialog.Description>
         <Flex direction="column" gap="2">
           <MapDetailsSection
             mapMetadata={innerFormState}

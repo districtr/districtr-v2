@@ -13,9 +13,6 @@ export const MapDetailsSection: React.FC<{
   const [accordionOpen, setAccordionOpen] = useState<string>('');
   return (
     <Flex direction="column" gap="2">
-      <Heading as="h3" size="5">
-        Map details
-      </Heading>
       <Box>
         <Text>Name</Text>
         <TextField.Root
@@ -46,7 +43,7 @@ export const MapDetailsSection: React.FC<{
         onValueChange={value => setAccordionOpen(value)}
       >
         <Accordion.Item value="group">
-          <Accordion.AccordionTrigger className="AccordionTrigger w-full mt-2">
+          <Accordion.AccordionTrigger className="AccordionTrigger w-full mt-2" asChild>
             <Button className="w-full" variant="ghost">
               <Flex direction="row" gap="2" align="center" justify="start" className="w-full">
                 <Text>Advanced</Text>
