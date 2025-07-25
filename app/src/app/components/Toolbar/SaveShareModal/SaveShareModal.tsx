@@ -34,10 +34,12 @@ export const SaveShareModal: React.FC<{
       setTimeout(() => setLinkCopied(false), 2000);
     }
   }, [linkCopied]);
+
   useEffect(() => {
     const isReadyToShare = mapMetadata?.draft_status === 'ready_to_share';
     const isPublicIdNotSet = mapDocument?.public_id !== -999;
-    if (isReadyToShare && isPublicIdNotSet) {
+    const canEdit = mapDocument?.access === 'edit' && mapDocument?.status === 'checked_out';
+    if (isReadyToShare && isPublicIdNotSet && canEdit) {
       generateLink();
     }
   }, [mapDocument?.public_id, mapMetadata?.draft_status]);
