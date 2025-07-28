@@ -10,14 +10,11 @@ from sqlalchemy.exc import NoResultFound
 from sqlmodel import Session, String
 import logging
 from app.core.db import get_session
-from app.core.dependencies import get_document as _get_document
-from uuid import uuid4
+from app.core.dependencies import get_document
 from app.models import (
     Document,
-    DocumentPublic,
 )
 from app.save_share.locks import check_map_lock
-from app.core.dependencies import get_document_public
 from app.core.config import settings
 import jwt
 from app.core.models import UUIDType
@@ -26,13 +23,9 @@ from app.save_share.models import (
     DocumentShareStatus,
     DocumentEditStatus,
     UserID,
-    DocumentPasswordRequest,
     DocumentShareRequest,
-    MapDocumentToken,
 )
 import bcrypt
-from sqlalchemy.sql.functions import func
-from sqlmodel import select
 
 
 logger = logging.getLogger(__name__)
@@ -112,24 +105,27 @@ async def get_document_status(
 
 @router.post("/api/document/{document_id}/share")
 async def share_districtr_plan(
-    document: Annotated[Document, Depends(_get_document)],
+    document: Annotated[Document, Depends(get_document)],
     data: DocumentShareRequest,
     session: Session = Depends(get_session),
 ):
-    # check if there's already a record for a document
     existing_token = session.execute(
         text(
             """
-            SELECT token_id, password_hash, public_id FROM document.map_document_token
-            WHERE document_id = :doc_id
+            SELECT
+                t.token_id,
+                t.document_id,
+                t.password_hash,
+                d.public_id
+            FROM document.map_document_token t
+            LEFT JOIN document.document d ON t.document_id = d.document_id
+            WHERE t.document_id = :doc_id
             """
         ),
         {"doc_id": document.document_id},
     ).fetchone()
 
     if existing_token:
-        token_uuid = existing_token.token_id
-
         if data.password is not None and not existing_token.password_hash:
             hashed_password = hash_password(data.password)
             session.execute(
@@ -140,12 +136,12 @@ async def share_districtr_plan(
                     WHERE token_id = :token_id
                     """
                 ),
-                {"password_hash": hashed_password, "token_id": token_uuid},
+                {"password_hash": hashed_password, "token_id": existing_token.token_id},
             )
             session.commit()
 
         payload = {
-            "token": token_uuid,
+            "token": existing_token.token_id,
             "access": data.access_type,
             "password_required": bool(existing_token.password_hash),
         }
@@ -153,91 +149,37 @@ async def share_districtr_plan(
         return {"token": token, "public_id": existing_token.public_id}
 
     else:
-        token_uuid = str(uuid4())
         hashed_password = hash_password(data.password) if data.password else None
-        next_public_id = (
-            session.exec(select(func.max(MapDocumentToken.public_id))).first() + 1
-        )
 
-        session.execute(
+        token_id = session.execute(
             text(
                 """
-                INSERT INTO document.map_document_token (token_id, document_id, password_hash, public_id)
-                VALUES (:token_id, :document_id, :password_hash, :public_id)
+                INSERT INTO document.map_document_token (token_id, document_id, password_hash)
+                VALUES (gen_random_uuid(), :document_id, :password_hash)
+                RETURNING token_id
                 """
             ),
             {
-                "token_id": token_uuid,
                 "document_id": document.document_id,
                 "password_hash": hashed_password,
-                "public_id": next_public_id,
             },
-        )
+        ).scalar_one()
 
         session.commit()
 
     payload = {
-        "token": token_uuid,
+        "token": token_id,
         "access": data.access_type,
         "password_required": bool(hashed_password),
     }
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
-    return {"token": token, "public_id": next_public_id}
-
-
-@router.post("/api/share/load_plan_from_share", response_model=DocumentPublic)
-async def load_plan_from_share(
-    data: TokenRequest,
-    session: Session = Depends(get_session),
-):
-    token_id = data.token
-    result = session.execute(
-        text(
-            """
-            SELECT document_id, password_hash
-            FROM document.map_document_token
-            WHERE token_id = :token
-            """
-        ),
-        {"token": token_id},
-    ).fetchone()
-
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Token not found",
-        )
-
-    set_is_locked = False
-    if result.password_hash:
-        # password is required
-        if data.password is None:
-            set_is_locked = True
-        if data.password and not verify_password(data.password, result.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid password",
-            )
-
-    document_id = (
-        token_id if data.access == DocumentShareStatus.read else str(result.document_id)
-    )
-
-    return get_document_public(
-        document_id=document_id,
-        user_id=data.user_id,
-        session=session,
-        shared=True,
-        lock_status=(
-            DocumentEditStatus.locked if set_is_locked else DocumentEditStatus.unlocked
-        ),
-    )
+    return {"token": token, "public_id": document.public_id}
 
 
 @router.post("/api/document/{document_id}/checkout", status_code=status.HTTP_200_OK)
 async def checkout_plan(
-    document: Annotated[Document, Depends(_get_document)],
+    document: Annotated[Document, Depends(get_document)],
     data: TokenRequest,
     session: Session = Depends(get_session),
 ):
@@ -276,33 +218,3 @@ async def checkout_plan(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid password",
         )
-
-
-@router.patch("/api/document/{document_id}/password")
-async def set_password(
-    document_id: str,
-    data: DocumentPasswordRequest,
-    session: Session = Depends(get_session),
-):
-    if data.password is None:
-        return {"status": "password_removed"}
-
-    hashed_password = hash_password(data.password)
-    token_uuid = str(uuid4())
-    session.execute(
-        text(
-            """
-            INSERT INTO document.map_document_token (token_id, document_id, password_hash)
-            VALUES (:token_id, :document_id, :password_hash)
-            ON CONFLICT (document_id) 
-            DO UPDATE SET password_hash = :password_hash
-            """
-        ),
-        {
-            "token_id": token_uuid,
-            "password_hash": hashed_password,
-            "document_id": document_id,
-        },
-    )
-    session.commit()
-    return {"status": "password_set"}

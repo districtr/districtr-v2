@@ -35,7 +35,7 @@ def get_protected_document(
     document_id: str | int, session: Session = Depends(get_session)
 ) -> Document:
     """
-    Always returns a document even if the token_id was used instead of the document_id. This function
+    Always returns a document even if the public_id was used instead of the document_id. This function
     should be used for safe endpoints (i.e. GET requests). Any requests that modify
     data should use `get_document`. DO NOT return the result of this function
     from safe endpoints as this would leak the real document id.
@@ -47,6 +47,9 @@ def get_protected_document(
     id_is_public = isinstance(document_id, int) or (
         isinstance(document_id, str) and document_id.isdigit()
     )
+
+    if id_is_public:
+        document_id = int(document_id)
 
     stmt = select(Document)
 
@@ -78,6 +81,9 @@ def get_document_public(
     id_is_public = isinstance(document_id, int) or (
         isinstance(document_id, str) and document_id.isdigit()
     )
+
+    if id_is_public:
+        document_id = int(document_id)
 
     if not document_id:
         raise HTTPException(status_code=404, detail="Document not found")

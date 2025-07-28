@@ -25,11 +25,8 @@ class DocumentShareStatus(str, Enum):
     edit = "edit"
 
 
-class DocumentPasswordRequest(BaseModel):
+class DocumentShareRequest(BaseModel):
     password: str | None = None
-
-
-class DocumentShareRequest(DocumentPasswordRequest):
     access_type: DocumentShareStatus = DocumentShareStatus.read
 
 

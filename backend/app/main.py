@@ -255,6 +255,7 @@ async def create_document(
     stmt = (
         select(
             Document.document_id,
+            Document.public_id,
             Document.created_at,
             Document.districtr_map_slug,
             Document.gerrydb_table,
