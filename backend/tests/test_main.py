@@ -654,6 +654,22 @@ def test_update_districtrmap_metadata(client, document_id):
     assert response.status_code == 200
 
 
+def test_update_districtrmap_metadata_with_bad_metadata(client, document_id):
+    response = client.put(
+        f"/api/document/{document_id}/metadata",
+        json={
+            "name": "Test Map",  # Good metadata
+            "bad_user": "injecting huge payload",  # Bad metadata
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.get(f"/api/document/{document_id}")
+    assert response.status_code == 200
+    document = response.json()
+    assert "bad_user" not in document["map_metadata"]
+
+
 def test_group_data(client, session: Session):
     group_slug = "map_group_two"
     create_map_group(session=session, group_name="Map Group Two", slug=group_slug)

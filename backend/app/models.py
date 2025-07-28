@@ -125,7 +125,7 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
-class DistrictrMapMetadata(BaseModel):
+class DocumentMetadata(BaseModel):
     name: str | None = None
     group: str | None = None
     tags: list[str] | None = None
@@ -159,15 +159,13 @@ class Document(TimeStampMixin, SQLModel, table=True):
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
     )
-    map_metadata: DistrictrMapMetadata | None = Field(
-        sa_column=Column(JSON, nullable=True)
-    )
+    map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
 
 
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
     user_id: str
-    metadata: Optional[DistrictrMapMetadata] | None = None
+    metadata: Optional[DocumentMetadata] | None = None
     copy_from_doc: Optional[str | int] | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
 
@@ -198,7 +196,7 @@ class DocumentPublic(BaseModel):
     created_at: datetime
     updated_at: datetime
     extent: list[float] | None = None
-    map_metadata: DistrictrMapMetadata | None
+    map_metadata: DocumentMetadata | None
     status: DocumentEditStatus = (
         DocumentEditStatus.unlocked
     )  # locked, unlocked, checked_out

@@ -4,7 +4,6 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
-    Body,
     Form,
 )
 from typing import Annotated
@@ -51,6 +50,7 @@ from app.models import (
     DocumentCreatePublic,
     DocumentPublic,
     DocumentEditStatus,
+    DocumentMetadata,
     GEOIDS,
     GEOIDSResponse,
     AssignedGEOIDS,
@@ -794,36 +794,15 @@ async def get_connected_component_bboxes(
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
-    document_id: str,
-    metadata: dict = Body(...),  # TODO: Type this properly
+    metadata: DocumentMetadata,
+    document: Document = Depends(get_document),
     session: Session = Depends(get_session),
 ):
     try:
-        document = get_document(document_id, session=session)
-
-        # Check if draft_status is being set to ready_to_share
-        if metadata.get("draft_status") == "ready_to_share":
-            if document.public_id is None:
-                # Generate a new public_id by finding the next available number
-                max_public_id = session.exec(
-                    select(func.max(Document.public_id))
-                ).first()
-                next_public_id = (max_public_id or 0) + 1
-
-                # Update the Document with the new public_id
-                stmt = (
-                    update(Document)
-                    .where(Document.document_id == document.document_id)
-                    .values(public_id=next_public_id, map_metadata=metadata)
-                )
-                session.execute(stmt)
-                session.commit()
-                return document
-
         stmt = (
             update(Document)
-            .where(Document.document_id == document.document_id)
-            .values(map_metadata=metadata)
+            .where(Document.document_id == document.document_id)  # type: ignore
+            .values(map_metadata=metadata.model_dump(exclude_unset=True))
         )
         session.execute(stmt)
         session.commit()
