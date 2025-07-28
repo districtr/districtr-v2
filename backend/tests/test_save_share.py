@@ -1,9 +1,3 @@
-from tests.constants import (
-    GERRY_DB_FIXTURE_NAME,
-    USER_ID,
-)
-
-
 # def test_share_districtr_plan(client, document_id):
 #     """Test sharing a document when a pw exists"""
 #     share_payload = {"password": "password", "access_type": "read"}
@@ -611,26 +605,3 @@ from tests.constants import (
 
 #     response = client.get("/api/document/999/contiguity")
 #     assert response.status_code == 404
-
-
-def test_public_id_with_uuid_still_works(client, document_id):
-    """Test that regular UUID document_ids still work after changes"""
-    # Create document
-    response = client.post(
-        "/api/create_document",
-        json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
-        },
-    )
-    document_id = response.json().get("document_id")
-
-    # Test that regular UUID still works with export endpoint
-    response = client.get(
-        f"/api/document/{document_id}/export?format=CSV&export_type=ZoneAssignments"
-    )
-    assert response.status_code == 200
-
-    # Test that regular UUID still works with unassigned endpoint
-    response = client.get(f"/api/document/{document_id}/unassigned")
-    assert response.status_code == 200

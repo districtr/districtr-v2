@@ -8,7 +8,7 @@ from sqlmodel import Session
 from psycopg.sql import SQL, Composed, Identifier, Literal
 from psycopg.errors import RaiseException
 from typing import Callable, Any
-from app.core.dependencies import get_protected_document
+from app.core.dependencies import get_document_public
 from app.core.db import get_session
 from app.models import Document
 from app.exports.models import (
@@ -121,11 +121,10 @@ def get_geojson_export_sql(
     return sql, params
 
 
-@router.get("/api/document/{document_id}/export", status_code=status.HTTP_200_OK)
+@router.get("/api/document/{public_id}/export", status_code=status.HTTP_200_OK)
 async def export_document(
-    *,
-    document_id: str,
-    document: Annotated[Document, Depends(get_protected_document)],
+    public_id: str,
+    document: Annotated[Document, Depends(get_document_public)],
     background_tasks: BackgroundTasks,
     format: str = "CSV",
     export_type: str = "ZoneAssignments",
@@ -144,7 +143,7 @@ async def export_document(
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     out_file_name = (
-        f"{document_id}_{_export_type.value}_{timestamp}.{_format.value.lower()}"
+        f"{public_id}_{_export_type.value}_{timestamp}.{_format.value.lower()}"
     )
 
     try:

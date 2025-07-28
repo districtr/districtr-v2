@@ -21,8 +21,8 @@ from app.constants import DOCUMENT_SCHEMA
 from app.core.models import UUIDType, TimeStampMixin, SQLModel
 from app.save_share.models import (
     DocumentDraftStatus,
-    DocumentEditStatus,
     DocumentShareStatus,
+    DocumentEditStatus,
 )
 
 
@@ -125,7 +125,7 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
-class DistrictrMapMetadata(BaseModel):
+class DocumentMetadata(BaseModel):
     name: str | None = None
     group: str | None = None
     tags: list[str] | None = None
@@ -136,8 +136,8 @@ class DistrictrMapMetadata(BaseModel):
 
 class Document(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
-    document_id: str | None = Field(
-        sa_column=Column(UUIDType, unique=True, primary_key=True)
+    document_id: str = Field(
+        sa_column=Column(UUIDType, unique=True, primary_key=True, nullable=False)
     )
     # All documents get a public id by default so we don't need to backfill this number
     # and the document id can remain the universal unique identifier for documents.
@@ -159,16 +159,14 @@ class Document(TimeStampMixin, SQLModel, table=True):
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
     )
-    map_metadata: DistrictrMapMetadata | None = Field(
-        sa_column=Column(JSON, nullable=True)
-    )
+    map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
 
 
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
     user_id: str
-    metadata: Optional[DistrictrMapMetadata] | None = None
-    copy_from_doc: Optional[str | int] | None = None  # document_id to copy from
+    metadata: Optional[DocumentMetadata] | None = None
+    copy_from_doc: int | None = None  # public_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
@@ -187,8 +185,9 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentPublic(BaseModel):
-    document_id: UUID4 | str
-    public_id: int | None = None
+    public_id: int
+    # document_id will be null in the event of hitting a public endpoint with public id
+    document_id: UUID4 | str | None = None
     districtr_map_slug: str | None
     gerrydb_table: str | None
     parent_layer: str
@@ -198,19 +197,18 @@ class DocumentPublic(BaseModel):
     created_at: datetime
     updated_at: datetime
     extent: list[float] | None = None
-    map_metadata: DistrictrMapMetadata | None
-    status: DocumentEditStatus = (
-        DocumentEditStatus.unlocked
-    )  # locked, unlocked, checked_out
-    genesis: str | None = None
-    access: DocumentShareStatus = DocumentShareStatus.edit
+    map_metadata: DocumentMetadata | None
     color_scheme: list[str] | None = None
     map_type: str
-    public_id: int | None = None
     map_module: str | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):
+    status: DocumentEditStatus = (
+        DocumentEditStatus.unlocked
+    )  # locked, unlocked, checked_out
+    genesis: str | None = None
+    access: DocumentShareStatus = DocumentShareStatus.read
     inserted_assignments: int
 
 
@@ -231,11 +229,10 @@ class AssignmentsCreate(BaseModel):
     user_id: str
 
 
-class AssignmentsResponse(SQLModel):
+class AssignmentsResponse(BaseModel):
     geo_id: str
     zone: int | None
     parent_path: str | None
-    document_id: str
 
 
 class GEOIDS(BaseModel):

@@ -282,17 +282,37 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
     assert data.get("districtr_map_slug") == GERRY_DB_FIXTURE_NAME
 
 
-def test_get_document(client, document_id):
-    doc_uuid = uuid.UUID(document_id)
-    response = client.get(f"/api/document/{doc_uuid}?user_id={USER_ID}")
+def test_get_document(client, public_document_full):
+    public_id = public_document_full["public_id"]
+    response = client.get(f"/api/document/{public_id}")
     assert response.status_code == 200
 
     data = response.json()
-    assert data.get("document_id") == document_id
+    assert data.get("public_id") == public_id
+    assert data.get("document_id") is None
     assert data.get("districtr_map_slug") == GERRY_DB_FIXTURE_NAME
     assert data.get("updated_at")
     assert data.get("created_at")
-    assert data.get("status") in ["locked", "unlocked", "checked_out"]
+
+
+def test_get_private_draft_document_with_public_id(client, private_document_full):
+    public_id = private_document_full["public_id"]
+    response = client.get(f"/api/document/{public_id}")
+    assert response.status_code == 404
+
+
+def test_get_private_draft_document_with_document_id(client, private_document_full):
+    public_id = private_document_full["public_id"]
+    document_id = private_document_full["document_id"]
+    response = client.get(f"/api/document/{public_id}?document_id={document_id}")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data.get("public_id") == public_id
+    assert data.get("document_id") is None
+    assert data.get("districtr_map_slug") == GERRY_DB_FIXTURE_NAME
+    assert data.get("updated_at")
+    assert data.get("created_at")
 
 
 def test_patch_assignments(client, document_id):
@@ -333,7 +353,9 @@ def test_patch_assignments_nulls(client, document_id):
     assert data.get("updated_at") is not None
 
 
-def test_patch_assignments_twice(client, document_id):
+def test_patch_assignments_twice(client, public_document_full):
+    public_id = public_document_full["public_id"]
+    document_id = public_document_full["document_id"]
     response = client.patch(
         "/api/update_assignments",
         json={
@@ -365,8 +387,7 @@ def test_patch_assignments_twice(client, document_id):
     assert data.get("assignments_upserted") == 2
     assert data.get("updated_at") is not None
     # Check that the assignments were updated and not inserted
-    doc_uuid = str(uuid.UUID(document_id))
-    response = client.get(f"/api/get_assignments/{doc_uuid}")
+    response = client.get(f"/api/get_assignments/{public_id}")
     assert response.status_code == 200
     data = response.json()
     assert data is not None
@@ -377,11 +398,14 @@ def test_patch_assignments_twice(client, document_id):
     assert data[1]["geo_id"] == "200979691001108"
 
 
-def test_patch_reset_assignments(client, document_id):
+def test_patch_reset_assignments(client, public_document_full):
+    public_id = public_document_full["public_id"]
+    document_id = public_document_full["document_id"]
+
     test_patch_assignments(client, document_id)
     response = client.patch(f"/api/update_assignments/{document_id}/reset")
     assert response.status_code == 200
-    assignments = client.get(f"/api/get_assignments/{document_id}")
+    assignments = client.get(f"/api/get_assignments/{public_id}")
     assert assignments.status_code == 200
     assert len(assignments.json()) == 0
 
@@ -652,6 +676,23 @@ def test_update_districtrmap_metadata(client, document_id):
     )
 
     assert response.status_code == 200
+
+
+def test_update_document_draft_status(client, document_id, session: Session):
+    metadata_payload = {"draft_status": "ready_to_share"}
+
+    response = client.put(
+        f"/api/document/{document_id}/metadata", json=metadata_payload
+    )
+
+    assert response.status_code == 200
+    stmt = text("""
+        select map_metadata->>'draft_status'
+        from document.document
+        where document_id = :document_id
+    """)
+    result = session.execute(stmt, {"document_id": document_id})
+    assert result.scalar() == "ready_to_share"
 
 
 def test_group_data(client, session: Session):

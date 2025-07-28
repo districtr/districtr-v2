@@ -3,8 +3,9 @@ from fastapi.testclient import TestClient
 from tests.constants import FIXTURES_PATH, USER_ID
 
 
-@pytest.fixture(name="assignments_document_id")
-def assignments_fixture(client, document_id) -> str:
+@pytest.fixture(name="assignments_document")
+def assignments_fixture(client, public_document_full) -> str:
+    document_id = public_document_full["document_id"]
     response = client.patch(
         "/api/update_assignments",
         json={
@@ -18,20 +19,21 @@ def assignments_fixture(client, document_id) -> str:
         },
     )
     assert response.status_code == 200
-    return document_id
+    return public_document_full
 
 
 @pytest.fixture(name="csv_result")
-def csv_result_fixture(assignments_document_id, client: TestClient) -> str:
+def csv_result_fixture(assignments_document, client: TestClient) -> str:
     with open(FIXTURES_PATH / "exports" / "zone_assignments_csv_export.csv") as f:
         return f.read()
 
 
 def test_get_zone_assignments_csv_export(
-    client: TestClient, assignments_document_id: str, csv_result: str
+    client: TestClient, assignments_document, csv_result: str
 ):
+    public_id = assignments_document["public_id"]
     response = client.get(
-        f"/api/document/{assignments_document_id}/export?format=CSV&limit=10&export_type=ZoneAssignments",
+        f"/api/document/{public_id}/export?format=CSV&limit=10&export_type=ZoneAssignments",
     )
     assert response.status_code == 200, response.json()
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
@@ -39,7 +41,7 @@ def test_get_zone_assignments_csv_export(
 
 
 @pytest.fixture(name="geojson_result")
-def geojson_result_fixture(assignments_document_id, client: TestClient) -> str:
+def geojson_result_fixture(assignments_document, client: TestClient) -> str:
     with open(
         FIXTURES_PATH / "exports" / "zone_assignments_geojson_export.geojson"
     ) as f:
@@ -47,10 +49,11 @@ def geojson_result_fixture(assignments_document_id, client: TestClient) -> str:
 
 
 def test_get_zone_assignments_geojon_export(
-    client: TestClient, assignments_document_id: str, geojson_result: str
+    client: TestClient, assignments_document, geojson_result: str
 ):
+    public_id = assignments_document["public_id"]
     response = client.get(
-        f"/api/document/{assignments_document_id}/export?format=GeoJSON&limit=10&export_type=ZoneAssignments",
+        f"/api/document/{public_id}/export?format=GeoJSON&limit=10&export_type=ZoneAssignments",
     )
 
     assert response.status_code == 200, response.json()
@@ -58,20 +61,20 @@ def test_get_zone_assignments_geojon_export(
     assert response.text == geojson_result, response.text
 
 
-def test_get_unsupported_export_type(client: TestClient, assignments_document_id: str):
+def test_get_unsupported_export_type(client: TestClient, assignments_document):
+    public_id = assignments_document["public_id"]
     response = client.get(
-        f"/api/document/{assignments_document_id}/export?format=CSV&limit=10&export_type=NiceSocks",
+        f"/api/document/{public_id}/export?format=CSV&limit=10&export_type=NiceSocks",
     )
 
     assert response.status_code == 400, response.json()
     assert response.json()["detail"] == "'NiceSocks' is not a valid DocumentExportType"
 
 
-def test_get_unsupported_format_export(
-    client: TestClient, assignments_document_id: str
-):
+def test_get_unsupported_format_export(client: TestClient, assignments_document):
+    public_id = assignments_document["public_id"]
     response = client.get(
-        f"/api/document/{assignments_document_id}/export?format=FlatGeobuf&limit=10",
+        f"/api/document/{public_id}/export?format=FlatGeobuf&limit=10",
     )
 
     assert response.status_code == 400, response.json()
@@ -81,19 +84,20 @@ def test_get_unsupported_format_export(
 
 
 def test_get_block_assignments_csv_export_no_child_layer_raise(
-    client: TestClient, assignments_document_id: str
+    client: TestClient, assignments_document
 ):
+    public_id = assignments_document["public_id"]
     response = client.get(
-        f"/api/document/{assignments_document_id}/export?format=CSV&limit=10&export_type=BlockZoneAssignments",
+        f"/api/document/{public_id}/export?format=CSV&limit=10&export_type=BlockZoneAssignments",
     )
     assert response.status_code == 400, response.json()
     assert response.json()["detail"].startswith(
-        f"Child layer is NULL for document_id: {assignments_document_id}. Block-level queries are not supported"
+        f"Child layer is NULL for document_id: {public_id}. Block-level queries are not supported"
     )
 
 
 @pytest.fixture
-def simple_child_geoids_document_id(
+def simple_child_geoids_document(
     client: TestClient, simple_shatterable_districtr_map: str
 ):
     response = client.post(
@@ -104,7 +108,8 @@ def simple_child_geoids_document_id(
         },
     )
     assert response.status_code == 201, response.json()
-    document_id = response.json()["document_id"]
+    document = response.json()
+    document_id = document["document_id"]
     response = client.patch(
         "/api/update_assignments",
         json={
@@ -119,15 +124,18 @@ def simple_child_geoids_document_id(
     )
     assert response.status_code == 200, response.json()
 
-    return document_id
+    return document
 
 
 def test_get_block_assignments_csv_export(
-    client: TestClient, simple_child_geoids_document_id: str
+    client: TestClient, simple_child_geoids_document
 ):
-    document_id = simple_child_geoids_document_id
+    document = simple_child_geoids_document
+    public_id = document["public_id"]
+    document_id = document["document_id"]
+
     response = client.get(
-        f"/api/document/{document_id}/export?format=CSV&limit=10&export_type=BlockZoneAssignments",
+        f"/api/document/{public_id}/export?format=CSV&limit=10&export_type=BlockZoneAssignments?document_id={document_id}",
     )
     assert response.status_code == 200, response.json()
     assert response.headers["content-type"] == "text/csv; charset=utf-8"

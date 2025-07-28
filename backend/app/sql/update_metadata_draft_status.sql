@@ -1,5 +1,6 @@
 -- migrations/sql/udf_update_metadata_draft_status.sql
 
+-- TODO: This doesn't seem to be used and can be removed
 CREATE OR REPLACE FUNCTION update_metadata_draft_status(map_metadata JSONB)
 RETURNS JSONB
 LANGUAGE SQL

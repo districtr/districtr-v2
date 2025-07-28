@@ -56,6 +56,7 @@ class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
 
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
     __tablename__ = "map_document_token"  # pyright: ignore
+    # TODO: Token ID doesn't do anything anymore and should be removed
     token_id: str = Field(
         UUIDType,
         primary_key=True,

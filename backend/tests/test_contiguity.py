@@ -101,7 +101,7 @@ def simple_geos_graph(file_path: str) -> Graph:
 
 
 # Idem in test_utils.py
-@fixture(name="document_id")
+@fixture(name="simple_geos_document")
 def document_id_fixture(
     client, session: Session, simple_shatterable_districtr_map, gerrydb_simple_geos_view
 ):
@@ -111,12 +111,18 @@ def document_id_fixture(
     )
     assert response.status_code == 201
     doc = response.json()
+    document_id = doc["document_id"]
+    metadata_response = client.put(
+        f"/api/document/{document_id}/metadata", json={"draft_status": "ready_to_share"}
+    )
+    assert metadata_response.status_code == 200
 
-    return doc["document_id"]
+    return doc
 
 
 @fixture(name="simple_contiguous_assignments")
-def simple_contigous_assignments(client: TestClient, document_id: str) -> str:
+def simple_contigous_assignments(client: TestClient, simple_geos_document) -> str:
+    document_id = simple_geos_document["document_id"]
     response = client.patch(
         "/api/update_assignments",
         json={
@@ -131,13 +137,13 @@ def simple_contigous_assignments(client: TestClient, document_id: str) -> str:
     )
     assert response.status_code == 200
 
-    return document_id
+    return simple_geos_document
 
 
 def test_all_zones_contiguous(
-    session: Session, simple_geos_graph: Graph, simple_contiguous_assignments: str
+    session: Session, simple_geos_graph: Graph, simple_contiguous_assignments
 ):
-    document_id = simple_contiguous_assignments
+    document_id = simple_contiguous_assignments["document_id"]
     zone_block_nodes = get_block_assignments(session, document_id)
 
     for zone in zone_block_nodes:
@@ -145,9 +151,9 @@ def test_all_zones_contiguous(
 
 
 def test_subset_of_zones_contiguous(
-    session: Session, simple_geos_graph: Graph, simple_contiguous_assignments: str
+    session: Session, simple_geos_graph: Graph, simple_contiguous_assignments
 ):
-    document_id = simple_contiguous_assignments
+    document_id = simple_contiguous_assignments["document_id"]
 
     (zone_block_nodes,) = get_block_assignments(session, document_id, zones=[1])
     assert check_subgraph_contiguity(simple_geos_graph, zone_block_nodes.nodes)
@@ -189,59 +195,60 @@ def mock_gerrydb_graph_file(monkeypatch):
 
 
 def test_simple_geos_contiguity(
-    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, simple_contiguous_assignments, mock_gerrydb_graph_file
 ):
-    document_id = simple_contiguous_assignments
+    public_id = simple_contiguous_assignments["public_id"]
     response = client.get(
-        f"/api/document/{document_id}/contiguity",
+        f"/api/document/{public_id}/contiguity",
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     assert response.json() == {"1": 1, "2": 1}
 
 
 def test_simple_geos_contiguity_single_zone(
-    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, simple_contiguous_assignments, mock_gerrydb_graph_file
 ):
-    document_id = simple_contiguous_assignments
+    public_id = simple_contiguous_assignments["public_id"]
     response = client.get(
-        f"/api/document/{document_id}/contiguity?zone=1",
+        f"/api/document/{public_id}/contiguity?zone=1",
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     assert response.json() == {"1": 1}
 
 
 def test_simple_geos_contiguity_subgraph_bboxes(
-    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, simple_contiguous_assignments, mock_gerrydb_graph_file
 ):
-    document_id = simple_contiguous_assignments
+    public_id = simple_contiguous_assignments["public_id"]
     response = client.get(
-        f"/api/document/{document_id}/contiguity/1/connected_component_bboxes",
+        f"/api/document/{public_id}/contiguity/1/connected_component_bboxes",
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     data = response.json()
     assert len(data["features"]) == 1
 
 
 def test_simple_geos_contiguity_subgraph_bboxes_nonexistent_zone(
-    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, simple_contiguous_assignments, mock_gerrydb_graph_file
 ):
-    document_id = simple_contiguous_assignments
+    public_id = simple_contiguous_assignments["public_id"]
     response = client.get(
-        f"/api/document/{document_id}/contiguity/3/connected_component_bboxes",
+        f"/api/document/{public_id}/contiguity/3/connected_component_bboxes",
     )
-    assert response.status_code == 404
+    assert response.status_code == 404, response.json()
     data = response.json()
     assert data["detail"] == "Zone not found"
 
 
 def test_simple_geos_discontiguity(
-    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, simple_contiguous_assignments, mock_gerrydb_graph_file
 ):
-    document_id = simple_contiguous_assignments
+    public_id = simple_contiguous_assignments["public_id"]
+    document_id = simple_contiguous_assignments["document_id"]
     response = client.get(
-        f"/api/document/{document_id}/contiguity",
+        f"/api/document/{public_id}/contiguity",
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     assert response.json() == {"1": 1, "2": 1}
 
     # Break one parent and create discontiguous assignments
@@ -267,20 +274,21 @@ def test_simple_geos_discontiguity(
     assert response.status_code == 200
 
     response = client.get(
-        f"/api/document/{document_id}/contiguity",
+        f"/api/document/{public_id}/contiguity",
     )
     assert response.status_code == 200
     assert response.json() == {"1": 2, "2": 1}
 
 
 def test_simple_geos_discontiguity_subgraph_bboxes(
-    client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, simple_contiguous_assignments, mock_gerrydb_graph_file
 ):
-    document_id = simple_contiguous_assignments
+    public_id = simple_contiguous_assignments["public_id"]
+    document_id = simple_contiguous_assignments["document_id"]
     response = client.get(
-        f"/api/document/{document_id}/contiguity",
+        f"/api/document/{public_id}/contiguity",
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     assert response.json() == {"1": 1, "2": 1}
 
     # Break one parent and create discontiguous assignments
@@ -306,7 +314,7 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
     assert response.status_code == 200
 
     response = client.get(
-        f"/api/document/{document_id}/contiguity/1/connected_component_bboxes",
+        f"/api/document/{public_id}/contiguity/1/connected_component_bboxes",
     )
     assert response.status_code == 200
     data = response.json()
@@ -314,7 +322,7 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
 
 
 @fixture
-def ks_ellis_document_id(
+def ks_ellis_document(
     client,
     session: Session,
     ks_ellis_shatterable_districtr_map,
@@ -329,13 +337,18 @@ def ks_ellis_document_id(
     )
     assert response.status_code == 201
     doc = response.json()
+    document_id = doc["document_id"]
+    metadata_response = client.put(
+        f"/api/document/{document_id}/metadata", json={"draft_status": "ready_to_share"}
+    )
+    assert metadata_response.status_code == 200
 
-    return doc["document_id"]
+    return doc
 
 
 @fixture
-def ks_ellis_assignments(client: TestClient, ks_ellis_document_id: str) -> str:
-    document_id = ks_ellis_document_id
+def ks_ellis_assignments(client: TestClient, ks_ellis_document) -> str:
+    document_id = ks_ellis_document["document_id"]
     response = client.patch(
         "/api/update_assignments",
         json={
@@ -373,24 +386,25 @@ def ks_ellis_assignments(client: TestClient, ks_ellis_document_id: str) -> str:
     )
     assert response.status_code == 200
 
-    return document_id
+    return ks_ellis_document
 
 
 def test_ks_ellis_geos_contiguity(
-    client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, ks_ellis_assignments, mock_gerrydb_graph_file
 ):
-    document_id = ks_ellis_assignments
+    public_id = ks_ellis_assignments["public_id"]
     response = client.get(
-        f"/api/document/{document_id}/contiguity",
+        f"/api/document/{public_id}/contiguity",
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     assert response.json() == {"1": 1, "2": 1, "3": 2}
 
 
 def test_fix_ks_ellis_geos_contiguity(
-    client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, ks_ellis_assignments, mock_gerrydb_graph_file
 ):
-    document_id = ks_ellis_assignments
+    public_id = ks_ellis_assignments["public_id"]
+    document_id = ks_ellis_assignments["document_id"]
 
     response = client.patch(
         "/api/update_assignments",
@@ -405,14 +419,14 @@ def test_fix_ks_ellis_geos_contiguity(
     assert response.status_code == 200
 
     response = client.get(
-        f"/api/document/{document_id}/contiguity",
+        f"/api/document/{public_id}/contiguity",
     )
     assert response.status_code == 200
     assert response.json() == {"1": 1, "2": 1, "3": 1}
 
 
-@fixture(name="ks_ellis_parent_only_document_id")
-def ks_ellis_parent_only_document_id(
+@fixture(name="ks_ellis_parent_only_document")
+def ks_ellis_parent_only_document(
     client,
     session: Session,
     ks_ellis_parent_layer_only_districtr_map,
@@ -426,15 +440,20 @@ def ks_ellis_parent_only_document_id(
     )
     assert response.status_code == 201, response.json()
     doc = response.json()
+    document_id = doc["document_id"]
+    metadata_response = client.put(
+        f"/api/document/{document_id}/metadata", json={"draft_status": "ready_to_share"}
+    )
+    assert metadata_response.status_code == 200
 
-    return doc["document_id"]
+    return doc
 
 
 @fixture
 def ks_ellis_parent_only_assignments(
-    client: TestClient, ks_ellis_parent_only_document_id: str
+    client: TestClient, ks_ellis_parent_only_document
 ) -> str:
-    document_id = ks_ellis_parent_only_document_id
+    document_id = ks_ellis_parent_only_document["document_id"]
     response = client.patch(
         "/api/update_assignments",
         json={
@@ -462,26 +481,26 @@ def ks_ellis_parent_only_assignments(
     )
     assert response.status_code == 200, response.json()
 
-    return document_id
+    return ks_ellis_parent_only_document
 
 
 def test_ks_ellis_parent_only_geos_contiguity(
-    client: TestClient, ks_ellis_parent_only_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, ks_ellis_parent_only_assignments, mock_gerrydb_graph_file
 ):
-    document_id = ks_ellis_parent_only_assignments
+    public_id = ks_ellis_parent_only_assignments["public_id"]
     response = client.get(
-        f"/api/document/{document_id}/contiguity",
+        f"/api/document/{public_id}/contiguity",
     )
     assert response.status_code == 200, response.json()
     assert response.json() == {"1": 4, "2": 12}
 
 
 def test_ks_ellis_parent_only_geos_zone_connected_components(
-    client: TestClient, ks_ellis_parent_only_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, ks_ellis_parent_only_assignments, mock_gerrydb_graph_file
 ):
-    document_id = ks_ellis_parent_only_assignments
+    public_id = ks_ellis_parent_only_assignments["public_id"]
     response = client.get(
-        f"/api/document/{document_id}/contiguity/1/connected_component_bboxes",
+        f"/api/document/{public_id}/contiguity/1/connected_component_bboxes",
     )
     assert response.status_code == 200, response.json()
     data = response.json()
@@ -489,11 +508,11 @@ def test_ks_ellis_parent_only_geos_zone_connected_components(
 
 
 def test_ks_ellis_parent_only_geos_zone_connected_components_missing_zone(
-    client: TestClient, ks_ellis_parent_only_assignments: str, mock_gerrydb_graph_file
+    client: TestClient, ks_ellis_parent_only_assignments, mock_gerrydb_graph_file
 ):
-    document_id = ks_ellis_parent_only_assignments
+    public_id = ks_ellis_parent_only_assignments["public_id"]
     response = client.get(
-        f"/api/document/{document_id}/contiguity/3/connected_component_bboxes",
+        f"/api/document/{public_id}/contiguity/3/connected_component_bboxes",
     )
     assert response.status_code == 404, response.json()
     data = response.json()

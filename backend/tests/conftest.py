@@ -198,6 +198,42 @@ def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
     return document_id
 
 
+@pytest.fixture(name="public_document_full")
+def full_public_document_create_fixture(
+    client, ks_demo_view_census_blocks_districtrmap
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    assert response.status_code == 201
+    document = response.json()
+    document_id = document["document_id"]
+    metadata_response = client.put(
+        f"/api/document/{document_id}/metadata", json={"draft_status": "ready_to_share"}
+    )
+    assert metadata_response.status_code == 200
+    return document
+
+
+@pytest.fixture(name="private_document_full")
+def full_private_document_create_fixture(
+    client, ks_demo_view_census_blocks_districtrmap
+):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    document = response.json()
+    return document
+
+
 @pytest.fixture(name="simple_parent_geos")
 def simple_parent_geos_fixture(session: Session):
     layer = "simple_parent_geos"

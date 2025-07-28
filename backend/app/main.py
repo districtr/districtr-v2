@@ -16,7 +16,7 @@ from sqlalchemy.exc import (
     IntegrityError,
 )
 from sqlalchemy import text
-from sqlmodel import Session, String, select, true, update, literal
+from sqlmodel import Session, String, select, true, update
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
@@ -28,11 +28,9 @@ from fastapi_utils.tasks import repeat_every
 from app.assignments import duplicate_document_assignments, batch_insert_assignments
 from app.core.db import get_session
 from app.core.dependencies import (
-    get_document as _get_document,
+    get_document,
     get_document_public,
-    get_protected_document,
     get_districtr_map as _get_districtr_map,
-    get_document_id_is_public,
 )
 from app.core.config import settings
 import app.contiguity.main as contiguity
@@ -41,6 +39,7 @@ import app.exports.main as exports
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
 from networkx import Graph, connected_components
+from app.save_share.models import DocumentEditStatus
 from app.models import (
     Assignments,
     AssignmentsResponse,
@@ -51,7 +50,8 @@ from app.models import (
     DocumentCreate,
     DocumentCreatePublic,
     DocumentPublic,
-    DocumentEditStatus,
+    DocumentMetadata,
+    DocumentShareStatus,
     GEOIDS,
     GEOIDSResponse,
     AssignedGEOIDS,
@@ -64,7 +64,7 @@ from app.models import (
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, literal
 from sqlalchemy.sql.functions import coalesce
 from app.save_share.locks import (
     cleanup_expired_locks as _cleanup_expired_locks,
@@ -203,14 +203,10 @@ async def create_document(
     total_assignments = 0
 
     if data.copy_from_doc is not None:
-        copy_document_id = data.copy_from_doc
-        if not copy_document_id:
-            raise HTTPException(status_code=404, detail="Document not found")
-        data.copy_from_doc = copy_document_id
-        copied_document = get_protected_document(
-            document_id=data.copy_from_doc, session=session
+        # Only public documents can be copied
+        copied_document = get_document_public(
+            public_id=data.copy_from_doc, session=session
         )
-        assert copied_document.document_id is not None
         total_assignments = duplicate_document_assignments(
             from_document_id=copied_document.document_id,
             to_document_id=document_id,
@@ -248,36 +244,31 @@ async def create_document(
                     detail="Duplicate geoids found in input data. Ensure all geoids are unique",
                 )
 
-    if data.metadata is not None:
-        await update_districtrmap_metadata(
-            document_id=document_id, metadata=data.metadata.dict(), session=session
-        )
-
     stmt = (
         select(
+            Document.public_id,
             Document.document_id,
-            Document.created_at,
             Document.districtr_map_slug,
             Document.gerrydb_table,
-            Document.updated_at,
-            DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
-            DistrictrMap.name.label("map_module"),  # pyright: ignore
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+            Document.created_at,
+            Document.updated_at,
             DistrictrMap.extent.label("extent"),  # pyright: ignore
+            Document.map_metadata,
+            DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
-            coalesce(plan_genesis).label("genesis"),
-            coalesce(total_assignments).label("inserted_assignments"),
-            # send metadata as a null object on init of document
-            coalesce(
-                None,
-            ).label("map_metadata"),
+            DistrictrMap.name.label("map_module"),  # pyright: ignore
             coalesce(
                 None,
                 lock_status,
             ).label("status"),
+            coalesce(plan_genesis).label("genesis"),
+            literal(DocumentShareStatus.edit.value).label("access"),
+            coalesce(total_assignments).label("inserted_assignments"),
+            # send metadata as a null object on init of document
         )
         .where(Document.document_id == document_id)
         .join(
@@ -349,7 +340,7 @@ async def update_assignments(
     response_model=ShatterResult,
 )
 async def shatter_parent(
-    document: Annotated[Document, Depends(_get_document)],
+    document: Annotated[Document, Depends(get_document)],
     data: GEOIDS,
     session: Session = Depends(get_session),
 ):
@@ -384,7 +375,7 @@ async def shatter_parent(
     response_model=GEOIDSResponse,
 )
 async def unshatter_parent(
-    document: Annotated[Document, Depends(_get_document)],
+    document: Annotated[Document, Depends(get_document)],
     data: AssignedGEOIDS,
     session: Session = Depends(get_session),
 ):
@@ -424,7 +415,7 @@ async def unshatter_parent(
     "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
 )
 async def reset_map(
-    document: Annotated[Document, Depends(_get_document)],
+    document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
     partition_name = f'"document.assignments_{document.document_id}"'
@@ -492,26 +483,15 @@ async def update_colors(
     return ColorsSetResult(colors=colors)
 
 
-# called by getAssignments in apiHandlers.ts
-@app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
+@app.get("/api/get_assignments/{public_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(
-    document_id: str | int,
-    document: Annotated[Document, Depends(get_protected_document)],
+    document: Annotated[Document, Depends(get_document_public)],
     session: Session = Depends(get_session),
 ):
-    if not document_id:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    id_is_public, document_id = get_document_id_is_public(document_id)
-    # Needs to be a string for the return type
-    public_id = document.document_id if not id_is_public else f"{document.public_id}"
-
     stmt = (
         select(
             Assignments.geo_id,
             Assignments.zone,
-            # Obsured document.document_id
-            literal(public_id).label("document_id"),
             ParentChildEdges.parent_path,
         )
         .join(Document, onclause=Assignments.document_id == Document.document_id)
@@ -529,32 +509,60 @@ async def get_assignments(
     return session.execute(stmt).fetchall()
 
 
-@app.get("/api/document/{document_id}", response_model=DocumentPublic)
+@app.get("/api/document/{public_id}", response_model=DocumentPublic)
 async def get_document_object(
-    document_id: str,
-    user_id: str | None = None,
+    public_id: int,
+    document_id: str | None = None,
     session: Session = Depends(get_session),
-    status_code=status.HTTP_200_OK,
 ):
-    try:
-        return get_document_public(
-            document_id=document_id, user_id=user_id, session=session
+    stmt = select(
+        Document.public_id,
+        Document.districtr_map_slug,
+        Document.gerrydb_table,
+        DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
+        DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
+        DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
+        DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
+        Document.created_at,
+        Document.updated_at,
+        DistrictrMap.extent.label("extent"),  # pyright: ignore
+        # get metadata as a json object
+        Document.map_metadata.label("map_metadata"),  # pyright: ignore
+        Document.color_scheme,
+        DistrictrMap.map_type.label("map_type"),  # pyright: ignore
+        DistrictrMap.name.label("map_module"),  # pyright: ignore
+    ).join(
+        DistrictrMap,
+        onclause=Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+        isouter=True,
+    )
+
+    if document_id is None:
+        stmt = stmt.where(Document.public_id == public_id).where(
+            text("map_metadata->>'draft_status' = 'ready_to_share'")
         )
+    else:
+        stmt = stmt.where(Document.document_id == document_id)
+
+    try:
+        document = session.exec(stmt).one()
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document not found: {document_id}",
+            detail=f"Document not found: {public_id}",
         )
     except MultipleResultsFound:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Multiple documents found for ID: {document_id}",
+            detail=f"Multiple documents found for ID: {public_id}",
         )
 
+    return document
 
-@app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
+
+@app.get("/api/document/{public_id}/unassigned", response_model=BBoxGeoJSONs)
 async def get_unassigned_geoids(
-    document: Annotated[Document, Depends(get_protected_document)],
+    document: Annotated[Document, Depends(get_document_public)],
     exclude_ids: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
@@ -620,22 +628,19 @@ async def _get_graph(gerrydb_name: str) -> Graph:
     return G
 
 
-@app.get("/api/document/{document_id}/contiguity")
+@app.get("/api/document/{public_id}/contiguity")
 async def check_document_contiguity(
-    document_id: str,
-    document: Annotated[Document, Depends(get_protected_document)],
+    document: Annotated[Document, Depends(get_document_public)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    assert document.document_id is not None
-
     districtr_map = _get_districtr_map(
         session=session, document_id=document.document_id
     )
 
     if districtr_map.child_layer is not None:
         logger.info(
-            f"Using child layer {districtr_map.child_layer} for document {document_id}"
+            f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
         )
         gerrydb_name = districtr_map.child_layer
         kwargs = {"zones": zone} if len(zone) > 0 else {}
@@ -645,7 +650,7 @@ async def check_document_contiguity(
     else:
         gerrydb_name = districtr_map.parent_layer
         logger.info(
-            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
         )
         sql = text(
             """
@@ -677,22 +682,19 @@ async def check_document_contiguity(
     return results
 
 
-@app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
+@app.get("/api/document/{public_id}/contiguity/{zone}/connected_component_bboxes")
 async def get_connected_component_bboxes(
-    document_id: str,
     zone: int,
-    document: Annotated[Document, Depends(get_protected_document)],
+    document: Annotated[Document, Depends(get_document_public)],
     session: Session = Depends(get_session),
 ):
-    assert document.document_id is not None
-
     districtr_map = _get_districtr_map(
         session=session, document_id=document.document_id
     )
 
     if districtr_map.child_layer is not None:
         logger.info(
-            f"Using child layer {districtr_map.child_layer} for document {document_id}"
+            f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
         )
         gerrydb_name = districtr_map.child_layer
         zone_assignments = contiguity.get_block_assignments_bboxes(
@@ -706,7 +708,7 @@ async def get_connected_component_bboxes(
     else:
         gerrydb_name = districtr_map.parent_layer
         logger.info(
-            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
         )
         sql = text(
             f"""
@@ -809,36 +811,16 @@ async def get_connected_component_bboxes(
 
 @app.put("/api/document/{document_id}/metadata", status_code=status.HTTP_200_OK)
 async def update_districtrmap_metadata(
-    document_id: str,
     metadata: dict = Body(...),  # TODO: Type this properly
+    document: Document = Depends(get_document),
     session: Session = Depends(get_session),
 ):
     try:
-        document = _get_document(document_id, session=session)
-
-        # Check if draft_status is being set to ready_to_share
-        if metadata.get("draft_status") == "ready_to_share":
-            if document.public_id is None:
-                # Generate a new public_id by finding the next available number
-                max_public_id = session.exec(
-                    select(func.max(Document.public_id))
-                ).first()
-                next_public_id = (max_public_id or 0) + 1
-
-                # Update the Document with the new public_id
-                stmt = (
-                    update(Document)
-                    .where(Document.document_id == document.document_id)
-                    .values(public_id=next_public_id, map_metadata=metadata)
-                )
-                session.execute(stmt)
-                session.commit()
-                return document
-
+        sanitized_metadata = DocumentMetadata(**metadata)
         stmt = (
             update(Document)
-            .where(Document.document_id == document.document_id)
-            .values(map_metadata=metadata)
+            .where(Document.document_id == document.document_id)  # type: ignore
+            .values(map_metadata=sanitized_metadata.model_dump(exclude_unset=True))
         )
         session.execute(stmt)
         session.commit()
