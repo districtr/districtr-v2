@@ -90,7 +90,7 @@ def get_document_public(
             literal(document_id).label("document_id"),
             Document.created_at,
             Document.districtr_map_slug,
-            Document.gerrydb_table,
+            DistrictrMap.gerrydb_table_name.label("gerrydb_table"),  # pyright: ignore
             Document.updated_at,
             Document.color_scheme,
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
