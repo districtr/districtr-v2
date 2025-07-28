@@ -16,7 +16,7 @@ from sqlalchemy.exc import (
     IntegrityError,
 )
 from sqlalchemy import text
-from sqlmodel import Session, String, select, true, update, literal
+from sqlmodel import Session, String, select, true, update
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
@@ -28,11 +28,10 @@ from fastapi_utils.tasks import repeat_every
 from app.assignments import duplicate_document_assignments, batch_insert_assignments
 from app.core.db import get_session
 from app.core.dependencies import (
-    get_document as _get_document,
+    get_document,
     get_document_public,
     get_protected_document,
-    get_districtr_map as _get_districtr_map,
-    get_document_id_is_public,
+    get_districtr_map,
 )
 from app.core.config import settings
 import app.contiguity.main as contiguity
@@ -349,7 +348,7 @@ async def update_assignments(
     response_model=ShatterResult,
 )
 async def shatter_parent(
-    document: Annotated[Document, Depends(_get_document)],
+    document: Annotated[Document, Depends(get_document)],
     data: GEOIDS,
     session: Session = Depends(get_session),
 ):
@@ -384,7 +383,7 @@ async def shatter_parent(
     response_model=GEOIDSResponse,
 )
 async def unshatter_parent(
-    document: Annotated[Document, Depends(_get_document)],
+    document: Annotated[Document, Depends(get_document)],
     data: AssignedGEOIDS,
     session: Session = Depends(get_session),
 ):
@@ -424,7 +423,7 @@ async def unshatter_parent(
     "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
 )
 async def reset_map(
-    document: Annotated[Document, Depends(_get_document)],
+    document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
 ):
     partition_name = f'"document.assignments_{document.document_id}"'
@@ -495,23 +494,13 @@ async def update_colors(
 # called by getAssignments in apiHandlers.ts
 @app.get("/api/get_assignments/{document_id}", response_model=list[AssignmentsResponse])
 async def get_assignments(
-    document_id: str | int,
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    if not document_id:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    id_is_public, document_id = get_document_id_is_public(document_id)
-    # Needs to be a string for the return type
-    public_id = document.document_id if not id_is_public else f"{document.public_id}"
-
     stmt = (
         select(
             Assignments.geo_id,
             Assignments.zone,
-            # Obsured document.document_id
-            literal(public_id).label("document_id"),
             ParentChildEdges.parent_path,
         )
         .join(Document, onclause=Assignments.document_id == Document.document_id)
@@ -531,10 +520,9 @@ async def get_assignments(
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document_object(
-    document_id: str,
+    document_id: str | int,
     user_id: str | None = None,
     session: Session = Depends(get_session),
-    status_code=status.HTTP_200_OK,
 ):
     try:
         return get_document_public(
@@ -629,9 +617,7 @@ async def check_document_contiguity(
 ):
     assert document.document_id is not None
 
-    districtr_map = _get_districtr_map(
-        session=session, document_id=document.document_id
-    )
+    districtr_map = get_districtr_map(session=session, document_id=document.document_id)
 
     if districtr_map.child_layer is not None:
         logger.info(
@@ -686,9 +672,7 @@ async def get_connected_component_bboxes(
 ):
     assert document.document_id is not None
 
-    districtr_map = _get_districtr_map(
-        session=session, document_id=document.document_id
-    )
+    districtr_map = get_districtr_map(session=session, document_id=document.document_id)
 
     if districtr_map.child_layer is not None:
         logger.info(
@@ -814,7 +798,7 @@ async def update_districtrmap_metadata(
     session: Session = Depends(get_session),
 ):
     try:
-        document = _get_document(document_id, session=session)
+        document = get_document(document_id, session=session)
 
         # Check if draft_status is being set to ready_to_share
         if metadata.get("draft_status") == "ready_to_share":

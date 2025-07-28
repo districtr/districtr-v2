@@ -136,8 +136,8 @@ class DistrictrMapMetadata(BaseModel):
 
 class Document(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
-    document_id: str | None = Field(
-        sa_column=Column(UUIDType, unique=True, primary_key=True)
+    document_id: str = Field(
+        sa_column=Column(UUIDType, unique=True, primary_key=True, nullable=False)
     )
     # All documents get a public id by default so we don't need to backfill this number
     # and the document id can remain the universal unique identifier for documents.
@@ -235,7 +235,7 @@ class AssignmentsResponse(SQLModel):
     geo_id: str
     zone: int | None
     parent_path: str | None
-    document_id: str
+    # document_id: str
 
 
 class GEOIDS(BaseModel):
