@@ -2,7 +2,6 @@ districtr_maps:
 - child_layer: al_districtr_block_view_v1
   districtr_map_slug: al_congressional_districts
   gerrydb_table_name: al_districtr_view_v1
-  group_slug: states
   name: al Congressional Districts (7)
   num_districts: 7
   parent_layer: al_districtr_vtd_view_v1
@@ -10,7 +9,6 @@ districtr_maps:
 - child_layer: al_districtr_block_view_v1
   districtr_map_slug: al_state_senate_districts
   gerrydb_table_name: al_districtr_view_v1
-  group_slug: states
   name: al State Senate Districts (35)
   num_districts: 35
   parent_layer: al_districtr_vtd_view_v1
@@ -18,7 +16,6 @@ districtr_maps:
 - child_layer: al_districtr_block_view_v1
   districtr_map_slug: al_state_house_districts
   gerrydb_table_name: al_districtr_view_v1
-  group_slug: states
   name: al State House Districts (105)
   num_districts: 105
   parent_layer: al_districtr_vtd_view_v1
@@ -26,7 +23,6 @@ districtr_maps:
 - child_layer: ak_districtr_block_view_v1
   districtr_map_slug: ak_state_senate_districts
   gerrydb_table_name: ak_districtr_view_v1
-  group_slug: states
   name: ak State Senate Districts (20)
   num_districts: 20
   parent_layer: ak_districtr_vtd_view_v1
@@ -34,7 +30,6 @@ districtr_maps:
 - child_layer: ak_districtr_block_view_v1
   districtr_map_slug: ak_state_house_districts
   gerrydb_table_name: ak_districtr_view_v1
-  group_slug: states
   name: ak State House Districts (40)
   num_districts: 40
   parent_layer: ak_districtr_vtd_view_v1
@@ -42,7 +37,6 @@ districtr_maps:
 - child_layer: az_districtr_block_view_v1
   districtr_map_slug: az_congressional_districts
   gerrydb_table_name: az_districtr_view_v1
-  group_slug: states
   name: az Congressional Districts (9)
   num_districts: 9
   parent_layer: az_districtr_vtd_view_v1
@@ -50,7 +44,6 @@ districtr_maps:
 - child_layer: az_districtr_block_view_v1
   districtr_map_slug: az_state_senate_districts
   gerrydb_table_name: az_districtr_view_v1
-  group_slug: states
   name: az State Senate Districts (30)
   num_districts: 30
   parent_layer: az_districtr_vtd_view_v1
@@ -58,7 +51,6 @@ districtr_maps:
 - child_layer: az_districtr_block_view_v1
   districtr_map_slug: az_state_house_districts
   gerrydb_table_name: az_districtr_view_v1
-  group_slug: states
   name: az State House Districts (60)
   num_districts: 60
   parent_layer: az_districtr_vtd_view_v1
@@ -66,7 +58,6 @@ districtr_maps:
 - child_layer: ar_districtr_block_view_v1
   districtr_map_slug: ar_congressional_districts
   gerrydb_table_name: ar_districtr_view_v1
-  group_slug: states
   name: ar Congressional Districts (4)
   num_districts: 4
   parent_layer: ar_districtr_vtd_view_v1
@@ -74,7 +65,6 @@ districtr_maps:
 - child_layer: ar_districtr_block_view_v1
   districtr_map_slug: ar_state_senate_districts
   gerrydb_table_name: ar_districtr_view_v1
-  group_slug: states
   name: ar State Senate Districts (35)
   num_districts: 35
   parent_layer: ar_districtr_vtd_view_v1
@@ -82,7 +72,6 @@ districtr_maps:
 - child_layer: ar_districtr_block_view_v1
   districtr_map_slug: ar_state_house_districts
   gerrydb_table_name: ar_districtr_view_v1
-  group_slug: states
   name: ar State House Districts (100)
   num_districts: 100
   parent_layer: ar_districtr_vtd_view_v1
@@ -90,7 +79,6 @@ districtr_maps:
 - child_layer: ca_districtr_block_view_v1
   districtr_map_slug: ca_congressional_districts
   gerrydb_table_name: ca_districtr_view_v1
-  group_slug: states
   name: ca Congressional Districts (52)
   num_districts: 52
   parent_layer: ca_districtr_bg_view_v1
@@ -98,7 +86,6 @@ districtr_maps:
 - child_layer: ca_districtr_block_view_v1
   districtr_map_slug: ca_state_senate_districts
   gerrydb_table_name: ca_districtr_view_v1
-  group_slug: states
   name: ca State Senate Districts (40)
   num_districts: 40
   parent_layer: ca_districtr_bg_view_v1
@@ -106,7 +93,6 @@ districtr_maps:
 - child_layer: ca_districtr_block_view_v1
   districtr_map_slug: ca_state_house_districts
   gerrydb_table_name: ca_districtr_view_v1
-  group_slug: states
   name: ca State House Districts (80)
   num_districts: 80
   parent_layer: ca_districtr_bg_view_v1
@@ -114,7 +100,6 @@ districtr_maps:
 - child_layer: co_districtr_block_view_v1
   districtr_map_slug: co_congressional_districts
   gerrydb_table_name: co_districtr_view_v1
-  group_slug: states
   name: co Congressional Districts (8)
   num_districts: 8
   parent_layer: co_districtr_vtd_view_v1
@@ -122,7 +107,6 @@ districtr_maps:
 - child_layer: co_districtr_block_view_v1
   districtr_map_slug: co_state_senate_districts
   gerrydb_table_name: co_districtr_view_v1
-  group_slug: states
   name: co State Senate Districts (35)
   num_districts: 35
   parent_layer: co_districtr_vtd_view_v1
@@ -130,7 +114,6 @@ districtr_maps:
 - child_layer: co_districtr_block_view_v1
   districtr_map_slug: co_state_house_districts
   gerrydb_table_name: co_districtr_view_v1
-  group_slug: states
   name: co State House Districts (65)
   num_districts: 65
   parent_layer: co_districtr_vtd_view_v1
@@ -138,7 +121,6 @@ districtr_maps:
 - child_layer: ct_districtr_block_view_v1
   districtr_map_slug: ct_congressional_districts
   gerrydb_table_name: ct_districtr_view_v1
-  group_slug: states
   name: ct Congressional Districts (5)
   num_districts: 5
   parent_layer: ct_districtr_vtd_view_v1
@@ -146,7 +128,6 @@ districtr_maps:
 - child_layer: ct_districtr_block_view_v1
   districtr_map_slug: ct_state_senate_districts
   gerrydb_table_name: ct_districtr_view_v1
-  group_slug: states
   name: ct State Senate Districts (36)
   num_districts: 36
   parent_layer: ct_districtr_vtd_view_v1
@@ -154,7 +135,6 @@ districtr_maps:
 - child_layer: ct_districtr_block_view_v1
   districtr_map_slug: ct_state_house_districts
   gerrydb_table_name: ct_districtr_view_v1
-  group_slug: states
   name: ct State House Districts (151)
   num_districts: 151
   parent_layer: ct_districtr_vtd_view_v1
@@ -162,7 +142,6 @@ districtr_maps:
 - child_layer: de_districtr_block_view_v1
   districtr_map_slug: de_state_senate_districts
   gerrydb_table_name: de_districtr_view_v1
-  group_slug: states
   name: de State Senate Districts (21)
   num_districts: 21
   parent_layer: de_districtr_vtd_view_v1
@@ -170,7 +149,6 @@ districtr_maps:
 - child_layer: de_districtr_block_view_v1
   districtr_map_slug: de_state_house_districts
   gerrydb_table_name: de_districtr_view_v1
-  group_slug: states
   name: de State House Districts (41)
   num_districts: 41
   parent_layer: de_districtr_vtd_view_v1
@@ -178,7 +156,6 @@ districtr_maps:
 - child_layer: fl_districtr_block_view_v1
   districtr_map_slug: fl_congressional_districts
   gerrydb_table_name: fl_districtr_view_v1
-  group_slug: states
   name: fl Congressional Districts (28)
   num_districts: 28
   parent_layer: fl_districtr_vtd_view_v1
@@ -186,7 +163,6 @@ districtr_maps:
 - child_layer: fl_districtr_block_view_v1
   districtr_map_slug: fl_state_senate_districts
   gerrydb_table_name: fl_districtr_view_v1
-  group_slug: states
   name: fl State Senate Districts (40)
   num_districts: 40
   parent_layer: fl_districtr_vtd_view_v1
@@ -194,7 +170,6 @@ districtr_maps:
 - child_layer: fl_districtr_block_view_v1
   districtr_map_slug: fl_state_house_districts
   gerrydb_table_name: fl_districtr_view_v1
-  group_slug: states
   name: fl State House Districts (120)
   num_districts: 120
   parent_layer: fl_districtr_vtd_view_v1
@@ -202,7 +177,6 @@ districtr_maps:
 - child_layer: ga_districtr_block_view_v1
   districtr_map_slug: ga_congressional_districts
   gerrydb_table_name: ga_districtr_view_v1
-  group_slug: states
   name: ga Congressional Districts (14)
   num_districts: 14
   parent_layer: ga_districtr_vtd_view_v1
@@ -210,7 +184,6 @@ districtr_maps:
 - child_layer: ga_districtr_block_view_v1
   districtr_map_slug: ga_state_senate_districts
   gerrydb_table_name: ga_districtr_view_v1
-  group_slug: states
   name: ga State Senate Districts (56)
   num_districts: 56
   parent_layer: ga_districtr_vtd_view_v1
@@ -218,7 +191,6 @@ districtr_maps:
 - child_layer: ga_districtr_block_view_v1
   districtr_map_slug: ga_state_house_districts
   gerrydb_table_name: ga_districtr_view_v1
-  group_slug: states
   name: ga State House Districts (180)
   num_districts: 180
   parent_layer: ga_districtr_vtd_view_v1
@@ -226,7 +198,6 @@ districtr_maps:
 - child_layer: hi_districtr_block_view_v1
   districtr_map_slug: hi_congressional_districts
   gerrydb_table_name: hi_districtr_view_v1
-  group_slug: states
   name: hi Congressional Districts (2)
   num_districts: 2
   parent_layer: hi_districtr_bg_view_v1
@@ -234,7 +205,6 @@ districtr_maps:
 - child_layer: hi_districtr_block_view_v1
   districtr_map_slug: hi_state_senate_districts
   gerrydb_table_name: hi_districtr_view_v1
-  group_slug: states
   name: hi State Senate Districts (25)
   num_districts: 25
   parent_layer: hi_districtr_bg_view_v1
@@ -242,7 +212,6 @@ districtr_maps:
 - child_layer: hi_districtr_block_view_v1
   districtr_map_slug: hi_state_house_districts
   gerrydb_table_name: hi_districtr_view_v1
-  group_slug: states
   name: hi State House Districts (51)
   num_districts: 51
   parent_layer: hi_districtr_bg_view_v1
@@ -250,7 +219,6 @@ districtr_maps:
 - child_layer: id_districtr_block_view_v1
   districtr_map_slug: id_congressional_districts
   gerrydb_table_name: id_districtr_view_v1
-  group_slug: states
   name: id Congressional Districts (2)
   num_districts: 2
   parent_layer: id_districtr_vtd_view_v1
@@ -258,7 +226,6 @@ districtr_maps:
 - child_layer: id_districtr_block_view_v1
   districtr_map_slug: id_state_senate_districts
   gerrydb_table_name: id_districtr_view_v1
-  group_slug: states
   name: id State Senate Districts (35)
   num_districts: 35
   parent_layer: id_districtr_vtd_view_v1
@@ -266,7 +233,6 @@ districtr_maps:
 - child_layer: id_districtr_block_view_v1
   districtr_map_slug: id_state_house_districts
   gerrydb_table_name: id_districtr_view_v1
-  group_slug: states
   name: id State House Districts (70)
   num_districts: 70
   parent_layer: id_districtr_vtd_view_v1
@@ -274,7 +240,6 @@ districtr_maps:
 - child_layer: il_districtr_block_view_v1
   districtr_map_slug: il_congressional_districts
   gerrydb_table_name: il_districtr_view_v1
-  group_slug: states
   name: il Congressional Districts (17)
   num_districts: 17
   parent_layer: il_districtr_vtd_view_v1
@@ -282,7 +247,6 @@ districtr_maps:
 - child_layer: il_districtr_block_view_v1
   districtr_map_slug: il_state_senate_districts
   gerrydb_table_name: il_districtr_view_v1
-  group_slug: states
   name: il State Senate Districts (59)
   num_districts: 59
   parent_layer: il_districtr_vtd_view_v1
@@ -290,7 +254,6 @@ districtr_maps:
 - child_layer: il_districtr_block_view_v1
   districtr_map_slug: il_state_house_districts
   gerrydb_table_name: il_districtr_view_v1
-  group_slug: states
   name: il State House Districts (118)
   num_districts: 118
   parent_layer: il_districtr_vtd_view_v1
@@ -298,7 +261,6 @@ districtr_maps:
 - child_layer: in_districtr_block_view_v1
   districtr_map_slug: in_congressional_districts
   gerrydb_table_name: in_districtr_view_v1
-  group_slug: states
   name: in Congressional Districts (9)
   num_districts: 9
   parent_layer: in_districtr_vtd_view_v1
@@ -306,7 +268,6 @@ districtr_maps:
 - child_layer: in_districtr_block_view_v1
   districtr_map_slug: in_state_senate_districts
   gerrydb_table_name: in_districtr_view_v1
-  group_slug: states
   name: in State Senate Districts (50)
   num_districts: 50
   parent_layer: in_districtr_vtd_view_v1
@@ -314,7 +275,6 @@ districtr_maps:
 - child_layer: in_districtr_block_view_v1
   districtr_map_slug: in_state_house_districts
   gerrydb_table_name: in_districtr_view_v1
-  group_slug: states
   name: in State House Districts (100)
   num_districts: 100
   parent_layer: in_districtr_vtd_view_v1
@@ -322,7 +282,6 @@ districtr_maps:
 - child_layer: ia_districtr_block_view_v1
   districtr_map_slug: ia_congressional_districts
   gerrydb_table_name: ia_districtr_view_v1
-  group_slug: states
   name: ia Congressional Districts (4)
   num_districts: 4
   parent_layer: ia_districtr_vtd_view_v1
@@ -330,7 +289,6 @@ districtr_maps:
 - child_layer: ia_districtr_block_view_v1
   districtr_map_slug: ia_state_senate_districts
   gerrydb_table_name: ia_districtr_view_v1
-  group_slug: states
   name: ia State Senate Districts (50)
   num_districts: 50
   parent_layer: ia_districtr_vtd_view_v1
@@ -338,7 +296,6 @@ districtr_maps:
 - child_layer: ia_districtr_block_view_v1
   districtr_map_slug: ia_state_house_districts
   gerrydb_table_name: ia_districtr_view_v1
-  group_slug: states
   name: ia State House Districts (100)
   num_districts: 100
   parent_layer: ia_districtr_vtd_view_v1
@@ -346,7 +303,6 @@ districtr_maps:
 - child_layer: ks_districtr_block_view_v1
   districtr_map_slug: ks_congressional_districts
   gerrydb_table_name: ks_districtr_view_v1
-  group_slug: states
   name: ks Congressional Districts (4)
   num_districts: 4
   parent_layer: ks_districtr_vtd_view_v1
@@ -354,7 +310,6 @@ districtr_maps:
 - child_layer: ks_districtr_block_view_v1
   districtr_map_slug: ks_state_senate_districts
   gerrydb_table_name: ks_districtr_view_v1
-  group_slug: states
   name: ks State Senate Districts (40)
   num_districts: 40
   parent_layer: ks_districtr_vtd_view_v1
@@ -362,7 +317,6 @@ districtr_maps:
 - child_layer: ks_districtr_block_view_v1
   districtr_map_slug: ks_state_house_districts
   gerrydb_table_name: ks_districtr_view_v1
-  group_slug: states
   name: ks State House Districts (125)
   num_districts: 125
   parent_layer: ks_districtr_vtd_view_v1
@@ -370,7 +324,6 @@ districtr_maps:
 - child_layer: ky_districtr_block_view_v1
   districtr_map_slug: ky_congressional_districts
   gerrydb_table_name: ky_districtr_view_v1
-  group_slug: states
   name: ky Congressional Districts (6)
   num_districts: 6
   parent_layer: ky_districtr_vtd_view_v1
@@ -378,7 +331,6 @@ districtr_maps:
 - child_layer: ky_districtr_block_view_v1
   districtr_map_slug: ky_state_senate_districts
   gerrydb_table_name: ky_districtr_view_v1
-  group_slug: states
   name: ky State Senate Districts (38)
   num_districts: 38
   parent_layer: ky_districtr_vtd_view_v1
@@ -386,7 +338,6 @@ districtr_maps:
 - child_layer: ky_districtr_block_view_v1
   districtr_map_slug: ky_state_house_districts
   gerrydb_table_name: ky_districtr_view_v1
-  group_slug: states
   name: ky State House Districts (100)
   num_districts: 100
   parent_layer: ky_districtr_vtd_view_v1
@@ -394,7 +345,6 @@ districtr_maps:
 - child_layer: la_districtr_block_view_v1
   districtr_map_slug: la_congressional_districts
   gerrydb_table_name: la_districtr_view_v1
-  group_slug: states
   name: la Congressional Districts (6)
   num_districts: 6
   parent_layer: la_districtr_vtd_view_v1
@@ -402,7 +352,6 @@ districtr_maps:
 - child_layer: la_districtr_block_view_v1
   districtr_map_slug: la_state_senate_districts
   gerrydb_table_name: la_districtr_view_v1
-  group_slug: states
   name: la State Senate Districts (39)
   num_districts: 39
   parent_layer: la_districtr_vtd_view_v1
@@ -410,7 +359,6 @@ districtr_maps:
 - child_layer: la_districtr_block_view_v1
   districtr_map_slug: la_state_house_districts
   gerrydb_table_name: la_districtr_view_v1
-  group_slug: states
   name: la State House Districts (105)
   num_districts: 105
   parent_layer: la_districtr_vtd_view_v1
@@ -418,7 +366,6 @@ districtr_maps:
 - child_layer: me_districtr_block_view_v1
   districtr_map_slug: me_congressional_districts
   gerrydb_table_name: me_districtr_view_v1
-  group_slug: states
   name: me Congressional Districts (2)
   num_districts: 2
   parent_layer: me_districtr_vtd_view_v1
@@ -426,7 +373,6 @@ districtr_maps:
 - child_layer: me_districtr_block_view_v1
   districtr_map_slug: me_state_senate_districts
   gerrydb_table_name: me_districtr_view_v1
-  group_slug: states
   name: me State Senate Districts (35)
   num_districts: 35
   parent_layer: me_districtr_vtd_view_v1
@@ -434,7 +380,6 @@ districtr_maps:
 - child_layer: me_districtr_block_view_v1
   districtr_map_slug: me_state_house_districts
   gerrydb_table_name: me_districtr_view_v1
-  group_slug: states
   name: me State House Districts (151)
   num_districts: 151
   parent_layer: me_districtr_vtd_view_v1
@@ -442,7 +387,6 @@ districtr_maps:
 - child_layer: md_districtr_block_view_v1
   districtr_map_slug: md_congressional_districts
   gerrydb_table_name: md_districtr_view_v1
-  group_slug: states
   name: md Congressional Districts (8)
   num_districts: 8
   parent_layer: md_districtr_vtd_view_v1
@@ -450,7 +394,6 @@ districtr_maps:
 - child_layer: md_districtr_block_view_v1
   districtr_map_slug: md_state_senate_districts
   gerrydb_table_name: md_districtr_view_v1
-  group_slug: states
   name: md State Senate Districts (47)
   num_districts: 47
   parent_layer: md_districtr_vtd_view_v1
@@ -458,7 +401,6 @@ districtr_maps:
 - child_layer: md_districtr_block_view_v1
   districtr_map_slug: md_state_house_districts
   gerrydb_table_name: md_districtr_view_v1
-  group_slug: states
   name: md State House Districts (141)
   num_districts: 141
   parent_layer: md_districtr_vtd_view_v1
@@ -466,7 +408,6 @@ districtr_maps:
 - child_layer: ma_districtr_block_view_v1
   districtr_map_slug: ma_congressional_districts
   gerrydb_table_name: ma_districtr_view_v1
-  group_slug: states
   name: ma Congressional Districts (9)
   num_districts: 9
   parent_layer: ma_districtr_vtd_view_v1
@@ -474,7 +415,6 @@ districtr_maps:
 - child_layer: ma_districtr_block_view_v1
   districtr_map_slug: ma_state_senate_districts
   gerrydb_table_name: ma_districtr_view_v1
-  group_slug: states
   name: ma State Senate Districts (40)
   num_districts: 40
   parent_layer: ma_districtr_vtd_view_v1
@@ -482,7 +422,6 @@ districtr_maps:
 - child_layer: ma_districtr_block_view_v1
   districtr_map_slug: ma_state_house_districts
   gerrydb_table_name: ma_districtr_view_v1
-  group_slug: states
   name: ma State House Districts (160)
   num_districts: 160
   parent_layer: ma_districtr_vtd_view_v1
@@ -490,7 +429,6 @@ districtr_maps:
 - child_layer: mi_districtr_block_view_v1
   districtr_map_slug: mi_congressional_districts
   gerrydb_table_name: mi_districtr_view_v1
-  group_slug: states
   name: mi Congressional Districts (13)
   num_districts: 13
   parent_layer: mi_districtr_vtd_view_v1
@@ -498,7 +436,6 @@ districtr_maps:
 - child_layer: mi_districtr_block_view_v1
   districtr_map_slug: mi_state_senate_districts
   gerrydb_table_name: mi_districtr_view_v1
-  group_slug: states
   name: mi State Senate Districts (38)
   num_districts: 38
   parent_layer: mi_districtr_vtd_view_v1
@@ -506,7 +443,6 @@ districtr_maps:
 - child_layer: mi_districtr_block_view_v1
   districtr_map_slug: mi_state_house_districts
   gerrydb_table_name: mi_districtr_view_v1
-  group_slug: states
   name: mi State House Districts (110)
   num_districts: 110
   parent_layer: mi_districtr_vtd_view_v1
@@ -514,7 +450,6 @@ districtr_maps:
 - child_layer: mn_districtr_block_view_v1
   districtr_map_slug: mn_congressional_districts
   gerrydb_table_name: mn_districtr_view_v1
-  group_slug: states
   name: mn Congressional Districts (8)
   num_districts: 8
   parent_layer: mn_districtr_vtd_view_v1
@@ -522,7 +457,6 @@ districtr_maps:
 - child_layer: mn_districtr_block_view_v1
   districtr_map_slug: mn_state_senate_districts
   gerrydb_table_name: mn_districtr_view_v1
-  group_slug: states
   name: mn State Senate Districts (67)
   num_districts: 67
   parent_layer: mn_districtr_vtd_view_v1
@@ -530,7 +464,6 @@ districtr_maps:
 - child_layer: mn_districtr_block_view_v1
   districtr_map_slug: mn_state_house_districts
   gerrydb_table_name: mn_districtr_view_v1
-  group_slug: states
   name: mn State House Districts (134)
   num_districts: 134
   parent_layer: mn_districtr_vtd_view_v1
@@ -538,7 +471,6 @@ districtr_maps:
 - child_layer: ms_districtr_block_view_v1
   districtr_map_slug: ms_congressional_districts
   gerrydb_table_name: ms_districtr_view_v1
-  group_slug: states
   name: ms Congressional Districts (4)
   num_districts: 4
   parent_layer: ms_districtr_vtd_view_v1
@@ -546,7 +478,6 @@ districtr_maps:
 - child_layer: ms_districtr_block_view_v1
   districtr_map_slug: ms_state_senate_districts
   gerrydb_table_name: ms_districtr_view_v1
-  group_slug: states
   name: ms State Senate Districts (52)
   num_districts: 52
   parent_layer: ms_districtr_vtd_view_v1
@@ -554,7 +485,6 @@ districtr_maps:
 - child_layer: ms_districtr_block_view_v1
   districtr_map_slug: ms_state_house_districts
   gerrydb_table_name: ms_districtr_view_v1
-  group_slug: states
   name: ms State House Districts (122)
   num_districts: 122
   parent_layer: ms_districtr_vtd_view_v1
@@ -562,7 +492,6 @@ districtr_maps:
 - child_layer: mo_districtr_block_view_v1
   districtr_map_slug: mo_congressional_districts
   gerrydb_table_name: mo_districtr_view_v1
-  group_slug: states
   name: mo Congressional Districts (8)
   num_districts: 8
   parent_layer: mo_districtr_vtd_view_v1
@@ -570,7 +499,6 @@ districtr_maps:
 - child_layer: mo_districtr_block_view_v1
   districtr_map_slug: mo_state_senate_districts
   gerrydb_table_name: mo_districtr_view_v1
-  group_slug: states
   name: mo State Senate Districts (34)
   num_districts: 34
   parent_layer: mo_districtr_vtd_view_v1
@@ -578,7 +506,6 @@ districtr_maps:
 - child_layer: mo_districtr_block_view_v1
   districtr_map_slug: mo_state_house_districts
   gerrydb_table_name: mo_districtr_view_v1
-  group_slug: states
   name: mo State House Districts (163)
   num_districts: 163
   parent_layer: mo_districtr_vtd_view_v1
@@ -586,7 +513,6 @@ districtr_maps:
 - child_layer: mt_districtr_block_view_v1
   districtr_map_slug: mt_congressional_districts
   gerrydb_table_name: mt_districtr_view_v1
-  group_slug: states
   name: mt Congressional Districts (2)
   num_districts: 2
   parent_layer: mt_districtr_vtd_view_v1
@@ -594,7 +520,6 @@ districtr_maps:
 - child_layer: mt_districtr_block_view_v1
   districtr_map_slug: mt_state_senate_districts
   gerrydb_table_name: mt_districtr_view_v1
-  group_slug: states
   name: mt State Senate Districts (50)
   num_districts: 50
   parent_layer: mt_districtr_vtd_view_v1
@@ -602,7 +527,6 @@ districtr_maps:
 - child_layer: mt_districtr_block_view_v1
   districtr_map_slug: mt_state_house_districts
   gerrydb_table_name: mt_districtr_view_v1
-  group_slug: states
   name: mt State House Districts (100)
   num_districts: 100
   parent_layer: mt_districtr_vtd_view_v1
@@ -610,7 +534,6 @@ districtr_maps:
 - child_layer: ne_districtr_block_view_v1
   districtr_map_slug: ne_congressional_districts
   gerrydb_table_name: ne_districtr_view_v1
-  group_slug: states
   name: ne Congressional Districts (3)
   num_districts: 3
   parent_layer: ne_districtr_vtd_view_v1
@@ -618,7 +541,6 @@ districtr_maps:
 - child_layer: ne_districtr_block_view_v1
   districtr_map_slug: ne_state_senate_districts
   gerrydb_table_name: ne_districtr_view_v1
-  group_slug: states
   name: ne State Senate Districts (49)
   num_districts: 49
   parent_layer: ne_districtr_vtd_view_v1
@@ -626,7 +548,6 @@ districtr_maps:
 - child_layer: nv_districtr_block_view_v1
   districtr_map_slug: nv_congressional_districts
   gerrydb_table_name: nv_districtr_view_v1
-  group_slug: states
   name: nv Congressional Districts (4)
   num_districts: 4
   parent_layer: nv_districtr_vtd_view_v1
@@ -634,7 +555,6 @@ districtr_maps:
 - child_layer: nv_districtr_block_view_v1
   districtr_map_slug: nv_state_senate_districts
   gerrydb_table_name: nv_districtr_view_v1
-  group_slug: states
   name: nv State Senate Districts (21)
   num_districts: 21
   parent_layer: nv_districtr_vtd_view_v1
@@ -642,7 +562,6 @@ districtr_maps:
 - child_layer: nv_districtr_block_view_v1
   districtr_map_slug: nv_state_house_districts
   gerrydb_table_name: nv_districtr_view_v1
-  group_slug: states
   name: nv State House Districts (42)
   num_districts: 42
   parent_layer: nv_districtr_vtd_view_v1
@@ -650,7 +569,6 @@ districtr_maps:
 - child_layer: nh_districtr_block_view_v1
   districtr_map_slug: nh_congressional_districts
   gerrydb_table_name: nh_districtr_view_v1
-  group_slug: states
   name: nh Congressional Districts (2)
   num_districts: 2
   parent_layer: nh_districtr_vtd_view_v1
@@ -658,7 +576,6 @@ districtr_maps:
 - child_layer: nh_districtr_block_view_v1
   districtr_map_slug: nh_state_senate_districts
   gerrydb_table_name: nh_districtr_view_v1
-  group_slug: states
   name: nh State Senate Districts (24)
   num_districts: 24
   parent_layer: nh_districtr_vtd_view_v1
@@ -666,7 +583,6 @@ districtr_maps:
 - child_layer: nh_districtr_block_view_v1
   districtr_map_slug: nh_state_house_districts
   gerrydb_table_name: nh_districtr_view_v1
-  group_slug: states
   name: nh State House Districts (400)
   num_districts: 400
   parent_layer: nh_districtr_vtd_view_v1
@@ -674,7 +590,6 @@ districtr_maps:
 - child_layer: nj_districtr_block_view_v1
   districtr_map_slug: nj_congressional_districts
   gerrydb_table_name: nj_districtr_view_v1
-  group_slug: states
   name: nj Congressional Districts (12)
   num_districts: 12
   parent_layer: nj_districtr_vtd_view_v1
@@ -682,7 +597,6 @@ districtr_maps:
 - child_layer: nj_districtr_block_view_v1
   districtr_map_slug: nj_state_senate_districts
   gerrydb_table_name: nj_districtr_view_v1
-  group_slug: states
   name: nj State Senate Districts (40)
   num_districts: 40
   parent_layer: nj_districtr_vtd_view_v1
@@ -690,7 +604,6 @@ districtr_maps:
 - child_layer: nj_districtr_block_view_v1
   districtr_map_slug: nj_state_house_districts
   gerrydb_table_name: nj_districtr_view_v1
-  group_slug: states
   name: nj State House Districts (80)
   num_districts: 80
   parent_layer: nj_districtr_vtd_view_v1
@@ -698,7 +611,6 @@ districtr_maps:
 - child_layer: nm_districtr_block_view_v1
   districtr_map_slug: nm_congressional_districts
   gerrydb_table_name: nm_districtr_view_v1
-  group_slug: states
   name: nm Congressional Districts (3)
   num_districts: 3
   parent_layer: nm_districtr_vtd_view_v1
@@ -706,7 +618,6 @@ districtr_maps:
 - child_layer: nm_districtr_block_view_v1
   districtr_map_slug: nm_state_senate_districts
   gerrydb_table_name: nm_districtr_view_v1
-  group_slug: states
   name: nm State Senate Districts (42)
   num_districts: 42
   parent_layer: nm_districtr_vtd_view_v1
@@ -714,7 +625,6 @@ districtr_maps:
 - child_layer: nm_districtr_block_view_v1
   districtr_map_slug: nm_state_house_districts
   gerrydb_table_name: nm_districtr_view_v1
-  group_slug: states
   name: nm State House Districts (70)
   num_districts: 70
   parent_layer: nm_districtr_vtd_view_v1
@@ -722,7 +632,6 @@ districtr_maps:
 - child_layer: ny_districtr_block_view_v1
   districtr_map_slug: ny_congressional_districts
   gerrydb_table_name: ny_districtr_view_v1
-  group_slug: states
   name: ny Congressional Districts (26)
   num_districts: 26
   parent_layer: ny_districtr_vtd_view_v1
@@ -730,7 +639,6 @@ districtr_maps:
 - child_layer: ny_districtr_block_view_v1
   districtr_map_slug: ny_state_senate_districts
   gerrydb_table_name: ny_districtr_view_v1
-  group_slug: states
   name: ny State Senate Districts (63)
   num_districts: 63
   parent_layer: ny_districtr_vtd_view_v1
@@ -738,7 +646,6 @@ districtr_maps:
 - child_layer: ny_districtr_block_view_v1
   districtr_map_slug: ny_state_house_districts
   gerrydb_table_name: ny_districtr_view_v1
-  group_slug: states
   name: ny State House Districts (150)
   num_districts: 150
   parent_layer: ny_districtr_vtd_view_v1
@@ -746,7 +653,6 @@ districtr_maps:
 - child_layer: nc_districtr_block_view_v1
   districtr_map_slug: nc_congressional_districts
   gerrydb_table_name: nc_districtr_view_v1
-  group_slug: states
   name: nc Congressional Districts (14)
   num_districts: 14
   parent_layer: nc_districtr_vtd_view_v1
@@ -754,7 +660,6 @@ districtr_maps:
 - child_layer: nc_districtr_block_view_v1
   districtr_map_slug: nc_state_senate_districts
   gerrydb_table_name: nc_districtr_view_v1
-  group_slug: states
   name: nc State Senate Districts (50)
   num_districts: 50
   parent_layer: nc_districtr_vtd_view_v1
@@ -762,7 +667,6 @@ districtr_maps:
 - child_layer: nc_districtr_block_view_v1
   districtr_map_slug: nc_state_house_districts
   gerrydb_table_name: nc_districtr_view_v1
-  group_slug: states
   name: nc State House Districts (120)
   num_districts: 120
   parent_layer: nc_districtr_vtd_view_v1
@@ -770,7 +674,6 @@ districtr_maps:
 - child_layer: nd_districtr_block_view_v1
   districtr_map_slug: nd_state_senate_districts
   gerrydb_table_name: nd_districtr_view_v1
-  group_slug: states
   name: nd State Senate Districts (47)
   num_districts: 47
   parent_layer: nd_districtr_vtd_view_v1
@@ -778,7 +681,6 @@ districtr_maps:
 - child_layer: nd_districtr_block_view_v1
   districtr_map_slug: nd_state_house_districts
   gerrydb_table_name: nd_districtr_view_v1
-  group_slug: states
   name: nd State House Districts (94)
   num_districts: 94
   parent_layer: nd_districtr_vtd_view_v1
@@ -786,7 +688,6 @@ districtr_maps:
 - child_layer: oh_districtr_block_view_v1
   districtr_map_slug: oh_congressional_districts
   gerrydb_table_name: oh_districtr_view_v1
-  group_slug: states
   name: oh Congressional Districts (15)
   num_districts: 15
   parent_layer: oh_districtr_vtd_view_v1
@@ -794,7 +695,6 @@ districtr_maps:
 - child_layer: oh_districtr_block_view_v1
   districtr_map_slug: oh_state_senate_districts
   gerrydb_table_name: oh_districtr_view_v1
-  group_slug: states
   name: oh State Senate Districts (33)
   num_districts: 33
   parent_layer: oh_districtr_vtd_view_v1
@@ -802,7 +702,6 @@ districtr_maps:
 - child_layer: oh_districtr_block_view_v1
   districtr_map_slug: oh_state_house_districts
   gerrydb_table_name: oh_districtr_view_v1
-  group_slug: states
   name: oh State House Districts (99)
   num_districts: 99
   parent_layer: oh_districtr_vtd_view_v1
@@ -810,7 +709,6 @@ districtr_maps:
 - child_layer: ok_districtr_block_view_v1
   districtr_map_slug: ok_congressional_districts
   gerrydb_table_name: ok_districtr_view_v1
-  group_slug: states
   name: ok Congressional Districts (5)
   num_districts: 5
   parent_layer: ok_districtr_vtd_view_v1
@@ -818,7 +716,6 @@ districtr_maps:
 - child_layer: ok_districtr_block_view_v1
   districtr_map_slug: ok_state_senate_districts
   gerrydb_table_name: ok_districtr_view_v1
-  group_slug: states
   name: ok State Senate Districts (48)
   num_districts: 48
   parent_layer: ok_districtr_vtd_view_v1
@@ -826,7 +723,6 @@ districtr_maps:
 - child_layer: ok_districtr_block_view_v1
   districtr_map_slug: ok_state_house_districts
   gerrydb_table_name: ok_districtr_view_v1
-  group_slug: states
   name: ok State House Districts (101)
   num_districts: 101
   parent_layer: ok_districtr_vtd_view_v1
@@ -834,7 +730,6 @@ districtr_maps:
 - child_layer: or_districtr_block_view_v1
   districtr_map_slug: or_congressional_districts
   gerrydb_table_name: or_districtr_view_v1
-  group_slug: states
   name: or Congressional Districts (6)
   num_districts: 6
   parent_layer: or_districtr_bg_view_v1
@@ -842,7 +737,6 @@ districtr_maps:
 - child_layer: or_districtr_block_view_v1
   districtr_map_slug: or_state_senate_districts
   gerrydb_table_name: or_districtr_view_v1
-  group_slug: states
   name: or State Senate Districts (30)
   num_districts: 30
   parent_layer: or_districtr_bg_view_v1
@@ -850,7 +744,6 @@ districtr_maps:
 - child_layer: or_districtr_block_view_v1
   districtr_map_slug: or_state_house_districts
   gerrydb_table_name: or_districtr_view_v1
-  group_slug: states
   name: or State House Districts (60)
   num_districts: 60
   parent_layer: or_districtr_bg_view_v1
@@ -858,7 +751,6 @@ districtr_maps:
 - child_layer: pa_districtr_block_view_v1
   districtr_map_slug: pa_congressional_districts
   gerrydb_table_name: pa_districtr_view_v1
-  group_slug: states
   name: pa Congressional Districts (17)
   num_districts: 17
   parent_layer: pa_districtr_vtd_view_v1
@@ -866,7 +758,6 @@ districtr_maps:
 - child_layer: pa_districtr_block_view_v1
   districtr_map_slug: pa_state_senate_districts
   gerrydb_table_name: pa_districtr_view_v1
-  group_slug: states
   name: pa State Senate Districts (50)
   num_districts: 50
   parent_layer: pa_districtr_vtd_view_v1
@@ -874,7 +765,6 @@ districtr_maps:
 - child_layer: pa_districtr_block_view_v1
   districtr_map_slug: pa_state_house_districts
   gerrydb_table_name: pa_districtr_view_v1
-  group_slug: states
   name: pa State House Districts (203)
   num_districts: 203
   parent_layer: pa_districtr_vtd_view_v1
@@ -882,7 +772,6 @@ districtr_maps:
 - child_layer: ri_districtr_block_view_v1
   districtr_map_slug: ri_congressional_districts
   gerrydb_table_name: ri_districtr_view_v1
-  group_slug: states
   name: ri Congressional Districts (2)
   num_districts: 2
   parent_layer: ri_districtr_vtd_view_v1
@@ -890,7 +779,6 @@ districtr_maps:
 - child_layer: ri_districtr_block_view_v1
   districtr_map_slug: ri_state_senate_districts
   gerrydb_table_name: ri_districtr_view_v1
-  group_slug: states
   name: ri State Senate Districts (38)
   num_districts: 38
   parent_layer: ri_districtr_vtd_view_v1
@@ -898,7 +786,6 @@ districtr_maps:
 - child_layer: ri_districtr_block_view_v1
   districtr_map_slug: ri_state_house_districts
   gerrydb_table_name: ri_districtr_view_v1
-  group_slug: states
   name: ri State House Districts (75)
   num_districts: 75
   parent_layer: ri_districtr_vtd_view_v1
@@ -906,7 +793,6 @@ districtr_maps:
 - child_layer: sc_districtr_block_view_v1
   districtr_map_slug: sc_congressional_districts
   gerrydb_table_name: sc_districtr_view_v1
-  group_slug: states
   name: sc Congressional Districts (7)
   num_districts: 7
   parent_layer: sc_districtr_vtd_view_v1
@@ -914,7 +800,6 @@ districtr_maps:
 - child_layer: sc_districtr_block_view_v1
   districtr_map_slug: sc_state_senate_districts
   gerrydb_table_name: sc_districtr_view_v1
-  group_slug: states
   name: sc State Senate Districts (46)
   num_districts: 46
   parent_layer: sc_districtr_vtd_view_v1
@@ -922,7 +807,6 @@ districtr_maps:
 - child_layer: sc_districtr_block_view_v1
   districtr_map_slug: sc_state_house_districts
   gerrydb_table_name: sc_districtr_view_v1
-  group_slug: states
   name: sc State House Districts (124)
   num_districts: 124
   parent_layer: sc_districtr_vtd_view_v1
@@ -930,7 +814,6 @@ districtr_maps:
 - child_layer: sd_districtr_block_view_v1
   districtr_map_slug: sd_state_senate_districts
   gerrydb_table_name: sd_districtr_view_v1
-  group_slug: states
   name: sd State Senate Districts (35)
   num_districts: 35
   parent_layer: sd_districtr_vtd_view_v1
@@ -938,7 +821,6 @@ districtr_maps:
 - child_layer: sd_districtr_block_view_v1
   districtr_map_slug: sd_state_house_districts
   gerrydb_table_name: sd_districtr_view_v1
-  group_slug: states
   name: sd State House Districts (70)
   num_districts: 70
   parent_layer: sd_districtr_vtd_view_v1
@@ -946,7 +828,6 @@ districtr_maps:
 - child_layer: tn_districtr_block_view_v1
   districtr_map_slug: tn_congressional_districts
   gerrydb_table_name: tn_districtr_view_v1
-  group_slug: states
   name: tn Congressional Districts (9)
   num_districts: 9
   parent_layer: tn_districtr_vtd_view_v1
@@ -954,7 +835,6 @@ districtr_maps:
 - child_layer: tn_districtr_block_view_v1
   districtr_map_slug: tn_state_senate_districts
   gerrydb_table_name: tn_districtr_view_v1
-  group_slug: states
   name: tn State Senate Districts (33)
   num_districts: 33
   parent_layer: tn_districtr_vtd_view_v1
@@ -962,7 +842,6 @@ districtr_maps:
 - child_layer: tn_districtr_block_view_v1
   districtr_map_slug: tn_state_house_districts
   gerrydb_table_name: tn_districtr_view_v1
-  group_slug: states
   name: tn State House Districts (99)
   num_districts: 99
   parent_layer: tn_districtr_vtd_view_v1
@@ -970,7 +849,6 @@ districtr_maps:
 - child_layer: tx_districtr_block_view_v1
   districtr_map_slug: tx_congressional_districts
   gerrydb_table_name: tx_districtr_view_v1
-  group_slug: states
   name: tx Congressional Districts (38)
   num_districts: 38
   parent_layer: tx_districtr_vtd_view_v1
@@ -978,7 +856,6 @@ districtr_maps:
 - child_layer: tx_districtr_block_view_v1
   districtr_map_slug: tx_state_senate_districts
   gerrydb_table_name: tx_districtr_view_v1
-  group_slug: states
   name: tx State Senate Districts (31)
   num_districts: 31
   parent_layer: tx_districtr_vtd_view_v1
@@ -986,7 +863,6 @@ districtr_maps:
 - child_layer: tx_districtr_block_view_v1
   districtr_map_slug: tx_state_house_districts
   gerrydb_table_name: tx_districtr_view_v1
-  group_slug: states
   name: tx State House Districts (150)
   num_districts: 150
   parent_layer: tx_districtr_vtd_view_v1
@@ -994,7 +870,6 @@ districtr_maps:
 - child_layer: ut_districtr_block_view_v1
   districtr_map_slug: ut_congressional_districts
   gerrydb_table_name: ut_districtr_view_v1
-  group_slug: states
   name: ut Congressional Districts (4)
   num_districts: 4
   parent_layer: ut_districtr_vtd_view_v1
@@ -1002,7 +877,6 @@ districtr_maps:
 - child_layer: ut_districtr_block_view_v1
   districtr_map_slug: ut_state_senate_districts
   gerrydb_table_name: ut_districtr_view_v1
-  group_slug: states
   name: ut State Senate Districts (29)
   num_districts: 29
   parent_layer: ut_districtr_vtd_view_v1
@@ -1010,7 +884,6 @@ districtr_maps:
 - child_layer: ut_districtr_block_view_v1
   districtr_map_slug: ut_state_house_districts
   gerrydb_table_name: ut_districtr_view_v1
-  group_slug: states
   name: ut State House Districts (75)
   num_districts: 75
   parent_layer: ut_districtr_vtd_view_v1
@@ -1018,7 +891,6 @@ districtr_maps:
 - child_layer: vt_districtr_block_view_v1
   districtr_map_slug: vt_state_senate_districts
   gerrydb_table_name: vt_districtr_view_v1
-  group_slug: states
   name: vt State Senate Districts (30)
   num_districts: 30
   parent_layer: vt_districtr_vtd_view_v1
@@ -1026,7 +898,6 @@ districtr_maps:
 - child_layer: vt_districtr_block_view_v1
   districtr_map_slug: vt_state_house_districts
   gerrydb_table_name: vt_districtr_view_v1
-  group_slug: states
   name: vt State House Districts (150)
   num_districts: 150
   parent_layer: vt_districtr_vtd_view_v1
@@ -1034,7 +905,6 @@ districtr_maps:
 - child_layer: va_districtr_block_view_v1
   districtr_map_slug: va_congressional_districts
   gerrydb_table_name: va_districtr_view_v1
-  group_slug: states
   name: va Congressional Districts (11)
   num_districts: 11
   parent_layer: va_districtr_vtd_view_v1
@@ -1042,7 +912,6 @@ districtr_maps:
 - child_layer: va_districtr_block_view_v1
   districtr_map_slug: va_state_senate_districts
   gerrydb_table_name: va_districtr_view_v1
-  group_slug: states
   name: va State Senate Districts (40)
   num_districts: 40
   parent_layer: va_districtr_vtd_view_v1
@@ -1050,7 +919,6 @@ districtr_maps:
 - child_layer: va_districtr_block_view_v1
   districtr_map_slug: va_state_house_districts
   gerrydb_table_name: va_districtr_view_v1
-  group_slug: states
   name: va State House Districts (100)
   num_districts: 100
   parent_layer: va_districtr_vtd_view_v1
@@ -1058,7 +926,6 @@ districtr_maps:
 - child_layer: wa_districtr_block_view_v1
   districtr_map_slug: wa_congressional_districts
   gerrydb_table_name: wa_districtr_view_v1
-  group_slug: states
   name: wa Congressional Districts (10)
   num_districts: 10
   parent_layer: wa_districtr_vtd_view_v1
@@ -1066,7 +933,6 @@ districtr_maps:
 - child_layer: wa_districtr_block_view_v1
   districtr_map_slug: wa_state_senate_districts
   gerrydb_table_name: wa_districtr_view_v1
-  group_slug: states
   name: wa State Senate Districts (49)
   num_districts: 49
   parent_layer: wa_districtr_vtd_view_v1
@@ -1074,7 +940,6 @@ districtr_maps:
 - child_layer: wa_districtr_block_view_v1
   districtr_map_slug: wa_state_house_districts
   gerrydb_table_name: wa_districtr_view_v1
-  group_slug: states
   name: wa State House Districts (98)
   num_districts: 98
   parent_layer: wa_districtr_vtd_view_v1
@@ -1082,7 +947,6 @@ districtr_maps:
 - child_layer: wv_districtr_block_view_v1
   districtr_map_slug: wv_congressional_districts
   gerrydb_table_name: wv_districtr_view_v1
-  group_slug: states
   name: wv Congressional Districts (2)
   num_districts: 2
   parent_layer: wv_districtr_bg_view_v1
@@ -1090,7 +954,6 @@ districtr_maps:
 - child_layer: wv_districtr_block_view_v1
   districtr_map_slug: wv_state_senate_districts
   gerrydb_table_name: wv_districtr_view_v1
-  group_slug: states
   name: wv State Senate Districts (34)
   num_districts: 34
   parent_layer: wv_districtr_bg_view_v1
@@ -1098,7 +961,6 @@ districtr_maps:
 - child_layer: wv_districtr_block_view_v1
   districtr_map_slug: wv_state_house_districts
   gerrydb_table_name: wv_districtr_view_v1
-  group_slug: states
   name: wv State House Districts (100)
   num_districts: 100
   parent_layer: wv_districtr_bg_view_v1
@@ -1106,7 +968,6 @@ districtr_maps:
 - child_layer: wi_districtr_block_view_v1
   districtr_map_slug: wi_congressional_districts
   gerrydb_table_name: wi_districtr_view_v1
-  group_slug: states
   name: wi Congressional Districts (8)
   num_districts: 8
   parent_layer: wi_districtr_vtd_view_v1
@@ -1114,7 +975,6 @@ districtr_maps:
 - child_layer: wi_districtr_block_view_v1
   districtr_map_slug: wi_state_senate_districts
   gerrydb_table_name: wi_districtr_view_v1
-  group_slug: states
   name: wi State Senate Districts (33)
   num_districts: 33
   parent_layer: wi_districtr_vtd_view_v1
@@ -1122,7 +982,6 @@ districtr_maps:
 - child_layer: wi_districtr_block_view_v1
   districtr_map_slug: wi_state_house_districts
   gerrydb_table_name: wi_districtr_view_v1
-  group_slug: states
   name: wi State House Districts (99)
   num_districts: 99
   parent_layer: wi_districtr_vtd_view_v1
@@ -1130,7 +989,6 @@ districtr_maps:
 - child_layer: wy_districtr_block_view_v1
   districtr_map_slug: wy_state_senate_districts
   gerrydb_table_name: wy_districtr_view_v1
-  group_slug: states
   name: wy State Senate Districts (31)
   num_districts: 31
   parent_layer: wy_districtr_vtd_view_v1
@@ -1138,7 +996,6 @@ districtr_maps:
 - child_layer: wy_districtr_block_view_v1
   districtr_map_slug: wy_state_house_districts
   gerrydb_table_name: wy_districtr_view_v1
-  group_slug: states
   name: wy State House Districts (62)
   num_districts: 62
   parent_layer: wy_districtr_vtd_view_v1
@@ -1444,7 +1301,293 @@ gerrydb_views:
 - gpkg: wy_districtr_vtd_view_v1.gpkg
   layer: wy_districtr_vtd_view_v1
   table_name: wy_districtr_vtd_view_v1
-map_groups: []
+map_groups:
+- districtr_map_slug: al_congressional_districts
+  group_slug: states
+- districtr_map_slug: al_state_senate_districts
+  group_slug: states
+- districtr_map_slug: al_state_house_districts
+  group_slug: states
+- districtr_map_slug: ak_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ak_state_house_districts
+  group_slug: states
+- districtr_map_slug: az_congressional_districts
+  group_slug: states
+- districtr_map_slug: az_state_senate_districts
+  group_slug: states
+- districtr_map_slug: az_state_house_districts
+  group_slug: states
+- districtr_map_slug: ar_congressional_districts
+  group_slug: states
+- districtr_map_slug: ar_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ar_state_house_districts
+  group_slug: states
+- districtr_map_slug: ca_congressional_districts
+  group_slug: states
+- districtr_map_slug: ca_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ca_state_house_districts
+  group_slug: states
+- districtr_map_slug: co_congressional_districts
+  group_slug: states
+- districtr_map_slug: co_state_senate_districts
+  group_slug: states
+- districtr_map_slug: co_state_house_districts
+  group_slug: states
+- districtr_map_slug: ct_congressional_districts
+  group_slug: states
+- districtr_map_slug: ct_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ct_state_house_districts
+  group_slug: states
+- districtr_map_slug: de_state_senate_districts
+  group_slug: states
+- districtr_map_slug: de_state_house_districts
+  group_slug: states
+- districtr_map_slug: fl_congressional_districts
+  group_slug: states
+- districtr_map_slug: fl_state_senate_districts
+  group_slug: states
+- districtr_map_slug: fl_state_house_districts
+  group_slug: states
+- districtr_map_slug: ga_congressional_districts
+  group_slug: states
+- districtr_map_slug: ga_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ga_state_house_districts
+  group_slug: states
+- districtr_map_slug: hi_congressional_districts
+  group_slug: states
+- districtr_map_slug: hi_state_senate_districts
+  group_slug: states
+- districtr_map_slug: hi_state_house_districts
+  group_slug: states
+- districtr_map_slug: id_congressional_districts
+  group_slug: states
+- districtr_map_slug: id_state_senate_districts
+  group_slug: states
+- districtr_map_slug: id_state_house_districts
+  group_slug: states
+- districtr_map_slug: il_congressional_districts
+  group_slug: states
+- districtr_map_slug: il_state_senate_districts
+  group_slug: states
+- districtr_map_slug: il_state_house_districts
+  group_slug: states
+- districtr_map_slug: in_congressional_districts
+  group_slug: states
+- districtr_map_slug: in_state_senate_districts
+  group_slug: states
+- districtr_map_slug: in_state_house_districts
+  group_slug: states
+- districtr_map_slug: ia_congressional_districts
+  group_slug: states
+- districtr_map_slug: ia_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ia_state_house_districts
+  group_slug: states
+- districtr_map_slug: ks_congressional_districts
+  group_slug: states
+- districtr_map_slug: ks_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ks_state_house_districts
+  group_slug: states
+- districtr_map_slug: ky_congressional_districts
+  group_slug: states
+- districtr_map_slug: ky_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ky_state_house_districts
+  group_slug: states
+- districtr_map_slug: la_congressional_districts
+  group_slug: states
+- districtr_map_slug: la_state_senate_districts
+  group_slug: states
+- districtr_map_slug: la_state_house_districts
+  group_slug: states
+- districtr_map_slug: me_congressional_districts
+  group_slug: states
+- districtr_map_slug: me_state_senate_districts
+  group_slug: states
+- districtr_map_slug: me_state_house_districts
+  group_slug: states
+- districtr_map_slug: md_congressional_districts
+  group_slug: states
+- districtr_map_slug: md_state_senate_districts
+  group_slug: states
+- districtr_map_slug: md_state_house_districts
+  group_slug: states
+- districtr_map_slug: ma_congressional_districts
+  group_slug: states
+- districtr_map_slug: ma_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ma_state_house_districts
+  group_slug: states
+- districtr_map_slug: mi_congressional_districts
+  group_slug: states
+- districtr_map_slug: mi_state_senate_districts
+  group_slug: states
+- districtr_map_slug: mi_state_house_districts
+  group_slug: states
+- districtr_map_slug: mn_congressional_districts
+  group_slug: states
+- districtr_map_slug: mn_state_senate_districts
+  group_slug: states
+- districtr_map_slug: mn_state_house_districts
+  group_slug: states
+- districtr_map_slug: ms_congressional_districts
+  group_slug: states
+- districtr_map_slug: ms_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ms_state_house_districts
+  group_slug: states
+- districtr_map_slug: mo_congressional_districts
+  group_slug: states
+- districtr_map_slug: mo_state_senate_districts
+  group_slug: states
+- districtr_map_slug: mo_state_house_districts
+  group_slug: states
+- districtr_map_slug: mt_congressional_districts
+  group_slug: states
+- districtr_map_slug: mt_state_senate_districts
+  group_slug: states
+- districtr_map_slug: mt_state_house_districts
+  group_slug: states
+- districtr_map_slug: ne_congressional_districts
+  group_slug: states
+- districtr_map_slug: ne_state_senate_districts
+  group_slug: states
+- districtr_map_slug: nv_congressional_districts
+  group_slug: states
+- districtr_map_slug: nv_state_senate_districts
+  group_slug: states
+- districtr_map_slug: nv_state_house_districts
+  group_slug: states
+- districtr_map_slug: nh_congressional_districts
+  group_slug: states
+- districtr_map_slug: nh_state_senate_districts
+  group_slug: states
+- districtr_map_slug: nh_state_house_districts
+  group_slug: states
+- districtr_map_slug: nj_congressional_districts
+  group_slug: states
+- districtr_map_slug: nj_state_senate_districts
+  group_slug: states
+- districtr_map_slug: nj_state_house_districts
+  group_slug: states
+- districtr_map_slug: nm_congressional_districts
+  group_slug: states
+- districtr_map_slug: nm_state_senate_districts
+  group_slug: states
+- districtr_map_slug: nm_state_house_districts
+  group_slug: states
+- districtr_map_slug: ny_congressional_districts
+  group_slug: states
+- districtr_map_slug: ny_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ny_state_house_districts
+  group_slug: states
+- districtr_map_slug: nc_congressional_districts
+  group_slug: states
+- districtr_map_slug: nc_state_senate_districts
+  group_slug: states
+- districtr_map_slug: nc_state_house_districts
+  group_slug: states
+- districtr_map_slug: nd_state_senate_districts
+  group_slug: states
+- districtr_map_slug: nd_state_house_districts
+  group_slug: states
+- districtr_map_slug: oh_congressional_districts
+  group_slug: states
+- districtr_map_slug: oh_state_senate_districts
+  group_slug: states
+- districtr_map_slug: oh_state_house_districts
+  group_slug: states
+- districtr_map_slug: ok_congressional_districts
+  group_slug: states
+- districtr_map_slug: ok_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ok_state_house_districts
+  group_slug: states
+- districtr_map_slug: or_congressional_districts
+  group_slug: states
+- districtr_map_slug: or_state_senate_districts
+  group_slug: states
+- districtr_map_slug: or_state_house_districts
+  group_slug: states
+- districtr_map_slug: pa_congressional_districts
+  group_slug: states
+- districtr_map_slug: pa_state_senate_districts
+  group_slug: states
+- districtr_map_slug: pa_state_house_districts
+  group_slug: states
+- districtr_map_slug: ri_congressional_districts
+  group_slug: states
+- districtr_map_slug: ri_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ri_state_house_districts
+  group_slug: states
+- districtr_map_slug: sc_congressional_districts
+  group_slug: states
+- districtr_map_slug: sc_state_senate_districts
+  group_slug: states
+- districtr_map_slug: sc_state_house_districts
+  group_slug: states
+- districtr_map_slug: sd_state_senate_districts
+  group_slug: states
+- districtr_map_slug: sd_state_house_districts
+  group_slug: states
+- districtr_map_slug: tn_congressional_districts
+  group_slug: states
+- districtr_map_slug: tn_state_senate_districts
+  group_slug: states
+- districtr_map_slug: tn_state_house_districts
+  group_slug: states
+- districtr_map_slug: tx_congressional_districts
+  group_slug: states
+- districtr_map_slug: tx_state_senate_districts
+  group_slug: states
+- districtr_map_slug: tx_state_house_districts
+  group_slug: states
+- districtr_map_slug: ut_congressional_districts
+  group_slug: states
+- districtr_map_slug: ut_state_senate_districts
+  group_slug: states
+- districtr_map_slug: ut_state_house_districts
+  group_slug: states
+- districtr_map_slug: vt_state_senate_districts
+  group_slug: states
+- districtr_map_slug: vt_state_house_districts
+  group_slug: states
+- districtr_map_slug: va_congressional_districts
+  group_slug: states
+- districtr_map_slug: va_state_senate_districts
+  group_slug: states
+- districtr_map_slug: va_state_house_districts
+  group_slug: states
+- districtr_map_slug: wa_congressional_districts
+  group_slug: states
+- districtr_map_slug: wa_state_senate_districts
+  group_slug: states
+- districtr_map_slug: wa_state_house_districts
+  group_slug: states
+- districtr_map_slug: wv_congressional_districts
+  group_slug: states
+- districtr_map_slug: wv_state_senate_districts
+  group_slug: states
+- districtr_map_slug: wv_state_house_districts
+  group_slug: states
+- districtr_map_slug: wi_congressional_districts
+  group_slug: states
+- districtr_map_slug: wi_state_senate_districts
+  group_slug: states
+- districtr_map_slug: wi_state_house_districts
+  group_slug: states
+- districtr_map_slug: wy_state_senate_districts
+  group_slug: states
+- districtr_map_slug: wy_state_house_districts
+  group_slug: states
 shatterable_views:
 - child_layer: al_districtr_block_view_v1
   districtr_map_slug: al_districtr_view_v1
