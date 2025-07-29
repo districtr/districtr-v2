@@ -30,8 +30,7 @@ class DocumentShareRequest(BaseModel):
     access_type: DocumentShareStatus = DocumentShareStatus.read
 
 
-class TokenRequest(BaseModel):
-    token: str
+class DocumentCheckoutRequest(BaseModel):
     password: str | None = None
     user_id: str
     access: DocumentShareStatus = DocumentShareStatus.read

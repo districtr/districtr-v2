@@ -19,7 +19,7 @@ from app.core.config import settings
 import jwt
 from app.core.models import UUIDType
 from app.save_share.models import (
-    TokenRequest,
+    DocumentCheckoutRequest,
     DocumentShareStatus,
     DocumentEditStatus,
     UserID,
@@ -180,7 +180,7 @@ async def share_districtr_plan(
 @router.post("/api/document/{document_id}/checkout", status_code=status.HTTP_200_OK)
 async def checkout_plan(
     document: Annotated[Document, Depends(get_document)],
-    data: TokenRequest,
+    data: DocumentCheckoutRequest,
     session: Session = Depends(get_session),
 ):
     """
@@ -193,12 +193,12 @@ async def checkout_plan(
         result = session.execute(
             text(
                 """
-                SELECT document_id, password_hash
+                SELECT password_hash
                 FROM document.map_document_token
-                WHERE token_id = :token
+                WHERE document_id = :document_id
                 """
             ),
-            {"token": data.token},
+            {"document_id": document.document_id},
         ).one()
     except NoResultFound:
         raise HTTPException(
