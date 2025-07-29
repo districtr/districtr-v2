@@ -789,6 +789,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   shatterMappings: {},
   upsertUserMap: ({mapDocument, userMapData, userMapDocumentId}) => {
+    if (!mapDocument?.document_id || mapDocument.access === 'read') return;
     let userMaps = [...get().userMaps];
     const mapViews = get().mapViews.data;
     if (mapDocument?.document_id && mapViews) {

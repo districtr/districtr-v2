@@ -7,16 +7,20 @@ import {MapStatus} from './MapStatus';
 import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
+import {useRouter} from 'next/navigation';
 
 export const MapHeader: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const mapMetadata = useMapMetadata(mapDocument?.document_id);
-
+  const router = useRouter();
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
-    await saveMap({
+    const newDocument = await saveMap({
       ...(mapMetadata || DEFAULT_MAP_METADATA),
       ...updates,
     });
+    if (newDocument) {
+      router.push(`/map/edit/${newDocument.document_id}`);
+    }
   };
 
   return (

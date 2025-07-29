@@ -24,6 +24,7 @@ from app.save_share.models import (
     DocumentEditStatus,
     UserID,
     DocumentShareRequest,
+    DocumentShareResponse,
 )
 import bcrypt
 
@@ -103,7 +104,7 @@ async def get_document_status(
         return {"status": DocumentEditStatus.checked_out}
 
 
-@router.post("/api/document/{document_id}/share")
+@router.post("/api/document/{document_id}/share", response_model=DocumentShareResponse)
 async def share_districtr_plan(
     document: Annotated[Document, Depends(get_document)],
     data: DocumentShareRequest,
@@ -133,7 +134,7 @@ async def share_districtr_plan(
                     """
                     UPDATE document.map_document_token
                     SET password_hash = :password_hash
-                    WHERE token_id = :token_id
+                    WHERE document_id = :document_id
                     """
                 ),
                 {"password_hash": hashed_password, "token_id": existing_token.token_id},
