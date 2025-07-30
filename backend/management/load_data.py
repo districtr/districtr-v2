@@ -243,6 +243,7 @@ def load_sample_data(
             ).scalar()
         except sa.exc.ProgrammingError:
             table_exists = False
+            session.rollback()
 
         if table_exists:
             logger.info(f"GerryDB view {view.table_name} already exists.")
@@ -267,8 +268,8 @@ def load_sample_data(
             sa.text("select 1 from gerrydbtable where name = :name limit 1"),
             {"name": view.gerrydb_table_name},
         ).scalar()
+        session.rollback()
         if gerrydb_table_exists:
-            session.rollback()
             logger.info(f"GerryDB table {view.gerrydb_table_name} already exists.")
         else:
             _create_shatterable_gerrydb_view(session=session, **view.model_dump())
@@ -282,8 +283,8 @@ def load_sample_data(
             ),
             {"slug": view.districtr_map_slug},
         ).one_or_none()
+        session.rollback()
         if districtr_map_exists:
-            session.rollback()
             u = districtr_map_exists.uuid
             logger.info(f"Districtr map {view.districtr_map_slug} already exists.")
         else:
@@ -304,7 +305,6 @@ def load_sample_data(
         if u is not None:
             logger.info(f"Created districtr map with UUID {u}")
         else:
-            session.rollback()
             session = next(get_session())
             u = session.exec(
                 sa.select(DistrictrMap.uuid).where(  # pyright: ignore
@@ -331,3 +331,4 @@ def load_sample_data(
             districtr_map_slug=group.districtr_map_slug,
             group_slug=group.group_slug,
         )
+        session.commit()
