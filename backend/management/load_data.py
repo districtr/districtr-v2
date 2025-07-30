@@ -275,16 +275,26 @@ def load_sample_data(
 
     for view in config._districtr_maps:
         session = next(get_session())
-        u = _create_districtr_map(
-            session=session,
-            name=view.name,
-            districtr_map_slug=view.districtr_map_slug,
-            gerrydb_table_name=view.gerrydb_table_name,
-            parent_layer=view.parent_layer,
-            child_layer=view.child_layer,
-            tiles_s3_path=view.tiles_s3_path,
-            num_districts=view.num_districts,
-        )
+        districtr_map_exists = session.execute(
+            sa.text(
+                "select 1 from districtrmap where districtr_map_slug = :slug limit 1"
+            ),
+            {"slug": view.districtr_map_slug},
+        ).one_or_none()
+        if districtr_map_exists:
+            u = districtr_map_exists.uuid
+            logger.info(f"Districtr map {view.districtr_map_slug} already exists.")
+        else:
+            u = _create_districtr_map(
+                session=session,
+                name=view.name,
+                districtr_map_slug=view.districtr_map_slug,
+                gerrydb_table_name=view.gerrydb_table_name,
+                parent_layer=view.parent_layer,
+                child_layer=view.child_layer,
+                tiles_s3_path=view.tiles_s3_path,
+                num_districts=view.num_districts,
+            )
 
         if u is not None:
             logger.info(f"Created districtr map with UUID {u}")
