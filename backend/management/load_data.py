@@ -268,6 +268,7 @@ def load_sample_data(
             {"name": view.gerrydb_table_name},
         ).scalar()
         if gerrydb_table_exists:
+            session.rollback()
             logger.info(f"GerryDB table {view.gerrydb_table_name} already exists.")
         else:
             _create_shatterable_gerrydb_view(session=session, **view.model_dump())
@@ -282,6 +283,7 @@ def load_sample_data(
             {"slug": view.districtr_map_slug},
         ).one_or_none()
         if districtr_map_exists:
+            session.rollback()
             u = districtr_map_exists.uuid
             logger.info(f"Districtr map {view.districtr_map_slug} already exists.")
         else:
@@ -295,6 +297,7 @@ def load_sample_data(
                 tiles_s3_path=view.tiles_s3_path,
                 num_districts=view.num_districts,
             )
+            session.commit()
 
         if u is not None:
             logger.info(f"Created districtr map with UUID {u}")

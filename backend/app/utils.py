@@ -344,7 +344,7 @@ def add_districtr_map_to_map_group(
     ).one_or_none()
 
     if existing_map_group:
-        session.commit()
+        session.rollback()
         return
 
     group_stmt = text("""
