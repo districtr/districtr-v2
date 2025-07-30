@@ -330,6 +330,22 @@ def add_districtr_map_to_map_group(
             DistrictrMap.districtr_map_slug == districtr_map_slug  # pyright: ignore
         )
     ).one()
+    existing_map_group = session.execute(
+        text("""
+        SELECT 1
+        FROM districtrmaps_to_groups
+        WHERE districtrmap_uuid = :uuid
+        AND group_slug = :slug
+    """),
+        {
+            "uuid": districtr_map.uuid,
+            "slug": group_slug,
+        },
+    ).one_or_none()
+
+    if existing_map_group:
+        session.commit()
+        return
 
     group_stmt = text("""
         INSERT INTO districtrmaps_to_groups (group_slug, districtrmap_uuid)
