@@ -31,7 +31,9 @@ from app.core.dependencies import (
     get_document_public,
     get_protected_document,
     get_districtr_map,
+    parse_document_id,
 )
+from app.core.models import DocumentID
 from app.core.config import settings
 import app.contiguity.main as contiguity
 import app.cms.main as cms
@@ -155,7 +157,9 @@ async def db_is_alive(session: Session = Depends(get_session)):
 
 @app.post("/api/document/{document_id}/unload", status_code=status.HTTP_200_OK)
 async def unlock_map(
-    document_id: str, user_id: str = Form(...), session: Session = Depends(get_session)
+    document_id: DocumentID = Depends(parse_document_id),
+    user_id: str = Form(...),
+    session: Session = Depends(get_session),
 ):
     """
     unlock map when tab is unloaded
@@ -169,7 +173,7 @@ async def unlock_map(
                 bindparam(key="document_id", type_=UUIDType),
                 bindparam(key="user_id", type_=String),
             ),
-            {"document_id": document_id, "user_id": user_id},
+            {"document_id": document_id.value, "user_id": user_id},
         )
         session.commit()
         return {"status": DocumentEditStatus.unlocked}
@@ -461,7 +465,9 @@ async def reset_map(
     response_model=ColorsSetResult,
 )
 async def update_colors(
-    document_id: str, colors: list[str], session: Session = Depends(get_session)
+    colors: list[str],
+    document_id: DocumentID = Depends(parse_document_id),
+    session: Session = Depends(get_session),
 ):
     districtr_map = session.exec(
         select(DistrictrMap)
@@ -470,7 +476,7 @@ async def update_colors(
             Document.districtr_map_slug == DistrictrMap.districtr_map_slug,  # pyright: ignore
             isouter=True,
         )
-        .where(Document.document_id == document_id)
+        .where(Document.document_id == document_id.value)
     ).one()
 
     if districtr_map.num_districts != len(colors):
@@ -487,7 +493,7 @@ async def update_colors(
         bindparam(key="document_id", type_=UUIDType),
         bindparam(key="colors", type_=ARRAY(String)),
     )
-    session.execute(stmt, {"document_id": document_id, "colors": colors})
+    session.execute(stmt, {"document_id": document_id.value, "colors": colors})
     session.commit()
     return ColorsSetResult(colors=colors)
 
@@ -521,7 +527,7 @@ async def get_assignments(
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document_object(
-    document_id: str | int,
+    document_id: DocumentID = Depends(parse_document_id),
     user_id: str | None = None,
     session: Session = Depends(get_session),
 ):
@@ -611,18 +617,14 @@ async def _get_graph(gerrydb_name: str) -> Graph:
 
 @app.get("/api/document/{document_id}/contiguity")
 async def check_document_contiguity(
-    document_id: str,
     document: Annotated[Document, Depends(get_protected_document)],
+    districtr_map: Annotated[DistrictrMap, Depends(get_districtr_map)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    assert document.document_id is not None
-
-    districtr_map = get_districtr_map(session=session, document_id=document.document_id)
-
     if districtr_map.child_layer is not None:
         logger.info(
-            f"Using child layer {districtr_map.child_layer} for document {document_id}"
+            f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
         )
         gerrydb_name = districtr_map.child_layer
         kwargs = {"zones": zone} if len(zone) > 0 else {}
@@ -632,7 +634,7 @@ async def check_document_contiguity(
     else:
         gerrydb_name = districtr_map.parent_layer
         logger.info(
-            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
         )
         sql = text(
             """
@@ -666,18 +668,14 @@ async def check_document_contiguity(
 
 @app.get("/api/document/{document_id}/contiguity/{zone}/connected_component_bboxes")
 async def get_connected_component_bboxes(
-    document_id: str,
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
+    districtr_map: Annotated[DistrictrMap, Depends(get_districtr_map)],
     session: Session = Depends(get_session),
 ):
-    assert document.document_id is not None
-
-    districtr_map = get_districtr_map(session=session, document_id=document.document_id)
-
     if districtr_map.child_layer is not None:
         logger.info(
-            f"Using child layer {districtr_map.child_layer} for document {document_id}"
+            f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
         )
         gerrydb_name = districtr_map.child_layer
         zone_assignments = contiguity.get_block_assignments_bboxes(
@@ -691,7 +689,7 @@ async def get_connected_component_bboxes(
     else:
         gerrydb_name = districtr_map.parent_layer
         logger.info(
-            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document_id}"
+            f"No child layer configured for document. Defauling to parent layer {gerrydb_name} for document {document.document_id}"
         )
         sql = text(
             f"""
@@ -820,7 +818,6 @@ async def update_districtrmap_metadata(
     #  response_model=list[DistrictrMapPublic]
 )
 async def get_projects(
-    *,
     session: Session = Depends(get_session),
     group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),

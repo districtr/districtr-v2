@@ -1,5 +1,6 @@
 from fastapi import Depends, HTTPException, status
 from sqlmodel import select, Session, literal
+from app.core.models import DocumentID
 from app.models import Document, DocumentPublic, DistrictrMap
 from app.save_share.models import (
     DocumentShareStatus,
@@ -17,10 +18,20 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def get_document(document_id: str, session: Session = Depends(get_session)) -> Document:
+def parse_document_id(document_id: str) -> DocumentID:
+    try:
+        return DocumentID(document_id=document_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid document ID")
+
+
+def get_document(
+    document_id: DocumentID = Depends(parse_document_id),
+    session: Session = Depends(get_session),
+) -> Document:
     try:
         document = session.exec(
-            select(Document).where(Document.document_id == document_id)
+            select(Document).where(Document.document_id == document_id.value)
         ).one()
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -32,7 +43,8 @@ def get_document(document_id: str, session: Session = Depends(get_session)) -> D
 
 
 def get_protected_document(
-    document_id: str | int, session: Session = Depends(get_session)
+    document_id: DocumentID = Depends(parse_document_id),
+    session: Session = Depends(get_session),
 ) -> Document:
     """
     Always returns a document even if the public_id was used instead of the document_id. This function
@@ -44,21 +56,14 @@ def get_protected_document(
     - UUID document IDs
     - Public IDs (numeric, for public sharing)
     """
-    id_is_public = isinstance(document_id, int) or (
-        isinstance(document_id, str) and document_id.isdigit()
-    )
-
-    if id_is_public:
-        document_id = int(document_id)
-
     stmt = select(Document)
 
-    if id_is_public:
-        stmt = stmt.where(Document.public_id == document_id).where(
+    if document_id.is_public:
+        stmt = stmt.where(Document.public_id == document_id.value).where(
             text("map_metadata->>'draft_status' = 'ready_to_share'")
         )
     else:
-        stmt = stmt.where(Document.document_id == document_id)
+        stmt = stmt.where(Document.document_id == document_id.value)
 
     try:
         document = session.exec(stmt).one()
@@ -73,33 +78,21 @@ def get_protected_document(
 
 def get_document_public(
     session: Session,
-    document_id: str | int,
+    document_id: DocumentID = Depends(parse_document_id),
     user_id: str | None = None,
     shared: bool = False,
     lock_status: DocumentEditStatus | None = None,
 ) -> DocumentPublic:
-    id_is_public = isinstance(document_id, int) or (
-        isinstance(document_id, str) and document_id.isdigit()
-    )
-
-    if id_is_public:
-        document_id = int(document_id)
-
-    if not document_id:
-        raise HTTPException(status_code=404, detail="Document not found")
-    document = get_protected_document(document_id=document_id, session=session)
-    # TODO: Rather than being a separate query, this should be part of the main query
-
     access_type = DocumentShareStatus.read
     # Store if lock_status was explicitly provided
     lock_status_provided = lock_status is not None
 
-    if document.document_id == document_id and not id_is_public:
+    if not document_id.is_public:
         access_type = DocumentShareStatus.edit
         # Only check map lock if no lock_status was explicitly provided
         if not lock_status_provided:
             lock_status = check_map_lock(
-                document.document_id, user_id=user_id, session=session
+                document_id.document_id, user_id=user_id, session=session
             )
 
     # Set default lock_status if not provided and not already set
@@ -108,7 +101,9 @@ def get_document_public(
 
     stmt = select(
         # Obsured document ID
-        literal("anonymous" if id_is_public else document_id).label("document_id"),
+        literal(
+            "anonymous" if document_id.is_public else document_id.document_id
+        ).label("document_id"),
         Document.created_at,
         Document.districtr_map_slug,
         Document.gerrydb_table,
@@ -139,12 +134,12 @@ def get_document_public(
         isouter=True,
     )
 
-    if id_is_public:
-        stmt = stmt.where(Document.public_id == document_id).where(
+    if document_id.is_public:
+        stmt = stmt.where(Document.public_id == document_id.value).where(
             text("map_metadata->>'draft_status' = 'ready_to_share'")
         )
     else:
-        stmt = stmt.where(Document.document_id == document_id)
+        stmt = stmt.where(Document.document_id == document_id.value)
 
     result = session.exec(stmt)
 
@@ -152,7 +147,7 @@ def get_document_public(
 
 
 def get_districtr_map(
-    document_id: str,
+    document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ) -> DistrictrMap:
     stmt = (
@@ -169,8 +164,8 @@ def get_districtr_map(
         )
         .filter(
             or_(
-                Document.document_id == document_id,
-                MapDocumentToken.document_id == document_id,
+                Document.document_id == document_id.document_id,
+                MapDocumentToken.document_id == document_id.document_id,
             )
         )  # pyright: ignore
     )
