@@ -277,7 +277,7 @@ def load_sample_data(
         session = next(get_session())
         districtr_map_exists = session.execute(
             sa.text(
-                "select 1 from districtrmap where districtr_map_slug = :slug limit 1"
+                "select uuid from districtrmap where districtr_map_slug = :slug limit 1"
             ),
             {"slug": view.districtr_map_slug},
         ).one_or_none()
