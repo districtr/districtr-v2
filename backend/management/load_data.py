@@ -263,8 +263,15 @@ def load_sample_data(
 
     for view in config._shatterable_views:
         session = next(get_session())
-        _create_shatterable_gerrydb_view(session=session, **view.model_dump())
-        session.commit()
+        gerrydb_table_exists = session.execute(
+            sa.text("select 1 from gerrydbtable where name = :name limit 1"),
+            {"name": view.gerrydb_table_name},
+        ).scalar()
+        if gerrydb_table_exists:
+            logger.info(f"GerryDB table {view.gerrydb_table_name} already exists.")
+        else:
+            _create_shatterable_gerrydb_view(session=session, **view.model_dump())
+            session.commit()
 
     for view in config._districtr_maps:
         session = next(get_session())
