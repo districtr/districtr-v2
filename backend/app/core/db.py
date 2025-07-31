@@ -15,7 +15,6 @@ load_engine = create_engine(
     pool_pre_ping=True,
     pool_recycle=0,
     pool_size=1,
-    timeout=3600,
 )
 
 
