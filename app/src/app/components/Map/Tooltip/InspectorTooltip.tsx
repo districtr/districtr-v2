@@ -1,60 +1,18 @@
 'use client';
-import {Box, Flex, Popover, Table, Text} from '@radix-ui/themes';
-import {useMapStore} from '../store/mapStore';
-import {formatNumber, NumberFormats} from '../utils/numbers';
-import {useTooltipStore} from '../store/tooltipStore';
-import {useHoverStore} from '../store/hoverFeatures';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {Table} from '@radix-ui/themes';
+import {formatNumber, NumberFormats} from '@utils/numbers';
+import {useTooltipStore} from '@store/tooltipStore';
+import {useHoverStore} from '@store/hoverFeatures';
+import {demographyCache} from '@utils/demography/demographyCache';
 import {useEffect, useState} from 'react';
 import {
   CONFIG_BY_COLUMN_SET,
-  TOTPOPColumnConfig,
-  VAPColumnConfig,
-} from '../store/demography/evaluationConfig';
-import {KeyOfSummaryStatConfig} from '../utils/api/summaryStats';
-import {PARTISAN_SCALE} from '../store/demography/constants';
+} from '@store/demography/evaluationConfig';
+import {KeyOfSummaryStatConfig} from '@utils/api/summaryStats';
+import {PARTISAN_SCALE} from '@store/demography/constants';
+import {INSPECTOR_TITLE, TOTAL_COLUMN} from '@components/Map/Tooltip/InpsectorTooltipConfig';
 
-export const MapTooltip = () => {
-  const tooltip = useTooltipStore(state => state.tooltip);
-  const activeTool = useMapStore(state => state.activeTool);
-  const isInspectorMode = activeTool === 'inspector';
-  if (!tooltip) return null;
-  if (!tooltip?.data?.length && !isInspectorMode) return null;
-
-  return (
-    <Popover.Root open={true}>
-      <Popover.Content
-        style={{
-          position: 'fixed',
-          left: tooltip.x + 10,
-          top: tooltip.y + 10,
-          pointerEvents: 'none',
-        }}
-      >
-        <Box flexGrow="1">
-          {tooltip.data.map((entry, i) => (
-            <Text key={`tooltip-${i}`} style={{whiteSpace: 'nowrap'}}>
-              {/* @ts-ignore */}
-              {entry.label}:{' '}
-              {!isNaN(+(entry.value as number))
-                ? formatNumber(entry.value as number, 'string')
-                : entry.value}
-            </Text>
-          ))}
-          {isInspectorMode && <InspectorTooltipEntries />}
-        </Box>
-      </Popover.Content>
-    </Popover.Root>
-  );
-};
-
-const INSPECTOR_TITLE = {
-  VAP: 'Voting Age Population',
-  TOTPOP: 'Total Population',
-  VOTERHISTORY: 'Voter History',
-};
-
-export const InspectorTooltipEntries = () => {
+export const InspectorTooltip = () => {
   const hoverFeatures = useHoverStore(state => state.hoverFeatures);
   const activeColumns = useTooltipStore(state => state.activeColumns);
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
@@ -67,11 +25,7 @@ export const InspectorTooltipEntries = () => {
   const config = CONFIG_BY_COLUMN_SET[inspectorMode].sort((a, b) => a.label.localeCompare(b.label));
   const title = INSPECTOR_TITLE[inspectorMode];
 
-  const totalColumn = {
-    VAP: 'total_vap_20',
-    TOTPOP: 'total_pop_20',
-    VOTERHISTORY: undefined,
-  }[inspectorMode];
+  const totalColumn = TOTAL_COLUMN[inspectorMode];
   const format: Record<KeyOfSummaryStatConfig, NumberFormats> = {
     VAP: standardFormat,
     TOTPOP: standardFormat,
