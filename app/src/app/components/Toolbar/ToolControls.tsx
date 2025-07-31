@@ -1,5 +1,5 @@
 'use client';
-import {CheckboxGroup, Flex, Heading, Tabs, Text} from '@radix-ui/themes';
+import {Button, CheckboxGroup, Flex, Heading, SegmentedControl, Tabs, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import React, {useEffect, useRef} from 'react';
 import {BrushControls} from '@components/BrushControls';
@@ -51,10 +51,11 @@ const ToolControlsConfig: Record<
       const activeColumns = useTooltipStore(state => state.activeColumns);
       const setInspectorMode = useTooltipStore(state => state.setInspectorMode);
       const setActiveColumns = useTooltipStore(state => state.setActiveColumns);
-      console.log("!!!", CONFIG_BY_COLUMN_SET[inspectorMode], demographyCache.availableColumns)
+
       const columnList = CONFIG_BY_COLUMN_SET[inspectorMode]
         .filter(f => demographyCache.availableColumns.includes(f.sourceCol ?? f.column))
         .sort((a, b) => a.label.localeCompare(b.label));
+
       const totalColumn = {
         VAP: ['total_vap_20'],
         TOTPOP: ['total_pop_20'],
@@ -63,21 +64,40 @@ const ToolControlsConfig: Record<
 
       useEffect(() => {
         setActiveColumns([...totalColumn, ...columnList.map(f => f.column)]);
-      }, [inspectorMode]);
+      }, [inspectorMode, setActiveColumns]);
 
       return (
         <Flex direction="column">
           <BrushControls />
-          <Tabs.Root
-            value={inspectorMode}
-            onValueChange={value => setInspectorMode(value as KeyOfSummaryStatConfig)}
-          >
-            <Tabs.List>
-              <Tabs.Trigger value="VAP">Voting Age Population</Tabs.Trigger>
-              <Tabs.Trigger value="TOTPOP">Total Population</Tabs.Trigger>
-              <Tabs.Trigger value="VOTERHISTORY">Voter History</Tabs.Trigger>
-            </Tabs.List>
-          </Tabs.Root>
+          <Heading as="h3" size="3">
+            Inspector mode
+          </Heading>
+          <Flex direction="row" className="" wrap="wrap" gap="1">
+            <Button
+              variant="soft"
+              color={inspectorMode === 'VAP' ? 'blue' : 'gray'}
+              radius="none"
+              onClick={() => setInspectorMode('VAP')}
+            >
+              Voting Age Population
+            </Button>
+            <Button
+              variant="soft"
+              color={inspectorMode === 'TOTPOP' ? 'blue' : 'gray'}
+              radius="none"
+              onClick={() => setInspectorMode('TOTPOP')}
+            >
+              Total Population
+            </Button>
+            <Button
+              variant="soft"
+              color={inspectorMode === 'VOTERHISTORY' ? 'blue' : 'gray'}
+              radius="none"
+              onClick={() => setInspectorMode('VOTERHISTORY')}
+            >
+              Voter History
+            </Button>
+          </Flex>
           <Flex direction="column" py="4" gap="2">
             <Heading as="h3" size="3">
               Inspector columns
