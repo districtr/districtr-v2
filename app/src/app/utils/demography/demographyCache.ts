@@ -262,7 +262,7 @@ class DemographyCache {
     const rows = this.table
       .params({
         _hoverIds: ids,
-      })
+      }) // @ts-expect-error
       .filter((d, $) => op.includes($._hoverIds, d.path))
       .rollup(getRollups(columns, 'sum'))
       .derive(getPctDerives(columns));
@@ -439,4 +439,3 @@ class DemographyCache {
 
 // global demography cache
 export const demographyCache = new DemographyCache();
-window.demographyCache = demographyCache;

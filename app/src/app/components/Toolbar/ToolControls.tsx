@@ -46,7 +46,7 @@ const ToolControlsConfig: Record<
       const activeColumns = useTooltipStore(state => state.activeColumns);
       const setInspectorMode = useTooltipStore(state => state.setInspectorMode);
       const setActiveColumns = useTooltipStore(state => state.setActiveColumns);
-      const columnList = CONFIG_BY_COLUMN_SET[inspectorMode];
+      const columnList = CONFIG_BY_COLUMN_SET[inspectorMode].sort((a, b) => a.label.localeCompare(b.label));
       const totalColumn = {
         'VAP': ['total_vap_20'],
         'TOTPOP': ['total_pop_20'],
@@ -74,7 +74,7 @@ const ToolControlsConfig: Record<
           setActiveColumns([...value, ...totalColumn]);
         }} name="example">
           {columnList.map(f => (
-            <CheckboxGroup.Item value={f.column}>{f.label}</CheckboxGroup.Item>
+            <CheckboxGroup.Item value={f.column} key={f.column}>{f.label}</CheckboxGroup.Item>
           ))}
         </CheckboxGroup.Root>
         </Flex>
