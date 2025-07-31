@@ -57,8 +57,9 @@ export const InspectorTooltipEntries = () => {
   const activeColumns = useTooltipStore(state => state.activeColumns);
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
   const inspectorFormat = useTooltipStore(state => state.inspectorFormat);
-  const columnSuffix =
-    inspectorFormat === 'percent' || inspectorMode === 'VOTERHISTORY' ? '_pct' : '';
+  const usePercent = inspectorFormat === 'percent' || inspectorMode === 'VOTERHISTORY';
+  const columnSuffix = usePercent ? '_pct' : '';
+  const standardFormat = usePercent ? 'percent' : 'standard';
   const ids = hoverFeatures.map(f => f.id as string);
   const [inspectorData, setInspectorData] = useState<Record<string, number>>({});
   const config = CONFIG_BY_COLUMN_SET[inspectorMode].sort((a, b) => a.label.localeCompare(b.label));
@@ -70,8 +71,8 @@ export const InspectorTooltipEntries = () => {
     VOTERHISTORY: undefined,
   }[inspectorMode];
   const format: Record<KeyOfSummaryStatConfig, NumberFormats> = {
-    VAP: 'standard',
-    TOTPOP: 'standard',
+    VAP: standardFormat,
+    TOTPOP: standardFormat,
     VOTERHISTORY: 'partisan',
   };
 
@@ -85,7 +86,6 @@ export const InspectorTooltipEntries = () => {
       setInspectorData(data[0]);
     }
   }, [JSON.stringify(ids)]);
-
   return (
     <Table.Root variant="surface" size="1" style={{margin: 0}} className="max-w-[50vw] w-64 ">
       <Table.Header>

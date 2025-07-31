@@ -22,7 +22,7 @@ export const useTooltipStore = create(
       setTooltip: tooltip => set({tooltip}),
       inspectorMode: 'VAP',
       setInspectorMode: mode => set({inspectorMode: mode}),
-      inspectorFormat: 'percent',
+      inspectorFormat: 'standard',
       setInspectorFormat: format => set({inspectorFormat: format}),
       activeColumns: [],
       setActiveColumns: columns => set({activeColumns: columns}),
