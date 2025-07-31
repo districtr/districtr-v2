@@ -1,603 +1,203 @@
 datasets:
-  ak_congressional_districts_view_v1:
+  ak_districtr_view_v1:
     child_gpkg: ak_districtr_block_view_v1.gpkg
-    out_path: ak_congressional_districts_view_v1.parquet
+    out_path: ak_districtr_view_v1.parquet
     parent_gpkg: ak_districtr_vtd_view_v1.gpkg
-  ak_state_house_districts_view_v1:
-    child_gpkg: ak_districtr_block_view_v1.gpkg
-    out_path: ak_state_house_districts_view_v1.parquet
-    parent_gpkg: ak_districtr_vtd_view_v1.gpkg
-  ak_state_senate_districts_view_v1:
-    child_gpkg: ak_districtr_block_view_v1.gpkg
-    out_path: ak_state_senate_districts_view_v1.parquet
-    parent_gpkg: ak_districtr_vtd_view_v1.gpkg
-  al_congressional_districts_view_v1:
+  al_districtr_view_v1:
     child_gpkg: al_districtr_block_view_v1.gpkg
-    out_path: al_congressional_districts_view_v1.parquet
+    out_path: al_districtr_view_v1.parquet
     parent_gpkg: al_districtr_vtd_view_v1.gpkg
-  al_state_house_districts_view_v1:
-    child_gpkg: al_districtr_block_view_v1.gpkg
-    out_path: al_state_house_districts_view_v1.parquet
-    parent_gpkg: al_districtr_vtd_view_v1.gpkg
-  al_state_senate_districts_view_v1:
-    child_gpkg: al_districtr_block_view_v1.gpkg
-    out_path: al_state_senate_districts_view_v1.parquet
-    parent_gpkg: al_districtr_vtd_view_v1.gpkg
-  ar_congressional_districts_view_v1:
+  ar_districtr_view_v1:
     child_gpkg: ar_districtr_block_view_v1.gpkg
-    out_path: ar_congressional_districts_view_v1.parquet
+    out_path: ar_districtr_view_v1.parquet
     parent_gpkg: ar_districtr_vtd_view_v1.gpkg
-  ar_state_house_districts_view_v1:
-    child_gpkg: ar_districtr_block_view_v1.gpkg
-    out_path: ar_state_house_districts_view_v1.parquet
-    parent_gpkg: ar_districtr_vtd_view_v1.gpkg
-  ar_state_senate_districts_view_v1:
-    child_gpkg: ar_districtr_block_view_v1.gpkg
-    out_path: ar_state_senate_districts_view_v1.parquet
-    parent_gpkg: ar_districtr_vtd_view_v1.gpkg
-  az_congressional_districts_view_v1:
+  az_districtr_view_v1:
     child_gpkg: az_districtr_block_view_v1.gpkg
-    out_path: az_congressional_districts_view_v1.parquet
+    out_path: az_districtr_view_v1.parquet
     parent_gpkg: az_districtr_vtd_view_v1.gpkg
-  az_state_house_districts_view_v1:
-    child_gpkg: az_districtr_block_view_v1.gpkg
-    out_path: az_state_house_districts_view_v1.parquet
-    parent_gpkg: az_districtr_vtd_view_v1.gpkg
-  az_state_senate_districts_view_v1:
-    child_gpkg: az_districtr_block_view_v1.gpkg
-    out_path: az_state_senate_districts_view_v1.parquet
-    parent_gpkg: az_districtr_vtd_view_v1.gpkg
-  ca_congressional_districts_view_v1:
+  ca_districtr_view_v1:
     child_gpkg: ca_districtr_block_view_v1.gpkg
-    out_path: ca_congressional_districts_view_v1.parquet
+    out_path: ca_districtr_view_v1.parquet
     parent_gpkg: ca_districtr_bg_view_v1.gpkg
-  ca_state_house_districts_view_v1:
-    child_gpkg: ca_districtr_block_view_v1.gpkg
-    out_path: ca_state_house_districts_view_v1.parquet
-    parent_gpkg: ca_districtr_bg_view_v1.gpkg
-  ca_state_senate_districts_view_v1:
-    child_gpkg: ca_districtr_block_view_v1.gpkg
-    out_path: ca_state_senate_districts_view_v1.parquet
-    parent_gpkg: ca_districtr_bg_view_v1.gpkg
-  co_congressional_districts_view_v1:
+  co_districtr_view_v1:
     child_gpkg: co_districtr_block_view_v1.gpkg
-    out_path: co_congressional_districts_view_v1.parquet
+    out_path: co_districtr_view_v1.parquet
     parent_gpkg: co_districtr_vtd_view_v1.gpkg
-  co_state_house_districts_view_v1:
-    child_gpkg: co_districtr_block_view_v1.gpkg
-    out_path: co_state_house_districts_view_v1.parquet
-    parent_gpkg: co_districtr_vtd_view_v1.gpkg
-  co_state_senate_districts_view_v1:
-    child_gpkg: co_districtr_block_view_v1.gpkg
-    out_path: co_state_senate_districts_view_v1.parquet
-    parent_gpkg: co_districtr_vtd_view_v1.gpkg
-  ct_congressional_districts_view_v1:
+  ct_districtr_view_v1:
     child_gpkg: ct_districtr_block_view_v1.gpkg
-    out_path: ct_congressional_districts_view_v1.parquet
+    out_path: ct_districtr_view_v1.parquet
     parent_gpkg: ct_districtr_vtd_view_v1.gpkg
-  ct_state_house_districts_view_v1:
-    child_gpkg: ct_districtr_block_view_v1.gpkg
-    out_path: ct_state_house_districts_view_v1.parquet
-    parent_gpkg: ct_districtr_vtd_view_v1.gpkg
-  ct_state_senate_districts_view_v1:
-    child_gpkg: ct_districtr_block_view_v1.gpkg
-    out_path: ct_state_senate_districts_view_v1.parquet
-    parent_gpkg: ct_districtr_vtd_view_v1.gpkg
-  de_congressional_districts_view_v1:
+  de_districtr_view_v1:
     child_gpkg: de_districtr_block_view_v1.gpkg
-    out_path: de_congressional_districts_view_v1.parquet
+    out_path: de_districtr_view_v1.parquet
     parent_gpkg: de_districtr_vtd_view_v1.gpkg
-  de_state_house_districts_view_v1:
-    child_gpkg: de_districtr_block_view_v1.gpkg
-    out_path: de_state_house_districts_view_v1.parquet
-    parent_gpkg: de_districtr_vtd_view_v1.gpkg
-  de_state_senate_districts_view_v1:
-    child_gpkg: de_districtr_block_view_v1.gpkg
-    out_path: de_state_senate_districts_view_v1.parquet
-    parent_gpkg: de_districtr_vtd_view_v1.gpkg
-  fl_congressional_districts_view_v1:
+  fl_districtr_view_v1:
     child_gpkg: fl_districtr_block_view_v1.gpkg
-    out_path: fl_congressional_districts_view_v1.parquet
+    out_path: fl_districtr_view_v1.parquet
     parent_gpkg: fl_districtr_vtd_view_v1.gpkg
-  fl_state_house_districts_view_v1:
-    child_gpkg: fl_districtr_block_view_v1.gpkg
-    out_path: fl_state_house_districts_view_v1.parquet
-    parent_gpkg: fl_districtr_vtd_view_v1.gpkg
-  fl_state_senate_districts_view_v1:
-    child_gpkg: fl_districtr_block_view_v1.gpkg
-    out_path: fl_state_senate_districts_view_v1.parquet
-    parent_gpkg: fl_districtr_vtd_view_v1.gpkg
-  ga_congressional_districts_view_v1:
+  ga_districtr_view_v1:
     child_gpkg: ga_districtr_block_view_v1.gpkg
-    out_path: ga_congressional_districts_view_v1.parquet
+    out_path: ga_districtr_view_v1.parquet
     parent_gpkg: ga_districtr_vtd_view_v1.gpkg
-  ga_state_house_districts_view_v1:
-    child_gpkg: ga_districtr_block_view_v1.gpkg
-    out_path: ga_state_house_districts_view_v1.parquet
-    parent_gpkg: ga_districtr_vtd_view_v1.gpkg
-  ga_state_senate_districts_view_v1:
-    child_gpkg: ga_districtr_block_view_v1.gpkg
-    out_path: ga_state_senate_districts_view_v1.parquet
-    parent_gpkg: ga_districtr_vtd_view_v1.gpkg
-  hi_congressional_districts_view_v1:
+  hi_districtr_view_v1:
     child_gpkg: hi_districtr_block_view_v1.gpkg
-    out_path: hi_congressional_districts_view_v1.parquet
+    out_path: hi_districtr_view_v1.parquet
     parent_gpkg: hi_districtr_bg_view_v1.gpkg
-  hi_state_house_districts_view_v1:
-    child_gpkg: hi_districtr_block_view_v1.gpkg
-    out_path: hi_state_house_districts_view_v1.parquet
-    parent_gpkg: hi_districtr_bg_view_v1.gpkg
-  hi_state_senate_districts_view_v1:
-    child_gpkg: hi_districtr_block_view_v1.gpkg
-    out_path: hi_state_senate_districts_view_v1.parquet
-    parent_gpkg: hi_districtr_bg_view_v1.gpkg
-  ia_congressional_districts_view_v1:
+  ia_districtr_view_v1:
     child_gpkg: ia_districtr_block_view_v1.gpkg
-    out_path: ia_congressional_districts_view_v1.parquet
+    out_path: ia_districtr_view_v1.parquet
     parent_gpkg: ia_districtr_vtd_view_v1.gpkg
-  ia_state_house_districts_view_v1:
-    child_gpkg: ia_districtr_block_view_v1.gpkg
-    out_path: ia_state_house_districts_view_v1.parquet
-    parent_gpkg: ia_districtr_vtd_view_v1.gpkg
-  ia_state_senate_districts_view_v1:
-    child_gpkg: ia_districtr_block_view_v1.gpkg
-    out_path: ia_state_senate_districts_view_v1.parquet
-    parent_gpkg: ia_districtr_vtd_view_v1.gpkg
-  id_congressional_districts_view_v1:
+  id_districtr_view_v1:
     child_gpkg: id_districtr_block_view_v1.gpkg
-    out_path: id_congressional_districts_view_v1.parquet
+    out_path: id_districtr_view_v1.parquet
     parent_gpkg: id_districtr_vtd_view_v1.gpkg
-  id_state_house_districts_view_v1:
-    child_gpkg: id_districtr_block_view_v1.gpkg
-    out_path: id_state_house_districts_view_v1.parquet
-    parent_gpkg: id_districtr_vtd_view_v1.gpkg
-  id_state_senate_districts_view_v1:
-    child_gpkg: id_districtr_block_view_v1.gpkg
-    out_path: id_state_senate_districts_view_v1.parquet
-    parent_gpkg: id_districtr_vtd_view_v1.gpkg
-  il_congressional_districts_view_v1:
+  il_districtr_view_v1:
     child_gpkg: il_districtr_block_view_v1.gpkg
-    out_path: il_congressional_districts_view_v1.parquet
+    out_path: il_districtr_view_v1.parquet
     parent_gpkg: il_districtr_vtd_view_v1.gpkg
-  il_state_house_districts_view_v1:
-    child_gpkg: il_districtr_block_view_v1.gpkg
-    out_path: il_state_house_districts_view_v1.parquet
-    parent_gpkg: il_districtr_vtd_view_v1.gpkg
-  il_state_senate_districts_view_v1:
-    child_gpkg: il_districtr_block_view_v1.gpkg
-    out_path: il_state_senate_districts_view_v1.parquet
-    parent_gpkg: il_districtr_vtd_view_v1.gpkg
-  in_congressional_districts_view_v1:
+  in_districtr_view_v1:
     child_gpkg: in_districtr_block_view_v1.gpkg
-    out_path: in_congressional_districts_view_v1.parquet
+    out_path: in_districtr_view_v1.parquet
     parent_gpkg: in_districtr_vtd_view_v1.gpkg
-  in_state_house_districts_view_v1:
-    child_gpkg: in_districtr_block_view_v1.gpkg
-    out_path: in_state_house_districts_view_v1.parquet
-    parent_gpkg: in_districtr_vtd_view_v1.gpkg
-  in_state_senate_districts_view_v1:
-    child_gpkg: in_districtr_block_view_v1.gpkg
-    out_path: in_state_senate_districts_view_v1.parquet
-    parent_gpkg: in_districtr_vtd_view_v1.gpkg
-  ks_congressional_districts_view_v1:
+  ks_districtr_view_v1:
     child_gpkg: ks_districtr_block_view_v1.gpkg
-    out_path: ks_congressional_districts_view_v1.parquet
+    out_path: ks_districtr_view_v1.parquet
     parent_gpkg: ks_districtr_vtd_view_v1.gpkg
-  ks_state_house_districts_view_v1:
-    child_gpkg: ks_districtr_block_view_v1.gpkg
-    out_path: ks_state_house_districts_view_v1.parquet
-    parent_gpkg: ks_districtr_vtd_view_v1.gpkg
-  ks_state_senate_districts_view_v1:
-    child_gpkg: ks_districtr_block_view_v1.gpkg
-    out_path: ks_state_senate_districts_view_v1.parquet
-    parent_gpkg: ks_districtr_vtd_view_v1.gpkg
-  ky_congressional_districts_view_v1:
+  ky_districtr_view_v1:
     child_gpkg: ky_districtr_block_view_v1.gpkg
-    out_path: ky_congressional_districts_view_v1.parquet
+    out_path: ky_districtr_view_v1.parquet
     parent_gpkg: ky_districtr_vtd_view_v1.gpkg
-  ky_state_house_districts_view_v1:
-    child_gpkg: ky_districtr_block_view_v1.gpkg
-    out_path: ky_state_house_districts_view_v1.parquet
-    parent_gpkg: ky_districtr_vtd_view_v1.gpkg
-  ky_state_senate_districts_view_v1:
-    child_gpkg: ky_districtr_block_view_v1.gpkg
-    out_path: ky_state_senate_districts_view_v1.parquet
-    parent_gpkg: ky_districtr_vtd_view_v1.gpkg
-  la_congressional_districts_view_v1:
+  la_districtr_view_v1:
     child_gpkg: la_districtr_block_view_v1.gpkg
-    out_path: la_congressional_districts_view_v1.parquet
+    out_path: la_districtr_view_v1.parquet
     parent_gpkg: la_districtr_vtd_view_v1.gpkg
-  la_state_house_districts_view_v1:
-    child_gpkg: la_districtr_block_view_v1.gpkg
-    out_path: la_state_house_districts_view_v1.parquet
-    parent_gpkg: la_districtr_vtd_view_v1.gpkg
-  la_state_senate_districts_view_v1:
-    child_gpkg: la_districtr_block_view_v1.gpkg
-    out_path: la_state_senate_districts_view_v1.parquet
-    parent_gpkg: la_districtr_vtd_view_v1.gpkg
-  ma_congressional_districts_view_v1:
+  ma_districtr_view_v1:
     child_gpkg: ma_districtr_block_view_v1.gpkg
-    out_path: ma_congressional_districts_view_v1.parquet
+    out_path: ma_districtr_view_v1.parquet
     parent_gpkg: ma_districtr_vtd_view_v1.gpkg
-  ma_state_house_districts_view_v1:
-    child_gpkg: ma_districtr_block_view_v1.gpkg
-    out_path: ma_state_house_districts_view_v1.parquet
-    parent_gpkg: ma_districtr_vtd_view_v1.gpkg
-  ma_state_senate_districts_view_v1:
-    child_gpkg: ma_districtr_block_view_v1.gpkg
-    out_path: ma_state_senate_districts_view_v1.parquet
-    parent_gpkg: ma_districtr_vtd_view_v1.gpkg
-  md_congressional_districts_view_v1:
+  md_districtr_view_v1:
     child_gpkg: md_districtr_block_view_v1.gpkg
-    out_path: md_congressional_districts_view_v1.parquet
+    out_path: md_districtr_view_v1.parquet
     parent_gpkg: md_districtr_vtd_view_v1.gpkg
-  md_state_house_districts_view_v1:
-    child_gpkg: md_districtr_block_view_v1.gpkg
-    out_path: md_state_house_districts_view_v1.parquet
-    parent_gpkg: md_districtr_vtd_view_v1.gpkg
-  md_state_senate_districts_view_v1:
-    child_gpkg: md_districtr_block_view_v1.gpkg
-    out_path: md_state_senate_districts_view_v1.parquet
-    parent_gpkg: md_districtr_vtd_view_v1.gpkg
-  me_congressional_districts_view_v1:
+  me_districtr_view_v1:
     child_gpkg: me_districtr_block_view_v1.gpkg
-    out_path: me_congressional_districts_view_v1.parquet
+    out_path: me_districtr_view_v1.parquet
     parent_gpkg: me_districtr_vtd_view_v1.gpkg
-  me_state_house_districts_view_v1:
-    child_gpkg: me_districtr_block_view_v1.gpkg
-    out_path: me_state_house_districts_view_v1.parquet
-    parent_gpkg: me_districtr_vtd_view_v1.gpkg
-  me_state_senate_districts_view_v1:
-    child_gpkg: me_districtr_block_view_v1.gpkg
-    out_path: me_state_senate_districts_view_v1.parquet
-    parent_gpkg: me_districtr_vtd_view_v1.gpkg
-  mi_congressional_districts_view_v1:
+  mi_districtr_view_v1:
     child_gpkg: mi_districtr_block_view_v1.gpkg
-    out_path: mi_congressional_districts_view_v1.parquet
+    out_path: mi_districtr_view_v1.parquet
     parent_gpkg: mi_districtr_vtd_view_v1.gpkg
-  mi_state_house_districts_view_v1:
-    child_gpkg: mi_districtr_block_view_v1.gpkg
-    out_path: mi_state_house_districts_view_v1.parquet
-    parent_gpkg: mi_districtr_vtd_view_v1.gpkg
-  mi_state_senate_districts_view_v1:
-    child_gpkg: mi_districtr_block_view_v1.gpkg
-    out_path: mi_state_senate_districts_view_v1.parquet
-    parent_gpkg: mi_districtr_vtd_view_v1.gpkg
-  mn_congressional_districts_view_v1:
+  mn_districtr_view_v1:
     child_gpkg: mn_districtr_block_view_v1.gpkg
-    out_path: mn_congressional_districts_view_v1.parquet
+    out_path: mn_districtr_view_v1.parquet
     parent_gpkg: mn_districtr_vtd_view_v1.gpkg
-  mn_state_house_districts_view_v1:
-    child_gpkg: mn_districtr_block_view_v1.gpkg
-    out_path: mn_state_house_districts_view_v1.parquet
-    parent_gpkg: mn_districtr_vtd_view_v1.gpkg
-  mn_state_senate_districts_view_v1:
-    child_gpkg: mn_districtr_block_view_v1.gpkg
-    out_path: mn_state_senate_districts_view_v1.parquet
-    parent_gpkg: mn_districtr_vtd_view_v1.gpkg
-  mo_congressional_districts_view_v1:
+  mo_districtr_view_v1:
     child_gpkg: mo_districtr_block_view_v1.gpkg
-    out_path: mo_congressional_districts_view_v1.parquet
+    out_path: mo_districtr_view_v1.parquet
     parent_gpkg: mo_districtr_vtd_view_v1.gpkg
-  mo_state_house_districts_view_v1:
-    child_gpkg: mo_districtr_block_view_v1.gpkg
-    out_path: mo_state_house_districts_view_v1.parquet
-    parent_gpkg: mo_districtr_vtd_view_v1.gpkg
-  mo_state_senate_districts_view_v1:
-    child_gpkg: mo_districtr_block_view_v1.gpkg
-    out_path: mo_state_senate_districts_view_v1.parquet
-    parent_gpkg: mo_districtr_vtd_view_v1.gpkg
-  ms_congressional_districts_view_v1:
+  ms_districtr_view_v1:
     child_gpkg: ms_districtr_block_view_v1.gpkg
-    out_path: ms_congressional_districts_view_v1.parquet
+    out_path: ms_districtr_view_v1.parquet
     parent_gpkg: ms_districtr_vtd_view_v1.gpkg
-  ms_state_house_districts_view_v1:
-    child_gpkg: ms_districtr_block_view_v1.gpkg
-    out_path: ms_state_house_districts_view_v1.parquet
-    parent_gpkg: ms_districtr_vtd_view_v1.gpkg
-  ms_state_senate_districts_view_v1:
-    child_gpkg: ms_districtr_block_view_v1.gpkg
-    out_path: ms_state_senate_districts_view_v1.parquet
-    parent_gpkg: ms_districtr_vtd_view_v1.gpkg
-  mt_congressional_districts_view_v1:
+  mt_districtr_view_v1:
     child_gpkg: mt_districtr_block_view_v1.gpkg
-    out_path: mt_congressional_districts_view_v1.parquet
+    out_path: mt_districtr_view_v1.parquet
     parent_gpkg: mt_districtr_vtd_view_v1.gpkg
-  mt_state_house_districts_view_v1:
-    child_gpkg: mt_districtr_block_view_v1.gpkg
-    out_path: mt_state_house_districts_view_v1.parquet
-    parent_gpkg: mt_districtr_vtd_view_v1.gpkg
-  mt_state_senate_districts_view_v1:
-    child_gpkg: mt_districtr_block_view_v1.gpkg
-    out_path: mt_state_senate_districts_view_v1.parquet
-    parent_gpkg: mt_districtr_vtd_view_v1.gpkg
-  nc_congressional_districts_view_v1:
+  nc_districtr_view_v1:
     child_gpkg: nc_districtr_block_view_v1.gpkg
-    out_path: nc_congressional_districts_view_v1.parquet
+    out_path: nc_districtr_view_v1.parquet
     parent_gpkg: nc_districtr_vtd_view_v1.gpkg
-  nc_state_house_districts_view_v1:
-    child_gpkg: nc_districtr_block_view_v1.gpkg
-    out_path: nc_state_house_districts_view_v1.parquet
-    parent_gpkg: nc_districtr_vtd_view_v1.gpkg
-  nc_state_senate_districts_view_v1:
-    child_gpkg: nc_districtr_block_view_v1.gpkg
-    out_path: nc_state_senate_districts_view_v1.parquet
-    parent_gpkg: nc_districtr_vtd_view_v1.gpkg
-  nd_congressional_districts_view_v1:
+  nd_districtr_view_v1:
     child_gpkg: nd_districtr_block_view_v1.gpkg
-    out_path: nd_congressional_districts_view_v1.parquet
+    out_path: nd_districtr_view_v1.parquet
     parent_gpkg: nd_districtr_vtd_view_v1.gpkg
-  nd_state_house_districts_view_v1:
-    child_gpkg: nd_districtr_block_view_v1.gpkg
-    out_path: nd_state_house_districts_view_v1.parquet
-    parent_gpkg: nd_districtr_vtd_view_v1.gpkg
-  nd_state_senate_districts_view_v1:
-    child_gpkg: nd_districtr_block_view_v1.gpkg
-    out_path: nd_state_senate_districts_view_v1.parquet
-    parent_gpkg: nd_districtr_vtd_view_v1.gpkg
-  ne_congressional_districts_view_v1:
+  ne_districtr_view_v1:
     child_gpkg: ne_districtr_block_view_v1.gpkg
-    out_path: ne_congressional_districts_view_v1.parquet
+    out_path: ne_districtr_view_v1.parquet
     parent_gpkg: ne_districtr_vtd_view_v1.gpkg
-  ne_state_house_districts_view_v1:
-    child_gpkg: ne_districtr_block_view_v1.gpkg
-    out_path: ne_state_house_districts_view_v1.parquet
-    parent_gpkg: ne_districtr_vtd_view_v1.gpkg
-  ne_state_senate_districts_view_v1:
-    child_gpkg: ne_districtr_block_view_v1.gpkg
-    out_path: ne_state_senate_districts_view_v1.parquet
-    parent_gpkg: ne_districtr_vtd_view_v1.gpkg
-  nh_congressional_districts_view_v1:
+  nh_districtr_view_v1:
     child_gpkg: nh_districtr_block_view_v1.gpkg
-    out_path: nh_congressional_districts_view_v1.parquet
+    out_path: nh_districtr_view_v1.parquet
     parent_gpkg: nh_districtr_vtd_view_v1.gpkg
-  nh_state_house_districts_view_v1:
-    child_gpkg: nh_districtr_block_view_v1.gpkg
-    out_path: nh_state_house_districts_view_v1.parquet
-    parent_gpkg: nh_districtr_vtd_view_v1.gpkg
-  nh_state_senate_districts_view_v1:
-    child_gpkg: nh_districtr_block_view_v1.gpkg
-    out_path: nh_state_senate_districts_view_v1.parquet
-    parent_gpkg: nh_districtr_vtd_view_v1.gpkg
-  nj_congressional_districts_view_v1:
+  nj_districtr_view_v1:
     child_gpkg: nj_districtr_block_view_v1.gpkg
-    out_path: nj_congressional_districts_view_v1.parquet
+    out_path: nj_districtr_view_v1.parquet
     parent_gpkg: nj_districtr_vtd_view_v1.gpkg
-  nj_state_house_districts_view_v1:
-    child_gpkg: nj_districtr_block_view_v1.gpkg
-    out_path: nj_state_house_districts_view_v1.parquet
-    parent_gpkg: nj_districtr_vtd_view_v1.gpkg
-  nj_state_senate_districts_view_v1:
-    child_gpkg: nj_districtr_block_view_v1.gpkg
-    out_path: nj_state_senate_districts_view_v1.parquet
-    parent_gpkg: nj_districtr_vtd_view_v1.gpkg
-  nm_congressional_districts_view_v1:
+  nm_districtr_view_v1:
     child_gpkg: nm_districtr_block_view_v1.gpkg
-    out_path: nm_congressional_districts_view_v1.parquet
+    out_path: nm_districtr_view_v1.parquet
     parent_gpkg: nm_districtr_vtd_view_v1.gpkg
-  nm_state_house_districts_view_v1:
-    child_gpkg: nm_districtr_block_view_v1.gpkg
-    out_path: nm_state_house_districts_view_v1.parquet
-    parent_gpkg: nm_districtr_vtd_view_v1.gpkg
-  nm_state_senate_districts_view_v1:
-    child_gpkg: nm_districtr_block_view_v1.gpkg
-    out_path: nm_state_senate_districts_view_v1.parquet
-    parent_gpkg: nm_districtr_vtd_view_v1.gpkg
-  nv_congressional_districts_view_v1:
+  nv_districtr_view_v1:
     child_gpkg: nv_districtr_block_view_v1.gpkg
-    out_path: nv_congressional_districts_view_v1.parquet
+    out_path: nv_districtr_view_v1.parquet
     parent_gpkg: nv_districtr_vtd_view_v1.gpkg
-  nv_state_house_districts_view_v1:
-    child_gpkg: nv_districtr_block_view_v1.gpkg
-    out_path: nv_state_house_districts_view_v1.parquet
-    parent_gpkg: nv_districtr_vtd_view_v1.gpkg
-  nv_state_senate_districts_view_v1:
-    child_gpkg: nv_districtr_block_view_v1.gpkg
-    out_path: nv_state_senate_districts_view_v1.parquet
-    parent_gpkg: nv_districtr_vtd_view_v1.gpkg
-  ny_congressional_districts_view_v1:
+  ny_districtr_view_v1:
     child_gpkg: ny_districtr_block_view_v1.gpkg
-    out_path: ny_congressional_districts_view_v1.parquet
+    out_path: ny_districtr_view_v1.parquet
     parent_gpkg: ny_districtr_vtd_view_v1.gpkg
-  ny_state_house_districts_view_v1:
-    child_gpkg: ny_districtr_block_view_v1.gpkg
-    out_path: ny_state_house_districts_view_v1.parquet
-    parent_gpkg: ny_districtr_vtd_view_v1.gpkg
-  ny_state_senate_districts_view_v1:
-    child_gpkg: ny_districtr_block_view_v1.gpkg
-    out_path: ny_state_senate_districts_view_v1.parquet
-    parent_gpkg: ny_districtr_vtd_view_v1.gpkg
-  oh_congressional_districts_view_v1:
+  oh_districtr_view_v1:
     child_gpkg: oh_districtr_block_view_v1.gpkg
-    out_path: oh_congressional_districts_view_v1.parquet
+    out_path: oh_districtr_view_v1.parquet
     parent_gpkg: oh_districtr_vtd_view_v1.gpkg
-  oh_state_house_districts_view_v1:
-    child_gpkg: oh_districtr_block_view_v1.gpkg
-    out_path: oh_state_house_districts_view_v1.parquet
-    parent_gpkg: oh_districtr_vtd_view_v1.gpkg
-  oh_state_senate_districts_view_v1:
-    child_gpkg: oh_districtr_block_view_v1.gpkg
-    out_path: oh_state_senate_districts_view_v1.parquet
-    parent_gpkg: oh_districtr_vtd_view_v1.gpkg
-  ok_congressional_districts_view_v1:
+  ok_districtr_view_v1:
     child_gpkg: ok_districtr_block_view_v1.gpkg
-    out_path: ok_congressional_districts_view_v1.parquet
+    out_path: ok_districtr_view_v1.parquet
     parent_gpkg: ok_districtr_vtd_view_v1.gpkg
-  ok_state_house_districts_view_v1:
-    child_gpkg: ok_districtr_block_view_v1.gpkg
-    out_path: ok_state_house_districts_view_v1.parquet
-    parent_gpkg: ok_districtr_vtd_view_v1.gpkg
-  ok_state_senate_districts_view_v1:
-    child_gpkg: ok_districtr_block_view_v1.gpkg
-    out_path: ok_state_senate_districts_view_v1.parquet
-    parent_gpkg: ok_districtr_vtd_view_v1.gpkg
-  or_congressional_districts_view_v1:
+  or_districtr_view_v1:
     child_gpkg: or_districtr_block_view_v1.gpkg
-    out_path: or_congressional_districts_view_v1.parquet
+    out_path: or_districtr_view_v1.parquet
     parent_gpkg: or_districtr_bg_view_v1.gpkg
-  or_state_house_districts_view_v1:
-    child_gpkg: or_districtr_block_view_v1.gpkg
-    out_path: or_state_house_districts_view_v1.parquet
-    parent_gpkg: or_districtr_bg_view_v1.gpkg
-  or_state_senate_districts_view_v1:
-    child_gpkg: or_districtr_block_view_v1.gpkg
-    out_path: or_state_senate_districts_view_v1.parquet
-    parent_gpkg: or_districtr_bg_view_v1.gpkg
-  pa_congressional_districts_view_v1:
+  pa_districtr_view_v1:
     child_gpkg: pa_districtr_block_view_v1.gpkg
-    out_path: pa_congressional_districts_view_v1.parquet
+    out_path: pa_districtr_view_v1.parquet
     parent_gpkg: pa_districtr_vtd_view_v1.gpkg
-  pa_state_house_districts_view_v1:
-    child_gpkg: pa_districtr_block_view_v1.gpkg
-    out_path: pa_state_house_districts_view_v1.parquet
-    parent_gpkg: pa_districtr_vtd_view_v1.gpkg
-  pa_state_senate_districts_view_v1:
-    child_gpkg: pa_districtr_block_view_v1.gpkg
-    out_path: pa_state_senate_districts_view_v1.parquet
-    parent_gpkg: pa_districtr_vtd_view_v1.gpkg
-  ri_congressional_districts_view_v1:
+  ri_districtr_view_v1:
     child_gpkg: ri_districtr_block_view_v1.gpkg
-    out_path: ri_congressional_districts_view_v1.parquet
+    out_path: ri_districtr_view_v1.parquet
     parent_gpkg: ri_districtr_vtd_view_v1.gpkg
-  ri_state_house_districts_view_v1:
-    child_gpkg: ri_districtr_block_view_v1.gpkg
-    out_path: ri_state_house_districts_view_v1.parquet
-    parent_gpkg: ri_districtr_vtd_view_v1.gpkg
-  ri_state_senate_districts_view_v1:
-    child_gpkg: ri_districtr_block_view_v1.gpkg
-    out_path: ri_state_senate_districts_view_v1.parquet
-    parent_gpkg: ri_districtr_vtd_view_v1.gpkg
-  sc_congressional_districts_view_v1:
+  sc_districtr_view_v1:
     child_gpkg: sc_districtr_block_view_v1.gpkg
-    out_path: sc_congressional_districts_view_v1.parquet
+    out_path: sc_districtr_view_v1.parquet
     parent_gpkg: sc_districtr_vtd_view_v1.gpkg
-  sc_state_house_districts_view_v1:
-    child_gpkg: sc_districtr_block_view_v1.gpkg
-    out_path: sc_state_house_districts_view_v1.parquet
-    parent_gpkg: sc_districtr_vtd_view_v1.gpkg
-  sc_state_senate_districts_view_v1:
-    child_gpkg: sc_districtr_block_view_v1.gpkg
-    out_path: sc_state_senate_districts_view_v1.parquet
-    parent_gpkg: sc_districtr_vtd_view_v1.gpkg
-  sd_congressional_districts_view_v1:
+  sd_districtr_view_v1:
     child_gpkg: sd_districtr_block_view_v1.gpkg
-    out_path: sd_congressional_districts_view_v1.parquet
+    out_path: sd_districtr_view_v1.parquet
     parent_gpkg: sd_districtr_vtd_view_v1.gpkg
-  sd_state_house_districts_view_v1:
-    child_gpkg: sd_districtr_block_view_v1.gpkg
-    out_path: sd_state_house_districts_view_v1.parquet
-    parent_gpkg: sd_districtr_vtd_view_v1.gpkg
-  sd_state_senate_districts_view_v1:
-    child_gpkg: sd_districtr_block_view_v1.gpkg
-    out_path: sd_state_senate_districts_view_v1.parquet
-    parent_gpkg: sd_districtr_vtd_view_v1.gpkg
-  tn_congressional_districts_view_v1:
+  tn_districtr_view_v1:
     child_gpkg: tn_districtr_block_view_v1.gpkg
-    out_path: tn_congressional_districts_view_v1.parquet
+    out_path: tn_districtr_view_v1.parquet
     parent_gpkg: tn_districtr_vtd_view_v1.gpkg
-  tn_state_house_districts_view_v1:
-    child_gpkg: tn_districtr_block_view_v1.gpkg
-    out_path: tn_state_house_districts_view_v1.parquet
-    parent_gpkg: tn_districtr_vtd_view_v1.gpkg
-  tn_state_senate_districts_view_v1:
-    child_gpkg: tn_districtr_block_view_v1.gpkg
-    out_path: tn_state_senate_districts_view_v1.parquet
-    parent_gpkg: tn_districtr_vtd_view_v1.gpkg
-  tx_congressional_districts_view_v1:
+  tx_districtr_view_v1:
     child_gpkg: tx_districtr_block_view_v1.gpkg
-    out_path: tx_congressional_districts_view_v1.parquet
+    out_path: tx_districtr_view_v1.parquet
     parent_gpkg: tx_districtr_vtd_view_v1.gpkg
-  tx_state_house_districts_view_v1:
-    child_gpkg: tx_districtr_block_view_v1.gpkg
-    out_path: tx_state_house_districts_view_v1.parquet
-    parent_gpkg: tx_districtr_vtd_view_v1.gpkg
-  tx_state_senate_districts_view_v1:
-    child_gpkg: tx_districtr_block_view_v1.gpkg
-    out_path: tx_state_senate_districts_view_v1.parquet
-    parent_gpkg: tx_districtr_vtd_view_v1.gpkg
-  ut_congressional_districts_view_v1:
+  ut_districtr_view_v1:
     child_gpkg: ut_districtr_block_view_v1.gpkg
-    out_path: ut_congressional_districts_view_v1.parquet
+    out_path: ut_districtr_view_v1.parquet
     parent_gpkg: ut_districtr_vtd_view_v1.gpkg
-  ut_state_house_districts_view_v1:
-    child_gpkg: ut_districtr_block_view_v1.gpkg
-    out_path: ut_state_house_districts_view_v1.parquet
-    parent_gpkg: ut_districtr_vtd_view_v1.gpkg
-  ut_state_senate_districts_view_v1:
-    child_gpkg: ut_districtr_block_view_v1.gpkg
-    out_path: ut_state_senate_districts_view_v1.parquet
-    parent_gpkg: ut_districtr_vtd_view_v1.gpkg
-  va_congressional_districts_view_v1:
+  va_districtr_view_v1:
     child_gpkg: va_districtr_block_view_v1.gpkg
-    out_path: va_congressional_districts_view_v1.parquet
+    out_path: va_districtr_view_v1.parquet
     parent_gpkg: va_districtr_vtd_view_v1.gpkg
-  va_state_house_districts_view_v1:
-    child_gpkg: va_districtr_block_view_v1.gpkg
-    out_path: va_state_house_districts_view_v1.parquet
-    parent_gpkg: va_districtr_vtd_view_v1.gpkg
-  va_state_senate_districts_view_v1:
-    child_gpkg: va_districtr_block_view_v1.gpkg
-    out_path: va_state_senate_districts_view_v1.parquet
-    parent_gpkg: va_districtr_vtd_view_v1.gpkg
-  vt_congressional_districts_view_v1:
+  vt_districtr_view_v1:
     child_gpkg: vt_districtr_block_view_v1.gpkg
-    out_path: vt_congressional_districts_view_v1.parquet
+    out_path: vt_districtr_view_v1.parquet
     parent_gpkg: vt_districtr_vtd_view_v1.gpkg
-  vt_state_house_districts_view_v1:
-    child_gpkg: vt_districtr_block_view_v1.gpkg
-    out_path: vt_state_house_districts_view_v1.parquet
-    parent_gpkg: vt_districtr_vtd_view_v1.gpkg
-  vt_state_senate_districts_view_v1:
-    child_gpkg: vt_districtr_block_view_v1.gpkg
-    out_path: vt_state_senate_districts_view_v1.parquet
-    parent_gpkg: vt_districtr_vtd_view_v1.gpkg
-  wa_congressional_districts_view_v1:
+  wa_districtr_view_v1:
     child_gpkg: wa_districtr_block_view_v1.gpkg
-    out_path: wa_congressional_districts_view_v1.parquet
+    out_path: wa_districtr_view_v1.parquet
     parent_gpkg: wa_districtr_vtd_view_v1.gpkg
-  wa_state_house_districts_view_v1:
-    child_gpkg: wa_districtr_block_view_v1.gpkg
-    out_path: wa_state_house_districts_view_v1.parquet
-    parent_gpkg: wa_districtr_vtd_view_v1.gpkg
-  wa_state_senate_districts_view_v1:
-    child_gpkg: wa_districtr_block_view_v1.gpkg
-    out_path: wa_state_senate_districts_view_v1.parquet
-    parent_gpkg: wa_districtr_vtd_view_v1.gpkg
-  wi_congressional_districts_view_v1:
+  wi_districtr_view_v1:
     child_gpkg: wi_districtr_block_view_v1.gpkg
-    out_path: wi_congressional_districts_view_v1.parquet
+    out_path: wi_districtr_view_v1.parquet
     parent_gpkg: wi_districtr_vtd_view_v1.gpkg
-  wi_state_house_districts_view_v1:
-    child_gpkg: wi_districtr_block_view_v1.gpkg
-    out_path: wi_state_house_districts_view_v1.parquet
-    parent_gpkg: wi_districtr_vtd_view_v1.gpkg
-  wi_state_senate_districts_view_v1:
-    child_gpkg: wi_districtr_block_view_v1.gpkg
-    out_path: wi_state_senate_districts_view_v1.parquet
-    parent_gpkg: wi_districtr_vtd_view_v1.gpkg
-  wv_congressional_districts_view_v1:
+  wv_districtr_view_v1:
     child_gpkg: wv_districtr_block_view_v1.gpkg
-    out_path: wv_congressional_districts_view_v1.parquet
+    out_path: wv_districtr_view_v1.parquet
     parent_gpkg: wv_districtr_bg_view_v1.gpkg
-  wv_state_house_districts_view_v1:
-    child_gpkg: wv_districtr_block_view_v1.gpkg
-    out_path: wv_state_house_districts_view_v1.parquet
-    parent_gpkg: wv_districtr_bg_view_v1.gpkg
-  wv_state_senate_districts_view_v1:
-    child_gpkg: wv_districtr_block_view_v1.gpkg
-    out_path: wv_state_senate_districts_view_v1.parquet
-    parent_gpkg: wv_districtr_bg_view_v1.gpkg
-  wy_congressional_districts_view_v1:
+  wy_districtr_view_v1:
     child_gpkg: wy_districtr_block_view_v1.gpkg
-    out_path: wy_congressional_districts_view_v1.parquet
-    parent_gpkg: wy_districtr_vtd_view_v1.gpkg
-  wy_state_house_districts_view_v1:
-    child_gpkg: wy_districtr_block_view_v1.gpkg
-    out_path: wy_state_house_districts_view_v1.parquet
-    parent_gpkg: wy_districtr_vtd_view_v1.gpkg
-  wy_state_senate_districts_view_v1:
-    child_gpkg: wy_districtr_block_view_v1.gpkg
-    out_path: wy_state_senate_districts_view_v1.parquet
+    out_path: wy_districtr_view_v1.parquet
     parent_gpkg: wy_districtr_vtd_view_v1.gpkg
 name: v1 batch tabular load
 version: 0.1.0
