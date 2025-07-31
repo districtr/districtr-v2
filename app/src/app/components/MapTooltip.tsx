@@ -17,7 +17,9 @@ import {PARTISAN_SCALE} from '../store/demography/constants';
 export const MapTooltip = () => {
   const tooltip = useTooltipStore(state => state.tooltip);
   const activeTool = useMapStore(state => state.activeTool);
+  const isInspectorMode = activeTool === 'inspector';
   if (!tooltip) return null;
+  if (!tooltip?.data?.length && !isInspectorMode) return null;
 
   return (
     <Popover.Root open={true}>
@@ -39,7 +41,7 @@ export const MapTooltip = () => {
                 : entry.value}
             </Text>
           ))}
-          {activeTool === 'inspector' && <InspectorTooltipEntries />}
+          {isInspectorMode && <InspectorTooltipEntries />}
         </Box>
       </Popover.Content>
     </Popover.Root>
@@ -77,15 +79,23 @@ export const InspectorTooltipEntries = () => {
   };
 
   useEffect(() => {
-    const _activeColumns =
+    if (ids.length > 0) {
+
+      const _activeColumns =
       inspectorMode === 'VOTERHISTORY'
-        ? [...activeColumns, ...activeColumns.map(colName => colName.replace('_lean', '_total'))]
-        : activeColumns;
-    const data = demographyCache.calculateSummaryStats(ids, _activeColumns);
-    if (data.length === 1) {
-      setInspectorData(data[0]);
+      ? [...activeColumns, ...activeColumns.map(colName => colName.replace('_lean', '_total'))]
+      : activeColumns;
+      const data = demographyCache.calculateSummaryStats(ids, _activeColumns);
+      if (data.length === 1) {
+        setInspectorData(data[0]);
+      }
+    } else {
+      setInspectorData({});
     }
   }, [JSON.stringify(ids)]);
+
+  if (Object.keys(inspectorData).length === 0) return null;
+
   return (
     <Table.Root variant="surface" size="1" style={{margin: 0}} className="max-w-[50vw] w-64 ">
       <Table.Header>

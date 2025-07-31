@@ -198,7 +198,11 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     selectMapFeatures(selectedFeatures);
   }
 
-  if (isBrushingTool && (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS)) {
+  if (
+    isBrushingTool &&
+    selectedFeatures?.length &&
+    (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS)
+  ) {
     setTooltip({
       ...e.point,
       data: mapOptions.showPopulationTooltip
@@ -215,7 +219,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
         : [],
     });
   } else {
-    useTooltipStore.getState().setTooltip(null);
+    setTooltip(null);
   }
 }, 5);
 
