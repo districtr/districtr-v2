@@ -65,6 +65,11 @@ export const PopulationChart: React.FC<{
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [isHovered, setIsHovered] = useState(false);
 
+  // Parnent container not ready yet
+  if (xMax < 0) {
+    return null;
+  }
+
   return (
     <svg
       width={width}

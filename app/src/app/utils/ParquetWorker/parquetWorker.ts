@@ -225,7 +225,7 @@ const ParquetWorker: ParquetWorkerClass = {
     return {columns: Object.keys(parsed) as AllTabularColumns[number][], results: parsed};
   },
   async getPointData(layer, columns, source, filterIds) {
-    const url = `${GEODATA_URL}/dev/${layer}_points.parquet`;
+    const url = `${GEODATA_URL}/tilesets/${layer}_points.parquet`;
     const meta = await this.getMetaData(url);
     let idRange: [number, number] | undefined = undefined;
     if (filterIds && filterIds.size > 0) {
