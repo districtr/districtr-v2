@@ -11,7 +11,7 @@ from app.utils import (
     add_districtr_map_to_map_group,
 )
 from app.core.io import get_local_or_s3_path
-from app.main import get_session
+from app.core.db import get_load_session
 from app.core.config import settings
 from functools import wraps
 import logging
@@ -230,7 +230,7 @@ def load_sample_data(
         if skip_gerrydb_loads:
             continue
 
-        session = next(get_session())
+        session = next(get_load_session())
         gpkg = os.path.join(data_dir, view.gpkg)
 
         if not Path(gpkg).exists():
@@ -263,7 +263,7 @@ def load_sample_data(
         logger.info(f"Graph saved to {out_path}")
 
     for view in config._shatterable_views:
-        session = next(get_session())
+        session = next(get_load_session())
         gerrydb_table_exists = session.execute(
             sa.text("select 1 from gerrydbtable where name = :name limit 1"),
             {"name": view.gerrydb_table_name},
@@ -276,18 +276,18 @@ def load_sample_data(
             session.commit()
 
     for view in config._districtr_maps:
-        session = next(get_session())
+        session = next(get_load_session())
         districtr_map_exists = session.execute(
             sa.text(
                 "select uuid from districtrmap where districtr_map_slug = :slug limit 1"
             ),
             {"slug": view.districtr_map_slug},
         ).one_or_none()
-        session.rollback()
         if districtr_map_exists:
             u = districtr_map_exists.uuid
             logger.info(f"Districtr map {view.districtr_map_slug} already exists.")
         else:
+            session = next(get_load_session())
             u = _create_districtr_map(
                 session=session,
                 name=view.name,
@@ -305,7 +305,7 @@ def load_sample_data(
         if u is not None:
             logger.info(f"Created districtr map with UUID {u}")
         else:
-            session = next(get_session())
+            session = next(get_load_session())
             u = session.exec(
                 sa.select(DistrictrMap.uuid).where(  # pyright: ignore
                     DistrictrMap.districtr_map_slug == view.districtr_map_slug
@@ -325,7 +325,7 @@ def load_sample_data(
         session.commit()
 
     for group in config._map_groups:
-        session = next(get_session())
+        session = next(get_load_session())
         add_districtr_map_to_map_group(
             session=session,
             districtr_map_slug=group.districtr_map_slug,
