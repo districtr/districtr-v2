@@ -55,6 +55,15 @@ export const VoterColumnConfig: EvalColumnConfiguration<any> = [
   {column: 'ag_18_lean', label: '2018 AG'},
 ];
 
+export const CONFIG_BY_COLUMN_SET: Record<
+  keyof SummaryStatConfig,
+  EvalColumnConfiguration<SummaryStatConfig[keyof SummaryStatConfig]>
+> = {
+  TOTPOP: TOTPOPColumnConfig,
+  VAP: VAPColumnConfig,
+  VOTERHISTORY: VoterColumnConfig,
+};
+
 export const evalColumnConfigs: Partial<
   Record<
     keyof typeof summaryStatsConfig,

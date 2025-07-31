@@ -1,12 +1,17 @@
 'use client';
-import {Text} from '@radix-ui/themes';
+import {CheckboxGroup, Flex, Heading, Tabs, Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import React, {useLayoutEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {BrushControls} from '@components/BrushControls';
-import {ZoneLockPicker} from '@/app/components/Toolbar/ZoneLockPicker';
 import {ActiveTool} from '@constants/types';
 import {ExitBlockViewButtons} from '@/app/components/Toolbar/ExitBlockViewButtons';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import {TooltipStore, useTooltipStore} from '@/app/store/tooltipStore';
+import { CONFIG_BY_COLUMN_SET, summaryStatLabels, TOTPOPColumnConfig, VAPColumnConfig } from '@/app/store/demography/evaluationConfig';
+import { useDemographyStore } from '@/app/store/demography/demographyStore';
+import { KeyOfSummaryStatConfig, SummaryStatConfig } from '@/app/utils/api/summaryStats';
+import { demographyCache } from '@/app/utils/demography/demographyCache';
+import { choroplethMapVariables } from '@/app/store/demography/constants';
 
 const ToolControlsConfig: Record<
   Partial<ActiveTool>,
@@ -33,6 +38,47 @@ const ToolControlsConfig: Record<
       } else {
         return <Text>Click a feature to show the census blocks within it</Text>;
       }
+    },
+  },
+  inspector: {
+    Component: () => {
+      const inspectorMode = useTooltipStore(state => state.inspectorMode);
+      const activeColumns = useTooltipStore(state => state.activeColumns);
+      const setInspectorMode = useTooltipStore(state => state.setInspectorMode);
+      const setActiveColumns = useTooltipStore(state => state.setActiveColumns);
+      const columnList = CONFIG_BY_COLUMN_SET[inspectorMode];
+      const totalColumn = {
+        'VAP': ['total_vap_20'],
+        'TOTPOP': ['total_pop_20'],
+        'VOTERHISTORY': []
+      }[inspectorMode];
+
+      useEffect(() => {
+        setActiveColumns([...totalColumn, ...columnList.map(f => f.column)]);
+      }, [inspectorMode])
+
+      return <Flex direction="column">
+        <BrushControls />
+        <Tabs.Root value={inspectorMode} onValueChange={(value) => setInspectorMode(value as KeyOfSummaryStatConfig)}>
+          <Tabs.List> 
+            <Tabs.Trigger value="VAP">Voting Age Population</Tabs.Trigger>
+            <Tabs.Trigger value="TOTPOP">Total Population</Tabs.Trigger>
+            <Tabs.Trigger value="VOTERHISTORY">Voter History</Tabs.Trigger>
+          </Tabs.List>
+        </Tabs.Root>
+        <Flex direction="column" py="4" gap="2">
+        <Heading as="h3" size="3">
+          Inspector columns
+        </Heading>
+        <CheckboxGroup.Root defaultValue={[]} value={activeColumns} onValueChange={(value) => {
+          setActiveColumns([...value, ...totalColumn]);
+        }} name="example">
+          {columnList.map(f => (
+            <CheckboxGroup.Item value={f.column}>{f.label}</CheckboxGroup.Item>
+          ))}
+        </CheckboxGroup.Root>
+        </Flex>
+      </Flex>;
     },
   },
 };

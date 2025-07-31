@@ -14,7 +14,7 @@ import type {
   MapRef,
   ViewStateChangeEvent,
 } from 'react-map-gl/maplibre';
-import {useMapStore} from '@/app/store/mapStore';
+import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
@@ -28,6 +28,11 @@ import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
 import {useHoverStore} from '@/app/store/hoverFeatures';
+
+export const AREA_SELECT_TOOLS = ['brush', 'eraser', 'inspector'];
+export const POINT_SELECT_TOOLS = ['shatter'];
+export const ALL_BRUSHING_TOOLS = [...AREA_SELECT_TOOLS, ...POINT_SELECT_TOOLS];
+export const TOOLTIP_TOOLS = ['inspector'];
 
 export const EMPTY_FEATURE_ARRAY: MapGeoJSONFeature[] = [];
 /*
@@ -59,6 +64,28 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
     : [BLOCK_POINTS_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 }
 
+export const handleFeatureSelection = (
+  selectedFeatures: MapGeoJSONFeature[] | undefined,
+  mapStore: MapStore,
+  sourceLayer: string | undefined,
+  mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target'] | null
+) => {
+  switch (mapStore.activeTool) {
+    case 'shatter':
+      const documentId = mapStore.mapDocument?.document_id;
+      if (documentId && selectedFeatures?.length) {
+        mapStore.handleShatter(documentId, selectedFeatures || []);
+      }
+      return;
+    case 'brush':
+    case 'eraser':
+      if (sourceLayer && selectedFeatures && mapRef && mapStore) {
+        // select on both the map object and the store
+        mapStore.selectMapFeatures(selectedFeatures);
+        mapStore.setIsPainting(false);
+      }
+  }
+};
 /**
  * What happens when the map is clicked on; incomplete implementation
  * @param e - MapLayerMouseEvent | MapLayerTouchEvent, the event object
@@ -67,28 +94,19 @@ function getLayerIdsToPaint(child_layer: string | undefined | null, activeTool: 
 export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
-  const {activeTool, handleShatter, selectMapFeatures, setIsPainting} = mapStore;
+  const {activeTool} = mapStore;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
-  if (activeTool === 'shatter') {
-    const documentId = mapStore.mapDocument?.document_id;
-    const selectedFeatures = mapStore.paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
-    if (documentId && e.features?.length) {
-      handleShatter(documentId, selectedFeatures || []);
-    }
-    return;
-  } else if (activeTool === 'brush' || activeTool === 'eraser') {
+  let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
+
+  if (POINT_SELECT_TOOLS.includes(activeTool)) {
+    selectedFeatures = mapStore.paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
+  } else if (AREA_SELECT_TOOLS.includes(activeTool)) {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
-    const selectedFeatures = mapStore.paintFunction(mapRef, e, mapStore.brushSize, paintLayers);
-    if (sourceLayer && selectedFeatures && mapRef && mapStore) {
-      // select on both the map object and the store
-      // @ts-ignore TODO fix typing on this function
-      selectMapFeatures(selectedFeatures);
-      // end paint event to commit changes to zone assignments
-      setIsPainting(false);
-    }
+    selectedFeatures = mapStore.paintFunction(mapRef, e, mapStore.brushSize, paintLayers);
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
+  handleFeatureSelection(selectedFeatures, mapStore, sourceLayer, mapRef);
 }, 25);
 
 export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
@@ -148,6 +166,8 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const {mapOptions, activeTool, isPainting, mapDocument, selectMapFeatures} = mapStore;
+  const setHoverFeatures = useHoverStore.getState().setHoverFeatures;
+  const setTooltip = useTooltipStore.getState().setTooltip;
   const sourceLayer = mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
     // Boolean(mapStore.mapDocument?.child_layer && mapStore.captiveIds.size),
@@ -155,12 +175,14 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     activeTool
   );
 
-  const isBrushingTool = sourceLayer && ['brush', 'eraser', 'shatter'].includes(activeTool);
+  const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
+
   if (!isBrushingTool) {
-    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
-    useTooltipStore.getState().setTooltip(null);
+    setHoverFeatures(EMPTY_FEATURE_ARRAY);
+    setTooltip(null);
     return;
   }
+
   const selectedFeatures = mapStore.paintFunction(mapRef, e, mapStore.brushSize, paintLayers);
   // sourceCapabilities exists on the UIEvent constructor, which does not appear
   // properly tpyed in the default map events
@@ -168,7 +190,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const isTouchEvent =
     'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
   if (isBrushingTool && !isTouchEvent) {
-    useHoverStore.getState().setHoverFeatures(selectedFeatures);
+    setHoverFeatures(selectedFeatures);
   }
   if (selectedFeatures && isBrushingTool && isPainting) {
     // selects in the map object; the store object
@@ -176,19 +198,21 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     selectMapFeatures(selectedFeatures);
   }
 
-  if (isBrushingTool && mapOptions.showPopulationTooltip) {
-    useTooltipStore.getState().setTooltip({
+  if (isBrushingTool && (mapOptions.showPopulationTooltip || TOOLTIP_TOOLS)) {
+    setTooltip({
       ...e.point,
-      data: [
-        {
-          label: 'Total Pop',
-          value:
-            selectedFeatures?.reduce(
-              (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
-              0
-            ) ?? 'N/A',
-        },
-      ],
+      data: mapOptions.showPopulationTooltip
+        ? [
+            {
+              label: 'Total Pop',
+              value:
+                selectedFeatures?.reduce(
+                  (acc, curr) => acc + parseInt(curr.properties.total_pop_20),
+                  0
+                ) ?? 'N/A',
+            },
+          ]
+        : [],
     });
   } else {
     useTooltipStore.getState().setTooltip(null);

@@ -95,7 +95,7 @@ class DemographyCache {
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
-    this.calculateSummaryStats();
+    this.updateSummaryStats();
     this.hash = hash;
   }
 
@@ -234,7 +234,7 @@ class DemographyCache {
   /**
    * Calculates the summary statistics.
    */
-  calculateSummaryStats(): void {
+  updateSummaryStats(): void {
     if (!this.table) return;
     const columns = this.table.columnNames();
     this.table = this.table.derive(getPctDerives(columns));
@@ -254,6 +254,19 @@ class DemographyCache {
     );
 
     useChartStore.getState().setDataUpdateHash(`${performance.now()}`);
+  }
+
+  calculateSummaryStats(ids: string[], _columns?: string[]): Array<Record<string, number>> {
+    if (!this.table) return [];
+    const columns = this.table.columnNames().filter(f => !_columns || _columns.includes(f));
+    const rows = this.table
+      .params({
+        _hoverIds: ids,
+      })
+      .filter((d, $) => op.includes($._hoverIds, d.path))
+      .rollup(getRollups(columns, 'sum'))
+      .derive(getPctDerives(columns));
+    return rows.objects();
   }
 
   /**
@@ -426,3 +439,4 @@ class DemographyCache {
 
 // global demography cache
 export const demographyCache = new DemographyCache();
+window.demographyCache = demographyCache;
