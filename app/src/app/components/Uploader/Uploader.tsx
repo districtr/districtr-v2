@@ -34,7 +34,7 @@ export const Uploader: React.FC<{
     if (redirect) {
       const newestMap = mapLinks[mapLinks.length - 1];
       if (newestMap) {
-        window.location.href = `/map?document_id=${newestMap.document_id}`;
+        window.location.href = `/map/edit/${newestMap.document_id}`;
         onFinish?.();
       }
     }
@@ -141,7 +141,7 @@ export const Uploader: React.FC<{
                   <Table.Cell>{map.name}</Table.Cell>
                   <Table.Cell>
                     <Link
-                      href={`/map?document_id=${map.document_id}`}
+                      href={`/map/edit/${map.document_id}`}
                       target={newTab ? '_blank' : undefined}
                     >
                       Go to map

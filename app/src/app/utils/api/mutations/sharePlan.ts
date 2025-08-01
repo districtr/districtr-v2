@@ -1,10 +1,9 @@
 import {MutationObserver} from '@tanstack/query-core';
 import {queryClient} from '../queryClient';
-import {getSharePlanLink} from '../apiHandlers/getSharePlanLink';
-import {useMapStore} from '@/app/store/mapStore';
+import {patchSharePlan} from '../apiHandlers/patchSharePlan';
 
 export const sharePlan = new MutationObserver(queryClient, {
-  mutationFn: getSharePlanLink,
+  mutationFn: patchSharePlan,
   onMutate: ({
     document_id,
     password,
@@ -20,19 +19,7 @@ export const sharePlan = new MutationObserver(queryClient, {
     console.error('Error getting share plan link: ', error);
   },
   onSuccess: data => {
-    const {userMaps, mapDocument, upsertUserMap} = useMapStore.getState();
-
-    upsertUserMap({
-      documentId: mapDocument?.document_id,
-      // @ts-ignore works but investigate
-      mapDocument: {
-        ...mapDocument,
-        document_id: mapDocument?.document_id || '',
-        token: data.token,
-        access: data.access,
-        status: data.status, // TODO: align fe and be syntax for statuses
-      },
-    });
-    return data.token;
+    console.log('Successfully upserted share plan', data);
+    return data;
   },
 });

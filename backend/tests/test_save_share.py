@@ -5,11 +5,49 @@ from tests.constants import (
 from app.save_share.models import DocumentEditStatus, DocumentShareStatus
 import jwt
 from app.core.config import settings
-from fastapi import Form
+from pytest import fixture
 
 
-def test_share_districtr_plan(client, document_id):
+@fixture(name="public_document")
+def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    assert response.status_code == 201
+    document = response.json()
+
+    # Set to ready_to_share
+    document_id = document["document_id"]
+    response = client.put(
+        f"/api/document/{document_id}/metadata",
+        json={"draft_status": "ready_to_share", "name": "Public Test Map"},
+    )
+    assert response.status_code == 200, response.json()
+
+    return document
+
+
+@fixture(name="private_document")
+def private_document_fixture(client, ks_demo_view_census_blocks_districtrmap):
+    response = client.post(
+        "/api/create_document",
+        json={
+            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
+            "user_id": USER_ID,
+        },
+    )
+    assert response.status_code == 201
+    document = response.json()
+    return document
+
+
+def test_share_districtr_plan(client, private_document):
     """Test sharing a document when a pw exists"""
+    document_id = private_document["document_id"]
     share_payload = {"password": "password", "access_type": "read"}
 
     response = client.post(
@@ -41,35 +79,16 @@ def test_share_districtr_plan(client, document_id):
     assert "token" in data
 
 
-def test_unlock_map(client, document_id):
-    # create document
-    response = client.post(
-        "/api/create_document",
-        json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
-        },
-    )
-    document_id = response.json().get("document_id")
-    # unlock document
+def test_unlock_map(client, private_document):
+    document_id = private_document["document_id"]
     response = client.post(
         f"/api/document/{document_id}/unlock", json={"user_id": USER_ID}
     )
     assert response.status_code == 200
 
 
-def test_get_document_status(client, document_id):
-    # create document
-    response = client.post(
-        "/api/create_document",
-        json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
-        },
-    )
-    document_id = response.json().get("document_id")
-
-    # check doc status
+def test_get_document_status(client, private_document):
+    document_id = private_document["document_id"]
     response = client.post(
         f"/api/document/{document_id}/status", json={"user_id": USER_ID}
     )
@@ -80,78 +99,8 @@ def test_get_document_status(client, document_id):
     )  # since it was made fresh by this user
 
 
-def test_document_unload(client, document_id):
-    # create document
-    response = client.post(
-        "/api/create_document",
-        json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
-        },
-    )
-    document_id = response.json().get("document_id")
-
-    # unload document
-    response = client.post(
-        f"/api/document/{document_id}/unload",
-        data={"user_id": Form(USER_ID)},
-    )
-
-    assert response.status_code == 200
-    assert response.json().get("status") == DocumentEditStatus.unlocked
-
-
-def test_load_plan_from_share(client, document_id):
-    # create document
-    response = client.post(
-        "/api/create_document",
-        json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
-        },
-    )
-    document_id = response.json().get("document_id")
-
-    # share the document
-    share_payload = {"password": "password", "access_type": "read"}
-
-    response = client.post(
-        f"/api/document/{document_id}/share",
-        json={
-            "password": share_payload["password"],
-            "access_type": share_payload["access_type"],
-        },
-    )
-    decoded_token = jwt.decode(
-        response.json()["token"], settings.SECRET_KEY, algorithms=["HS256"]
-    )
-
-    # load the document
-    response = client.post(
-        "/api/share/load_plan_from_share",
-        json={
-            "user_id": USER_ID,
-            "password": "password",
-            "token": decoded_token["token"],
-            "access": DocumentShareStatus.read,
-        },
-    )
-
-    assert response.status_code == 200
-
-
-def test_document_checkout(client, document_id):
-    # create a document
-    response = client.post(
-        "/api/create_document",
-        json={
-            "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
-        },
-    )
-    document_id = response.json().get("document_id")
-
-    # share the document
+def test_document_checkout(client, private_document):
+    document_id = private_document["document_id"]
     share_payload = {"password": "password", "access_type": "read"}
 
     response = client.post(
@@ -175,5 +124,90 @@ def test_document_checkout(client, document_id):
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     assert response.json().get("status") == DocumentEditStatus.checked_out
+
+
+def test_load_plan_from_public_id_without_password(client, public_document):
+    public_id = public_document["public_id"]
+    response = client.get(f"/api/document/{public_id}")
+    assert response.status_code == 200, response.json()
+
+    data = response.json()
+    assert data["document_id"] == "anonymous"
+    assert data["status"] == DocumentEditStatus.locked
+    assert data["access"] == DocumentShareStatus.read
+
+
+def test_load_plan_from_public_id_with_password(client, private_document):
+    document_id = private_document["document_id"]
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={"password": "test_password", "access_type": "read"},
+    )
+    assert response.status_code == 200
+
+    # Load via public_id - should 404 since plan is not yet ready to share
+    public_id = private_document["public_id"]
+    response = client.get(f"/api/document/{public_id}")
+    assert response.status_code == 404
+
+
+# def test_checkout_public_document(client, public_document):
+#     document_id = public_document["document_id"]
+#     response = client.post(
+#         f"/api/document/{document_id}/share",
+#         json={"password": "test_password", "access_type": "read"},
+#     )
+#     assert response.status_code == 200
+
+#     # Unlock with correct password
+#     public_id = public_document["public_id"]
+#     response = client.post(
+#         f"/api/document/{public_id}/checkout",
+#         {"password": "test_password", "user_id": "test_user"}
+#     )
+#     assert response.status_code == 200
+
+#     data = response.json()
+#     assert data["document_id"] == document_id
+#     assert data["status"] == DocumentEditStatus.unlocked
+#     assert data["access"] == DocumentShareStatus.read
+
+
+# def test_checkout_public_document_with_read_only_access(client, public_document):
+#     document_id = public_document["document_id"]
+#     response = client.post(
+#         f"/api/document/{document_id}/share",
+#         json={"password": "test_password", "access_type": "read"},
+#     )
+#     assert response.status_code == 200
+
+#     # Unlock with wrong password
+#     public_id = public_document["public_id"]
+#     response = client.post(
+#         f"/api/document/{public_id}/checkout",
+#         {"password": "test_password", "user_id": "test_user"}
+#     )
+#     assert response.status_code == 401
+
+#     data = response.json()
+#     assert data["detail"] == "Invalid password"
+
+
+# def test_checkout_public_document_without_password_protection(client, document_id):
+#     response = client.put(
+#         f"/api/document/{document_id}/metadata",
+#         json={"draft_status": "ready_to_share", "name": "Public Map"},
+#     )
+#     assert response.status_code == 200
+
+#     # Try to unlock a document that doesn't need unlocking
+#     response = client.post(
+#         "/api/share/public/1/checkout",
+#         {"password": "any_password", "user_id": "test_user"}
+#     )
+#     assert response.status_code == 400
+
+#     data = response.json()
+#     assert data["detail"] == "This document does not require a password"

@@ -16,6 +16,10 @@ class UserID(BaseModel):
     user_id: str
 
 
+class UnlockFromPublicId(UserID):
+    password: str | None = None
+
+
 class DocumentShareStatus(str, Enum):
     read = "read"
     edit = "edit"
@@ -26,18 +30,21 @@ class DocumentShareRequest(BaseModel):
     access_type: DocumentShareStatus = DocumentShareStatus.read
 
 
-class TokenRequest(BaseModel):
-    token: str
+class DocumentCheckoutRequest(BaseModel):
     password: str | None = None
     user_id: str
-    access: DocumentShareStatus = DocumentShareStatus.read
+    access_type: DocumentShareStatus = DocumentShareStatus.read
 
 
 class DocumentDraftStatus(str, Enum):
     in_progress = "in_progress"
     scratch = "scratch"
     ready_to_share = "ready_to_share"
-    # perhaps others down the road e.g. accepted, archived, etc.
+
+
+class DocumentShareResponse(BaseModel):
+    token: str
+    public_id: int
 
 
 class MapDocumentToken(TimeStampMixin, SQLModel, table=True):

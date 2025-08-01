@@ -25,6 +25,7 @@ import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
 import {EditStatus} from './EditStatus';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
+import {useRouter} from 'next/navigation';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -38,14 +39,29 @@ export const Topbar: React.FC = () => {
   const mapViews = useMapStore(state => state.mapViews);
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
   const clear = useTemporalStore(store => store.clear);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const data = mapViews?.data || [];
+  const router = useRouter();
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
     clear();
-    document.mutate({
-      districtr_map_slug: selectedMap.districtr_map_slug,
-      user_id: userID,
-    });
+
+    document
+      .mutate({
+        districtr_map_slug: selectedMap.districtr_map_slug,
+        user_id: userID,
+      })
+      .then(data => {
+        if (data.document_id) {
+          router.push(`/map/edit/${data.document_id}`);
+        } else {
+          setErrorNotification({
+            severity: 2,
+            id: 'map-not-found',
+            message: 'Map not found',
+          });
+        }
+      });
   };
 
   return (

@@ -1,22 +1,21 @@
 import axios from 'axios';
 import {useMapStore} from '@store/mapStore';
+import {DocumentObject} from './types';
+import {API_URL} from '../constants';
 
 export const getLoadPlanFromShare = async ({
-  token,
   password,
-  access,
+  mapDocument,
 }: {
-  token: string;
+  mapDocument: DocumentObject;
   password?: string | null;
-  access: string;
 }) => {
-  const res = await axios.post(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/share/load_plan_from_share`,
+  const res = await axios.post<DocumentObject | null>(
+    `${API_URL}/api/document/${mapDocument.public_id}/checkout`,
     {
-      token: token,
       user_id: useMapStore.getState().userID,
+      document: mapDocument,
       password: password ?? null,
-      access: access,
     },
     {headers: {'Content-Type': 'application/json'}}
   );

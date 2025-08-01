@@ -18,17 +18,13 @@ export const RecentMapsModal: React.FC<{
   showTrigger?: boolean;
 }> = ({open, onClose, showTrigger}) => {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const mapDocument = useMapStore(store => store.mapDocument);
   const userMaps = useMapStore(store => store.userMaps);
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
   const deleteUserMap = useMapStore(store => store.deleteUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const setActiveTool = useMapStore(store => store.setActiveTool);
-  const setFreshMap = useMapStore(store => store.setFreshMap);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
-  const [openItem, setOpenItem] = React.useState<string | null>(null);
 
   useEffect(() => {
     setDialogOpen(open || false);
@@ -37,28 +33,17 @@ export const RecentMapsModal: React.FC<{
   const clear = useTemporalStore(store => store.clear);
 
   const handleUnloadMapDocument = () => {
-    // reset the map url
-    const urlParams = new URLSearchParams(searchParams.toString());
-    urlParams.delete('document_id');
-    urlParams.delete('share');
-    router.push(pathname + '?' + urlParams.toString());
+    // Navigate to home page
     setMapDocument({} as DocumentObject);
+    router.push('/map');
     // release the lock on the map in the db
     unlockMapDocument(mapDocument?.document_id as string);
   };
 
-  const handleDeleteMap = (documentId: string) => {
-    deleteUserMap(documentId);
-  };
-
   const handleMapDocument = (data: DocumentObject) => {
     clear();
-    const urlParams = new URLSearchParams(searchParams.toString());
-    urlParams.set('document_id', data.document_id);
-    router.push(pathname + '?' + urlParams.toString());
-
-    // open the correct accordion item
-    setOpenItem(data.document_id);
+    // Navigate to edit mode with the UUID
+    router.push(`/map/edit/${data.document_id}`);
 
     // close dialog
     setDialogOpen(false);

@@ -10,6 +10,4 @@ export {patchUpdates} from './mutations/patchUpdates';
 export {patchReset} from './mutations/patchReset';
 export {document} from './mutations/document';
 export {metadata} from './mutations/metadata';
-export {sharePlan} from './mutations/sharePlan';
-export {sharedDocument} from './mutations/sharedDocument';
 export {checkoutDocument} from './mutations/checkoutDocument';

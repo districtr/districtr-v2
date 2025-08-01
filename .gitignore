@@ -85,3 +85,7 @@ pipelines/districtr_pipelines.egg*
 docker-compose.override.yml
 app/.env.docker
 pipelines/build/*
+
+# editors
+.vscode/
+.zed/
