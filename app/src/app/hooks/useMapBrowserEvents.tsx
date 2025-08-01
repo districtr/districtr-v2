@@ -23,14 +23,14 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
   const loadZoneAssignments = useMapStore(state => state.loadZoneAssignments);
   const setMapDocument = useMapStore(state => state.setMapDocument);
 
-  const {data: mapDocumentData, refetch: refetchMapDocument} = useQuery({
+  const {data: mapDocumentData, refetch: refetchMapDocument, isLoading: isLoadingDocument, isFetching: isFetchingDocument} = useQuery({
     queryKey: ['mapDocument', mapId],
     queryFn: () => getDocument(mapId),
     staleTime: 0,
     placeholderData: _ => null,
   });
 
-  const {data: assignmentsData, refetch: refetchAssignments} = useQuery({
+  const {data: assignmentsData, refetch: refetchAssignments, isLoading: isLoadingAssignments, isFetching: isFetchingAssignments} = useQuery({
     queryKey: ['assignments', mapDocumentData?.document_id],
     queryFn: () => getAssignments(mapDocumentData),
     staleTime: 0,
@@ -38,7 +38,10 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
   });
 
   useEffect(() => {
-    if (mapDocumentData) {
+    if (
+      mapDocumentData &&
+      (mapDocumentData.document_id === mapId || `${mapDocumentData?.public_id}` === mapId)
+    ) {
       const prevIsSameId = mapDocument?.document_id === mapDocumentData?.document_id;
       const remoteHasUpdated =
         mapDocumentData?.updated_at &&
@@ -69,7 +72,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
     if (isVisible) {
       // resume temporal states on tab re-focus
       useMapStore.temporal.getState().resume();
-      setAppLoadingState('loaded');
+      // setAppLoadingState('loaded');
       refetchMapDocument();
     } else {
       // prevent temporal states from generating while tab is not visible
@@ -121,4 +124,11 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
       window.removeEventListener('unload', handleUnload);
     };
   }, [handleUnload]);
+
+  return {
+    isFetchingDocument,
+    isFetchingAssignments,
+    isLoadingDocument,
+    isLoadingAssignments,
+  }
 };

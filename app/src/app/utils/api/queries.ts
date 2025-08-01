@@ -3,7 +3,6 @@ import {queryClient} from './queryClient';
 import {DistrictrMap, DocumentObject} from './apiHandlers/types';
 
 import {getAvailableDistrictrMaps} from '@utils/api/apiHandlers/getAvailableDistrictrMaps';
-import {getDocument} from '@utils/api/apiHandlers/getDocument';
 import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
 import {demographyCache} from '../demography/demographyCache';

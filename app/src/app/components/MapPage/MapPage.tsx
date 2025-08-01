@@ -31,7 +31,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   const setUserID = useMapStore(state => state.setUserID);
   const setIsEditing = useMapStore(state => state.setIsEditing);
 
-  useMapBrowserEvents({
+  const loadingState = useMapBrowserEvents({
     mapId,
     isEditing,
   });
@@ -63,7 +63,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
           {showDemographicMap && <MapComponent isDemographicMap />}
         </Flex>
         {toolbarLocation === 'map' && <DraggableToolbar />}
-        <MapLockShade />
+        <MapLockShade loadingState={loadingState} />
         <MapTooltip />
       </div>
       <MapContextMenu />
