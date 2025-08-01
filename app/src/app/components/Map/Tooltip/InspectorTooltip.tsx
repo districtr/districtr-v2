@@ -53,8 +53,8 @@ export const InspectorTooltip = () => {
       </Table.Header>
       <Table.Body>
         {totalColumn && (
-          <Table.Row>
-            <Table.RowHeaderCell>{title}</Table.RowHeaderCell>
+          <Table.Row className="font-bold bg-gray-900/15">
+            <Table.Cell>Total</Table.Cell>
             <Table.Cell>
               {formatNumber(inspectorData[totalColumn], standardFormat)}
             </Table.Cell>
@@ -64,7 +64,7 @@ export const InspectorTooltip = () => {
           .filter(f => activeColumns.includes(f.column))
           .map(f => (
             <Table.Row key={f.column} className="relative">
-              <Table.RowHeaderCell>{f.label}</Table.RowHeaderCell>
+              <Table.Cell>{f.label}</Table.Cell>
               <Table.Cell>
                 {formatNumber(inspectorData[f.column + columnSuffix], standardFormat)}
               </Table.Cell>
@@ -75,7 +75,7 @@ export const InspectorTooltip = () => {
                     inspectorMode === 'VOTERHISTORY'
                       ? '100%'
                       : `${inspectorData[f.column + '_pct'] * 100}%`,
-                  opacity: '.25',
+                  opacity: '.15',
                   backgroundColor:
                     inspectorMode === 'VOTERHISTORY'
                       ? PARTISAN_SCALE(((inspectorData[f.column + '_pct'] as number) + 1) / 2)
