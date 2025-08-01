@@ -106,10 +106,10 @@ def get_document_public(
         ).label("document_id"),
         Document.created_at,
         Document.districtr_map_slug,
-        Document.gerrydb_table,
         Document.updated_at,
         Document.color_scheme,
         Document.public_id,
+        DistrictrMap.gerrydb_table_name.label("gerrydb_table"),  # pyright: ignore
         DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
         DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
         DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
