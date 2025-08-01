@@ -24,7 +24,7 @@ export const PasswordPromptModal = () => {
     } else if (mapDocument?.public_id) {
       const res = await getLoadPlanFromShare({
         password: password,
-        public_id: mapDocument?.public_id,
+        mapDocument: mapDocument,
       });
       if (res && res.document_id && res.document_id !== mapDocument?.document_id) {
         // go to map/edit/res.document_id

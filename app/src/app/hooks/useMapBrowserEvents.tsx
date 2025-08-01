@@ -23,14 +23,24 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
   const loadZoneAssignments = useMapStore(state => state.loadZoneAssignments);
   const setMapDocument = useMapStore(state => state.setMapDocument);
 
-  const {data: mapDocumentData, refetch: refetchMapDocument, isLoading: isLoadingDocument, isFetching: isFetchingDocument} = useQuery({
+  const {
+    data: mapDocumentData,
+    refetch: refetchMapDocument,
+    isLoading: isLoadingDocument,
+    isFetching: isFetchingDocument,
+  } = useQuery({
     queryKey: ['mapDocument', mapId],
     queryFn: () => getDocument(mapId),
     staleTime: 0,
     placeholderData: _ => null,
   });
 
-  const {data: assignmentsData, refetch: refetchAssignments, isLoading: isLoadingAssignments, isFetching: isFetchingAssignments} = useQuery({
+  const {
+    data: assignmentsData,
+    refetch: refetchAssignments,
+    isLoading: isLoadingAssignments,
+    isFetching: isFetchingAssignments,
+  } = useQuery({
     queryKey: ['assignments', mapDocumentData?.document_id],
     queryFn: () => getAssignments(mapDocumentData),
     staleTime: 0,
@@ -130,5 +140,5 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
     isFetchingAssignments,
     isLoadingDocument,
     isLoadingAssignments,
-  }
+  };
 };
