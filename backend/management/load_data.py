@@ -243,6 +243,7 @@ def load_sample_data(
             ).scalar()
         except sa.exc.ProgrammingError:
             table_exists = False
+            session.rollback()
 
         if table_exists:
             logger.info(f"GerryDB view {view.table_name} already exists.")
@@ -263,26 +264,47 @@ def load_sample_data(
 
     for view in config._shatterable_views:
         session = next(get_session())
-        _create_shatterable_gerrydb_view(session=session, **view.model_dump())
-        session.commit()
+        gerrydb_table_exists = session.execute(
+            sa.text("select 1 from gerrydbtable where name = :name limit 1"),
+            {"name": view.gerrydb_table_name},
+        ).scalar()
+        session.rollback()
+        if gerrydb_table_exists:
+            logger.info(f"GerryDB table {view.gerrydb_table_name} already exists.")
+        else:
+            _create_shatterable_gerrydb_view(session=session, **view.model_dump())
+            session.commit()
 
     for view in config._districtr_maps:
         session = next(get_session())
-        u = _create_districtr_map(
-            session=session,
-            name=view.name,
-            districtr_map_slug=view.districtr_map_slug,
-            gerrydb_table_name=view.gerrydb_table_name,
-            parent_layer=view.parent_layer,
-            child_layer=view.child_layer,
-            tiles_s3_path=view.tiles_s3_path,
-            num_districts=view.num_districts,
-        )
+        districtr_map_exists = session.execute(
+            sa.text(
+                "select uuid from districtrmap where districtr_map_slug = :slug limit 1"
+            ),
+            {"slug": view.districtr_map_slug},
+        ).one_or_none()
+        session.rollback()
+        if districtr_map_exists:
+            u = districtr_map_exists.uuid
+            logger.info(f"Districtr map {view.districtr_map_slug} already exists.")
+        else:
+            u = _create_districtr_map(
+                session=session,
+                name=view.name,
+                districtr_map_slug=view.districtr_map_slug,
+                gerrydb_table_name=view.gerrydb_table_name,
+                parent_layer=view.parent_layer,
+                child_layer=view.child_layer,
+                tiles_s3_path=view.tiles_s3_path,
+                num_districts=view.num_districts,
+            )
+            logger.info(f"Adding extent to districtr map with UUID {u}")
+            add_extent_to_districtrmap(session=session, districtr_map_uuid=u)
+            session.commit()
 
         if u is not None:
             logger.info(f"Created districtr map with UUID {u}")
         else:
-            session.rollback()
             session = next(get_session())
             u = session.exec(
                 sa.select(DistrictrMap.uuid).where(  # pyright: ignore
@@ -294,9 +316,6 @@ def load_sample_data(
                 raise ValueError(
                     f"Districtr map with districtr_map_slug {view.districtr_map_slug} not found"
                 )
-
-        logger.info(f"Adding extent to districtr map with UUID {u}")
-        add_extent_to_districtrmap(session=session, districtr_map_uuid=u)
 
         if view.child_layer is not None:
             # Commit districtr views
@@ -312,3 +331,4 @@ def load_sample_data(
             districtr_map_slug=group.districtr_map_slug,
             group_slug=group.group_slug,
         )
+        session.commit()
