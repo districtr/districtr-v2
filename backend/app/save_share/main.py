@@ -137,7 +137,11 @@ async def share_districtr_plan(
                     WHERE document_id = :document_id
                     """
                 ),
-                {"password_hash": hashed_password, "token_id": existing_token.token_id},
+                {
+                    "password_hash": hashed_password,
+                    "token_id": existing_token.token_id,
+                    "document_id": document.document_id,
+                },
             )
             session.commit()
 
