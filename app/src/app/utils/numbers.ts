@@ -12,10 +12,14 @@ const compact3Formatter = new Intl.NumberFormat('en-US', {
   compactDisplay: 'short',
   minimumFractionDigits: 2,
 });
+const standardFormatter = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
 
 const stringFormatter = (n: number) => Math.round(n).toLocaleString();
 
-export type NumberFormats = 'percent' | 'string' | 'compact' | 'compact3' | 'partisan';
+export type NumberFormats = 'percent' | 'string' | 'compact' | 'compact3' | 'partisan' | 'standard';
 export const formatNumber = (value: number | undefined, format: NumberFormats) => {
   if (value === undefined) {
     return value;
@@ -33,6 +37,8 @@ export const formatNumber = (value: number | undefined, format: NumberFormats) =
       const party = value > 0 ? 'D' : 'R';
       const percentFormat = percentFormatter.format(Math.abs(value));
       return `${party} +${percentFormat}`;
+    case 'standard':
+      return standardFormatter.format(value);
     default:
       const exhaustiveCheck: never = format;
       throw new Error(`Unhandled format case: ${exhaustiveCheck}`);

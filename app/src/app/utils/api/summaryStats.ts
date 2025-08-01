@@ -14,6 +14,7 @@ export interface ColumnSet {
 export type EvalColumnConfiguration<T extends ColumnSet> = Array<{
   label: string;
   column: T['columns'][number];
+  sourceCol?: T['columns'][number];
 }>;
 
 export type MapColumnConfiguration<T extends ColumnSet> = Array<{

@@ -7,7 +7,7 @@ import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {ErrorNotification} from '@components/ErrorNotification';
 import {DraggableToolbar} from '@components/Toolbar/Toolbar';
-import {MapTooltip} from '@components/MapTooltip';
+import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
