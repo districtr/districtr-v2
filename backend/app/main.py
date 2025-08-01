@@ -253,7 +253,7 @@ async def create_document(
             Document.document_id,
             Document.created_at,
             Document.districtr_map_slug,
-            Document.gerrydb_table,
+            DistrictrMap.gerrydb_table_name.label("gerrydb_table"),  # pyright: ignore
             Document.updated_at,
             DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
