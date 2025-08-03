@@ -237,7 +237,11 @@ async def checkout_plan(
             document_id=document.document_id, user_id=data.user_id, session=session
         )
 
-        return {"status": lock_status, "access": DocumentShareStatus.edit}
+        return {
+            "status": lock_status,
+            "access": DocumentShareStatus.edit,
+            "document_id": document.document_id,
+        }
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

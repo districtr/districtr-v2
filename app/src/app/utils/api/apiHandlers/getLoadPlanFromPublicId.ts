@@ -10,7 +10,11 @@ export const getLoadPlanFromShare = async ({
   mapDocument: DocumentObject;
   password?: string | null;
 }) => {
-  const res = await axios.post<DocumentObject | null>(
+  const res = await axios.post<{
+    status: string;
+    access: string;
+    document_id: string;
+  } | null>(
     `${API_URL}/api/document/${mapDocument.public_id}/checkout`,
     {
       user_id: useMapStore.getState().userID,
