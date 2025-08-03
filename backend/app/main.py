@@ -829,7 +829,7 @@ async def get_projects(
     session: Session = Depends(get_session),
     group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, le=100),
+    limit: int = Query(default=100, le=1000),
 ):
     gerrydb_views = session.exec(
         select(DistrictrMap)
