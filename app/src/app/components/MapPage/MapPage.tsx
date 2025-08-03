@@ -63,7 +63,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
           {showDemographicMap && <MapComponent isDemographicMap />}
         </Flex>
         {toolbarLocation === 'map' && <DraggableToolbar />}
-        <MapLockShade loadingState={loadingState} />
+        {!!mapId && <MapLockShade loadingState={loadingState} />}
         <MapTooltip />
       </div>
       <MapContextMenu />
