@@ -16,8 +16,7 @@ export const SaveShareModal: React.FC<{
   onClose: () => void;
 }> = ({open, onClose}) => {
   const router = useRouter();
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const mapMetadata = useMapMetadata(mapDocument?.document_id);
+  const mapMetadata = useMapMetadata();
   const [innerFormState, setInnerFormState] = useState<DocumentMetadata>(
     mapMetadata ?? DEFAULT_MAP_METADATA
   );

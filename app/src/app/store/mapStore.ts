@@ -790,11 +790,12 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   shatterMappings: {},
   upsertUserMap: ({mapDocument, userMapData, userMapDocumentId}) => {
     if (!mapDocument?.document_id || mapDocument.access === 'read') return;
-    let userMaps = [...get().userMaps];
-    const mapViews = get().mapViews.data;
-    if (mapDocument?.document_id && mapViews) {
+    const {userMaps: _userMaps, mapViews: _mapViews, mapDocument: _mapDocument} = get();
+    let userMaps = [..._userMaps];
+    const mapViewsData = _mapViews.data;
+    if (mapDocument?.document_id && mapViewsData) {
       const documentIndex = userMaps.findIndex(f => f.document_id === mapDocument?.document_id);
-      const documentInfo = mapViews.find(
+      const documentInfo = mapViewsData.find(
         view => view.districtr_map_slug === mapDocument.districtr_map_slug
       );
       if (documentIndex !== -1) {
@@ -816,6 +817,17 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         window.location.href = '/';
         userMaps.splice(i, 1);
       }
+    }
+    if (_mapDocument?.document_id === mapDocument?.document_id) {
+      set({
+        mapDocument: {
+          ...mapDocument,
+          map_metadata: {
+            ..._mapDocument.map_metadata,
+            ...mapDocument.map_metadata,
+          },
+        },
+      });
     }
     set({
       userMaps,

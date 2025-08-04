@@ -11,7 +11,7 @@ export const useMapStatus = () => {
   const mapStatus = useMapStore(state => state.mapStatus);
   const status = mapStatus?.status;
   const access = mapStatus?.access;
-  const mapMetadata = useMapMetadata(document_id);
+  const mapMetadata = useMapMetadata();
   const pwRequired = useSearchParams().get('pw');
 
   const setPasswordPrompt = useMapStore(state => state.setPasswordPrompt);

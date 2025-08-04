@@ -11,8 +11,9 @@ import {useRouter} from 'next/navigation';
 
 export const MapHeader: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const mapMetadata = useMapMetadata(mapDocument?.document_id);
+  const mapMetadata = useMapMetadata();
   const router = useRouter();
+
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     const newDocument = await saveMap({
       ...(mapMetadata || DEFAULT_MAP_METADATA),
