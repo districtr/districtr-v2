@@ -8,7 +8,7 @@ from app.save_share.models import (
     MapDocumentToken,
 )
 from sqlalchemy.sql.functions import coalesce
-from sqlalchemy import or_, text
+from sqlalchemy import or_
 from app.save_share.locks import check_map_lock
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 from app.core.db import get_session
@@ -59,9 +59,7 @@ def get_protected_document(
     stmt = select(Document)
 
     if document_id.is_public:
-        stmt = stmt.where(Document.public_id == document_id.value).where(
-            text("map_metadata->>'draft_status' = 'ready_to_share'")
-        )
+        stmt = stmt.where(Document.public_id == document_id.value)
     else:
         stmt = stmt.where(Document.document_id == document_id.value)
 
@@ -135,9 +133,7 @@ def get_document_public(
     )
 
     if document_id.is_public:
-        stmt = stmt.where(Document.public_id == document_id.value).where(
-            text("map_metadata->>'draft_status' = 'ready_to_share'")
-        )
+        stmt = stmt.where(Document.public_id == document_id.value)
     else:
         stmt = stmt.where(Document.document_id == document_id.value)
 
