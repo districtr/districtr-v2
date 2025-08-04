@@ -1,7 +1,8 @@
 'use client';
-import React from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {useMapStore} from '../store/mapStore';
 import {Flex, Progress, Spinner, Text} from '@radix-ui/themes';
+import { useVisibilityState } from '../hooks/useVisibilityState';
 
 type LoadingState = {
   isLoadingDocument: boolean;
@@ -14,7 +15,21 @@ export const MapLockShade: React.FC<{loadingState: LoadingState}> = ({loadingSta
   const mapLock = useMapStore(state => state.mapLock);
   const stateIsLoading = useMapStore(state => state.appLoadingState === 'loading');
   const isLocked = mapLock || stateIsLoading || Object.values(loadingState).some(Boolean);
-  if (!isLocked) {
+
+  // Prevent flash up on first render before state is finalized
+  const {isVisible} = useVisibilityState();
+  const [showShade, setShowShade] = useState(false);
+  useLayoutEffect(() => {
+    if (isVisible) {
+      setTimeout(() => {
+        setShowShade(true);
+      }, 125)
+    } else {
+      setShowShade(false);
+    }
+  }, [isVisible, isLocked]);
+
+  if (!isVisible || !isLocked || !showShade) {
     return null;
   }
   return (

@@ -33,6 +33,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
     queryFn: () => getDocument(mapId),
     staleTime: 0,
     placeholderData: _ => null,
+    refetchOnWindowFocus: false
   });
 
   const {
@@ -45,6 +46,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
     queryFn: () => getAssignments(mapDocumentData),
     staleTime: 0,
     placeholderData: _ => null,
+    refetchOnWindowFocus: false
   });
 
   useEffect(() => {
