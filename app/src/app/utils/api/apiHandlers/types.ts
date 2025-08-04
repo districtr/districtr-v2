@@ -43,7 +43,10 @@ export interface DocumentMetadata {
   description: string | null;
   eventId: string | null;
   draft_status: DraftStatus | null;
-  district_comments: Record<number, string> | null;
+  district_comments: Array<{
+    zone: number;
+    comment: string;
+  }> | null;
   location_comments: Array<{
     lat: number;
     lng: number;

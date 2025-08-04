@@ -15,9 +15,6 @@ export const MetadataPanel = () => {
     mapMetadata ?? DEFAULT_MAP_METADATA
   );
   const [loadingMessage, setLoadingMessage] = useState('');
-  const missingDistrictComments = Array.from({length: numDistricts || 0}, (_, i) => i + 1).filter(
-    i => !innerFormState.district_comments?.[i]
-  );
 
   useEffect(() => {
     setInnerFormState(mapMetadata ?? DEFAULT_MAP_METADATA);
@@ -84,30 +81,30 @@ export const MetadataPanel = () => {
       )}
       <Flex direction="column" gap="2">
         <Text>District Comments</Text>
-        {Object.keys(innerFormState.district_comments || {}).map(district =>
+        {(innerFormState.district_comments || []).map((entry, i) =>
           isEditing ? (
             <DistrictCommentRow
-              key={district}
-              district={Number(district)}
+              key={i}
+              index={i}
               innerFormState={innerFormState}
               setInnerFormState={setInnerFormState}
               numDistricts={numDistricts || 0}
             />
           ) : (
             <Blockquote>
-              <b>{district}:</b> {innerFormState.district_comments?.[Number(district)] || ''}
+              <b>{entry.zone}:</b> {entry.comment}
             </Blockquote>
           )
         )}
-        {missingDistrictComments.length > 0 && isEditing && (
+        {isEditing && (
           <Button
             onClick={() =>
               setInnerFormState({
                 ...innerFormState,
-                district_comments: {
-                  ...innerFormState.district_comments,
-                  [missingDistrictComments[0]]: `District ${missingDistrictComments[0]} comments`,
-                },
+                district_comments: [
+                  ...(innerFormState.district_comments || []),
+                  {zone: 1, comment: `District comments`},
+                ],
               })
             }
           >
@@ -120,43 +117,51 @@ export const MetadataPanel = () => {
 };
 
 const DistrictCommentRow: React.FC<{
-  district: number;
+  index: number;
   innerFormState: DocumentMetadata;
   setInnerFormState: (state: DocumentMetadata) => void;
   numDistricts: number;
-}> = ({district, innerFormState, setInnerFormState, numDistricts}) => {
-  const handleChangeDistrictNumber = (value: string) => {
-    const content = innerFormState.district_comments?.[Number(district)];
-    const previousContent = {...innerFormState.district_comments};
-    delete previousContent[district];
+}> = ({index, innerFormState, setInnerFormState, numDistricts}) => {
+  const handleChange = ({
+    zone,
+    comment
+  }: {
+    zone?: number;
+    comment?: string;
+  }) => {
+    let comments = [
+      ...(innerFormState.district_comments || []),
+    ];
+    comments[index] = {
+      ...comments[index],
+      ...(zone && {zone}),
+      ...(comment && {comment}),
+    }
     setInnerFormState({
       ...innerFormState,
-      district_comments: {...previousContent, [Number(value)]: content || ''},
+      district_comments: comments,
     });
-  };
+  }
 
-  const handleChangeText = (value: string) => {
+  const handleRemoveDistrict = () => {
     setInnerFormState({
       ...innerFormState,
-      district_comments: {...innerFormState.district_comments, [Number(district)]: value},
+      district_comments: (innerFormState.district_comments || []).filter((c, i) => i !== index),
     });
-  };
-  const handleRemoveDistrict = () => {
-    const previousContent = {...innerFormState.district_comments};
-    delete previousContent[district];
-    setInnerFormState({...innerFormState, district_comments: previousContent});
   };
 
   return (
     <Flex direction="row" gap="2" align="center">
       <Select.Root
-        value={district.toString()}
+        value={innerFormState.district_comments?.[index]?.zone?.toString() || ''}
         onValueChange={value =>
-          value === 'remove' ? handleRemoveDistrict() : handleChangeDistrictNumber(value)
+          value === 'remove' ? handleRemoveDistrict() : handleChange({
+            zone: value === 'remove' ? undefined : Number(value),
+          })
         }
       >
         <Select.Trigger>
-          <Text>{district}</Text>
+          <Text>{innerFormState.district_comments?.[index]?.zone?.toString() || ''}</Text>
         </Select.Trigger>
         <Select.Content>
           <Select.Item key="remove" value="remove">
@@ -170,9 +175,11 @@ const DistrictCommentRow: React.FC<{
         </Select.Content>
       </Select.Root>
       <TextArea
-        value={innerFormState.district_comments?.[Number(district)] || ''}
+        value={innerFormState.district_comments?.[index]?.comment || ''}
         className="flex-grow"
-        onChange={e => handleChangeText(e.target.value)}
+        onChange={e => handleChange({
+          comment: e.target.value,
+        })}
       />
     </Flex>
   );

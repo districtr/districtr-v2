@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 from pydantic import UUID4, BaseModel
 from sqlmodel import (
     Field,
@@ -132,7 +132,7 @@ class DocumentMetadata(BaseModel):
     description: str | None = None
     event_id: str | None = None
     draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
-    district_comments: dict[int, str] | None = None
+    district_comments: list[dict[str, Union[str, int]]] | None = None
     location_comments: list[dict[str, str]] | None = None
 
 
