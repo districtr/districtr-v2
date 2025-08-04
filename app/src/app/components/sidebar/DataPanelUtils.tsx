@@ -2,6 +2,7 @@ import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {MapStore} from '@/app/store/mapStore';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
+import { MetadataPanel } from './MetadataPanel';
 
 export interface DataPanelSpec {
   title: MapStore['sidebarPanels'][number];
@@ -36,5 +37,10 @@ export const defaultPanels: DataPanelSpec[] = [
     title: 'mapValidation',
     label: 'Map validation',
     content: <MapValidation />,
+  },
+  {
+    title: 'metadata',
+    label: 'Map Comments and Metadata',
+    content: <MetadataPanel />,
   },
 ];

@@ -43,6 +43,12 @@ export interface DocumentMetadata {
   description: string | null;
   eventId: string | null;
   draft_status: DraftStatus | null;
+  district_comments: Record<number, string> | null;
+  location_comments: Array<{
+    lat: number;
+    lng: number;
+    comment: string;
+  }> | null;
 }
 
 export interface DocumentObject extends StatusObject {
