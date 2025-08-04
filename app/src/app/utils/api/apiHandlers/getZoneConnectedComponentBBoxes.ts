@@ -8,7 +8,7 @@ export const getZoneConnectedComponentBBoxes = async (
   if (mapDocument) {
     return await axios
       .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity/${zone}/connected_component_bboxes`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.public_id}/contiguity/${zone}/connected_component_bboxes`,
         {}
       )
       .then(res => {

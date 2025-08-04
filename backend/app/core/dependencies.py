@@ -160,8 +160,8 @@ def get_districtr_map(
         )
         .filter(
             or_(
-                Document.document_id == document_id.document_id,
-                MapDocumentToken.document_id == document_id.document_id,
+                Document.document_id == document_id,
+                MapDocumentToken.document_id == document_id,
             )
         )  # pyright: ignore
     )
