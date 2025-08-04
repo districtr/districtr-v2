@@ -147,15 +147,15 @@ export class MapRenderSubscriber {
         this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
         break;
       case 'brush':
-        cursor = 'url(paintbrush.png) 20 20, none';
+        cursor = 'url(/paintbrush.png) 20 20, none';
         this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
         break;
       case 'eraser':
-        cursor = 'url(eraser.png) 16 16, pointer';
+        cursor = 'url(/eraser.png) 16 16, pointer';
         this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
         break;
       case 'shatter':
-        cursor = 'url(break.png) 12 12, pointer';
+        cursor = 'url(/break.png) 12 12, pointer';
         this.useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
         break;
       default:
