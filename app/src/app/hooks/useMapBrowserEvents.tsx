@@ -19,7 +19,6 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
   const setIsEditing = useMapStore(state => state.setIsEditing);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const loadZoneAssignments = useMapStore(state => state.loadZoneAssignments);
   const setMapDocument = useMapStore(state => state.setMapDocument);
 
