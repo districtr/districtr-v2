@@ -1,17 +1,24 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
+import { useMapMetadata } from '@/app/hooks/useMapMetadata';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
+import { useTooltipStore } from '@/app/store/tooltipStore';
+import { saveMap } from '@/app/utils/api/apiHandlers/saveMap';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
+import { DEFAULT_MAP_METADATA } from '@/app/utils/language';
 import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
-import {Source, Layer} from 'react-map-gl/maplibre';
+import {Source, Layer, Marker, MarkerDragEvent, Popup} from 'react-map-gl/maplibre';
+import { Box, Button, Text, TextArea } from '@radix-ui/themes';
+import { Pin } from '../Topbar/Icons';
 
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
     <>
       {!isDemographicMap && <ZoneNumbersLayer />}
       <PopulationTextLayer />
+      <PinCommentsLayer />
     </>
   );
 };
@@ -270,5 +277,84 @@ const ZoneNumbersLayer = () => {
         }
       ></Layer>
     </Source>
+  );
+};
+
+
+const PinCommentsLayer = () => {
+  const mapMetadata = useMapMetadata();
+  const [openPopupIndex, setOpenPopupIndex] = useState<number | null>(null);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const [popupIndex, setPopupIndex] = useState<number | null>(null);
+  const handleDrag = async (e: MarkerDragEvent, index: number) => {
+    let locationComments = [...(mapMetadata?.location_comments || [])];
+    locationComments[index] = {
+      ...locationComments[index], 
+      lng: e.lngLat.lng,
+      lat: e.lngLat.lat,
+    }
+    try {
+
+      const r = await saveMap({
+        ...(mapMetadata || DEFAULT_MAP_METADATA),
+        location_comments: locationComments,
+      });
+    } catch (e) {
+      setErrorNotification({
+        message: 'Error saving map metadata or comment.',
+        severity: 3,
+      });
+      console.error(e);
+    }
+  }
+
+  const handleSave = async (index: number) => {
+    if (!mapMetadata?.location_comments?.[index]) {
+      return;
+    }
+    const r = await saveMap({
+      ...(mapMetadata || DEFAULT_MAP_METADATA),
+      location_comments: [...(mapMetadata?.location_comments || []), {
+        lng: mapMetadata?.location_comments?.[index]?.lng || 0,
+                lat: mapMetadata?.location_comments?.[index]?.lat || 0,
+          comment: mapMetadata?.location_comments?.[index]?.comment || '',
+        },
+      ],
+    });
+  }
+  if (!mapMetadata?.location_comments) {
+    return null;
+  }
+
+  return (
+    <>
+    {mapMetadata?.location_comments?.map((comment, index) => (
+      <Marker
+        key={index}
+        longitude={comment.lng}
+        latitude={comment.lat}
+        anchor="center"
+        draggable={true}
+        onDragEnd={(e) => handleDrag(e, index)}
+        onClick={() => {
+          setPopupIndex(index)
+        }}
+      >
+        <Pin size="size-8" />
+      </Marker> 
+    ))}
+    {popupIndex !== null && (
+      <Popup
+        anchor="bottom"
+        offset={[0, -30]}
+        longitude={mapMetadata?.location_comments?.[popupIndex]?.lng}
+        latitude={mapMetadata?.location_comments?.[popupIndex]?.lat}
+        closeOnMove={false}
+        closeOnClick={false}
+      >
+        <Box className="flex flex-col gap-2 p-4 z-[999]">{mapMetadata?.location_comments?.[popupIndex]?.comment}</Box>
+      </Popup>
+    )}
+    </>
   );
 };

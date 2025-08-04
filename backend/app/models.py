@@ -133,7 +133,7 @@ class DocumentMetadata(BaseModel):
     event_id: str | None = None
     draft_status: DocumentDraftStatus | None = DocumentDraftStatus.scratch
     district_comments: list[dict[str, Union[str, int]]] | None = None
-    location_comments: list[dict[str, str]] | None = None
+    location_comments: list[dict[str, Union[str, float]]] | None = None
 
 
 class Document(TimeStampMixin, SQLModel, table=True):

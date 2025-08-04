@@ -106,8 +106,9 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const activeTool = mapStore.activeTool;
-
-  if (activeTool === 'pan') {
+  if (activeTool === 'pin') {
+    return;
+  } else if (activeTool === 'pan') {
     // enable drag pan
     mapRef.dragPan.enable();
   } else if (activeTool === 'brush' || activeTool === 'eraser') {
@@ -154,6 +155,9 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     mapStore.mapDocument?.child_layer,
     activeTool
   );
+  if (activeTool === 'pin') {
+    return;
+  }
 
   const isBrushingTool = sourceLayer && ['brush', 'eraser', 'shatter'].includes(activeTool);
   if (!isBrushingTool) {

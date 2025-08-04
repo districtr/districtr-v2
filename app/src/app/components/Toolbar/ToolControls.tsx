@@ -35,6 +35,9 @@ const ToolControlsConfig: Record<
       }
     },
   },
+  pin: {
+    Component: () => <React.Fragment />,
+  },
 };
 
 export const ToolControls: React.FC<{
