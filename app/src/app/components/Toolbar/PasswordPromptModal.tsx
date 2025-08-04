@@ -25,6 +25,7 @@ export const PasswordPromptModal = () => {
       router.replace(window.location.pathname);
     } else if (mapDocument?.public_id) {
       setIsLoading(true);
+      setError(null);
       try {
         const res = await getLoadPlanFromShare({
           password: password,
