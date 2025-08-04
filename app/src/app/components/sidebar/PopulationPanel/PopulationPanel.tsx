@@ -17,6 +17,7 @@ const maxNumberOrderedBars = 40; // max number of zones to consider while keepin
 export const PopulationPanel = () => {
   const {populationData, demoIsLoaded} = useZonePopulations();
   const {summaryStats, zoneStats} = useSummaryStats();
+  const isEditing = useMapStore(state => state.isEditing);
   const idealPopulation = summaryStats?.idealpop;
   const unassigned = summaryStats.unassigned;
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -91,9 +92,9 @@ export const PopulationPanel = () => {
           justify={'between'}
         >
           <Flex justify="end">
-            <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'}>
-              {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-            </IconButton>
+              <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'} className={`${isEditing ? 'opacity-100' : 'opacity-0'}`}>
+                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+              </IconButton>
           </Flex>
           {/* @ts-ignore */}
           {populationData.map((d, i) => (
@@ -106,18 +107,23 @@ export const PopulationPanel = () => {
               className="p-0 m-0"
               justify={'between'}
             >
-              {!!showDistrictNumbers && (
-                <IconButton variant="ghost" onClick={() => setSelectedZone(d.zone)}>
-                  <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
+              {!!showDistrictNumbers &&
+                (isEditing ? (
+                  <IconButton variant="ghost" onClick={() => setSelectedZone(d.zone)}>
+                    <Text weight={selectedZone === d.zone ? 'bold' : 'regular'}>{d.zone}</Text>
+                  </IconButton>
+                ) : (
+                  <Text>{d.zone}</Text>
+                ))}
+              {isEditing && (
+                <IconButton
+                  onClick={() => handleLockChange(d.zone)}
+                  variant="ghost"
+                  disabled={access === 'read'}
+                >
+                  {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
                 </IconButton>
               )}
-              <IconButton
-                onClick={() => handleLockChange(d.zone)}
-                variant="ghost"
-                disabled={access === 'read'}
-              >
-                {lockPaintedAreas.includes(d.zone) ? <LockClosedIcon /> : <LockOpen2Icon />}
-              </IconButton>
             </Flex>
           ))}
         </Flex>
