@@ -20,4 +20,6 @@ export const DEFAULT_MAP_METADATA: DocumentMetadata = {
   description: null,
   eventId: null,
   draft_status: 'scratch',
+  district_comments: [],
+  location_comments: [],
 };
