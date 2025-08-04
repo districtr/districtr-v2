@@ -6,7 +6,7 @@ import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {SewingPinFilledIcon, TrashIcon} from '@radix-ui/react-icons';
 import {Blockquote, Box, Button, Flex, IconButton, Select, Text, TextArea} from '@radix-ui/themes';
 import {useEffect, useState} from 'react';
-import { Pin } from '../Topbar/Icons';
+import {Pin} from '../Topbar/Icons';
 
 export const MetadataPanel = () => {
   const isEditing = useMapStore(state => state.isEditing);
@@ -39,12 +39,15 @@ export const MetadataPanel = () => {
   };
 
   useEffect(() => {
-    if (innerFormState.location_comments?.length && innerFormState.location_comments.length > (mapMetadata?.location_comments?.length || 0)) {
+    if (
+      innerFormState.location_comments?.length &&
+      innerFormState.location_comments.length > (mapMetadata?.location_comments?.length || 0)
+    ) {
       handleMetadataChange({
         location_comments: innerFormState.location_comments,
-      })
+      });
     }
-  }, [innerFormState.location_comments?.length])
+  }, [innerFormState.location_comments?.length]);
 
   useEffect(() => {
     setInnerFormState(mapMetadata ?? DEFAULT_MAP_METADATA);
@@ -112,17 +115,17 @@ export const MetadataPanel = () => {
       )}
       <Flex direction="column" gap="2">
         <Text>District Comments</Text>
-        {(innerFormState.district_comments || []).map((_, i) =>
-            <CommentRow
-              key={i}
-              index={i}
-              commentProperty="district_comments"
-              innerFormState={innerFormState}
-              setInnerFormState={setInnerFormState}
-              numDistricts={numDistricts || 0}
-              isEditing={isEditing}
-            />
-        )}
+        {(innerFormState.district_comments || []).map((_, i) => (
+          <CommentRow
+            key={i}
+            index={i}
+            commentProperty="district_comments"
+            innerFormState={innerFormState}
+            setInnerFormState={setInnerFormState}
+            numDistricts={numDistricts || 0}
+            isEditing={isEditing}
+          />
+        ))}
         {isEditing && (
           <Button
             onClick={() =>
@@ -199,39 +202,48 @@ const CommentRow: React.FC<{
   if (commentProperty === 'district_comments') {
     return (
       <Flex direction="row" gap="2" align="center">
-        {isEditing && <Select.Root
-          value={innerFormState[commentProperty]?.[index]?.zone?.toString() || ''}
-          onValueChange={value =>
-            value === 'remove'
-              ? handleRemove()
-              : handleChange({
-                  zone: value === 'remove' ? undefined : Number(value),
-                })
-          }
-        >
-          <Select.Trigger>
-            <Text>{innerFormState[commentProperty]?.[index]?.zone?.toString() || ''}</Text>
-          </Select.Trigger>
-          <Select.Content>
-            <Select.Item key="remove" value="remove">
-              Remove
-            </Select.Item>
-            {Array.from({length: numDistricts || 0}, (_, i) => (
-              <Select.Item key={i} value={(i + 1).toString()}>
-                {i + 1}
+        {isEditing && (
+          <Select.Root
+            value={innerFormState[commentProperty]?.[index]?.zone?.toString() || ''}
+            onValueChange={value =>
+              value === 'remove'
+                ? handleRemove()
+                : handleChange({
+                    zone: value === 'remove' ? undefined : Number(value),
+                  })
+            }
+          >
+            <Select.Trigger>
+              <Text>{innerFormState[commentProperty]?.[index]?.zone?.toString() || ''}</Text>
+            </Select.Trigger>
+            <Select.Content>
+              <Select.Item key="remove" value="remove">
+                Remove
               </Select.Item>
-            ))}
-          </Select.Content>
-        </Select.Root>}
-        {isEditing ? <TextArea
-          value={innerFormState[commentProperty]?.[index]?.comment || ''}
-          className="flex-grow"
-          onChange={e =>
-            handleChange({
-              comment: e.target.value,
-            })
-          }
-        /> : <Blockquote><b>{innerFormState[commentProperty]?.[index]?.zone}:</b> {innerFormState[commentProperty]?.[index]?.comment || ''}</Blockquote>}
+              {Array.from({length: numDistricts || 0}, (_, i) => (
+                <Select.Item key={i} value={(i + 1).toString()}>
+                  {i + 1}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Select.Root>
+        )}
+        {isEditing ? (
+          <TextArea
+            value={innerFormState[commentProperty]?.[index]?.comment || ''}
+            className="flex-grow"
+            onChange={e =>
+              handleChange({
+                comment: e.target.value,
+              })
+            }
+          />
+        ) : (
+          <Blockquote>
+            <b>{innerFormState[commentProperty]?.[index]?.zone}:</b>{' '}
+            {innerFormState[commentProperty]?.[index]?.comment || ''}
+          </Blockquote>
+        )}
       </Flex>
     );
   } else {
@@ -250,14 +262,15 @@ const CommentRow: React.FC<{
         </IconButton>
         {isEditing ? (
           <TextArea
-          value={innerFormState[commentProperty]?.[index]?.comment || ''}
-          className="flex-grow"
-          onChange={e =>
-            handleChange({
-              comment: e.target.value,
-            })
-          }
-        />) : (
+            value={innerFormState[commentProperty]?.[index]?.comment || ''}
+            className="flex-grow"
+            onChange={e =>
+              handleChange({
+                comment: e.target.value,
+              })
+            }
+          />
+        ) : (
           <Blockquote>{innerFormState[commentProperty]?.[index]?.comment || ''}</Blockquote>
         )}
         <IconButton onClick={handleRemove} color="red" variant="ghost">
