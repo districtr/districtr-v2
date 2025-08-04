@@ -33,7 +33,7 @@ export const PasswordPromptModal = () => {
         });
         if (res?.data?.document_id && res.document_id !== mapDocument?.document_id) {
           // go to map/edit/res.document_id
-          router.push(`/map/edit/${res.document_id}`);
+          router.push(`/map/edit/${res.data.document_id}`);
         } else if (res?.response?.data?.detail) {
           setError(res.response.data.detail);
         }
@@ -44,7 +44,6 @@ export const PasswordPromptModal = () => {
       }
     }
   };
-  console.log("!!!", error)
 
   return (
     <Dialog.Root
