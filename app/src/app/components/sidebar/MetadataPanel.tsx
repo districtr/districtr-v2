@@ -3,16 +3,18 @@ import {useMapStore} from '@/app/store/mapStore';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
 import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
-import {Button, Flex, Select, Text, TextArea} from '@radix-ui/themes';
+import {Blockquote, Box, Button, Flex, Select, Text, TextArea} from '@radix-ui/themes';
 import {Input} from 'postcss';
 import {useEffect, useState} from 'react';
 
 export const MetadataPanel = () => {
+  const isEditing = useMapStore(state => state.isEditing);
   const mapMetadata = useMapMetadata();
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts);
   const [innerFormState, setInnerFormState] = useState<DocumentMetadata>(
     mapMetadata ?? DEFAULT_MAP_METADATA
   );
+  const [loadingMessage, setLoadingMessage] = useState('');
   const missingDistrictComments = Array.from({length: numDistricts || 0}, (_, i) => i + 1).filter(
     i => !innerFormState.district_comments?.[i]
   );
@@ -22,50 +24,82 @@ export const MetadataPanel = () => {
   }, [mapMetadata]);
 
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
-    await saveMap({
+    setLoadingMessage('Saving...');
+    const r = await saveMap({
       ...(mapMetadata || DEFAULT_MAP_METADATA),
       ...updates,
     });
+    if (r) {
+      setLoadingMessage('Saved!');
+    } else {
+      setLoadingMessage('Failed to save');
+    }
+    setTimeout(() => {
+      setLoadingMessage('');
+    }, 2000);
   };
-  console.log('!!!', innerFormState);
 
   return (
-    <Flex direction="column" gap="2">
+    <Flex
+      direction="column"
+      gap="2"
+      className={`relative ${loadingMessage?.length ? 'pointer-events-none' : ''}`}
+    >
+      {!!loadingMessage?.length && (
+        <Box className="absolute top-0 left-0 w-full h-full bg-white/90 flex items-center justify-center">
+          <Text>{loadingMessage}</Text>
+        </Box>
+      )}
       <Flex direction="column" gap="2">
         <Text>Plan Comments</Text>
-        <TextArea
-          value={innerFormState?.description || ''}
-          onChange={e => setInnerFormState({...innerFormState, district_comments: e.target.value})}
-        />
+        {isEditing ? (
+          <TextArea
+            value={innerFormState?.description || ''}
+            onChange={e => setInnerFormState({...innerFormState, description: e.target.value})}
+          />
+        ) : (
+          <Blockquote>{innerFormState?.description || ''}</Blockquote>
+        )}
       </Flex>
-      <Flex direction="row" gap="2">
-        <Button
-          onClick={() =>
-            handleMetadataChange({
-              description: innerFormState.description,
-              district_comments: innerFormState.district_comments,
-            })
-          }
-          color="green"
-        >
-          Save
-        </Button>
-        <Button onClick={() => setInnerFormState(mapMetadata ?? DEFAULT_MAP_METADATA)} color="red">
-          Reset
-        </Button>
-      </Flex>
+      {isEditing && (
+        <Flex direction="row" gap="2">
+          <Button
+            onClick={() =>
+              handleMetadataChange({
+                description: innerFormState.description,
+                district_comments: innerFormState.district_comments,
+              })
+            }
+            color="green"
+          >
+            Save
+          </Button>
+          <Button
+            onClick={() => setInnerFormState(mapMetadata ?? DEFAULT_MAP_METADATA)}
+            color="red"
+          >
+            Reset
+          </Button>
+        </Flex>
+      )}
       <Flex direction="column" gap="2">
         <Text>District Comments</Text>
-        {Object.keys(innerFormState.district_comments || {}).map(district => (
-          <DistrictCommentRow
-            key={district}
-            district={Number(district)}
-            innerFormState={innerFormState}
-            setInnerFormState={setInnerFormState}
-            numDistricts={numDistricts || 0}
-          />
-        ))}
-        {missingDistrictComments.length > 0 && (
+        {Object.keys(innerFormState.district_comments || {}).map(district =>
+          isEditing ? (
+            <DistrictCommentRow
+              key={district}
+              district={Number(district)}
+              innerFormState={innerFormState}
+              setInnerFormState={setInnerFormState}
+              numDistricts={numDistricts || 0}
+            />
+          ) : (
+            <Blockquote>
+              <b>{district}:</b> {innerFormState.district_comments?.[Number(district)] || ''}
+            </Blockquote>
+          )
+        )}
+        {missingDistrictComments.length > 0 && isEditing && (
           <Button
             onClick={() =>
               setInnerFormState({
