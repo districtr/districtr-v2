@@ -231,6 +231,32 @@ export class MapRenderSubscriber {
       )
     );
   }
+  checkRender() {
+    const mapState = this.useMapStore.getState();
+    const mapRef = this.mapRef;
+    const {zoneAssignments} = mapState;
+    if (zoneAssignments.size === 0) return;
+
+    const nonNullAssignment = zoneAssignments.entries().find(f => f.values !== null);
+    if (!nonNullAssignment) return;
+    const [nonNullId, nonNullZone] = nonNullAssignment;
+
+    const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+    if (!featureStateCache) return;
+
+    const layers = Object.keys(featureStateCache);
+    if (layers.length === 0) return;
+
+    const stateIsApplied = layers.some(layer => {
+      const layerData = featureStateCache[layer];
+      const nonNullEntrydata = layerData[nonNullId];
+      return nonNullEntrydata.zone === nonNullZone;
+    });
+
+    if (!stateIsApplied) {
+      this.render();
+    }
+  }
   render() {
     const mapState = this.useMapStore.getState();
     const hoverState = this.useHoverStore.getState();

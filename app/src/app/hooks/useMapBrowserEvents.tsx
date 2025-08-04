@@ -83,7 +83,12 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
       // resume temporal states on tab re-focus
       useMapStore.temporal.getState().resume();
       // setAppLoadingState('loaded');
-      refetchMapDocument();
+      if (unloadTimepoutRef.current) {
+        clearTimeout(unloadTimepoutRef.current);
+        unloadTimepoutRef.current = null;
+      } else {
+        refetchMapDocument();
+      }
     } else {
       // prevent temporal states from generating while tab is not visible
       unloadTimepoutRef.current && clearTimeout(unloadTimepoutRef.current);
@@ -95,6 +100,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
         if (documentId) {
           unloadTimepoutRef.current = setTimeout(() => {
             unlockMapDocument(documentId);
+            unloadTimepoutRef.current = null;
           }, FE_UNLOCK_DELAY);
         }
       }
