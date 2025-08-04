@@ -12,6 +12,7 @@ import {useEffect} from 'react';
 import {Source, Layer, Marker, MarkerDragEvent, Popup} from 'react-map-gl/maplibre';
 import { Box, Button, Text, TextArea } from '@radix-ui/themes';
 import { Pin } from '../Topbar/Icons';
+import { Offset } from 'maplibre-gl';
 
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
@@ -283,7 +284,6 @@ const ZoneNumbersLayer = () => {
 
 const PinCommentsLayer = () => {
   const mapMetadata = useMapMetadata();
-  const [openPopupIndex, setOpenPopupIndex] = useState<number | null>(null);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const [popupIndex, setPopupIndex] = useState<number | null>(null);
   const handleDrag = async (e: MarkerDragEvent, index: number) => {
@@ -346,7 +346,7 @@ const PinCommentsLayer = () => {
     {popupIndex !== null && (
       <Popup
         anchor="bottom"
-        offset={[0, -30]}
+        offset={[0, -30] as Offset}
         longitude={mapMetadata?.location_comments?.[popupIndex]?.lng}
         latitude={mapMetadata?.location_comments?.[popupIndex]?.lat}
         closeOnMove={false}
