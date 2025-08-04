@@ -237,7 +237,7 @@ export class MapRenderSubscriber {
     const {zoneAssignments} = mapState;
     if (zoneAssignments.size === 0) return;
 
-    const nonNullAssignment = zoneAssignments.entries().find(f => f.values !== null);
+    const nonNullAssignment = Array.from(zoneAssignments.entries()).find(f => f.values !== null);
     if (!nonNullAssignment) return;
     const [nonNullId, nonNullZone] = nonNullAssignment;
 
