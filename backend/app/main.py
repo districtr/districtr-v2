@@ -206,7 +206,7 @@ async def create_document(
     total_assignments = 0
 
     if data.copy_from_doc is not None:
-        copy_document_id = data.copy_from_doc
+        copy_document_id = parse_document_id(data.copy_from_doc)
         if not copy_document_id:
             raise HTTPException(status_code=404, detail="Document not found")
         data.copy_from_doc = copy_document_id
@@ -252,8 +252,11 @@ async def create_document(
                 )
 
     if data.metadata is not None:
+        logger.info(
+            f"Updating metadata for document: {document_id if not data.copy_from_doc else copied_document.document_id}"
+        )
         await update_districtrmap_metadata(
-            document_id=document_id, metadata=data.metadata.dict(), session=session
+            document=copied_document, metadata=data.metadata, session=session
         )
 
     stmt = (
