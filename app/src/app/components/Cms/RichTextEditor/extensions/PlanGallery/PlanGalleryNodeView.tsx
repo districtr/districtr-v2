@@ -100,12 +100,14 @@ const ChipsPlanGalleryNodeView: React.FC<{
     <Flex direction="column" gap="2" pb="4" mb="2" className="border-b border-gray-300">
       <Text>{property.charAt(0).toUpperCase() + property.slice(1)}</Text>
       <Box>
-        {entries?.map(entry => (
+        {entries?.map((entry, i) => (
           <Button
+
             className="hover:bg-red-500 hover:text-white w-auto mr-2"
             variant="outline"
             // @ts-expect-error
             onClick={() => handleUpdate({[property]: entries.filter(t => t !== entry)})}
+            key={i}
           >
             {entry} &times;
           </Button>
