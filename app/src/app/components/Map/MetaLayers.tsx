@@ -288,8 +288,9 @@ const PinCommentsLayer = () => {
   const [popupIndex, setPopupIndex] = useState<number | null>(null);
   const popupContent =
     popupIndex !== null && mapMetadata?.comments?.[popupIndex]?.type === 'location'
-      ? (mapMetadata?.comments?.[popupIndex]?.comment as unknown as LocationComment)
+      ? (mapMetadata?.comments?.[popupIndex] as LocationComment)
       : null;
+
   const handleDrag = async (e: MarkerDragEvent, index: number) => {
     let comments = [...(mapMetadata?.comments || [])];
     comments[index] = {
@@ -340,7 +341,7 @@ const PinCommentsLayer = () => {
           return null;
         }
       })}
-      {popupContent !== null && (
+      {popupContent?.lng !== undefined && (
         <Popup
           anchor="bottom"
           offset={[0, -30] as Offset}
