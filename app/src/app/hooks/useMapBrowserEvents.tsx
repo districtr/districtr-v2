@@ -86,7 +86,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
     } else if (assignmentsError) {
       errorText = `We couldn't find the district assignments for the plan with ID "${mapId}".`;
     }
-    if (errorText) {
+    if (errorText && mapId?.length) {
       errorText += `\n Please make sure you have the right map ID and try reloading the page. If the problem persists, please contact Districtr support with the error ID below.`;
       setErrorNotification({
         message: errorText,
