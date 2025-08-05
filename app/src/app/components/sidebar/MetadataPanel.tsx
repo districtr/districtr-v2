@@ -167,7 +167,7 @@ export const MetadataPanel = () => {
             />
           )
         )}
-        <Button onClick={handleMapPin}>Add Map Pin</Button>
+        {isEditing && <Button onClick={handleMapPin}>Add Map Pin</Button>}
       </Flex>
     </Flex>
   );
@@ -260,7 +260,7 @@ const CommentRow: React.FC<{
     const comment = innerFormState.comments?.[index] as LocationComment;
     return (
       <Flex direction="row" gap="2" align="center">
-        <IconButton onClick={() => zoomToPin(comment.lat, comment.lng)} variant="outline">
+        <IconButton onClick={() => zoomToPin(comment.lat, comment.lng)} variant="soft">
           <Pin size="size-4" />
         </IconButton>
         {isEditing ? (
@@ -276,9 +276,11 @@ const CommentRow: React.FC<{
         ) : (
           <Blockquote>{comment.comment || ''}</Blockquote>
         )}
-        <IconButton onClick={handleRemove} color="red" variant="ghost">
-          <TrashIcon />
-        </IconButton>
+        {isEditing && (
+          <IconButton onClick={handleRemove} color="red" variant="ghost">
+            <TrashIcon />
+          </IconButton>
+        )}
       </Flex>
     );
   } else {
