@@ -30,7 +30,7 @@ export const MetadataPanel = () => {
         const {lat, lng} = e.lngLat;
         setInnerFormState({
           ...innerFormState,
-          location_comments: [...(innerFormState.location_comments || []), {lat, lng, comment: ''}],
+          comments: [...(innerFormState.comments || []), {lat, lng, comment: '', type: 'location'}],
         });
         setActiveTool(prevTool);
         setInfoMessage('');
@@ -39,15 +39,17 @@ export const MetadataPanel = () => {
   };
 
   useEffect(() => {
+    const locationComments = innerFormState.comments?.filter(c => c.type === 'location');
+    const mapMetadataLocationComments = mapMetadata?.comments?.filter(c => c.type === 'location');
     if (
-      innerFormState.location_comments?.length &&
-      innerFormState.location_comments.length > (mapMetadata?.location_comments?.length || 0)
+      locationComments?.length &&
+      locationComments.length > (mapMetadataLocationComments?.length || 0)
     ) {
       handleMetadataChange({
-        location_comments: innerFormState.location_comments,
+        comments: innerFormState.comments,
       });
     }
-  }, [innerFormState.location_comments?.length]);
+  }, [innerFormState.comments?.length]);
 
   useEffect(() => {
     setInnerFormState(mapMetadata ?? DEFAULT_MAP_METADATA);
@@ -97,8 +99,7 @@ export const MetadataPanel = () => {
             onClick={() =>
               handleMetadataChange({
                 description: innerFormState.description,
-                district_comments: innerFormState.district_comments,
-                location_comments: innerFormState.location_comments,
+                comments: innerFormState.comments,
               })
             }
             color="green"
@@ -115,25 +116,26 @@ export const MetadataPanel = () => {
       )}
       <Flex direction="column" gap="2">
         <Text>District Comments</Text>
-        {(innerFormState.district_comments || []).map((_, i) => (
-          <CommentRow
-            key={i}
-            index={i}
-            commentProperty="district_comments"
-            innerFormState={innerFormState}
-            setInnerFormState={setInnerFormState}
-            numDistricts={numDistricts || 0}
-            isEditing={isEditing}
-          />
-        ))}
+        {(innerFormState.comments || []).map((entry, i) =>
+          entry.type !== 'district' ? null : (
+            <CommentRow
+              key={i}
+              index={i}
+              innerFormState={innerFormState}
+              setInnerFormState={setInnerFormState}
+              numDistricts={numDistricts || 0}
+              isEditing={isEditing}
+            />
+          )
+        )}
         {isEditing && (
           <Button
             onClick={() =>
               setInnerFormState({
                 ...innerFormState,
-                district_comments: [
-                  ...(innerFormState.district_comments || []),
-                  {zone: 1, comment: `District comments`},
+                comments: [
+                  ...(innerFormState.comments || []),
+                  {zone: 1, comment: `District comments`, type: 'district'},
                 ],
               })
             }
@@ -145,17 +147,18 @@ export const MetadataPanel = () => {
 
       <Flex direction="column" gap="2">
         <Text>Pin Comments</Text>
-        {innerFormState.location_comments?.map((_, i) => (
-          <CommentRow
-            key={i}
-            index={i}
-            innerFormState={innerFormState}
-            setInnerFormState={setInnerFormState}
-            commentProperty="location_comments"
-            numDistricts={0}
-            isEditing={isEditing}
-          />
-        ))}
+        {innerFormState.comments?.map((entry, i) =>
+          entry.type !== 'location' ? null : (
+            <CommentRow
+              key={i}
+              index={i}
+              innerFormState={innerFormState}
+              setInnerFormState={setInnerFormState}
+              numDistricts={0}
+              isEditing={isEditing}
+            />
+          )
+        )}
         <Button onClick={handleMapPin}>Add Map Pin</Button>
       </Flex>
     </Flex>
@@ -166,12 +169,11 @@ const CommentRow: React.FC<{
   index: number;
   innerFormState: DocumentMetadata;
   setInnerFormState: (state: DocumentMetadata) => void;
-  commentProperty: 'district_comments' | 'location_comments';
   numDistricts: number;
   isEditing: boolean;
-}> = ({index, innerFormState, setInnerFormState, numDistricts, commentProperty, isEditing}) => {
+}> = ({index, innerFormState, setInnerFormState, numDistricts, isEditing}) => {
   const handleChange = ({zone, comment}: {zone?: number; comment?: string}) => {
-    let comments = [...(innerFormState[commentProperty] || [])];
+    let comments = [...(innerFormState.comments || [])];
     comments[index] = {
       ...comments[index],
       ...(zone && {zone}),
@@ -179,14 +181,14 @@ const CommentRow: React.FC<{
     };
     setInnerFormState({
       ...innerFormState,
-      [commentProperty]: comments,
+      comments,
     });
   };
 
   const handleRemove = () => {
     setInnerFormState({
       ...innerFormState,
-      [commentProperty]: (innerFormState[commentProperty] || []).filter((c, i) => i !== index),
+      comments: (innerFormState.comments || []).filter((_, i) => i !== index),
     });
   };
 
@@ -199,12 +201,13 @@ const CommentRow: React.FC<{
     }
   };
 
-  if (commentProperty === 'district_comments') {
+  if (innerFormState.comments?.[index]?.type === 'district') {
+    const comment = innerFormState.comments?.[index];
     return (
       <Flex direction="row" gap="2" align="center">
         {isEditing && (
           <Select.Root
-            value={innerFormState[commentProperty]?.[index]?.zone?.toString() || ''}
+            value={comment.zone?.toString() || ''}
             onValueChange={value =>
               value === 'remove'
                 ? handleRemove()
@@ -214,7 +217,7 @@ const CommentRow: React.FC<{
             }
           >
             <Select.Trigger>
-              <Text>{innerFormState[commentProperty]?.[index]?.zone?.toString() || ''}</Text>
+              <Text>{comment.zone?.toString() || ''}</Text>
             </Select.Trigger>
             <Select.Content>
               <Select.Item key="remove" value="remove">
@@ -230,7 +233,7 @@ const CommentRow: React.FC<{
         )}
         {isEditing ? (
           <TextArea
-            value={innerFormState[commentProperty]?.[index]?.comment || ''}
+            value={comment.comment || ''}
             className="flex-grow"
             onChange={e =>
               handleChange({
@@ -240,29 +243,21 @@ const CommentRow: React.FC<{
           />
         ) : (
           <Blockquote>
-            <b>{innerFormState[commentProperty]?.[index]?.zone}:</b>{' '}
-            {innerFormState[commentProperty]?.[index]?.comment || ''}
+            <b>{comment.zone}:</b> {comment.comment || ''}
           </Blockquote>
         )}
       </Flex>
     );
-  } else {
+  } else if (innerFormState.comments?.[index]?.type === 'location') {
+    const comment = innerFormState.comments?.[index];
     return (
       <Flex direction="row" gap="2" align="center">
-        <IconButton
-          onClick={() =>
-            zoomToPin(
-              innerFormState[commentProperty]?.[index]?.lat,
-              innerFormState[commentProperty]?.[index]?.lng
-            )
-          }
-          variant="outline"
-        >
+        <IconButton onClick={() => zoomToPin(comment.lat, comment.lng)} variant="outline">
           <Pin size="size-4" />
         </IconButton>
         {isEditing ? (
           <TextArea
-            value={innerFormState[commentProperty]?.[index]?.comment || ''}
+            value={comment.comment || ''}
             className="flex-grow"
             onChange={e =>
               handleChange({
@@ -271,12 +266,14 @@ const CommentRow: React.FC<{
             }
           />
         ) : (
-          <Blockquote>{innerFormState[commentProperty]?.[index]?.comment || ''}</Blockquote>
+          <Blockquote>{comment.comment || ''}</Blockquote>
         )}
         <IconButton onClick={handleRemove} color="red" variant="ghost">
           <TrashIcon />
         </IconButton>
       </Flex>
     );
+  } else {
+    return null;
   }
 };
