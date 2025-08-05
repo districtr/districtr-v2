@@ -8,6 +8,7 @@ import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import BoilerplateNode from '../components/Cms/RichTextEditor/extensions/Boierplate/BoilerplateNode';
+import { PlanGalleryNode } from '../components/Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
 import {
   FontBoldIcon,
   FontItalicIcon,
@@ -18,6 +19,7 @@ import {
   StrikethroughIcon,
   UnderlineIcon,
   InfoCircledIcon,
+  ColumnsIcon
 } from '@radix-ui/react-icons';
 
 export const useCmsEditorConfig = (content: string | object, onChange: (json: object) => void) => {
@@ -37,6 +39,7 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         allowBase64: true,
       }),
       BoilerplateNode,
+      PlanGalleryNode,
     ],
     content: typeof content === 'string' ? content : content,
     onUpdate: ({editor}) => {
@@ -190,6 +193,14 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         editor.chain().focus().setBoilerplate().run();
       },
       active: () => editor.isActive('boilerplateNode'),
+    },
+    {
+      title: 'Insert Plan Gallery',
+      icon: ColumnsIcon,
+      onClick: () => {
+        editor.chain().focus().setPlanGallery().run();
+      },
+      active: () => editor.isActive('planGalleryNode'),
     },
   ];
 
