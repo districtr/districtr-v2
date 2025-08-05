@@ -12,14 +12,11 @@ import logging
 from app.core.db import get_session
 from app.core.dependencies import (
     get_document,
-    parse_document_id,
     get_protected_document,
 )
-from sqlalchemy.exc import MultipleResultsFound
 from app.models import (
     Document,
 )
-from app.core.models import DocumentID
 from app.save_share.locks import check_map_lock
 from app.core.config import settings
 import jwt
@@ -190,28 +187,16 @@ async def share_districtr_plan(
 
 @router.post("/api/document/{document_id}/checkout", status_code=status.HTTP_200_OK)
 async def checkout_plan(
-    document_id: DocumentID = Depends(parse_document_id),
-    data: DocumentCheckoutRequest = {},
+    document: Annotated[Document, Depends(get_protected_document)],
+    data: DocumentCheckoutRequest,
     session: Session = Depends(get_session),
 ):
     """
-    check user-provided password against database. if matches, check if map is checked out
+    Check user-provided password against database.
+    - if matches, check if map is checked out
     - if pw matches and not checked out, check map out to user
     - if pw matches and checked out, return warning that map is still locked but switch access to edit
     """
-    try:
-        document = get_protected_document(document_id=document_id, session=session)
-    except NoResultFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document not found: {document_id}",
-        )
-    except MultipleResultsFound:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Multiple documents found for ID: {document_id}",
-        )
-
     try:
         result = session.execute(
             text(
@@ -226,12 +211,14 @@ async def checkout_plan(
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Token not found",
+            detail="This document has not been shared",
         )
     logger.info(
-        f"Result: {data.password}, {hash_password(data.password)}, {result.password_hash}"
+        f"Result: {data.password}, {'None' if not data.password else hash_password(data.password)}, {result.password_hash}"
     )
-    if data.password and verify_password(data.password, result.password_hash):
+    if not result.password_hash or (
+        data.password and verify_password(data.password, result.password_hash)
+    ):
         assert document.document_id
         lock_status = check_map_lock(
             document_id=document.document_id, user_id=data.user_id, session=session
@@ -239,7 +226,9 @@ async def checkout_plan(
 
         return {
             "status": lock_status,
-            "access": DocumentShareStatus.edit,
+            "access": DocumentShareStatus.edit
+            if lock_status == DocumentEditStatus.unlocked
+            else DocumentShareStatus.read,
             "document_id": document.document_id,
         }
     else:

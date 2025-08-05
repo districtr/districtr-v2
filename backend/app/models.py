@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import UUID4, BaseModel
+from pydantic import BaseModel
 from sqlmodel import (
     Field,
     ForeignKey,
@@ -185,7 +185,7 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentPublic(BaseModel):
-    document_id: UUID4 | str
+    document_id: str
     public_id: int | None = None
     districtr_map_slug: str | None
     gerrydb_table: str | None
