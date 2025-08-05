@@ -286,6 +286,7 @@ const PinCommentsLayer = () => {
   const mapMetadata = useMapMetadata();
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const [popupIndex, setPopupIndex] = useState<number | null>(null);
+  const isEditing = useMapStore(state => state.isEditing);
   const popupContent =
     popupIndex !== null && mapMetadata?.comments?.[popupIndex]?.type === 'location'
       ? (mapMetadata?.comments?.[popupIndex] as LocationComment)
@@ -328,7 +329,7 @@ const PinCommentsLayer = () => {
               longitude={comment.lng}
               latitude={comment.lat}
               anchor="center"
-              draggable={true}
+              draggable={isEditing}
               onDragEnd={e => handleDrag(e, index)}
               onClick={() => {
                 setPopupIndex(index);
