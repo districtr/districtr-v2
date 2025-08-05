@@ -35,7 +35,10 @@ export const MetadataPanel = () => {
         setInnerFormState({
           ...DEFAULT_MAP_METADATA,
           ...innerFormState,
-          comments: [...(innerFormState.comments || []), {lat, lng, comment: 'Location comment', type: 'location'}],
+          comments: [
+            ...(innerFormState.comments || []),
+            {lat, lng, comment: 'Location comment', type: 'location'},
+          ],
         });
         setActiveTool(prevTool);
         setInfoMessage('');
