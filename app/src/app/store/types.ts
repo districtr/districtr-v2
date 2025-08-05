@@ -21,6 +21,7 @@ export type DistrictrMapOptions = {
   showDemographicMap?: undefined | 'side-by-side' | 'overlay';
   showPaintedDistricts?: boolean;
   overlayOpacity: number;
+  showPinComments?: boolean;
 };
 
 export type DistrictrChartOptions = {

@@ -129,6 +129,16 @@ export const ToolSettings: React.FC = () => {
             Show numbering for painted districts
           </CheckboxGroup.Item>
           <CheckboxGroup.Item
+            value="showPinComments"
+            onClick={() =>
+              setMapOptions({
+                showPinComments: !mapOptions.showPinComments,
+              })
+            }
+          >
+            Show pin comments
+          </CheckboxGroup.Item>
+          <CheckboxGroup.Item
             value="higlightUnassigned"
             onClick={() =>
               setMapOptions({

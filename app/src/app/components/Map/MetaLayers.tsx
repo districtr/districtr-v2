@@ -284,6 +284,7 @@ const ZoneNumbersLayer = () => {
 
 const PinCommentsLayer = () => {
   const mapMetadata = useMapMetadata();
+  const showPinComments = useMapStore(state => state.mapOptions.showPinComments);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const [popupIndex, setPopupIndex] = useState<number | null>(null);
   const isEditing = useMapStore(state => state.isEditing);
@@ -314,7 +315,7 @@ const PinCommentsLayer = () => {
     }
   };
 
-  if (!mapMetadata?.comments?.filter(c => c.type === 'location')?.length) {
+  if (!mapMetadata?.comments?.filter(c => c.type === 'location')?.length || !showPinComments) {
     return null;
   }
 

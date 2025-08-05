@@ -15,6 +15,7 @@ import {Pin} from '../Topbar/Icons';
 export const MetadataPanel = () => {
   const isEditing = useMapStore(state => state.isEditing);
   const mapMetadata = useMapMetadata();
+  const setMapOptions = useMapStore(state => state.setMapOptions);
   const numDistricts = useMapStore(state => state.mapDocument?.num_districts);
   const getMapRef = useMapStore(state => state.getMapRef);
   const activeTool = useMapStore(state => state.activeTool);
@@ -39,6 +40,9 @@ export const MetadataPanel = () => {
             ...(innerFormState.comments || []),
             {lat, lng, comment: 'Location comment', type: 'location'},
           ],
+        });
+        setMapOptions({
+          showPinComments: true,
         });
         setActiveTool(prevTool);
         setInfoMessage('');

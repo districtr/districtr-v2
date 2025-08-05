@@ -925,6 +925,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     showPaintedDistricts: true,
     showZoneNumbers: true,
     overlayOpacity: OVERLAY_OPACITY,
+    showPinComments: true,
   },
   setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
   sidebarPanels: ['population'],
