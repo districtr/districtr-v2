@@ -77,7 +77,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
   }, [assignmentsData, loadZoneAssignments]);
 
   useEffect(() => {
-    let errorText = ''
+    let errorText = '';
     // let errorText = `We couldn't find the map you're looking for with the ID ${mapId}.`;
     if (mapDocumentError && assignmentsError) {
       errorText = `We couldn't find the map you're looking for with the ID ${mapId} and the district assignments associated with it.`;
@@ -87,7 +87,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
       errorText = `We couldn't find the district assignments for the map with the ID ${mapId}.`;
     }
     if (errorText) {
-      errorText += `\n Please make sure you have the right map ID and try reloading the page. If the problem persists, please contact Districtr support with the error ID below.`
+      errorText += `\n Please make sure you have the right map ID and try reloading the page. If the problem persists, please contact Districtr support with the error ID below.`;
       setErrorNotification({
         message: errorText,
         id: `map-not-found-${mapId}`,
