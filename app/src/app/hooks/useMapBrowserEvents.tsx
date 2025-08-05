@@ -80,13 +80,13 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
     let errorText = '';
     // let errorText = `We couldn't find the map you're looking for with the ID ${mapId}.`;
     if (mapDocumentError && assignmentsError) {
-      errorText = `We couldn't find the map you're looking for with the ID ${mapId} and the district assignments associated with it.`;
+      errorText = `We couldn't find a plan with ID "${mapId}" and the district assignments associated with it.`;
     } else if (mapDocumentError) {
-      errorText = `We couldn't find the map you're looking for with the ID ${mapId}.`;
+      errorText = `We couldn't find a plan with ID "${mapId}".`;
     } else if (assignmentsError) {
-      errorText = `We couldn't find the district assignments for the map with the ID ${mapId}.`;
+      errorText = `We couldn't find the district assignments for the plan with ID "${mapId}".`;
     }
-    if (errorText) {
+    if (errorText && mapId?.length) {
       errorText += `\n Please make sure you have the right map ID and try reloading the page. If the problem persists, please contact Districtr support with the error ID below.`;
       setErrorNotification({
         message: errorText,
