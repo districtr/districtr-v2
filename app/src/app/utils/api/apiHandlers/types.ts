@@ -36,19 +36,18 @@ export interface StatusObject {
 
 export type DraftStatus = 'scratch' | 'in_progress' | 'ready_to_share';
 
-export type Comment =
-  | {
-      type: 'district';
-      comment: string;
-      zone: number;
-    }
-  | {
-      type: 'location';
-      comment: string;
-      lat: number;
-      lng: number;
-    };
+export type DistrictComment = {
+  type: 'district';
+  comment: string;
+  zone: number;
+};
 
+export type LocationComment = {
+  type: 'location';
+  comment: string;
+  lat: number;
+  lng: number;
+};
 export interface DocumentMetadata {
   name: string | null;
   group: string | null;
@@ -56,7 +55,7 @@ export interface DocumentMetadata {
   description: string | null;
   eventId: string | null;
   draft_status: DraftStatus | null;
-  comments: Array<Comment> | null;
+  comments: Array<DistrictComment | LocationComment> | null;
 }
 
 export interface DocumentObject extends StatusObject {

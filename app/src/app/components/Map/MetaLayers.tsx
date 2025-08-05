@@ -10,9 +10,10 @@ import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer, Marker, MarkerDragEvent, Popup} from 'react-map-gl/maplibre';
-import {Box, Button, Text, TextArea} from '@radix-ui/themes';
+import {Box} from '@radix-ui/themes';
 import {Pin} from '../Topbar/Icons';
 import {Offset} from 'maplibre-gl';
+import {LocationComment} from '@/app/utils/api/apiHandlers/types';
 
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
@@ -313,23 +314,27 @@ const PinCommentsLayer = () => {
 
   return (
     <>
-      {mapMetadata?.comments?.map((comment, index) =>
-        comment.type !== 'location' ? null : (
-          <Marker
-            key={index}
-            longitude={comment.lng}
-            latitude={comment.lat}
-            anchor="center"
-            draggable={true}
-            onDragEnd={e => handleDrag(e, index)}
-            onClick={() => {
-              setPopupIndex(index);
-            }}
-          >
-            <Pin size="size-8" />
-          </Marker>
-        )
-      )}
+      {mapMetadata?.comments?.map((comment, index) => {
+        if (comment.type === 'location') {
+          return (
+            <Marker
+              key={index}
+              longitude={comment.lng}
+              latitude={comment.lat}
+              anchor="center"
+              draggable={true}
+              onDragEnd={e => handleDrag(e, index)}
+              onClick={() => {
+                setPopupIndex(index);
+              }}
+            >
+              <Pin size="size-8" />
+            </Marker>
+          );
+        } else {
+          return null;
+        }
+      })}
       {popupIndex !== null && mapMetadata?.comments?.[popupIndex]?.type === 'location' && (
         <Popup
           anchor="bottom"
