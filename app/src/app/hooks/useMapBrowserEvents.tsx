@@ -6,6 +6,7 @@ import {FE_UNLOCK_DELAY} from '../utils/api/constants';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {useQuery} from '@tanstack/react-query';
 import {getDocument} from '../utils/api/apiHandlers/getDocument';
+import { useRouter } from 'next/navigation';
 
 interface UseMapBrowserEventsV2Props {
   mapId: string;
@@ -22,6 +23,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
   const loadZoneAssignments = useMapStore(state => state.loadZoneAssignments);
   const setMapDocument = useMapStore(state => state.setMapDocument);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const router = useRouter();
 
   const {
     data: mapDocumentData,
@@ -87,12 +89,16 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
       errorText = `We couldn't find the district assignments for the plan with ID "${mapId}".`;
     }
     if (errorText && mapId?.length) {
-      errorText += `\n Please make sure you have the right map ID and try reloading the page. If the problem persists, please contact Districtr support with the error ID below.`;
+      errorText += `\n Please make sure you have the right map ID and try reloading the page. If the problem persists, please contact Districtr support with the error ID below. You will be redirected in 10 seconds.`;
       setErrorNotification({
         message: errorText,
         id: `map-not-found-${mapId}`,
         severity: 1,
       });
+      setTimeout(() => {
+        router.push('/map');
+        setErrorNotification({});
+      }, 10000);
     }
   }, [mapDocumentError, assignmentsError, setErrorNotification]);
   // SET EDITING MODE
