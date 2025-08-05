@@ -52,7 +52,6 @@ export const RecentMapsModal: React.FC<{
   };
 
   const handleMapDocument = (data: DocumentObject) => {
-    setMapDocument(data);
     clear();
     const urlParams = new URLSearchParams(searchParams.toString());
     urlParams.set('document_id', data.document_id);

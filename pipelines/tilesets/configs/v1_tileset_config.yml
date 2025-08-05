@@ -1,0 +1,353 @@
+name: v1 batch tileset load
+tilesets:
+  ak_districtr_view_v1:
+  - gpkg: ak_districtr_vtd_view_v1.gpkg
+    layer_name: ak_districtr_vtd_view_v1
+    new_layer_name: ak_districtr_vtd_view_v1
+  - gpkg: ak_districtr_block_view_v1.gpkg
+    layer_name: ak_districtr_block_view_v1
+    new_layer_name: ak_districtr_block_view_v1
+  al_districtr_view_v1:
+  - gpkg: al_districtr_vtd_view_v1.gpkg
+    layer_name: al_districtr_vtd_view_v1
+    new_layer_name: al_districtr_vtd_view_v1
+  - gpkg: al_districtr_block_view_v1.gpkg
+    layer_name: al_districtr_block_view_v1
+    new_layer_name: al_districtr_block_view_v1
+  ar_districtr_view_v1:
+  - gpkg: ar_districtr_vtd_view_v1.gpkg
+    layer_name: ar_districtr_vtd_view_v1
+    new_layer_name: ar_districtr_vtd_view_v1
+  - gpkg: ar_districtr_block_view_v1.gpkg
+    layer_name: ar_districtr_block_view_v1
+    new_layer_name: ar_districtr_block_view_v1
+  az_districtr_view_v1:
+  - gpkg: az_districtr_vtd_view_v1.gpkg
+    layer_name: az_districtr_vtd_view_v1
+    new_layer_name: az_districtr_vtd_view_v1
+  - gpkg: az_districtr_block_view_v1.gpkg
+    layer_name: az_districtr_block_view_v1
+    new_layer_name: az_districtr_block_view_v1
+  ca_districtr_view_v1:
+  - gpkg: ca_districtr_bg_view_v1.gpkg
+    layer_name: ca_districtr_bg_view_v1
+    new_layer_name: ca_districtr_bg_view_v1
+  - gpkg: ca_districtr_block_view_v1.gpkg
+    layer_name: ca_districtr_block_view_v1
+    new_layer_name: ca_districtr_block_view_v1
+  co_districtr_view_v1:
+  - gpkg: co_districtr_vtd_view_v1.gpkg
+    layer_name: co_districtr_vtd_view_v1
+    new_layer_name: co_districtr_vtd_view_v1
+  - gpkg: co_districtr_block_view_v1.gpkg
+    layer_name: co_districtr_block_view_v1
+    new_layer_name: co_districtr_block_view_v1
+  ct_districtr_view_v1:
+  - gpkg: ct_districtr_vtd_view_v1.gpkg
+    layer_name: ct_districtr_vtd_view_v1
+    new_layer_name: ct_districtr_vtd_view_v1
+  - gpkg: ct_districtr_block_view_v1.gpkg
+    layer_name: ct_districtr_block_view_v1
+    new_layer_name: ct_districtr_block_view_v1
+  de_districtr_view_v1:
+  - gpkg: de_districtr_vtd_view_v1.gpkg
+    layer_name: de_districtr_vtd_view_v1
+    new_layer_name: de_districtr_vtd_view_v1
+  - gpkg: de_districtr_block_view_v1.gpkg
+    layer_name: de_districtr_block_view_v1
+    new_layer_name: de_districtr_block_view_v1
+  fl_districtr_view_v1:
+  - gpkg: fl_districtr_vtd_view_v1.gpkg
+    layer_name: fl_districtr_vtd_view_v1
+    new_layer_name: fl_districtr_vtd_view_v1
+  - gpkg: fl_districtr_block_view_v1.gpkg
+    layer_name: fl_districtr_block_view_v1
+    new_layer_name: fl_districtr_block_view_v1
+  ga_districtr_view_v1:
+  - gpkg: ga_districtr_vtd_view_v1.gpkg
+    layer_name: ga_districtr_vtd_view_v1
+    new_layer_name: ga_districtr_vtd_view_v1
+  - gpkg: ga_districtr_block_view_v1.gpkg
+    layer_name: ga_districtr_block_view_v1
+    new_layer_name: ga_districtr_block_view_v1
+  hi_districtr_view_v1:
+  - gpkg: hi_districtr_bg_view_v1.gpkg
+    layer_name: hi_districtr_bg_view_v1
+    new_layer_name: hi_districtr_bg_view_v1
+  - gpkg: hi_districtr_block_view_v1.gpkg
+    layer_name: hi_districtr_block_view_v1
+    new_layer_name: hi_districtr_block_view_v1
+  ia_districtr_view_v1:
+  - gpkg: ia_districtr_vtd_view_v1.gpkg
+    layer_name: ia_districtr_vtd_view_v1
+    new_layer_name: ia_districtr_vtd_view_v1
+  - gpkg: ia_districtr_block_view_v1.gpkg
+    layer_name: ia_districtr_block_view_v1
+    new_layer_name: ia_districtr_block_view_v1
+  id_districtr_view_v1:
+  - gpkg: id_districtr_vtd_view_v1.gpkg
+    layer_name: id_districtr_vtd_view_v1
+    new_layer_name: id_districtr_vtd_view_v1
+  - gpkg: id_districtr_block_view_v1.gpkg
+    layer_name: id_districtr_block_view_v1
+    new_layer_name: id_districtr_block_view_v1
+  il_districtr_view_v1:
+  - gpkg: il_districtr_vtd_view_v1.gpkg
+    layer_name: il_districtr_vtd_view_v1
+    new_layer_name: il_districtr_vtd_view_v1
+  - gpkg: il_districtr_block_view_v1.gpkg
+    layer_name: il_districtr_block_view_v1
+    new_layer_name: il_districtr_block_view_v1
+  in_districtr_view_v1:
+  - gpkg: in_districtr_vtd_view_v1.gpkg
+    layer_name: in_districtr_vtd_view_v1
+    new_layer_name: in_districtr_vtd_view_v1
+  - gpkg: in_districtr_block_view_v1.gpkg
+    layer_name: in_districtr_block_view_v1
+    new_layer_name: in_districtr_block_view_v1
+  ks_districtr_view_v1:
+  - gpkg: ks_districtr_vtd_view_v1.gpkg
+    layer_name: ks_districtr_vtd_view_v1
+    new_layer_name: ks_districtr_vtd_view_v1
+  - gpkg: ks_districtr_block_view_v1.gpkg
+    layer_name: ks_districtr_block_view_v1
+    new_layer_name: ks_districtr_block_view_v1
+  ky_districtr_view_v1:
+  - gpkg: ky_districtr_vtd_view_v1.gpkg
+    layer_name: ky_districtr_vtd_view_v1
+    new_layer_name: ky_districtr_vtd_view_v1
+  - gpkg: ky_districtr_block_view_v1.gpkg
+    layer_name: ky_districtr_block_view_v1
+    new_layer_name: ky_districtr_block_view_v1
+  la_districtr_view_v1:
+  - gpkg: la_districtr_vtd_view_v1.gpkg
+    layer_name: la_districtr_vtd_view_v1
+    new_layer_name: la_districtr_vtd_view_v1
+  - gpkg: la_districtr_block_view_v1.gpkg
+    layer_name: la_districtr_block_view_v1
+    new_layer_name: la_districtr_block_view_v1
+  ma_districtr_view_v1:
+  - gpkg: ma_districtr_vtd_view_v1.gpkg
+    layer_name: ma_districtr_vtd_view_v1
+    new_layer_name: ma_districtr_vtd_view_v1
+  - gpkg: ma_districtr_block_view_v1.gpkg
+    layer_name: ma_districtr_block_view_v1
+    new_layer_name: ma_districtr_block_view_v1
+  md_districtr_view_v1:
+  - gpkg: md_districtr_vtd_view_v1.gpkg
+    layer_name: md_districtr_vtd_view_v1
+    new_layer_name: md_districtr_vtd_view_v1
+  - gpkg: md_districtr_block_view_v1.gpkg
+    layer_name: md_districtr_block_view_v1
+    new_layer_name: md_districtr_block_view_v1
+  me_districtr_view_v1:
+  - gpkg: me_districtr_vtd_view_v1.gpkg
+    layer_name: me_districtr_vtd_view_v1
+    new_layer_name: me_districtr_vtd_view_v1
+  - gpkg: me_districtr_block_view_v1.gpkg
+    layer_name: me_districtr_block_view_v1
+    new_layer_name: me_districtr_block_view_v1
+  mi_districtr_view_v1:
+  - gpkg: mi_districtr_vtd_view_v1.gpkg
+    layer_name: mi_districtr_vtd_view_v1
+    new_layer_name: mi_districtr_vtd_view_v1
+  - gpkg: mi_districtr_block_view_v1.gpkg
+    layer_name: mi_districtr_block_view_v1
+    new_layer_name: mi_districtr_block_view_v1
+  mn_districtr_view_v1:
+  - gpkg: mn_districtr_vtd_view_v1.gpkg
+    layer_name: mn_districtr_vtd_view_v1
+    new_layer_name: mn_districtr_vtd_view_v1
+  - gpkg: mn_districtr_block_view_v1.gpkg
+    layer_name: mn_districtr_block_view_v1
+    new_layer_name: mn_districtr_block_view_v1
+  mo_districtr_view_v1:
+  - gpkg: mo_districtr_vtd_view_v1.gpkg
+    layer_name: mo_districtr_vtd_view_v1
+    new_layer_name: mo_districtr_vtd_view_v1
+  - gpkg: mo_districtr_block_view_v1.gpkg
+    layer_name: mo_districtr_block_view_v1
+    new_layer_name: mo_districtr_block_view_v1
+  ms_districtr_view_v1:
+  - gpkg: ms_districtr_vtd_view_v1.gpkg
+    layer_name: ms_districtr_vtd_view_v1
+    new_layer_name: ms_districtr_vtd_view_v1
+  - gpkg: ms_districtr_block_view_v1.gpkg
+    layer_name: ms_districtr_block_view_v1
+    new_layer_name: ms_districtr_block_view_v1
+  mt_districtr_view_v1:
+  - gpkg: mt_districtr_vtd_view_v1.gpkg
+    layer_name: mt_districtr_vtd_view_v1
+    new_layer_name: mt_districtr_vtd_view_v1
+  - gpkg: mt_districtr_block_view_v1.gpkg
+    layer_name: mt_districtr_block_view_v1
+    new_layer_name: mt_districtr_block_view_v1
+  nc_districtr_view_v1:
+  - gpkg: nc_districtr_vtd_view_v1.gpkg
+    layer_name: nc_districtr_vtd_view_v1
+    new_layer_name: nc_districtr_vtd_view_v1
+  - gpkg: nc_districtr_block_view_v1.gpkg
+    layer_name: nc_districtr_block_view_v1
+    new_layer_name: nc_districtr_block_view_v1
+  nd_districtr_view_v1:
+  - gpkg: nd_districtr_vtd_view_v1.gpkg
+    layer_name: nd_districtr_vtd_view_v1
+    new_layer_name: nd_districtr_vtd_view_v1
+  - gpkg: nd_districtr_block_view_v1.gpkg
+    layer_name: nd_districtr_block_view_v1
+    new_layer_name: nd_districtr_block_view_v1
+  ne_districtr_view_v1:
+  - gpkg: ne_districtr_vtd_view_v1.gpkg
+    layer_name: ne_districtr_vtd_view_v1
+    new_layer_name: ne_districtr_vtd_view_v1
+  - gpkg: ne_districtr_block_view_v1.gpkg
+    layer_name: ne_districtr_block_view_v1
+    new_layer_name: ne_districtr_block_view_v1
+  nh_districtr_view_v1:
+  - gpkg: nh_districtr_vtd_view_v1.gpkg
+    layer_name: nh_districtr_vtd_view_v1
+    new_layer_name: nh_districtr_vtd_view_v1
+  - gpkg: nh_districtr_block_view_v1.gpkg
+    layer_name: nh_districtr_block_view_v1
+    new_layer_name: nh_districtr_block_view_v1
+  nj_districtr_view_v1:
+  - gpkg: nj_districtr_vtd_view_v1.gpkg
+    layer_name: nj_districtr_vtd_view_v1
+    new_layer_name: nj_districtr_vtd_view_v1
+  - gpkg: nj_districtr_block_view_v1.gpkg
+    layer_name: nj_districtr_block_view_v1
+    new_layer_name: nj_districtr_block_view_v1
+  nm_districtr_view_v1:
+  - gpkg: nm_districtr_vtd_view_v1.gpkg
+    layer_name: nm_districtr_vtd_view_v1
+    new_layer_name: nm_districtr_vtd_view_v1
+  - gpkg: nm_districtr_block_view_v1.gpkg
+    layer_name: nm_districtr_block_view_v1
+    new_layer_name: nm_districtr_block_view_v1
+  nv_districtr_view_v1:
+  - gpkg: nv_districtr_vtd_view_v1.gpkg
+    layer_name: nv_districtr_vtd_view_v1
+    new_layer_name: nv_districtr_vtd_view_v1
+  - gpkg: nv_districtr_block_view_v1.gpkg
+    layer_name: nv_districtr_block_view_v1
+    new_layer_name: nv_districtr_block_view_v1
+  ny_districtr_view_v1:
+  - gpkg: ny_districtr_vtd_view_v1.gpkg
+    layer_name: ny_districtr_vtd_view_v1
+    new_layer_name: ny_districtr_vtd_view_v1
+  - gpkg: ny_districtr_block_view_v1.gpkg
+    layer_name: ny_districtr_block_view_v1
+    new_layer_name: ny_districtr_block_view_v1
+  oh_districtr_view_v1:
+  - gpkg: oh_districtr_vtd_view_v1.gpkg
+    layer_name: oh_districtr_vtd_view_v1
+    new_layer_name: oh_districtr_vtd_view_v1
+  - gpkg: oh_districtr_block_view_v1.gpkg
+    layer_name: oh_districtr_block_view_v1
+    new_layer_name: oh_districtr_block_view_v1
+  ok_districtr_view_v1:
+  - gpkg: ok_districtr_vtd_view_v1.gpkg
+    layer_name: ok_districtr_vtd_view_v1
+    new_layer_name: ok_districtr_vtd_view_v1
+  - gpkg: ok_districtr_block_view_v1.gpkg
+    layer_name: ok_districtr_block_view_v1
+    new_layer_name: ok_districtr_block_view_v1
+  or_districtr_view_v1:
+  - gpkg: or_districtr_bg_view_v1.gpkg
+    layer_name: or_districtr_bg_view_v1
+    new_layer_name: or_districtr_bg_view_v1
+  - gpkg: or_districtr_block_view_v1.gpkg
+    layer_name: or_districtr_block_view_v1
+    new_layer_name: or_districtr_block_view_v1
+  pa_districtr_view_v1:
+  - gpkg: pa_districtr_vtd_view_v1.gpkg
+    layer_name: pa_districtr_vtd_view_v1
+    new_layer_name: pa_districtr_vtd_view_v1
+  - gpkg: pa_districtr_block_view_v1.gpkg
+    layer_name: pa_districtr_block_view_v1
+    new_layer_name: pa_districtr_block_view_v1
+  ri_districtr_view_v1:
+  - gpkg: ri_districtr_vtd_view_v1.gpkg
+    layer_name: ri_districtr_vtd_view_v1
+    new_layer_name: ri_districtr_vtd_view_v1
+  - gpkg: ri_districtr_block_view_v1.gpkg
+    layer_name: ri_districtr_block_view_v1
+    new_layer_name: ri_districtr_block_view_v1
+  sc_districtr_view_v1:
+  - gpkg: sc_districtr_vtd_view_v1.gpkg
+    layer_name: sc_districtr_vtd_view_v1
+    new_layer_name: sc_districtr_vtd_view_v1
+  - gpkg: sc_districtr_block_view_v1.gpkg
+    layer_name: sc_districtr_block_view_v1
+    new_layer_name: sc_districtr_block_view_v1
+  sd_districtr_view_v1:
+  - gpkg: sd_districtr_vtd_view_v1.gpkg
+    layer_name: sd_districtr_vtd_view_v1
+    new_layer_name: sd_districtr_vtd_view_v1
+  - gpkg: sd_districtr_block_view_v1.gpkg
+    layer_name: sd_districtr_block_view_v1
+    new_layer_name: sd_districtr_block_view_v1
+  tn_districtr_view_v1:
+  - gpkg: tn_districtr_vtd_view_v1.gpkg
+    layer_name: tn_districtr_vtd_view_v1
+    new_layer_name: tn_districtr_vtd_view_v1
+  - gpkg: tn_districtr_block_view_v1.gpkg
+    layer_name: tn_districtr_block_view_v1
+    new_layer_name: tn_districtr_block_view_v1
+  tx_districtr_view_v1:
+  - gpkg: tx_districtr_vtd_view_v1.gpkg
+    layer_name: tx_districtr_vtd_view_v1
+    new_layer_name: tx_districtr_vtd_view_v1
+  - gpkg: tx_districtr_block_view_v1.gpkg
+    layer_name: tx_districtr_block_view_v1
+    new_layer_name: tx_districtr_block_view_v1
+  ut_districtr_view_v1:
+  - gpkg: ut_districtr_vtd_view_v1.gpkg
+    layer_name: ut_districtr_vtd_view_v1
+    new_layer_name: ut_districtr_vtd_view_v1
+  - gpkg: ut_districtr_block_view_v1.gpkg
+    layer_name: ut_districtr_block_view_v1
+    new_layer_name: ut_districtr_block_view_v1
+  va_districtr_view_v1:
+  - gpkg: va_districtr_vtd_view_v1.gpkg
+    layer_name: va_districtr_vtd_view_v1
+    new_layer_name: va_districtr_vtd_view_v1
+  - gpkg: va_districtr_block_view_v1.gpkg
+    layer_name: va_districtr_block_view_v1
+    new_layer_name: va_districtr_block_view_v1
+  vt_districtr_view_v1:
+  - gpkg: vt_districtr_vtd_view_v1.gpkg
+    layer_name: vt_districtr_vtd_view_v1
+    new_layer_name: vt_districtr_vtd_view_v1
+  - gpkg: vt_districtr_block_view_v1.gpkg
+    layer_name: vt_districtr_block_view_v1
+    new_layer_name: vt_districtr_block_view_v1
+  wa_districtr_view_v1:
+  - gpkg: wa_districtr_vtd_view_v1.gpkg
+    layer_name: wa_districtr_vtd_view_v1
+    new_layer_name: wa_districtr_vtd_view_v1
+  - gpkg: wa_districtr_block_view_v1.gpkg
+    layer_name: wa_districtr_block_view_v1
+    new_layer_name: wa_districtr_block_view_v1
+  wi_districtr_view_v1:
+  - gpkg: wi_districtr_vtd_view_v1.gpkg
+    layer_name: wi_districtr_vtd_view_v1
+    new_layer_name: wi_districtr_vtd_view_v1
+  - gpkg: wi_districtr_block_view_v1.gpkg
+    layer_name: wi_districtr_block_view_v1
+    new_layer_name: wi_districtr_block_view_v1
+  wv_districtr_view_v1:
+  - gpkg: wv_districtr_bg_view_v1.gpkg
+    layer_name: wv_districtr_bg_view_v1
+    new_layer_name: wv_districtr_bg_view_v1
+  - gpkg: wv_districtr_block_view_v1.gpkg
+    layer_name: wv_districtr_block_view_v1
+    new_layer_name: wv_districtr_block_view_v1
+  wy_districtr_view_v1:
+  - gpkg: wy_districtr_vtd_view_v1.gpkg
+    layer_name: wy_districtr_vtd_view_v1
+    new_layer_name: wy_districtr_vtd_view_v1
+  - gpkg: wy_districtr_block_view_v1.gpkg
+    layer_name: wy_districtr_block_view_v1
+    new_layer_name: wy_districtr_block_view_v1
+version: 0.1.0

@@ -189,7 +189,8 @@ class TilesetBatch(Config):
 
             out_parent_points = parent_tileset.generate_points(replace=replace)
             self.add_result(
-                out_parent_points, f"{S3_TILESETS_PREFIX}/{k}_points.parquet"
+                out_parent_points,
+                f"{S3_TILESETS_PREFIX}/{parent_tileset.layer_name}_points.parquet",
             )
 
             if not child_tileset:
@@ -204,7 +205,8 @@ class TilesetBatch(Config):
 
             out_child_points = child_tileset.generate_points(replace=replace)
             self.add_result(
-                out_child_points, f"{S3_TILESETS_PREFIX}/{k}_points.parquet"
+                out_child_points,
+                f"{S3_TILESETS_PREFIX}/{child_tileset.layer_name}_points.parquet",
             )
 
             result = merge_tilesets(

@@ -253,7 +253,7 @@ async def create_document(
             Document.document_id,
             Document.created_at,
             Document.districtr_map_slug,
-            Document.gerrydb_table,
+            DistrictrMap.gerrydb_table_name.label("gerrydb_table"),  # pyright: ignore
             Document.updated_at,
             DistrictrMap.uuid.label("map_uuid"),  # pyright: ignore
             DistrictrMap.parent_layer.label("parent_layer"),  # pyright: ignore
@@ -829,7 +829,7 @@ async def get_projects(
     session: Session = Depends(get_session),
     group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, le=100),
+    limit: int = Query(default=100, le=1000),
 ):
     gerrydb_views = session.exec(
         select(DistrictrMap)

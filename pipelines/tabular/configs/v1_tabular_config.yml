@@ -1,0 +1,203 @@
+datasets:
+  ak_districtr_view_v1:
+    child_gpkg: ak_districtr_block_view_v1.gpkg
+    out_path: ak_districtr_view_v1.parquet
+    parent_gpkg: ak_districtr_vtd_view_v1.gpkg
+  al_districtr_view_v1:
+    child_gpkg: al_districtr_block_view_v1.gpkg
+    out_path: al_districtr_view_v1.parquet
+    parent_gpkg: al_districtr_vtd_view_v1.gpkg
+  ar_districtr_view_v1:
+    child_gpkg: ar_districtr_block_view_v1.gpkg
+    out_path: ar_districtr_view_v1.parquet
+    parent_gpkg: ar_districtr_vtd_view_v1.gpkg
+  az_districtr_view_v1:
+    child_gpkg: az_districtr_block_view_v1.gpkg
+    out_path: az_districtr_view_v1.parquet
+    parent_gpkg: az_districtr_vtd_view_v1.gpkg
+  ca_districtr_view_v1:
+    child_gpkg: ca_districtr_block_view_v1.gpkg
+    out_path: ca_districtr_view_v1.parquet
+    parent_gpkg: ca_districtr_bg_view_v1.gpkg
+  co_districtr_view_v1:
+    child_gpkg: co_districtr_block_view_v1.gpkg
+    out_path: co_districtr_view_v1.parquet
+    parent_gpkg: co_districtr_vtd_view_v1.gpkg
+  ct_districtr_view_v1:
+    child_gpkg: ct_districtr_block_view_v1.gpkg
+    out_path: ct_districtr_view_v1.parquet
+    parent_gpkg: ct_districtr_vtd_view_v1.gpkg
+  de_districtr_view_v1:
+    child_gpkg: de_districtr_block_view_v1.gpkg
+    out_path: de_districtr_view_v1.parquet
+    parent_gpkg: de_districtr_vtd_view_v1.gpkg
+  fl_districtr_view_v1:
+    child_gpkg: fl_districtr_block_view_v1.gpkg
+    out_path: fl_districtr_view_v1.parquet
+    parent_gpkg: fl_districtr_vtd_view_v1.gpkg
+  ga_districtr_view_v1:
+    child_gpkg: ga_districtr_block_view_v1.gpkg
+    out_path: ga_districtr_view_v1.parquet
+    parent_gpkg: ga_districtr_vtd_view_v1.gpkg
+  hi_districtr_view_v1:
+    child_gpkg: hi_districtr_block_view_v1.gpkg
+    out_path: hi_districtr_view_v1.parquet
+    parent_gpkg: hi_districtr_bg_view_v1.gpkg
+  ia_districtr_view_v1:
+    child_gpkg: ia_districtr_block_view_v1.gpkg
+    out_path: ia_districtr_view_v1.parquet
+    parent_gpkg: ia_districtr_vtd_view_v1.gpkg
+  id_districtr_view_v1:
+    child_gpkg: id_districtr_block_view_v1.gpkg
+    out_path: id_districtr_view_v1.parquet
+    parent_gpkg: id_districtr_vtd_view_v1.gpkg
+  il_districtr_view_v1:
+    child_gpkg: il_districtr_block_view_v1.gpkg
+    out_path: il_districtr_view_v1.parquet
+    parent_gpkg: il_districtr_vtd_view_v1.gpkg
+  in_districtr_view_v1:
+    child_gpkg: in_districtr_block_view_v1.gpkg
+    out_path: in_districtr_view_v1.parquet
+    parent_gpkg: in_districtr_vtd_view_v1.gpkg
+  ks_districtr_view_v1:
+    child_gpkg: ks_districtr_block_view_v1.gpkg
+    out_path: ks_districtr_view_v1.parquet
+    parent_gpkg: ks_districtr_vtd_view_v1.gpkg
+  ky_districtr_view_v1:
+    child_gpkg: ky_districtr_block_view_v1.gpkg
+    out_path: ky_districtr_view_v1.parquet
+    parent_gpkg: ky_districtr_vtd_view_v1.gpkg
+  la_districtr_view_v1:
+    child_gpkg: la_districtr_block_view_v1.gpkg
+    out_path: la_districtr_view_v1.parquet
+    parent_gpkg: la_districtr_vtd_view_v1.gpkg
+  ma_districtr_view_v1:
+    child_gpkg: ma_districtr_block_view_v1.gpkg
+    out_path: ma_districtr_view_v1.parquet
+    parent_gpkg: ma_districtr_vtd_view_v1.gpkg
+  md_districtr_view_v1:
+    child_gpkg: md_districtr_block_view_v1.gpkg
+    out_path: md_districtr_view_v1.parquet
+    parent_gpkg: md_districtr_vtd_view_v1.gpkg
+  me_districtr_view_v1:
+    child_gpkg: me_districtr_block_view_v1.gpkg
+    out_path: me_districtr_view_v1.parquet
+    parent_gpkg: me_districtr_vtd_view_v1.gpkg
+  mi_districtr_view_v1:
+    child_gpkg: mi_districtr_block_view_v1.gpkg
+    out_path: mi_districtr_view_v1.parquet
+    parent_gpkg: mi_districtr_vtd_view_v1.gpkg
+  mn_districtr_view_v1:
+    child_gpkg: mn_districtr_block_view_v1.gpkg
+    out_path: mn_districtr_view_v1.parquet
+    parent_gpkg: mn_districtr_vtd_view_v1.gpkg
+  mo_districtr_view_v1:
+    child_gpkg: mo_districtr_block_view_v1.gpkg
+    out_path: mo_districtr_view_v1.parquet
+    parent_gpkg: mo_districtr_vtd_view_v1.gpkg
+  ms_districtr_view_v1:
+    child_gpkg: ms_districtr_block_view_v1.gpkg
+    out_path: ms_districtr_view_v1.parquet
+    parent_gpkg: ms_districtr_vtd_view_v1.gpkg
+  mt_districtr_view_v1:
+    child_gpkg: mt_districtr_block_view_v1.gpkg
+    out_path: mt_districtr_view_v1.parquet
+    parent_gpkg: mt_districtr_vtd_view_v1.gpkg
+  nc_districtr_view_v1:
+    child_gpkg: nc_districtr_block_view_v1.gpkg
+    out_path: nc_districtr_view_v1.parquet
+    parent_gpkg: nc_districtr_vtd_view_v1.gpkg
+  nd_districtr_view_v1:
+    child_gpkg: nd_districtr_block_view_v1.gpkg
+    out_path: nd_districtr_view_v1.parquet
+    parent_gpkg: nd_districtr_vtd_view_v1.gpkg
+  ne_districtr_view_v1:
+    child_gpkg: ne_districtr_block_view_v1.gpkg
+    out_path: ne_districtr_view_v1.parquet
+    parent_gpkg: ne_districtr_vtd_view_v1.gpkg
+  nh_districtr_view_v1:
+    child_gpkg: nh_districtr_block_view_v1.gpkg
+    out_path: nh_districtr_view_v1.parquet
+    parent_gpkg: nh_districtr_vtd_view_v1.gpkg
+  nj_districtr_view_v1:
+    child_gpkg: nj_districtr_block_view_v1.gpkg
+    out_path: nj_districtr_view_v1.parquet
+    parent_gpkg: nj_districtr_vtd_view_v1.gpkg
+  nm_districtr_view_v1:
+    child_gpkg: nm_districtr_block_view_v1.gpkg
+    out_path: nm_districtr_view_v1.parquet
+    parent_gpkg: nm_districtr_vtd_view_v1.gpkg
+  nv_districtr_view_v1:
+    child_gpkg: nv_districtr_block_view_v1.gpkg
+    out_path: nv_districtr_view_v1.parquet
+    parent_gpkg: nv_districtr_vtd_view_v1.gpkg
+  ny_districtr_view_v1:
+    child_gpkg: ny_districtr_block_view_v1.gpkg
+    out_path: ny_districtr_view_v1.parquet
+    parent_gpkg: ny_districtr_vtd_view_v1.gpkg
+  oh_districtr_view_v1:
+    child_gpkg: oh_districtr_block_view_v1.gpkg
+    out_path: oh_districtr_view_v1.parquet
+    parent_gpkg: oh_districtr_vtd_view_v1.gpkg
+  ok_districtr_view_v1:
+    child_gpkg: ok_districtr_block_view_v1.gpkg
+    out_path: ok_districtr_view_v1.parquet
+    parent_gpkg: ok_districtr_vtd_view_v1.gpkg
+  or_districtr_view_v1:
+    child_gpkg: or_districtr_block_view_v1.gpkg
+    out_path: or_districtr_view_v1.parquet
+    parent_gpkg: or_districtr_bg_view_v1.gpkg
+  pa_districtr_view_v1:
+    child_gpkg: pa_districtr_block_view_v1.gpkg
+    out_path: pa_districtr_view_v1.parquet
+    parent_gpkg: pa_districtr_vtd_view_v1.gpkg
+  ri_districtr_view_v1:
+    child_gpkg: ri_districtr_block_view_v1.gpkg
+    out_path: ri_districtr_view_v1.parquet
+    parent_gpkg: ri_districtr_vtd_view_v1.gpkg
+  sc_districtr_view_v1:
+    child_gpkg: sc_districtr_block_view_v1.gpkg
+    out_path: sc_districtr_view_v1.parquet
+    parent_gpkg: sc_districtr_vtd_view_v1.gpkg
+  sd_districtr_view_v1:
+    child_gpkg: sd_districtr_block_view_v1.gpkg
+    out_path: sd_districtr_view_v1.parquet
+    parent_gpkg: sd_districtr_vtd_view_v1.gpkg
+  tn_districtr_view_v1:
+    child_gpkg: tn_districtr_block_view_v1.gpkg
+    out_path: tn_districtr_view_v1.parquet
+    parent_gpkg: tn_districtr_vtd_view_v1.gpkg
+  tx_districtr_view_v1:
+    child_gpkg: tx_districtr_block_view_v1.gpkg
+    out_path: tx_districtr_view_v1.parquet
+    parent_gpkg: tx_districtr_vtd_view_v1.gpkg
+  ut_districtr_view_v1:
+    child_gpkg: ut_districtr_block_view_v1.gpkg
+    out_path: ut_districtr_view_v1.parquet
+    parent_gpkg: ut_districtr_vtd_view_v1.gpkg
+  va_districtr_view_v1:
+    child_gpkg: va_districtr_block_view_v1.gpkg
+    out_path: va_districtr_view_v1.parquet
+    parent_gpkg: va_districtr_vtd_view_v1.gpkg
+  vt_districtr_view_v1:
+    child_gpkg: vt_districtr_block_view_v1.gpkg
+    out_path: vt_districtr_view_v1.parquet
+    parent_gpkg: vt_districtr_vtd_view_v1.gpkg
+  wa_districtr_view_v1:
+    child_gpkg: wa_districtr_block_view_v1.gpkg
+    out_path: wa_districtr_view_v1.parquet
+    parent_gpkg: wa_districtr_vtd_view_v1.gpkg
+  wi_districtr_view_v1:
+    child_gpkg: wi_districtr_block_view_v1.gpkg
+    out_path: wi_districtr_view_v1.parquet
+    parent_gpkg: wi_districtr_vtd_view_v1.gpkg
+  wv_districtr_view_v1:
+    child_gpkg: wv_districtr_block_view_v1.gpkg
+    out_path: wv_districtr_view_v1.parquet
+    parent_gpkg: wv_districtr_bg_view_v1.gpkg
+  wy_districtr_view_v1:
+    child_gpkg: wy_districtr_block_view_v1.gpkg
+    out_path: wy_districtr_view_v1.parquet
+    parent_gpkg: wy_districtr_vtd_view_v1.gpkg
+name: v1 batch tabular load
+version: 0.1.0
