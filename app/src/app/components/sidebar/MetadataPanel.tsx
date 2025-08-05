@@ -1,7 +1,7 @@
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {useMapStore} from '@/app/store/mapStore';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
-import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
+import {DistrictComment, DocumentMetadata, LocationComment} from '@/app/utils/api/apiHandlers/types';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {SewingPinFilledIcon, TrashIcon} from '@radix-ui/react-icons';
 import {Blockquote, Box, Button, Flex, IconButton, Select, Text, TextArea} from '@radix-ui/themes';
@@ -202,7 +202,7 @@ const CommentRow: React.FC<{
   };
 
   if (innerFormState.comments?.[index]?.type === 'district') {
-    const comment = innerFormState.comments?.[index];
+    const comment = innerFormState.comments?.[index] as DistrictComment;
     return (
       <Flex direction="row" gap="2" align="center">
         {isEditing && (
@@ -249,7 +249,7 @@ const CommentRow: React.FC<{
       </Flex>
     );
   } else if (innerFormState.comments?.[index]?.type === 'location') {
-    const comment = innerFormState.comments?.[index];
+    const comment = innerFormState.comments?.[index] as LocationComment
     return (
       <Flex direction="row" gap="2" align="center">
         <IconButton onClick={() => zoomToPin(comment.lat, comment.lng)} variant="outline">

@@ -286,6 +286,7 @@ const PinCommentsLayer = () => {
   const mapMetadata = useMapMetadata();
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const [popupIndex, setPopupIndex] = useState<number | null>(null);
+  const popupContent = popupIndex !== null && mapMetadata?.comments?.[popupIndex]?.type === 'location' ? mapMetadata?.comments?.[popupIndex]?.comment as unknown as LocationComment : null;
   const handleDrag = async (e: MarkerDragEvent, index: number) => {
     let comments = [...(mapMetadata?.comments || [])];
     comments[index] = {
@@ -314,8 +315,9 @@ const PinCommentsLayer = () => {
 
   return (
     <>
-      {mapMetadata?.comments?.map((comment, index) => {
-        if (comment.type === 'location') {
+      {mapMetadata?.comments?.map((_comment, index) => {
+        if (_comment.type === 'location') {
+          const comment = _comment as LocationComment;
           return (
             <Marker
               key={index}
@@ -335,17 +337,17 @@ const PinCommentsLayer = () => {
           return null;
         }
       })}
-      {popupIndex !== null && mapMetadata?.comments?.[popupIndex]?.type === 'location' && (
+      {popupContent !== null && (
         <Popup
           anchor="bottom"
           offset={[0, -30] as Offset}
-          longitude={mapMetadata?.comments?.[popupIndex]?.lng}
-          latitude={mapMetadata?.comments?.[popupIndex]?.lat}
+          longitude={popupContent.lng}
+          latitude={popupContent.lat}
           closeOnMove={false}
           closeOnClick={false}
         >
           <Box className="flex flex-col gap-2 p-4 z-[999]">
-            {mapMetadata?.comments?.[popupIndex]?.comment}
+            {popupContent.comment}
           </Box>
         </Popup>
       )}
