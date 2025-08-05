@@ -17,9 +17,9 @@ from sqlalchemy.exc import (
 from sqlalchemy import text
 from sqlmodel import Session, String, select, true, update
 from starlette.middleware.cors import CORSMiddleware
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import insert, TEXT, JSONB
 import logging
-from sqlalchemy import bindparam
+from sqlalchemy import bindparam, cast
 from sqlmodel import ARRAY, INT
 from datetime import datetime
 import sentry_sdk
@@ -548,6 +548,53 @@ async def get_document_object(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Multiple documents found for ID: {document_id}",
         )
+
+
+@app.get("/api/documents/list")
+async def get_document_list(
+    session: Session = Depends(get_session),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, le=100),
+    ids: list[int] = Query(default=[]),
+    tags: list[str] = Query(default=[]),
+):
+    stmt = (
+        select(
+            Document.public_id,
+            Document.map_metadata,
+            Document.updated_at,
+            DistrictrMap.name.label("map_module"),
+        )
+        .join(
+            DistrictrMap,
+            Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+            isouter=True,
+        )
+        .offset(offset)
+        .limit(limit)
+    )
+
+    if len(tags) > 0:
+        stmt = stmt.where(
+            cast(Document.map_metadata["tags"], JSONB).op("?|")(
+                bindparam("tags", value=list(tags), type_=ARRAY(TEXT))
+            )
+        ).where(
+            # this is fine to keep as ->> because you're comparing to text
+            Document.map_metadata["draft_status"].astext == "ready_to_share"
+        )
+    elif len(ids) > 0:
+        stmt = stmt.where(Document.public_id.in_(ids))
+    results = session.execute(stmt).fetchall()
+    return [
+        {
+            "public_id": row[0],
+            "map_metadata": row[1],
+            "updated_at": row[2],
+            "map_module": row[3],
+        }
+        for row in results
+    ]
 
 
 @app.get("/api/document/{document_id}/unassigned", response_model=BBoxGeoJSONs)
