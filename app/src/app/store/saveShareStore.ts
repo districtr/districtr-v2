@@ -77,7 +77,10 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
 
 useMapStore.subscribe(
   state => state.mapDocument,
-  mapDocument => {
+  (mapDocument, previousMapDocument) => {
+    if (mapDocument?.document_id === previousMapDocument?.document_id) {
+      return;
+    }
     const userMap = useMapStore
       .getState()
       .userMaps.find(map => map.document_id === mapDocument?.document_id);
