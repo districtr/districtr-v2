@@ -8,7 +8,7 @@ import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import BoilerplateNode from '../components/Cms/RichTextEditor/extensions/Boierplate/BoilerplateNode';
-import { PlanGalleryNode } from '../components/Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
+import {PlanGalleryNode} from '../components/Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
 import {
   FontBoldIcon,
   FontItalicIcon,
@@ -19,7 +19,7 @@ import {
   StrikethroughIcon,
   UnderlineIcon,
   InfoCircledIcon,
-  ColumnsIcon
+  ColumnsIcon,
 } from '@radix-ui/react-icons';
 
 export const useCmsEditorConfig = (content: string | object, onChange: (json: object) => void) => {

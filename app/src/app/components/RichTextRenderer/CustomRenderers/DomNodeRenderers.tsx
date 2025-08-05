@@ -1,6 +1,6 @@
 import {DOMNode} from 'html-react-parser';
 import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNodeRenderer';
-import { PlanGallery } from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
+import {PlanGallery} from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
 
 export const domNodeReplacers = (domNode: DOMNode) => {
   if (domNode.type === 'tag' && domNode.attribs?.['data-type']?.length) {
@@ -16,7 +16,16 @@ export const domNodeReplacers = (domNode: DOMNode) => {
         const description = domNode.attribs['description'];
         const paginate = JSON.parse(domNode.attribs['paginate'] ?? 'false');
         const limit = +(domNode.attribs['limit'] ?? 12);
-        return <PlanGallery ids={ids} tags={tags} title={title} description={description} paginate={paginate} limit={limit} />;
+        return (
+          <PlanGallery
+            ids={ids}
+            tags={tags}
+            title={title}
+            description={description}
+            paginate={paginate}
+            limit={limit}
+          />
+        );
     }
   }
 };

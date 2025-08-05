@@ -63,7 +63,10 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                 />
                 <Flex direction="row" gap="2">
                   <Text>Paginate</Text>
-                  <Switch checked={paginate === 'true'} onCheckedChange={e => handleUpdate({paginate: e ? 'true' : 'false'})} />
+                  <Switch
+                    checked={paginate === 'true'}
+                    onCheckedChange={e => handleUpdate({paginate: e ? 'true' : 'false'})}
+                  />
                 </Flex>
                 <ChipsPlanGalleryNodeView
                   entries={ids || []}
@@ -102,7 +105,6 @@ const ChipsPlanGalleryNodeView: React.FC<{
       <Box>
         {entries?.map((entry, i) => (
           <Button
-
             className="hover:bg-red-500 hover:text-white w-auto mr-2"
             variant="outline"
             // @ts-expect-error

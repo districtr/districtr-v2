@@ -53,8 +53,12 @@ export const PlanGalleryInner = ({
       </Grid>
       {showPagination && (
         <Flex justify="start" mt="4" gap="4">
-          <Button onClick={() => setPage(page - 1)} disabled={page === 0}>Previous</Button>
-          <Button onClick={() => setPage(page + 1)} disabled={plans.length < displayLimit}>Next</Button>
+          <Button onClick={() => setPage(page - 1)} disabled={page === 0}>
+            Previous
+          </Button>
+          <Button onClick={() => setPage(page + 1)} disabled={plans.length < displayLimit}>
+            Next
+          </Button>
         </Flex>
       )}
     </>
