@@ -2,7 +2,7 @@ import PopulationPanel from '@components/sidebar/PopulationPanel';
 import {MapStore} from '@/app/store/mapStore';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
-import { MetadataPanel } from './MetadataPanel';
+import {MetadataPanel} from './MetadataPanel';
 
 export interface DataPanelSpec {
   title: MapStore['sidebarPanels'][number];

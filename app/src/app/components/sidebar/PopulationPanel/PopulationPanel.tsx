@@ -92,9 +92,14 @@ export const PopulationPanel = () => {
           justify={'between'}
         >
           <Flex justify="end">
-              <IconButton onClick={toggleLockAllAreas} variant="ghost" disabled={access === 'read'} className={`${isEditing ? 'opacity-100' : 'opacity-0'}`}>
-                {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
-              </IconButton>
+            <IconButton
+              onClick={toggleLockAllAreas}
+              variant="ghost"
+              disabled={access === 'read'}
+              className={`${isEditing ? 'opacity-100' : 'opacity-0'}`}
+            >
+              {allAreLocked ? <LockClosedIcon /> : <LockOpen2Icon />}
+            </IconButton>
           </Flex>
           {/* @ts-ignore */}
           {populationData.map((d, i) => (
