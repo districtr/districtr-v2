@@ -1,11 +1,12 @@
 import {create} from 'zustand';
-import {useMapStore} from './mapStore';
+import {MapStore, useMapStore} from './mapStore';
 import {sharePlan} from '../utils/api/mutations/sharePlan';
 
 interface SaveShareStore {
   password: string;
   setPassword: (password: string) => void;
   generateLink: () => Promise<void>;
+  updatePassword: (mapDocument: MapStore['mapDocument'], password: string) => void;
   sharingMode: 'read' | 'edit';
   setSharingMode: (sharingMode: 'read' | 'edit') => void;
 }
@@ -50,6 +51,24 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
         password: password,
         public_id: publicId,
       },
+    });
+  },
+  updatePassword: (mapDocument: MapStore['mapDocument'], password: string) => {
+    const {upsertUserMap} = useMapStore.getState();
+    if (!mapDocument?.document_id) {
+      return;
+    }
+    upsertUserMap({
+      documentId: mapDocument?.document_id,
+      mapDocument: {
+        ...mapDocument,
+        password: password,
+      },
+    });
+    sharePlan.mutate({
+      document_id: mapDocument?.document_id,
+      password: password ?? null,
+      access_type: 'edit',
     });
   },
   sharingMode: 'read',

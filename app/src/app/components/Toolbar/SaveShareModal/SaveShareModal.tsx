@@ -34,8 +34,10 @@ export const SaveShareModal: React.FC<{
     }
   };
 
-  const handleMetadataChange = (updates: Partial<DocumentMetadata>) =>
+  const handleMetadataChange = (updates: Partial<DocumentMetadata>) => {
     setInnerFormState(prev => ({...prev, ...updates}));
+  }
+
   useEffect(() => handleMetadataChange(mapMetadata ?? DEFAULT_MAP_METADATA), [mapMetadata]);
 
   useEffect(() => {
