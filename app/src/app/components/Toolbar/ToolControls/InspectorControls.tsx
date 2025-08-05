@@ -4,6 +4,23 @@ import {demographyCache} from '@utils/demography/demographyCache';
 import {useEffect} from 'react';
 import {Flex, Heading, Button, CheckboxCards, Text} from '@radix-ui/themes';
 import {BrushControls} from '@components/Toolbar/ToolControls/BrushControls';
+import {styled} from '@stitches/react';
+
+const StyledCheckboxCards = styled(CheckboxCards.Root, {
+  display: 'grid',
+  gap: 'var(--space-1)',
+  gridTemplateColumns: 'repeat(1, 1fr)',
+  '@container (min-width: 240px)': {
+    gridTemplateColumns: 'repeat(2, 1fr)',
+  },
+  '@container (min-width: 360px)': {
+    gridTemplateColumns: 'repeat(3, 1fr)',
+  },
+  '@container (min-width: 600px)': {
+    display: 'flex',
+    flexWrap: 'wrap',
+  },
+});
 
 export const InspectorControls = () => {
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
@@ -62,19 +79,15 @@ export const InspectorControls = () => {
           Inspector columns
         </Heading>
         <Flex direction="row" className="" wrap="wrap" gap="1">
-          <CheckboxCards.Root
+          <StyledCheckboxCards
             defaultValue={[]}
             value={activeColumns}
-            columns={{
-              initial: '1',
-              md: '2',
-              lg: '3',
-            }}
             gap="1"
             size="1"
             onValueChange={value => {
               setActiveColumns([...value, ...totalColumn]);
             }}
+            id="inspector-columns"
           >
             {columnList.map(f => (
               <CheckboxCards.Item value={f.column} key={f.column}>
@@ -83,7 +96,7 @@ export const InspectorControls = () => {
                 </Flex>
               </CheckboxCards.Item>
             ))}
-          </CheckboxCards.Root>
+          </StyledCheckboxCards>
         </Flex>
       </Flex>
     </Flex>
