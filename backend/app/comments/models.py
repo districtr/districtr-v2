@@ -73,8 +73,8 @@ class CommenterCreate(BaseModel):
 
 
 class CommenterPublic(CommenterCreate):
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
 class Comment(TimeStampMixin, SQLModel, table=True):
@@ -95,6 +95,7 @@ class Comment(TimeStampMixin, SQLModel, table=True):
         )
     )
     title: str = Field(sa_column=Column(String(255), nullable=False))
+    # TODO: Check with Moon what the right max length is
     comment: str = Field(sa_column=Column(String(5000), nullable=False))
     commenter_id: int = Field(
         sa_column=Column(ForeignKey(Commenter.id), nullable=True, index=True)
@@ -104,12 +105,12 @@ class Comment(TimeStampMixin, SQLModel, table=True):
 class CommentCreate(BaseModel):
     title: str
     comment: str
-    commenter_id: str | None = None
+    commenter_id: int | None = None
 
 
 class CommentPublic(CommentCreate):
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime | None
+    updated_at: datetime | None
 
 
 class Tag(TimeStampMixin, SQLModel, table=True):
@@ -158,3 +159,15 @@ class CommentTag(SQLModel, table=True):
     tag_id: int = Field(
         sa_column=Column(ForeignKey(Tag.id), primary_key=True, nullable=False)
     )
+
+
+class FullCommentForm(BaseModel):
+    comment: CommentCreate
+    commenter: CommenterCreate
+    tags: list[TagCreate]
+
+
+class FullCommentFormResponse(BaseModel):
+    comment: CommentPublic
+    commenter: CommenterPublic
+    tags: list[TagPublic]
