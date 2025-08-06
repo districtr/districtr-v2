@@ -1,8 +1,21 @@
 'use client';
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
 import React from 'react';
-import {Box, Button, Dialog, Flex, Heading, Switch, Text, TextField} from '@radix-ui/themes';
-import {PlanGallery} from './PlanGallery';
+import {
+  Box,
+  Button,
+  CheckboxCards,
+  CheckboxGroup,
+  Dialog,
+  Flex,
+  Heading,
+  Switch,
+  Tabs,
+  Text,
+  TextArea,
+  TextField,
+} from '@radix-ui/themes';
+import {PlanGallery, PlanGalleryProps} from './PlanGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 
 const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
@@ -13,23 +26,24 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
   const description: string | undefined = node.attrs.description || undefined;
   const paginate: string | undefined = node.attrs.paginate || undefined;
   const limit: number | undefined = node.attrs.limit || undefined;
+  const showListView: boolean | undefined = node.attrs.showListView || undefined;
+  const showThumbnails: boolean | undefined = node.attrs.showThumbnails || undefined;
+  const showTitles: boolean | undefined = node.attrs.showTitles || undefined;
+  const showDescriptions: boolean | undefined = node.attrs.showDescriptions || undefined;
+  const showUpdatedAt: boolean | undefined = node.attrs.showUpdatedAt || undefined;
+  const showTags: boolean | undefined = node.attrs.showTags || undefined;
+  const showModule: boolean | undefined = node.attrs.showModule || undefined;
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const handleUpdate = (updates: {
-    ids?: number[];
-    tags?: string[];
-    title?: string;
-    description?: string;
-    paginate?: string;
-    limit?: number;
-  }) => {
+  const handleUpdate = (updates: Partial<PlanGalleryProps>) => {
+    console.log('handleUpdate', updates);
     const newAttrs = {
       ...node.attrs,
       ...updates,
     };
     updateAttributes(newAttrs);
   };
-
+  window.attrs = node.attrs;
   return (
     <NodeViewWrapper className="relative">
       <PlanGallery
@@ -39,6 +53,13 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
         description={description ?? ''}
         paginate={paginate === 'true'}
         limit={limit}
+        showListView={showListView}
+        showThumbnails={showThumbnails}
+        showTitles={showTitles}
+        showDescriptions={showDescriptions}
+        showUpdatedAt={showUpdatedAt}
+        showTags={showTags}
+        showModule={showModule}
       />
       <Box position="absolute" top="2" right="2">
         <Flex direction="column" gap="2">
@@ -51,33 +72,103 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
             <Dialog.Content>
               <Flex direction="column" gapY="4">
                 <Heading as="h4">Editing Plan Gallery</Heading>
-                <TextField.Root
-                  placeholder="Title"
-                  value={title}
-                  onChange={e => handleUpdate({title: e.target.value})}
-                />
-                <TextField.Root
-                  placeholder="Description"
-                  value={description}
-                  onChange={e => handleUpdate({description: e.target.value})}
-                />
-                <Flex direction="row" gap="2">
-                  <Text>Paginate</Text>
-                  <Switch
-                    checked={paginate === 'true'}
-                    onCheckedChange={e => handleUpdate({paginate: e ? 'true' : 'false'})}
+                <Flex direction="column" gap="2">
+                  <Text>Title</Text>
+                  <TextField.Root
+                    placeholder="Title"
+                    value={title}
+                    onChange={e => handleUpdate({title: e.target.value})}
                   />
                 </Flex>
-                <ChipsPlanGalleryNodeView
-                  entries={ids || []}
-                  handleUpdate={handleUpdate}
-                  property="ids"
-                />
-                <ChipsPlanGalleryNodeView
-                  entries={tags || []}
-                  handleUpdate={handleUpdate}
-                  property="tags"
-                />
+                <Flex direction="column" gap="2">
+                  <Text>Description</Text>
+                  <TextArea
+                    placeholder="Description"
+                    value={description}
+                    onChange={e => handleUpdate({description: e.target.value})}
+                  />
+                </Flex>
+                <Flex direction="column" gap="2">
+                  <Text>Display Options</Text>
+                  <CheckboxCards.Root
+                    className="w-full"
+                    columns={{
+                      initial: '2',
+                      md: '3',
+                      lg: '4',
+                    }}
+                    value={[
+                      paginate ? 'paginate' : '',
+                      showListView ? 'showListView' : '',
+                      showThumbnails ? 'showThumbnails' : '',
+                      showTitles ? 'showTitles' : '',
+                      showDescriptions ? 'showDescriptions' : '',
+                      showUpdatedAt ? 'showUpdatedAt' : '',
+                      showTags ? 'showTags' : '',
+                      showModule ? 'showModule' : '',
+                    ]}
+                    onValueChange={value => {
+                      console.log(value, {
+                        paginate: value.includes('paginate'),
+                        showListView: value.includes('showListView'),
+                        showThumbnails: value.includes('showThumbnails'),
+                        showTitles: value.includes('showTitles'),
+                        showDescriptions: value.includes('showDescriptions'),
+                        showUpdatedAt: value.includes('showUpdatedAt'),
+                        showTags: value.includes('showTags'),
+                        showModule: value.includes('showModule'),
+                      });
+                      handleUpdate({
+                        paginate: value.includes('paginate'),
+                        showListView: value.includes('showListView'),
+                        showThumbnails: value.includes('showThumbnails'),
+                        showTitles: value.includes('showTitles'),
+                        showDescriptions: value.includes('showDescriptions'),
+                        showUpdatedAt: value.includes('showUpdatedAt'),
+                        showTags: value.includes('showTags'),
+                        showModule: value.includes('showModule'),
+                      })
+                    }
+                    }
+                  >
+                    <CheckboxCards.Item value="paginate">Paginate Results</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showListView">Show List View</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showThumbnails">Show Thumbnails</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showTitles">Show Titles</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showDescriptions">
+                      Show Descriptions
+                    </CheckboxCards.Item>
+                    <CheckboxCards.Item value="showUpdatedAt">Show Updated At</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showTags">Show Tags</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showModule">Show Module</CheckboxCards.Item>
+                  </CheckboxCards.Root>
+                </Flex>
+
+                <Tabs.Root
+                  defaultValue={!!ids ? 'ids' : 'tags'}
+                  onValueChange={value =>
+                    handleUpdate({[value]: [], [value === 'ids' ? 'tags' : 'ids']: null})
+                  }
+                >
+                  <Tabs.List>
+                    <Tabs.Trigger value="ids">IDs</Tabs.Trigger>
+                    <Tabs.Trigger value="tags">Tags</Tabs.Trigger>
+                  </Tabs.List>
+                  <Tabs.Content value="ids">
+                    <ChipsPlanGalleryNodeView
+                      entries={ids || []}
+                      handleUpdate={handleUpdate}
+                      property="ids"
+                    />
+                  </Tabs.Content>
+                  <Tabs.Content value="tags">
+                    <ChipsPlanGalleryNodeView
+                      entries={tags || []}
+                      handleUpdate={handleUpdate}
+                      property="tags"
+                    />
+                  </Tabs.Content>
+                </Tabs.Root>
               </Flex>
               <Flex direction="row" gap="2">
                 <Button onClick={() => setDialogOpen(false)}>Close</Button>
@@ -97,11 +188,12 @@ const ChipsPlanGalleryNodeView: React.FC<{
   entries: string[] | number[];
   handleUpdate: (updates: {[key: string]: string[] | number[]}) => void;
   property: string;
-}> = ({entries, handleUpdate, property}) => {
+  showTitle?: boolean;
+}> = ({entries, handleUpdate, property, showTitle = false}) => {
   const [text, setText] = React.useState('');
   return (
-    <Flex direction="column" gap="2" pb="4" mb="2" className="border-b border-gray-300">
-      <Text>{property.charAt(0).toUpperCase() + property.slice(1)}</Text>
+    <Flex direction="column" gap="2" py="4" mb="2" className="border-b border-gray-300">
+      {showTitle && <Text>{property.charAt(0).toUpperCase() + property.slice(1)}</Text>}
       <Box>
         {entries?.map((entry, i) => (
           <Button
@@ -121,8 +213,17 @@ const ChipsPlanGalleryNodeView: React.FC<{
           value={text}
           onChange={e => setText(e.target.value)}
         />
-        {/* @ts-expect-error */}
-        <Button onClick={() => handleUpdate({[property]: [...(entries || []), text]})}>Add</Button>
+        <Button
+          onClick={() => {
+            {
+              /* @ts-expect-error */
+            }
+            handleUpdate({[property]: [...(entries || []), text]});
+            setText('');
+          }}
+        >
+          Add
+        </Button>
       </Flex>
     </Flex>
   );

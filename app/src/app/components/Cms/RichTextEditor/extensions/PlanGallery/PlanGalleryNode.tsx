@@ -1,6 +1,7 @@
 import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import PlanGalleryNodeView from './PlanGalleryNodeView';
+import { getStandardHtmlParser } from '../extensionUtils';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -20,50 +21,64 @@ export const PlanGalleryNode = Node.create({
   defining: true,
   isolating: true,
   addAttributes() {
-    return {
-      ids: {
-        default: null,
-        parseHTML: element => {
-          const content = element.getAttribute('ids');
-          return content ? JSON.parse(content) : null;
-        },
+    const attrs: {name: string, default?: any, parseHTML?: (element: Element) => any}[] = [
+      {
+        name: 'ids',
       },
-      tags: {
-        default: null,
-        parseHTML: element => {
-          const content = element.getAttribute('tags');
-          return content ? JSON.parse(content) : null;
-        },
+      {
+        name: 'tags',
       },
-      title: {
-        default: null,
-        parseHTML: element => {
-          const content = element.getAttribute('title');
-          return content ? JSON.parse(content) : null;
-        },
+      {
+        name: 'title',
       },
-      description: {
-        default: null,
-        parseHTML: element => {
-          const content = element.getAttribute('description');
-          return content ? JSON.parse(content) : null;
-        },
+      {
+        name: 'description',
       },
-      paginate: {
-        default: false,
-        parseHTML: element => {
-          const content = element.getAttribute('paginate');
-          return content ? JSON.parse(content) : false;
-        },
+      {
+        name: 'paginate',
+        default: true,
       },
-      limit: {
+      {
+        name: 'showListView',
+        default: true,
+      },
+      {
+        name: 'showThumbnails',
+        default: true,
+      },
+      {
+        name: 'showTitles',
+        default: true,
+      },
+      {
+        name: 'showDescriptions',
+        default: true,
+      },
+      {
+        name: 'showUpdatedAt',
+        default: true,
+      },
+      {
+        name: 'showTags',
+        default: true,
+      },
+      {
+        name: 'showModule',
+        default: true,
+      },
+      {
+        name: 'limit',
         default: 12,
-        parseHTML: element => {
-          const content = element.getAttribute('limit');
-          return content ? JSON.parse(content) : 12;
-        },
       },
-    };
+    ]
+
+    return attrs.reduce((acc, attr) => {
+      acc[attr.name] = {
+        default: attr.default ?? null,
+        parseHTML: attr.parseHTML ?? getStandardHtmlParser(attr.name),
+      }
+      return acc;
+    }, {} as Record<string, any>);
   },
 
   parseHTML() {

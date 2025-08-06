@@ -1,6 +1,7 @@
 import {DOMNode} from 'html-react-parser';
 import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNodeRenderer';
 import {PlanGallery} from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
+import { readBool, readCSV, readNumber } from './DomNodeRendererUtils';
 
 export const domNodeReplacers = (domNode: DOMNode) => {
   if (domNode.type === 'tag' && domNode.attribs?.['data-type']?.length) {
@@ -10,12 +11,19 @@ export const domNodeReplacers = (domNode: DOMNode) => {
         const customContent = data ? JSON.parse(data) : null;
         return <BoilerplateNodeRenderer customContent={customContent} />;
       case 'plan-gallery-node':
-        const ids = domNode.attribs['ids']?.split(',')?.map(Number);
-        const tags = domNode.attribs['tags']?.split(',');
+        const ids = readCSV(domNode.attribs['ids']);
+        const tags = readCSV(domNode.attribs['tags']);
         const title = domNode.attribs['title'];
         const description = domNode.attribs['description'];
-        const paginate = JSON.parse(domNode.attribs['paginate'] ?? 'false');
-        const limit = +(domNode.attribs['limit'] ?? 12);
+        const limit = readNumber(domNode.attribs['limit']);
+        const paginate = readBool(domNode.attribs['paginate']);
+        const showListView = readBool(domNode.attribs['showListView']);
+        const showThumbnails = readBool(domNode.attribs['showThumbnails']);
+        const showTitles = readBool(domNode.attribs['showTitles']);
+        const showDescriptions = readBool(domNode.attribs['showDescriptions']);
+        const showUpdatedAt = readBool(domNode.attribs['showUpdatedAt']);
+        const showTags = readBool(domNode.attribs['showTags']);
+        const showModule = readBool(domNode.attribs['showModule']);
         return (
           <PlanGallery
             ids={ids}
@@ -24,6 +32,13 @@ export const domNodeReplacers = (domNode: DOMNode) => {
             description={description}
             paginate={paginate}
             limit={limit}
+            showListView={showListView}
+            showThumbnails={showThumbnails}
+            showTitles={showTitles}
+            showDescriptions={showDescriptions}
+            showUpdatedAt={showUpdatedAt}
+            showTags={showTags}
+            showModule={showModule}
           />
         );
     }
