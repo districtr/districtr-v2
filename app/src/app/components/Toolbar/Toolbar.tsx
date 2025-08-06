@@ -13,6 +13,7 @@ import {ToolButtons} from './ToolButtons';
 const TOOLBAR_PADDING = 12;
 
 export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = () => {
+  const isEditing = useMapStore(state => state.isEditing);
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -59,7 +60,7 @@ export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = 
     };
   }, []);
 
-  if (!activeTool) return null;
+  if (!isEditing) return null;
   return (
     <>
       <ToolButtons
@@ -73,6 +74,7 @@ export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = 
 };
 
 export const DraggableToolbar = () => {
+  const isEditing = useMapStore(state => state.isEditing);
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const setToolbarLocation = useToolbarStore(state => state.setToolbarLocation);
@@ -138,7 +140,7 @@ export const DraggableToolbar = () => {
 
   useLayoutEffect(handleContainerResize, [rotation, toolbarSize]);
 
-  if (!activeTool) return null;
+  if (!isEditing) return null;
 
   return (
     <Draggable
