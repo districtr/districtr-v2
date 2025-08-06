@@ -309,8 +309,15 @@ For now, @raphaellaude is the only maintainer that can add tilesets to the produ
 
 This app uses Auth0 for user management and authentication needs. This is only for administrator management and CMS purposes.
 
-TODO: Outline scopes.
+The auth0 configuration should have three roles / sets of scopes:
 
+```
+default: 'openid profile email'
+editor: 'openid profile email read:content update:content create:content delete:content'
+admin: 'openid profile email read:content read:read-all update:content update:update-all update:publish create:content delete:content delete:delete-all'
+```
+
+See `.env.docker.example` for expected environment variables.
 
 ### Captcha 
 
