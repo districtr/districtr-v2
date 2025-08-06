@@ -55,7 +55,7 @@ export const InspectorTooltip = () => {
         {totalColumn && (
           <Table.Row className="font-bold bg-gray-900/15">
             <Table.Cell>Total</Table.Cell>
-            <Table.Cell>{formatNumber(inspectorData[totalColumn], standardFormat)}</Table.Cell>
+            <Table.Cell>{formatNumber(inspectorData[totalColumn] ?? 0, standardFormat)}</Table.Cell>
           </Table.Row>
         )}
         {config 
@@ -64,7 +64,7 @@ export const InspectorTooltip = () => {
               <Table.Row key={f.column} className="relative">
                 <Table.Cell>{f.label}</Table.Cell>
                 <Table.Cell>
-                  {formatNumber(inspectorData[f.column + columnSuffix], standardFormat)}
+                  {!isNaN(inspectorData[f.column + columnSuffix]) ? formatNumber(inspectorData[f.column + columnSuffix] ?? 0, standardFormat) : 'No data'}
                 </Table.Cell>
                 {showBars && <span
                   className="bg-gray-900 absolute h-full top-0 left-0"
@@ -72,7 +72,7 @@ export const InspectorTooltip = () => {
                     width:
                       inspectorMode === 'VOTERHISTORY'
                         ? '100%'
-                        : `${inspectorData[f.column + '_pct'] * 100}%`,
+                        : `${(inspectorData[f.column + '_pct'] ?? 0) * 100}%`,
                     opacity: '.15',
                     backgroundColor:
                       inspectorMode === 'VOTERHISTORY' && !isNaN(inspectorData[f.column + '_pct'])
