@@ -95,6 +95,8 @@ def upgrade() -> None:
             ["comments.commenter.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.CheckConstraint("LENGTH(TRIM(title)) > 0", name="title_not_empty"),
+        sa.CheckConstraint("LENGTH(TRIM(comment)) > 0", name="comment_not_empty"),
         schema="comments",
     )
     op.create_index(
@@ -128,6 +130,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("slug", sa.String(length=255), nullable=False),
         sa.PrimaryKeyConstraint("id"),
+        sa.CheckConstraint("LENGTH(slug) > 0", name="slug_not_empty"),
         schema="comments",
     )
     op.create_index(

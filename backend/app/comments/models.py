@@ -1,3 +1,5 @@
+from pydantic import BaseModel, validator
+from datetime import datetime
 from sqlmodel import (
     Field,
     ForeignKey,
@@ -60,8 +62,27 @@ class Commenter(TimeStampMixin, SQLModel, table=True):
     zip_code: str = Field(sa_column=Column(String(255), nullable=True))
 
 
+class CommenterCreate(BaseModel):
+    first_name: str
+    email: str
+    salutation: str | None = None
+    last_name: str | None = None
+    place: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+
+
+class CommenterPublic(CommenterCreate):
+    created_at: datetime
+    updated_at: datetime
+
+
 class Comment(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=COMMENTS_SCHEMA)
+    __table_args__ = (
+        CheckConstraint("LENGTH(TRIM(title)) > 0", name="title_not_empty"),
+        CheckConstraint("LENGTH(TRIM(comment)) > 0", name="comment_not_empty"),
+    )
 
     id: int = Field(
         sa_column=Column(
@@ -75,14 +96,25 @@ class Comment(TimeStampMixin, SQLModel, table=True):
     )
     title: str = Field(sa_column=Column(String(255), nullable=False))
     comment: str = Field(sa_column=Column(String(5000), nullable=False))
-
     commenter_id: int = Field(
         sa_column=Column(ForeignKey(Commenter.id), nullable=True, index=True)
     )
 
 
+class CommentCreate(BaseModel):
+    title: str
+    comment: str
+    commenter_id: str | None = None
+
+
+class CommentPublic(CommentCreate):
+    created_at: datetime
+    updated_at: datetime
+
+
 class Tag(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=COMMENTS_SCHEMA)
+    __table_args__ = (CheckConstraint("LENGTH(slug) > 0", name="slug_not_empty"),)
 
     id: int = Field(
         sa_column=Column(
@@ -97,6 +129,20 @@ class Tag(TimeStampMixin, SQLModel, table=True):
     slug: str = Field(
         sa_column=Column(String(255), nullable=False, unique=True, index=True)
     )
+
+
+class TagCreate(BaseModel):
+    tag: str
+
+    @validator("tag")
+    def validate_tag(cls, value):
+        if not value or value.strip() == "":
+            raise ValueError("Tag cannot be empty")
+        return value
+
+
+class TagPublic(BaseModel):
+    slug: str
 
 
 class CommentTag(SQLModel, table=True):
