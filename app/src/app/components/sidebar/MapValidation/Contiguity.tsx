@@ -20,6 +20,7 @@ export const Contiguity = () => {
       staleTime: 0,
       retry: false,
       placeholderData: previousData => previousData,
+      refetchOnWindowFocus: false,
     },
     queryClient
   );

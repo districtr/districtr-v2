@@ -1,12 +1,12 @@
 'use client';
 import {Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
-import React, {useLayoutEffect, useRef, useState} from 'react';
-import {BrushControls} from '@components/BrushControls';
-import {ZoneLockPicker} from '@/app/components/Toolbar/ZoneLockPicker';
+import React, {useRef} from 'react';
+import {BrushControls} from '@/app/components/Toolbar/ToolControls/BrushControls';
 import {ActiveTool} from '@constants/types';
 import {ExitBlockViewButtons} from '@/app/components/Toolbar/ExitBlockViewButtons';
 import {useToolbarStore} from '@/app/store/toolbarStore';
+import {InspectorControls} from '@components/Toolbar/ToolControls/InspectorControls';
 
 const ToolControlsConfig: Record<
   Partial<ActiveTool>,
@@ -37,6 +37,9 @@ const ToolControlsConfig: Record<
   },
   pin: {
     Component: () => <React.Fragment />,
+  },
+  inspector: {
+    Component: InspectorControls,
   },
 };
 

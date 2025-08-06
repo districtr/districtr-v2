@@ -110,9 +110,6 @@ def test_document_checkout(client, private_document):
             "access_type": share_payload["access_type"],
         },
     )
-    decoded_token = jwt.decode(
-        response.json()["token"], settings.SECRET_KEY, algorithms=["HS256"]
-    )
 
     # chck the document out
     response = client.post(
@@ -120,7 +117,6 @@ def test_document_checkout(client, private_document):
         json={
             "user_id": USER_ID,
             "password": "password",
-            "token": decoded_token["token"],
         },
     )
 
@@ -153,61 +149,80 @@ def test_load_plan_from_public_id_with_password(client, private_document):
     assert response.status_code == 200
 
 
-# def test_checkout_public_document(client, public_document):
-#     document_id = public_document["document_id"]
-#     response = client.post(
-#         f"/api/document/{document_id}/share",
-#         json={"password": "test_password", "access_type": "read"},
-#     )
-#     assert response.status_code == 200
+def test_checkout_public_document(client, public_document):
+    document_id = public_document["document_id"]
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={"password": "test_password", "access_type": "read"},
+    )
+    assert response.status_code == 200
 
-#     # Unlock with correct password
-#     public_id = public_document["public_id"]
-#     response = client.post(
-#         f"/api/document/{public_id}/checkout",
-#         {"password": "test_password", "user_id": "test_user"}
-#     )
-#     assert response.status_code == 200
+    # Unlock with correct password
+    public_id = public_document["public_id"]
+    response = client.post(
+        f"/api/document/{public_id}/checkout",
+        json={"password": "test_password", "user_id": "test_user"},
+    )
+    assert response.status_code == 200
 
-#     data = response.json()
-#     assert data["document_id"] == document_id
-#     assert data["status"] == DocumentEditStatus.unlocked
-#     assert data["access"] == DocumentShareStatus.read
-
-
-# def test_checkout_public_document_with_read_only_access(client, public_document):
-#     document_id = public_document["document_id"]
-#     response = client.post(
-#         f"/api/document/{document_id}/share",
-#         json={"password": "test_password", "access_type": "read"},
-#     )
-#     assert response.status_code == 200
-
-#     # Unlock with wrong password
-#     public_id = public_document["public_id"]
-#     response = client.post(
-#         f"/api/document/{public_id}/checkout",
-#         {"password": "test_password", "user_id": "test_user"}
-#     )
-#     assert response.status_code == 401
-
-#     data = response.json()
-#     assert data["detail"] == "Invalid password"
+    data = response.json()
+    assert data["document_id"] == document_id
+    assert data["status"] == DocumentEditStatus.locked
+    assert data["access"] == DocumentShareStatus.read
 
 
-# def test_checkout_public_document_without_password_protection(client, document_id):
-#     response = client.put(
-#         f"/api/document/{document_id}/metadata",
-#         json={"draft_status": "ready_to_share", "name": "Public Map"},
-#     )
-#     assert response.status_code == 200
+def test_checkout_public_document_with_read_only_access(client, public_document):
+    document_id = public_document["document_id"]
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={"password": "test_password", "access_type": "read"},
+    )
+    assert response.status_code == 200
 
-#     # Try to unlock a document that doesn't need unlocking
-#     response = client.post(
-#         "/api/share/public/1/checkout",
-#         {"password": "any_password", "user_id": "test_user"}
-#     )
-#     assert response.status_code == 400
+    # Unlock with wrong password
+    public_id = public_document["public_id"]
+    response = client.post(
+        f"/api/document/{public_id}/checkout",
+        json={"password": "test_password", "user_id": "test_user"},
+    )
+    assert response.status_code == 200
 
-#     data = response.json()
-#     assert data["detail"] == "This document does not require a password"
+    data = response.json()
+    assert data["status"] == DocumentEditStatus.locked
+    assert data["access"] == DocumentShareStatus.read
+
+
+def test_checkout_public_document_that_has_not_been_shared(client, public_document):
+    # Note: Not hitting share endpoint
+
+    # Try to unlock a document that doesn't need unlocking
+    public_id = public_document["public_id"]
+    response = client.post(
+        f"/api/document/{public_id}/checkout",
+        json={"password": "any_password", "user_id": "test_user"},
+    )
+    assert response.status_code == 404
+
+    data = response.json()
+    assert data["detail"] == "This document has not been shared"
+
+
+def test_checkout_public_document_shared_without_password(client, public_document):
+    document_id = public_document["document_id"]
+    response = client.post(
+        f"/api/document/{document_id}/share",
+        json={"password": None, "access_type": "read"},
+    )
+    assert response.status_code == 200
+
+    # Try to unlock a document that doesn't need unlocking
+    public_id = public_document["public_id"]
+    response = client.post(
+        f"/api/document/{public_id}/checkout",
+        json={"password": "any_password", "user_id": "test_user"},
+    )
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["status"] == DocumentEditStatus.locked
+    assert data["access"] == DocumentShareStatus.read

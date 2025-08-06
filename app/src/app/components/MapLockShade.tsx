@@ -50,9 +50,7 @@ export const MapLockShade: React.FC<{loadingState: LoadingState}> = ({loadingSta
           direction="column"
           align="center"
           justify="center"
-          className={`${loadingState.isFetchingDocument ? 'opacity-100 h-auto p-4' : 'opacity-0 h-0 p-0'} 
-        transition-height delay-500
-        transition-opacity rounded-md shdadow-xl duration-1000 bg-white `}
+          className={`opacity-100 h-auto p-4 transition-height delay-500 transition-opacity rounded-md shdadow-xl duration-1000 bg-white `}
           // 1000ms delay on height transition, 0 duration
         >
           <Text>Loading map metadata...</Text>
@@ -62,9 +60,7 @@ export const MapLockShade: React.FC<{loadingState: LoadingState}> = ({loadingSta
           direction="column"
           align="center"
           justify="center"
-          className={`${loadingState.isFetchingAssignments ? 'opacity-100 h-auto p-4' : 'opacity-0 h-0 p-0'}
-        transition-height delay-500
-        transition-opacity rounded-md shdadow-xl duration-1000 bg-white `}
+          className={`opacity-100 h-auto p-4 transition-height delay-500 transition-opacity rounded-md shdadow-xl duration-1000 bg-white`}
         >
           <Text>Loading district assignments...</Text>
           <RandomProgressBar isLoading={loadingState.isFetchingAssignments} duration="20s" />

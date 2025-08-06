@@ -621,10 +621,11 @@ async def _get_graph(gerrydb_name: str) -> Graph:
 @app.get("/api/document/{document_id}/contiguity")
 async def check_document_contiguity(
     document: Annotated[Document, Depends(get_protected_document)],
-    districtr_map: Annotated[DistrictrMap, Depends(get_districtr_map)],
     zone: list[int] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
+    districtr_map = get_districtr_map(document_id=document.document_id, session=session)
+
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
@@ -673,9 +674,9 @@ async def check_document_contiguity(
 async def get_connected_component_bboxes(
     zone: int,
     document: Annotated[Document, Depends(get_protected_document)],
-    districtr_map: Annotated[DistrictrMap, Depends(get_districtr_map)],
     session: Session = Depends(get_session),
 ):
+    districtr_map = get_districtr_map(document_id=document.document_id, session=session)
     if districtr_map.child_layer is not None:
         logger.info(
             f"Using child layer {districtr_map.child_layer} for document {document.document_id}"
@@ -824,7 +825,7 @@ async def get_projects(
     session: Session = Depends(get_session),
     group: str = Query(default="states"),
     offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=100, le=100),
+    limit: int = Query(default=100, le=1000),
 ):
     gerrydb_views = session.exec(
         select(DistrictrMap)
