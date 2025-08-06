@@ -116,13 +116,13 @@ def generate_thumbnail(
         Path to thumbnail file.
     """
     stmt = text("""
-        SELECT color_scheme, parent_layer, child_layer
+        SELECT color_scheme, parent_layer, child_layer, public_id
         FROM document.document doc
         JOIN districtrmap ON districtrmap.districtr_map_slug = doc.districtr_map_slug
         WHERE document_id = :document_id
     """)
     results = session.execute(stmt, {"document_id": document_id})
-    color_scheme, parent_layer, child_layer = results.one()
+    color_scheme, parent_layer, child_layer, public_id = results.one()
 
     if color_scheme is None or len(color_scheme) == 0:
         color_scheme = DISTRICT_COLORS
@@ -158,15 +158,15 @@ def generate_thumbnail(
     plt.close(geoplt.figure)
     pic_IObytes.seek(0)
 
-    out_file = get_document_thumbnail_file_path(document_id)
+    out_file = get_document_thumbnail_file_path(str(public_id))
     try:
         write_image(out_file, pic_IObytes)
     except (ValueError, S3UploadFailedError) as e:
-        logger.error(f"Could not upload thumbnail for {document_id}")
+        logger.error(f"Could not upload thumbnail for {public_id}")
         raise e
     finally:
         pic_IObytes.close()
-        logger.info(f"Thumbnail uploaded for {document_id}")
+        logger.info(f"Thumbnail uploaded for {public_id}")
 
     return out_file
 
@@ -199,7 +199,10 @@ async def make_thumbnail(
         document_id=document.document_id,
         out_directory=THUMBNAIL_BUCKET,
     )
-    return {"message": "Generating thumbnail in background task"}
+    return {
+        "message": "Generating thumbnail in background task",
+        "public_id": document.public_id,
+    }
 
 
 def generate_blank(

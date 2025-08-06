@@ -12,6 +12,56 @@ from tests.constants import (
     USER_ID,
 )
 from app.utils import create_districtr_map, create_map_group
+from app.core.models import DocumentID
+from pydantic import ValidationError
+
+
+def test_document_id_public_numeric_string():
+    """Test that numeric strings are considered public documents."""
+    doc_id = DocumentID(document_id="123")
+    assert doc_id.is_public is True
+    assert doc_id.value == 123
+
+
+def test_document_id_public_integer_string():
+    """Test that integer strings are considered public documents."""
+    doc_id = DocumentID(document_id="456789")
+    assert doc_id.is_public is True
+    assert doc_id.value == 456789
+
+
+def test_document_id_private_valid_uuid():
+    """Test that valid UUIDs are accepted for private documents."""
+    test_uuid = str(uuid.uuid4())
+    doc_id = DocumentID(document_id=test_uuid)
+    assert doc_id.is_public is False
+    assert doc_id.value == test_uuid
+
+
+def test_document_id_private_uuid_with_hyphens():
+    """Test that standard UUID format with hyphens works."""
+    test_uuid = "550e8400-e29b-41d4-a716-446655440000"
+    doc_id = DocumentID(document_id=test_uuid)
+    assert doc_id.is_public is False
+    assert doc_id.value == test_uuid
+
+
+def test_document_id_private_invalid_uuid():
+    """Test that invalid UUIDs raise ValidationError for private documents."""
+    with pytest.raises(ValidationError) as exc_info:
+        DocumentID(document_id="not-a-valid-uuid")
+
+    error_details = exc_info.value.errors()[0]
+    assert "Private document_id must be a valid UUID" in error_details["msg"]
+
+
+def test_document_id_empty():
+    """Test that invalid UUIDs raise ValidationError for private documents."""
+    with pytest.raises(ValidationError) as exc_info:
+        DocumentID(document_id="")
+
+    error_details = exc_info.value.errors()[0]
+    assert "Private document_id must be a valid UUID" in error_details["msg"]
 
 
 def test_read_main(client):
@@ -652,6 +702,22 @@ def test_update_districtrmap_metadata(client, document_id):
     )
 
     assert response.status_code == 200
+
+
+def test_update_districtrmap_metadata_with_bad_metadata(client, document_id):
+    response = client.put(
+        f"/api/document/{document_id}/metadata",
+        json={
+            "name": "Test Map",  # Good metadata
+            "bad_user": "injecting huge payload",  # Bad metadata
+        },
+    )
+    assert response.status_code == 200
+
+    response = client.get(f"/api/document/{document_id}")
+    assert response.status_code == 200
+    document = response.json()
+    assert "bad_user" not in document["map_metadata"]
 
 
 def test_group_data(client, session: Session):

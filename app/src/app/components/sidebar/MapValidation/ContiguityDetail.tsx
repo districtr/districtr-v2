@@ -42,6 +42,7 @@ export default function ContiguityDetail({
       staleTime: 0,
       retry: false,
       placeholderData: null,
+      refetchOnWindowFocus: false,
     },
     queryClient
   );

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import UUID4, BaseModel
+from pydantic import BaseModel
 from sqlmodel import (
     Field,
     ForeignKey,
@@ -125,7 +125,7 @@ class ParentChildEdges(TimeStampMixin, SQLModel, table=True):
     child_path: str = Field(sa_column=Column(String, nullable=False, primary_key=True))
 
 
-class DistrictrMapMetadata(BaseModel):
+class DocumentMetadata(BaseModel):
     name: str | None = None
     group: str | None = None
     tags: list[str] | None = None
@@ -136,8 +136,17 @@ class DistrictrMapMetadata(BaseModel):
 
 class Document(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
-    document_id: str | None = Field(
-        sa_column=Column(UUIDType, unique=True, primary_key=True)
+    document_id: str = Field(
+        sa_column=Column(UUIDType, unique=True, primary_key=True, nullable=False)
+    )
+    # All documents get a public id by default so we don't need to backfill this number
+    # and the document id can remain the universal unique identifier for documents.
+    # Whether the document can be accessed with the public id should be determined
+    # in the API business logic.
+    public_id: int = Field(
+        sa_column=Column(
+            Integer, nullable=False, unique=True, autoincrement=True, index=True
+        )
     )
     districtr_map_slug: str = Field(
         sa_column=Column(
@@ -150,16 +159,14 @@ class Document(TimeStampMixin, SQLModel, table=True):
     color_scheme: list[str] | None = Field(
         sa_column=Column(ARRAY(String), nullable=True)
     )
-    map_metadata: DistrictrMapMetadata | None = Field(
-        sa_column=Column(JSON, nullable=True)
-    )
+    map_metadata: DocumentMetadata | None = Field(sa_column=Column(JSON, nullable=True))
 
 
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
     user_id: str
-    metadata: Optional[DistrictrMapMetadata] | None = None
-    copy_from_doc: Optional[str] | None = None  # document_id to copy from
+    metadata: Optional[DocumentMetadata] | None = None
+    copy_from_doc: Optional[str | int] | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
@@ -178,7 +185,8 @@ class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
 
 
 class DocumentPublic(BaseModel):
-    document_id: UUID4
+    document_id: str
+    public_id: int | None = None
     districtr_map_slug: str | None
     gerrydb_table: str | None
     parent_layer: str
@@ -188,7 +196,7 @@ class DocumentPublic(BaseModel):
     created_at: datetime
     updated_at: datetime
     extent: list[float] | None = None
-    map_metadata: DistrictrMapMetadata | None
+    map_metadata: DocumentMetadata | None
     status: DocumentEditStatus = (
         DocumentEditStatus.unlocked
     )  # locked, unlocked, checked_out
@@ -224,7 +232,7 @@ class AssignmentsResponse(SQLModel):
     geo_id: str
     zone: int | None
     parent_path: str | None
-    document_id: str
+    # document_id: str
 
 
 class GEOIDS(BaseModel):

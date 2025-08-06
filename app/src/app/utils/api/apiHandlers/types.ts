@@ -47,6 +47,7 @@ export interface DocumentMetadata {
 
 export interface DocumentObject extends StatusObject {
   document_id: string;
+  public_id: number | null;
   districtr_map_slug: string;
   gerrydb_table: string;
   parent_layer: string;
@@ -66,7 +67,7 @@ export interface DocumentCreate {
   districtr_map_slug: string;
   user_id: string | null;
   metadata?: DocumentMetadata;
-  copy_from_doc?: string;
+  copy_from_doc?: string | number;
 }
 
 export interface ZonePopulation {

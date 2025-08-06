@@ -5,7 +5,7 @@ export const getContiguity = async (mapDocument: DocumentObject): Promise<any> =
   if (mapDocument) {
     return await axios
       .get(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.document_id}/contiguity`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/document/${mapDocument.public_id}/contiguity`,
         {}
       )
       .then(res => {
