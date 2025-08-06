@@ -37,7 +37,6 @@ import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
-import {CheckboxGroupIndicator} from '@radix-ui/themes/dist/esm/components/checkbox-group.primitive.js';
 import {extendColorArray} from '../utils/colors';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
@@ -58,6 +57,9 @@ export interface MapStore {
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
   isTemporalAction: boolean;
   setIsTemporalAction: (isTemporal: boolean) => void;
+  // EDITING MODE
+  isEditing: boolean;
+  setIsEditing: (isEditing: boolean) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
   setMapRef: (map: MutableRefObject<MapRef | null>) => void;
@@ -288,17 +290,16 @@ export interface MapStore {
   // SHARE MAP
   passwordPrompt: boolean;
   setPasswordPrompt: (prompt: boolean) => void;
-  handleUnlockWithPassword: (password: string | null) => void;
   password: string | null;
   setPassword: (password: string | null | undefined) => void;
-  receivedShareToken: string | null;
-  setReceivedShareToken: (token: string | null) => void;
   shareMapMessage: string | null;
   setShareMapMessage: (message: string | null) => void;
 }
 
 const initialLoadingState =
-  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('document_id')
+  typeof window !== 'undefined' &&
+  (window.location.pathname.startsWith('/map/') ||
+    window.location.pathname.startsWith('/map/edit/'))
     ? 'loading'
     : 'initializing';
 
@@ -309,6 +310,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setMapRenderingState: mapRenderingState => set({mapRenderingState}),
   isTemporalAction: false,
   setIsTemporalAction: (isTemporalAction: boolean) => set({isTemporalAction}),
+  isEditing: false,
+  setIsEditing: (isEditing: boolean) => set({isEditing}),
   captiveIds: new Set<string>(),
   exitBlockView: (lock: boolean = false) => {
     const {focusFeatures, mapOptions, zoneAssignments, shatterMappings, lockFeatures} = get();
@@ -786,11 +789,13 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   shatterMappings: {},
   upsertUserMap: ({mapDocument, userMapData, userMapDocumentId}) => {
-    let userMaps = [...get().userMaps];
-    const mapViews = get().mapViews.data;
-    if (mapDocument?.document_id && mapViews) {
+    if (!mapDocument?.document_id || mapDocument.access === 'read') return;
+    const {userMaps: _userMaps, mapViews: _mapViews, mapDocument: _mapDocument} = get();
+    let userMaps = [..._userMaps];
+    const mapViewsData = _mapViews.data;
+    if (mapDocument?.document_id && mapViewsData) {
       const documentIndex = userMaps.findIndex(f => f.document_id === mapDocument?.document_id);
-      const documentInfo = mapViews.find(
+      const documentInfo = mapViewsData.find(
         view => view.districtr_map_slug === mapDocument.districtr_map_slug
       );
       if (documentIndex !== -1) {
@@ -808,11 +813,21 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       if (userMapData) {
         userMaps.splice(i, 1, userMapData); // Replace the map at index i with the new data
       } else {
-        const urlParams = new URL(window.location.href).searchParams;
-        urlParams.delete('document_id'); // Remove the document_id parameter
-        window.history.pushState({}, '', window.location.pathname + '?' + urlParams.toString()); // Update the URL without document_id
+        // Navigate to home page when deleting current map
+        window.location.href = '/';
         userMaps.splice(i, 1);
       }
+    }
+    if (_mapDocument?.document_id === mapDocument?.document_id) {
+      set({
+        mapDocument: {
+          ...mapDocument,
+          map_metadata: {
+            ..._mapDocument.map_metadata,
+            ...mapDocument.map_metadata,
+          },
+        },
+      });
     }
     set({
       userMaps,
@@ -1092,36 +1107,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
   password: null,
   setPassword: password => set({password}),
-  handleUnlockWithPassword: password => {
-    const {mapDocument, receivedShareToken} = get();
-    if (!password) {
-      set({
-        errorNotification: {
-          message: 'Please provide a password',
-          severity: 1,
-        },
-      });
-    } else if (mapDocument?.document_id && receivedShareToken?.length) {
-      checkoutDocument
-        .mutate({
-          document_id: mapDocument.document_id,
-          token: receivedShareToken,
-          password,
-        })
-        .then(response => {
-          set({passwordPrompt: false});
-        });
-    } else {
-      set({
-        errorNotification: {
-          message: 'No document ID or share token found',
-          severity: 1,
-        },
-      });
-    }
-  },
-  receivedShareToken: null,
-  setReceivedShareToken: token => set({receivedShareToken: token}),
   shareMapMessage: null,
   setShareMapMessage: message => set({shareMapMessage: message}),
 }));

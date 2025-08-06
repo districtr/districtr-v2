@@ -1,18 +1,19 @@
 'use client';
-import {Box, Flex, IconButton, Tooltip} from '@radix-ui/themes';
+import {Flex, IconButton, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {MoveIcon, PinRightIcon, RotateCounterClockwiseIcon} from '@radix-ui/react-icons';
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {ActiveTool} from '@constants/types';
 import Draggable from 'react-draggable';
 import {ToolbarState, useToolbarStore} from '@/app/store/toolbarStore';
-import {ToolControls} from '@/app/components/Toolbar/ToolControls';
+import {ToolControls} from '@/app/components/Toolbar/ToolControls/ToolControls';
 import {useActiveTools} from '@/app/components/Toolbar/ToolUtils';
 import {ToolButtons} from './ToolButtons';
 
 const TOOLBAR_PADDING = 12;
 
 export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = () => {
+  const isEditing = useMapStore(state => state.isEditing);
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -59,7 +60,7 @@ export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = 
     };
   }, []);
 
-  if (!activeTool) return null;
+  if (!isEditing) return null;
   return (
     <>
       <ToolButtons
@@ -73,6 +74,7 @@ export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = 
 };
 
 export const DraggableToolbar = () => {
+  const isEditing = useMapStore(state => state.isEditing);
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
   const setToolbarLocation = useToolbarStore(state => state.setToolbarLocation);
@@ -138,7 +140,7 @@ export const DraggableToolbar = () => {
 
   useLayoutEffect(handleContainerResize, [rotation, toolbarSize]);
 
-  if (!activeTool) return null;
+  if (!isEditing) return null;
 
   return (
     <Draggable

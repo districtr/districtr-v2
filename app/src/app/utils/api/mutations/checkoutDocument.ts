@@ -21,10 +21,8 @@ export const checkoutDocument = new MutationObserver(queryClient, {
       access: data.access,
       status: data.status,
     });
-    const documentUrl = new URL(window.location.toString());
-    documentUrl.searchParams.delete('share'); // remove share + token from url
-    documentUrl.searchParams.set('document_id', mapDocument?.document_id);
-    history.pushState({}, '', documentUrl.toString());
+    // Navigate to edit mode after checkout
+    window.location.href = `/map/edit/${mapDocument?.document_id}`;
   },
   onError: error => {
     const errorData = (error as AxiosError)?.response?.data as AxiosErrorData;

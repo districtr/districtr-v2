@@ -2,7 +2,7 @@ import {post} from '../factory';
 import {ClientSession} from '@/app/lib/auth0';
 
 export const generateThumbnail = async (documentId: string, session: ClientSession) => {
-  const response = await post<{documentId: string}, {message: string}>(
+  const response = await post<{documentId: string}, {message: string; public_id: number}>(
     `document/${documentId}/thumbnail`
   )({
     body: {

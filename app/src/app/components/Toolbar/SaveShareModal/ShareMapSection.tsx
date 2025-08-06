@@ -11,8 +11,8 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
   const setPassword = useSaveShareStore(state => state.setPassword);
   const sharingMode = useSaveShareStore(state => state.sharingMode);
   const setSharingMode = useSaveShareStore(state => state.setSharingMode);
-
-  const upsertUserMap = useMapStore(state => state.upsertUserMap);
+  const updatePassword = useSaveShareStore(state => state.updatePassword);
+  const handleSetPassword = (password: string) => updatePassword(mapDocument, password);
   const userMap = useMapStore(state =>
     state.userMaps.find(map => map.document_id === state.mapDocument?.document_id)
   );
@@ -31,14 +31,6 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
     return null;
   }
 
-  const handleSetPassword = (password: string) =>
-    upsertUserMap({
-      documentId: mapDocument?.document_id,
-      mapDocument: {
-        ...mapDocument,
-        password: password,
-      },
-    });
 
   return (
     <Flex direction="column" gap="2">

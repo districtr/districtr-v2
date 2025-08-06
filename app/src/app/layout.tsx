@@ -1,7 +1,6 @@
 import type {Metadata} from 'next';
 import {Nunito} from 'next/font/google';
 import {Theme} from '@radix-ui/themes';
-import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
 import {FeedbackForm} from './components/FeedbackForm';
 import '@radix-ui/themes/styles.css';
 import './globals.css';
@@ -12,6 +11,14 @@ const nunito = Nunito({
   style: ['normal', 'italic'],
   display: 'swap',
 });
+
+const DISTRICTR_LOGO = [
+  {
+    url: 'https://districtr-v2-frontend.fly.dev/_next/image?url=%2Fdistrictr_logo.jpg&w=1920&q=75',
+    width: 1136,
+    height: 423,
+  },
+];
 
 export const metadata: Metadata = {
   title: 'Districtr 2.0',

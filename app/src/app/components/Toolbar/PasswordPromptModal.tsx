@@ -1,30 +1,48 @@
 import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {Button, Flex, Text, Dialog, Box, TextField} from '@radix-ui/themes';
-import {sharedDocument} from '@/app/utils/api/mutations';
-import {useShareJwt} from '@/app/hooks/useShareJwt';
+import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '@radix-ui/themes';
+import {useRouter, useSearchParams} from 'next/navigation';
+import {getLoadPlanFromShare} from '@/app/utils/api/apiHandlers/getLoadPlanFromPublicId';
 
 export const PasswordPromptModal = () => {
-  const passwordRequired = useMapStore(store => store.passwordPrompt);
-  const [dialogOpen, setDialogOpen] = React.useState(passwordRequired);
+  const router = useRouter();
+  const pwRequired = useSearchParams().get('pw');
+  const [dialogOpen, setDialogOpen] = React.useState(Boolean(pwRequired));
   const [password, setPassword] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const shareMapMessage = useMapStore(store => store.shareMapMessage);
-  const receivedShareToken = useMapStore(store => store.receivedShareToken ?? '');
-  const shareToken = useShareJwt();
+  const mapDocument = useMapStore(store => store.mapDocument);
 
   useEffect(() => {
-    setDialogOpen(passwordRequired);
-  }, [passwordRequired]);
+    setDialogOpen(Boolean(pwRequired));
+  }, [pwRequired]);
 
-  const handleProceed = (editAccess: boolean) => {
-    shareToken &&
-      sharedDocument.mutate({
-        token: receivedShareToken,
-        password: password,
-        access: editAccess ? shareToken.access : 'read',
-        status: null,
-      });
+  const handleProceed = async (editAccess: boolean) => {
+    if (!editAccess) {
+      // remove pw from url
+      router.replace(window.location.pathname);
+    } else if (mapDocument?.public_id) {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await getLoadPlanFromShare({
+          password: password,
+          mapDocument: mapDocument,
+        });
+        if (res?.data?.document_id && res.document_id !== mapDocument?.document_id) {
+          // go to map/edit/res.document_id
+          router.push(`/map/edit/${res.data.document_id}`);
+        } else if (res?.response?.data?.detail) {
+          setError(res.response.data.detail);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
   };
 
   return (
@@ -49,7 +67,7 @@ export const PasswordPromptModal = () => {
             <Cross2Icon />
           </Dialog.Close>
         </Flex>
-        <Box p="3">
+        <Box p="3" className={isLoading ? 'opacity-50 pointer-events-none' : ''}>
           <Text size="2" weight="bold">
             This plan is password protected.{' '}
           </Text>
@@ -68,6 +86,8 @@ export const PasswordPromptModal = () => {
           </Flex>
           <Text>{shareMapMessage ?? ''}</Text>
         </Box>
+        {isLoading && <Progress className="m-4" duration="20s" />}
+        {error && <Blockquote color="red">{error}</Blockquote>}
       </Dialog.Content>
     </Dialog.Root>
   );

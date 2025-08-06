@@ -7,7 +7,7 @@ import {QueryClientProvider} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {ErrorNotification} from '@components/ErrorNotification';
 import {DraggableToolbar} from '@components/Toolbar/Toolbar';
-import {MapTooltip} from '@components/MapTooltip';
+import {MapTooltip} from '@components/Map/Tooltip/MapTooltip';
 import {MapLockShade} from '@components/MapLockShade';
 import {Topbar} from '@/app/components/Topbar/Topbar';
 import {Flex} from '@radix-ui/themes';
@@ -16,7 +16,12 @@ import {initSubs} from '@store/subscriptions';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEvents';
 
-export default function MapPage() {
+interface MapPageProps {
+  isEditing: boolean;
+  mapId: string;
+}
+
+function ChildMapPage({isEditing, mapId}: MapPageProps) {
   const showDemographicMap = useMapStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
@@ -24,8 +29,18 @@ export default function MapPage() {
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
+  const setIsEditing = useMapStore(state => state.setIsEditing);
 
-  useMapBrowserEvents();
+  const loadingState = useMapBrowserEvents({
+    mapId,
+    isEditing,
+  });
+
+  // Set editing mode based on the route
+  useEffect(() => {
+    setIsEditing(isEditing);
+  }, [isEditing, setIsEditing]);
+
   useEffect(() => {
     !userID && setUserID();
   }, [userID, setUserID]);
@@ -33,30 +48,35 @@ export default function MapPage() {
   useEffect(() => {
     const unsub = initSubs();
     return () => {
+      console.log('unsubscribing');
       unsub();
     };
   }, []);
 
+  return (
+    <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
+      <SidebarComponent />
+      <div className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}>
+        <Topbar />
+        <Flex direction="row" height="100%">
+          <MapComponent />
+          {showDemographicMap && <MapComponent isDemographicMap />}
+        </Flex>
+        {toolbarLocation === 'map' && <DraggableToolbar />}
+        {!!mapId && <MapLockShade loadingState={loadingState} />}
+        <MapTooltip />
+      </div>
+      <MapContextMenu />
+      <ErrorNotification />
+    </div>
+  );
+}
+
+export default function MapPage({isEditing, mapId}: MapPageProps) {
   if (queryClient) {
     return (
       <QueryClientProvider client={queryClient}>
-        <div className="h-screen w-screen overflow-hidden flex justify-between p flex-col-reverse lg:flex-row-reverse landscape:flex-row-reverse">
-          <SidebarComponent />
-          <div
-            className={`h-full relative w-full flex-1 flex flex-col lg:h-screen landscape:h-screen`}
-          >
-            <Topbar />
-            <Flex direction="row" height="100%">
-              <MapComponent />
-              {showDemographicMap && <MapComponent isDemographicMap />}
-            </Flex>
-            {toolbarLocation === 'map' && <DraggableToolbar />}
-            <MapLockShade />
-            <MapTooltip />
-          </div>
-          <MapContextMenu />
-          <ErrorNotification />
-        </div>
+        <ChildMapPage isEditing={isEditing} mapId={mapId} />
       </QueryClientProvider>
     );
   }

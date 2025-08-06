@@ -46,6 +46,7 @@ export const usePointData = (child?: boolean) => {
       child ? JSON.stringify(Array.from(exposedChildIds)) : undefined,
     ],
     queryFn: () => layer && updateData(layer, Boolean(child), exposedChildIds, data),
+    refetchOnWindowFocus: false,
   });
   return data;
 };

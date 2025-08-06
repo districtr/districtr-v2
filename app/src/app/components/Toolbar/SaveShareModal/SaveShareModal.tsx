@@ -1,7 +1,7 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
 import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
-import {Box, Button, Dialog, Flex, Heading, Text} from '@radix-ui/themes';
+import {Button, Dialog, Flex, Heading, Text} from '@radix-ui/themes';
 import {useEffect, useState} from 'react';
 import {MapDetailsSection} from './MapDetailsSection';
 import {ShareMapSection} from './ShareMapSection';
@@ -9,13 +9,14 @@ import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {Link1Icon} from '@radix-ui/react-icons';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
+import {useRouter} from 'next/navigation';
 
 export const SaveShareModal: React.FC<{
   open: boolean;
   onClose: () => void;
 }> = ({open, onClose}) => {
-  const mapDocument = useMapStore(state => state.mapDocument);
-  const mapMetadata = useMapMetadata(mapDocument?.document_id);
+  const router = useRouter();
+  const mapMetadata = useMapMetadata();
   const [innerFormState, setInnerFormState] = useState<DocumentMetadata>(
     mapMetadata ?? DEFAULT_MAP_METADATA
   );
@@ -23,12 +24,22 @@ export const SaveShareModal: React.FC<{
   const isEditing = useMapStore(
     state => state.mapDocument?.access === 'edit' && state.mapDocument?.status === 'checked_out'
   );
-
   const generateLink = useSaveShareStore(state => state.generateLink);
-  const handleMetadataChange = (updates: Partial<DocumentMetadata>) =>
+
+  const handleSave = async () => {
+    const newMapDocument = await saveMap({...mapMetadata, ...innerFormState});
+    if (newMapDocument) {
+      router.push(`/map/edit/${newMapDocument.document_id}`);
+      onClose();
+    }
+  };
+
+  const handleMetadataChange = (updates: Partial<DocumentMetadata>) => {
     setInnerFormState(prev => ({...prev, ...updates}));
-  const handleSave = () => saveMap({...mapMetadata, ...innerFormState}).then(_ => onClose());
+  }
+
   useEffect(() => handleMetadataChange(mapMetadata ?? DEFAULT_MAP_METADATA), [mapMetadata]);
+
   useEffect(() => {
     if (linkCopied) {
       setTimeout(() => setLinkCopied(false), 2000);
@@ -38,6 +49,12 @@ export const SaveShareModal: React.FC<{
   return (
     <Dialog.Root open={open} onOpenChange={onClose}>
       <Dialog.Content>
+        <Dialog.Title>Map Details</Dialog.Title>
+        {/* Hidden description for screen readers */}
+        <Dialog.Description className="invisible h-0 overflow-hidden">
+          A dialog menu to update the map name, status (scratch work, in progress, or ready to
+          share), advanced map details, and share link.
+        </Dialog.Description>
         <Flex direction="column" gap="2">
           <MapDetailsSection
             mapMetadata={innerFormState}

@@ -42,7 +42,7 @@ export default function CmsHome() {
       setTimeout(() => {
         setResponse('');
       }, 15000);
-      setThumbnails(prev => [...prev, textValue]);
+      setThumbnails(prev => [...prev, response.response.public_id.toString()]);
     } else {
       setResponse(`Error generating thumbnail: ${response.error}`);
     }
