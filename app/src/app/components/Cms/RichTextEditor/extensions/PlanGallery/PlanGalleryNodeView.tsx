@@ -36,14 +36,13 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const handleUpdate = (updates: Partial<PlanGalleryProps>) => {
-    console.log('handleUpdate', updates);
     const newAttrs = {
       ...node.attrs,
       ...updates,
     };
     updateAttributes(newAttrs);
   };
-  window.attrs = node.attrs;
+
   return (
     <NodeViewWrapper className="relative">
       <PlanGallery
@@ -108,16 +107,6 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                       showModule ? 'showModule' : '',
                     ]}
                     onValueChange={value => {
-                      console.log(value, {
-                        paginate: value.includes('paginate'),
-                        showListView: value.includes('showListView'),
-                        showThumbnails: value.includes('showThumbnails'),
-                        showTitles: value.includes('showTitles'),
-                        showDescriptions: value.includes('showDescriptions'),
-                        showUpdatedAt: value.includes('showUpdatedAt'),
-                        showTags: value.includes('showTags'),
-                        showModule: value.includes('showModule'),
-                      });
                       handleUpdate({
                         paginate: value.includes('paginate'),
                         showListView: value.includes('showListView'),
@@ -215,9 +204,7 @@ const ChipsPlanGalleryNodeView: React.FC<{
         />
         <Button
           onClick={() => {
-            {
-              /* @ts-expect-error */
-            }
+            // @ts-expect-error
             handleUpdate({[property]: [...(entries || []), text]});
             setText('');
           }}
