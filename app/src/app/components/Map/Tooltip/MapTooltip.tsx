@@ -1,13 +1,16 @@
 'use client';
 import {Box, Popover, Text} from '@radix-ui/themes';
-import {useMapStore} from '../store/mapStore';
-import {formatNumber} from '../utils/numbers';
-import {useTooltipStore} from '../store/tooltipStore';
+import {useMapStore} from '@store/mapStore';
+import {formatNumber} from '@utils/numbers';
+import {useTooltipStore} from '@store/tooltipStore';
+import {InspectorTooltip} from '@components/Map/Tooltip/InspectorTooltip';
 
 export const MapTooltip = () => {
   const tooltip = useTooltipStore(state => state.tooltip);
-  const showPopulationTooltip = useMapStore(state => state.mapOptions.showPopulationTooltip);
-  if (!showPopulationTooltip || !tooltip) return null;
+  const activeTool = useMapStore(state => state.activeTool);
+  const isInspectorMode = activeTool === 'inspector';
+  if (!tooltip) return null;
+  if (!tooltip?.data?.length && !isInspectorMode) return null;
 
   return (
     <Popover.Root open={true}>
@@ -29,6 +32,7 @@ export const MapTooltip = () => {
                 : entry.value}
             </Text>
           ))}
+          {isInspectorMode && <InspectorTooltip />}
         </Box>
       </Popover.Content>
     </Popover.Root>
