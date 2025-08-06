@@ -11,7 +11,7 @@ export const domNodeReplacers = (domNode: DOMNode) => {
         const customContent = data ? JSON.parse(data) : null;
         return <BoilerplateNodeRenderer customContent={customContent} />;
       case 'plan-gallery-node':
-        const ids = readCSV(domNode.attribs['ids']);
+        const ids = readCSV(domNode.attribs['ids'])?.map(Number);
         const tags = readCSV(domNode.attribs['tags']);
         const title = domNode.attribs['title'];
         const description = domNode.attribs['description'];
