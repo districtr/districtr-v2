@@ -63,6 +63,13 @@ export interface DocumentObject extends StatusObject {
   map_type: 'default' | 'local';
 }
 
+export interface MinPublicDocument {
+  public_id: number;
+  map_metadata: DocumentMetadata;
+  map_module: string;
+  updated_at: string;
+}
+
 export interface DocumentCreate {
   districtr_map_slug: string;
   user_id: string | null;

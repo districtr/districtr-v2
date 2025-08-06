@@ -71,7 +71,7 @@ export const ContentEditor: React.FC = () => {
             Title *
           </Text>
           <TextField.Root
-            value={formData?.content.title}
+            value={formData?.content?.title}
             onChange={e => handleChange('title')(e.target.value)}
             placeholder="Page Title"
           />

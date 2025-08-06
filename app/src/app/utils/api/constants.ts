@@ -6,6 +6,7 @@ export const API_URL =
 export const FE_UNLOCK_DELAY = 30 * 1000;
 
 export const TILESET_URL = process.env.NEXT_PUBLIC_S3_BUCKET_URL;
+export const CDN_URL = TILESET_URL;
 export const GEODATA_URL =
   process.env.NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1 ?? process.env.NEXT_PUBLIC_S3_BUCKET_URL;
 export const PARQUET_URL =
