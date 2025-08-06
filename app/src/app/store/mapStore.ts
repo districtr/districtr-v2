@@ -267,7 +267,7 @@ export interface MapStore {
   setUserID: () => void;
 
   // USER MAPS / RECENT MAPS
-  userMaps: Array<DocumentObject & {name?: string}>;
+  userMaps: Array<DocumentObject & {name?: string; map_module?: string}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
   upsertUserMap: (props: {
     documentId?: string;
