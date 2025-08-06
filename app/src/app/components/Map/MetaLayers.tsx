@@ -1,17 +1,26 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
+import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
+import {useTooltipStore} from '@/app/store/tooltipStore';
+import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
+import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
-import {Source, Layer} from 'react-map-gl/maplibre';
+import {Source, Layer, Marker, MarkerDragEvent, Popup} from 'react-map-gl/maplibre';
+import {Box} from '@radix-ui/themes';
+import {Pin} from '../Topbar/Icons';
+import {Offset} from 'maplibre-gl';
+import {LocationComment} from '@/app/utils/api/apiHandlers/types';
 
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
     <>
       {!isDemographicMap && <ZoneNumbersLayer />}
       <PopulationTextLayer />
+      <PinCommentsLayer />
     </>
   );
 };
@@ -270,5 +279,82 @@ const ZoneNumbersLayer = () => {
         }
       ></Layer>
     </Source>
+  );
+};
+
+const PinCommentsLayer = () => {
+  const mapMetadata = useMapMetadata();
+  const showPinComments = useMapStore(state => state.mapOptions.showPinComments);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
+  const [popupIndex, setPopupIndex] = useState<number | null>(null);
+  const isEditing = useMapStore(state => state.isEditing);
+  const popupContent =
+    popupIndex !== null && mapMetadata?.comments?.[popupIndex]?.type === 'location'
+      ? (mapMetadata?.comments?.[popupIndex] as LocationComment)
+      : null;
+
+  const handleDrag = async (e: MarkerDragEvent, index: number) => {
+    let comments = [...(mapMetadata?.comments || [])];
+    comments[index] = {
+      ...comments[index],
+      lng: e.lngLat.lng,
+      lat: e.lngLat.lat,
+      type: 'location',
+    };
+    try {
+      const r = await saveMap({
+        ...(mapMetadata || DEFAULT_MAP_METADATA),
+        comments,
+      });
+    } catch (e) {
+      setErrorNotification({
+        message: 'Error saving map metadata or comment.',
+        severity: 3,
+      });
+      console.error(e);
+    }
+  };
+
+  if (!mapMetadata?.comments?.filter(c => c.type === 'location')?.length || !showPinComments) {
+    return null;
+  }
+
+  return (
+    <>
+      {mapMetadata?.comments?.map((_comment, index) => {
+        if (_comment.type === 'location') {
+          const comment = _comment as LocationComment;
+          return (
+            <Marker
+              key={index}
+              longitude={comment.lng}
+              latitude={comment.lat}
+              anchor="center"
+              draggable={isEditing}
+              onDragEnd={e => handleDrag(e, index)}
+              onClick={() => {
+                setPopupIndex(index);
+              }}
+            >
+              <Pin size="size-8" />
+            </Marker>
+          );
+        } else {
+          return null;
+        }
+      })}
+      {popupContent?.lng !== undefined && (
+        <Popup
+          anchor="bottom"
+          offset={[0, -30] as Offset}
+          longitude={popupContent.lng}
+          latitude={popupContent.lat}
+          closeOnMove={false}
+          closeOnClick={false}
+        >
+          <Box className="flex flex-col gap-2 p-4 z-[999]">{popupContent.comment}</Box>
+        </Popup>
+      )}
+    </>
   );
 };

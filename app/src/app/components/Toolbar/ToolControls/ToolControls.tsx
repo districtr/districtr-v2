@@ -35,6 +35,9 @@ const ToolControlsConfig: Record<
       }
     },
   },
+  pin: {
+    Component: () => <React.Fragment />,
+  },
   inspector: {
     Component: InspectorControls,
   },

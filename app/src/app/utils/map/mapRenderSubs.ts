@@ -158,6 +158,10 @@ export class MapRenderSubscriber {
         cursor = 'url(/break.png) 12 12, pointer';
         this.useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
         break;
+      case 'pin':
+        // crosshair
+        cursor = 'crosshair';
+        break;
       default:
         cursor = '';
     }

@@ -221,7 +221,9 @@ export interface MapStore {
   focusFeatures: Array<MapFeatureInfo>;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapStore['mapOptions']>) => void;
-  sidebarPanels: Array<'layers' | 'population' | 'demography' | 'election' | 'mapValidation'>;
+  sidebarPanels: Array<
+    'layers' | 'population' | 'demography' | 'election' | 'mapValidation' | 'metadata'
+  >;
   setSidebarPanels: (panels: MapStore['sidebarPanels']) => void;
   // HIGHLIGHT
   activeTool: ActiveTool;
@@ -923,6 +925,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     showPaintedDistricts: true,
     showZoneNumbers: true,
     overlayOpacity: OVERLAY_OPACITY,
+    showPinComments: true,
   },
   setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
   sidebarPanels: ['population'],
@@ -1084,6 +1087,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     eventId: null,
     group: null,
     draft_status: null,
+    comments: [],
   },
   updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
     set(state => {
