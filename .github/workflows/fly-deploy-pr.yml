@@ -144,8 +144,8 @@ jobs:
                   flyctl launch \
                   --no-deploy --copy-config --name "${{ github.event.repository.name }}-${{ github.event.number }}-app" \
                   --build-arg NEXT_PUBLIC_API_URL="https://${{ github.event.repository.name }}-${{ github.event.number }}-api.fly.dev" \
-                  --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
-                  --build-arg NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
+                  --build-arg NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org \
+                  --build-arg NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org \
                   --build-arg NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2=https://tilesets3.cdn.districtr.org
             
                   echo "App $app launched successfully."

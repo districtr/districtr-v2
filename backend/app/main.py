@@ -35,9 +35,10 @@ from app.core.dependencies import (
 )
 from app.core.models import DocumentID
 from app.core.config import settings
-import app.contiguity.main as contiguity
-import app.cms.main as cms
 import app.exports.main as exports
+import app.cms.main as cms
+import app.comments.main as comments
+import app.contiguity.main as contiguity
 import app.save_share.main as save_share
 import app.thumbnails.main as thumbnails
 from networkx import Graph, connected_components
@@ -101,8 +102,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.include_router(cms.router)
 app.include_router(exports.router)
+app.include_router(cms.router)
+app.include_router(comments.router)
 app.include_router(save_share.router)
 app.include_router(thumbnails.router)
 
