@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 from pydantic import BaseModel
 from sqlmodel import (
     Field,
@@ -165,8 +164,8 @@ class Document(TimeStampMixin, SQLModel, table=True):
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
     user_id: str
-    metadata: Optional[DocumentMetadata] | None = None
-    copy_from_doc: Optional[str | int] | None = None  # document_id to copy from
+    metadata: DocumentMetadata | None = None
+    copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
 
 

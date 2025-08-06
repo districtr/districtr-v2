@@ -13,6 +13,7 @@ from app.core.models import SQLModel
 from app.models import Document, MapDocumentUserSession, Assignments
 from app.cms.models import TagsCMSContent, PlacesCMSContent
 from app.save_share.models import MapDocumentToken
+from app.comments.models import Comment, Commenter, Tag, CommentTag
 
 dotenv.load_dotenv()
 
@@ -35,6 +36,10 @@ tables = [
     MapDocumentToken,
     PlacesCMSContent,
     TagsCMSContent,
+    Comment,
+    Commenter,
+    Tag,
+    CommentTag,
 ]
 
 target_metadata = [SQLModel.metadata]
