@@ -20,7 +20,9 @@ import {
   UnderlineIcon,
   InfoCircledIcon,
   ColumnsIcon,
+  HeadingIcon,
 } from '@radix-ui/react-icons';
+import SectionHeaderNode from '../components/Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
 
 export const useCmsEditorConfig = (content: string | object, onChange: (json: object) => void) => {
   const editor = useEditor({
@@ -40,6 +42,7 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
       }),
       BoilerplateNode,
       PlanGalleryNode,
+      SectionHeaderNode,
     ],
     content: typeof content === 'string' ? content : content,
     onUpdate: ({editor}) => {
@@ -201,6 +204,14 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         editor.chain().focus().setPlanGallery().run();
       },
       active: () => editor.isActive('planGalleryNode'),
+    },
+    {
+      title: 'Insert Section Header',
+      icon: HeadingIcon,
+      onClick: () => {
+        editor.chain().focus().setSectionHeader().run();
+      },
+      active: () => editor.isActive('sectionHeaderNode'),
     },
   ];
 
