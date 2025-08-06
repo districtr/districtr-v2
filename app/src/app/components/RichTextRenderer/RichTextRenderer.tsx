@@ -9,6 +9,7 @@ import Image from '@tiptap/extension-image';
 import BoilerplateNode from '../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNode';
 import parse from 'html-react-parser';
 import {domNodeReplacers} from './CustomRenderers/DomNodeRenderers';
+import SectionHeaderNode from '../Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
 
 interface RichTextRendererProps {
   content: string | object;
@@ -27,6 +28,7 @@ const extensions = [
   }),
   Image,
   BoilerplateNode,
+  SectionHeaderNode,
 ];
 
 const RichTextRenderer: React.FC<RichTextRendererProps> = ({content, className = ''}) => {
