@@ -29,6 +29,9 @@ def get_document(
     document_id: DocumentID = Depends(parse_document_id),
     session: Session = Depends(get_session),
 ) -> Document:
+    """
+    Get a document by the private ID.
+    """
     try:
         document = session.exec(
             select(Document).where(Document.document_id == document_id.value)
@@ -81,6 +84,9 @@ def get_document_public(
     shared: bool = False,
     lock_status: DocumentEditStatus | None = None,
 ) -> DocumentPublic:
+    """
+    Get a document by the public or private ID.
+    """
     access_type = DocumentShareStatus.read
     # Store if lock_status was explicitly provided
     lock_status_provided = lock_status is not None

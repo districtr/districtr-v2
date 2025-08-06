@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text
 import logging
 
+from app.core.dependencies import get_protected_document
 from app.core.db import get_session
 from app.comments.models import (
     Commenter,
@@ -24,7 +25,9 @@ from app.comments.models import (
     CommentTag,
     FullCommentForm,
     FullCommentFormResponse,
+    DocumentComment,
 )
+from app.core.models import DocumentID
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -65,6 +68,14 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
     session.add(comment)
     session.commit()
     session.refresh(comment)
+
+    if comment_data.document_id is not None:
+        create_document_comment(
+            comment_id=comment.id,
+            document_id=comment_data.document_id,
+            session=session,
+        )
+
     return comment
 
 
@@ -103,6 +114,23 @@ def create_comment_tag_associations(
     session.execute(stmt)
 
 
+def create_document_comment(
+    comment_id: int, document_id: str, session: Session
+) -> None:
+    """
+    Create a document comment.
+    """
+    document = get_protected_document(
+        document_id=DocumentID(document_id=document_id), session=session
+    )
+
+    stmt = insert(DocumentComment).values(
+        comment_id=comment_id, document_id=document.document_id
+    )
+    session.execute(stmt)
+    session.commit()
+
+
 def create_full_comment_submission(
     form_data: FullCommentForm, session: Session
 ) -> FullCommentFormResponse:
@@ -114,11 +142,8 @@ def create_full_comment_submission(
     """
     commenter = create_commenter_db(form_data.commenter, session)
 
-    comment_data = Comment(
-        **form_data.comment.model_dump(exclude_unset=True), commenter_id=commenter.id
-    )
-    session.add(comment_data)
-    session.flush()  # Get the ID without committing
+    form_data.comment.commenter_id = commenter.id
+    comment = create_comment_db(form_data.comment, session)
 
     # TODO: Do this as a batch upsert
     created_tags = []
@@ -128,13 +153,13 @@ def create_full_comment_submission(
         created_tags.append(tag)
         tag_ids.append(tag.id)
 
-    create_comment_tag_associations(comment_data.id, tag_ids, session)
+    create_comment_tag_associations(comment.id, tag_ids, session)
 
     session.commit()
-    session.refresh(comment_data)
+    session.refresh(comment)
 
     response = FullCommentFormResponse(
-        comment=CommentPublic(**comment_data.model_dump()),
+        comment=CommentPublic(**comment.model_dump()),
         # TODO: for some reason, CommenterPublic wasn't happy with model dump
         # To investigate
         commenter=CommenterPublic(

@@ -14,6 +14,7 @@ from sqlmodel import (
 from sqlalchemy import func
 from app.constants import COMMENTS_SCHEMA
 from app.core.models import TimeStampMixin, SQLModel
+from app.models import Document
 
 
 class Commenter(TimeStampMixin, SQLModel, table=True):
@@ -106,6 +107,7 @@ class CommentCreate(BaseModel):
     title: str
     comment: str
     commenter_id: int | None = None
+    document_id: str | None = None
 
 
 class CommentPublic(CommentCreate):
@@ -158,6 +160,27 @@ class CommentTag(SQLModel, table=True):
     )
     tag_id: int = Field(
         sa_column=Column(ForeignKey(Tag.id), primary_key=True, nullable=False)
+    )
+
+
+class DocumentComment(SQLModel, table=True):
+    metadata = MetaData(schema=COMMENTS_SCHEMA)
+    __tablename__ = "document_comment"  # type: ignore
+
+    # Unique is True because a single comment should not apply to multiple documents.
+    # This does not prevent the document from having many comments.
+    comment_id: int = Field(
+        sa_column=Column(
+            ForeignKey(Comment.id),  # type: ignore
+            primary_key=True,
+            nullable=False,
+            unique=True,
+        )
+    )
+    document_id: str = Field(
+        sa_column=Column(
+            ForeignKey(Document.document_id), primary_key=False, nullable=False
+        )
     )
 
 

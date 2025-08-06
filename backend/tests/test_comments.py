@@ -1,5 +1,5 @@
 from sqlmodel import Session, select
-from app.comments.models import Commenter, Comment, Tag, CommentTag
+from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
 
 
 class TestCommenterEndpoint:
@@ -151,6 +151,38 @@ class TestCommentEndpoint:
         assert db_comment.title == "Test Comment"
         assert db_comment.comment == "This is a test comment with some content."
         assert db_comment.commenter_id is None  # Should be null as specified
+
+    def test_create_comment_on_document_success(
+        self, client, document_id, session: Session
+    ):
+        """Test successful comment creation"""
+        comment_data = {
+            "title": "Test Comment",
+            "comment": "This is a test comment with some content.",
+            "document_id": document_id,
+        }
+
+        response = client.post("/api/comments/comment", json=comment_data)
+
+        assert response.status_code == 201
+        data = response.json()
+
+        assert data["title"] == "Test Comment"
+        assert data["comment"] == "This is a test comment with some content."
+        assert "created_at" in data
+        assert "updated_at" in data
+
+        # Verify it was saved to database
+        stmt = select(Comment).where(Comment.title == "Test Comment")
+        db_comment = session.exec(stmt).one()
+        assert db_comment.title == "Test Comment"
+        assert db_comment.comment == "This is a test comment with some content."
+        assert db_comment.commenter_id is None  # Should be null as specified
+
+        stmt = select(DocumentComment).where(DocumentComment.document_id == document_id)
+        db_document_comment = session.exec(stmt).one()
+        assert db_document_comment.comment_id == db_comment.id
+        assert db_document_comment.document_id == document_id, response.json()
 
     def test_create_comment_long_content(self, client, session: Session):
         """Test comment creation with long content"""
