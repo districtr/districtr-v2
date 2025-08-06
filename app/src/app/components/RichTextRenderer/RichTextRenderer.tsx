@@ -10,6 +10,7 @@ import BoilerplateNode from '../Cms/RichTextEditor/extensions/Boierplate/Boilerp
 import parse from 'html-react-parser';
 import {domNodeReplacers} from './CustomRenderers/DomNodeRenderers';
 import SectionHeaderNode from '../Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
+import FormNode from '../Cms/RichTextEditor/extensions/CommentSubmissionForm/FormNode';
 
 interface RichTextRendererProps {
   content: string | object;
@@ -29,6 +30,7 @@ const extensions = [
   Image,
   BoilerplateNode,
   SectionHeaderNode,
+  FormNode
 ];
 
 const RichTextRenderer: React.FC<RichTextRendererProps> = ({content, className = ''}) => {

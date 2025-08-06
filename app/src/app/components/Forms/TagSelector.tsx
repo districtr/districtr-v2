@@ -1,16 +1,8 @@
 'use client';
 import {useFormState} from '@/app/store/formState';
 import {Cross1Icon} from '@radix-ui/react-icons';
-import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  Text,
-  TextField,
-} from '@radix-ui/themes';
-import {useEffect, useState} from 'react';
-
+import {Badge, Box, Button, Flex, Text, TextField} from '@radix-ui/themes';
+import {KeyboardEventHandler, useEffect, useState} from 'react';
 
 export const TagSelector: React.FC<{
   mandatoryTags: string[];
@@ -27,18 +19,38 @@ export const TagSelector: React.FC<{
     });
   }, [mandatoryTags, tags, setTags]);
 
-  const handleTag = (tag: string) => {
-    setTags(tag, 'add');
+  const handleTag = (tag: string, action: 'add' | 'remove') => {
+    setTags(tag, action);
     setTagInput('');
   };
 
   const handleKeyInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleTag(tagInput);
+      handleTag(tagInput, 'add');
     }
   };
 
+  return (
+    <TagSelectorInner
+      tagInput={tagInput}
+      setTagInput={setTagInput}
+      fixedTags={mandatoryTags}
+      tags={Array.from(tags)}
+      handleChange={handleTag}
+      handleKeyInput={handleKeyInput}
+    />
+  );
+};
+
+export const TagSelectorInner: React.FC<{
+  tagInput: string;
+  setTagInput: (tagInput: string) => void;
+  fixedTags: string[];
+  tags: string[];
+  handleChange: (tag: string, action: 'add' | 'remove') => void;
+  handleKeyInput: KeyboardEventHandler<HTMLInputElement>;
+}> = ({tagInput, setTagInput, fixedTags, tags, handleChange, handleKeyInput}) => {
   return (
     <Box width="100%">
       <Text as="label" size="2" weight="medium" id="tags">
@@ -58,7 +70,7 @@ export const TagSelector: React.FC<{
         <Button
           onClick={e => {
             e.preventDefault();
-            handleTag(tagInput);
+            handleChange(tagInput, 'add');
           }}
         >
           Add
@@ -70,11 +82,11 @@ export const TagSelector: React.FC<{
             key={tag}
             variant="surface"
             size="3"
-            color={mandatoryTags.includes(tag) ? 'gray' : 'blue'}
-            className={`${mandatoryTags.includes(tag) ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-            onClick={mandatoryTags.includes(tag) ? undefined : () => setTags(tag, 'remove')}
+            color={fixedTags.includes(tag) ? 'gray' : 'blue'}
+            className={`${fixedTags.includes(tag) ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            onClick={fixedTags.includes(tag) ? undefined : () => handleChange(tag, 'remove')}
           >
-            {tag} {!mandatoryTags.includes(tag) && <Cross1Icon />}
+            {tag} {!fixedTags.includes(tag) && <Cross1Icon />}
           </Badge>
         ))}
       </Flex>

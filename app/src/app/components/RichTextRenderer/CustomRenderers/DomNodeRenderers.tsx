@@ -1,6 +1,7 @@
 import {DOMNode} from 'html-react-parser';
 import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNodeRenderer';
 import { ContentHeader } from '../../Static/ContentHeader';
+import { CommentSubmissionForm } from '../../Forms/CommentSubmissionForm';
 
 export const domNodeReplacers = (domNode: DOMNode) => {
   if (domNode.type === 'tag' && domNode.attribs?.['data-type']?.length) {
@@ -13,6 +14,10 @@ export const domNodeReplacers = (domNode: DOMNode) => {
         // Remove outer quotes
         const title = domNode.attribs['data-title']?.slice(1, -1);
         return <ContentHeader title={title} />;
+      case 'form-node':
+        const mandatoryTags = domNode.attribs['data-mandatory-tags']?.split(',');
+        const allowListModules = domNode.attribs['data-allow-list-modules']?.split(',');
+        return <CommentSubmissionForm mandatoryTags={mandatoryTags} allowListModules={allowListModules} />;
     }
   }
 };
