@@ -2,6 +2,7 @@ import {create} from 'zustand';
 import {CommentCreate, CommenterCreate} from '../utils/api/apiHandlers/types';
 import {postComment} from '../utils/api/mutations/postComment';
 import {createJSONStorage, persist} from 'zustand/middleware';
+
 export interface FormState {
   comment: Partial<CommentCreate>;
   commenter: Partial<CommenterCreate>;

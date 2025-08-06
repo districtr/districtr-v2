@@ -4,10 +4,13 @@ import {ContentHeader} from '@/app/components/Static/ContentHeader';
 import {FormState, useFormState} from '@/app/store/formState';
 import {useMapStore} from '@/app/store/mapStore';
 import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
+import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
+import {TILESET_URL} from '@/app/utils/api/constants';
 import {queryClient} from '@/app/utils/api/queryClient';
 import {Cross1Icon} from '@radix-ui/react-icons';
 import {
   Badge,
+  Blockquote,
   Box,
   Button,
   Checkbox,
@@ -34,13 +37,14 @@ export default function DevPage() {
       >
         <Flex direction="column" gap="4">
           <ContentHeader title="Submission Title" />
-          <FormField formPart="comment" formProperty="title" label="Submission Title" type="text" />
+          <FormField formPart="comment" formProperty="title" label="Submission Title *" type="text" required={true} />
           <FormField
             formPart="comment"
             formProperty="comment"
-            label="Testimony"
+            label="Testimony *"
             type="text"
             component={TextArea}
+            required={true}
           />
           <Flex
             direction={{
@@ -65,18 +69,20 @@ export default function DevPage() {
               <FormField
                 formPart="commenter"
                 formProperty="salutation"
-                label="Salutation"
+                label="Salutation *"
                 type="text"
                 autoComplete="honorific-prefix"
+                required={true}
               />
             </Box>
             <Box flexGrow="1" flexBasis="40%">
               <FormField
                 formPart="commenter"
                 formProperty="first_name"
-                label="First Name"
+                label="First Name (or identifier) *"
                 type="text"
                 autoComplete="given-name"
+                required={true}
               />
             </Box>
             <Box flexGrow="1" flexBasis="40%">
@@ -92,9 +98,10 @@ export default function DevPage() {
           <FormField
             formPart="commenter"
             formProperty="email"
-            label="Email"
+            label="Email *"
             type="email"
             autoComplete="email"
+            required={true}
           />
           <Flex
             direction={{
@@ -117,18 +124,20 @@ export default function DevPage() {
               <FormField
                 formPart="commenter"
                 formProperty="state"
-                label="State"
+                label="State *"
                 type="text"
                 autoComplete="address-level1"
+                required={true}
               />
             </Box>
             <Box flexGrow="1" flexBasis="20%">
               <FormField
                 formPart="commenter"
                 formProperty="zip_code"
-                label="Zip Code"
+                label="Zip Code *"
                 type="text"
                 autoComplete="postal-code"
+                required={true}
               />
             </Box>
           </Flex>
@@ -146,7 +155,9 @@ export default function DevPage() {
               />
             </Box>
           </Flex>
-          <Button>Submit</Button>
+          <Button type="submit" className="w-min" size="4" color="green">
+            Submit
+          </Button>
         </Flex>
       </form>
     </Box>
@@ -163,6 +174,7 @@ type FormFieldProps<T extends FormPart> = {
   type: TextField.RootProps['type'];
   autoComplete?: TextField.RootProps['autoComplete'];
   component?: typeof TextField.Root | typeof TextArea;
+  required?: boolean;
 };
 
 function FormField<T extends FormPart>({
@@ -172,6 +184,7 @@ function FormField<T extends FormPart>({
   type,
   placeholder,
   component,
+  required,
 }: FormFieldProps<T>) {
   const value = useFormState(state => state[formPart][formProperty] as string);
   const setFormState = useFormState(state => state.setFormState);
@@ -182,6 +195,7 @@ function FormField<T extends FormPart>({
         {label}
       </Text>
       <Component
+        required={required}
         placeholder={placeholder ?? label}
         type={type}
         name={`${formPart}-${formProperty as string}`}
@@ -207,6 +221,7 @@ const Acknowledgement = ({id, label}: {id: string; label: string}) => {
       <Checkbox
         checked={acknowledgement[id]}
         onCheckedChange={() => setAcknowledgement(id, !acknowledgement[id])}
+        required={true}
       />
       <Text as="label" size="2" weight="medium" id={`${id}`}>
         {label}
@@ -299,25 +314,63 @@ const MapSelector: React.FC<MapSelectorProps> = ({allowListModules}) => {
 const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const [showMapSelector, setShowMapSelector] = useState(false);
   const [showMapOptions, setShowMapOptions] = useState(false);
+  const [selectedMap, setSelectedMap] = useState<DocumentObject | null>(null);
+  const [notification, setNotification] = useState<null | {
+    type: 'error' | 'success';
+    message: string;
+  }>(null);
   const [mapId, setMapId] = useState('');
   const userMaps = useMapStore(state =>
     state.userMaps.filter(
       map => !allowListModules?.length || allowListModules.includes(map.map_module ?? '')
     )
   );
+  const setFormState = useFormState(state => state.setFormState);
 
   const validateMap = async (mapId: string) => {
-    const document = await getDocument(mapId);
-    console.log(document);
+    // take the slash and then the last characters after the slash
+    const urlStrippedId = mapId.split('/').pop();
+    const isNumeric = !isNaN(Number(urlStrippedId));
+    if (isNumeric) {
+      throw new Error(
+        'Please include your editable map ID. It should look like abcd-1234-5678-9012-345678901234'
+      );
+    }
+    const document = await getDocument(urlStrippedId);
+    if (!document) {
+      throw new Error('Document not found. Please check your map ID and try again.');
+    }
+    if (!allowListModules.includes(document.map_module ?? '')) {
+      throw new Error(
+        `Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`
+      );
+    }
+    if (document.map_metadata.draft_status !== 'ready_to_share') {
+      throw new Error(
+        'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
+      );
+    }
+    return document;
   };
 
-  const {data, isPending, isError, isSuccess, error, mutate, mutateAsync, reset, status} =
-    useMutation({
-      mutationFn: validateMap,
-      onSuccess: data => {
-        console.log(data);
-      },
-    });
+  const {isPending, mutate} = useMutation({
+    mutationFn: validateMap,
+    onSuccess: data => {
+      setSelectedMap(data);
+      setNotification({
+        type: 'success',
+        message: 'Map validated successfully',
+      });
+      setMapId(data.document_id);
+      setFormState('comment', 'document_id', data.document_id);
+    },
+    onError: error => {
+      setNotification({
+        type: 'error',
+        message: error.message,
+      });
+    },
+  });
 
   return (
     <Flex direction="column" gap="2" position="relative" width="100%">
@@ -340,6 +393,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
             type="text"
             disabled={!showMapSelector}
             value={mapId}
+            color={selectedMap?.document_id === mapId ? 'green' : 'gray'}
             onChange={e => setMapId(e.target.value)}
             onFocus={() => setShowMapOptions(true)}
             onBlur={() => {
@@ -366,7 +420,8 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
                     key={map.document_id}
                     variant="outline"
                     size="3"
-                    onClick={() => {
+                    onClick={e => {
+                      e.preventDefault();
                       setMapId(map.document_id);
                       setTimeout(() => {
                         setShowMapOptions(false);
@@ -377,7 +432,11 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
                     <Flex direction="column" gap="0" className="text-left py-2" align="start">
                       <Text>{map.map_metadata?.name ?? map.name}</Text>
                       <Text>{map.map_module}</Text>
-                      {map.updated_at && <Text size="1">Updated: {new Date(map.updated_at).toLocaleDateString()}</Text>}
+                      {map.updated_at && (
+                        <Text size="1">
+                          Updated: {new Date(map.updated_at).toLocaleDateString()}
+                        </Text>
+                      )}
                     </Flex>
                   </Button>
                 ))}
@@ -395,6 +454,19 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
           Add map
         </Button>
       </Flex>
+      {notification && (
+        <Blockquote color={notification.type === 'error' ? 'red' : 'green'}>
+          {notification.message}
+        </Blockquote>
+      )}
+      {notification?.type === 'error' && (
+        <a href={`/map/edit/${mapId}`} target="_blank">
+          View map
+        </a>
+      )}
+      {notification?.type === 'success' && (
+        <img src={`${TILESET_URL}/thumbnails/${selectedMap?.tiles_s3_path}`} alt="Map thumbnail" />
+      )}
     </Flex>
   );
 };
