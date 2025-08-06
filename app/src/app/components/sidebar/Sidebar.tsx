@@ -38,7 +38,7 @@ export default function SidebarComponent() {
       hidden
       lg:flex
       "
-      style={{width: width, overflow: 'visible'}}
+      style={{width: width, overflow: 'visible', containerType: 'inline-size'}}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
