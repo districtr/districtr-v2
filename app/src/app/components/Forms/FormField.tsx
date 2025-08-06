@@ -28,6 +28,7 @@ export function FormField<T extends FormPart>({
   placeholder,
   component,
   required,
+  autoComplete,
 }: FormFieldProps<T>) {
   const value = useFormState(state => state[formPart][formProperty] as string);
   const setFormState = useFormState(state => state.setFormState);
@@ -44,7 +45,7 @@ export function FormField<T extends FormPart>({
         name={`${formPart}-${formProperty as string}`}
         aria-labelledby={`${formPart}-${formProperty as string}`}
         value={value}
-        autoComplete="off"
+        autoComplete={autoComplete}
         onChange={e => setFormState(formPart, formProperty as keyof FormState[T], e.target.value)}
       />
     </Box>
