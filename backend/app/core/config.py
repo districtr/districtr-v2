@@ -154,6 +154,10 @@ class Settings(BaseSettings):
     AUTH0_ISSUER: str
     AUTH0_ALGORITHMS: str
 
+    # Profanity Detection
+
+    PROFANITY_SCORE_THRESHOLD: float = 0.5
+
 
 @lru_cache()
 def get_settings():
