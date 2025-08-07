@@ -31,7 +31,6 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
     return null;
   }
 
-
   return (
     <Flex direction="column" gap="2">
       <Heading as="h3" size="5">

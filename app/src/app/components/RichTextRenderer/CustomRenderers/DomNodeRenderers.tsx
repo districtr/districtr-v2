@@ -1,6 +1,6 @@
 import {DOMNode} from 'html-react-parser';
 import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNodeRenderer';
-import { ContentHeader } from '../../Static/ContentHeader';
+import {ContentHeader} from '../../Static/ContentHeader';
 
 export const domNodeReplacers = (domNode: DOMNode) => {
   if (domNode.type === 'tag' && domNode.attribs?.['data-type']?.length) {
