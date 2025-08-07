@@ -9,7 +9,6 @@ from sqlmodel import Session
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text
-import logging
 
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
@@ -31,8 +30,6 @@ from app.comments.models import (
 from app.core.models import DocumentID
 from app.core.security import recaptcha
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
 
