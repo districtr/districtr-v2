@@ -1,5 +1,4 @@
 'use client';
-
 import {ContentHeader} from '@/app/components/Static/ContentHeader';
 import {useFormState} from '@/app/store/formState';
 import {Blockquote, Box, Button, Flex, Spinner, TextArea} from '@radix-ui/themes';
@@ -46,7 +45,7 @@ export const CommentSubmissionForm: React.FC<{
         }}
       >
         <Flex direction="column" gap="4">
-          <ContentHeader title="Submission Title" />
+          <ContentHeader title="Add Your Comment" />
           <FormField
             formPart="comment"
             formProperty="title"

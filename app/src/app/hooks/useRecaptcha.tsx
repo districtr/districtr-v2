@@ -1,3 +1,4 @@
+'use client';
 import {useState} from 'react';
 import ReCAPTCHA from 'react-google-recaptcha';
 import {RECAPTCHA_SITE_KEY} from '../utils/api/constants';

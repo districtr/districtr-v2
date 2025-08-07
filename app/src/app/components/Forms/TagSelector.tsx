@@ -30,6 +30,9 @@ export const TagSelector: React.FC<{
         <Button
           onClick={e => {
             e.preventDefault();
+            if (tagInput.trim() === '') {
+              return;
+            }
             handleChange(tagInput, 'add');
           }}
         >

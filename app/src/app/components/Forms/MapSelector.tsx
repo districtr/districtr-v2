@@ -17,7 +17,7 @@ import {
   TextField,
 } from '@radix-ui/themes';
 import {QueryClientProvider, useMutation} from '@tanstack/react-query';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 
 interface MapSelectorProps {
   allowListModules: string[];
@@ -32,6 +32,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     message: string;
   }>(null);
   const [mapId, setMapId] = useState('');
+  const formStateMapId = useFormState(state => state.comment.document_id);
   const userMaps = useMapStore(state =>
     state.userMaps.filter(
       map => !allowListModules?.length || allowListModules.includes(map.map_module ?? '')
@@ -41,13 +42,9 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const validateMap = async (mapId: string) => {
     // take the slash and then the last characters after the slash
     const urlStrippedId = mapId.split('/').pop();
-    const isNumeric = !isNaN(Number(urlStrippedId));
-    if (isNumeric) {
-      throw new Error(
-        'Please include your editable map ID. It should look like abcd-1234-5678-9012-345678901234'
-      );
-    }
+
     const document = await getDocument(urlStrippedId);
+    
     if (!document) {
       throw new Error('Document not found. Please check your map ID and try again.');
     }
@@ -83,6 +80,14 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     },
   });
 
+  // clear on reset/submit
+  useEffect(() => {
+    if (formStateMapId !== mapId) {
+      setMapId(formStateMapId ?? '');
+      setSelectedMap(null);
+    }
+  }, [formStateMapId]);
+
   return (
     <Flex direction="column" gap="2" position="relative" width="100%">
       {isPending && (
@@ -95,7 +100,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       <Flex direction="row" gap="2" align="center">
         <Switch checked={showMapSelector} onCheckedChange={setShowMapSelector} />
         <Text as="label" size="2" weight="medium" id="map-selector">
-          Include a map?
+          Include a link to your map?
         </Text>
       </Flex>
       <Flex direction="row" gap="2" align="center" onClick={() => setShowMapSelector(true)}>
@@ -112,7 +117,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
                 setShowMapOptions(false);
               }, 100);
             }}
-            placeholder="Include a link to your map or map ID"
+            placeholder="Include a link to your map"
           />
           {showMapOptions && (
             <Box
