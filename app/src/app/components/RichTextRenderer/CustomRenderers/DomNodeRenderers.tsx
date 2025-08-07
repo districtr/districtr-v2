@@ -15,8 +15,8 @@ export const domNodeReplacers = (domNode: DOMNode) => {
         const title = domNode.attribs['data-title']?.slice(1, -1);
         return <ContentHeader title={title} />;
       case 'form-node':
-        const mandatoryTags = domNode.attribs['data-mandatory-tags']?.split(',');
-        const allowListModules = domNode.attribs['data-allow-list-modules']?.split(',');
+        const mandatoryTags = JSON.parse(domNode.attribs['data-mandatory-tags']);
+        const allowListModules = JSON.parse(domNode.attribs['data-allow-list-modules']);
         return (
           <CommentSubmissionForm
             mandatoryTags={mandatoryTags}

@@ -38,7 +38,6 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     )
   );
   const setFormState = useFormState(state => state.setFormState);
-
   const validateMap = async (mapId: string) => {
     // take the slash and then the last characters after the slash
     const urlStrippedId = mapId.split('/').pop();

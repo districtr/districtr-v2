@@ -41,6 +41,13 @@ export const FormNode = Node.create({
           const content = element.getAttribute('data-allow-list-modules');
           return content ? JSON.parse(content) : [];
         },
+        renderHTML: attributes => {
+          return {
+            'data-allow-list-modules': attributes.allowListModules
+              ? JSON.stringify(attributes.allowListModules)
+              : '',
+          };
+        },
       },
     };
   },

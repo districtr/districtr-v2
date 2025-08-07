@@ -5,7 +5,7 @@ import {useFormState} from '@/app/store/formState';
 import {Blockquote, Box, Button, Flex, Spinner, TextArea} from '@radix-ui/themes';
 import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
-import {TagSelector} from './TagSelector';
+import {CommentFormTagSelector} from './CommentFormTagSelector';
 import {MapSelector} from './MapSelector';
 import {useRecaptcha} from '@/app/hooks/useRecaptcha';
 
@@ -14,13 +14,18 @@ export const CommentSubmissionForm: React.FC<{
   allowListModules: string[];
 }> = ({mandatoryTags, allowListModules}) => {
   const submitForm = useFormState(state => state.submitForm);
-  const {RecaptchaComponent, recaptchaToken, clear: clearRecaptcha} = useRecaptcha();
+  const {RecaptchaComponent, recaptchaToken} = useRecaptcha();
   const isSubmitting = useFormState(state => state.isSubmitting);
   const success = useFormState(state => state.success);
+  const clearForm = useFormState(state => state.clear);
 
   return (
     <Box p="4" className="relative">
-      {success && <Blockquote color="green" className="mb-4">{success}</Blockquote>}
+      {success && (
+        <Blockquote color="green" className="mb-4">
+          {success}
+        </Blockquote>
+      )}
       {isSubmitting && (
         <Flex className="absolute inset-0 bg-white/75 z-10" justify="center" align="center">
           <Spinner size="3" />
@@ -31,7 +36,6 @@ export const CommentSubmissionForm: React.FC<{
           e.preventDefault();
           if (recaptchaToken) {
             submitForm(recaptchaToken);
-            clearRecaptcha();
           }
         }}
       >
@@ -59,7 +63,7 @@ export const CommentSubmissionForm: React.FC<{
             }}
             gap="4"
           >
-            <TagSelector mandatoryTags={mandatoryTags} />
+            <CommentFormTagSelector mandatoryTags={mandatoryTags} />
             <MapSelector allowListModules={allowListModules} />
           </Flex>
           <ContentHeader title="Tell us about yourself" />
@@ -162,9 +166,29 @@ export const CommentSubmissionForm: React.FC<{
             </Box>
           </Flex>
           {RecaptchaComponent}
-          <Button type="submit" className="w-min" size="4" color="green" disabled={!recaptchaToken}>
-            Submit
-          </Button>
+          <Flex direction="row" gap="4" justify="between" align="center">
+            <Button
+              type="submit"
+              className="w-min"
+              size="4"
+              color="green"
+              disabled={!recaptchaToken}
+            >
+              Submit
+            </Button>
+            <Button
+              type="button"
+              className="w-min"
+              size="2"
+              variant="ghost"
+              color="red"
+              onClick={() => {
+                clearForm();
+              }}
+            >
+              Reset
+            </Button>
+          </Flex>
         </Flex>
       </form>
     </Box>

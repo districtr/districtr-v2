@@ -13,7 +13,7 @@ export interface FormState {
   ) => void;
   isSubmitting: boolean;
   setIsSubmitting: (isSubmitting: boolean) => void;
-  tags: Set<string>;
+  tags: string[];
   setTags: (tag: string, action: 'add' | 'remove') => void;
   submitForm: (recaptchaToken: string) => Promise<void>;
   clear: () => void;
@@ -59,18 +59,19 @@ export const useFormState = create<FormState>()(
       },
       setTags: (tag: string, action: 'add' | 'remove') => {
         const {tags} = get();
-        const newTags = new Set([...Array.from(tags)]);
+        const tagsIsArray = Array.isArray(tags);
+        let newTags = tagsIsArray ? [...(tags ?? [])] : new Array<string>();
         switch (action) {
           case 'add':
-            newTags.add(tag);
+            newTags.push(tag);
             break;
           case 'remove':
-            newTags.delete(tag);
+            newTags = newTags.filter(t => t !== tag);
             break;
         }
-        set({tags: newTags});
+        set({tags: Array.from(new Set(newTags))});
       },
-      tags: new Set(),
+      tags: new Array<string>(),
       error: '',
       success: '',
       submitForm: async recaptchaToken => {
@@ -108,7 +109,7 @@ export const useFormState = create<FormState>()(
         set({
           comment: {},
           commenter: {},
-          tags: new Set(),
+          tags: new Array<string>(),
           acknowledgement: {},
         });
       },
