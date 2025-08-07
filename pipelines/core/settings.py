@@ -19,7 +19,6 @@ class Settings(BaseSettings):
     AWS_S3_ENDPOINT: str | None = None
     AWS_ACCESS_KEY_ID: str | None = None
     AWS_SECRET_ACCESS_KEY: str | None = None
-    RECAPTCHA_SECRET_KEY: str | None = None
 
     def get_s3_client(self):
         if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY:

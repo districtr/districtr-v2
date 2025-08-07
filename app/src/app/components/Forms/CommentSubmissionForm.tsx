@@ -7,18 +7,23 @@ import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
 import {TagSelector} from './TagSelector';
 import {MapSelector} from './MapSelector';
+import {useRecaptcha} from '@/app/hooks/useRecaptcha';
 
 export const CommentSubmissionForm: React.FC<{
   mandatoryTags: string[];
   allowListModules: string[];
 }> = ({mandatoryTags, allowListModules}) => {
   const submitForm = useFormState(state => state.submitForm);
+  const {RecaptchaComponent, recaptchaToken} = useRecaptcha();
+
   return (
     <Box p="4">
       <form
         onSubmit={e => {
           e.preventDefault();
-          submitForm();
+          if (recaptchaToken) {
+            submitForm(recaptchaToken);
+          }
         }}
       >
         <Flex direction="column" gap="4">
@@ -147,7 +152,8 @@ export const CommentSubmissionForm: React.FC<{
               />
             </Box>
           </Flex>
-          <Button type="submit" className="w-min" size="4" color="green">
+          {RecaptchaComponent}
+          <Button type="submit" className="w-min" size="4" color="green" disabled={!recaptchaToken}>
             Submit
           </Button>
         </Flex>

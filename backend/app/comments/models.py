@@ -188,6 +188,7 @@ class FullCommentForm(BaseModel):
     comment: CommentCreate
     commenter: CommenterCreate
     tags: list[TagCreate]
+    recaptcha_token: str
 
 
 class FullCommentFormResponse(BaseModel):

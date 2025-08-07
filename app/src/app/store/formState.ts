@@ -13,7 +13,7 @@ export interface FormState {
   ) => void;
   tags: Set<string>;
   setTags: (tag: string, action: 'add' | 'remove') => void;
-  submitForm: () => Promise<void>;
+  submitForm: (recaptchaToken: string) => Promise<void>;
   clear: () => void;
   error: string;
   setError: (error: string) => void;
@@ -31,14 +31,11 @@ export const useFormState = create<FormState>()(
       comment: {
         title: '',
         comment: '',
-        document_id: '',
       },
       commenter: {
         first_name: '',
         email: '',
         salutation: '',
-        last_name: '',
-        place: '',
         state: '',
         zip_code: '',
       },
@@ -70,7 +67,7 @@ export const useFormState = create<FormState>()(
       tags: new Set(),
       error: '',
       success: '',
-      submitForm: async () => {
+      submitForm: async recaptchaToken => {
         const {comment, commenter, tags, acknowledgement} = useFormState.getState();
         if (!Object.values(acknowledgement).every(Boolean)) {
           set({error: 'Please acknowledge all statements'});
@@ -81,6 +78,7 @@ export const useFormState = create<FormState>()(
           comment: comment as CommentCreate,
           commenter: commenter as CommenterCreate,
           tags: Array.from(tags).map(tag => ({tag})),
+          recaptcha_token: recaptchaToken,
         });
         console.log(response);
       },
