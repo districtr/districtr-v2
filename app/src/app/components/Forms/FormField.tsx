@@ -39,7 +39,7 @@ export function FormField<T extends FormPart>({
         type={type}
         name={`${formPart}-${formProperty as string}`}
         aria-labelledby={`${formPart}-${formProperty as string}`}
-        value={value}
+        value={value ?? ''}
         autoComplete={autoComplete}
         onChange={e => setFormState(formPart, formProperty as keyof FormState[T], e.target.value)}
       />
