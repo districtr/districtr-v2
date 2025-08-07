@@ -28,7 +28,7 @@ from app.comments.models import (
     FullCommentFormResponse,
     DocumentComment,
 )
-from app.comments.profanity import check_submission_profanity
+from app.comments.moderation import moderate_submission
 from app.core.models import DocumentID
 
 logger = logging.getLogger(__name__)
@@ -246,7 +246,7 @@ async def submit_full_comment(
 
         # Add profanity check as background task
         background_tasks.add_task(
-            check_submission_profanity,
+            moderate_submission,
             comment_id=comment_id,
             commenter_id=commenter_id,
             tag_ids=tag_ids,

@@ -19,9 +19,9 @@ from app.comments.models import (
     Tag,
     CommentTag,
     DocumentComment,
-    CommentProfanity,
-    CommenterProfanity,
-    TagProfanity,
+    CommentModeration,
+    CommenterModeration,
+    TagModeration,
 )
 
 dotenv.load_dotenv()
@@ -50,9 +50,9 @@ tables = [
     Tag,
     CommentTag,
     DocumentComment,
-    CommentProfanity,
-    CommenterProfanity,
-    TagProfanity,
+    CommentModeration,
+    CommenterModeration,
+    TagModeration,
 ]
 
 target_metadata = [SQLModel.metadata]

@@ -197,9 +197,9 @@ class FullCommentFormResponse(BaseModel):
     tags: list[TagPublic]
 
 
-class CommentProfanity(TimeStampMixin, SQLModel, table=True):
+class CommentModeration(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=COMMENTS_SCHEMA)
-    __tablename__ = "comment_profanity"  # type: ignore
+    __tablename__ = "comment_moderation"  # type: ignore
 
     comment_id: int = Field(
         sa_column=Column(
@@ -210,12 +210,12 @@ class CommentProfanity(TimeStampMixin, SQLModel, table=True):
             primary_key=True,
         )
     )
-    profanity_score: float = Field(sa_column=Column(Float, nullable=False))
+    moderation_score: float = Field(sa_column=Column(Float, nullable=False))
 
 
-class CommenterProfanity(TimeStampMixin, SQLModel, table=True):
+class CommenterModeration(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=COMMENTS_SCHEMA)
-    __tablename__ = "commenter_profanity"  # type: ignore
+    __tablename__ = "commenter_moderation"  # type: ignore
 
     commenter_id: int = Field(
         sa_column=Column(
@@ -226,12 +226,12 @@ class CommenterProfanity(TimeStampMixin, SQLModel, table=True):
             primary_key=True,
         )
     )
-    profanity_score: float = Field(sa_column=Column(Float, nullable=False))
+    moderation_score: float = Field(sa_column=Column(Float, nullable=False))
 
 
-class TagProfanity(TimeStampMixin, SQLModel, table=True):
+class TagModeration(TimeStampMixin, SQLModel, table=True):
     metadata = MetaData(schema=COMMENTS_SCHEMA)
-    __tablename__ = "tag_profanity"  # type: ignore
+    __tablename__ = "tag_moderation"  # type: ignore
 
     tag_id: int = Field(
         sa_column=Column(
@@ -242,4 +242,4 @@ class TagProfanity(TimeStampMixin, SQLModel, table=True):
             primary_key=True,
         )
     )
-    profanity_score: float = Field(sa_column=Column(Float, nullable=False))
+    moderation_score: float = Field(sa_column=Column(Float, nullable=False))
