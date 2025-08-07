@@ -1,14 +1,31 @@
 import {post} from '../factory';
 import {FullCommentForm, FullCommentFormResponse} from './types';
 
-export const postFullCommentForm = async (formData: FullCommentForm) => {
+export const postFullCommentForm = async (
+  formData: FullCommentForm
+): Promise<
+  | {
+      ok: true;
+      data: FullCommentFormResponse;
+    }
+  | {
+      ok: false;
+      error: string;
+    }
+> => {
   const response = await post<FullCommentForm, FullCommentFormResponse>('comments/submit')({
     body: formData,
   });
 
   if (!response.ok) {
-    throw new Error(response.error.detail);
+    return {
+      ok: false,
+      error: response.error.detail,
+    };
   }
 
-  return response.response;
+  return {
+    ok: true,
+    data: response.response,
+  };
 };

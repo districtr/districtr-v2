@@ -94,16 +94,17 @@ export const useFormState = create<FormState>()(
         });
         set({
           isSubmitting: false,
-          success: response.comment ? 'Comment submitted successfully' : undefined,
-          // error: response.detail ? undefined : 'Comment failed to submit',
+          success: response.ok ? 'Comment submitted successfully' : undefined,
+          error: response.ok ? undefined : response.error,
         });
         setTimeout(() => {
           set({
             success: undefined,
           });
         }, 5000);
-
-        clear();
+        if (response.ok) {
+          clear();
+        }
       },
       clear: () => {
         set({

@@ -17,6 +17,7 @@ export const CommentSubmissionForm: React.FC<{
   const {RecaptchaComponent, recaptchaToken} = useRecaptcha();
   const isSubmitting = useFormState(state => state.isSubmitting);
   const success = useFormState(state => state.success);
+  const error = useFormState(state => state.error);
   const clearForm = useFormState(state => state.clear);
 
   return (
@@ -24,6 +25,11 @@ export const CommentSubmissionForm: React.FC<{
       {success && (
         <Blockquote color="green" className="mb-4">
           {success}
+        </Blockquote>
+      )}
+      {error && (
+        <Blockquote color="red" className="mb-4">
+          {error}
         </Blockquote>
       )}
       {isSubmitting && (
