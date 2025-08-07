@@ -42,7 +42,7 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
       }),
       BoilerplateNode,
       SectionHeaderNode,
-      FormNode
+      FormNode,
     ],
     content: typeof content === 'string' ? content : content,
     onUpdate: ({editor}) => {

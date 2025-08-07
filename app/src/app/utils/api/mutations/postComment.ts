@@ -11,7 +11,7 @@ export const postComment = new MutationObserver(queryClient, {
   onError: error => {
     console.log('Error updating assignments: ', error);
   },
-  onSuccess: (data: FullCommentFormResponse) => {
+  onSuccess: (_data: FullCommentFormResponse) => {
     console.log(`Successfully created comment`);
   },
 });
