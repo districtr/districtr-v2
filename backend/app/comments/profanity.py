@@ -2,7 +2,8 @@
 
 import logging
 from sqlmodel import Session
-from better_profanity import profanity
+from openai import OpenAI
+from safetext import SafeText
 
 from app.comments.models import (
     CommentProfanity,
@@ -12,10 +13,49 @@ from app.comments.models import (
 )
 from app.core.config import settings
 
+st = SafeText(language="en")
+openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
 logger = logging.getLogger(__name__)
 
-# Initialize profanity filter
-profanity.load_censor_words()
+
+def rate_offensive_text_ai(text: str) -> float:
+    """
+    Rates how offensive or inappropriate the given text is.
+    Returns a float between 0 (not offensive) and 1 (certainly offensive).
+    """
+
+    try:
+        response = openai_client.moderations.create(
+            input=text, model="omni-moderation-latest"
+        )
+        return {
+            "ok": True,
+            "score": max(response.results[0].category_scores.to_dict().values()),
+        }
+    except Exception as e:
+        print(f"Error during moderation: {e}")
+        return {
+            "ok": False,
+            "error": str(e),
+        }
+
+
+def rate_offensive_text_simple(text: str) -> float:
+    """
+    Rates how offensive or inappropriate the given text is.
+    Returns a float between 0 (not offensive) and 1 (certainly offensive).
+    """
+    try:
+        return {
+            "ok": True,
+            "score": 1.0 if len(st.check_profanity(text.strip())) > 0 else 0.0,
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "error": str(e),
+        }
 
 
 def check_profanity_score(text: str) -> float:
@@ -23,16 +63,27 @@ def check_profanity_score(text: str) -> float:
     Check profanity score for a given text using better-profanity library.
     Returns 1.0 if profane, 0.0 if clean.
     """
+    # TODO: add AI check and use this as a fallback
     if not text or not text.strip():
         return 0.0
 
     try:
-        # better-profanity returns boolean, so we convert to score
-        contains_profanity = profanity.contains_profanity(text.strip())
-        return 1.0 if contains_profanity else 0.0
+        if settings.OPENAI_API_KEY:
+            result = rate_offensive_text_ai(text)
+            if result["ok"]:
+                return result["score"]
+            else:
+                logger.error(
+                    f"Error using openAI profanity for text: {result['error']}"
+                )
+        result = rate_offensive_text_simple(text)
+        if result["ok"]:
+            return result["score"]
+        else:
+            logger.error(f"Error using simple profanity for text: {result['error']}")
     except Exception as e:
         logger.error(f"Error checking profanity for text: {e}")
-        return 0.0
+        return 1.0
 
 
 def check_comment_profanity(

@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
     DATABASE_URL: str
+    OPENAI_API_KEY: str
 
     @computed_field  # type: ignore[misc]
     @property
