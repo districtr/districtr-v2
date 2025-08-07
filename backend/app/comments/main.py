@@ -3,6 +3,7 @@ from fastapi import (
     Depends,
     HTTPException,
     status,
+    BackgroundTasks,
 )
 from sqlmodel import Session
 from sqlalchemy.exc import IntegrityError, DataError
@@ -27,6 +28,7 @@ from app.comments.models import (
     FullCommentFormResponse,
     DocumentComment,
 )
+from app.comments.profanity import check_submission_profanity
 from app.core.models import DocumentID
 
 logger = logging.getLogger(__name__)
@@ -133,7 +135,7 @@ def create_document_comment(
 
 def create_full_comment_submission(
     form_data: FullCommentForm, session: Session
-) -> FullCommentFormResponse:
+) -> tuple[FullCommentFormResponse, int, int, list[int]]:
     """
     Create a complete comment submission with commenter, comment, tags, and associations.
 
@@ -176,7 +178,7 @@ def create_full_comment_submission(
         tags=[TagPublic(slug=tag.slug) for tag in created_tags],
     )
 
-    return response
+    return response, comment.id, commenter.id, tag_ids
 
 
 @router.post(
@@ -232,11 +234,26 @@ async def create_tag(tag_data: TagCreate, session: Session = Depends(get_session
     status_code=status.HTTP_201_CREATED,
 )
 async def submit_full_comment(
-    form_data: FullCommentForm, session: Session = Depends(get_session)
+    form_data: FullCommentForm,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     """Submit a complete comment with commenter, comment, and tags."""
     try:
-        response = create_full_comment_submission(form_data, session)
+        response, comment_id, commenter_id, tag_ids = create_full_comment_submission(
+            form_data, session
+        )
+
+        # Add profanity check as background task
+        background_tasks.add_task(
+            check_submission_profanity,
+            comment_id=comment_id,
+            commenter_id=commenter_id,
+            tag_ids=tag_ids,
+            form_data=form_data,
+            session=session,
+        )
+
     except (DataError, IntegrityError) as e:
         session.rollback()
         raise HTTPException(

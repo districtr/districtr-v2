@@ -10,6 +10,7 @@ from sqlmodel import (
     Index,
     CheckConstraint,
     Integer,
+    Float,
 )
 from sqlalchemy import func
 from app.constants import COMMENTS_SCHEMA
@@ -194,3 +195,51 @@ class FullCommentFormResponse(BaseModel):
     comment: CommentPublic
     commenter: CommenterPublic
     tags: list[TagPublic]
+
+
+class CommentProfanity(TimeStampMixin, SQLModel, table=True):
+    metadata = MetaData(schema=COMMENTS_SCHEMA)
+    __tablename__ = "comment_profanity"  # type: ignore
+
+    comment_id: int = Field(
+        sa_column=Column(
+            ForeignKey(Comment.id),
+            nullable=False,
+            unique=True,
+            index=True,
+            primary_key=True,
+        )
+    )
+    profanity_score: float = Field(sa_column=Column(Float, nullable=False))
+
+
+class CommenterProfanity(TimeStampMixin, SQLModel, table=True):
+    metadata = MetaData(schema=COMMENTS_SCHEMA)
+    __tablename__ = "commenter_profanity"  # type: ignore
+
+    commenter_id: int = Field(
+        sa_column=Column(
+            ForeignKey(Commenter.id),
+            nullable=False,
+            unique=True,
+            index=True,
+            primary_key=True,
+        )
+    )
+    profanity_score: float = Field(sa_column=Column(Float, nullable=False))
+
+
+class TagProfanity(TimeStampMixin, SQLModel, table=True):
+    metadata = MetaData(schema=COMMENTS_SCHEMA)
+    __tablename__ = "tag_profanity"  # type: ignore
+
+    tag_id: int = Field(
+        sa_column=Column(
+            ForeignKey(Tag.id),
+            nullable=False,
+            unique=True,
+            index=True,
+            primary_key=True,
+        )
+    )
+    profanity_score: float = Field(sa_column=Column(Float, nullable=False))
