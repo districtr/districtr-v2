@@ -2,7 +2,7 @@
 
 import {ContentHeader} from '@/app/components/Static/ContentHeader';
 import {useFormState} from '@/app/store/formState';
-import {Box, Button, Flex, TextArea} from '@radix-ui/themes';
+import {Blockquote, Box, Button, Flex, Spinner, TextArea} from '@radix-ui/themes';
 import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
 import {TagSelector} from './TagSelector';
@@ -14,15 +14,24 @@ export const CommentSubmissionForm: React.FC<{
   allowListModules: string[];
 }> = ({mandatoryTags, allowListModules}) => {
   const submitForm = useFormState(state => state.submitForm);
-  const {RecaptchaComponent, recaptchaToken} = useRecaptcha();
+  const {RecaptchaComponent, recaptchaToken, clear: clearRecaptcha} = useRecaptcha();
+  const isSubmitting = useFormState(state => state.isSubmitting);
+  const success = useFormState(state => state.success);
 
   return (
-    <Box p="4">
+    <Box p="4" className="relative">
+      {success && <Blockquote color="green" className="mb-4">{success}</Blockquote>}
+      {isSubmitting && (
+        <Flex className="absolute inset-0 bg-white/75 z-10" justify="center" align="center">
+          <Spinner size="3" />
+        </Flex>
+      )}
       <form
         onSubmit={e => {
           e.preventDefault();
           if (recaptchaToken) {
             submitForm(recaptchaToken);
+            clearRecaptcha();
           }
         }}
       >

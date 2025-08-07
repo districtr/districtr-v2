@@ -11,6 +11,8 @@ export interface FormState {
     formProperty: keyof FormState[T],
     value: string
   ) => void;
+  isSubmitting: boolean;
+  setIsSubmitting: (isSubmitting: boolean) => void;
   tags: Set<string>;
   setTags: (tag: string, action: 'add' | 'remove') => void;
   submitForm: (recaptchaToken: string) => Promise<void>;
@@ -40,6 +42,10 @@ export const useFormState = create<FormState>()(
         zip_code: '',
       },
       acknowledgement: {},
+      isSubmitting: false,
+      setIsSubmitting: (isSubmitting: boolean) => {
+        set({isSubmitting});
+      },
       setAcknowledgement: (id: string, acknowledged: boolean) => {
         set({acknowledgement: {...get().acknowledgement, [id]: acknowledged}});
       },
@@ -68,6 +74,11 @@ export const useFormState = create<FormState>()(
       error: '',
       success: '',
       submitForm: async recaptchaToken => {
+        const {clear, setIsSubmitting, isSubmitting} = get();
+        if (isSubmitting) {
+          return;
+        }
+        setIsSubmitting(true);
         const {comment, commenter, tags, acknowledgement} = useFormState.getState();
         if (!Object.values(acknowledgement).every(Boolean)) {
           set({error: 'Please acknowledge all statements'});
@@ -80,7 +91,18 @@ export const useFormState = create<FormState>()(
           tags: Array.from(tags).map(tag => ({tag})),
           recaptcha_token: recaptchaToken,
         });
-        console.log(response);
+        set({
+          isSubmitting: false,
+          success: response.comment ? 'Comment submitted successfully' : undefined,
+          // error: response.detail ? undefined : 'Comment failed to submit',
+        });
+        setTimeout(() => {
+          set({
+            success: undefined,
+          });
+        }, 5000);
+
+        clear();
       },
       clear: () => {
         set({
