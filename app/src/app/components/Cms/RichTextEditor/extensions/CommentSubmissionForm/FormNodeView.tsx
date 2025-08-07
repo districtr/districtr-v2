@@ -1,7 +1,7 @@
 'use client';
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
 import React, { useEffect, useState } from 'react';
-import {Box, Dialog, Flex, IconButton, Text} from '@radix-ui/themes';
+import {Box, Button, Dialog, Flex, IconButton, Text} from '@radix-ui/themes';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {CommentSubmissionForm} from '@/app/components/Forms/CommentSubmissionForm';
 import { TagSelector } from '@/app/components/Forms/TagSelector';
@@ -89,6 +89,9 @@ const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNo
                 />
               </Flex>
             </Dialog.Description>
+            <Dialog.Close>
+              <Button variant="soft" color="gray">Close</Button>
+            </Dialog.Close>
           </Dialog.Content>
         </Dialog.Root>
         <IconButton variant="ghost" size="1" onClick={deleteNode}>
