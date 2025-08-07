@@ -1,13 +1,13 @@
 'use client';
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import {Box, Button, Dialog, Flex, IconButton, Text} from '@radix-ui/themes';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {CommentSubmissionForm} from '@/app/components/Forms/CommentSubmissionForm';
-import { TagSelector } from '@/app/components/Forms/TagSelector';
-import { getAvailableDistrictrMaps } from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
-import { DistrictrMap } from '@/app/utils/api/apiHandlers/types';
-import { ListSelector } from '@/app/components/Forms/ListSelector';
+import {TagSelector} from '@/app/components/Forms/TagSelector';
+import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
+import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
+import {ListSelector} from '@/app/components/Forms/ListSelector';
 
 const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   const mandatoryTags = node.attrs.mandatoryTags as string[];
@@ -15,7 +15,8 @@ const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNo
 
   const [tagInput, setTagInput] = useState('');
   const handleTagChange = (tag: string, action: 'add' | 'remove') => {
-    const newTags = action === 'add' ? [...mandatoryTags, tag] : mandatoryTags.filter(t => t !== tag);
+    const newTags =
+      action === 'add' ? [...mandatoryTags, tag] : mandatoryTags.filter(t => t !== tag);
     updateAttributes({
       mandatoryTags: newTags,
     });
@@ -23,7 +24,7 @@ const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNo
   };
   const handleKeyInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      e.preventDefault();   
+      e.preventDefault();
       handleTagChange(tagInput, 'add');
     }
   };
@@ -39,9 +40,10 @@ const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNo
     };
     loadMapModules();
   }, [setMapModules]);
-  
+
   const handleAllowListModulesChange = (module: string, action: 'add' | 'remove') => {
-    const newModules = action === 'add' ? [...allowListModules, module] : allowListModules.filter(m => m !== module);
+    const newModules =
+      action === 'add' ? [...allowListModules, module] : allowListModules.filter(m => m !== module);
     updateAttributes({
       allowListModules: newModules,
     });
@@ -75,22 +77,32 @@ const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNo
                 />
               </Flex>
               <Flex direction="column" gap="2" mt="2">
-                <Text>Allow list modules (modules that are allowed to be selected in the form)</Text>
+                <Text>
+                  Allow list modules (modules that are allowed to be selected in the form)
+                </Text>
                 <ListSelector<DistrictrMap>
                   value={allowListModules}
                   entries={mapModules}
                   keyProperty="districtr_map_slug"
-                  SelectComponent={({name, districtr_map_slug, num_districts}) => <Flex direction="column" gap="1">
-                    <Text>{name}</Text>
-                    <Text size="1" color="gray">{districtr_map_slug}</Text>
-                    <Text size="1" color="gray">{num_districts} districts</Text>
-                  </Flex>}
+                  SelectComponent={({name, districtr_map_slug, num_districts}) => (
+                    <Flex direction="column" gap="1">
+                      <Text>{name}</Text>
+                      <Text size="1" color="gray">
+                        {districtr_map_slug}
+                      </Text>
+                      <Text size="1" color="gray">
+                        {num_districts} districts
+                      </Text>
+                    </Flex>
+                  )}
                   handleChange={handleAllowListModulesChange}
                 />
               </Flex>
             </Dialog.Description>
             <Dialog.Close>
-              <Button variant="soft" color="gray">Close</Button>
+              <Button variant="soft" color="gray">
+                Close
+              </Button>
             </Dialog.Close>
           </Dialog.Content>
         </Dialog.Root>

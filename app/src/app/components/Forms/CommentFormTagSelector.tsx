@@ -1,7 +1,7 @@
 'use client';
 import {useFormState} from '@/app/store/formState';
-import { useEffect, useState} from 'react';
-import { TagSelector } from './TagSelector';
+import {useEffect, useState} from 'react';
+import {TagSelector} from './TagSelector';
 
 export const CommentFormTagSelector: React.FC<{
   mandatoryTags: string[];
@@ -13,7 +13,7 @@ export const CommentFormTagSelector: React.FC<{
   useEffect(() => {
     const tagsIsArray = Array.isArray(tags);
     mandatoryTags.forEach(tag => {
-      if (!tagsIsArray || (tagsIsArray && !tags?.includes(tag))){
+      if (!tagsIsArray || (tagsIsArray && !tags?.includes(tag))) {
         setTags(tag, 'add');
       }
     });

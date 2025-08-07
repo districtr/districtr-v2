@@ -41,11 +41,7 @@ export function ListSelector<T extends object>({
             {entries.map((entry, i) => {
               const isSelected = value.includes(entry[keyProperty] as string);
               return (
-                <Select.Item
-                  key={i}
-                  value={entry[keyProperty] as string}
-                  className="h-min py-1"                  
-                >
+                <Select.Item key={i} value={entry[keyProperty] as string} className="h-min py-1">
                   <Flex direction="row" gap="2" align="center" justify="between">
                     <Box className="size-4 flex-none">
                       {isSelected ? <CheckCircledIcon color="green" /> : null}
