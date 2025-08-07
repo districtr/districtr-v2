@@ -183,7 +183,6 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   );
 };
 
-
 export const MapSelector: React.FC<MapSelectorProps> = ({allowListModules}) => {
   return (
     <QueryClientProvider client={queryClient}>

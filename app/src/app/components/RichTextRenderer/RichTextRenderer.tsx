@@ -30,7 +30,7 @@ const extensions = [
   Image,
   BoilerplateNode,
   SectionHeaderNode,
-  FormNode
+  FormNode,
 ];
 
 const RichTextRenderer: React.FC<RichTextRendererProps> = ({content, className = ''}) => {

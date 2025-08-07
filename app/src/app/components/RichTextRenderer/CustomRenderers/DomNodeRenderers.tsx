@@ -1,7 +1,7 @@
 import {DOMNode} from 'html-react-parser';
 import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNodeRenderer';
-import { ContentHeader } from '../../Static/ContentHeader';
-import { CommentSubmissionForm } from '../../Forms/CommentSubmissionForm';
+import {ContentHeader} from '../../Static/ContentHeader';
+import {CommentSubmissionForm} from '../../Forms/CommentSubmissionForm';
 
 export const domNodeReplacers = (domNode: DOMNode) => {
   if (domNode.type === 'tag' && domNode.attribs?.['data-type']?.length) {
@@ -17,7 +17,12 @@ export const domNodeReplacers = (domNode: DOMNode) => {
       case 'form-node':
         const mandatoryTags = domNode.attribs['data-mandatory-tags']?.split(',');
         const allowListModules = domNode.attribs['data-allow-list-modules']?.split(',');
-        return <CommentSubmissionForm mandatoryTags={mandatoryTags} allowListModules={allowListModules} />;
+        return (
+          <CommentSubmissionForm
+            mandatoryTags={mandatoryTags}
+            allowListModules={allowListModules}
+          />
+        );
     }
   }
 };

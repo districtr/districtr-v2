@@ -1,7 +1,6 @@
-import { useFormState } from "@/app/store/formState";
-import { Checkbox, Flex, Text } from "@radix-ui/themes";
-import { useEffect } from "react";
-
+import {useFormState} from '@/app/store/formState';
+import {Checkbox, Flex, Text} from '@radix-ui/themes';
+import {useEffect} from 'react';
 
 export const AcknowledgementField: React.FC<{id: string; label: string}> = ({id, label}) => {
   const acknowledgement = useFormState(state => state.acknowledgement);
