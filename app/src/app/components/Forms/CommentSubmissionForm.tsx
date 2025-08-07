@@ -3,7 +3,7 @@
 import {ContentHeader} from '@/app/components/Static/ContentHeader';
 import {useFormState} from '@/app/store/formState';
 import {Box, Button, Flex, TextArea} from '@radix-ui/themes';
-import {AcknowledgementField} from './AcknowledgeMentField';
+import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
 import {TagSelector} from './TagSelector';
 import {MapSelector} from './MapSelector';
