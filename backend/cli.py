@@ -333,7 +333,7 @@ def add_extent_to_districtr_map(
     (districtr_map_uuid,) = session.execute(
         stmt, params={"districtr_map_slug": districtr_map_slug}
     ).one()
-    print(f"Found districtmap uuid: {districtr_map_uuid}")
+    logger.info(f"Found districtmap uuid: {districtr_map_uuid}")
 
     _add_extent_to_districtrmap(
         session=session, districtr_map_uuid=districtr_map_uuid, bounds=bounds

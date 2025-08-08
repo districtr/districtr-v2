@@ -3,11 +3,16 @@ from fastapi import (
     Depends,
     HTTPException,
     status,
+    BackgroundTasks,
+    Query,
+    Security,
 )
 from sqlmodel import Session
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text
+from sqlalchemy import text, func, select
+
+from app.core.security import auth, TokenScope
 import logging
 
 from app.core.dependencies import get_protected_document
@@ -26,6 +31,15 @@ from app.comments.models import (
     FullCommentForm,
     FullCommentFormResponse,
     DocumentComment,
+    FullCommentFormCreate,
+    PublicCommentResponse,
+)
+from app.comments.moderation import (
+    moderate_submission,
+    moderate_commenter,
+    moderate_comment,
+    moderate_tag,
+    MODERATION_THRESHOLD,
 )
 from app.core.models import DocumentID
 
@@ -132,10 +146,11 @@ def create_document_comment(
 
 
 def create_full_comment_submission(
-    form_data: FullCommentForm, session: Session
-) -> FullCommentFormResponse:
+    form_data: FullCommentFormCreate, session: Session
+) -> FullCommentForm:
     """
     Create a complete comment submission with commenter, comment, tags, and associations.
+    Adds moderation check as background task.
 
     TODO: This function would have a better interface for the client if it aggregated
     all errors rather than failing on the first thing.
@@ -146,7 +161,7 @@ def create_full_comment_submission(
     comment = create_comment_db(form_data.comment, session)
 
     # TODO: Do this as a batch upsert
-    created_tags = []
+    created_tags: list[Tag] = []
     tag_ids = []
     for tag_create in form_data.tags:
         tag = create_tag_db(tag_create, session)
@@ -158,22 +173,10 @@ def create_full_comment_submission(
     session.commit()
     session.refresh(comment)
 
-    response = FullCommentFormResponse(
-        comment=CommentPublic(**comment.model_dump()),
-        # TODO: for some reason, CommenterPublic wasn't happy with model dump
-        # To investigate
-        commenter=CommenterPublic(
-            first_name=commenter.first_name,
-            email=commenter.email,
-            salutation=commenter.salutation,
-            last_name=commenter.last_name,
-            place=commenter.place,
-            state=commenter.state,
-            zip_code=commenter.zip_code,
-            created_at=commenter.created_at,
-            updated_at=commenter.updated_at,
-        ),
-        tags=[TagPublic(slug=tag.slug) for tag in created_tags],
+    response = FullCommentForm(
+        comment=comment,
+        commenter=commenter,
+        tags=created_tags,
     )
 
     return response
@@ -183,7 +186,9 @@ def create_full_comment_submission(
     "/commenter", response_model=CommenterPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_commenter(
-    commenter_data: CommenterCreate, session: Session = Depends(get_session)
+    commenter_data: CommenterCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     """Create a new commenter with upsert on conflict for name + email."""
     try:
@@ -193,6 +198,8 @@ async def create_commenter(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+
+    background_tasks.add_task(moderate_commenter, commenter, session)
     return commenter
 
 
@@ -200,7 +207,9 @@ async def create_commenter(
     "/comment", response_model=CommentPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_comment(
-    comment_data: CommentCreate, session: Session = Depends(get_session)
+    comment_data: CommentCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     """Create a new comment without commenter foreign key."""
     try:
@@ -210,11 +219,17 @@ async def create_comment(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+
+    background_tasks.add_task(moderate_comment, comment, session)
     return comment
 
 
 @router.post("/tag", response_model=TagPublic, status_code=status.HTTP_201_CREATED)
-async def create_tag(tag_data: TagCreate, session: Session = Depends(get_session)):
+async def create_tag(
+    tag_data: TagCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
     """Create a new tag using the slugify_tag SQL function."""
     try:
         tag = create_tag_db(tag_data, session)
@@ -223,6 +238,8 @@ async def create_tag(tag_data: TagCreate, session: Session = Depends(get_session
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+
+    background_tasks.add_task(moderate_tag, tag, session)
     return tag
 
 
@@ -232,7 +249,9 @@ async def create_tag(tag_data: TagCreate, session: Session = Depends(get_session
     status_code=status.HTTP_201_CREATED,
 )
 async def submit_full_comment(
-    form_data: FullCommentForm, session: Session = Depends(get_session)
+    form_data: FullCommentFormCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     """Submit a complete comment with commenter, comment, and tags."""
     try:
@@ -242,4 +261,95 @@ async def submit_full_comment(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+
+    background_tasks.add_task(moderate_submission, response, session)
     return response
+
+
+def get_comments_base_query(tags: list[str], place: str, state: str, zip_code: str):
+    """
+    Query the comments table with the given filters.
+    """
+    stmt = (
+        select(
+            Comment.title,
+            Comment.comment,
+            Commenter.first_name,
+            Commenter.last_name,
+            Commenter.place,
+            Commenter.state,
+            Commenter.zip_code,
+            func.array_agg(Tag.slug).label("tags"),
+        )
+        .join(Commenter, Comment.commenter_id == Commenter.id)
+        .join(DocumentComment, Comment.id == DocumentComment.comment_id)
+        .join(CommentTag, Comment.id == CommentTag.comment_id)
+        .join(Tag, Tag.id == CommentTag.tag_id)
+        .group_by(Comment.id, Commenter.id, DocumentComment.document_id)
+    )
+
+    if tags:
+        stmt = stmt.where(Tag.slug.in_(tags))
+    if place:
+        stmt = stmt.where(Commenter.place == place)
+    if state:
+        stmt = stmt.where(Commenter.state == state)
+    if zip_code:
+        stmt = stmt.where(Commenter.zip_code == zip_code)
+
+    return stmt
+
+
+@router.get("/list", response_model=list[PublicCommentResponse])
+async def list_comments(
+    # query params tags, place, state, zip_code
+    tags: list[str] = Query(default=[]),
+    place: str = Query(default=None),
+    state: str = Query(default=None),
+    zip_code: str = Query(default=None),
+    offset: int = Query(default=0),
+    session: Session = Depends(get_session),
+):
+    stmt = get_comments_base_query(
+        tags=tags, place=place, state=state, zip_code=zip_code
+    )
+
+    threshold = MODERATION_THRESHOLD
+    stmt = (
+        stmt.where(Comment.moderation_score < threshold)
+        .where(Commenter.moderation_score < threshold)
+        .having(func.max(func.coalesce(Tag.moderation_score, 0)) < threshold)
+    )
+    stmt = stmt.offset(offset).limit(100)
+
+    results = session.exec(stmt).all()
+    return results
+
+
+@router.get("/admin/list", response_model=list[PublicCommentResponse])
+async def list_comments_admin(
+    tags: list[str] = Query(default=[]),
+    place: str = Query(default=None),
+    state: str = Query(default=None),
+    zip_code: str = Query(default=None),
+    # View all comments regardless of moderation score
+    min_moderation_score: float = Query(default=1.0),
+    offset: int = Query(default=0),
+    limit: int = Query(default=100),
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+):
+    stmt = get_comments_base_query(
+        tags=tags, place=place, state=state, zip_code=zip_code
+    )
+
+    threshold = min_moderation_score
+    stmt = (
+        stmt.where(Comment.moderation_score < threshold)
+        .where(Commenter.moderation_score < threshold)
+        .having(func.max(func.coalesce(Tag.moderation_score, 0)) < threshold)
+    )
+    stmt = stmt.offset(offset).limit(limit)
+
+    results = session.exec(stmt).all()
+    return results

@@ -10,6 +10,7 @@ from sqlmodel import (
     Index,
     CheckConstraint,
     Integer,
+    Float,
 )
 from sqlalchemy import func
 from app.constants import COMMENTS_SCHEMA
@@ -61,6 +62,17 @@ class Commenter(TimeStampMixin, SQLModel, table=True):
     place: str = Field(sa_column=Column(String(255), nullable=True))
     state: str = Field(sa_column=Column(String(255), nullable=True))
     zip_code: str = Field(sa_column=Column(String(255), nullable=True))
+    moderation_score: float = Field(
+        sa_column=Column(Float, nullable=True, default=None)
+    )
+
+    def __str__(self) -> str:
+        fields_to_moderate = self.model_dump(
+            include={"salutation", "first_name", "last_name", "place", "state"},
+            exclude_unset=True,
+            exclude_none=True,
+        )
+        return " ".join(fields_to_moderate.values())
 
 
 class CommenterCreate(BaseModel):
@@ -101,6 +113,9 @@ class Comment(TimeStampMixin, SQLModel, table=True):
     commenter_id: int = Field(
         sa_column=Column(ForeignKey(Commenter.id), nullable=True, index=True)
     )
+    moderation_score: float = Field(
+        sa_column=Column(Float, nullable=True, default=None)
+    )
 
 
 class CommentCreate(BaseModel):
@@ -131,6 +146,9 @@ class Tag(TimeStampMixin, SQLModel, table=True):
     )
     slug: str = Field(
         sa_column=Column(String(255), nullable=False, unique=True, index=True)
+    )
+    moderation_score: float = Field(
+        sa_column=Column(Float, nullable=True, default=None)
     )
 
 
@@ -184,13 +202,36 @@ class DocumentComment(SQLModel, table=True):
     )
 
 
-class FullCommentForm(BaseModel):
+class FullCommentFormCreate(BaseModel):
     comment: CommentCreate
     commenter: CommenterCreate
     tags: list[TagCreate]
+
+
+class FullCommentForm(BaseModel):
+    comment: Comment
+    commenter: Commenter
+    tags: list[Tag]
 
 
 class FullCommentFormResponse(BaseModel):
     comment: CommentPublic
     commenter: CommenterPublic
     tags: list[TagPublic]
+
+
+class ModerationScore(BaseModel):
+    ok: bool
+    score: float
+    error: str | None = None
+
+
+class PublicCommentResponse(BaseModel):
+    title: str
+    comment: str
+    first_name: str
+    last_name: str | None = None
+    place: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+    tags: list[str | None] = []
