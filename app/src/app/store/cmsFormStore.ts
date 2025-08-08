@@ -128,7 +128,7 @@ export const useCmsFormStore = create<CmsFormStore>((set, get) => ({
   loadMapList: async () => {
     const existingMaps = get().maps;
     if (existingMaps.length) return existingMaps;
-    return await getAvailableDistrictrMaps({limit: 100});
+    return await getAvailableDistrictrMaps({limit: 200});
   },
 
   // Load content for a specific type

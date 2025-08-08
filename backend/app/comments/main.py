@@ -3,12 +3,12 @@ from fastapi import (
     Depends,
     HTTPException,
     status,
+    Request,
 )
 from sqlmodel import Session
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text
-import logging
 
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
@@ -28,9 +28,8 @@ from app.comments.models import (
     DocumentComment,
 )
 from app.core.models import DocumentID
+from app.core.security import recaptcha
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
 
@@ -232,9 +231,12 @@ async def create_tag(tag_data: TagCreate, session: Session = Depends(get_session
     status_code=status.HTTP_201_CREATED,
 )
 async def submit_full_comment(
-    form_data: FullCommentForm, session: Session = Depends(get_session)
+    request: Request,
+    form_data: FullCommentForm,
+    session: Session = Depends(get_session),
 ):
     """Submit a complete comment with commenter, comment, and tags."""
+    await recaptcha.verify_recaptcha(form_data.recaptcha_token, request.client.host)
     try:
         response = create_full_comment_submission(form_data, session)
     except (DataError, IntegrityError) as e:

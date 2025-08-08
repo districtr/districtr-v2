@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     DATABASE_URL: str
 
+    # reCAPTCHA
+    RECAPTCHA_SECRET_KEY: str | None = None
+
     @computed_field  # type: ignore[misc]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
