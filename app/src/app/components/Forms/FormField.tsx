@@ -30,6 +30,20 @@ export function FormField<T extends FormPart>({
   const value = useFormState(state => state[formPart][formProperty] as string);
   const setFormState = useFormState(state => state.setFormState);
   const Component = component ?? TextField.Root;
+
+  const updateFormState = (component: HTMLInputElement) => {
+    component.style.border = "none";
+    setFormState(formPart, formProperty as keyof FormState[T], component.value);
+  };
+
+  const validateRequiredResponse = (component: HTMLInputElement) => {
+    if (!component.value.trim().length) {
+      component.style.border = "2px solid darkred";
+    } else {
+      component.style.border = "none";
+    }
+  };
+
   return (
     <Box>
       <Text as="label" size="2" weight="medium" id={`${formPart}-${formProperty as string}`}>
@@ -44,7 +58,8 @@ export function FormField<T extends FormPart>({
         value={disabled ? '' : (value ?? '')}
         autoComplete={disabled ? 'off' : autoComplete}
         disabled={disabled}
-        onChange={e => setFormState(formPart, formProperty as keyof FormState[T], e.target.value)}
+        onChange={(e) => updateFormState(e.target as HTMLInputElement)}
+        onBlur={required ? (e) => validateRequiredResponse(e.target as HTMLInputElement) : undefined}
       />
     </Box>
   );
