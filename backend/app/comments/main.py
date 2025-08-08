@@ -249,7 +249,7 @@ async def submit_full_comment(
     "/doc/{document_id}",
     response_model=list[Comment],
 )
-async def list_comments(
+async def list_comments_by_doc(
     *,
     session: Session = Depends(get_session),
     document_id: str,
@@ -258,6 +258,26 @@ async def list_comments(
         select(Comment)
         .join(DocumentComment, Comment.id == DocumentComment.comment_id)
         .where(DocumentComment.document_id == document_id)
+        .order_by(desc(Comment.created_at))
+    )
+    comments = session.exec(query)
+    return comments.all()
+
+
+@router.get(
+    "/tagged/{tag}",
+    response_model=list[Comment],
+)
+async def list_comments_by_tag(
+    *,
+    session: Session = Depends(get_session),
+    tag: str,
+):
+    query = (
+        select(Comment)
+        .join(CommentTag, Comment.id == CommentTag.comment_id)
+        .join(Tag, CommentTag.tag_id == Tag.id)
+        .where(Tag.slug == tag)
         .order_by(desc(Comment.created_at))
     )
     comments = session.exec(query)
