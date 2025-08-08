@@ -16,6 +16,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import Self
 from pathlib import Path
 from enum import Enum
+from openai import OpenAI
 
 
 def parse_cors(v: Any) -> list[str] | str:
@@ -68,10 +69,6 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     DATABASE_URL: str
 
-    # Moderation
-
-    OPENAI_API_KEY: str | None = None
-
     @computed_field  # type: ignore[misc]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
@@ -88,6 +85,14 @@ class Settings(BaseSettings):
         )
 
     ECHO_DB: bool = ENVIRONMENT not in (Environment.production, Environment.test)
+
+    # Moderation
+
+    OPENAI_API_KEY: str | None = None
+
+    def get_openai_client(self) -> OpenAI | None:
+        if self.OPENAI_API_KEY:
+            return OpenAI(api_key=self.OPENAI_API_KEY)
 
     # Security
 

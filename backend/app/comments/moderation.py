@@ -2,7 +2,6 @@
 
 import logging
 from sqlmodel import Session, Table, update
-from openai import OpenAI
 from safetext import SafeText
 
 from app.comments.models import (
@@ -15,7 +14,6 @@ from app.comments.models import (
 from app.core.config import settings
 
 st = SafeText(language="en")
-openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +22,14 @@ logger = logging.getLogger(__name__)
 MODERATION_THRESHOLD: float = 0.4
 
 
-def rate_offensive_text_ai(text: str) -> ModerationScore:
+def rate_offensive_text_ai(text: str) -> ModerationScore | None:
     """
     Rates how offensive or inappropriate the given text is.
     Returns a float between 0 (not offensive) and 1 (certainly offensive).
     """
+    openai_client = settings.get_openai_client()
+    if not openai_client:
+        return
 
     try:
         response = openai_client.moderations.create(
@@ -74,7 +75,7 @@ def score_text(text: str) -> float:
 
     if settings.OPENAI_API_KEY:
         result = rate_offensive_text_ai(text)
-        if result.ok:
+        if result and result.ok:
             return result.score
 
     result = check_profanity(text)
