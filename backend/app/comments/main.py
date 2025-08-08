@@ -34,7 +34,13 @@ from app.comments.models import (
     FullCommentFormCreate,
     PublicCommentResponse,
 )
-from app.comments.moderation import moderate_submission, MODERATION_THRESHOLD
+from app.comments.moderation import (
+    moderate_submission,
+    moderate_commenter,
+    moderate_comment,
+    moderate_tag,
+    MODERATION_THRESHOLD,
+)
 from app.core.models import DocumentID
 
 logger = logging.getLogger(__name__)
@@ -180,7 +186,9 @@ def create_full_comment_submission(
     "/commenter", response_model=CommenterPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_commenter(
-    commenter_data: CommenterCreate, session: Session = Depends(get_session)
+    commenter_data: CommenterCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     """Create a new commenter with upsert on conflict for name + email."""
     try:
@@ -190,6 +198,8 @@ async def create_commenter(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+
+    background_tasks.add_task(moderate_commenter, commenter, session)
     return commenter
 
 
@@ -197,7 +207,9 @@ async def create_commenter(
     "/comment", response_model=CommentPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_comment(
-    comment_data: CommentCreate, session: Session = Depends(get_session)
+    comment_data: CommentCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     """Create a new comment without commenter foreign key."""
     try:
@@ -207,11 +219,17 @@ async def create_comment(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+
+    background_tasks.add_task(moderate_comment, comment, session)
     return comment
 
 
 @router.post("/tag", response_model=TagPublic, status_code=status.HTTP_201_CREATED)
-async def create_tag(tag_data: TagCreate, session: Session = Depends(get_session)):
+async def create_tag(
+    tag_data: TagCreate,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
     """Create a new tag using the slugify_tag SQL function."""
     try:
         tag = create_tag_db(tag_data, session)
@@ -220,6 +238,8 @@ async def create_tag(tag_data: TagCreate, session: Session = Depends(get_session
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+
+    background_tasks.add_task(moderate_tag, tag, session)
     return tag
 
 

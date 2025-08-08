@@ -70,7 +70,7 @@ class Settings(BaseSettings):
 
     # Moderation
 
-    OPENAI_API_KEY: str
+    OPENAI_API_KEY: str | None = None
 
     @computed_field  # type: ignore[misc]
     @property

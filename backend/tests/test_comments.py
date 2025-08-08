@@ -6,7 +6,8 @@ from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentCom
 class TestCommenterEndpoint:
     """Tests for the /api/comments/commenter endpoint"""
 
-    def test_create_commenter_success(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_commenter_success(self, mock_score_text, client, session: Session):
         """Test successful commenter creation"""
         commenter_data = {
             "first_name": "John",
@@ -42,7 +43,10 @@ class TestCommenterEndpoint:
         assert db_commenter.first_name == "John"
         assert db_commenter.email == "john@example.com"
 
-    def test_create_commenter_minimal_data(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_commenter_minimal_data(
+        self, mock_score_test, client, session: Session
+    ):
         """Test commenter creation with only required fields"""
         commenter_data = {"first_name": "Jane", "email": "jane@example.com"}
 
@@ -59,7 +63,10 @@ class TestCommenterEndpoint:
         assert data["state"] is None
         assert data["zip_code"] is None
 
-    def test_create_commenter_upsert_on_conflict(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_commenter_upsert_on_conflict(
+        self, mock_score_test, client, session: Session
+    ):
         """Test that creating a duplicate commenter performs upsert"""
         # First creation
         commenter_data = {
@@ -93,7 +100,12 @@ class TestCommenterEndpoint:
         assert len(commenters) == 1
         assert commenters[0].place == "Los Angeles"
 
-    def test_create_commenter_invalid_email(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_commenter_invalid_email(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test commenter creation with invalid email format"""
         commenter_data = {"first_name": "Invalid", "email": "not-an-email"}
 
@@ -101,7 +113,12 @@ class TestCommenterEndpoint:
         # Should fail due to database email validation constraint
         assert response.status_code in [400, 422, 500]  # Various possible error codes
 
-    def test_create_commenter_empty_required_fields(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_commenter_empty_required_fields(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test commenter creation with empty required fields"""
         test_cases = [
             {"first_name": "", "email": "test@example.com"},
@@ -113,7 +130,12 @@ class TestCommenterEndpoint:
             response = client.post("/api/comments/commenter", json=commenter_data)
             assert response.status_code in [400, 422, 500]
 
-    def test_create_commenter_missing_required_fields(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_commenter_missing_required_fields(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test commenter creation with missing required fields"""
         test_cases = [
             {"first_name": "Test"},  # missing email
@@ -129,7 +151,8 @@ class TestCommenterEndpoint:
 class TestCommentEndpoint:
     """Tests for the /api/comments/comment endpoint"""
 
-    def test_create_comment_success(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_comment_success(self, mock_score_test, client, session: Session):
         """Test successful comment creation"""
         comment_data = {
             "title": "Test Comment",
@@ -153,8 +176,9 @@ class TestCommentEndpoint:
         assert db_comment.comment == "This is a test comment with some content."
         assert db_comment.commenter_id is None  # Should be null as specified
 
+    @patch("app.comments.moderation.score_text", return_value=0.2)
     def test_create_comment_on_document_success(
-        self, client, document_id, session: Session
+        self, mock_score_test, client, document_id, session: Session
     ):
         """Test successful comment creation"""
         comment_data = {
@@ -185,7 +209,10 @@ class TestCommentEndpoint:
         assert db_document_comment.comment_id == db_comment.id
         assert db_document_comment.document_id == document_id, response.json()
 
-    def test_create_comment_long_content(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_comment_long_content(
+        self, mock_score_test, client, session: Session
+    ):
         """Test comment creation with long content"""
         long_content = "A" * 4500  # Close to the 5000 char limit
         comment_data = {"title": "Long Comment", "comment": long_content}
@@ -196,7 +223,12 @@ class TestCommentEndpoint:
         data = response.json()
         assert data["comment"] == long_content
 
-    def test_create_comment_too_long_content(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_comment_too_long_content(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test comment creation with content exceeding limit"""
         too_long_content = "A" * 5001  # Exceeds the 5000 char limit
         comment_data = {"title": "Too Long Comment", "comment": too_long_content}
@@ -205,7 +237,12 @@ class TestCommentEndpoint:
         # Should fail due to database constraint
         assert response.status_code in [400, 422, 500]
 
-    def test_create_comment_missing_required_fields(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_comment_missing_required_fields(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test comment creation with missing required fields"""
         test_cases = [
             {"title": "Test"},  # missing comment
@@ -217,7 +254,12 @@ class TestCommentEndpoint:
             response = client.post("/api/comments/comment", json=comment_data)
             assert response.status_code == 422
 
-    def test_create_comment_empty_required_fields(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_comment_empty_required_fields(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test comment creation with empty required fields"""
         test_cases = [
             {"title": "", "comment": "Valid comment"},
@@ -233,7 +275,8 @@ class TestCommentEndpoint:
 class TestTagEndpoint:
     """Tests for the /api/comments/tag endpoint"""
 
-    def test_create_tag_success(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_tag_success(self, mock_score_test, client, session: Session):
         """Test successful tag creation"""
         tag_data = {"tag": "Important Issue"}
 
@@ -250,7 +293,10 @@ class TestTagEndpoint:
         db_tag = session.exec(stmt).one()
         assert db_tag.slug == "important-issue"
 
-    def test_create_tag_conflict_success(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_tag_conflict_success(
+        self, mock_score_test, client, session: Session
+    ):
         """Test successful tag creation"""
         tag_data = {"tag": "Important Issue"}
 
@@ -271,7 +317,10 @@ class TestTagEndpoint:
         db_tag = session.exec(stmt).one()
         assert db_tag.slug == "important-issue"
 
-    def test_create_tag_with_special_characters(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_tag_with_special_characters(
+        self, mock_score_test, client, session: Session
+    ):
         """Test tag creation with special characters that should be removed"""
         tag_data = {"tag": "Budget & Finance!!! @#$"}
 
@@ -283,7 +332,10 @@ class TestTagEndpoint:
         # Special characters should be removed, spaces converted to dashes
         assert data["slug"] == "budget-finance"
 
-    def test_create_tag_with_multiple_spaces(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_tag_with_multiple_spaces(
+        self, mock_score_test, client, session: Session
+    ):
         """Test tag creation with multiple consecutive spaces"""
         tag_data = {"tag": "Housing    and     Development"}
 
@@ -295,7 +347,10 @@ class TestTagEndpoint:
         # Multiple spaces should be converted to single dashes
         assert data["slug"] == "housing-and-development"
 
-    def test_create_tag_duplicate_returns_existing(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_tag_duplicate_returns_existing(
+        self, mock_score_test, client, session: Session
+    ):
         """Test that creating a duplicate tag returns the existing one"""
         tag_data = {"tag": "Education"}
 
@@ -317,7 +372,10 @@ class TestTagEndpoint:
         tags = session.exec(stmt).all()
         assert len(tags) == 1
 
-    def test_create_tag_mixed_case_and_spacing(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_tag_mixed_case_and_spacing(
+        self, mock_score_test, client, session: Session
+    ):
         """Test tag creation with mixed case and spacing"""
         tag_data = {"tag": "  Public SAFETY & Security  "}
 
@@ -329,7 +387,12 @@ class TestTagEndpoint:
         # Should be lowercased, trimmed, and slugified
         assert data["slug"] == "public-safety-security"
 
-    def test_create_tag_empty_string(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_tag_empty_string(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test tag creation with empty string"""
         test_cases = [
             {"tag": ""},
@@ -342,12 +405,20 @@ class TestTagEndpoint:
             # Should fail because slugify returns null/empty for invalid input
             assert response.status_code in [400, 422, 500], response.json()
 
-    def test_create_tag_missing_required_field(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_tag_missing_required_field(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test tag creation with missing required field"""
         response = client.post("/api/comments/tag", json={})
         assert response.status_code == 422
 
-    def test_create_tag_numbers_and_hyphens(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_tag_numbers_and_hyphens(
+        self, mock_score_test, client, session: Session
+    ):
         """Test tag creation with numbers and hyphens"""
         tag_data = {"tag": "COVID-19 Response 2024"}
 
@@ -363,7 +434,10 @@ class TestTagEndpoint:
 class TestIntegrationTests:
     """Integration tests for the comments system"""
 
-    def test_create_full_comment_system_flow(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_create_full_comment_system_flow(
+        self, mock_score_test, client, session: Session
+    ):
         """Test creating commenter, comment, and tags in sequence"""
         # Create commenter
         commenter_data = {
@@ -601,7 +675,12 @@ class TestFullCommentSubmissionEndpoint:
         assert "environment" in tag_slugs
         assert "environment-climate" in tag_slugs
 
-    def test_submit_full_comment_invalid_commenter_email(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_submit_full_comment_invalid_commenter_email(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test submission with invalid commenter email"""
         form_data = {
             "commenter": {"first_name": "Invalid", "email": "not-an-email"},
@@ -612,7 +691,12 @@ class TestFullCommentSubmissionEndpoint:
         response = client.post("/api/comments/submit", json=form_data)
         assert response.status_code == 422
 
-    def test_submit_full_comment_missing_required_fields(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_submit_full_comment_missing_required_fields(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test submission with missing required fields"""
         test_cases = [
             {
@@ -638,7 +722,11 @@ class TestFullCommentSubmissionEndpoint:
             assert response.status_code == 422
 
     @patch("app.comments.moderation.score_text", return_value=0.2)
-    def test_submit_full_comment_too_long_content(self, mock_score_text, client):
+    def test_submit_full_comment_too_long_content(
+        self,
+        mock_score_text,
+        client,
+    ):
         """Test submission with comment content exceeding limit"""
         form_data = {
             "commenter": {"first_name": "Long", "email": "long@example.com"},

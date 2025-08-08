@@ -68,7 +68,9 @@ class Commenter(TimeStampMixin, SQLModel, table=True):
 
     def __str__(self) -> str:
         fields_to_moderate = self.model_dump(
-            include={"salutation", "first_name", "last_name", "place", "state"}
+            include={"salutation", "first_name", "last_name", "place", "state"},
+            exclude_unset=True,
+            exclude_none=True,
         )
         return " ".join(fields_to_moderate.values())
 

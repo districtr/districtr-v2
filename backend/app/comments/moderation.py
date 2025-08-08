@@ -111,6 +111,21 @@ def update_moderation_score(
         logger.error(f"Failed to save commenter moderation score: {e}")
 
 
+def moderate_comment(comment: Comment, session: Session):
+    comment_text = f"{comment.title} {comment.comment}"
+    moderate_text(cls=Comment, key=comment.id, text=comment_text, session=session)
+
+
+def moderate_commenter(commenter: Commenter, session: Session):
+    commenter_data = str(commenter)
+    moderate_text(cls=Commenter, key=commenter.id, text=commenter_data, session=session)
+
+
+def moderate_tag(tag: Tag, session: Session):
+    tag_data = str(tag)
+    moderate_text(cls=Tag, key=tag.id, text=tag_data, session=session)
+
+
 def moderate_submission(
     response: FullCommentForm,
     session: Session,
@@ -119,15 +134,7 @@ def moderate_submission(
     Background task to check moderation scores for a complete comment submission.
     Returns a dictionary with moderation scores for all components.
     """
-    comment_text = f"{response.comment.title} {response.comment.comment}"
-    moderate_text(
-        cls=Comment, key=response.comment.id, text=comment_text, session=session
-    )
-
-    commenter_data = str(response.commenter)
-    moderate_text(
-        cls=Commenter, key=response.commenter.id, text=commenter_data, session=session
-    )
-
+    moderate_comment(response.comment, session)
+    moderate_commenter(response.commenter, session)
     for tag in response.tags:
-        moderate_text(cls=Tag, key=tag.id, text=tag.slug, session=session)
+        moderate_tag(tag, session)
