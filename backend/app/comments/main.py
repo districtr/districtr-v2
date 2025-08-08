@@ -4,7 +4,7 @@ from fastapi import (
     HTTPException,
     status,
 )
-from sqlmodel import Session
+from sqlmodel import Session, select, desc
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text
@@ -243,3 +243,22 @@ async def submit_full_comment(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
     return response
+
+
+@router.get(
+    "/doc/{document_id}",
+    response_model=list[Comment],
+)
+async def list_comments(
+    *,
+    session: Session = Depends(get_session),
+    document_id: str,
+):
+    query = (
+        select(Comment)
+        .join(DocumentComment, Comment.id == DocumentComment.comment_id)
+        .where(DocumentComment.document_id == document_id)
+        .order_by(desc(Comment.created_at))
+    )
+    comments = session.exec(query)
+    return comments.all()
