@@ -15,6 +15,7 @@ import FormNode from '../Cms/RichTextEditor/extensions/CommentSubmissionForm/For
 interface RichTextRendererProps {
   content: string | object;
   className?: string;
+  disabled?: boolean;
 }
 
 const extensions = [
@@ -33,11 +34,11 @@ const extensions = [
   FormNode,
 ];
 
-const RichTextRenderer: React.FC<RichTextRendererProps> = ({content, className = ''}) => {
+const RichTextRenderer: React.FC<RichTextRendererProps> = ({content, disabled, className = ''}) => {
   const htmlContent = typeof content === 'string' ? content : generateHTML(content, extensions);
 
   const reactContent = parse(htmlContent, {
-    replace: domNodeReplacers,
+    replace: domNodeReplacers(disabled),
   });
 
   return <div className={`prose prose-sm max-w-none ${className}`}>{reactContent}</div>;

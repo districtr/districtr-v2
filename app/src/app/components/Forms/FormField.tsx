@@ -12,6 +12,7 @@ type FormFieldProps<T extends FormPart> = {
   type: TextField.RootProps['type'];
   autoComplete?: TextField.RootProps['autoComplete'];
   component?: typeof TextField.Root | typeof TextArea;
+  disabled?: boolean;
   required?: boolean;
 };
 
@@ -22,6 +23,7 @@ export function FormField<T extends FormPart>({
   type,
   placeholder,
   component,
+  disabled,
   required,
   autoComplete,
 }: FormFieldProps<T>) {
@@ -39,8 +41,9 @@ export function FormField<T extends FormPart>({
         type={type}
         name={`${formPart}-${formProperty as string}`}
         aria-labelledby={`${formPart}-${formProperty as string}`}
-        value={value ?? ''}
-        autoComplete={autoComplete}
+        value={disabled ? '' : (value ?? '')}
+        autoComplete={disabled ? 'off' : autoComplete}
+        disabled={disabled}
         onChange={e => setFormState(formPart, formProperty as keyof FormState[T], e.target.value)}
       />
     </Box>
