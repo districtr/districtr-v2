@@ -194,3 +194,8 @@ class FullCommentFormResponse(BaseModel):
     comment: CommentPublic
     commenter: CommenterPublic
     tags: list[TagPublic]
+
+
+class PublicCommentListing(BaseModel):
+    comment: CommentPublic
+    tags: list[str]

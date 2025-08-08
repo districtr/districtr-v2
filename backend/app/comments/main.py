@@ -4,7 +4,7 @@ from fastapi import (
     HTTPException,
     status,
 )
-from sqlmodel import Session, select, desc
+from sqlmodel import Session, select, desc, func
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text
@@ -26,6 +26,7 @@ from app.comments.models import (
     FullCommentForm,
     FullCommentFormResponse,
     DocumentComment,
+    PublicCommentListing,
 )
 from app.core.models import DocumentID
 
@@ -247,7 +248,7 @@ async def submit_full_comment(
 
 @router.get(
     "/doc/{document_id}",
-    response_model=list[Comment],
+    response_model=list[PublicCommentListing],
 )
 async def list_comments_by_doc(
     *,
@@ -255,13 +256,18 @@ async def list_comments_by_doc(
     document_id: str,
 ):
     query = (
-        select(Comment)
+        select(Comment, func.array_agg(Tag.slug).label("tags"))
         .join(DocumentComment, Comment.id == DocumentComment.comment_id)
+        # .join(Commenter, Comment.commenter_id == Commenter.id)
+        .join(CommentTag, Comment.id == CommentTag.comment_id)
+        .join(Tag, CommentTag.tag_id == Tag.id)
         .where(DocumentComment.document_id == document_id)
+        .group_by(Comment.id)
         .order_by(desc(Comment.created_at))
     )
-    comments = session.exec(query)
-    return comments.all()
+    results = session.exec(query)
+    rows = results.all()
+    return [{"comment": comment, "tags": tags} for comment, tags in rows]
 
 
 @router.get(
