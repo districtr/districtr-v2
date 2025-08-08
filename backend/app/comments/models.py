@@ -1,4 +1,5 @@
 from pydantic import BaseModel, validator
+from typing import List, Optional
 from datetime import datetime
 from sqlmodel import (
     Field,
@@ -204,3 +205,18 @@ class FullCommentFormResponse(BaseModel):
     comment: CommentPublic
     commenter: CommenterPublic
     tags: list[TagPublic]
+
+
+class PublicCommentResponse(BaseModel):
+    id: int
+    title: str
+    comment: str
+    name: str
+    document_id: str
+    place: str
+    state: str
+    zip_code: str
+    tags: List[str]
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+    moderation_score: float

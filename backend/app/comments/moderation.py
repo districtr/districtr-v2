@@ -11,10 +11,10 @@ from app.comments.models import (
     Tag,
     FullCommentForm,
 )
-from app.core.config import settings
+from app.core.config import get_settings
 
 st = SafeText(language="en")
-openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+openai_client = OpenAI(api_key=get_settings().OPENAI_API_KEY)
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ def score_text(text: str) -> float:
         return 0.0
 
     try:
-        if settings.OPENAI_API_KEY:
+        if get_settings().OPENAI_API_KEY:
             result = rate_offensive_text_ai(text)
             if result["ok"]:
                 return result["score"]
@@ -218,7 +218,7 @@ def moderate_submission(
             + results["tag_scores"]
         )
 
-        results["exceeds_threshold"] = max_score >= settings.PROFANITY_SCORE_THRESHOLD
+        results["exceeds_threshold"] = max_score >= get_settings().MODERATION_THRESHOLD
 
         if results["exceeds_threshold"]:
             logger.warning(

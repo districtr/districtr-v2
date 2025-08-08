@@ -67,7 +67,11 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
     DATABASE_URL: str
+
+    # Moderation
+
     OPENAI_API_KEY: str
+    MODERATION_THRESHOLD: float = 0.4
 
     @computed_field  # type: ignore[misc]
     @property
