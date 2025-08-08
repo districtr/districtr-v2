@@ -1,4 +1,5 @@
 from sqlmodel import Session, select
+from unittest.mock import patch
 from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
 
 
@@ -409,7 +410,10 @@ class TestIntegrationTests:
 class TestFullCommentSubmissionEndpoint:
     """Tests for the /api/comments/submit endpoint"""
 
-    def test_submit_full_comment_success(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_submit_full_comment_success(
+        self, mock_score_text, client, session: Session
+    ):
         """Test successful full comment submission"""
         form_data = {
             "commenter": {
@@ -470,7 +474,10 @@ class TestFullCommentSubmissionEndpoint:
         associations = session.exec(associations_stmt).all()
         assert len(associations) == 3
 
-    def test_submit_full_comment_minimal_data(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_submit_full_comment_minimal_data(
+        self, mock_score_text, client, session: Session
+    ):
         """Test full comment submission with minimal required data"""
         form_data = {
             "commenter": {"first_name": "Jane", "email": "jane@example.com"},
@@ -491,7 +498,10 @@ class TestFullCommentSubmissionEndpoint:
         assert len(data["tags"]) == 1
         assert data["tags"][0]["slug"] == "general"
 
-    def test_submit_full_comment_no_tags(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_submit_full_comment_no_tags(
+        self, mock_score_text, client, session: Session
+    ):
         """Test full comment submission with empty tags list"""
         form_data = {
             "commenter": {"first_name": "Bob", "email": "bob@example.com"},
@@ -511,7 +521,10 @@ class TestFullCommentSubmissionEndpoint:
         assert data["comment"]["title"] == "No Tags Comment"
         assert len(data["tags"]) == 0
 
-    def test_submit_full_comment_upsert_commenter(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_submit_full_comment_upsert_commenter(
+        self, mock_score_text, client, session: Session
+    ):
         """Test that submitting with existing commenter updates their info"""
         # First submission
         form_data_1 = {
@@ -559,7 +572,10 @@ class TestFullCommentSubmissionEndpoint:
         assert len(commenters) == 1
         assert commenters[0].place == "Los Angeles"
 
-    def test_submit_full_comment_duplicate_tags(self, client, session: Session):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_submit_full_comment_duplicate_tags(
+        self, mock_score_text, client, session: Session
+    ):
         """Test submission with duplicate tag names"""
         form_data = {
             "commenter": {"first_name": "Carol", "email": "carol@example.com"},
@@ -621,7 +637,8 @@ class TestFullCommentSubmissionEndpoint:
             response = client.post("/api/comments/submit", json=form_data)
             assert response.status_code == 422
 
-    def test_submit_full_comment_too_long_content(self, client):
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_submit_full_comment_too_long_content(self, mock_score_text, client):
         """Test submission with comment content exceeding limit"""
         form_data = {
             "commenter": {"first_name": "Long", "email": "long@example.com"},

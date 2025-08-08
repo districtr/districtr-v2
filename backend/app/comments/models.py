@@ -1,5 +1,4 @@
 from pydantic import BaseModel, validator
-from typing import List, Optional
 from datetime import datetime
 from sqlmodel import (
     Field,
@@ -66,6 +65,12 @@ class Commenter(TimeStampMixin, SQLModel, table=True):
     moderation_score: float = Field(
         sa_column=Column(Float, nullable=True, default=None)
     )
+
+    def __str__(self) -> str:
+        fields_to_moderate = self.model_dump(
+            include={"salutation", "first_name", "last_name", "place", "state"}
+        )
+        return " ".join(fields_to_moderate.values())
 
 
 class CommenterCreate(BaseModel):
@@ -195,10 +200,16 @@ class DocumentComment(SQLModel, table=True):
     )
 
 
-class FullCommentForm(BaseModel):
+class FullCommentFormCreate(BaseModel):
     comment: CommentCreate
     commenter: CommenterCreate
     tags: list[TagCreate]
+
+
+class FullCommentForm(BaseModel):
+    comment: Comment
+    commenter: Commenter
+    tags: list[Tag]
 
 
 class FullCommentFormResponse(BaseModel):
@@ -207,16 +218,7 @@ class FullCommentFormResponse(BaseModel):
     tags: list[TagPublic]
 
 
-class PublicCommentResponse(BaseModel):
-    id: int
-    title: str
-    comment: str
-    name: str
-    document_id: str
-    place: str
-    state: str
-    zip_code: str
-    tags: List[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
-    moderation_score: float
+class ModerationScore(BaseModel):
+    ok: bool
+    score: float
+    error: str | None = None

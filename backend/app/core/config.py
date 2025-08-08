@@ -71,7 +71,6 @@ class Settings(BaseSettings):
     # Moderation
 
     OPENAI_API_KEY: str
-    MODERATION_THRESHOLD: float = 0.4
 
     @computed_field  # type: ignore[misc]
     @property
@@ -158,10 +157,6 @@ class Settings(BaseSettings):
     AUTH0_API_AUDIENCE: str
     AUTH0_ISSUER: str
     AUTH0_ALGORITHMS: str
-
-    # Profanity Detection
-
-    PROFANITY_SCORE_THRESHOLD: float = 0.5
 
 
 @lru_cache()

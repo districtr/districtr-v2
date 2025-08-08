@@ -4,14 +4,15 @@ from fastapi import (
     HTTPException,
     status,
     BackgroundTasks,
-    Query,
-    Security,
+    # Query,
+    # Security,
 )
 from sqlmodel import Session
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import func, select, text
-from app.core.security import auth, TokenScope
+from sqlalchemy import text  # , func, select
+
+# from app.core.security import auth, TokenScope
 import logging
 
 from app.core.dependencies import get_protected_document
@@ -30,7 +31,7 @@ from app.comments.models import (
     FullCommentForm,
     FullCommentFormResponse,
     DocumentComment,
-    PublicCommentResponse,
+    FullCommentFormCreate,
 )
 from app.comments.moderation import moderate_submission
 from app.core.models import DocumentID
@@ -138,8 +139,8 @@ def create_document_comment(
 
 
 def create_full_comment_submission(
-    form_data: FullCommentForm, session: Session, background_tasks: BackgroundTasks
-) -> FullCommentFormResponse:
+    form_data: FullCommentFormCreate, session: Session
+) -> FullCommentForm:
     """
     Create a complete comment submission with commenter, comment, tags, and associations.
     Adds moderation check as background task.
@@ -153,7 +154,7 @@ def create_full_comment_submission(
     comment = create_comment_db(form_data.comment, session)
 
     # TODO: Do this as a batch upsert
-    created_tags = []
+    created_tags: list[Tag] = []
     tag_ids = []
     for tag_create in form_data.tags:
         tag = create_tag_db(tag_create, session)
@@ -165,32 +166,10 @@ def create_full_comment_submission(
     session.commit()
     session.refresh(comment)
 
-    # Add moderation check as background task
-    background_tasks.add_task(
-        moderate_submission,
-        comment_id=comment.id,
-        commenter_id=commenter.id,
-        tag_ids=tag_ids,
-        form_data=form_data,
-        session=session,
-    )
-
-    response = FullCommentFormResponse(
-        comment=CommentPublic(**comment.model_dump()),
-        # TODO: for some reason, CommenterPublic wasn't happy with model dump
-        # To investigate
-        commenter=CommenterPublic(
-            first_name=commenter.first_name,
-            email=commenter.email,
-            salutation=commenter.salutation,
-            last_name=commenter.last_name,
-            place=commenter.place,
-            state=commenter.state,
-            zip_code=commenter.zip_code,
-            created_at=commenter.created_at,
-            updated_at=commenter.updated_at,
-        ),
-        tags=[TagPublic(slug=tag.slug) for tag in created_tags],
+    response = FullCommentForm(
+        comment=comment,
+        commenter=commenter,
+        tags=created_tags,
     )
 
     return response
@@ -249,152 +228,154 @@ async def create_tag(tag_data: TagCreate, session: Session = Depends(get_session
     status_code=status.HTTP_201_CREATED,
 )
 async def submit_full_comment(
-    form_data: FullCommentForm,
+    form_data: FullCommentFormCreate,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
     """Submit a complete comment with commenter, comment, and tags."""
     try:
-        response = create_full_comment_submission(form_data, session, background_tasks)
+        response = create_full_comment_submission(form_data, session)
     except (DataError, IntegrityError) as e:
         session.rollback()
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
         )
+
+    background_tasks.add_task(moderate_submission, response, session)
     return response
 
 
-def query_comments(
-    session: Session, tags: list[str], place: str, state: str, zip_code: str
-):
-    """
-    Query the comments table with the given filters.
-    """
-    stmt = (
-        select(
-            Comment,
-            func.array_agg(Tag.slug).label("tags"),
-            Commenter.first_name,
-            Commenter.place,
-            Commenter.state,
-            Commenter.zip_code,
-            DocumentComment.document_id,
-            func.max(func.coalesce(Tag.moderation_score, 0)).label("max_tag_score"),
-            Comment.moderation_score.label("comment_score"),
-            Commenter.moderation_score.label("commenter_score"),
-        )
-        .join(Commenter, Comment.commenter_id == Commenter.id)
-        .join(DocumentComment, Comment.id == DocumentComment.comment_id)
-        .join(CommentTag, Comment.id == CommentTag.comment_id)
-        .join(Tag, Tag.id == CommentTag.tag_id)
-        .group_by(Comment.id, Commenter.id, DocumentComment.document_id)
-    )
+# def query_comments(
+#     session: Session, tags: list[str], place: str, state: str, zip_code: str
+# ):
+#     """
+#     Query the comments table with the given filters.
+#     """
+#     stmt = (
+#         select(
+#             Comment,
+#             func.array_agg(Tag.slug).label("tags"),
+#             Commenter.first_name,
+#             Commenter.place,
+#             Commenter.state,
+#             Commenter.zip_code,
+#             DocumentComment.document_id,
+#             func.max(func.coalesce(Tag.moderation_score, 0)).label("max_tag_score"),
+#             Comment.moderation_score.label("comment_score"),
+#             Commenter.moderation_score.label("commenter_score"),
+#         )
+#         .join(Commenter, Comment.commenter_id == Commenter.id)
+#         .join(DocumentComment, Comment.id == DocumentComment.comment_id)
+#         .join(CommentTag, Comment.id == CommentTag.comment_id)
+#         .join(Tag, Tag.id == CommentTag.tag_id)
+#         .group_by(Comment.id, Commenter.id, DocumentComment.document_id)
+#     )
 
-    if tags:
-        stmt = stmt.where(Tag.slug.in_(tags))
-    if place:
-        stmt = stmt.where(Commenter.place == place)
-    if state:
-        stmt = stmt.where(Commenter.state == state)
-    if zip_code:
-        stmt = stmt.where(Commenter.zip_code == zip_code)
+#     if tags:
+#         stmt = stmt.where(Tag.slug.in_(tags))
+#     if place:
+#         stmt = stmt.where(Commenter.place == place)
+#     if state:
+#         stmt = stmt.where(Commenter.state == state)
+#     if zip_code:
+#         stmt = stmt.where(Commenter.zip_code == zip_code)
 
-    return stmt
-
-
-def format_comments(results: list[tuple]) -> list[PublicCommentResponse]:
-    """
-    Format the results of the query into a list of PublicCommentResponse objects.
-    """
-    response = []
-
-    for row in results:
-        (
-            comment,
-            tags,
-            first_name,
-            place,
-            state,
-            zip_code,
-            document_id,
-            max_tag_score,
-            comment_score,
-            commenter_score,
-        ) = row
-
-        # Compute max moderation score safely
-        max_moderation_score = max(
-            [
-                score
-                for score in [max_tag_score, comment_score, commenter_score]
-                if score is not None
-            ],
-            default=None,
-        )
-
-        response.append(
-            PublicCommentResponse(
-                id=comment.id,
-                title=comment.title,
-                comment=comment.comment,
-                name=f"{first_name}",
-                created_at=comment.created_at,
-                updated_at=comment.updated_at,
-                place=place,
-                state=state,
-                zip_code=zip_code,
-                tags=tags,
-                document_id=document_id,
-                moderation_score=max_moderation_score,
-            )
-        )
-
-    return response
+#     return stmt
 
 
-@router.get("/list", response_model=list[PublicCommentResponse])
-async def list_comments(
-    session: Session = Depends(get_session),
-    # query params tags, place, state, zip_code
-    tags: list[str] = Query(default=[]),
-    place: str = Query(default=None),
-    state: str = Query(default=None),
-    zip_code: str = Query(default=None),
-):
-    """List all comments."""
-    stmt = query_comments(session, tags, place, state, zip_code)
+# def format_comments(results: list[tuple]) -> list[PublicCommentResponse]:
+#     """
+#     Format the results of the query into a list of PublicCommentResponse objects.
+#     """
+#     response = []
 
-    # TODO: fix this
-    # threshold = get_settings().MODERATION_THRESHOLD
-    # stmt = stmt.where(Comment.moderation_score < threshold)\
-    #     .where(Commenter.moderation_score < threshold)\
-    #     .where(Tag.moderation_score < threshold)
+#     for row in results:
+#         (
+#             comment,
+#             tags,
+#             first_name,
+#             place,
+#             state,
+#             zip_code,
+#             document_id,
+#             max_tag_score,
+#             comment_score,
+#             commenter_score,
+#         ) = row
 
-    results = session.exec(stmt).all()
-    return format_comments(results)
+#         # Compute max moderation score safely
+#         max_moderation_score = max(
+#             [
+#                 score
+#                 for score in [max_tag_score, comment_score, commenter_score]
+#                 if score is not None
+#             ],
+#             default=None,
+#         )
+
+#         response.append(
+#             PublicCommentResponse(
+#                 id=comment.id,
+#                 title=comment.title,
+#                 comment=comment.comment,
+#                 name=f"{first_name}",
+#                 created_at=comment.created_at,
+#                 updated_at=comment.updated_at,
+#                 place=place,
+#                 state=state,
+#                 zip_code=zip_code,
+#                 tags=tags,
+#                 document_id=document_id,
+#                 moderation_score=max_moderation_score,
+#             )
+#         )
+
+#     return response
 
 
-@router.get("/admin/list", response_model=list[PublicCommentResponse])
-async def list_comments_admin(
-    session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
-    tags: list[str] = Query(default=[]),
-    place: str = Query(default=None),
-    state: str = Query(default=None),
-    zip_code: str = Query(default=None),
-    min_moderation_score: float = Query(default=0.0),
-):
-    """List all comments."""
-    stmt = query_comments(session, tags, place, state, zip_code)
+# @router.get("/list", response_model=list[PublicCommentResponse])
+# async def list_comments(
+#     session: Session = Depends(get_session),
+#     # query params tags, place, state, zip_code
+#     tags: list[str] = Query(default=[]),
+#     place: str = Query(default=None),
+#     state: str = Query(default=None),
+#     zip_code: str = Query(default=None),
+# ):
+#     """List all comments."""
+#     stmt = query_comments(session, tags, place, state, zip_code)
 
-    # TODO: fix this
-    # stmt = stmt.where(
-    #     or_(
-    #         Comment.moderation_score >= min_moderation_score,
-    #         Commenter.moderation_score >= min_moderation_score,
-    #         Tag.moderation_score >= min_moderation_score
-    #     )
-    # )
+#     # TODO: fix this
+#     # threshold = get_settings().MODERATION_THRESHOLD
+#     # stmt = stmt.where(Comment.moderation_score < threshold)\
+#     #     .where(Commenter.moderation_score < threshold)\
+#     #     .where(Tag.moderation_score < threshold)
 
-    results = session.exec(stmt).all()
-    return format_comments(results)
+#     results = session.exec(stmt).all()
+#     return format_comments(results)
+
+
+# @router.get("/admin/list", response_model=list[PublicCommentResponse])
+# async def list_comments_admin(
+#     session: Session = Depends(get_session),
+#     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+#     tags: list[str] = Query(default=[]),
+#     place: str = Query(default=None),
+#     state: str = Query(default=None),
+#     zip_code: str = Query(default=None),
+#     min_moderation_score: float = Query(default=0.0),
+# ):
+#     """List all comments."""
+#     stmt = query_comments(session, tags, place, state, zip_code)
+
+#     # TODO: fix this
+#     # stmt = stmt.where(
+#     #     or_(
+#     #         Comment.moderation_score >= min_moderation_score,
+#     #         Commenter.moderation_score >= min_moderation_score,
+#     #         Tag.moderation_score >= min_moderation_score
+#     #     )
+#     # )
+
+#     results = session.exec(stmt).all()
+#     return format_comments(results)
