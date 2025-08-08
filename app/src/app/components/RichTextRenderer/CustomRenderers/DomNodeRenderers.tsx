@@ -3,8 +3,8 @@ import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boierpl
 import {ContentHeader} from '../../Static/ContentHeader';
 import {CommentSubmissionForm} from '../../Forms/CommentSubmissionForm';
 
-export const domNodeReplacers = (disabled: boolean) =>
-  (domNode: DOMNode) => {
+export const domNodeReplacers = (disabled: boolean) => {
+  const domNodeReplaceFn = (domNode: DOMNode) => {
     if (domNode.type === 'tag' && domNode.attribs?.['data-type']?.length) {
       switch (domNode.attribs['data-type']) {
         case 'boilerplate-node':
@@ -28,3 +28,5 @@ export const domNodeReplacers = (disabled: boolean) =>
       }
     }
   };
+  return domNodeReplaceFn;
+};
