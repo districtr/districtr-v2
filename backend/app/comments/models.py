@@ -222,3 +222,14 @@ class ModerationScore(BaseModel):
     ok: bool
     score: float
     error: str | None = None
+
+
+class PublicCommentResponse(BaseModel):
+    title: str
+    comment: str
+    first_name: str
+    last_name: str | None = None
+    place: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+    tags: list[str | None] = []

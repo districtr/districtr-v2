@@ -20,7 +20,7 @@ openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
 logger = logging.getLogger(__name__)
 
 
-PROFANITY_SCORE_THRESHOLD: float = 0.5
+# PROFANITY_SCORE_THRESHOLD: float = 0.5 # unused?
 MODERATION_THRESHOLD: float = 0.4
 
 

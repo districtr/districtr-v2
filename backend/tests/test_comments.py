@@ -651,3 +651,332 @@ class TestFullCommentSubmissionEndpoint:
 
         response = client.post("/api/comments/submit", json=form_data)
         assert response.status_code == 422
+
+
+class TestCommentListEndpoints:
+    """Tests for the comment list endpoints with moderation filtering"""
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_list_comments_clean_content_only(
+        self, mock_score_text, client, session: Session, document_id
+    ):
+        """Test that /list endpoint only returns comments with low moderation scores"""
+        # Create a clean comment submission
+        clean_form_data = {
+            "commenter": {
+                "first_name": "John",
+                "email": "john@example.com",
+                "place": "San Francisco",
+                "state": "CA",
+            },
+            "comment": {
+                "title": "Clean Comment",
+                "comment": "This is a clean comment.",
+                "document_id": document_id,
+            },
+            "tags": [{"tag": "Public Safety"}],
+        }
+
+        response = client.post("/api/comments/submit", json=clean_form_data)
+        assert response.status_code == 201
+
+        # Get the list of comments
+        response = client.get("/api/comments/list")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+        assert comments[0]["title"] == "Clean Comment"
+        assert comments[0]["first_name"] == "John"
+
+    @patch("app.comments.moderation.score_text")
+    def test_list_comments_filters_profane_content(
+        self, mock_score_text, client, session: Session, document_id
+    ):
+        """Test that /list endpoint filters out comments with high moderation scores"""
+        # First comment - profane (score 1.0)
+        mock_score_text.return_value = 1.0
+        profane_form_data = {
+            "commenter": {
+                "first_name": "Bob",
+                "email": "bob@example.com",
+                "place": "Chicago",
+                "state": "IL",
+            },
+            "comment": {
+                "title": "Profane Comment",
+                "comment": "This contains profanity.",
+                "document_id": document_id,
+            },
+            "tags": [{"tag": "Budget"}],
+        }
+        response = client.post("/api/comments/submit", json=profane_form_data)
+        assert response.status_code == 201
+
+        # Second comment - clean (score 0.2)
+        mock_score_text.return_value = 0.2
+        clean_form_data = {
+            "commenter": {
+                "first_name": "Alice",
+                "email": "alice@example.com",
+                "place": "Boston",
+                "state": "MA",
+            },
+            "comment": {
+                "title": "Clean Comment",
+                "comment": "This is a clean comment.",
+                "document_id": document_id,
+            },
+            "tags": [{"tag": "Education"}],
+        }
+        response = client.post("/api/comments/submit", json=clean_form_data)
+        assert response.status_code == 201
+
+        # Get the list of comments - should only return the clean one
+        response = client.get("/api/comments/list")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+        assert comments[0]["title"] == "Clean Comment"
+        assert comments[0]["first_name"] == "Alice"
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_list_comments_with_filters(
+        self, mock_score_text, client, session: Session, document_id
+    ):
+        """Test /list endpoint with various filters"""
+        # Create comments with different attributes
+        form_data_1 = {
+            "commenter": {
+                "first_name": "Alice",
+                "email": "alice@example.com",
+                "place": "Boston",
+                "state": "MA",
+                "zip_code": "02101",
+            },
+            "comment": {
+                "title": "Boston Comment",
+                "comment": "Comment from Boston.",
+                "document_id": document_id,
+            },
+            "tags": [{"tag": "Education"}, {"tag": "Budget"}],
+        }
+
+        form_data_2 = {
+            "commenter": {
+                "first_name": "Bob",
+                "email": "bob@example.com",
+                "place": "Cambridge",
+                "state": "MA",
+                "zip_code": "02139",
+            },
+            "comment": {
+                "title": "Cambridge Comment",
+                "comment": "Comment from Cambridge.",
+                "document_id": document_id,
+            },
+            "tags": [{"tag": "Transportation"}],
+        }
+
+        # Submit both comments
+        response1 = client.post("/api/comments/submit", json=form_data_1)
+        response2 = client.post("/api/comments/submit", json=form_data_2)
+        assert response1.status_code == 201
+        assert response2.status_code == 201
+
+        # Test filtering by place
+        response = client.get("/api/comments/list?place=Boston")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+        assert comments[0]["place"] == "Boston"
+
+        # Test filtering by state
+        response = client.get("/api/comments/list?state=MA")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 2
+
+        # Test filtering by zip code
+        response = client.get("/api/comments/list?zip_code=02139")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+        assert comments[0]["zip_code"] == "02139"
+
+        # Test filtering by tags
+        response = client.get("/api/comments/list?tags=education")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+        assert "education" in comments[0]["tags"]
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_admin_list_comments_success(
+        self, mock_score_text, client, session: Session, document_id
+    ):
+        """Test /admin/list endpoint with authentication"""
+        # Create a comment
+        form_data = {
+            "commenter": {
+                "first_name": "Admin",
+                "email": "admin@example.com",
+                "place": "Washington",
+                "state": "DC",
+            },
+            "comment": {
+                "title": "Admin Test Comment",
+                "comment": "This is an admin test comment.",
+                "document_id": document_id,
+            },
+            "tags": [{"tag": "Policy"}],
+        }
+
+        response = client.post("/api/comments/submit", json=form_data)
+        assert response.status_code == 201
+
+        # Test admin endpoint (auth is mocked in conftest.py)
+        response = client.get("/api/comments/admin/list")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+        assert comments[0]["title"] == "Admin Test Comment"
+
+    @patch("app.comments.moderation.score_text")
+    def test_admin_list_comments_custom_moderation_threshold(
+        self, mock_score_text, client, session: Session, document_id
+    ):
+        """Test /admin/list endpoint with custom moderation threshold"""
+
+        # Create comment with moderate score (0.3)
+        mock_score_text.return_value = 0.3
+        moderate_form_data = {
+            "commenter": {
+                "first_name": "Moderate",
+                "email": "moderate@example.com",
+            },
+            "comment": {
+                "title": "Moderate Comment",
+                "comment": "This has moderate content.",
+                "document_id": document_id,
+            },
+            "tags": [{"tag": "General"}],
+        }
+        response = client.post("/api/comments/submit", json=moderate_form_data)
+        assert response.status_code == 201
+
+        # Create comment with high score (0.8)
+        mock_score_text.return_value = 0.8
+        high_form_data = {
+            "commenter": {
+                "first_name": "High",
+                "email": "high@example.com",
+            },
+            "comment": {
+                "title": "High Score Comment",
+                "comment": "This has high score content.",
+                "document_id": document_id,
+            },
+            "tags": [{"tag": "Issues"}],
+        }
+        response = client.post("/api/comments/submit", json=high_form_data)
+        assert response.status_code == 201
+
+        # Test with default threshold (should exclude high score)
+        response = client.get("/api/comments/admin/list")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 2
+        assert comments[0]["title"] == "Moderate Comment"
+
+        # Test with higher threshold (should include both)
+        response = client.get("/api/comments/admin/list?min_moderation_score=0.6")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+
+        # Test with lower threshold (should exclude both)
+        response = client.get("/api/comments/admin/list?min_moderation_score=0.2")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 0
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_admin_list_comments_with_filters(
+        self, mock_score_text, client, session: Session, document_id
+    ):
+        """Test /admin/list endpoint with query filters"""
+        # Create test comment
+        form_data = {
+            "commenter": {
+                "first_name": "FilterTest",
+                "email": "filter@example.com",
+                "place": "Seattle",
+                "state": "WA",
+                "zip_code": "98101",
+            },
+            "comment": {
+                "title": "Filter Test Comment",
+                "comment": "Testing admin filters.",
+                "document_id": document_id,
+            },
+            "tags": [{"tag": "Testing"}, {"tag": "Admin"}],
+        }
+
+        response = client.post("/api/comments/submit", json=form_data)
+        assert response.status_code == 201
+
+        # Test filtering by place
+        response = client.get("/api/comments/admin/list?place=Seattle")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+        assert comments[0]["place"] == "Seattle"
+
+        # Test filtering by state
+        response = client.get("/api/comments/admin/list?state=WA")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+
+        # Test filtering by tag
+        response = client.get("/api/comments/admin/list?tags=testing")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+        assert "testing" in comments[0]["tags"]
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_list_comments_empty_results(
+        self, mock_score_text, client, session: Session, document_id
+    ):
+        """Test /list endpoint with no matching results"""
+        # Create a comment
+        form_data = {
+            "commenter": {
+                "first_name": "Test",
+                "email": "test@example.com",
+                "place": "Portland",
+                "state": "OR",
+            },
+            "comment": {
+                "title": "Test Comment",
+                "comment": "Test comment.",
+                "document_id": document_id,
+            },
+            "tags": [{"tag": "Testing"}],
+        }
+
+        response = client.post("/api/comments/submit", json=form_data)
+        assert response.status_code == 201
+
+        # Search for non-existent place
+        response = client.get("/api/comments/list?place=NonExistent")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 0
+
+        # Search for non-existent tag
+        response = client.get("/api/comments/list?tags=nonexistent")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 0
