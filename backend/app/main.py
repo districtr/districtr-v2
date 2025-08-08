@@ -770,7 +770,7 @@ async def get_connected_component_bboxes(
             maxx = max(maxx, node_data["xmax"])
             maxy = max(maxy, node_data["ymax"])
 
-        print(minx, miny, maxx, maxy)
+        logger.info(minx, miny, maxx, maxy)
 
         (_minx, _maxx), (_miny, _maxy) = transform(
             xs=[minx, maxx],

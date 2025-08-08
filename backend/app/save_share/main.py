@@ -65,7 +65,7 @@ async def unlock_document(
         )
 
         session.commit()
-        print("Document unlocked")
+        logger.info("Document unlocked")
         return {"status": DocumentEditStatus.unlocked}
     except Exception as e:
         session.rollback()
