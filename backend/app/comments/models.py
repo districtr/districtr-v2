@@ -62,6 +62,9 @@ class Commenter(TimeStampMixin, SQLModel, table=True):
     place: str = Field(sa_column=Column(String(255), nullable=True))
     state: str = Field(sa_column=Column(String(255), nullable=True))
     zip_code: str = Field(sa_column=Column(String(255), nullable=True))
+    moderation_score: float = Field(
+        sa_column=Column(Float, nullable=True, default=None)
+    )
 
 
 class CommenterCreate(BaseModel):
@@ -102,6 +105,9 @@ class Comment(TimeStampMixin, SQLModel, table=True):
     commenter_id: int = Field(
         sa_column=Column(ForeignKey(Commenter.id), nullable=True, index=True)
     )
+    moderation_score: float = Field(
+        sa_column=Column(Float, nullable=True, default=None)
+    )
 
 
 class CommentCreate(BaseModel):
@@ -132,6 +138,9 @@ class Tag(TimeStampMixin, SQLModel, table=True):
     )
     slug: str = Field(
         sa_column=Column(String(255), nullable=False, unique=True, index=True)
+    )
+    moderation_score: float = Field(
+        sa_column=Column(Float, nullable=True, default=None)
     )
 
 
@@ -195,51 +204,3 @@ class FullCommentFormResponse(BaseModel):
     comment: CommentPublic
     commenter: CommenterPublic
     tags: list[TagPublic]
-
-
-class CommentModeration(TimeStampMixin, SQLModel, table=True):
-    metadata = MetaData(schema=COMMENTS_SCHEMA)
-    __tablename__ = "comment_moderation"  # type: ignore
-
-    comment_id: int = Field(
-        sa_column=Column(
-            ForeignKey(Comment.id),
-            nullable=False,
-            unique=True,
-            index=True,
-            primary_key=True,
-        )
-    )
-    moderation_score: float = Field(sa_column=Column(Float, nullable=False))
-
-
-class CommenterModeration(TimeStampMixin, SQLModel, table=True):
-    metadata = MetaData(schema=COMMENTS_SCHEMA)
-    __tablename__ = "commenter_moderation"  # type: ignore
-
-    commenter_id: int = Field(
-        sa_column=Column(
-            ForeignKey(Commenter.id),
-            nullable=False,
-            unique=True,
-            index=True,
-            primary_key=True,
-        )
-    )
-    moderation_score: float = Field(sa_column=Column(Float, nullable=False))
-
-
-class TagModeration(TimeStampMixin, SQLModel, table=True):
-    metadata = MetaData(schema=COMMENTS_SCHEMA)
-    __tablename__ = "tag_moderation"  # type: ignore
-
-    tag_id: int = Field(
-        sa_column=Column(
-            ForeignKey(Tag.id),
-            nullable=False,
-            unique=True,
-            index=True,
-            primary_key=True,
-        )
-    )
-    moderation_score: float = Field(sa_column=Column(Float, nullable=False))

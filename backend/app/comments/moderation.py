@@ -6,9 +6,9 @@ from openai import OpenAI
 from safetext import SafeText
 
 from app.comments.models import (
-    CommentModeration,
-    CommenterModeration,
-    TagModeration,
+    Comment,
+    Commenter,
+    Tag,
     FullCommentForm,
 )
 from app.core.config import settings
@@ -93,11 +93,11 @@ def moderate_comment(comment_id: int, comment_text: str, session: Session) -> fl
     """
     score = score_text(comment_text)
 
-    # Save profanity score to database
-    comment_moderation = CommentModeration(
-        comment_id=comment_id, moderation_score=score
-    )
-    session.add(comment_moderation)
+    # Update comment with moderation score
+    comment = session.get(Comment, comment_id)
+    if comment:
+        comment.moderation_score = score
+        session.add(comment)
 
     try:
         session.commit()
@@ -134,11 +134,11 @@ def moderate_commenter(
     combined_text = " ".join(text_parts)
     score = score_text(combined_text)
 
-    # Save profanity score to database
-    commenter_moderation = CommenterModeration(
-        commenter_id=commenter_id, moderation_score=score
-    )
-    session.add(commenter_moderation)
+    # Update commenter with moderation score
+    commenter = session.get(Commenter, commenter_id)
+    if commenter:
+        commenter.moderation_score = score
+        session.add(commenter)
 
     try:
         session.commit()
@@ -159,9 +159,11 @@ def moderate_tag(tag_id: int, tag_slug: str, session: Session) -> float:
     """
     score = score_text(tag_slug)
 
-    # Save profanity score to database
-    tag_moderation = TagModeration(tag_id=tag_id, moderation_score=score)
-    session.add(tag_moderation)
+    # Update tag with moderation score
+    tag = session.get(Tag, tag_id)
+    if tag:
+        tag.moderation_score = score
+        session.add(tag)
 
     try:
         session.commit()

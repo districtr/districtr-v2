@@ -134,10 +134,11 @@ def create_document_comment(
 
 
 def create_full_comment_submission(
-    form_data: FullCommentForm, session: Session
-) -> tuple[FullCommentFormResponse, int, int, list[int]]:
+    form_data: FullCommentForm, session: Session, background_tasks: BackgroundTasks
+) -> FullCommentFormResponse:
     """
     Create a complete comment submission with commenter, comment, tags, and associations.
+    Adds moderation check as background task.
 
     TODO: This function would have a better interface for the client if it aggregated
     all errors rather than failing on the first thing.
@@ -160,6 +161,16 @@ def create_full_comment_submission(
     session.commit()
     session.refresh(comment)
 
+    # Add moderation check as background task
+    background_tasks.add_task(
+        moderate_submission,
+        comment_id=comment.id,
+        commenter_id=commenter.id,
+        tag_ids=tag_ids,
+        form_data=form_data,
+        session=session,
+    )
+
     response = FullCommentFormResponse(
         comment=CommentPublic(**comment.model_dump()),
         # TODO: for some reason, CommenterPublic wasn't happy with model dump
@@ -178,7 +189,7 @@ def create_full_comment_submission(
         tags=[TagPublic(slug=tag.slug) for tag in created_tags],
     )
 
-    return response, comment.id, commenter.id, tag_ids
+    return response
 
 
 @router.post(
@@ -240,20 +251,7 @@ async def submit_full_comment(
 ):
     """Submit a complete comment with commenter, comment, and tags."""
     try:
-        response, comment_id, commenter_id, tag_ids = create_full_comment_submission(
-            form_data, session
-        )
-
-        # Add profanity check as background task
-        background_tasks.add_task(
-            moderate_submission,
-            comment_id=comment_id,
-            commenter_id=commenter_id,
-            tag_ids=tag_ids,
-            form_data=form_data,
-            session=session,
-        )
-
+        response = create_full_comment_submission(form_data, session, background_tasks)
     except (DataError, IntegrityError) as e:
         session.rollback()
         raise HTTPException(
