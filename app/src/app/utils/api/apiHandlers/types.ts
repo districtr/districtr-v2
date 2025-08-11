@@ -97,3 +97,15 @@ export type MapGroup = {
   name: string;
   slug: string;
 };
+
+export interface CommentListing {
+  comment: {
+    comment: string;
+    commenter_id: number;
+    document_id: string;
+    created_at: Date;
+    title: string;
+    updated_at: Date;
+  };
+  tags?: string[];
+}
