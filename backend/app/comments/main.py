@@ -256,18 +256,20 @@ async def list_comments_by_doc(
     document_id: str,
 ):
     query = (
-        select(Comment, func.array_agg(Tag.slug).label("tags"))
+        select(
+            Comment, func.array_agg(Tag.slug).filter(Tag.slug is not None).label("tags")
+        )
         .join(DocumentComment, Comment.id == DocumentComment.comment_id)
         # .join(Commenter, Comment.commenter_id == Commenter.id)
-        .join(CommentTag, Comment.id == CommentTag.comment_id)
-        .join(Tag, CommentTag.tag_id == Tag.id)
+        .outerjoin(CommentTag, Comment.id == CommentTag.comment_id)
+        .outerjoin(Tag, CommentTag.tag_id == Tag.id)
         .where(DocumentComment.document_id == document_id)
         .group_by(Comment.id)
         .order_by(desc(Comment.created_at))
     )
     results = session.exec(query)
     rows = results.all()
-    return [{"comment": comment, "tags": tags} for comment, tags in rows]
+    return [{"comment": comment, "tags": (tags or [])} for comment, tags in rows]
 
 
 @router.get(
