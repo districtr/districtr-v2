@@ -1,6 +1,7 @@
 'use client';
 import {FormState, useFormState} from '@/app/store/formState';
 import {Box, Text, TextArea, TextField} from '@radix-ui/themes';
+import { useState } from 'react';
 
 type FormPart = 'comment' | 'commenter';
 
@@ -30,18 +31,10 @@ export function FormField<T extends FormPart>({
   const value = useFormState(state => state[formPart][formProperty] as string);
   const setFormState = useFormState(state => state.setFormState);
   const Component = component ?? TextField.Root;
+  const [visited, setVisited] = useState(false);
 
   const updateFormState = (component: HTMLInputElement) => {
-    component.style.border = "none";
     setFormState(formPart, formProperty as keyof FormState[T], component.value);
-  };
-
-  const validateRequiredResponse = (component: HTMLInputElement) => {
-    if (!component.value.trim().length) {
-      component.style.border = "2px solid darkred";
-    } else {
-      component.style.border = "none";
-    }
   };
 
   return (
@@ -58,8 +51,10 @@ export function FormField<T extends FormPart>({
         value={disabled ? '' : (value ?? '')}
         autoComplete={disabled ? 'off' : autoComplete}
         disabled={disabled}
-        onChange={(e) => updateFormState(e.target as HTMLInputElement)}
-        onBlur={required ? (e) => validateRequiredResponse(e.target as HTMLInputElement) : undefined}
+        onBlur={() => setVisited(true)}
+        onFocus={() => setVisited(false)}
+        onChange={e => updateFormState(e.target as HTMLInputElement)}
+        className={required && visited && !value?.trim().length ? 'border-2 border-red-500' : ''}
       />
     </Box>
   );
