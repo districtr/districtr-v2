@@ -44,7 +44,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     const urlStrippedId = mapId.split('/').pop();
 
     const document = await getDocument(urlStrippedId);
-    
+
     if (!document) {
       throw new Error('Document not found. Please check your map ID and try again.');
     }

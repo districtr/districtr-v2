@@ -34,7 +34,11 @@ const extensions = [
   FormNode,
 ];
 
-const RichTextRenderer: React.FC<RichTextRendererProps> = ({content, disabled = false, className = ''}) => {
+const RichTextRenderer: React.FC<RichTextRendererProps> = ({
+  content,
+  disabled = false,
+  className = '',
+}) => {
   const htmlContent = typeof content === 'string' ? content : generateHTML(content, extensions);
 
   const reactContent = parse(htmlContent, {
