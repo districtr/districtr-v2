@@ -111,6 +111,7 @@ class CommentCreate(BaseModel):
 
 
 class CommentPublic(CommentCreate):
+    id: int
     created_at: datetime | None
     updated_at: datetime | None
 

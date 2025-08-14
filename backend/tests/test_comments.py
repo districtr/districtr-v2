@@ -1,5 +1,5 @@
-from sqlmodel import Session, select
-from app.comments.models import Commenter, Comment, Tag, DocumentComment
+from sqlmodel import Session, select, insert
+from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
 
 
 class TestCommenterEndpoint:
@@ -639,7 +639,20 @@ class TestIntegrationTests:
 class TestListingComments:
     """Tests for the /api/comments/list/ endpoint"""
 
-    def test_comment_with_no_tags(self, client, document_id, session: Session):
+    def _add_tags(self, client, session: Session, comment_id: int):
+        # do tagging in Python / SQL
+        client.post("/api/comments/tag", json={"tag": "hello"}).json()
+        client.post("/api/comments/tag", json={"tag": "world"}).json()
+        tag1_id = session.exec(select(Tag.id).where(Tag.slug == "hello")).first()
+        tag2_id = session.exec(select(Tag.id).where(Tag.slug == "world")).first()
+        associations = [
+            {"comment_id": comment_id, "tag_id": tag1_id},
+            {"comment_id": comment_id, "tag_id": tag2_id},
+        ]
+        stmt = insert(CommentTag).values(associations)
+        session.exec(stmt)
+
+    def test_doc_comment_with_no_tags(self, client, document_id, session: Session):
         blank_response = client.get(f"/api/comments/list?document_id={document_id}")
         assert blank_response.status_code == 200
         assert len(blank_response.json()) == 0
@@ -656,16 +669,36 @@ class TestListingComments:
         assert get_response.status_code == 200
         assert len(get_response.json()) == 1
 
-    def test_comment_with_two_tags(self, client, document_id, session: Session):
+    def test_doc_comment_with_two_tags(self, client, document_id, session: Session):
+        # create comment (this endpoint does not do tagging)
+        comment_data = {
+            "title": "Test Comment",
+            "comment": "This is a test comment with some tags.",
+            "document_id": document_id,
+        }
+        comment = client.post("/api/comments/comment", json=comment_data).json()
+
+        self._add_tags(client, session, comment["id"])
+
+        get_response = client.get(f"/api/comments/list?document_id={document_id}")
+        assert get_response.status_code == 200
+        returned = get_response.json()[0]
+        assert len(returned["tags"]) == 2
+        assert "hello" in returned["tags"]
+
+    def test_listing_comments_by_tag(self, client, document_id, session: Session):
         comment_data = {
             "title": "Test Comment",
             "comment": "This is a test comment with some tags.",
             "document_id": document_id,
             "tags": ["hello", "world"],
         }
-        client.post("/api/comments/comment", json=comment_data)
-        get_response = client.get(f"/api/comments/list?document_id={document_id}")
+        comment = client.post("/api/comments/comment", json=comment_data).json()
+
+        self._add_tags(client, session, comment["id"])
+
+        get_response = client.get("/api/comments/list?tag=world")
         assert get_response.status_code == 200
-        comment = get_response.json()[0]
-        assert len(comment["tags"]) == 2
-        assert "hello" in comment["tags"]
+        returned = get_response.json()[0]
+        assert len(returned["tags"]) == 2
+        assert "hello" in returned["tags"]
