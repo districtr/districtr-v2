@@ -30,10 +30,10 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const showMapSelector = useFormState(state => state.showMapSelector);
   const comment = useFormState(state => state.comment);
   const mapId = comment?.document_id ?? '';
-  
+
   const setShowMapSelector = useFormState(state => state.setShowMapSelector);
   const setFormState = useFormState(state => state.setFormState);
-  
+
   const [notification, setNotification] = useState<null | {
     type: 'error' | 'success';
     message: string;
@@ -45,14 +45,15 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     )
   );
   const validateMap = async (mapId: string) => {
-    let isForeignLink = false
+    let isForeignLink = false;
     try {
       isForeignLink = new URL(mapId).hostname !== window.location.hostname;
-    } catch (e) {
-    }
+    } catch (e) {}
 
     if (isForeignLink) {
-      throw new Error('You entered a link to a different redistricting tool. Please make sure this is the link you meant to use.');
+      throw new Error(
+        'You entered a link to a different redistricting tool. Please make sure this is the link you meant to use.'
+      );
     }
     // take the slash and then the last characters after the slash
     const urlStrippedId = mapId.split('/').pop()?.replace('?pw=true', '');
@@ -60,13 +61,19 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     const isPublicId = !isNaN(Number(urlStrippedId));
     const mayNotBeUserMap = isPublicId && !userMap;
     if (mayNotBeUserMap) {
-      throw new Error('This link is a public map link and may not be your map. Other users can change their maps, which could change the meaning of your comment. Consider making a copy of the map by going to the map and clicking "Save and share" and then create a copy.');
+      throw new Error(
+        'This link is a public map link and may not be your map. Other users can change their maps, which could change the meaning of your comment. Consider making a copy of the map by going to the map and clicking "Save and share" and then create a copy.'
+      );
     }
     if (userMap && userMap.map_metadata?.draft_status !== 'ready_to_share') {
-      throw new Error('Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.');
+      throw new Error(
+        'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
+      );
     }
     if (userMap && !allowListModules.includes(userMap?.map_module ?? '')) {
-      throw new Error(`Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`);
+      throw new Error(
+        `Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`
+      );
     }
     return {
       input: mapId,
