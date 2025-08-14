@@ -20,10 +20,11 @@ export const CommentFormTagSelector: React.FC<{
   }, [mandatoryTags, tags, setTags]);
 
   const handleTag = (tag: string, action: 'add' | 'remove') => {
-    if (tag.trim() === '') {
+    const trimmedTag = tag.trim();
+    if (trimmedTag === '') {
       return;
     }
-    setTags(tag, action);
+    setTags(trimmedTag, action);
     setTagInput('');
   };
 
