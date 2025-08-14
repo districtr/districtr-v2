@@ -15,7 +15,7 @@ export function FormField<T extends FormPart>({
   required,
   autoComplete,
   options,
-  validator
+  validator,
 }: FormFieldProps<T>) {
   const value = useFormState(state => state[formPart][formProperty] as string);
   const setFormState = useFormState(state => state.setFormState);
@@ -24,45 +24,44 @@ export function FormField<T extends FormPart>({
 
   const validate = (_value: string) => {
     const v = _value ?? value;
-    return v?.trim().length && (!validator || validator(v as FormState[T][keyof FormState[T]]))
-  }
+    return v?.trim().length && (!validator || validator(v as FormState[T][keyof FormState[T]]));
+  };
   const updateFormState = (component: HTMLInputElement | string) => {
-    const value = typeof component === 'string' ? component : component.value;  
+    const value = typeof component === 'string' ? component : component.value;
     setInvalid(!validate(value));
     setFormState(formPart, formProperty as keyof FormState[T], value);
   };
-
+  const props = {
+    required,
+    placeholder: placeholder ?? label,
+    type,
+    name: `${formPart}-${formProperty as string}`,
+    ariaLabel: `${formPart}-${formProperty as string}`,
+    value: disabled ? '' : (value ?? ''),
+    autoComplete: disabled ? 'off' : autoComplete,
+    onBlur: () => required && !validate(value) && setInvalid(true),
+    onFocus: () => setInvalid(false),
+    className: invalid ? 'border-2 border-red-500' : '',
+  };
   return (
     <Flex direction="column" gap="1">
       <Text as="label" size="2" weight="medium" id={`${formPart}-${formProperty as string}`}>
         {label}
       </Text>
-      <Component
-        required={required}
-        placeholder={placeholder ?? label}
-        type={type}
-        name={`${formPart}-${formProperty as string}`}
-        aria-labelledby={`${formPart}-${formProperty as string}`}
-        value={disabled ? '' : (value ?? '')}
-        autoComplete={disabled ? 'off' : autoComplete}
-        disabled={disabled}
-        onBlur={() => (required && !validate(value)) && setInvalid(true)}
-        onFocus={() => setInvalid(false)}
-        onChange={e => component !== Select.Root && updateFormState(e.target as HTMLInputElement)}
-        onValueChange={e => component === Select.Root && updateFormState(e as any)}
-        className={invalid ? 'border-2 border-red-500' : ''}
-      >
-        {component === Select.Root && (
-          <Select.Trigger placeholder={placeholder ?? label} />
-        )}
-        {options && (
+      {component !== Select.Root ? (
+        <Component {...props} onChange={e => updateFormState(e.target as HTMLInputElement)} />
+      ) : (
+        <Component {...props} onValueChange={e => updateFormState(e as any)}>
+          <Select.Trigger placeholder={placeholder ?? label} className={props.className} />
           <Select.Content>
-            {options.map(option => (
-              <Select.Item key={option.value} value={option.value}>{option.label}</Select.Item>
+            {(options ?? []).map(option => (
+              <Select.Item key={option.value} value={option.value}>
+                {option.label}
+              </Select.Item>
             ))}
           </Select.Content>
-        )}
-      </Component>
+        </Component>
+      )}
     </Flex>
   );
 }
