@@ -17,7 +17,7 @@ export const CommentList: React.FC<{
             {c.comment.title}
           </Heading>
         </Flex>
-        <Text className="mb-3 whitespace-pre-line">{(c.comment.comment + "\nLorem ipsum")}</Text>
+        <Text className="mb-3 whitespace-pre-line">{(c.comment.comment)}</Text>
         <Flex wrap="wrap" gap="2">
           {c.tags?.map((tag) => (
             <Link
