@@ -1,21 +1,8 @@
 'use client';
 import {FormState, useFormState} from '@/app/store/formState';
-import {Box, Text, TextArea, TextField} from '@radix-ui/themes';
+import {Box, Flex, Select, Text, TextField} from '@radix-ui/themes';
 import {useState} from 'react';
-
-type FormPart = 'comment' | 'commenter';
-
-type FormFieldProps<T extends FormPart> = {
-  formPart: T;
-  formProperty: keyof FormState[T];
-  label: string;
-  placeholder?: string;
-  type: TextField.RootProps['type'];
-  autoComplete?: TextField.RootProps['autoComplete'];
-  component?: typeof TextField.Root | typeof TextArea;
-  disabled?: boolean;
-  required?: boolean;
-};
+import {FormFieldProps, FormPart} from './types';
 
 export function FormField<T extends FormPart>({
   formPart,
@@ -27,18 +14,26 @@ export function FormField<T extends FormPart>({
   disabled,
   required,
   autoComplete,
+  options,
+  validator
 }: FormFieldProps<T>) {
   const value = useFormState(state => state[formPart][formProperty] as string);
   const setFormState = useFormState(state => state.setFormState);
   const Component = component ?? TextField.Root;
-  const [visited, setVisited] = useState(false);
+  const [invalid, setInvalid] = useState(false);
 
-  const updateFormState = (component: HTMLInputElement) => {
-    setFormState(formPart, formProperty as keyof FormState[T], component.value);
+  const validate = (_value: string) => {
+    const v = _value ?? value;
+    return v?.trim().length && (!validator || validator(v as FormState[T][keyof FormState[T]]))
+  }
+  const updateFormState = (component: HTMLInputElement | string) => {
+    const value = typeof component === 'string' ? component : component.value;  
+    setInvalid(!validate(value));
+    setFormState(formPart, formProperty as keyof FormState[T], value);
   };
 
   return (
-    <Box>
+    <Flex direction="column" gap="1">
       <Text as="label" size="2" weight="medium" id={`${formPart}-${formProperty as string}`}>
         {label}
       </Text>
@@ -51,11 +46,23 @@ export function FormField<T extends FormPart>({
         value={disabled ? '' : (value ?? '')}
         autoComplete={disabled ? 'off' : autoComplete}
         disabled={disabled}
-        onBlur={() => setVisited(true)}
-        onFocus={() => setVisited(false)}
-        onChange={e => updateFormState(e.target as HTMLInputElement)}
-        className={required && visited && !value?.trim().length ? 'border-2 border-red-500' : ''}
-      />
-    </Box>
+        onBlur={() => (required && !validate(value)) && setInvalid(true)}
+        onFocus={() => setInvalid(false)}
+        onChange={e => component !== Select.Root && updateFormState(e.target as HTMLInputElement)}
+        onValueChange={e => component === Select.Root && updateFormState(e as any)}
+        className={invalid ? 'border-2 border-red-500' : ''}
+      >
+        {component === Select.Root && (
+          <Select.Trigger placeholder={placeholder ?? label} />
+        )}
+        {options && (
+          <Select.Content>
+            {options.map(option => (
+              <Select.Item key={option.value} value={option.value}>{option.label}</Select.Item>
+            ))}
+          </Select.Content>
+        )}
+      </Component>
+    </Flex>
   );
 }

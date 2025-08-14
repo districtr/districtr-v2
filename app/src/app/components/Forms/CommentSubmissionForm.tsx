@@ -1,12 +1,13 @@
 'use client';
 import {ContentHeader} from '@/app/components/Static/ContentHeader';
 import {useFormState} from '@/app/store/formState';
-import {Blockquote, Box, Button, Flex, Spinner, TextArea} from '@radix-ui/themes';
+import {Blockquote, Box, Button, Dialog, Flex, Select, Spinner, TextArea} from '@radix-ui/themes';
 import {AcknowledgementField} from './AcknowledgementField';
 import {FormField} from './FormField';
 import {CommentFormTagSelector} from './CommentFormTagSelector';
 import {MapSelector} from './MapSelector';
 import {useRecaptcha} from '@/app/hooks/useRecaptcha';
+import {VALID_STATES_LABELS} from './constants';
 
 export const CommentSubmissionForm: React.FC<{
   disabled?: boolean;
@@ -17,7 +18,9 @@ export const CommentSubmissionForm: React.FC<{
   const {RecaptchaComponent, recaptchaToken} = useRecaptcha();
   const isSubmitting = useFormState(state => state.isSubmitting);
   const success = useFormState(state => state.success);
+  const setSuccess = useFormState(state => state.setSuccess);
   const error = useFormState(state => state.error);
+  const setError = useFormState(state => state.setError);
   const clearForm = useFormState(state => state.clear);
 
   return (
@@ -27,11 +30,25 @@ export const CommentSubmissionForm: React.FC<{
           {success}
         </Blockquote>
       )}
-      {error && (
-        <Blockquote color="red" className="mb-4">
-          {error}
-        </Blockquote>
-      )}
+      <Dialog.Root open={!!error || !!success}>
+        <Dialog.Content>
+          <Dialog.Title>{error ? 'Error' : 'Success'}</Dialog.Title>
+          <Dialog.Description>{error || success}</Dialog.Description>
+          <Dialog.Close>
+            <Button
+              variant="ghost"
+              color={error ? 'red' : 'green'}
+              className="mt-4"
+              onClick={() => {
+                setError('');
+                setSuccess('');
+              }}
+            >
+              Dismiss
+            </Button>
+          </Dialog.Close>
+        </Dialog.Content>
+      </Dialog.Root>
       {isSubmitting && (
         <Flex className="absolute inset-0 bg-white/75 z-10" justify="center" align="center">
           <Spinner size="3" />
@@ -152,6 +169,8 @@ export const CommentSubmissionForm: React.FC<{
                 type="text"
                 autoComplete="address-level1"
                 required={true}
+                component={Select.Root}
+                options={VALID_STATES_LABELS}
               />
             </Box>
             <Box flexGrow="1" flexBasis="20%">
@@ -163,6 +182,7 @@ export const CommentSubmissionForm: React.FC<{
                 type="text"
                 autoComplete="postal-code"
                 required={true}
+                validator={value => /[0-9]{5}/.test(value ?? '')}
               />
             </Box>
           </Flex>

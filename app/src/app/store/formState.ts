@@ -99,11 +99,6 @@ export const useFormState = create<FormState>()(
           success: response.ok ? 'Comment submitted successfully' : undefined,
           error: response.ok ? undefined : response.error,
         });
-        setTimeout(() => {
-          set({
-            success: undefined,
-          });
-        }, 5000);
         if (response.ok) {
           clear();
         }
@@ -131,6 +126,13 @@ export const useFormState = create<FormState>()(
     {
       name: 'form-state',
       storage: createJSONStorage(() => localStorage),
+      partialize: state => ({
+        comment: state.comment,
+        commenter: state.commenter,
+        tags: state.tags,
+        acknowledgement: state.acknowledgement,
+        showMapSelector: state.showMapSelector,
+      }),
     }
   )
 );
