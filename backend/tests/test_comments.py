@@ -639,7 +639,7 @@ class TestIntegrationTests:
 class TestListingComments:
     """Tests for the /api/comments/list/ endpoint"""
 
-    def test_comments_on_doc(self, client, document_id, session: Session):
+    def test_comment_with_no_tags(self, client, document_id, session: Session):
         blank_response = client.get(f"/api/comments/list?document_id={document_id}")
         assert blank_response.status_code == 200
         assert len(blank_response.json()) == 0
@@ -655,3 +655,17 @@ class TestListingComments:
         get_response = client.get(f"/api/comments/list?document_id={document_id}")
         assert get_response.status_code == 200
         assert len(get_response.json()) == 1
+
+    def test_comment_with_two_tags(self, client, document_id, session: Session):
+        comment_data = {
+            "title": "Test Comment",
+            "comment": "This is a test comment with some tags.",
+            "document_id": document_id,
+            "tags": ["hello", "world"],
+        }
+        client.post("/api/comments/comment", json=comment_data)
+        get_response = client.get(f"/api/comments/list?document_id={document_id}")
+        assert get_response.status_code == 200
+        comment = get_response.json()[0]
+        assert len(comment["tags"]) == 2
+        assert "hello" in comment["tags"]

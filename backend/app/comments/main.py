@@ -266,7 +266,8 @@ async def list_comments(
     # .join(Commenter, Comment.commenter_id == Commenter.id)
     query = (
         select(
-            Comment, func.array_agg(Tag.slug).filter(Tag.slug is not None).label("tags")
+            Comment,
+            func.array_agg(Tag.slug).filter(Tag.slug is not None).label("tags"),
         )
         .join(DocumentComment, Comment.id == DocumentComment.comment_id)
         .outerjoin(CommentTag, Comment.id == CommentTag.comment_id)
@@ -281,4 +282,10 @@ async def list_comments(
 
     results = session.exec(query)
     rows = results.all()
-    return [{"comment": comment, "tags": (tags or [])} for comment, tags in rows]
+    return [
+        {
+            "comment": comment,
+            "tags": [] if not tags or all(t is None for t in tags) else tags,
+        }
+        for comment, tags in rows
+    ]
