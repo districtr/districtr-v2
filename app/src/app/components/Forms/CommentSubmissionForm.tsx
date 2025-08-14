@@ -9,9 +9,10 @@ import {MapSelector} from './MapSelector';
 import {useRecaptcha} from '@/app/hooks/useRecaptcha';
 
 export const CommentSubmissionForm: React.FC<{
+  disabled?: boolean;
   mandatoryTags: string[];
   allowListModules: string[];
-}> = ({mandatoryTags, allowListModules}) => {
+}> = ({disabled, mandatoryTags, allowListModules}) => {
   const submitForm = useFormState(state => state.submitForm);
   const {RecaptchaComponent, recaptchaToken} = useRecaptcha();
   const isSubmitting = useFormState(state => state.isSubmitting);
@@ -47,6 +48,7 @@ export const CommentSubmissionForm: React.FC<{
         <Flex direction="column" gap="4">
           <ContentHeader title="Add Your Comment" />
           <FormField
+            disabled={disabled}
             formPart="comment"
             formProperty="title"
             label="Submission Title *"
@@ -54,6 +56,7 @@ export const CommentSubmissionForm: React.FC<{
             required={true}
           />
           <FormField
+            disabled={disabled}
             formPart="comment"
             formProperty="comment"
             label="Testimony *"
@@ -82,6 +85,7 @@ export const CommentSubmissionForm: React.FC<{
           >
             <Box flexGrow="1" flexBasis="20%">
               <FormField
+                disabled={disabled}
                 formPart="commenter"
                 formProperty="salutation"
                 label="Salutation *"
@@ -92,6 +96,7 @@ export const CommentSubmissionForm: React.FC<{
             </Box>
             <Box flexGrow="1" flexBasis="40%">
               <FormField
+                disabled={disabled}
                 formPart="commenter"
                 formProperty="first_name"
                 label="First Name (or identifier) *"
@@ -102,6 +107,7 @@ export const CommentSubmissionForm: React.FC<{
             </Box>
             <Box flexGrow="1" flexBasis="40%">
               <FormField
+                disabled={disabled}
                 formPart="commenter"
                 formProperty="last_name"
                 label="Last Name"
@@ -111,6 +117,7 @@ export const CommentSubmissionForm: React.FC<{
             </Box>
           </Flex>
           <FormField
+            disabled={disabled}
             formPart="commenter"
             formProperty="email"
             label="Email *"
@@ -128,6 +135,7 @@ export const CommentSubmissionForm: React.FC<{
           >
             <Box flexGrow="1" flexBasis="60%">
               <FormField
+                disabled={disabled}
                 formPart="commenter"
                 formProperty="place"
                 label="City/County (optional but encouraged)"
@@ -137,6 +145,7 @@ export const CommentSubmissionForm: React.FC<{
             </Box>
             <Box flexGrow="1" flexBasis="20%">
               <FormField
+                disabled={disabled}
                 formPart="commenter"
                 formProperty="state"
                 label="State *"
@@ -147,6 +156,7 @@ export const CommentSubmissionForm: React.FC<{
             </Box>
             <Box flexGrow="1" flexBasis="20%">
               <FormField
+                disabled={disabled}
                 formPart="commenter"
                 formProperty="zip_code"
                 label="Zip Code *"

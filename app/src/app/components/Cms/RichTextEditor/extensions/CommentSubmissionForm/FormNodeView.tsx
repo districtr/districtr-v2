@@ -52,6 +52,7 @@ const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNo
   return (
     <NodeViewWrapper className="relative border-[1px] border-gray-200 rounded-md p-4 border-dashed">
       <CommentSubmissionForm
+        disabled
         mandatoryTags={node.attrs.mandatoryTags}
         allowListModules={node.attrs.allowListModules}
       />
