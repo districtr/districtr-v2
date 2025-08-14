@@ -17,7 +17,7 @@ import {
   TextField,
 } from '@radix-ui/themes';
 import {QueryClientProvider, useMutation} from '@tanstack/react-query';
-import {useEffect, useState} from 'react';
+import {useState} from 'react';
 
 interface MapSelectorProps {
   allowListModules: string[];
@@ -45,36 +45,43 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     )
   );
   const validateMap = async (mapId: string) => {
+    let isForeignLink = false
+    try {
+      isForeignLink = new URL(mapId).hostname !== window.location.hostname;
+    } catch (e) {
+    }
+
+    if (isForeignLink) {
+      throw new Error('You entered a link to a different redistricting tool. Please make sure this is the link you meant to use.');
+    }
     // take the slash and then the last characters after the slash
-    const urlStrippedId = mapId.split('/').pop();
-
-    const document = await getDocument(urlStrippedId);
-
-    if (!document) {
-      throw new Error('Document not found. Please check your map ID and try again.');
+    const urlStrippedId = mapId.split('/').pop()?.replace('?pw=true', '');
+    const userMap = userMaps?.find(map => map.document_id === urlStrippedId);
+    const isPublicId = !isNaN(Number(urlStrippedId));
+    const mayNotBeUserMap = isPublicId && !userMap;
+    if (mayNotBeUserMap) {
+      throw new Error('This link is a public map link and may not be your map. Other users can change their maps, which could change the meaning of your comment. Consider making a copy of the map by going to the map and clicking "Save and share" and then create a copy.');
     }
-    if (!allowListModules.includes(document.map_module ?? '')) {
-      throw new Error(
-        `Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`
-      );
+    if (userMap && userMap.map_metadata?.draft_status !== 'ready_to_share') {
+      throw new Error('Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.');
     }
-    if (document.map_metadata.draft_status !== 'ready_to_share') {
-      throw new Error(
-        'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
-      );
+    if (userMap && !allowListModules.includes(userMap?.map_module ?? '')) {
+      throw new Error(`Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`);
     }
-    return document;
+    return {
+      input: mapId,
+      map: userMap,
+    };
   };
 
   const {isPending, mutate} = useMutation({
     mutationFn: validateMap,
     onSuccess: data => {
-      setSelectedMap(data);
+      setSelectedMap(data.map ?? null);
       setNotification({
         type: 'success',
         message: 'Map validated successfully',
       });
-      setFormState('comment', 'document_id', data.document_id);
     },
     onError: error => {
       setNotification({
@@ -112,6 +119,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
               setTimeout(() => {
                 setShowMapOptions(false);
               }, 100);
+              mutate(mapId);
             }}
             placeholder="Include a link to your map"
           />
@@ -132,12 +140,13 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
                     key={map.document_id}
                     variant="outline"
                     size="3"
+                    onMouseDown={e => {
+                      e.preventDefault();
+                      const mapUrl = new URL(`/map/edit/${map.document_id}`, window.location.href);
+                      setFormState('comment', 'document_id', mapUrl.toString());
+                    }}
                     onClick={e => {
                       e.preventDefault();
-                      setFormState('comment', 'document_id', map.document_id);
-                      setTimeout(() => {
-                        setShowMapOptions(false);
-                      }, 100);
                     }}
                     className="w-full rounded-none h-auto p-2 justify-start"
                   >
@@ -156,28 +165,19 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
             </Box>
           )}
         </Box>
-        <Button
-          disabled={!showMapSelector}
-          onClick={e => {
-            e.preventDefault();
-            mutate(mapId);
-          }}
-        >
-          Add map
-        </Button>
       </Flex>
       {notification && (
-        <Blockquote color={notification.type === 'error' ? 'red' : 'green'}>
+        <Blockquote color={notification.type === 'error' ? 'gray' : 'green'}>
           {notification.message}
+          {notification.type === 'error' && (
+            <a href={mapId} target="_blank" className="text-blue-500 px-2">
+              View map
+            </a>
+          )}
         </Blockquote>
       )}
-      {notification?.type === 'error' && (
-        <a href={`/map/edit/${mapId}`} target="_blank">
-          View map
-        </a>
-      )}
       {notification?.type === 'success' && (
-        <img src={`${TILESET_URL}/thumbnails/${selectedMap?.tiles_s3_path}`} alt="Map thumbnail" />
+        <img src={`${TILESET_URL}/thumbnails/${selectedMap?.public_id}.png`} alt="Map thumbnail" />
       )}
     </Flex>
   );
