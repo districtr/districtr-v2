@@ -637,10 +637,10 @@ class TestIntegrationTests:
 
 
 class TestListingComments:
-    """Tests for the /api/comments/doc/{id} endpoint"""
+    """Tests for the /api/comments/list/ endpoint"""
 
     def test_comments_on_doc(self, client, document_id, session: Session):
-        blank_response = client.get(f"/api/comments/doc/{document_id}")
+        blank_response = client.get(f"/api/comments/list?document_id={document_id}")
         assert blank_response.status_code == 200
         assert len(blank_response.json()) == 0
 
@@ -652,6 +652,6 @@ class TestListingComments:
         post_response = client.post("/api/comments/comment", json=comment_data)
         assert post_response.status_code == 201
 
-        get_response = client.get(f"/api/comments/doc/{document_id}")
+        get_response = client.get(f"/api/comments/list?document_id={document_id}")
         assert get_response.status_code == 200
         assert len(get_response.json()) == 1

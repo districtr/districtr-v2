@@ -21,7 +21,7 @@ export const CommentList: React.FC<{
         <Flex wrap="wrap" gap="2">
           {c.tags?.map((tag) => (
             <Link
-              href={`/api/comments/tagged/${tag}`}
+              href={`/api/comments/list?tag=${tag}`}
               key={tag}
               className="px-2 py-1 text-sm rounded-full bg-purple-100 text-black"
             >

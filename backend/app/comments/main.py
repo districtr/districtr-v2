@@ -7,8 +7,9 @@ from fastapi import (
 from sqlmodel import Session, select, desc, func
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text
+from sqlalchemy import any_, text
 import logging
+from typing import Optional
 
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
@@ -247,46 +248,37 @@ async def submit_full_comment(
 
 
 @router.get(
-    "/doc/{document_id}",
+    "/list",
     response_model=list[PublicCommentListing],
 )
-async def list_comments_by_doc(
+async def list_comments(
     *,
     session: Session = Depends(get_session),
-    document_id: str,
+    document_id: Optional[str] = None,
+    tag: Optional[str] = None,
 ):
+    if not document_id and not tag:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="You must provide either document_id or tag.",
+        )
+
+    # .join(Commenter, Comment.commenter_id == Commenter.id)
     query = (
         select(
             Comment, func.array_agg(Tag.slug).filter(Tag.slug is not None).label("tags")
         )
         .join(DocumentComment, Comment.id == DocumentComment.comment_id)
-        # .join(Commenter, Comment.commenter_id == Commenter.id)
         .outerjoin(CommentTag, Comment.id == CommentTag.comment_id)
         .outerjoin(Tag, CommentTag.tag_id == Tag.id)
-        .where(DocumentComment.document_id == document_id)
         .group_by(Comment.id)
         .order_by(desc(Comment.created_at))
     )
+    if document_id:
+        query = query.where(DocumentComment.document_id == document_id)
+    if tag:
+        query = query.having(tag == any_(func.array_agg(Tag.slug)))
+
     results = session.exec(query)
     rows = results.all()
     return [{"comment": comment, "tags": (tags or [])} for comment, tags in rows]
-
-
-@router.get(
-    "/tagged/{tag}",
-    response_model=list[Comment],
-)
-async def list_comments_by_tag(
-    *,
-    session: Session = Depends(get_session),
-    tag: str,
-):
-    query = (
-        select(Comment)
-        .join(CommentTag, Comment.id == CommentTag.comment_id)
-        .join(Tag, CommentTag.tag_id == Tag.id)
-        .where(Tag.slug == tag)
-        .order_by(desc(Comment.created_at))
-    )
-    comments = session.exec(query)
-    return comments.all()
