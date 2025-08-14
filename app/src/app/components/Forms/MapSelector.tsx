@@ -24,21 +24,26 @@ interface MapSelectorProps {
 }
 
 const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
-  const [showMapSelector, setShowMapSelector] = useState(false);
   const [showMapOptions, setShowMapOptions] = useState(false);
   const [selectedMap, setSelectedMap] = useState<DocumentObject | null>(null);
+
+  const showMapSelector = useFormState(state => state.showMapSelector);
+  const comment = useFormState(state => state.comment);
+  const mapId = comment?.document_id ?? '';
+  
+  const setShowMapSelector = useFormState(state => state.setShowMapSelector);
+  const setFormState = useFormState(state => state.setFormState);
+  
   const [notification, setNotification] = useState<null | {
     type: 'error' | 'success';
     message: string;
   }>(null);
-  const [mapId, setMapId] = useState('');
-  const formStateMapId = useFormState(state => state.comment.document_id);
+
   const userMaps = useMapStore(state =>
     state.userMaps.filter(
       map => !allowListModules?.length || allowListModules.includes(map.map_module ?? '')
     )
   );
-  const setFormState = useFormState(state => state.setFormState);
   const validateMap = async (mapId: string) => {
     // take the slash and then the last characters after the slash
     const urlStrippedId = mapId.split('/').pop();
@@ -69,7 +74,6 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
         type: 'success',
         message: 'Map validated successfully',
       });
-      setMapId(data.document_id);
       setFormState('comment', 'document_id', data.document_id);
     },
     onError: error => {
@@ -79,14 +83,6 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       });
     },
   });
-
-  // clear on reset/submit
-  useEffect(() => {
-    if (formStateMapId !== mapId) {
-      setMapId(formStateMapId ?? '');
-      setSelectedMap(null);
-    }
-  }, [formStateMapId]);
 
   return (
     <Flex direction="column" gap="2" position="relative" width="100%">
@@ -110,7 +106,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
             disabled={!showMapSelector}
             value={mapId}
             color={selectedMap?.document_id === mapId ? 'green' : 'gray'}
-            onChange={e => setMapId(e.target.value)}
+            onChange={e => setFormState('comment', 'document_id', e.target.value)}
             onFocus={() => setShowMapOptions(true)}
             onBlur={() => {
               setTimeout(() => {
@@ -138,7 +134,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
                     size="3"
                     onClick={e => {
                       e.preventDefault();
-                      setMapId(map.document_id);
+                      setFormState('comment', 'document_id', map.document_id);
                       setTimeout(() => {
                         setShowMapOptions(false);
                       }, 100);

@@ -25,6 +25,8 @@ export interface FormState {
     [key: string]: boolean;
   };
   setAcknowledgement: (id: string, acknowledged: boolean) => void;
+  showMapSelector: boolean;
+  setShowMapSelector: (show: boolean) => void;
 }
 
 export const useFormState = create<FormState>()(
@@ -112,6 +114,7 @@ export const useFormState = create<FormState>()(
           commenter: {},
           tags: new Array<string>(),
           acknowledgement: {},
+          showMapSelector: false,
         });
       },
       setError: (error: string) => {
@@ -119,6 +122,10 @@ export const useFormState = create<FormState>()(
       },
       setSuccess: (success: string) => {
         set({success});
+      },
+      showMapSelector: false,
+      setShowMapSelector: (show: boolean) => {
+        set({showMapSelector: show});
       },
     }),
     {

@@ -1,7 +1,7 @@
 'use client';
 import {FormState, useFormState} from '@/app/store/formState';
 import {Box, Text, TextArea, TextField} from '@radix-ui/themes';
-import { useState } from 'react';
+import {useState} from 'react';
 
 type FormPart = 'comment' | 'commenter';
 
