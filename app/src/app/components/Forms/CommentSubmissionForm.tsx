@@ -182,6 +182,7 @@ export const CommentSubmissionForm: React.FC<{
                 type="text"
                 autoComplete="postal-code"
                 required={true}
+                pattern="[0-9]{5}"
                 validator={value => /[0-9]{5}/.test(value ?? '')}
               />
             </Box>

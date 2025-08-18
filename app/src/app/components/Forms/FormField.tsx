@@ -16,6 +16,7 @@ export function FormField<T extends FormPart>({
   autoComplete,
   options,
   validator,
+  pattern
 }: FormFieldProps<T>) {
   const value = useFormState(state => state[formPart][formProperty] as string);
   const setFormState = useFormState(state => state.setFormState);
@@ -42,6 +43,8 @@ export function FormField<T extends FormPart>({
     onBlur: () => required && !validate(value) && setInvalid(true),
     onFocus: () => setInvalid(false),
     className: invalid ? 'border-2 border-red-500' : '',
+    'data-invalid': invalid,
+    pattern,
   };
   return (
     <Flex direction="column" gap="1">
