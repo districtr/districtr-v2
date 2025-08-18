@@ -59,6 +59,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       map => !allowListModules?.length || allowListModules.includes(map.map_module ?? '')
     )
   );
+
   const validateMap = async (mapId: string) => {
     let response: ValidationResponse = {
       input: mapId,
@@ -72,7 +73,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     };
 
     try {
-      const mapUrlIsValid = new URL(mapId);
+      const _mapUrlIsValid = new URL(mapId);
       response.isUrl = true;
     } catch {
       throw new Error('Not a valid url');
@@ -140,6 +141,13 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       });
     },
   });
+
+  useEffect(() => {
+    // revalidate on load
+    if (!isPending && mapId && showMapSelector) {
+      mutate(mapId);
+    }
+  }, [mapId, isPending]);
 
   return (
     <Flex direction="column" gap="2" position="relative" width="100%">
