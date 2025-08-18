@@ -44,6 +44,7 @@ export function FormField<T extends FormPart>({
     onFocus: () => setInvalid(false),
     className: invalid ? 'border-2 border-red-500' : '',
     'data-invalid': invalid,
+    'aria-invalid': invalid,
     pattern,
   };
   return (

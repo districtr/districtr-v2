@@ -1,4 +1,5 @@
 'use client';
+import {useEffect, useRef, useState} from 'react';
 import {useFormState} from '@/app/store/formState';
 import {useMapStore} from '@/app/store/mapStore';
 import {getDocument} from '@/app/utils/api/apiHandlers/getDocument';
@@ -17,7 +18,6 @@ import {
   TextField,
 } from '@radix-ui/themes';
 import {QueryClientProvider, useMutation} from '@tanstack/react-query';
-import {useState} from 'react';
 
 interface MapSelectorProps {
   allowListModules: string[];
@@ -30,10 +30,11 @@ interface ValidationResponse {
   mayNotBeUserMap: boolean;
   mapInfo: DocumentObject | null;
   message: string | null;
-  type: 'error' | 'success' | null;
-} 
+  type: 'error' | 'success' | 'warning' | null;
+}
 
 const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [showMapOptions, setShowMapOptions] = useState(false);
   const [dataResponse, setDataResponse] = useState<ValidationResponse | null>(null);
 
@@ -44,8 +45,12 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const setShowMapSelector = useFormState(state => state.setShowMapSelector);
   const setFormState = useFormState(state => state.setFormState);
 
+  useEffect(() => {
+    setDataResponse(null);
+  }, [showMapSelector])
+
   const [notification, setNotification] = useState<null | {
-    type: 'error' | 'success';
+    type: 'error' | 'success' | 'warning';
     message: string;
   }>(null);
 
@@ -63,14 +68,14 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       mayNotBeUserMap: false,
       mapInfo: null,
       message: null,
-      type: null
-    }
+      type: null,
+    };
 
     try {
-      new URL(mapId);
+      const mapUrlIsValid = new URL(mapId);
       response.isUrl = true;
     } catch {
-      // not a url
+      throw new Error('Not a valid url');
     }
 
     // take the slash and then the last characters after the slash
@@ -79,45 +84,56 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     try {
       response.mapInfo = await getDocument(urlStrippedId);
     } catch {
+      throw new Error('Map not found');
       // could not get document
     }
     response.isPublicId = !isNaN(Number(urlStrippedId));
     response.mayNotBeUserMap = response.isPublicId && !userMap;
-    if (!response.isUrl) {
-      response.message = 'Please enter a valid link to your map';
-      response.type = 'error';
-    } else if (!response.mapInfo) {
-      response.message = 'Map not found';
-      response.type = 'error';
-    } else if (response.mayNotBeUserMap) {
-      response.message = (
-        'This link is a public map link and may not be your map. Other users can change their maps, which could change the meaning of your comment. Consider making a copy of the map by going to the map and clicking "Save and share" and then create a copy.'
-      );
-    } else if (response.mapInfo && response.mapInfo.map_metadata?.draft_status !== 'ready_to_share') {
-      response.message = (
+    if (response.mapInfo && response.mapInfo.map_metadata?.draft_status !== 'ready_to_share') {
+      throw new Error(
         'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
       );
-      response.type = 'error';
     } else if (response.mapInfo && !allowListModules.includes(response.mapInfo?.map_module ?? '')) {
-      response.message = (
+      throw new Error(
         `Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`
       );
+    } else if (response.mayNotBeUserMap) {
+      response.message =
+        'Warning: This link is a public map link and may not be your map. Other users can change their maps, which could change the meaning of your comment. Consider making a copy of the map by going to the map and clicking "Save and share" and then create a copy.';
+      response.type = 'warning';
     } else {
       response.message = 'Map validated successfully';
+      response.type = 'success';
     }
-    return response
+    return response;
   };
 
   const {isPending, mutate} = useMutation({
     mutationFn: validateMap,
     onSuccess: data => {
       setDataResponse(data ?? null);
-      setNotification({
-        type: 'success',
-        message: 'Map validated successfully',
-      });
+      if (!data?.type) {
+        inputRef?.current?.setCustomValidity(data?.message ?? 'Map validation failed');
+        setNotification({
+          type: 'error',
+          message: 'Map validation failed',
+        });
+        return;
+      } else if (data?.type === 'success') {
+        inputRef?.current?.setCustomValidity('');
+        setNotification({
+          type: 'success',
+          message: 'Map validated successfully',
+        });
+      } else {
+        setNotification({
+          type: data?.type ?? 'error',
+          message: data?.message ?? 'Map validation failed',
+        });
+      }
     },
     onError: error => {
+      inputRef?.current?.setCustomValidity(error.message ?? 'Map validation failed');
       setNotification({
         type: 'error',
         message: error.message,
@@ -143,18 +159,22 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       <Flex direction="row" gap="2" align="center" onClick={() => setShowMapSelector(true)}>
         <Box position="relative" flexGrow="1">
           <TextField.Root
+            ref={inputRef}
             type="url"
             disabled={!showMapSelector}
+            required={showMapSelector}
             value={mapId}
             color={dataResponse?.mapInfo?.document_id === mapId ? 'green' : 'gray'}
             onChange={e => setFormState('comment', 'document_id', e.target.value)}
             onFocus={() => setShowMapOptions(true)}
+            onClick={() => setShowMapOptions(true)}
             onBlur={() => {
               setTimeout(() => {
                 setShowMapOptions(false);
               }, 100);
               mutate(mapId);
             }}
+            aria-invalid={showMapSelector && dataResponse?.type === 'error'}
             placeholder="Include a link to your map"
           />
           {showMapOptions && (
@@ -178,6 +198,8 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
                       e.preventDefault();
                       const mapUrl = new URL(`/map/edit/${map.document_id}`, window.location.href);
                       setFormState('comment', 'document_id', mapUrl.toString());
+                      setShowMapOptions(false);
+                      mutate(mapUrl.toString());
                     }}
                     onClick={e => {
                       e.preventDefault();
@@ -201,17 +223,26 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
         </Box>
       </Flex>
       {notification && (
-        <Blockquote color={notification.type === 'error' ? 'gray' : 'green'}>
+        <Blockquote
+          color={
+            notification.type === 'error'
+              ? 'red'
+              : notification.type === 'warning'
+                ? 'yellow'
+                : 'green'
+          }
+        >
           {notification.message}
-          {notification.type === 'error' && dataResponse?.mapInfo && (
-            <a href={dataResponse?.mapInfo?.document_id !== 'anonymous' ? `/map/edit/${dataResponse?.mapInfo?.document_id}` : `/map/${mapId}`} target="_blank" className="text-blue-500 px-2">
-              View map
-            </a>
-          )}
         </Blockquote>
       )}
       {notification?.type === 'success' && (
-        <img src={`${TILESET_URL}/thumbnails/${dataResponse?.mapInfo?.public_id}.png`} alt="Map thumbnail" />
+        <object data="/home-megaphone-square.png" type="image/png" className="size-32">
+          <img
+            src={`${TILESET_URL}/thumbnails/${dataResponse?.mapInfo?.public_id}.png`}
+            alt="Map thumbnail"
+            className="size-32"
+          />
+        </object>
       )}
     </Flex>
   );
