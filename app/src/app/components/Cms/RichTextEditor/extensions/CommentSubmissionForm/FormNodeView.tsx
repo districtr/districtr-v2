@@ -1,6 +1,6 @@
 'use client';
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Box, Button, Dialog, Flex, IconButton, Text} from '@radix-ui/themes';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {CommentSubmissionForm} from '@/app/components/Forms/CommentSubmissionForm';
@@ -8,11 +8,12 @@ import {TagSelector} from '@/app/components/Forms/TagSelector';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {ListSelector} from '@/app/components/Forms/ListSelector';
+import {NoFocusBoundary} from '../NoFocusBoundary';
 
 const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   const mandatoryTags = node.attrs.mandatoryTags as string[];
   const allowListModules = node.attrs.allowListModules as string[];
-
+  const parentRef = useRef<HTMLDivElement>(null);
   const [tagInput, setTagInput] = useState('');
   const handleTagChange = (tag: string, action: 'add' | 'remove') => {
     const newTags =
@@ -50,12 +51,19 @@ const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNo
   };
 
   return (
-    <NodeViewWrapper className="relative border-[1px] border-gray-200 rounded-md p-4 border-dashed">
-      <CommentSubmissionForm
-        disabled
-        mandatoryTags={node.attrs.mandatoryTags}
-        allowListModules={node.attrs.allowListModules}
-      />
+    <NodeViewWrapper
+      className="relative border-[1px] border-gray-200 rounded-md p-4 border-dashed"
+      ref={parentRef}
+      contentEditable={false}
+    >
+      <NoFocusBoundary parentRef={parentRef}>
+        {/* block mouse events   */}
+        <CommentSubmissionForm
+          disabled
+          mandatoryTags={node.attrs.mandatoryTags}
+          allowListModules={node.attrs.allowListModules}
+        />
+      </NoFocusBoundary>
       <Box position="absolute" top="0" right="-1rem">
         <Dialog.Root>
           <Dialog.Trigger>

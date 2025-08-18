@@ -47,7 +47,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
 
   useEffect(() => {
     setDataResponse(null);
-  }, [showMapSelector])
+  }, [showMapSelector]);
 
   const [notification, setNotification] = useState<null | {
     type: 'error' | 'success' | 'warning';
