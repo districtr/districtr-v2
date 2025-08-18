@@ -30,6 +30,7 @@ interface ValidationResponse {
   mayNotBeUserMap: boolean;
   mapInfo: DocumentObject | null;
   message: string | null;
+  type: 'error' | 'success' | null;
 } 
 
 const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
@@ -61,12 +62,12 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       isPublicId: false,
       mayNotBeUserMap: false,
       mapInfo: null,
-      message: null
+      message: null,
+      type: null
     }
 
     try {
-      const url = new URL(mapId);
-      response.isForeignLink = url.hostname !== window.location.hostname;
+      new URL(mapId);
       response.isUrl = true;
     } catch {
       // not a url
@@ -82,11 +83,12 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     }
     response.isPublicId = !isNaN(Number(urlStrippedId));
     response.mayNotBeUserMap = response.isPublicId && !userMap;
-    console.log(response);
-    if (response.isForeignLink) {
-      response.message = 'You entered a link to a different redistricting tool. Please make sure this is the link you meant to use.'
+    if (!response.isUrl) {
+      response.message = 'Please enter a valid link to your map';
+      response.type = 'error';
     } else if (!response.mapInfo) {
       response.message = 'Map not found';
+      response.type = 'error';
     } else if (response.mayNotBeUserMap) {
       response.message = (
         'This link is a public map link and may not be your map. Other users can change their maps, which could change the meaning of your comment. Consider making a copy of the map by going to the map and clicking "Save and share" and then create a copy.'
@@ -95,6 +97,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       response.message = (
         'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
       );
+      response.type = 'error';
     } else if (response.mapInfo && !allowListModules.includes(response.mapInfo?.map_module ?? '')) {
       response.message = (
         `Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`
@@ -140,7 +143,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       <Flex direction="row" gap="2" align="center" onClick={() => setShowMapSelector(true)}>
         <Box position="relative" flexGrow="1">
           <TextField.Root
-            type="text"
+            type="url"
             disabled={!showMapSelector}
             value={mapId}
             color={dataResponse?.mapInfo?.document_id === mapId ? 'green' : 'gray'}

@@ -87,9 +87,16 @@ export const useFormState = create<FormState>()(
           set({error: 'Please acknowledge all statements'});
           return;
         }
+        // clean up to just document ID
+        const cleanDocumentId = comment.document_id?.trim()?.length
+          ? comment.document_id.split('/').pop()?.replace('?pw=true', '')
+          : null;
         //  todo, some validation
         const response = await postComment.mutate({
-          comment: comment as CommentCreate,
+          comment: {
+            ...comment,
+            document_id: cleanDocumentId,
+          } as CommentCreate,
           commenter: commenter as CommenterCreate,
           tags: Array.from(tags).map(tag => ({tag})),
           recaptcha_token: recaptchaToken,

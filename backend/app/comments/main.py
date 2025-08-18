@@ -30,7 +30,6 @@ from app.comments.models import (
 from app.core.models import DocumentID
 from app.core.security import recaptcha
 
-
 router = APIRouter(tags=["comments"], prefix="/api/comments")
 
 
@@ -63,7 +62,15 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
     Create a new comment without commenter foreign key.
     Returns the Comment model with id.
     """
-    comment = Comment(**comment_data.model_dump())
+    # handle public or document IDs
+    document = get_protected_document(
+        document_id=DocumentID(document_id=comment_data.document_id), session=session
+    )
+    kwargs = {
+        **comment_data.model_dump(),
+        "document_id": document.document_id,
+    }
+    comment = Comment(**kwargs)
     session.add(comment)
     session.commit()
     session.refresh(comment)
