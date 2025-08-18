@@ -16,7 +16,7 @@ export function FormField<T extends FormPart>({
   autoComplete,
   options,
   validator,
-  pattern
+  pattern,
 }: FormFieldProps<T>) {
   const value = useFormState(state => state[formPart][formProperty] as string);
   const setFormState = useFormState(state => state.setFormState);
@@ -54,7 +54,12 @@ export function FormField<T extends FormPart>({
       {component !== Select.Root ? (
         <Component {...props} onChange={e => updateFormState(e.target as HTMLInputElement)} />
       ) : (
-        <Component {...props} onValueChange={e => updateFormState(e as any)}>
+        <Component
+          {...props}
+          onValueChange={e => {
+            e && updateFormState(e as any);
+          }}
+        >
           <Select.Trigger placeholder={placeholder ?? label} className={props.className} />
           <Select.Content>
             {(options ?? []).map(option => (
