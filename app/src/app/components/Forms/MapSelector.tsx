@@ -147,17 +147,10 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     if (!isPending && mapId && showMapSelector) {
       mutate(mapId);
     }
-  }, [mapId, isPending]);
+  }, [mapId]);
 
   return (
     <Flex direction="column" gap="2" position="relative" width="100%">
-      {isPending && (
-        <Box position="absolute" top="0" left="0" right="0" bottom="0" className="bg-black/50">
-          <Flex justify="center" align="center" height="100%">
-            <Spinner />
-          </Flex>
-        </Box>
-      )}
       <Flex direction="row" gap="2" align="center">
         <Switch checked={showMapSelector} onCheckedChange={setShowMapSelector} />
         <Text as="label" size="2" weight="medium" id="map-selector">
