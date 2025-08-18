@@ -22,10 +22,19 @@ import {useState} from 'react';
 interface MapSelectorProps {
   allowListModules: string[];
 }
+interface ValidationResponse {
+  input: string;
+  isUrl: boolean;
+  isForeignLink: boolean;
+  isPublicId: boolean;
+  mayNotBeUserMap: boolean;
+  mapInfo: DocumentObject | null;
+  message: string | null;
+} 
 
 const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const [showMapOptions, setShowMapOptions] = useState(false);
-  const [selectedMap, setSelectedMap] = useState<DocumentObject | null>(null);
+  const [dataResponse, setDataResponse] = useState<ValidationResponse | null>(null);
 
   const showMapSelector = useFormState(state => state.showMapSelector);
   const comment = useFormState(state => state.comment);
@@ -45,46 +54,61 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     )
   );
   const validateMap = async (mapId: string) => {
-    let isForeignLink = false;
-    try {
-      isForeignLink = new URL(mapId).hostname !== window.location.hostname;
-    } catch (e) {}
-
-    if (isForeignLink) {
-      throw new Error(
-        'You entered a link to a different redistricting tool. Please make sure this is the link you meant to use.'
-      );
+    let response: ValidationResponse = {
+      input: mapId,
+      isUrl: false,
+      isForeignLink: false,
+      isPublicId: false,
+      mayNotBeUserMap: false,
+      mapInfo: null,
+      message: null
     }
+
+    try {
+      const url = new URL(mapId);
+      response.isForeignLink = url.hostname !== window.location.hostname;
+      response.isUrl = true;
+    } catch {
+      // not a url
+    }
+
     // take the slash and then the last characters after the slash
     const urlStrippedId = mapId.split('/').pop()?.replace('?pw=true', '');
     const userMap = userMaps?.find(map => map.document_id === urlStrippedId);
-    const isPublicId = !isNaN(Number(urlStrippedId));
-    const mayNotBeUserMap = isPublicId && !userMap;
-    if (mayNotBeUserMap) {
-      throw new Error(
+    try {
+      response.mapInfo = await getDocument(urlStrippedId);
+    } catch {
+      // could not get document
+    }
+    response.isPublicId = !isNaN(Number(urlStrippedId));
+    response.mayNotBeUserMap = response.isPublicId && !userMap;
+    console.log(response);
+    if (response.isForeignLink) {
+      response.message = 'You entered a link to a different redistricting tool. Please make sure this is the link you meant to use.'
+    } else if (!response.mapInfo) {
+      response.message = 'Map not found';
+    } else if (response.mayNotBeUserMap) {
+      response.message = (
         'This link is a public map link and may not be your map. Other users can change their maps, which could change the meaning of your comment. Consider making a copy of the map by going to the map and clicking "Save and share" and then create a copy.'
       );
-    }
-    if (userMap && userMap.map_metadata?.draft_status !== 'ready_to_share') {
-      throw new Error(
+    } else if (response.mapInfo && response.mapInfo.map_metadata?.draft_status !== 'ready_to_share') {
+      response.message = (
         'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
       );
-    }
-    if (userMap && !allowListModules.includes(userMap?.map_module ?? '')) {
-      throw new Error(
+    } else if (response.mapInfo && !allowListModules.includes(response.mapInfo?.map_module ?? '')) {
+      response.message = (
         `Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`
       );
+    } else {
+      response.message = 'Map validated successfully';
     }
-    return {
-      input: mapId,
-      map: userMap,
-    };
+    return response
   };
 
   const {isPending, mutate} = useMutation({
     mutationFn: validateMap,
     onSuccess: data => {
-      setSelectedMap(data.map ?? null);
+      setDataResponse(data ?? null);
       setNotification({
         type: 'success',
         message: 'Map validated successfully',
@@ -119,7 +143,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
             type="text"
             disabled={!showMapSelector}
             value={mapId}
-            color={selectedMap?.document_id === mapId ? 'green' : 'gray'}
+            color={dataResponse?.mapInfo?.document_id === mapId ? 'green' : 'gray'}
             onChange={e => setFormState('comment', 'document_id', e.target.value)}
             onFocus={() => setShowMapOptions(true)}
             onBlur={() => {
@@ -176,15 +200,15 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
       {notification && (
         <Blockquote color={notification.type === 'error' ? 'gray' : 'green'}>
           {notification.message}
-          {notification.type === 'error' && (
-            <a href={mapId} target="_blank" className="text-blue-500 px-2">
+          {notification.type === 'error' && dataResponse?.mapInfo && (
+            <a href={dataResponse?.mapInfo?.document_id !== 'anonymous' ? `/map/edit/${dataResponse?.mapInfo?.document_id}` : `/map/${mapId}`} target="_blank" className="text-blue-500 px-2">
               View map
             </a>
           )}
         </Blockquote>
       )}
       {notification?.type === 'success' && (
-        <img src={`${TILESET_URL}/thumbnails/${selectedMap?.public_id}.png`} alt="Map thumbnail" />
+        <img src={`${TILESET_URL}/thumbnails/${dataResponse?.mapInfo?.public_id}.png`} alt="Map thumbnail" />
       )}
     </Flex>
   );

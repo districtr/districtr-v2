@@ -55,7 +55,7 @@ export const useFormState = create<FormState>()(
         set({
           [formPart]: {
             ...get()[formPart],
-            [formProperty]: value,
+            [formProperty]: value?.trim()?.length ? value : undefined,
           },
         });
       },
