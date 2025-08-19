@@ -29,6 +29,8 @@ export type PlanFlags = {
 };
 
 const FALLBACK_IMAGE = '/home-megaphone-square.png';
+const FALLBACK_IMAGE_URL = new URL(FALLBACK_IMAGE, window.location.origin).toString();
+
 export const PlanGalleryInner = ({
   ids,
   tags,
@@ -141,7 +143,7 @@ export const PlanCard = ({plan, ...flags}: {plan: MinPublicDocument} & PlanFlags
           <Box
             className="w-full relative overflow-hidden aspect-video border-2 border-b-0 border-gray-50 bg-white"
             style={{
-              backgroundImage: `url(${CDN_URL}/thumbnails/${plan.public_id}.png), url(/${FALLBACK_IMAGE})`,
+              backgroundImage: `url(${CDN_URL}/thumbnails/${plan.public_id}.png), url(${FALLBACK_IMAGE_URL})`,
               backgroundSize: 'contain',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
