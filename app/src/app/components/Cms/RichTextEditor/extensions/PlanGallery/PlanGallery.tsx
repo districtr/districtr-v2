@@ -29,7 +29,7 @@ export type PlanFlags = {
 };
 
 const FALLBACK_IMAGE = '/home-megaphone-square.png';
-const FALLBACK_IMAGE_URL = new URL(FALLBACK_IMAGE, window.location.origin).toString();
+const FALLBACK_IMAGE_URL = typeof window !== 'undefined' ? new URL(FALLBACK_IMAGE, window.location.origin).toString() : '';
 
 export const PlanGalleryInner = ({
   ids,
