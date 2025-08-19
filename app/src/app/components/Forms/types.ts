@@ -18,5 +18,6 @@ export type FormFieldProps<T extends FormPart> = {
     value: string;
   }>;
   pattern?: string;
+  invalidMessage?: string;
   validator?: (value: FormState[T][keyof FormState[T]]) => boolean;
 };

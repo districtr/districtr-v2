@@ -8,20 +8,35 @@ import {CommentFormTagSelector} from './CommentFormTagSelector';
 import {MapSelector} from './MapSelector';
 import {useRecaptcha} from '@/app/hooks/useRecaptcha';
 import {VALID_STATES_LABELS} from './constants';
+import { useLayoutEffect, useRef } from 'react';
 
 export const CommentSubmissionForm: React.FC<{
   disabled?: boolean;
   mandatoryTags: string[];
   allowListModules: string[];
 }> = ({disabled, mandatoryTags, allowListModules}) => {
+  const formRef = useRef<HTMLFormElement>(null);
+  const setFormRef = useFormState(state => state.setFormRef);
+  const formIsValid = useFormState(state => state.formIsValid);
+
   const submitForm = useFormState(state => state.submitForm);
   const {RecaptchaComponent, recaptchaToken} = useRecaptcha();
+  
   const isSubmitting = useFormState(state => state.isSubmitting);
+  
   const success = useFormState(state => state.success);
   const setSuccess = useFormState(state => state.setSuccess);
+
   const error = useFormState(state => state.error);
   const setError = useFormState(state => state.setError);
+  
   const clearForm = useFormState(state => state.clear);
+  
+  const setHighlightErrors = useFormState(state => state.setHighlightErrors);
+
+  useLayoutEffect(() => {
+    setFormRef(formRef);
+  }, [formRef]);  
 
   return (
     <Box p="4" className="relative">
@@ -57,10 +72,11 @@ export const CommentSubmissionForm: React.FC<{
       <form
         onSubmit={e => {
           e.preventDefault();
-          if (recaptchaToken) {
+          if (recaptchaToken && formIsValid) {
             submitForm(recaptchaToken);
           }
         }}
+        ref={formRef}
       >
         <Flex direction="column" gap="4">
           <ContentHeader title="Add Your Comment" />
@@ -71,6 +87,7 @@ export const CommentSubmissionForm: React.FC<{
             label="Submission Title *"
             type="text"
             required={true}
+            invalidMessage="Enter a submission title"
           />
           <FormField
             disabled={disabled}
@@ -80,6 +97,7 @@ export const CommentSubmissionForm: React.FC<{
             type="text"
             component={TextArea}
             required={true}
+            invalidMessage="Enter your testimony"
           />
           <Flex
             direction={{
@@ -109,6 +127,7 @@ export const CommentSubmissionForm: React.FC<{
                 type="text"
                 autoComplete="honorific-prefix"
                 required={true}
+                invalidMessage="Enter a salutation"
               />
             </Box>
             <Box flexGrow="1" flexBasis="40%">
@@ -120,6 +139,7 @@ export const CommentSubmissionForm: React.FC<{
                 type="text"
                 autoComplete="given-name"
                 required={true}
+                invalidMessage="Enter your first name or identifier"
               />
             </Box>
             <Box flexGrow="1" flexBasis="40%">
@@ -141,6 +161,7 @@ export const CommentSubmissionForm: React.FC<{
             type="email"
             autoComplete="email"
             required={true}
+            invalidMessage="Enter a valid email address"
           />
           <Flex
             direction={{
@@ -158,6 +179,7 @@ export const CommentSubmissionForm: React.FC<{
                 label="City/County (optional but encouraged)"
                 type="text"
                 autoComplete="address-level2"
+                invalidMessage="Enter a city or county"
               />
             </Box>
             <Box flexGrow="1" flexBasis="20%">
@@ -171,6 +193,7 @@ export const CommentSubmissionForm: React.FC<{
                 required={true}
                 component={Select.Root}
                 options={VALID_STATES_LABELS}
+                invalidMessage="Select a state"
               />
             </Box>
             <Box flexGrow="1" flexBasis="20%">
@@ -184,6 +207,7 @@ export const CommentSubmissionForm: React.FC<{
                 required={true}
                 pattern="[0-9]{5}"
                 validator={value => /[0-9]{5}/.test(value ?? '')}
+                invalidMessage="Please enter a valid 5-digit zip code"
               />
             </Box>
           </Flex>
@@ -205,10 +229,11 @@ export const CommentSubmissionForm: React.FC<{
           <Flex direction="row" gap="4" justify="between" align="center">
             <Button
               type="submit"
-              className="w-min"
               size="4"
-              color="green"
-              disabled={!recaptchaToken}
+              color={!recaptchaToken || !formIsValid ? 'gray' : 'green'}
+              className={`${!recaptchaToken || !formIsValid ? 'cursor-not-allowed opacity-50' : ''} w-min`}
+              onMouseEnter={() => setHighlightErrors(true)}
+              onMouseLeave={() => setHighlightErrors(false)}
             >
               Submit
             </Button>

@@ -1,7 +1,7 @@
 'use client';
 import {FormState, useFormState} from '@/app/store/formState';
-import {Box, Flex, Select, Text, TextField} from '@radix-ui/themes';
-import {useState} from 'react';
+import {Box, Flex, Select, Text, TextField, Tooltip} from '@radix-ui/themes';
+import {useEffect, useState} from 'react';
 import {FormFieldProps, FormPart} from './types';
 
 export function FormField<T extends FormPart>({
@@ -17,21 +17,32 @@ export function FormField<T extends FormPart>({
   options,
   validator,
   pattern,
+  invalidMessage,
 }: FormFieldProps<T>) {
   const value = useFormState(state => state[formPart][formProperty] as string);
   const setFormState = useFormState(state => state.setFormState);
   const Component = component ?? TextField.Root;
+  const highlightErrors = useFormState(state => state.highlightErrors);
+
   const [invalid, setInvalid] = useState(false);
 
   const validate = (_value: string) => {
     const v = _value ?? value;
     return v?.trim().length && (!validator || validator(v as FormState[T][keyof FormState[T]]));
   };
+
   const updateFormState = (component: HTMLInputElement | string) => {
     const value = typeof component === 'string' ? component : component.value;
     setInvalid(!validate(value));
     setFormState(formPart, formProperty as keyof FormState[T], value);
   };
+
+  useEffect(() => {
+    if (highlightErrors && required) {
+      !validate(value) && setInvalid(true);
+    }
+  }, [highlightErrors]);
+
   const props = {
     required,
     placeholder: placeholder ?? label,
@@ -48,29 +59,41 @@ export function FormField<T extends FormPart>({
     pattern,
   };
   return (
-    <Flex direction="column" gap="1">
-      <Text as="label" size="2" weight="medium" id={`${formPart}-${formProperty as string}`}>
-        {label}
-      </Text>
-      {component !== Select.Root ? (
-        <Component {...props} onChange={e => updateFormState(e.target as HTMLInputElement)} />
-      ) : (
-        <Component
-          {...props}
-          onValueChange={e => {
-            e && updateFormState(e as any);
-          }}
-        >
-          <Select.Trigger placeholder={placeholder ?? label} className={props.className} />
-          <Select.Content>
-            {(options ?? []).map(option => (
-              <Select.Item key={option.value} value={option.value}>
-                {option.label}
-              </Select.Item>
-            ))}
-          </Select.Content>
-        </Component>
-      )}
-    </Flex>
+    <Tooltip
+      content={invalidMessage ?? `${required ? 'Required: ' : ''}${invalid ? 'Invalid Entry' : ''}`}
+      open={required && invalid && highlightErrors}
+      alignOffset={0}
+    >
+      <Flex direction="column" gap="1">
+        <Text as="label" size="2" weight="medium" id={`${formPart}-${formProperty as string}`}>
+          {label}
+        </Text>
+        {component !== Select.Root ? (
+          <Component {...props} onChange={e => updateFormState(e.target as HTMLInputElement)} />
+        ) : (
+          <Component
+            {...props}
+            onValueChange={e => {
+              e && updateFormState(e as any);
+            }}
+          >
+            <Select.Trigger
+              placeholder={placeholder ?? label}
+              className={props.className}
+              style={{
+                border: invalid ? '2px solid red' : undefined,
+              }}
+            />
+            <Select.Content>
+              {(options ?? []).map(option => (
+                <Select.Item key={option.value} value={option.value}>
+                  {option.label}
+                </Select.Item>
+              ))}
+            </Select.Content>
+          </Component>
+        )}
+      </Flex>
+    </Tooltip>
   );
 }

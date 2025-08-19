@@ -4,6 +4,11 @@ import {postComment} from '../utils/api/mutations/postComment';
 import {createJSONStorage, persist} from 'zustand/middleware';
 
 export interface FormState {
+  formRef: React.RefObject<HTMLFormElement> | null;
+  setFormRef: (ref: React.RefObject<HTMLFormElement>) => void;
+  formIsValid: boolean;
+  highlightErrors: boolean;
+  setHighlightErrors: (highlight: boolean) => void;
   comment: Partial<CommentCreate>;
   commenter: Partial<CommenterCreate>;
   setFormState: <T extends 'comment' | 'commenter'>(
@@ -32,6 +37,15 @@ export interface FormState {
 export const useFormState = create<FormState>()(
   persist(
     (set, get) => ({
+      highlightErrors: false,
+      setHighlightErrors: (highlight: boolean) => {
+        set({highlightErrors: highlight});
+      },
+      formRef: null,
+      setFormRef: (ref: React.RefObject<HTMLFormElement>) => {
+        set({formRef: ref});
+      },
+      formIsValid: false,
       comment: {
         title: '',
         comment: '',
@@ -52,11 +66,14 @@ export const useFormState = create<FormState>()(
         set({acknowledgement: {...get().acknowledgement, [id]: acknowledged}});
       },
       setFormState: (formPart, formProperty, value) => {
+        const formRef = get().formRef;
+        console.log('!!!!FORM REF', formRef?.current?.checkValidity());
         set({
           [formPart]: {
             ...get()[formPart],
             [formProperty]: value?.trim()?.length ? value : undefined,
           },
+          formIsValid: Boolean(formRef?.current?.checkValidity() ?? false),
         });
       },
       setTags: (tag: string, action: 'add' | 'remove') => {
