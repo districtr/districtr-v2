@@ -15,12 +15,15 @@ from app.core.db import get_session
 from app.comments.models import (
     Commenter,
     CommenterCreate,
+    CommenterCreateWithRecaptcha,
     CommenterPublic,
     Comment,
     CommentCreate,
+    CommentCreateWithRecaptcha,
     CommentPublic,
     Tag,
     TagCreate,
+    TagCreateWithRecaptcha,
     TagPublic,
     CommentTag,
     FullCommentForm,
@@ -62,8 +65,8 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
     Create a new comment without commenter foreign key.
     Returns the Comment model with id.
     """
-    # handle public or document IDs
-    if comment_data.document_id is not None:
+    # if comment is submitted with a document ID, get the document ID
+    if "document_id" in comment_data and comment_data.document_id is not None:
         try:
             document = get_protected_document(
                 document_id=DocumentID(document_id=comment_data.document_id),
@@ -202,11 +205,16 @@ def create_full_comment_submission(
     "/commenter", response_model=CommenterPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_commenter(
-    commenter_data: CommenterCreate, session: Session = Depends(get_session)
+    request: Request,
+    commenter_data: CommenterCreateWithRecaptcha,
+    session: Session = Depends(get_session),
 ):
     """Create a new commenter with upsert on conflict for name + email."""
+    await recaptcha.verify_recaptcha(
+        commenter_data.recaptcha_token, request.client.host
+    )
     try:
-        commenter = create_commenter_db(commenter_data, session)
+        commenter = create_commenter_db(commenter_data.commenter, session)
     except IntegrityError as e:
         session.rollback()
         raise HTTPException(
@@ -219,11 +227,14 @@ async def create_commenter(
     "/comment", response_model=CommentPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_comment(
-    comment_data: CommentCreate, session: Session = Depends(get_session)
+    request: Request,
+    comment_data: CommentCreateWithRecaptcha,
+    session: Session = Depends(get_session),
 ):
     """Create a new comment without commenter foreign key."""
+    await recaptcha.verify_recaptcha(comment_data.recaptcha_token, request.client.host)
     try:
-        comment = create_comment_db(comment_data, session)
+        comment = create_comment_db(comment_data.comment, session)
     except (DataError, IntegrityError) as e:
         session.rollback()
         raise HTTPException(
@@ -233,10 +244,15 @@ async def create_comment(
 
 
 @router.post("/tag", response_model=TagPublic, status_code=status.HTTP_201_CREATED)
-async def create_tag(tag_data: TagCreate, session: Session = Depends(get_session)):
+async def create_tag(
+    request: Request,
+    tag_data: TagCreateWithRecaptcha,
+    session: Session = Depends(get_session),
+):
     """Create a new tag using the slugify_tag SQL function."""
+    await recaptcha.verify_recaptcha(tag_data.recaptcha_token, request.client.host)
     try:
-        tag = create_tag_db(tag_data, session)
+        tag = create_tag_db(tag_data.tag, session)
     except IntegrityError as e:
         session.rollback()
         raise HTTPException(
