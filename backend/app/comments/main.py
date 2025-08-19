@@ -63,13 +63,26 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
     Returns the Comment model with id.
     """
     # handle public or document IDs
-    document = get_protected_document(
-        document_id=DocumentID(document_id=comment_data.document_id), session=session
-    )
+    if comment_data.document_id is not None:
+        try:
+            document = get_protected_document(
+                document_id=DocumentID(document_id=comment_data.document_id),
+                session=session,
+            )
+            document_id = document.document_id
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Document ID {comment_data.document_id} not found",
+            )
+    else:
+        document_id = None
+
     kwargs = {
         **comment_data.model_dump(),
-        "document_id": document.document_id,
+        "document_id": document_id,
     }
+
     comment = Comment(**kwargs)
     session.add(comment)
     session.commit()
