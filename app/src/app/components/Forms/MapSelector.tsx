@@ -45,14 +45,16 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const setShowMapSelector = useFormState(state => state.setShowMapSelector);
   const setFormState = useFormState(state => state.setFormState);
 
-  useEffect(() => {
-    setDataResponse(null);
-  }, [showMapSelector]);
-
   const [notification, setNotification] = useState<null | {
     type: 'error' | 'success' | 'warning';
     message: string;
   }>(null);
+
+  useEffect(() => {
+    setDataResponse(null);
+    setNotification(null);
+    setFormState('comment', 'document_id', '');
+  }, [showMapSelector]);
 
   const userMaps = useMapStore(state =>
     state.userMaps.filter(
