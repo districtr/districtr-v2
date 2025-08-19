@@ -8,6 +8,6 @@ export const postComment = new MutationObserver(queryClient, {
     console.log('Creating comment');
   },
   onError: error => {
-    console.log('Error updating assignments: ', error);
+    console.log('Error submitting comment to server: ', error);
   },
 });
