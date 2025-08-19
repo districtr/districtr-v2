@@ -20,7 +20,7 @@ export interface FormState {
   setIsSubmitting: (isSubmitting: boolean) => void;
   tags: string[];
   setTags: (tag: string, action: 'add' | 'remove') => void;
-  submitForm: (recaptchaToken: string) => Promise<void>;
+  submitForm: () => Promise<void>;
   clear: () => void;
   error: string;
   setError: (error: string) => void;
@@ -32,6 +32,8 @@ export interface FormState {
   setAcknowledgement: (id: string, acknowledged: boolean) => void;
   showMapSelector: boolean;
   setShowMapSelector: (show: boolean) => void;
+  recaptchaToken: string;
+  setRecaptchaToken: (token: string) => void;
 }
 
 export const useFormState = create<FormState>()(
@@ -93,13 +95,13 @@ export const useFormState = create<FormState>()(
       tags: new Array<string>(),
       error: '',
       success: '',
-      submitForm: async recaptchaToken => {
+      submitForm: async () => {
         const {clear, setIsSubmitting, isSubmitting} = get();
         if (isSubmitting) {
           return;
         }
         setIsSubmitting(true);
-        const {comment, commenter, tags, acknowledgement} = useFormState.getState();
+        const {comment, commenter, tags, acknowledgement, recaptchaToken} = useFormState.getState();
         if (!Object.values(acknowledgement).every(Boolean)) {
           set({error: 'Please acknowledge all statements'});
           return;
@@ -134,6 +136,8 @@ export const useFormState = create<FormState>()(
           tags: new Array<string>(),
           acknowledgement: {},
           showMapSelector: false,
+          formIsValid: false,
+          recaptchaToken: '',
         });
       },
       setError: (error: string) => {
@@ -145,6 +149,10 @@ export const useFormState = create<FormState>()(
       showMapSelector: false,
       setShowMapSelector: (show: boolean) => {
         set({showMapSelector: show});
+      },
+      recaptchaToken: '',
+      setRecaptchaToken: (token: string) => {
+        set({recaptchaToken: token});
       },
     }),
     {

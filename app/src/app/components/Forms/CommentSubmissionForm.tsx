@@ -73,7 +73,7 @@ export const CommentSubmissionForm: React.FC<{
         onSubmit={e => {
           e.preventDefault();
           if (recaptchaToken && formIsValid) {
-            submitForm(recaptchaToken);
+            submitForm();
           }
         }}
         ref={formRef}
