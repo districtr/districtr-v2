@@ -14,8 +14,8 @@ export const MapContextComment = () => {
   return (
     <>
       {!!comment && (
-        <Flex align="center" gap="2" width="100%" className="p-2 bg-blue-100 rounded-lg">
-          <InfoCircledIcon className="size-6 flex-none" />
+        <Flex align="start" gap="2" width="100%" className="p-2 bg-blue-100 rounded-lg">
+          <InfoCircledIcon className="size-6 flex-none mt-1" />
           <Box width="100%" className="flex-1">
             <Text size="4">{comment}</Text>
           </Box>
