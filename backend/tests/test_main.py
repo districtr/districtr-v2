@@ -1063,7 +1063,7 @@ def test_document_list(
 
     # filter on IDs
     response = client.get("/api/documents/list?ids=1")
-    data = response.json()
     assert response.status_code == 200
-    assert len(response.json()) == 1
-    assert response.json()[0].get("public_id") == 1
+    data = response.json()
+    assert len(data) == 1
+    assert data[0].get("public_id") == 1
