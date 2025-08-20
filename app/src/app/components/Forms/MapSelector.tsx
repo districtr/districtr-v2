@@ -77,6 +77,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     try {
       const _mapUrlIsValid = new URL(mapId);
       response.isUrl = true;
+      response.isForeignLink = _mapUrlIsValid.hostname !== window.location.hostname;
     } catch {
       throw new Error('Not a valid url');
     }
@@ -92,7 +93,9 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     }
     response.isPublicId = !isNaN(Number(urlStrippedId));
     response.mayNotBeUserMap = response.isPublicId && !userMap;
-    if (response.mapInfo && response.mapInfo.map_metadata?.draft_status !== 'ready_to_share') {
+    if (response.isForeignLink) {
+      throw new Error('Please use a link to a Districtr map.');
+    } else if (response.mapInfo && response.mapInfo.map_metadata?.draft_status !== 'ready_to_share') {
       throw new Error(
         'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
       );
