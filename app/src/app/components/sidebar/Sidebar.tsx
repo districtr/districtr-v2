@@ -7,6 +7,7 @@ import Draggable from 'react-draggable';
 import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 import {ToolbarInSidebar} from './ToolbarInSidebar';
 import {styled} from '@stitches/react';
+import { MapContextComment } from './MapContextComment';
 
 const StyledScrollArea = styled(ScrollArea, {
   maxWidth: '100%',
@@ -81,6 +82,7 @@ export default function SidebarComponent() {
       </div>
       <Flex direction="column" gap="3" className="size-full">
         <ToolbarInSidebar />
+        <MapContextComment />
         <StyledScrollArea
           className="size-full overflow-y-auto flex-grow-1 max-w-full"
           scrollbars="vertical"
