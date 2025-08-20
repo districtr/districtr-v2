@@ -96,12 +96,20 @@ export const useFormState = create<FormState>()(
       error: '',
       success: '',
       submitForm: async () => {
-        const {clear, setIsSubmitting, isSubmitting} = get();
+        const {
+          clear,
+          setIsSubmitting,
+          isSubmitting,
+          comment,
+          commenter,
+          tags,
+          acknowledgement,
+          recaptchaToken,
+        } = get();
         if (isSubmitting) {
           return;
         }
         setIsSubmitting(true);
-        const {comment, commenter, tags, acknowledgement, recaptchaToken} = useFormState.getState();
         if (!Object.values(acknowledgement).every(Boolean)) {
           set({error: 'Please acknowledge all statements'});
           return;
@@ -121,6 +129,7 @@ export const useFormState = create<FormState>()(
           recaptcha_token: recaptchaToken,
         });
         set({
+          recaptchaToken: '',
           isSubmitting: false,
           success: response.ok ? 'Comment submitted successfully' : undefined,
           error: response.ok ? undefined : response.error,
