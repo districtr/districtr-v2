@@ -1023,6 +1023,8 @@ def test_document_list(
     data = response.json()
     assert len(data) > 0
     assert data[0].get("public_id")
+    # use that ID later
+    public_id = data[0].get("public_id")
 
     # limit 1
     response = client.get("/api/documents/list?limit=1")
@@ -1062,8 +1064,9 @@ def test_document_list(
     assert "test" in data[0].get("map_metadata").get("tags")
 
     # filter on IDs
-    response = client.get("/api/documents/list?ids=1")
+    # Use a real public_id from the data to ensure this works in all environments
+    response = client.get(f"/api/documents/list?ids={public_id}")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
-    assert data[0].get("public_id") == 1
+    assert data[0].get("public_id") == public_id
