@@ -41,6 +41,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const showMapSelector = useFormState(state => state.showMapSelector);
   const comment = useFormState(state => state.comment);
   const mapId = comment?.document_id ?? '';
+  const [savedMapId, setSavedMapId] = useState<string | null>(null);
 
   const setShowMapSelector = useFormState(state => state.setShowMapSelector);
   const setFormState = useFormState(state => state.setFormState);
@@ -51,9 +52,14 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   }>(null);
 
   useEffect(() => {
+    if (!showMapSelector) {
+      setSavedMapId(mapId);
+      setFormState('comment', 'document_id', '');
+    } else if (showMapSelector && savedMapId && !mapId) {
+      setFormState('comment', 'document_id', savedMapId);
+    }
     setDataResponse(null);
     setNotification(null);
-    setFormState('comment', 'document_id', '');
   }, [showMapSelector]);
 
   const userMaps = useMapStore(state =>
