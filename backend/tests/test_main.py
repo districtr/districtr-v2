@@ -1013,3 +1013,57 @@ def test_new_document_from_block_assignments_duplicate_blocks_in_input(
     assert (
         detail == "Duplicate geoids found in input data. Ensure all geoids are unique"
     )
+
+
+def test_document_list(
+    client, session: Session, document_id_total_vap, document_id_all_stats
+):
+    response = client.get("/api/documents/list")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) > 0
+    assert data[0].get("public_id")
+
+    # limit 1
+    response = client.get("/api/documents/list?limit=1")
+    assert response.status_code == 200
+    data = response.json()
+    document_1 = data[0]
+    assert len(data) == 1
+
+    # offset 1
+    response = client.get("/api/documents/list?offset=1&limit=1")
+    assert response.status_code == 200
+    data = response.json()
+    document_2 = data[0]
+    assert len(data) == 1
+    # assert not equal previous data
+    assert document_1.get("public_id") != document_2.get("public_id")
+
+    # filter on tags "test"
+    # update metadata to add tag "test"
+    metadata_payload = {
+        "name": "Test Map",
+        "tags": ["test", "map"],
+        "description": "This is a test metadata entry",
+        "event_id": "1234",
+        "draft_status": "ready_to_share",
+    }
+
+    response = client.put(
+        f"/api/document/{document_id_total_vap}/metadata", json=metadata_payload
+    )
+    assert response.status_code == 200
+
+    response = client.get("/api/documents/list?tags=test")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) > 0
+    assert "test" in data[0].get("map_metadata").get("tags")
+
+    # filter on IDs
+    response = client.get("/api/documents/list?ids=1")
+    data = response.json()
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0].get("public_id") == 1
