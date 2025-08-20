@@ -250,7 +250,7 @@ export class MapRenderSubscriber {
     const stateIsApplied = layers.some(layer => {
       const layerData = featureStateCache[layer];
       const nonNullEntrydata = layerData[nonNullId];
-      return nonNullEntrydata.zone === nonNullZone;
+      return nonNullEntrydata?.zone === nonNullZone;
     });
 
     if (!stateIsApplied) {
