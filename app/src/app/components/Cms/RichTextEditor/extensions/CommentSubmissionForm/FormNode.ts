@@ -29,9 +29,11 @@ export const FormNode = Node.create({
     }[] = [
       {
         name: 'mandatoryTags',
+        default: [],
       },
       {
         name: 'allowListModules',
+        default: [],
       },
     ];
     return attrs.reduce(
