@@ -49,6 +49,16 @@ const fetchDemography = new QueryObserver<null | {
     if (!mapDocument) {
       throw new Error('No map document found');
     }
+    // Don't fetch demography if assignments are loading
+    const mapDocumentQueryStatus = queryClient.getQueryState([
+      'mapDocument',
+      mapDocument.document_id,
+    ]);
+    // @ts-expect-error - queryClient.getQueryState is not typed correctly
+    const mapDocumentIsFetching = mapDocumentQueryStatus?.status !== 'idle';
+    if (mapDocumentIsFetching) {
+      throw new Error('Map document is fetching');
+    }
     const brokenIds = Array.from(state.shatterIds.parents);
     return await getDemography({
       mapDocument,
