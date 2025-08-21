@@ -302,3 +302,31 @@ Only `co_p1_view.pmtiles` is a shatterable tileset,
 which has both `co_vtd_p1_view` and `co_block_p1_view` as separate layers.
 
 For now, @raphaellaude is the only maintainer that can add tilesets to the production environment.
+
+## Security and Authentication
+
+### Authetication
+
+This app uses Auth0 for user management and authentication needs. This is only for administrator management and CMS purposes.
+
+The auth0 configuration should have three roles / sets of scopes:
+
+```
+default: 'openid profile email'
+editor: 'openid profile email read:content update:content create:content delete:content'
+admin: 'openid profile email read:content read:read-all update:content update:update-all update:publish create:content delete:content delete:delete-all'
+```
+
+See `.env.docker.example` for expected environment variables.
+
+### Captcha 
+
+Forthcoming survey and form submissions will require captcha. 
+
+To set up captcha:
+1. Go to https://www.google.com/recaptcha/admin
+2. Register your site and choose reCAPTCHA v2 ("I'm not a robot" checkbox)
+3. Get your Site Key and Secret Key
+4. Add environment variables
+
+See more at https://developers.google.com/recaptcha/docs/verify

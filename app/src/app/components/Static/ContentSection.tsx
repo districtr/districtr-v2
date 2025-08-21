@@ -1,6 +1,6 @@
 import {Box, Flex} from '@radix-ui/themes';
 import React from 'react';
-import { ContentHeader } from './ContentHeader';
+import {ContentHeader} from './ContentHeader';
 
 export const ContentSection: React.FC<{
   title: string;

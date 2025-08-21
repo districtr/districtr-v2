@@ -111,6 +111,7 @@ export const RecentMapsModal: React.FC<{
                   active={mapDocument?.document_id === userMap.document_id}
                   onChange={userMapData =>
                     upsertUserMap({
+                      // @ts-expect-error
                       userMapData,
                       userMapDocumentId: userMap.document_id,
                     })

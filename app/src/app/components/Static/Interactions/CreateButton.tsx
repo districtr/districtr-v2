@@ -6,7 +6,10 @@ import {Button} from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import {useEffect} from 'react';
 
-export const CreateButton: React.FC<{view: Partial<DistrictrMap>}> = ({view}) => {
+export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?: string}> = ({
+  view,
+  extraClasses,
+}) => {
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
@@ -26,7 +29,7 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>}> = ({view}) =>
   };
 
   return (
-    <Button onClick={handleCreatePlan} className="w-fit h-auto px-2 py-1">
+    <Button onClick={handleCreatePlan} className={`w-fit h-auto px-2 py-1 ${extraClasses}`}>
       {view.name}
     </Button>
   );

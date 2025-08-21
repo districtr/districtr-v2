@@ -267,7 +267,7 @@ export interface MapStore {
   setUserID: () => void;
 
   // USER MAPS / RECENT MAPS
-  userMaps: Array<DocumentObject & {name?: string}>;
+  userMaps: Array<DocumentObject & {name?: string; map_module?: string}>;
   setUserMaps: (userMaps: MapStore['userMaps']) => void;
   upsertUserMap: (props: {
     documentId?: string;
@@ -799,6 +799,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         view => view.districtr_map_slug === mapDocument.districtr_map_slug
       );
       if (documentIndex !== -1) {
+        // @ts-expect-error
         userMaps[documentIndex] = {
           ...documentInfo,
           ...userMaps[documentIndex],
@@ -806,6 +807,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
           map_metadata: mapDocument.map_metadata ?? userMaps[documentIndex].map_metadata,
         };
       } else {
+        // @ts-expect-error
         userMaps = [{...mapDocument, ...documentInfo}, ...userMaps];
       }
     } else if (userMapDocumentId) {
@@ -1086,6 +1088,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     draft_status: null,
   },
   updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
+    // @ts-expect-error
     set(state => {
       const userMaps = get().userMaps;
       const updatedMaps = userMaps.map(map => {

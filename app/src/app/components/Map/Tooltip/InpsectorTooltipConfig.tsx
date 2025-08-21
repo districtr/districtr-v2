@@ -1,5 +1,5 @@
-import { KeyOfSummaryStatConfig } from "@utils/api/summaryStats";
-import { NumberFormats } from "@utils/numbers";
+import {KeyOfSummaryStatConfig} from '@utils/api/summaryStats';
+import {NumberFormats} from '@utils/numbers';
 
 export const INSPECTOR_TITLE = {
   VAP: 'Voting Age Population',

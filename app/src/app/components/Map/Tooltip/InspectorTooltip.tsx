@@ -58,15 +58,18 @@ export const InspectorTooltip = () => {
             <Table.Cell>{formatNumber(inspectorData[totalColumn] ?? 0, standardFormat)}</Table.Cell>
           </Table.Row>
         )}
-        {config 
-            .filter(f => activeColumns.includes(f.column))
-            .map(f => (
-              <Table.Row key={f.column} className="relative">
-                <Table.Cell>{f.label}</Table.Cell>
-                <Table.Cell>
-                  {!isNaN(inspectorData[f.column + columnSuffix]) ? formatNumber(inspectorData[f.column + columnSuffix] ?? 0, standardFormat) : 'No data'}
-                </Table.Cell>
-                {showBars && <span
+        {config
+          .filter(f => activeColumns.includes(f.column))
+          .map(f => (
+            <Table.Row key={f.column} className="relative">
+              <Table.Cell>{f.label}</Table.Cell>
+              <Table.Cell>
+                {!isNaN(inspectorData[f.column + columnSuffix])
+                  ? formatNumber(inspectorData[f.column + columnSuffix] ?? 0, standardFormat)
+                  : 'No data'}
+              </Table.Cell>
+              {showBars && (
+                <span
                   className="bg-gray-900 absolute h-full top-0 left-0"
                   style={{
                     width:
@@ -79,9 +82,10 @@ export const InspectorTooltip = () => {
                         ? PARTISAN_SCALE((inspectorData[f.column + '_pct'] + 1) / 2)
                         : undefined,
                   }}
-                />}
-              </Table.Row>
-            ))}
+                />
+              )}
+            </Table.Row>
+          ))}
       </Table.Body>
     </Table.Root>
   );
