@@ -23,9 +23,6 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
       </Flex>
     );
   }
-  const selectedMap =
-    cmsData.content.districtr_map_slug &&
-    maps.find(m => m.districtr_map_slug === cmsData.content.districtr_map_slug);
 
   return (
     <Flex direction="column" width="100%">
@@ -36,13 +33,6 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         preferredLanguage={language}
         availableLanguages={cmsData.available_languages}
       />
-      {Boolean(selectedMap) && (
-        <CreateButton
-          view={{
-            ...selectedMap,
-          }}
-        />
-      )}
       <RichTextRenderer content={cmsData.content.published_content.body} className="my-4" />
     </Flex>
   );

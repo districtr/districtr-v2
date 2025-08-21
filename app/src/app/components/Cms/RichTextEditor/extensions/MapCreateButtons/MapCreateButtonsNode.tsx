@@ -1,21 +1,21 @@
 import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
-import PlanGalleryNodeView from './PlanGalleryNodeView';
+import MapCreateButtonsNodeView from './MapCreateButtonsNodeView';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    planGalleryNode: {
+    mapCreateButtonsNode: {
       /**
-       * Add a plan gallery section with custom content
+       * Add a map create buttons section with custom content
        */
-      setPlanGallery: (customContent?: object) => ReturnType;
+      setMapCreateButtons: (customContent?: object) => ReturnType;
     };
   }
 }
 
-export const PlanGalleryNode = Node.create({
-  name: 'planGalleryNode',
+export const MapCreateButtonsNode = Node.create({
+  name: 'mapCreateButtonsNode',
   group: 'block',
   content: 'inline*',
   defining: true,
@@ -28,52 +28,12 @@ export const PlanGalleryNode = Node.create({
       renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
     }[] = [
       {
-        name: 'ids',
+        name: 'views',
+        default: [],
       },
       {
-        name: 'tags',
-      },
-      {
-        name: 'title',
-      },
-      {
-        name: 'description',
-      },
-      {
-        name: 'paginate',
-        default: true,
-      },
-      {
-        name: 'showListView',
-        default: true,
-      },
-      {
-        name: 'showThumbnails',
-        default: true,
-      },
-      {
-        name: 'showTitles',
-        default: true,
-      },
-      {
-        name: 'showDescriptions',
-        default: true,
-      },
-      {
-        name: 'showUpdatedAt',
-        default: true,
-      },
-      {
-        name: 'showTags',
-        default: true,
-      },
-      {
-        name: 'showModule',
-        default: true,
-      },
-      {
-        name: 'limit',
-        default: 12,
+        name: 'type',
+        default: 'simple',
       },
     ];
 
@@ -93,18 +53,18 @@ export const PlanGalleryNode = Node.create({
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="plan-gallery-node"]',
+        tag: 'div[data-type="map-create-buttons-node"]',
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'plan-gallery-node'}), 0];
+    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'map-create-buttons-node'}), 0];
   },
 
   addCommands() {
     return {
-      setPlanGallery:
+      setMapCreateButtons:
         (attrs = undefined) =>
         ({commands}) => {
           return commands.insertContent({
@@ -120,8 +80,8 @@ export const PlanGalleryNode = Node.create({
     typeof window === 'undefined'
       ? undefined
       : () => {
-          return ReactNodeViewRenderer(PlanGalleryNodeView);
+          return ReactNodeViewRenderer(MapCreateButtonsNodeView);
         },
 });
 
-export default PlanGalleryNode;
+export default MapCreateButtonsNode;

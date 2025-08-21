@@ -1,6 +1,6 @@
 'use client';
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
-import React, { useRef } from 'react';
+import React, {useRef} from 'react';
 import {
   Box,
   Button,
@@ -17,7 +17,7 @@ import {
 } from '@radix-ui/themes';
 import {PlanGallery, PlanGalleryProps} from './PlanGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
-import { NoFocusBoundary } from '../NoFocusBoundary';
+import {NoFocusBoundary} from '../NoFocusBoundary';
 
 const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -47,22 +47,23 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
 
   return (
     <NodeViewWrapper className="relative" ref={parentRef} contentEditable={false}>
-      <NoFocusBoundary parentRef={parentRef}> 
-      <PlanGallery
-        ids={ids}
-        tags={tags}
-        title={title ?? ''}
-        description={description ?? ''}
-        paginate={paginate === 'true'}
-        limit={limit}
-        showListView={showListView}
-        showThumbnails={showThumbnails}
-        showTitles={showTitles}
-        showDescriptions={showDescriptions}
-        showUpdatedAt={showUpdatedAt}
-        showTags={showTags}
-        showModule={showModule}
-      /></NoFocusBoundary>
+      <NoFocusBoundary parentRef={parentRef}>
+        <PlanGallery
+          ids={ids}
+          tags={tags}
+          title={title ?? ''}
+          description={description ?? ''}
+          paginate={paginate === 'true'}
+          limit={limit}
+          showListView={showListView}
+          showThumbnails={showThumbnails}
+          showTitles={showTitles}
+          showDescriptions={showDescriptions}
+          showUpdatedAt={showUpdatedAt}
+          showTags={showTags}
+          showModule={showModule}
+        />
+      </NoFocusBoundary>
       <Box position="absolute" top="2" right="2">
         <Flex direction="column" gap="2">
           <Dialog.Root open={dialogOpen}>

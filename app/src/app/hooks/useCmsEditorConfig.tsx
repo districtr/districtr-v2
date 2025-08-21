@@ -22,9 +22,11 @@ import {
   ColumnsIcon,
   HeadingIcon,
   FileTextIcon,
+  GlobeIcon,
 } from '@radix-ui/react-icons';
 import SectionHeaderNode from '../components/Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
 import FormNode from '../components/Cms/RichTextEditor/extensions/CommentSubmissionForm/FormNode';
+import MapCreateButtonsNode from '../components/Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtonsNode';
 
 export const useCmsEditorConfig = (content: string | object, onChange: (json: object) => void) => {
   const editor = useEditor({
@@ -46,6 +48,7 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
       PlanGalleryNode,
       SectionHeaderNode,
       FormNode,
+      MapCreateButtonsNode,
     ],
     content: typeof content === 'string' ? content : content,
     onUpdate: ({editor}) => {
@@ -223,6 +226,14 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         editor.chain().focus().setForm().run();
       },
       active: () => editor.isActive('formNode'),
+    },
+    {
+      title: 'Insert Map Create Buttons',
+      icon: GlobeIcon,
+      onClick: () => {
+        editor.chain().focus().setMapCreateButtons().run();
+      },
+      active: () => editor.isActive('mapCreateButtonsNode'),
     },
   ];
 

@@ -3,7 +3,7 @@ import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boierpl
 import {ContentHeader} from '../../Static/ContentHeader';
 import {CommentSubmissionForm} from '../../Forms/CommentSubmissionForm';
 import {PlanGallery} from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
-import {readBool, readCSV, readNumber} from './DomNodeRendererUtils';
+import {MapCreateButtons} from '../../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
 
 export const domNodeReplacers = (disabled: boolean) => {
   const domNodeReplaceFn = (domNode: DOMNode) => {
@@ -18,19 +18,19 @@ export const domNodeReplacers = (disabled: boolean) => {
           const title = domNode.attribs['data-title']?.slice(1, -1);
           return <ContentHeader title={title} />;
         case 'plan-gallery-node': {
-          const ids = JSON.parse(domNode.attribs['ids'] ?? 'undefined');
-          const tags = JSON.parse(domNode.attribs['tags'] ?? 'undefined');
+          const ids = JSON.parse(domNode.attribs['ids'] ?? 'null');
+          const tags = JSON.parse(domNode.attribs['tags'] ?? 'null');
           const title = domNode.attribs['title'];
           const description = domNode.attribs['description'];
-          const limit = JSON.parse(domNode.attribs['limit'] ?? 'undefined');
-          const paginate = JSON.parse(domNode.attribs['paginate'] ?? 'undefined');
-          const showListView = JSON.parse(domNode.attribs['showListView'] ?? 'undefined');
-          const showThumbnails = JSON.parse(domNode.attribs['showThumbnails']);
-          const showTitles = JSON.parse(domNode.attribs['showTitles']);
-          const showDescriptions = JSON.parse(domNode.attribs['showDescriptions']);
-          const showUpdatedAt = JSON.parse(domNode.attribs['showUpdatedAt']);
-          const showTags = JSON.parse(domNode.attribs['showTags']);
-          const showModule = JSON.parse(domNode.attribs['showModule']);
+          const limit = JSON.parse(domNode.attribs['limit'] ?? 'null');
+          const paginate = JSON.parse(domNode.attribs['paginate'] ?? 'null');
+          const showListView = JSON.parse(domNode.attribs['showListView'] ?? 'null');
+          const showThumbnails = JSON.parse(domNode.attribs['showThumbnails'] ?? 'null');
+          const showTitles = JSON.parse(domNode.attribs['showTitles'] ?? 'null');
+          const showDescriptions = JSON.parse(domNode.attribs['showDescriptions'] ?? 'null');
+          const showUpdatedAt = JSON.parse(domNode.attribs['showUpdatedAt'] ?? 'null');
+          const showTags = JSON.parse(domNode.attribs['showTags'] ?? 'null');
+          const showModule = JSON.parse(domNode.attribs['showModule'] ?? 'null');
           return (
             <PlanGallery
               ids={ids}
@@ -50,8 +50,8 @@ export const domNodeReplacers = (disabled: boolean) => {
           );
         }
         case 'form-node':
-          const mandatoryTags = JSON.parse(domNode.attribs['mandatoryTags']);
-          const allowListModules = JSON.parse(domNode.attribs['allowListModules']);
+          const mandatoryTags = JSON.parse(domNode.attribs['mandatoryTags'] ?? 'null');
+          const allowListModules = JSON.parse(domNode.attribs['allowListModules'] ?? 'null');
           return (
             <CommentSubmissionForm
               disabled={disabled}
@@ -59,6 +59,10 @@ export const domNodeReplacers = (disabled: boolean) => {
               allowListModules={allowListModules}
             />
           );
+        case 'map-create-buttons-node':
+          const views = JSON.parse(domNode.attribs['views'] ?? 'null');
+          const type = JSON.parse(domNode.attribs['type'] ?? 'null');
+          return <MapCreateButtons views={views} type={type} />;
       }
     }
   };
