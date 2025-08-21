@@ -20,6 +20,7 @@ jobs:
             NEXT_PUBLIC_S3_BUCKET_URL=https://tilesets1.cdn.districtr.org
             NEXT_PUBLIC_S3_BUCKET_URL_MIRROR1=https://tilesets2.cdn.districtr.org
             NEXT_PUBLIC_S3_BUCKET_URL_MIRROR2=https://tilesets3.cdn.districtr.org
+            NEXT_PUBLIC_API_URL=https://districtr-v2-api.fly.dev
             EOF
         working-directory: app
       - uses: superfly/flyctl-actions/setup-flyctl@master
