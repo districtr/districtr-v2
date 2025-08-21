@@ -69,7 +69,6 @@ export const useFormState = create<FormState>()(
       },
       setFormState: (formPart, formProperty, value) => {
         const formRef = get().formRef;
-        console.log('!!!!FORM REF', formRef?.current?.checkValidity());
         set({
           [formPart]: {
             ...get()[formPart],
@@ -161,7 +160,11 @@ export const useFormState = create<FormState>()(
       },
       recaptchaToken: '',
       setRecaptchaToken: (token: string) => {
-        set({recaptchaToken: token});
+        const formRef = get().formRef;
+        set({
+          recaptchaToken: token,
+          formIsValid: Boolean(formRef?.current?.checkValidity() ?? false),
+        });
       },
     }),
     {
