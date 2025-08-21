@@ -15,7 +15,7 @@ export const AcknowledgementField: React.FC<{id: string; label: string}> = ({id,
     <label>
       <Flex direction="row" gap="2" align="center">
         <Checkbox
-          checked={acknowledgement[id]}
+          checked={acknowledgement[id] ?? false}
           onCheckedChange={() => setAcknowledgement(id, !acknowledgement[id])}
           required={true}
           style={{
