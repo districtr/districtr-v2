@@ -21,9 +21,8 @@ const MAX_WHOLE_FILE_MB = 200; // safety cap to avoid huge downloads
 
 const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
-  _idRgCache: {},
   // Simple per-URL local buffer cache
-  _localFileBufferCache: {} as Record<string, {file: any; byteLength: number}>,
+  _localFileBufferCache: {},
 
   async _ensureLocalAsyncBuffer(url: string, expectedByteLength?: number) {
     if (this._localFileBufferCache[url]) return this._localFileBufferCache[url].file;
@@ -349,14 +348,14 @@ const ParquetWorker: ParquetWorkerClass = {
       const acc = this._makeDemographyAccumulator(mapDocument, brokenIds);
       for (let i = 0; i < ranges.length; i++) {
         console.log('i', i, ' reading row group', ranges[i]);
-        const rows = await parquetReadObjects<DemographyParquetData>({
+        const rows = await parquetReadObjects({
           file: localFile,
           columns,
           compressors,
           rowStart: ranges[i][0],
           rowEnd: ranges[i][1],
         });
-        this._accumulateDemographyRows(acc, rows);
+        this._accumulateDemographyRows(acc, rows as DemographyParquetData[]);
       }
       const parsed = this._finalizeDemographyAccumulator(acc);
       return {columns: Object.keys(parsed) as AllTabularColumns[number][], results: parsed};
@@ -393,7 +392,7 @@ const ParquetWorker: ParquetWorkerClass = {
       const allow = filterIds ? new Set(filterIds) : undefined;
 
       for (let i = 0; i < starts.length; i++) {
-        const rows = await parquetReadObjects<PointParquetData>({
+        const rows = await parquetReadObjects({
           file: localFile,
           columns: cols,
           compressors,
