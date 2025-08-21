@@ -18,19 +18,20 @@ export const domNodeReplacers = (disabled: boolean) => {
           const title = domNode.attribs['data-title']?.slice(1, -1);
           return <ContentHeader title={title} />;
         case 'plan-gallery-node': {
-          const ids = readCSV(domNode.attribs['ids'])?.map(Number);
-          const tags = readCSV(domNode.attribs['tags']);
+          console.log('GALLERY DOM NODE', domNode);
+          const ids = JSON.parse(domNode.attribs['ids'] ?? 'undefined');
+          const tags = JSON.parse(domNode.attribs['tags'] ?? 'undefined');
           const title = domNode.attribs['title'];
           const description = domNode.attribs['description'];
-          const limit = readNumber(domNode.attribs['limit']);
-          const paginate = readBool(domNode.attribs['paginate']);
-          const showListView = readBool(domNode.attribs['showListView']);
-          const showThumbnails = readBool(domNode.attribs['showThumbnails']);
-          const showTitles = readBool(domNode.attribs['showTitles']);
-          const showDescriptions = readBool(domNode.attribs['showDescriptions']);
-          const showUpdatedAt = readBool(domNode.attribs['showUpdatedAt']);
-          const showTags = readBool(domNode.attribs['showTags']);
-          const showModule = readBool(domNode.attribs['showModule']);
+          const limit = JSON.parse(domNode.attribs['limit'] ?? 'undefined');
+          const paginate = JSON.parse(domNode.attribs['paginate'] ?? 'undefined');
+          const showListView = JSON.parse(domNode.attribs['showListView'] ?? 'undefined');
+          const showThumbnails = JSON.parse(domNode.attribs['showThumbnails']);
+          const showTitles = JSON.parse(domNode.attribs['showTitles']);
+          const showDescriptions = JSON.parse(domNode.attribs['showDescriptions']);
+          const showUpdatedAt = JSON.parse(domNode.attribs['showUpdatedAt']);
+          const showTags = JSON.parse(domNode.attribs['showTags']);
+          const showModule = JSON.parse(domNode.attribs['showModule']);
           return (
             <PlanGallery
               ids={ids}

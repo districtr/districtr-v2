@@ -116,9 +116,8 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                         showUpdatedAt: value.includes('showUpdatedAt'),
                         showTags: value.includes('showTags'),
                         showModule: value.includes('showModule'),
-                      })
-                    }
-                    }
+                      });
+                    }}
                   >
                     <CheckboxCards.Item value="paginate">Paginate Results</CheckboxCards.Item>
                     <CheckboxCards.Item value="showListView">Show List View</CheckboxCards.Item>

@@ -1,6 +1,7 @@
 import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import FormNodeView from './FormNodeView';
+import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -20,38 +21,31 @@ export const FormNode = Node.create({
   defining: true,
   isolating: true,
   addAttributes() {
-    return {
-      mandatoryTags: {
-        default: [],
-        parseHTML: element => {
-          const content = element.getAttribute('data-mandatory-tags');
-          return content ? JSON.parse(content) : [];
-        },
-        renderHTML: attributes => {
-          return {
-            'data-mandatory-tags': attributes.mandatoryTags
-              ? JSON.stringify(attributes.mandatoryTags)
-              : '',
-          };
-        },
+    const attrs: {
+      name: string;
+      default?: any;
+      parseHTML?: (element: Element) => any;
+      renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
+    }[] = [
+      {
+        name: 'mandatoryTags',
       },
-      allowListModules: {
-        default: [],
-        parseHTML: element => {
-          const content = element.getAttribute('data-allow-list-modules');
-          return content ? JSON.parse(content) : [];
-        },
-        renderHTML: attributes => {
-          return {
-            'data-allow-list-modules': attributes.allowListModules
-              ? JSON.stringify(attributes.allowListModules)
-              : '',
-          };
-        },
+      {
+        name: 'allowListModules',
       },
-    };
+    ];
+    return attrs.reduce(
+      (acc, attr) => {
+        acc[attr.name] = {
+          default: attr.default ?? null,
+          parseHTML: attr.parseHTML ?? getStandardHtmlParser(attr.name),
+          renderHTML: attr.renderHTML ?? getJsonHtmlRenderer(attr.name),
+        };
+        return acc;
+      },
+      {} as Record<string, any>
+    );
   },
-
   parseHTML() {
     return [
       {
