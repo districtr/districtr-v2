@@ -18,7 +18,6 @@ export const domNodeReplacers = (disabled: boolean) => {
           const title = domNode.attribs['data-title']?.slice(1, -1);
           return <ContentHeader title={title} />;
         case 'plan-gallery-node': {
-          console.log('GALLERY DOM NODE', domNode);
           const ids = JSON.parse(domNode.attribs['ids'] ?? 'undefined');
           const tags = JSON.parse(domNode.attribs['tags'] ?? 'undefined');
           const title = domNode.attribs['title'];
@@ -51,8 +50,8 @@ export const domNodeReplacers = (disabled: boolean) => {
           );
         }
         case 'form-node':
-          const mandatoryTags = JSON.parse(domNode.attribs['data-mandatory-tags']);
-          const allowListModules = JSON.parse(domNode.attribs['data-allow-list-modules']);
+          const mandatoryTags = JSON.parse(domNode.attribs['mandatoryTags']);
+          const allowListModules = JSON.parse(domNode.attribs['allowListModules']);
           return (
             <CommentSubmissionForm
               disabled={disabled}
