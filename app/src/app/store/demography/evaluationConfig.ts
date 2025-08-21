@@ -44,15 +44,15 @@ export const VAPColumnConfig: EvalColumnConfiguration<SummaryStatConfig['VAP']> 
 ];
 // TODO FIX typing
 export const VoterColumnConfig: EvalColumnConfiguration<any> = [
-  {column: 'pres_20_lean', label: '2020 Pres', sourceCol: 'pres_20_rep'},
-  {column: 'pres_16_lean', label: '2016 Pres', sourceCol: 'pres_16_rep'},
-  {column: 'gov_22_lean', label: '2022 Gov', sourceCol: 'gov_22_rep'},
-  {column: 'gov_18_lean', label: '2018 Gov', sourceCol: 'gov_18_rep'},
   {column: 'sen_22_lean', label: '2022 Sen', sourceCol: 'sen_22_rep'},
-  {column: 'sen_18_lean', label: '2018 Sen', sourceCol: 'sen_18_rep'},
-  {column: 'sen_16_lean', label: '2016 Sen', sourceCol: 'sen_16_rep'},
+  {column: 'gov_22_lean', label: '2022 Gov', sourceCol: 'gov_22_rep'},
   {column: 'ag_22_lean', label: '2022 AG', sourceCol: 'ag_22_rep'},
+  {column: 'pres_20_lean', label: '2020 Pres', sourceCol: 'pres_20_rep'},
+  {column: 'sen_18_lean', label: '2018 Sen', sourceCol: 'sen_18_rep'},
+  {column: 'gov_18_lean', label: '2018 Gov', sourceCol: 'gov_18_rep'},
   {column: 'ag_18_lean', label: '2018 AG', sourceCol: 'ag_18_rep'},
+  {column: 'pres_16_lean', label: '2016 Pres', sourceCol: 'pres_16_rep'},
+  {column: 'sen_16_lean', label: '2016 Sen', sourceCol: 'sen_16_rep'},
 ];
 
 export const CONFIG_BY_COLUMN_SET: Record<
