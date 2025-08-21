@@ -192,7 +192,7 @@ export const PlanTableRow = ({plan, ...flags}: {plan: MinPublicDocument} & PlanF
       {!!flags.showThumbnails && (
         <Table.Cell>
           <Box
-            className="w-full relative overflow-hidden aspect-video border-2 border-b-0 border-gray-50 bg-white size-8"
+            className="w-full relative overflow-hidden aspect-video border-2 border-gray-50 bg-white size-8"
             style={{
               backgroundImage: `url(${CDN_URL}/thumbnails/${plan.public_id}.png), url(${FALLBACK_IMAGE_URL})`,
               backgroundSize: 'contain',
