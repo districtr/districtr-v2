@@ -20,8 +20,8 @@ export const domNodeReplacers = (disabled: boolean) => {
         case 'plan-gallery-node': {
           const ids = JSON.parse(domNode.attribs['ids'] ?? 'null');
           const tags = JSON.parse(domNode.attribs['tags'] ?? 'null');
-          const title = domNode.attribs['title'];
-          const description = domNode.attribs['description'];
+          const title = JSON.parse(domNode.attribs['title'] ?? 'null');
+          const description = JSON.parse(domNode.attribs['description'] ?? 'null');
           const limit = JSON.parse(domNode.attribs['limit'] ?? 'null');
           const paginate = JSON.parse(domNode.attribs['paginate'] ?? 'null');
           const showListView = JSON.parse(domNode.attribs['showListView'] ?? 'null');
