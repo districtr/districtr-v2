@@ -297,15 +297,7 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
   const currentStateFp = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
   currentStateFp && setMapOptions({currentStateFp});
   setMapRenderingState('loaded');
-  if (mapDocument) {
-    GeometryWorker?.loadTileData({
-      tileData: e.tile.latestRawTileData,
-      tileID: e.tile.tileID.canonical,
-      mapDocument,
-      idProp: 'path',
-    });
-    setWorkerUpdateHash(new Date().toISOString());
-  }
+  setWorkerUpdateHash(new Date().toISOString());
 };
 
 export const mapEventHandlers = {

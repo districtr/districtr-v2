@@ -20,6 +20,8 @@ export type GeometryWorkerClass = {
    * Stored as JSON records to make updating zones faster.
    */
   geometries: {[id: string]: MinGeoJSONFeature};
+  pointData: GeoJSON.FeatureCollection<GeoJSON.Point> | null;
+  setPointData: (data: GeoJSON.FeatureCollection<GeoJSON.Point>) => void;
   activeGeometries: {[id: string]: MinGeoJSONFeature};
   shatterIds: {
     parents: string[];

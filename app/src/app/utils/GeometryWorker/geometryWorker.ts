@@ -11,7 +11,8 @@ import booleanWithin from '@turf/boolean-within';
 import distance from '@turf/distance';
 import {getCoords} from '@turf/invariant';
 import union from '@turf/union';
-
+import concaveHull from '@turf/concave';
+import convexHull from '@turf/convex';
 const CENTROID_BUFFER_KM = 10;
 
 const explodeMultiPolygonToPolygons = (
@@ -34,6 +35,10 @@ const GeometryWorker: GeometryWorkerClass = {
   shatterIds: {
     parents: [],
     children: [],
+  },
+  pointData: null,
+  setPointData(data) {
+    this.pointData = data;
   },
   setMaxParentZoom(zoom) {
     this.maxParentZoom = zoom;
@@ -290,47 +295,79 @@ const GeometryWorker: GeometryWorkerClass = {
     return [lng, lat];
   },
   async getCentersOfMass(bounds, activeZones, canvasWidth, canvasHeight) {
+    const t0 = performance.now();
     const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
+    const boundsFeature: GeoJSON.Feature<GeoJSON.Polygon> = {
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [bounds[0], bounds[1]],
+            [bounds[0], bounds[3]],
+            [bounds[2], bounds[3]],
+            [bounds[2], bounds[1]],
+            [bounds[0], bounds[1]],
+          ],
+        ],
+      },
+    };
     if (!activeZones.length) {
       return {
         centroids,
         dissolved,
       };
     }
-    const clippedFeatures: Record<number, GeoJSON.Feature[]> = {};
-    this.getGeos().features.forEach((f, i) => {
+    const pointFeatures: Record<number, GeoJSON.Feature[]> = {};
+    this.pointData?.features.forEach((f, i) => {
       const zone = this.zoneAssignments[f.properties?.path];
       if (zone === null || zone === undefined) return;
-      const clipped = bboxClip(f.geometry as GeoJSON.Polygon, bounds);
-      if (clipped.geometry?.coordinates.length) {
-        if (!clippedFeatures[zone]) {
-          clippedFeatures[zone] = [];
+      const inView = booleanWithin(f, boundsFeature);
+      if (inView) {
+        if (!pointFeatures[zone]) {
+          pointFeatures[zone] = [];
         }
-        clippedFeatures[zone].push({
+        pointFeatures[zone].push({
           ...f,
-          geometry: clipped.geometry,
+          geometry: f.geometry,
         });
       }
     });
     const centers = await Promise.all(
-      Object.entries(clippedFeatures).map(async ([_zone, features]) => {
+      Object.entries(pointFeatures).map(async ([_zone, features]) => {
+        const _t0 = performance.now();
         const zone = +_zone;
-        const center = await this.computeCenterOfMass(
-          {
-            type: 'FeatureCollection',
-            features: features as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[],
+        const hull = convexHull({
+          type: 'FeatureCollection',
+          features: features as GeoJSON.Feature<GeoJSON.Point>[],
+        });
+        const _t1 = performance.now();
+        console.log(`concaveHull took ${_t1 - _t0}ms`);
+        const centerOfHull = centerOfMass(hull);
+        const _t2 = performance.now();
+        console.log(`centerOfMass took ${_t2 - _t1}ms`);
+        const closestPoint = features.reduce(
+          (closest, feature) => {
+            const dist = distance(centerOfHull.geometry.coordinates, feature.geometry.coordinates, {
+              units: 'kilometers',
+            });
+            return dist < closest.dist ? {feature, dist} : closest;
           },
-          bounds,
-          canvasWidth,
-          canvasHeight
+          {
+            feature: null,
+            dist: Math.pow(10, 10),
+          }
         );
-        if (!center) return null;
+        const _t3 = performance.now();
+        console.log(`closestPoint took ${_t3 - _t2}ms`);
+
         return {
           type: 'Feature',
           properties: {zone},
           geometry: {
             type: 'Point',
-            coordinates: center,
+            coordinates: closestPoint.feature.geometry.coordinates,
           },
         } as GeoJSON.Feature<GeoJSON.Point>;
       })
@@ -341,6 +378,7 @@ const GeometryWorker: GeometryWorkerClass = {
         centroids.features.push(c);
       }
     });
+    console.log(`getCentersOfMass took ${performance.now() - t0}ms`);
     return {
       centroids,
       dissolved,

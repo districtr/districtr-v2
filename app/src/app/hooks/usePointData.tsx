@@ -3,6 +3,7 @@ import {useMapStore} from '../store/mapStore';
 import {getPointSelectionData} from '../utils/api/apiHandlers/getPointSelectionData';
 import {BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD, EMPTY_FT_COLLECTION} from '../constants/layers';
 import {useQuery} from '@tanstack/react-query';
+import GeometryWorker from '../utils/GeometryWorker';
 
 const updateData = async (
   layer: string,
@@ -31,6 +32,7 @@ const updateData = async (
     filterIds: child ? exposedChildIds : undefined,
     source: child ? BLOCK_LAYER_ID_CHILD : BLOCK_LAYER_ID,
   });
+  await GeometryWorker?.setPointData(data.current);
   return new Date().toISOString();
 };
 
@@ -39,7 +41,7 @@ export const usePointData = (child?: boolean) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const exposedChildIds = useMapStore(state => state.shatterIds.children);
   const layer = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
-  useQuery({
+  const {data: pointData} = useQuery({
     queryKey: [
       'point-data',
       layer,
