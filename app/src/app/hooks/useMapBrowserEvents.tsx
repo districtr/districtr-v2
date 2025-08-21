@@ -6,7 +6,7 @@ import {FE_UNLOCK_DELAY} from '../utils/api/constants';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {useQuery} from '@tanstack/react-query';
 import {getDocument} from '../utils/api/apiHandlers/getDocument';
-import { useRouter } from 'next/navigation';
+import {useRouter} from 'next/navigation';
 
 interface UseMapBrowserEventsV2Props {
   mapId: string;
