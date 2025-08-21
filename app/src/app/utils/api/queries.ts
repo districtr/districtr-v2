@@ -41,6 +41,8 @@ const fetchDemography = new QueryObserver<null | {
   results: ColumnarTableData;
 }>(queryClient, {
   queryKey: ['demography'],
+  refetchOnMount: false,
+  refetchOnWindowFocus: false,
   queryFn: async () => {
     const state = useMapStore.getState();
     const mapDocument = state.mapDocument;
