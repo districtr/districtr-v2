@@ -29,7 +29,8 @@ export type PlanFlags = {
 };
 
 const FALLBACK_IMAGE = '/home-megaphone-square.png';
-const FALLBACK_IMAGE_URL = typeof window !== 'undefined' ? new URL(FALLBACK_IMAGE, window.location.origin).toString() : '';
+const FALLBACK_IMAGE_URL =
+  typeof window !== 'undefined' ? new URL(FALLBACK_IMAGE, window.location.origin).toString() : '';
 
 export const PlanGalleryInner = ({
   ids,
@@ -152,7 +153,7 @@ export const PlanCard = ({plan, ...flags}: {plan: MinPublicDocument} & PlanFlags
         )}
         <Box px="4" py="2">
           <Flex direction="column" gap="2">
-            {plan.public_id && <Text size="5">{plan.public_id}</Text>}
+            {plan.public_id && <Text size="1">Map ID:{plan.public_id}</Text>}
             {!!flags.showTitles && plan.map_metadata?.name && (
               <Text size="5">{plan.map_metadata?.name}</Text>
             )}
