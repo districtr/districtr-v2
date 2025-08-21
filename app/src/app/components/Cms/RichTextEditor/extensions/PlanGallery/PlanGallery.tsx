@@ -77,10 +77,10 @@ export const PlanGalleryInner = ({
           columns={{
             initial: '1',
             xs: '1',
-            sm: Math.min(2, plans?.length ?? 2).toString(),
-            md: Math.min(3, plans?.length ?? 3).toString(),
-            lg: Math.min(4, plans?.length ?? 4).toString(),
-            xl: Math.min(6, plans?.length ?? 6).toString(),
+            sm: Math.min(2, Math.max(plans?.length ?? 2, 2)).toString(),
+            md: Math.min(3, Math.max(plans?.length ?? 3, 2)).toString(),
+            lg: Math.min(4, Math.max(plans?.length ?? 4, 2)).toString(),
+            xl: Math.min(6, Math.max(plans?.length ?? 6, 2)).toString(),
           }}
           gap="4"
           pt="4"
