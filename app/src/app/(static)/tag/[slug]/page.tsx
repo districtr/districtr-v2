@@ -1,3 +1,4 @@
+import { HeaderSecondTierNav } from '@/app/components/Cms/RichTextEditor/extensions/HeaderSecondTierNav/HeaderSecondTierNav';
 import {LanguagePicker} from '@/app/components/LanguagePicker/LanguagePicker';
 import RichTextRenderer from '@/app/components/RichTextRenderer/RichTextRenderer';
 import {CreateButton} from '@/app/components/Static/Interactions/CreateButton';
@@ -33,6 +34,7 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
         preferredLanguage={language}
         availableLanguages={cmsData.available_languages}
       />
+      <HeaderSecondTierNav />
       <RichTextRenderer content={cmsData.content.published_content.body} className="my-4" />
     </Flex>
   );

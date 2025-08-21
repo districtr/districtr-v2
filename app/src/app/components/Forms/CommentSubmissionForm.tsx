@@ -39,7 +39,7 @@ export const CommentSubmissionForm: React.FC<{
   }, [formRef]);
 
   return (
-    <Box p="4" className="relative">
+    <Box py="4"className="relative">
       {success && (
         <Blockquote color="green" className="mb-4">
           {success}
