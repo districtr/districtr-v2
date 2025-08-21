@@ -7,6 +7,7 @@ import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import BoilerplateNode from '../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNode';
+import PlanGalleryNode from '../Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
 import parse from 'html-react-parser';
 import {domNodeReplacers} from './CustomRenderers/DomNodeRenderers';
 import SectionHeaderNode from '../Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
@@ -30,6 +31,7 @@ const extensions = [
   }),
   Image,
   BoilerplateNode,
+  PlanGalleryNode,
   SectionHeaderNode,
   FormNode,
 ];
