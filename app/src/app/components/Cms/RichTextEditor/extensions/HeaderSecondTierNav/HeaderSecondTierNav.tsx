@@ -13,7 +13,8 @@ export const HeaderSecondTierNav: React.FC<{
   'Proposed Map',
   'Proposed Plan',
   'Draw Your Own Map',
-  'Add Your Comment'
+  'Add Your Comment',
+  'Community Comments'
 ]}) => {
   const [headers, setHeaders] = useState<any[]>([]);
 
