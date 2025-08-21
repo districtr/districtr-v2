@@ -16,7 +16,7 @@ import {AllTabularColumns} from '../api/summaryStats';
 import {GEODATA_URL, PARQUET_URL} from '../api/constants';
 
 // Threshold at which we flip to "local scan" mode
-const LOCAL_SCAN_ID_THRESHOLD = 50; // tune
+const LOCAL_SCAN_ID_THRESHOLD = 20; // tune
 const MAX_WHOLE_FILE_MB = 200; // safety cap to avoid huge downloads
 
 const ParquetWorker: ParquetWorkerClass = {
@@ -339,7 +339,6 @@ const ParquetWorker: ParquetWorkerClass = {
     if (useLocal) {
       // 1 GET → OPFS, then scan RG-by-RG (bounded memory)
       const localFile = await this._ensureLocalAsyncBuffer(url, meta.byteLength);
-      console.log('localFile', localFile);
       const ranges = this.mergeRanges(
         ['__parent', ...(brokenIds || [])].map(id =>
           this.getRowGroupsFromParentValue(meta, id, 'parent_path')
@@ -347,7 +346,6 @@ const ParquetWorker: ParquetWorkerClass = {
       );
       const acc = this._makeDemographyAccumulator(mapDocument, brokenIds);
       for (let i = 0; i < ranges.length; i++) {
-        console.log('i', i, ' reading row group', ranges[i]);
         const rows = await parquetReadObjects({
           file: localFile,
           columns,
