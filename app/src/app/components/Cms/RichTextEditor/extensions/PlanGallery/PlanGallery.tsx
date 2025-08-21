@@ -45,18 +45,18 @@ export const PlanGalleryInner = ({
   const [page, setPage] = useState(0);
   const [displayLimit, _setDisplayLimit] = useState(+limit);
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  const {data: plans} = useQuery({
+  const {data: plans, isLoading} = useQuery({
     queryKey: ['plans', ids, tags, page],
     queryFn: () => getPlans({ids, tags, limit: displayLimit, offset: page * displayLimit}),
   });
   const showPagination = paginate && plans && (plans.length === displayLimit || page > 0);
-
+  const noMaps = !isLoading && !plans?.length;
   return (
     <>
       <ContentSection title={title}>
         <Text size="5">{description}</Text>
       </ContentSection>
-      {showListView && (
+      {!!(showListView && !noMaps) && (
         <Flex direction="row" gap="2" align="center" pt="4">
           <Text size="2" color="gray">
             View type:
@@ -72,7 +72,7 @@ export const PlanGalleryInner = ({
           </SegmentedControl.Root>
         </Flex>
       )}
-      {view === 'grid' && (
+      {!!(!noMaps && view === 'grid') && (
         <Grid
           columns={{
             initial: '1',
@@ -88,7 +88,7 @@ export const PlanGalleryInner = ({
           {plans?.map((plan, i) => <PlanCard plan={plan} key={i} {...flags} />)}
         </Grid>
       )}
-      {view === 'list' && (
+      {!!(!noMaps && view === 'list') && (
         <Table.Root className="w-full">
           <Table.Header>
             <Table.Row>
@@ -108,7 +108,7 @@ export const PlanGalleryInner = ({
           </Table.Body>
         </Table.Root>
       )}
-      {showPagination && (
+      {!!(showPagination && !noMaps) && (
         <Flex justify="start" mt="4" gap="4">
           <Button onClick={() => setPage(page - 1)} disabled={page === 0}>
             Previous
@@ -116,6 +116,13 @@ export const PlanGalleryInner = ({
           <Button onClick={() => setPage(page + 1)} disabled={plans.length < displayLimit}>
             Next
           </Button>
+        </Flex>
+      )}
+      {!!noMaps && (
+        <Flex justify="center" mt="4">
+          <Text size="2" color="gray">
+            No maps found. Check back later!
+          </Text>
         </Flex>
       )}
     </>
