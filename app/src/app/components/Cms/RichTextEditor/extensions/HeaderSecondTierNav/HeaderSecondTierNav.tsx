@@ -26,7 +26,7 @@ export const HeaderSecondTierNav: React.FC<{
 
   return (
     // sticky top-0
-    <Flex direction="row" gap="8" className="sticky top-12 z-10 bg-white py-4 w-full">
+    <Flex direction="row" gap="8" className="sticky top-12 z-20 bg-white py-4 px-2 w-full">
       {headers.map((header, i) => (
         <Button key={i} variant={'ghost'}
         className="text-sm cursor-pointer"
