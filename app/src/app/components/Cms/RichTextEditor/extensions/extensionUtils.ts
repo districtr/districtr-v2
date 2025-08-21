@@ -4,3 +4,11 @@ export const getStandardHtmlParser = (attr: string) => {
     return content ? JSON.parse(content) : null;
   };
 };
+
+export const getJsonHtmlRenderer = (attr: string) => {
+  return (attributes: Record<string, any>) => {
+    return {
+      [attr]: attributes[attr] !== undefined ? JSON.stringify(attributes[attr]) : 'undefined',
+    };
+  };
+};

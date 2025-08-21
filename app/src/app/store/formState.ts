@@ -34,6 +34,7 @@ export interface FormState {
   setShowMapSelector: (show: boolean) => void;
   recaptchaToken: string;
   setRecaptchaToken: (token: string) => void;
+  checkFormValidity: () => void;
 }
 
 export const useFormState = create<FormState>()(
@@ -65,18 +66,23 @@ export const useFormState = create<FormState>()(
         set({isSubmitting});
       },
       setAcknowledgement: (id: string, acknowledged: boolean) => {
-        set({acknowledgement: {...get().acknowledgement, [id]: acknowledged}});
+        const {checkFormValidity} = get();
+        set({
+          acknowledgement: {...get().acknowledgement, [id]: acknowledged},
+        });
+        setTimeout(() => {
+          checkFormValidity();
+        }, 100);
       },
       setFormState: (formPart, formProperty, value) => {
-        const formRef = get().formRef;
-        console.log('!!!!FORM REF', formRef?.current?.checkValidity());
+        const {checkFormValidity} = get();
         set({
           [formPart]: {
             ...get()[formPart],
             [formProperty]: value?.trim()?.length ? value : undefined,
           },
-          formIsValid: Boolean(formRef?.current?.checkValidity() ?? false),
         });
+        checkFormValidity();
       },
       setTags: (tag: string, action: 'add' | 'remove') => {
         const {tags} = get();
@@ -161,7 +167,15 @@ export const useFormState = create<FormState>()(
       },
       recaptchaToken: '',
       setRecaptchaToken: (token: string) => {
-        set({recaptchaToken: token});
+        const {checkFormValidity} = get();
+        set({
+          recaptchaToken: token,
+        });
+        checkFormValidity();
+      },
+      checkFormValidity: () => {
+        const formRef = get().formRef;
+        set({formIsValid: Boolean(formRef?.current?.checkValidity() ?? false)});
       },
     }),
     {

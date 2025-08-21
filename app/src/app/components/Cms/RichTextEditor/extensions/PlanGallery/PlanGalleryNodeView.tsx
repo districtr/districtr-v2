@@ -1,6 +1,6 @@
 'use client';
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
-import React from 'react';
+import React, {useRef} from 'react';
 import {
   Box,
   Button,
@@ -17,8 +17,10 @@ import {
 } from '@radix-ui/themes';
 import {PlanGallery, PlanGalleryProps} from './PlanGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
+import {NoFocusBoundary} from '../NoFocusBoundary';
 
 const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
+  const parentRef = useRef<HTMLDivElement>(null);
   // Use a nested editor for the custom content
   const ids: number[] | undefined = node.attrs.ids || undefined;
   const tags: string[] | undefined = node.attrs.tags || undefined;
@@ -44,22 +46,24 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
   };
 
   return (
-    <NodeViewWrapper className="relative">
-      <PlanGallery
-        ids={ids}
-        tags={tags}
-        title={title ?? ''}
-        description={description ?? ''}
-        paginate={paginate === 'true'}
-        limit={limit}
-        showListView={showListView}
-        showThumbnails={showThumbnails}
-        showTitles={showTitles}
-        showDescriptions={showDescriptions}
-        showUpdatedAt={showUpdatedAt}
-        showTags={showTags}
-        showModule={showModule}
-      />
+    <NodeViewWrapper className="relative" ref={parentRef} contentEditable={false}>
+      <NoFocusBoundary parentRef={parentRef}>
+        <PlanGallery
+          ids={ids}
+          tags={tags}
+          title={title ?? ''}
+          description={description ?? ''}
+          paginate={paginate === 'true'}
+          limit={limit}
+          showListView={showListView}
+          showThumbnails={showThumbnails}
+          showTitles={showTitles}
+          showDescriptions={showDescriptions}
+          showUpdatedAt={showUpdatedAt}
+          showTags={showTags}
+          showModule={showModule}
+        />
+      </NoFocusBoundary>
       <Box position="absolute" top="2" right="2">
         <Flex direction="column" gap="2">
           <Dialog.Root open={dialogOpen}>
@@ -116,9 +120,8 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                         showUpdatedAt: value.includes('showUpdatedAt'),
                         showTags: value.includes('showTags'),
                         showModule: value.includes('showModule'),
-                      })
-                    }
-                    }
+                      });
+                    }}
                   >
                     <CheckboxCards.Item value="paginate">Paginate Results</CheckboxCards.Item>
                     <CheckboxCards.Item value="showListView">Show List View</CheckboxCards.Item>

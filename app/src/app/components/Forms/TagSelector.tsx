@@ -6,7 +6,7 @@ import {KeyboardEventHandler} from 'react';
 export const TagSelector: React.FC<{
   tagInput: string;
   setTagInput: (tagInput: string) => void;
-  fixedTags: string[];
+  fixedTags?: string[];
   tags: string[];
   handleChange: (tag: string, action: 'add' | 'remove') => void;
   handleKeyInput: KeyboardEventHandler<HTMLInputElement>;
@@ -45,11 +45,11 @@ export const TagSelector: React.FC<{
             key={tag}
             variant="surface"
             size="3"
-            color={fixedTags.includes(tag) ? 'gray' : 'blue'}
-            className={`${fixedTags.includes(tag) ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-            onClick={fixedTags.includes(tag) ? undefined : () => handleChange(tag, 'remove')}
+            color={fixedTags?.includes(tag) ? 'gray' : 'blue'}
+            className={`${fixedTags?.includes(tag) ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            onClick={fixedTags?.includes(tag) ? undefined : () => handleChange(tag, 'remove')}
           >
-            {tag} {!fixedTags.includes(tag) && <Cross1Icon />}
+            {tag} {!fixedTags?.includes(tag) && <Cross1Icon />}
           </Badge>
         ))}
       </Flex>

@@ -8,7 +8,7 @@ import {CommentFormTagSelector} from './CommentFormTagSelector';
 import {MapSelector} from './MapSelector';
 import {useRecaptcha} from '@/app/hooks/useRecaptcha';
 import {VALID_STATES_LABELS} from './constants';
-import { useLayoutEffect, useRef } from 'react';
+import {useLayoutEffect, useRef} from 'react';
 
 export const CommentSubmissionForm: React.FC<{
   disabled?: boolean;
@@ -21,25 +21,25 @@ export const CommentSubmissionForm: React.FC<{
 
   const submitForm = useFormState(state => state.submitForm);
   const {RecaptchaComponent, recaptchaToken} = useRecaptcha();
-  
+
   const isSubmitting = useFormState(state => state.isSubmitting);
-  
+
   const success = useFormState(state => state.success);
   const setSuccess = useFormState(state => state.setSuccess);
 
   const error = useFormState(state => state.error);
   const setError = useFormState(state => state.setError);
-  
+
   const clearForm = useFormState(state => state.clear);
-  
+
   const setHighlightErrors = useFormState(state => state.setHighlightErrors);
 
   useLayoutEffect(() => {
     setFormRef(formRef);
-  }, [formRef]);  
+  }, [formRef]);
 
   return (
-    <Box p="4" className="relative">
+    <Box py="4"className="relative">
       {success && (
         <Blockquote color="green" className="mb-4">
           {success}
@@ -123,10 +123,10 @@ export const CommentSubmissionForm: React.FC<{
                 disabled={disabled}
                 formPart="commenter"
                 formProperty="salutation"
-                label="Salutation *"
+                label="Salutation"
                 type="text"
                 autoComplete="honorific-prefix"
-                required={true}
+                required={false}
                 invalidMessage="Enter a salutation"
               />
             </Box>
@@ -187,10 +187,10 @@ export const CommentSubmissionForm: React.FC<{
                 disabled={disabled}
                 formPart="commenter"
                 formProperty="state"
-                label="State *"
+                label="State"
                 type="text"
                 autoComplete="address-level1"
-                required={true}
+                required={false}
                 component={Select.Root}
                 options={VALID_STATES_LABELS}
                 invalidMessage="Select a state"
@@ -201,10 +201,10 @@ export const CommentSubmissionForm: React.FC<{
                 disabled={disabled}
                 formPart="commenter"
                 formProperty="zip_code"
-                label="Zip Code *"
+                label="Zip Code"
                 type="text"
                 autoComplete="postal-code"
-                required={true}
+                required={false}
                 pattern="[0-9]{5}"
                 validator={value => /[0-9]{5}/.test(value ?? '')}
                 invalidMessage="Please enter a valid 5-digit zip code"

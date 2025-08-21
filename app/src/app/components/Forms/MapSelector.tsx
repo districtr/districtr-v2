@@ -101,11 +101,17 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     response.mayNotBeUserMap = response.isPublicId && !userMap;
     if (response.isForeignLink) {
       throw new Error('Please use a link to a Districtr map.');
-    } else if (response.mapInfo && response.mapInfo.map_metadata?.draft_status !== 'ready_to_share') {
+    } else if (
+      response.mapInfo &&
+      response.mapInfo.map_metadata?.draft_status !== 'ready_to_share'
+    ) {
       throw new Error(
         'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
       );
-    } else if (response.mapInfo && !allowListModules.includes(response.mapInfo?.districtr_map_slug ?? '')) {
+    } else if (
+      response.mapInfo &&
+      !allowListModules.includes(response.mapInfo?.districtr_map_slug ?? '')
+    ) {
       throw new Error(
         `Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`
       );

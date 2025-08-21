@@ -1,21 +1,21 @@
 import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
-import FormNodeView from './FormNodeView';
+import MapCreateButtonsNodeView from './MapCreateButtonsNodeView';
 import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    formNode: {
+    mapCreateButtonsNode: {
       /**
-       * Add a form node with custom content
+       * Add a map create buttons section with custom content
        */
-      setForm: (attrs?: object) => ReturnType;
+      setMapCreateButtons: (customContent?: object) => ReturnType;
     };
   }
 }
 
-export const FormNode = Node.create({
-  name: 'formNode',
+export const MapCreateButtonsNode = Node.create({
+  name: 'mapCreateButtonsNode',
   group: 'block',
   content: 'inline*',
   defining: true,
@@ -28,14 +28,15 @@ export const FormNode = Node.create({
       renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
     }[] = [
       {
-        name: 'mandatoryTags',
+        name: 'views',
         default: [],
       },
       {
-        name: 'allowListModules',
-        default: [],
+        name: 'type',
+        default: 'simple',
       },
     ];
+
     return attrs.reduce(
       (acc, attr) => {
         acc[attr.name] = {
@@ -48,21 +49,22 @@ export const FormNode = Node.create({
       {} as Record<string, any>
     );
   },
+
   parseHTML() {
     return [
       {
-        tag: 'div[data-type="form-node"]',
+        tag: 'div[data-type="map-create-buttons-node"]',
       },
     ];
   },
 
   renderHTML({HTMLAttributes}) {
-    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'form-node'}), 0];
+    return ['div', mergeAttributes(HTMLAttributes, {'data-type': 'map-create-buttons-node'}), 0];
   },
 
   addCommands() {
     return {
-      setForm:
+      setMapCreateButtons:
         (attrs = undefined) =>
         ({commands}) => {
           return commands.insertContent({
@@ -78,8 +80,8 @@ export const FormNode = Node.create({
     typeof window === 'undefined'
       ? undefined
       : () => {
-          return ReactNodeViewRenderer(FormNodeView);
+          return ReactNodeViewRenderer(MapCreateButtonsNodeView);
         },
 });
 
-export default FormNode;
+export default MapCreateButtonsNode;

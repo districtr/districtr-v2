@@ -4,7 +4,7 @@ import {useEffect, useState} from 'react';
 import {TagSelector} from './TagSelector';
 
 export const CommentFormTagSelector: React.FC<{
-  mandatoryTags: string[];
+  mandatoryTags?: string[];
 }> = ({mandatoryTags}) => {
   const tags = useFormState(state => state.tags);
   const setTags = useFormState(state => state.setTags);
@@ -12,12 +12,12 @@ export const CommentFormTagSelector: React.FC<{
 
   useEffect(() => {
     const tagsIsArray = Array.isArray(tags);
-    mandatoryTags.forEach(tag => {
+    mandatoryTags?.forEach(tag => {
       if (!tagsIsArray || (tagsIsArray && !tags?.includes(tag))) {
         setTags(tag, 'add');
       }
     });
-  }, [mandatoryTags, tags, setTags]);
+  }, [mandatoryTags?.length, tags, setTags]);
 
   const handleTag = (tag: string, action: 'add' | 'remove') => {
     const trimmedTag = tag.trim();
@@ -39,7 +39,7 @@ export const CommentFormTagSelector: React.FC<{
     <TagSelector
       tagInput={tagInput}
       setTagInput={setTagInput}
-      fixedTags={mandatoryTags}
+      fixedTags={mandatoryTags?.length ? mandatoryTags : undefined}
       tags={Array.from(tags)}
       handleChange={handleTag}
       handleKeyInput={handleKeyInput}

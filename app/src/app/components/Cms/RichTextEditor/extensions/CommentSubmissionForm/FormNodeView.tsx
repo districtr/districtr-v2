@@ -1,14 +1,14 @@
 'use client';
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useRef, useState} from 'react';
 import {Box, Button, Dialog, Flex, IconButton, Text} from '@radix-ui/themes';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {CommentSubmissionForm} from '@/app/components/Forms/CommentSubmissionForm';
 import {TagSelector} from '@/app/components/Forms/TagSelector';
-import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {ListSelector} from '@/app/components/Forms/ListSelector';
 import {NoFocusBoundary} from '../NoFocusBoundary';
+import {useMapModules} from '@/app/hooks/useMapModules';
 
 const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   const mandatoryTags = node.attrs.mandatoryTags as string[];
@@ -30,17 +30,7 @@ const FormNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNo
     }
   };
 
-  const [mapModules, setMapModules] = useState<DistrictrMap[]>([]);
-  useEffect(() => {
-    const loadMapModules = async () => {
-      const modules = await getAvailableDistrictrMaps({
-        limit: 1000,
-        offset: 0,
-      });
-      setMapModules(modules);
-    };
-    loadMapModules();
-  }, [setMapModules]);
+  const mapModules = useMapModules();
 
   const handleAllowListModulesChange = (module: string, action: 'add' | 'remove') => {
     const newModules =

@@ -1,7 +1,7 @@
 import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
 import PlanGalleryNodeView from './PlanGalleryNodeView';
-import { getStandardHtmlParser } from '../extensionUtils';
+import {getJsonHtmlRenderer, getStandardHtmlParser} from '../extensionUtils';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -21,7 +21,12 @@ export const PlanGalleryNode = Node.create({
   defining: true,
   isolating: true,
   addAttributes() {
-    const attrs: {name: string, default?: any, parseHTML?: (element: Element) => any}[] = [
+    const attrs: {
+      name: string;
+      default?: any;
+      parseHTML?: (element: Element) => any;
+      renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
+    }[] = [
       {
         name: 'ids',
       },
@@ -70,15 +75,19 @@ export const PlanGalleryNode = Node.create({
         name: 'limit',
         default: 12,
       },
-    ]
+    ];
 
-    return attrs.reduce((acc, attr) => {
-      acc[attr.name] = {
-        default: attr.default ?? null,
-        parseHTML: attr.parseHTML ?? getStandardHtmlParser(attr.name),
-      }
-      return acc;
-    }, {} as Record<string, any>);
+    return attrs.reduce(
+      (acc, attr) => {
+        acc[attr.name] = {
+          default: attr.default ?? null,
+          parseHTML: attr.parseHTML ?? getStandardHtmlParser(attr.name),
+          renderHTML: attr.renderHTML ?? getJsonHtmlRenderer(attr.name),
+        };
+        return acc;
+      },
+      {} as Record<string, any>
+    );
   },
 
   parseHTML() {

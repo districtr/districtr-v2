@@ -11,7 +11,7 @@ const RecaptchaComponent: React.FC<{
 }> = ({setRecaptchaToken, recaptchaToken}) => {
   const [reset, setReset] = useState(false);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (!recaptchaToken?.length) {
       setReset(true);
       setTimeout(() => {
@@ -27,10 +27,7 @@ const RecaptchaComponent: React.FC<{
     return <Text color="red">Error: Recaptcha is disabled</Text>;
   }
   return (
-    <ReCAPTCHA
-      sitekey={RECAPTCHA_SITE_KEY}
-      onChange={value => setRecaptchaToken(value ?? '')}
-    />
+    <ReCAPTCHA sitekey={RECAPTCHA_SITE_KEY} onChange={value => setRecaptchaToken(value ?? '')} />
   );
 };
 
@@ -38,7 +35,9 @@ export const useRecaptcha = () => {
   const setRecaptchaToken = useFormState(state => state.setRecaptchaToken);
   const recaptchaToken = useFormState(state => state.recaptchaToken);
   const Component = useMemo(() => {
-    return <RecaptchaComponent setRecaptchaToken={setRecaptchaToken} recaptchaToken={recaptchaToken} />;
+    return (
+      <RecaptchaComponent setRecaptchaToken={setRecaptchaToken} recaptchaToken={recaptchaToken} />
+    );
   }, [setRecaptchaToken, recaptchaToken]);
   return {
     RecaptchaComponent: Component,

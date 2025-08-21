@@ -29,7 +29,8 @@ export type PlanFlags = {
 };
 
 const FALLBACK_IMAGE = '/home-megaphone-square.png';
-const FALLBACK_IMAGE_URL = typeof window !== 'undefined' ? new URL(FALLBACK_IMAGE, window.location.origin).toString() : '';
+const FALLBACK_IMAGE_URL =
+  typeof window !== 'undefined' ? new URL(FALLBACK_IMAGE, window.location.origin).toString() : '';
 
 export const PlanGalleryInner = ({
   ids,
@@ -44,18 +45,18 @@ export const PlanGalleryInner = ({
   const [page, setPage] = useState(0);
   const [displayLimit, _setDisplayLimit] = useState(+limit);
   const [view, setView] = useState<'grid' | 'list'>('grid');
-  const {data: plans} = useQuery({
+  const {data: plans, isLoading} = useQuery({
     queryKey: ['plans', ids, tags, page],
     queryFn: () => getPlans({ids, tags, limit: displayLimit, offset: page * displayLimit}),
   });
   const showPagination = paginate && plans && (plans.length === displayLimit || page > 0);
-
+  const noMaps = !isLoading && !plans?.length;
   return (
     <>
       <ContentSection title={title}>
         <Text size="5">{description}</Text>
       </ContentSection>
-      {showListView && (
+      {!!(showListView && !noMaps) && (
         <Flex direction="row" gap="2" align="center" pt="4">
           <Text size="2" color="gray">
             View type:
@@ -71,15 +72,15 @@ export const PlanGalleryInner = ({
           </SegmentedControl.Root>
         </Flex>
       )}
-      {view === 'grid' && (
+      {!!(!noMaps && view === 'grid') && (
         <Grid
           columns={{
             initial: '1',
             xs: '1',
-            sm: '2',
-            md: '3',
-            lg: '4',
-            xl: '6',
+            sm: Math.min(2, Math.max(plans?.length ?? 2, 2)).toString(),
+            md: Math.min(3, Math.max(plans?.length ?? 3, 2)).toString(),
+            lg: Math.min(4, Math.max(plans?.length ?? 4, 2)).toString(),
+            xl: Math.min(6, Math.max(plans?.length ?? 6, 2)).toString(),
           }}
           gap="4"
           pt="4"
@@ -87,7 +88,7 @@ export const PlanGalleryInner = ({
           {plans?.map((plan, i) => <PlanCard plan={plan} key={i} {...flags} />)}
         </Grid>
       )}
-      {view === 'list' && (
+      {!!(!noMaps && view === 'list') && (
         <Table.Root className="w-full">
           <Table.Header>
             <Table.Row>
@@ -107,7 +108,7 @@ export const PlanGalleryInner = ({
           </Table.Body>
         </Table.Root>
       )}
-      {showPagination && (
+      {!!(showPagination && !noMaps) && (
         <Flex justify="start" mt="4" gap="4">
           <Button onClick={() => setPage(page - 1)} disabled={page === 0}>
             Previous
@@ -115,6 +116,13 @@ export const PlanGalleryInner = ({
           <Button onClick={() => setPage(page + 1)} disabled={plans.length < displayLimit}>
             Next
           </Button>
+        </Flex>
+      )}
+      {!!noMaps && (
+        <Flex justify="center" mt="4">
+          <Text size="2" color="gray">
+            No maps found. Check back later!
+          </Text>
         </Flex>
       )}
     </>
@@ -152,7 +160,7 @@ export const PlanCard = ({plan, ...flags}: {plan: MinPublicDocument} & PlanFlags
         )}
         <Box px="4" py="2">
           <Flex direction="column" gap="2">
-            {plan.public_id && <Text size="5">{plan.public_id}</Text>}
+            {plan.public_id && <Text size="1">Map ID:{plan.public_id}</Text>}
             {!!flags.showTitles && plan.map_metadata?.name && (
               <Text size="5">{plan.map_metadata?.name}</Text>
             )}
@@ -191,7 +199,7 @@ export const PlanTableRow = ({plan, ...flags}: {plan: MinPublicDocument} & PlanF
       {!!flags.showThumbnails && (
         <Table.Cell>
           <Box
-            className="w-full relative overflow-hidden aspect-video border-2 border-b-0 border-gray-50 bg-white size-8"
+            className="w-full relative overflow-hidden aspect-video border-2 border-gray-50 bg-white size-8"
             style={{
               backgroundImage: `url(${CDN_URL}/thumbnails/${plan.public_id}.png), url(${FALLBACK_IMAGE_URL})`,
               backgroundSize: 'contain',
