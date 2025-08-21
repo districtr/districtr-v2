@@ -21,8 +21,10 @@ import {
   InfoCircledIcon,
   ColumnsIcon,
   HeadingIcon,
+  FileTextIcon,
 } from '@radix-ui/react-icons';
 import SectionHeaderNode from '../components/Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
+import FormNode from '../components/Cms/RichTextEditor/extensions/CommentSubmissionForm/FormNode';
 
 export const useCmsEditorConfig = (content: string | object, onChange: (json: object) => void) => {
   const editor = useEditor({
@@ -43,6 +45,7 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
       BoilerplateNode,
       PlanGalleryNode,
       SectionHeaderNode,
+      FormNode,
     ],
     content: typeof content === 'string' ? content : content,
     onUpdate: ({editor}) => {
@@ -212,6 +215,14 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         editor.chain().focus().setSectionHeader().run();
       },
       active: () => editor.isActive('sectionHeaderNode'),
+    },
+    {
+      title: 'Insert Comment Submission Form',
+      icon: FileTextIcon,
+      onClick: () => {
+        editor.chain().focus().setForm().run();
+      },
+      active: () => editor.isActive('formNode'),
     },
   ];
 

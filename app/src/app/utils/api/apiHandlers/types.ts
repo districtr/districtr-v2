@@ -104,3 +104,51 @@ export type MapGroup = {
   name: string;
   slug: string;
 };
+
+export interface CommentCreate {
+  title: string;
+  comment: string;
+  commenter_id: number | null;
+  document_id: string | null;
+}
+
+export interface CommentPublic {
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface CommenterCreate {
+  first_name: string;
+  email: string;
+  salutation: string | null;
+  last_name: string | null;
+  place: string | null;
+  state: string | null;
+  zip_code: string | null;
+}
+
+export interface CommenterPublic {
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TagPublic {
+  slug: string;
+}
+
+export interface TagCreate {
+  tag: string;
+}
+
+export interface FullCommentForm {
+  comment: CommentCreate;
+  commenter: CommenterCreate;
+  tags: TagCreate[];
+  recaptcha_token: string;
+}
+
+export interface FullCommentFormResponse {
+  comment: CommentPublic;
+  commenter: CommenterPublic;
+  tags: TagPublic[];
+}

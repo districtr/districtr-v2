@@ -25,7 +25,7 @@ export const ContentPreviewModal: React.FC<{}> = () => {
         </Flex>
 
         <Box className="border-t pt-4">
-          <RichTextPreview content={previewData.body} />
+          <RichTextPreview content={previewData.body} disabled />
         </Box>
 
         <Flex direction="row" justify="end" gapX="2">
