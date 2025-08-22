@@ -24,7 +24,9 @@ export const Contiguity = () => {
     },
     queryClient
   );
-  const lastUpdatedContiguity = dataUpdatedAt ? new Date(dataUpdatedAt).toISOString() : null;
+  const lastUpdatedContiguity = dataUpdatedAt
+    ? new Date(dataUpdatedAt ?? null).toISOString()
+    : null;
 
   useEffect(() => {
     refetch();

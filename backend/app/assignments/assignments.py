@@ -133,9 +133,9 @@ def batch_insert_assignments(
         exists_clause = f"""
         SELECT 1
         FROM {parent_child_table} edges
-        WHERE
-            edges.parent_path = t.geo_id
-            OR edges.child_path = t.geo_id"""
+        WHERE (edges.districtr_map = '{districtr_map.uuid}') AND
+            (edges.parent_path = t.geo_id
+            OR edges.child_path = t.geo_id)"""
 
         # Using a temp index can improve performance for large datasets
         session.execute(

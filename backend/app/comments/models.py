@@ -85,6 +85,11 @@ class CommenterCreate(BaseModel):
     zip_code: str | None = None
 
 
+class CommenterCreateWithRecaptcha(BaseModel):
+    commenter: CommenterCreate
+    recaptcha_token: str
+
+
 class CommenterPublic(CommenterCreate):
     created_at: datetime | None
     updated_at: datetime | None
@@ -125,6 +130,11 @@ class CommentCreate(BaseModel):
     document_id: str | None = None
 
 
+class CommentCreateWithRecaptcha(BaseModel):
+    comment: CommentCreate
+    recaptcha_token: str
+
+
 class CommentPublic(CommentCreate):
     created_at: datetime | None
     updated_at: datetime | None
@@ -160,6 +170,11 @@ class TagCreate(BaseModel):
         if not value or value.strip() == "":
             raise ValueError("Tag cannot be empty")
         return value
+
+
+class TagCreateWithRecaptcha(BaseModel):
+    tag: TagCreate
+    recaptcha_token: str
 
 
 class TagPublic(BaseModel):
@@ -206,6 +221,7 @@ class FullCommentFormCreate(BaseModel):
     comment: CommentCreate
     commenter: CommenterCreate
     tags: list[TagCreate]
+    recaptcha_token: str
 
 
 class FullCommentForm(BaseModel):
