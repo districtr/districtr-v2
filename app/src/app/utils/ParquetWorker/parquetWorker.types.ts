@@ -66,6 +66,10 @@ export type ParquetWorkerClass = {
   // Caches
   _metaCache: Record<string, MetaInfo>;
   _localFileBufferCache: Record<string, LocalFileCacheEntry>;
+  _fetching: {
+    demography?: boolean;
+    points?: boolean;
+  };
 
   // ---------- PUBLIC / EXISTING API ----------
 
@@ -84,7 +88,7 @@ export type ParquetWorkerClass = {
   getDemography: (
     mapDocument: DocumentObject,
     brokenIds?: string[]
-  ) => Promise<{columns: AllTabularColumns[number][]; results: ColumnarTableData}>;
+  ) => Promise<{columns: AllTabularColumns[number][]; results: ColumnarTableData} | null>;
 
   /**
    * Get the row range that covers the row-groups containing a given parent value.
@@ -120,7 +124,7 @@ export type ParquetWorkerClass = {
     columns: string[],
     source: string,
     filterIds?: Set<string>
-  ) => Promise<GeoJSON.FeatureCollection<GeoJSON.Point>>;
+  ) => Promise<GeoJSON.FeatureCollection<GeoJSON.Point> | null>;
 
   // ---------- UTILS ----------
 
