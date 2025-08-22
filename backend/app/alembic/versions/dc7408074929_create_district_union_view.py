@@ -39,10 +39,10 @@ def upgrade() -> None:
         schema="document",
     )
 
-    # Create an index on the geometry column for spatial queries
+    # Create an index on the geometry column for spatial queries using GIST
     op.execute(
         sa.text("""
-        CREATE INDEX idx_district_unions_geometry 
+        CREATE INDEX IF NOT EXISTS idx_district_unions_geometry 
         ON document.district_unions USING GIST (geometry)
     """)
     )
@@ -50,7 +50,7 @@ def upgrade() -> None:
     # Create an index on updated_at for efficient queries
     op.execute(
         sa.text("""
-        CREATE INDEX idx_district_unions_updated_at 
+        CREATE INDEX IF NOT EXISTS idx_district_unions_updated_at 
         ON document.district_unions (updated_at DESC)
     """)
     )
@@ -59,4 +59,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute(sa.text("DROP INDEX IF EXISTS document.idx_district_unions_geometry"))
     op.execute(sa.text("DROP INDEX IF EXISTS document.idx_district_unions_updated_at"))
-    op.execute(sa.text("DROP TABLE IF EXISTS document.district_unions CASCADE"))
+    op.drop_table("district_unions", schema="document")
