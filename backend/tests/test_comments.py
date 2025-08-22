@@ -739,8 +739,8 @@ class TestListingComments:
 
     def _add_tags(self, client, session: Session, comment_id: int):
         # do tagging in Python / SQL
-        client.post("/api/comments/tag", json={"tag": "hello"}).json()
-        client.post("/api/comments/tag", json={"tag": "world"}).json()
+        client.post("/api/comments/tag", json={"tag": {"tag": "hello"}, "recaptcha_token": "test_token"}).json()
+        client.post("/api/comments/tag", json={"tag": {"tag": "world"}, "recaptcha_token": "test_token"}).json()
         tag1_id = session.exec(select(Tag.id).where(Tag.slug == "hello")).first()
         tag2_id = session.exec(select(Tag.id).where(Tag.slug == "world")).first()
         associations = [
@@ -756,9 +756,12 @@ class TestListingComments:
         assert len(blank_response.json()) == 0
 
         comment_data = {
-            "title": "Test Comment",
-            "comment": "This is a test comment with some content.",
-            "document_id": document_id,
+            "comment": {
+                "title": "Test Comment",
+                "comment": "This is a test comment with some content.",
+                "document_id": document_id,
+            },
+            "recaptcha_token": "test_token",
         }
         post_response = client.post("/api/comments/comment", json=comment_data)
         assert post_response.status_code == 201
@@ -770,9 +773,12 @@ class TestListingComments:
     def test_doc_comment_with_two_tags(self, client, document_id, session: Session):
         # create comment (this endpoint does not do tagging)
         comment_data = {
-            "title": "Test Comment",
-            "comment": "This is a test comment with some tags.",
-            "document_id": document_id,
+            "comment": {
+                "title": "Test Comment",
+                "comment": "This is a test comment with some tags.",
+                "document_id": document_id,
+            },
+            "recaptcha_token": "test_token",
         }
         comment = client.post("/api/comments/comment", json=comment_data).json()
 
@@ -786,10 +792,13 @@ class TestListingComments:
 
     def test_listing_comments_by_tag(self, client, document_id, session: Session):
         comment_data = {
-            "title": "Test Comment",
-            "comment": "This is a test comment with some tags.",
-            "document_id": document_id,
-            "tags": ["hello", "world"],
+            "comment": {
+                "title": "Test Comment",
+                "comment": "This is a test comment with some tags.",
+                "document_id": document_id,
+                "tags": ["hello", "world"],
+            },
+            "recaptcha_token": "test_token",
         }
         comment = client.post("/api/comments/comment", json=comment_data).json()
 
