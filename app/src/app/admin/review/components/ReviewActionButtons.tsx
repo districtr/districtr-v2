@@ -1,5 +1,6 @@
 import {useState} from 'react';
-import {ReviewStatus} from '@/app/utils/api/apiHandlers/reviewHandlers';
+import {ReviewStatus, REVIEW_STATUS_ENUM} from '@/app/utils/api/apiHandlers/reviewHandlers';
+import {Button, Flex} from '@radix-ui/themes';
 
 interface ReviewActionButtonsProps {
   itemId: number;
@@ -7,6 +8,24 @@ interface ReviewActionButtonsProps {
   onReview: (status: ReviewStatus) => Promise<void>;
   disabled?: boolean;
 }
+
+const buttonEntries = [
+  {
+    status: REVIEW_STATUS_ENUM.APPROVED,
+    label: 'Approve',
+    color: 'green',
+  },
+  {
+    status: REVIEW_STATUS_ENUM.REJECTED,
+    label: 'Reject',
+    color: 'red',
+  },
+  {
+    status: REVIEW_STATUS_ENUM.REVIEWED,
+    label: 'Mark Reviewed',
+    color: 'blue',
+  },
+];
 
 export default function ReviewActionButtons({
   itemId,
@@ -25,60 +44,20 @@ export default function ReviewActionButtons({
     }
   };
 
-  const getButtonClass = (status: ReviewStatus, isActive: boolean) => {
-    const baseClasses =
-      'px-3 py-1 rounded text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
-
-    if (isActive) {
-      switch (status) {
-        case 'approved':
-          return `${baseClasses} bg-green-100 text-green-800 border border-green-300`;
-        case 'rejected':
-          return `${baseClasses} bg-red-100 text-red-800 border border-red-300`;
-        case 'reviewed':
-          return `${baseClasses} bg-blue-100 text-blue-800 border border-blue-300`;
-      }
-    }
-
-    switch (status) {
-      case 'approved':
-        return `${baseClasses} bg-white text-green-700 border border-green-300 hover:bg-green-50`;
-      case 'rejected':
-        return `${baseClasses} bg-white text-red-700 border border-red-300 hover:bg-red-50`;
-      case 'reviewed':
-        return `${baseClasses} bg-white text-blue-700 border border-blue-300 hover:bg-blue-50`;
-    }
-  };
-
   return (
-    <div className="flex space-x-2">
-      <button
-        onClick={() => handleReview('approved')}
-        disabled={disabled || loading === 'approved'}
-        className={getButtonClass('approved', currentStatus === 'approved')}
-      >
-        {loading === 'approved' ? '⏳' : currentStatus === 'approved' ? '✅ Approved' : 'Approve'}
-      </button>
-
-      <button
-        onClick={() => handleReview('rejected')}
-        disabled={disabled || loading === 'rejected'}
-        className={getButtonClass('rejected', currentStatus === 'rejected')}
-      >
-        {loading === 'rejected' ? '⏳' : currentStatus === 'rejected' ? '❌ Rejected' : 'Reject'}
-      </button>
-
-      <button
-        onClick={() => handleReview('reviewed')}
-        disabled={disabled || loading === 'reviewed'}
-        className={getButtonClass('reviewed', currentStatus === 'reviewed')}
-      >
-        {loading === 'reviewed'
-          ? '⏳'
-          : currentStatus === 'reviewed'
-            ? '👁️ Reviewed'
-            : 'Mark Reviewed'}
-      </button>
-    </div>
+    <Flex direction="row" gap="2">
+      {buttonEntries.map(entry => (
+        <Button
+          key={entry.status}
+          onClick={() => handleReview(entry.status)}
+          disabled={loading === entry.status}
+          variant={currentStatus === entry.status ? 'solid' : 'outline'}
+          size="1"
+          color={entry.color as any}
+        >
+          {entry.label}
+        </Button>
+      ))}
+    </Flex>
   );
 }
