@@ -23,6 +23,7 @@ const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
   // Simple per-URL local buffer cache
   _localFileBufferCache: {},
+  _fetching: {},
 
   async _ensureLocalAsyncBuffer(url: string, expectedByteLength?: number) {
     if (this._localFileBufferCache[url]) return this._localFileBufferCache[url].file;
@@ -328,6 +329,11 @@ const ParquetWorker: ParquetWorkerClass = {
     } as GeoJSON.FeatureCollection<GeoJSON.Point>;
   },
   async getDemography(mapDocument, brokenIds) {
+    if (this._fetching.demography) {
+      return null;
+    }
+    this._fetching.demography = true;
+    console.log('!!!getDemography', mapDocument, brokenIds);
     const url = `${PARQUET_URL}/tabular/${mapDocument.gerrydb_table}.parquet`;
     const meta = await this.getMetaData(url);
     const fileMB = Number(meta.byteLength) / (1024 * 1024);
@@ -369,9 +375,14 @@ const ParquetWorker: ParquetWorkerClass = {
       ranges.map(range => this.getRowRange<DemographyParquetData>(url, range, columns))
     );
     const parsed = this.parseDemographyData(data.flat(), mapDocument, brokenIds);
+    this._fetching.demography = false;
     return {columns: Object.keys(parsed) as AllTabularColumns[number][], results: parsed};
   },
   async getPointData(layer, columns, source, filterIds) {
+    if (this._fetching.points) {
+      return null;
+    }
+    this._fetching.points = true;
     const url = `${GEODATA_URL}/tilesets/${layer}_points.parquet`;
     const meta = await this.getMetaData(url);
 
@@ -413,6 +424,7 @@ const ParquetWorker: ParquetWorkerClass = {
         }
       }
 
+      this._fetching.points = false;
       return {type: 'FeatureCollection', features} as GeoJSON.FeatureCollection<GeoJSON.Point>;
     }
 
