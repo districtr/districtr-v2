@@ -739,8 +739,14 @@ class TestListingComments:
 
     def _add_tags(self, client, session: Session, comment_id: int):
         # do tagging in Python / SQL
-        client.post("/api/comments/tag", json={"tag": {"tag": "hello"}, "recaptcha_token": "test_token"}).json()
-        client.post("/api/comments/tag", json={"tag": {"tag": "world"}, "recaptcha_token": "test_token"}).json()
+        client.post(
+            "/api/comments/tag",
+            json={"tag": {"tag": "hello"}, "recaptcha_token": "test_token"},
+        ).json()
+        client.post(
+            "/api/comments/tag",
+            json={"tag": {"tag": "world"}, "recaptcha_token": "test_token"},
+        ).json()
         tag1_id = session.exec(select(Tag.id).where(Tag.slug == "hello")).first()
         tag2_id = session.exec(select(Tag.id).where(Tag.slug == "world")).first()
         associations = [
