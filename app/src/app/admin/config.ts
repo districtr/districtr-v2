@@ -6,6 +6,12 @@ export const pages = [
     cta: 'Go to CMS',
   },
   {
+    title: 'Comment Review',
+    description: 'Review and moderate comments, tags, and commenters.',
+    href: '/admin/review',
+    cta: 'Go to Review',
+  },
+  {
     title: 'Thumbnail Generation',
     description: 'Generate or update thumbnails for maps',
     href: '/admin/thumbnails',

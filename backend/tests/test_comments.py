@@ -1,15 +1,30 @@
 from sqlmodel import Session, select
 from unittest.mock import patch
-from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
-from app.core.security import recaptcha
+from app.comments.models import (
+    Commenter,
+    Comment,
+    Tag,
+    CommentTag,
+    DocumentComment,
+    ReviewStatus,
+)
+from app.core.security import recaptcha, auth
 from pytest import MonkeyPatch, fixture
-from tests.utils import fake_verify_recaptcha
+from tests.utils import fake_verify_recaptcha, fake_verify_auth
 
 
 @fixture(autouse=True)
 def patch_recaptcha():
     monkeypatch = MonkeyPatch()
     monkeypatch.setattr(recaptcha, "verify_recaptcha", fake_verify_recaptcha)
+    yield
+    monkeypatch.undo()
+
+
+@fixture(autouse=True)
+def patch_auth():
+    monkeypatch = MonkeyPatch()
+    monkeypatch.setattr(auth, "verify", fake_verify_auth)
     yield
     monkeypatch.undo()
 
@@ -1166,3 +1181,226 @@ class TestCommentListEndpoints:
         assert response.status_code == 200
         comments = response.json()
         assert len(comments) == 0
+
+
+class TestReviewEndpoints:
+    """Tests for the review endpoints"""
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_list_tags_for_review(self, mock_score_text, client, session: Session):
+        """Test listing tags for review"""
+        # Create some tags with different review statuses
+        tag1 = Tag(slug="unreviewed-tag")
+        tag2 = Tag(slug="approved-tag", review_status=ReviewStatus.APPROVED)
+        tag3 = Tag(slug="rejected-tag", review_status=ReviewStatus.REJECTED)
+
+        session.add(tag1)
+        session.add(tag2)
+        session.add(tag3)
+        session.commit()
+
+        # Test getting all tags
+        response = client.get("/api/comments/review/tags/list")
+        assert response.status_code == 200
+        tags = response.json()
+        assert len(tags) == 3
+
+        # Test filtering by review status
+        response = client.get("/api/comments/review/tags/list?review_status=approved")
+        assert response.status_code == 200
+        tags = response.json()
+        assert len(tags) == 1
+        assert tags[0]["slug"] == "approved-tag"
+
+        # Test pagination
+        response = client.get("/api/comments/review/tags/list?limit=2")
+        assert response.status_code == 200
+        tags = response.json()
+        assert len(tags) == 2
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_list_comments_for_review(self, mock_score_text, client, session: Session):
+        """Test listing comments for review"""
+        # Create some comments with different review statuses
+        comment1 = Comment(title="Unreviewed Comment", comment="Content 1")
+        comment2 = Comment(
+            title="Approved Comment",
+            comment="Content 2",
+            review_status=ReviewStatus.APPROVED,
+        )
+        comment3 = Comment(
+            title="Rejected Comment",
+            comment="Content 3",
+            review_status=ReviewStatus.REJECTED,
+        )
+
+        session.add(comment1)
+        session.add(comment2)
+        session.add(comment3)
+        session.commit()
+
+        # Test getting all comments
+        response = client.get("/api/comments/review/comments/list")
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 3
+
+        # Test filtering by review status
+        response = client.get(
+            "/api/comments/review/comments/list?review_status=approved"
+        )
+        assert response.status_code == 200
+        comments = response.json()
+        assert len(comments) == 1
+        assert comments[0]["title"] == "Approved Comment"
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_list_commenters_for_review(
+        self, mock_score_text, client, session: Session
+    ):
+        """Test listing commenters for review"""
+        # Create some commenters with different review statuses
+        commenter1 = Commenter(first_name="John", email="john@example.com")
+        commenter2 = Commenter(
+            first_name="Jane",
+            email="jane@example.com",
+            review_status=ReviewStatus.APPROVED,
+        )
+        commenter3 = Commenter(
+            first_name="Bob",
+            email="bob@example.com",
+            review_status=ReviewStatus.REJECTED,
+        )
+
+        session.add(commenter1)
+        session.add(commenter2)
+        session.add(commenter3)
+        session.commit()
+
+        # Test getting all commenters
+        response = client.get("/api/comments/review/commenters/list")
+        assert response.status_code == 200
+        commenters = response.json()
+        assert len(commenters) == 3
+
+        # Test filtering by review status
+        response = client.get(
+            "/api/comments/review/commenters/list?review_status=approved"
+        )
+        assert response.status_code == 200
+        commenters = response.json()
+        assert len(commenters) == 1
+        assert commenters[0]["first_name"] == "Jane"
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_review_comment_success(self, mock_score_text, client, session: Session):
+        """Test updating comment review status"""
+        # Create a comment
+        comment = Comment(title="Test Comment", comment="Content")
+        session.add(comment)
+        session.commit()
+        session.refresh(comment)
+
+        # Update review status to approved
+        response = client.post(
+            f"/api/comments/review/comment/{comment.id}",
+            json={"review_status": "approved"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "approved" in data["message"]
+        assert data["comment_id"] == comment.id
+
+        # Verify in database
+        session.refresh(comment)
+        assert comment.review_status == ReviewStatus.APPROVED
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_review_tag_success(self, mock_score_text, client, session: Session):
+        """Test updating tag review status"""
+        # Create a tag
+        tag = Tag(slug="test-tag")
+        session.add(tag)
+        session.commit()
+        session.refresh(tag)
+
+        # Update review status to rejected
+        response = client.post(
+            f"/api/comments/review/tag/{tag.id}", json={"review_status": "rejected"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "rejected" in data["message"]
+        assert data["tag_id"] == tag.id
+
+        # Verify in database
+        session.refresh(tag)
+        assert tag.review_status == ReviewStatus.REJECTED
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_review_commenter_success(self, mock_score_text, client, session: Session):
+        """Test updating commenter review status"""
+        # Create a commenter
+        commenter = Commenter(first_name="Test", email="test@example.com")
+        session.add(commenter)
+        session.commit()
+        session.refresh(commenter)
+
+        # Update review status to reviewed
+        response = client.post(
+            f"/api/comments/review/commenter/{commenter.id}",
+            json={"review_status": "reviewed"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "reviewed" in data["message"]
+        assert data["commenter_id"] == commenter.id
+
+        # Verify in database
+        session.refresh(commenter)
+        assert commenter.review_status == ReviewStatus.REVIEWED
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_review_comment_not_found(self, mock_score_text, client, session: Session):
+        """Test reviewing non-existent comment"""
+        response = client.post(
+            "/api/comments/review/comment/99999", json={"review_status": "approved"}
+        )
+        assert response.status_code == 404
+        assert "Comment not found" in response.json()["detail"]
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_review_tag_not_found(self, mock_score_text, client, session: Session):
+        """Test reviewing non-existent tag"""
+        response = client.post(
+            "/api/comments/review/tag/99999", json={"review_status": "approved"}
+        )
+        assert response.status_code == 404
+        assert "Tag not found" in response.json()["detail"]
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_review_commenter_not_found(
+        self, mock_score_text, client, session: Session
+    ):
+        """Test reviewing non-existent commenter"""
+        response = client.post(
+            "/api/comments/review/commenter/99999", json={"review_status": "approved"}
+        )
+        assert response.status_code == 404
+        assert "Commenter not found" in response.json()["detail"]
+
+    @patch("app.comments.moderation.score_text", return_value=0.2)
+    def test_review_invalid_status(self, mock_score_text, client, session: Session):
+        """Test updating with invalid review status"""
+        # Create a comment
+        comment = Comment(title="Test Comment", comment="Content")
+        session.add(comment)
+        session.commit()
+        session.refresh(comment)
+
+        # Try to update with invalid status
+        response = client.post(
+            f"/api/comments/review/comment/{comment.id}",
+            json={"review_status": "invalid_status"},
+        )
+        assert response.status_code == 422
