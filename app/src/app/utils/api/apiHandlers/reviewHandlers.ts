@@ -1,7 +1,12 @@
 import {get, post} from '../factory';
 
-export type ReviewStatus = 'approved' | 'rejected' | 'reviewed';
+export const REVIEW_STATUS_ENUM = {
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  REVIEWED: 'REVIEWED',
+} as const;
 
+export type ReviewStatus = (typeof REVIEW_STATUS_ENUM)[keyof typeof REVIEW_STATUS_ENUM];
 export interface ReviewItem {
   id: number;
   review_status?: ReviewStatus;

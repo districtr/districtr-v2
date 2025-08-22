@@ -10,7 +10,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-
+from app.comments.models import ReviewStatus
 
 # revision identifiers, used by Alembic.
 revision: str = "f57e30842bde"
@@ -19,9 +19,9 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 review_status_enum = sa.Enum(
-    "reviewed",
-    "approved",
-    "rejected",
+    ReviewStatus.REVIEWED.value,
+    ReviewStatus.APPROVED.value,
+    ReviewStatus.REJECTED.value,
     name="review_status_enum",
     schema="comments",
 )

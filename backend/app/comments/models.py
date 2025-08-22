@@ -21,9 +21,9 @@ from sqlalchemy import Enum as SAEnum
 
 
 class ReviewStatus(str, Enum):
-    REVIEWED = "reviewed"
-    APPROVED = "approved"
-    REJECTED = "rejected"
+    REVIEWED = "REVIEWED"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
 
 
 class Commenter(TimeStampMixin, SQLModel, table=True):
@@ -78,7 +78,8 @@ class Commenter(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(
             SAEnum(
                 ReviewStatus,
-                name="review_status",
+                name="review_status_enum",
+                schema=COMMENTS_SCHEMA,
                 native_enum=True,
                 validate_strings=True,
             ),
@@ -146,7 +147,8 @@ class Comment(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(
             SAEnum(
                 ReviewStatus,
-                name="review_status",
+                name="review_status_enum",  # <-- match existing PG type name
+                schema=COMMENTS_SCHEMA,  # <-- match schema
                 native_enum=True,
                 validate_strings=True,
             ),
@@ -197,7 +199,8 @@ class Tag(TimeStampMixin, SQLModel, table=True):
         sa_column=Column(
             SAEnum(
                 ReviewStatus,
-                name="review_status",
+                name="review_status_enum",  # <-- match existing PG type name
+                schema=COMMENTS_SCHEMA,  # <-- match schema
                 native_enum=True,
                 validate_strings=True,
             ),
@@ -299,3 +302,53 @@ class PublicCommentResponse(BaseModel):
 
 class ReviewStatusUpdate(BaseModel):
     review_status: ReviewStatus
+
+
+class CommentReview(BaseModel):
+    id: int
+    title: str
+    comment: str
+    commenter_id: int | None = None
+    moderation_score: float | None = None
+    review_status: ReviewStatus | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TagReview(BaseModel):
+    id: int
+    slug: str
+    moderation_score: float | None = None
+    review_status: ReviewStatus | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CommenterReview(BaseModel):
+    id: int
+    first_name: str
+    email: str
+    salutation: str | None = None
+    last_name: str | None = None
+    place: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+    moderation_score: float | None = None
+    review_status: ReviewStatus | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ReviewUpdateResponse(BaseModel):
+    message: str
+    id: int
+    new_status: ReviewStatus

@@ -35,6 +35,10 @@ from app.comments.models import (
     PublicCommentResponse,
     ReviewStatus,
     ReviewStatusUpdate,
+    CommentReview,
+    TagReview,
+    CommenterReview,
+    ReviewUpdateResponse,
 )
 from app.comments.moderation import (
     moderate_submission,
@@ -45,8 +49,11 @@ from app.comments.moderation import (
 )
 from app.core.models import DocumentID
 from app.core.security import recaptcha
+import logging
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
+
+logger = logging.getLogger(__name__)
 
 
 def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Commenter:
@@ -389,7 +396,7 @@ async def list_comments_admin(
 # Review endpoints
 
 
-@router.get("/review/tags/list")
+@router.get("/review/tags/list", response_model=list[TagReview])
 async def list_tags_for_review(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, le=100),
@@ -405,10 +412,10 @@ async def list_tags_for_review(
 
     query = query.offset(offset).limit(limit).order_by(Tag.created_at.desc())
     results = session.exec(query).all()
-    return results
+    return [TagReview.from_orm(tag) for (tag,) in results]
 
 
-@router.get("/review/comments/list")
+@router.get("/review/comments/list", response_model=list[CommentReview])
 async def list_comments_for_review(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, le=100),
@@ -432,10 +439,10 @@ async def list_comments_for_review(
 
     query = query.offset(offset).limit(limit).order_by(Comment.created_at.desc())
     results = session.exec(query).all()
-    return results
+    return [CommentReview.from_orm(comment) for (comment,) in results]
 
 
-@router.get("/review/commenters/list")
+@router.get("/review/commenters/list", response_model=list[CommenterReview])
 async def list_commenters_for_review(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=20, le=100),
@@ -451,35 +458,36 @@ async def list_commenters_for_review(
 
     query = query.offset(offset).limit(limit).order_by(Commenter.created_at.desc())
     results = session.exec(query).all()
-    return results
+    return [CommenterReview.from_orm(commenter) for (commenter,) in results]
 
 
-@router.post("/review/comment/{comment_id}")
+@router.post("/review/comment/{comment_id}", response_model=ReviewUpdateResponse)
 async def review_comment(
     comment_id: int,
     review_data: ReviewStatusUpdate,
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
 ):
-    """Update the review status of a comment"""
     comment = session.get(Comment, comment_id)
     if not comment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found"
-        )
+        raise HTTPException(status_code=404, detail="Comment not found")
 
+    logger.info(
+        f"!!!Reviewing comment {comment_id} with status {review_data.review_status}"
+    )
     comment.review_status = review_data.review_status
     session.add(comment)
     session.commit()
     session.refresh(comment)
 
-    return {
-        "message": f"Comment review status updated to {review_data.review_status.value}",
-        "comment_id": comment_id,
-    }
+    return ReviewUpdateResponse(
+        message=f"Comment review status updated to {review_data.review_status.value}",
+        id=comment_id,
+        new_status=review_data.review_status.value,
+    )
 
 
-@router.post("/review/tag/{tag_id}")
+@router.post("/review/tag/{tag_id}", response_model=ReviewUpdateResponse)
 async def review_tag(
     tag_id: int,
     review_data: ReviewStatusUpdate,
@@ -498,13 +506,14 @@ async def review_tag(
     session.commit()
     session.refresh(tag)
 
-    return {
-        "message": f"Tag review status updated to {review_data.review_status.value}",
-        "tag_id": tag_id,
-    }
+    return ReviewUpdateResponse(
+        message=f"Tag review status updated to {review_data.review_status.value}",
+        id=tag_id,
+        new_status=review_data.review_status,
+    )
 
 
-@router.post("/review/commenter/{commenter_id}")
+@router.post("/review/commenter/{commenter_id}", response_model=ReviewUpdateResponse)
 async def review_commenter(
     commenter_id: int,
     review_data: ReviewStatusUpdate,
@@ -523,7 +532,8 @@ async def review_commenter(
     session.commit()
     session.refresh(commenter)
 
-    return {
-        "message": f"Commenter review status updated to {review_data.review_status.value}",
-        "commenter_id": commenter_id,
-    }
+    return ReviewUpdateResponse(
+        message=f"Commenter review status updated to {review_data.review_status.value}",
+        id=commenter_id,
+        new_status=review_data.review_status,
+    )
