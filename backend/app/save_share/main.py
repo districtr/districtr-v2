@@ -107,6 +107,43 @@ def update_district_unions(session: Session, document_id: str) -> None:
         raise
 
 
+def bulk_update_district_stats(
+    session: Session, document_ids: list[str], background_tasks: BackgroundTasks
+) -> None:
+    """
+    Bulk update the district unions for a list of documents.
+    """
+    logger.info(f"Bulk updating district unions for documents {document_ids}")
+    ids_to_update = []
+    try:
+        for document_id in document_ids:
+            map_document = session.execute(
+                text(
+                    f"SELECT * FROM document.document WHERE document_id = '{document_id}'"
+                )
+            ).fetchone()
+            metadata = map_document.map_metadata if map_document else None
+            ready_to_share = (
+                metadata
+                and metadata.get("draft_status")
+                == DocumentDraftStatus.ready_to_share.value
+            )
+            if ready_to_share:
+                ids_to_update.append(document_id)
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    logger.info(f"Ids to update: {ids_to_update}")
+    for document_id in ids_to_update:
+        background_tasks.add_task(update_district_unions, session, document_id)
+        background_tasks.add_task(
+            generate_thumbnail,
+            session=session,
+            document_id=document_id,
+            out_directory=THUMBNAIL_BUCKET,
+        )
+
+
 @router.post("/api/document/{document_id}/unlock")
 async def unlock_document(
     document_id: str,
@@ -115,13 +152,6 @@ async def unlock_document(
     session: Session = Depends(get_session),
 ):
     try:
-        # Get document metadata to check if ready to share
-        document = session.execute(
-            text("SELECT * FROM document.document WHERE document_id = :document_id")
-            .bindparams(bindparam(key="document_id", type_=UUIDType))
-            .params(document_id=document_id)
-        ).fetchone()
-
         session.execute(
             text(
                 """DELETE FROM document.map_document_user_session
@@ -133,33 +163,8 @@ async def unlock_document(
             )
             .params(document_id=document_id, user_id=data.user_id)
         )
-
         session.commit()
-
-        # Check if document is marked as ready to share
-        if (
-            document
-            and document.map_metadata
-            and document.map_metadata.get("draft_status")
-            == DocumentDraftStatus.ready_to_share.value
-        ):
-            logger.info(
-                f"Document {document_id} is ready to share, updating district unions and thumbnail"
-            )
-
-            # Update district unions in background
-            background_tasks.add_task(update_district_unions, session, document_id)
-
-            # Update thumbnail in background
-            background_tasks.add_task(
-                generate_thumbnail,
-                session=session,
-                document_id=document_id,
-                out_directory=THUMBNAIL_BUCKET,
-            )
-
-        print("Document unlocked")
-        return {"status": DocumentEditStatus.unlocked}
+        bulk_update_district_stats(session, [document_id], background_tasks)
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=str(e))

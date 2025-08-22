@@ -23,6 +23,7 @@ from app.save_share.models import (
     DocumentEditStatus,
     DocumentShareStatus,
 )
+from geoalchemy2 import Geometry
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -291,4 +292,4 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
     document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
     zone: int = Field(primary_key=True)
     # Using TEXT to store WKT geometry since SQLModel doesn't have native PostGIS support
-    geometry: str = Field(nullable=False)
+    geometry: str = Geometry("MULTIPOLYGON", 4326)

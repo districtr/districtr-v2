@@ -10,6 +10,8 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import UUID
+from geoalchemy2 import Geometry
 
 
 # revision identifiers, used by Alembic.
@@ -21,17 +23,20 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Create the district_unions materialized view table with partitioning
-    op.execute(
-        sa.text("""
-        CREATE TABLE document.district_unions (
-            document_id UUID NOT NULL,
-            zone INTEGER NOT NULL,
-            geometry GEOMETRY(MULTIPOLYGON, 4326) NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            PRIMARY KEY (document_id, zone)
-        ) PARTITION BY LIST (document_id)
-    """)
+    op.create_table(
+        "district_unions",
+        sa.Column("document_id", UUID, nullable=False),
+        sa.Column("zone", sa.Integer, nullable=False),
+        sa.Column("geometry", Geometry("MULTIPOLYGON", 4326), nullable=False),
+        sa.Column(
+            "created_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("NOW()")
+        ),
+        sa.Column(
+            "updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("NOW()")
+        ),
+        sa.PrimaryKeyConstraint("document_id", "zone"),
+        postgresql_partition_by="LIST (document_id)",
+        schema="document",
     )
 
     # Create an index on the geometry column for spatial queries
@@ -52,4 +57,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute(sa.text("DROP INDEX IF EXISTS document.idx_district_unions_geometry"))
+    op.execute(sa.text("DROP INDEX IF EXISTS document.idx_district_unions_updated_at"))
     op.execute(sa.text("DROP TABLE IF EXISTS document.district_unions CASCADE"))
