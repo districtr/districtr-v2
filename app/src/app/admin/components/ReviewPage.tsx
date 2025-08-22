@@ -17,7 +17,7 @@ import {
 import ReviewStatusFilter from '../review/components/ReviewStatusFilter';
 import Pagination from '../review/components/Pagination';
 import {EntryRow} from '../review/components/EntryRow';
-import {Button, Flex, Heading, Spinner, Text} from '@radix-ui/themes';
+import {Box, Button, Flex, Heading, Spinner, Text} from '@radix-ui/themes';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -114,7 +114,7 @@ export const ReviewPage: React.FC<{type: ItemType}> = ({type}: {type: ItemType})
   }
 
   return (
-    <Flex direction="column" gap="2">
+    <Flex direction="column" gap="2" className="w-full flex-1">
       <Flex direction="column" gap="2">
         <Heading>Review {type.charAt(0).toUpperCase() + type.slice(1)}</Heading>
         <Text>Review and moderate user comments for appropriate content.</Text>
@@ -132,19 +132,13 @@ export const ReviewPage: React.FC<{type: ItemType}> = ({type}: {type: ItemType})
         </Flex>
       )}
 
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul className="divide-y divide-gray-200">
-          {items.length === 0 ? (
-            <li className="px-6 py-4 text-center text-gray-500">
-              No items found with the current filters.
-            </li>
-          ) : (
-            items.map(comment => (
-              <EntryRow entry={comment} onReview={getHandleReview(comment.id)} />
-            ))
-          )}
-        </ul>
-      </div>
+      <Box className="w-full rounded-md overflow-auto shadow-sm">
+        {items.length === 0 ? (
+          <Text>No items found with the current filters.</Text>
+        ) : (
+          items.map(comment => <EntryRow entry={comment} onReview={getHandleReview(comment.id)} />)
+        )}
+      </Box>
 
       {items.length > 0 && (
         <Pagination

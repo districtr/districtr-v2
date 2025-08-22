@@ -12,7 +12,7 @@ export const EntryRow: React.FC<{
   disabled?: boolean;
 }> = ({entry, onReview}) => {
   return (
-    <Flex direction="row" gap="2" align="start" justify="between" className="p-4">
+    <Flex direction="row" gap="2" align="start" justify="between" className="p-4 bg-white border-b-2 border-gray-200">
       <Flex direction="column" gap="2" align="start" justify="between" className="flex-1">
         <Heading>
           {(entry as Comment).title ? (entry as Commenter).first_name : (entry as Tag).slug}
