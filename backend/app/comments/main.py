@@ -33,6 +33,12 @@ from app.comments.models import (
     DocumentComment,
     FullCommentFormCreate,
     PublicCommentResponse,
+    ReviewStatus,
+    ReviewStatusUpdate,
+    CommentReview,
+    TagReview,
+    CommenterReview,
+    ReviewUpdateResponse,
 )
 from app.comments.moderation import (
     moderate_submission,
@@ -43,8 +49,11 @@ from app.comments.moderation import (
 )
 from app.core.models import DocumentID
 from app.core.security import recaptcha
+import logging
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
+
+logger = logging.getLogger(__name__)
 
 
 def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Commenter:
@@ -382,3 +391,149 @@ async def list_comments_admin(
 
     results = session.exec(stmt).all()
     return results
+
+
+# Review endpoints
+
+
+@router.get("/review/tags/list", response_model=list[TagReview])
+async def list_tags_for_review(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, le=100),
+    review_status: ReviewStatus | None = Query(default=None),
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+):
+    """List tags for review with pagination and filtering by review status"""
+    query = select(Tag)
+
+    if review_status is not None:
+        query = query.where(Tag.review_status == review_status)
+
+    query = query.offset(offset).limit(limit).order_by(Tag.created_at.desc())
+    results = session.exec(query).all()
+    return [TagReview.from_orm(tag) for (tag,) in results]
+
+
+@router.get("/review/comments/list", response_model=list[CommentReview])
+async def list_comments_for_review(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, le=100),
+    review_status: ReviewStatus | None = Query(default=None),
+    tags: list[str] = Query(default=[]),
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+):
+    """List comments for review with pagination and filtering by review status and tags"""
+    query = select(Comment)
+
+    if review_status is not None:
+        query = query.where(Comment.review_status == review_status)
+
+    if tags:
+        query = (
+            query.join(CommentTag, Comment.id == CommentTag.comment_id)
+            .join(Tag, Tag.id == CommentTag.tag_id)
+            .where(Tag.slug.in_(tags))
+        )
+
+    query = query.offset(offset).limit(limit).order_by(Comment.created_at.desc())
+    results = session.exec(query).all()
+    return [CommentReview.from_orm(comment) for (comment,) in results]
+
+
+@router.get("/review/commenters/list", response_model=list[CommenterReview])
+async def list_commenters_for_review(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, le=100),
+    review_status: ReviewStatus | None = Query(default=None),
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+):
+    """List commenters for review with pagination and filtering by review status"""
+    query = select(Commenter)
+
+    if review_status is not None:
+        query = query.where(Commenter.review_status == review_status)
+
+    query = query.offset(offset).limit(limit).order_by(Commenter.created_at.desc())
+    results = session.exec(query).all()
+    return [CommenterReview.from_orm(commenter) for (commenter,) in results]
+
+
+@router.post("/review/comment/{comment_id}", response_model=ReviewUpdateResponse)
+async def review_comment(
+    comment_id: int,
+    review_data: ReviewStatusUpdate,
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+):
+    comment = session.get(Comment, comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    logger.info(
+        f"!!!Reviewing comment {comment_id} with status {review_data.review_status}"
+    )
+    comment.review_status = review_data.review_status
+    session.add(comment)
+    session.commit()
+    session.refresh(comment)
+
+    return ReviewUpdateResponse(
+        message=f"Comment review status updated to {review_data.review_status.value}",
+        id=comment_id,
+        new_status=review_data.review_status.value,
+    )
+
+
+@router.post("/review/tag/{tag_id}", response_model=ReviewUpdateResponse)
+async def review_tag(
+    tag_id: int,
+    review_data: ReviewStatusUpdate,
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+):
+    """Update the review status of a tag"""
+    tag = session.get(Tag, tag_id)
+    if not tag:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Tag not found"
+        )
+
+    tag.review_status = review_data.review_status
+    session.add(tag)
+    session.commit()
+    session.refresh(tag)
+
+    return ReviewUpdateResponse(
+        message=f"Tag review status updated to {review_data.review_status.value}",
+        id=tag_id,
+        new_status=review_data.review_status,
+    )
+
+
+@router.post("/review/commenter/{commenter_id}", response_model=ReviewUpdateResponse)
+async def review_commenter(
+    commenter_id: int,
+    review_data: ReviewStatusUpdate,
+    session: Session = Depends(get_session),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+):
+    """Update the review status of a commenter"""
+    commenter = session.get(Commenter, commenter_id)
+    if not commenter:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Commenter not found"
+        )
+
+    commenter.review_status = review_data.review_status
+    session.add(commenter)
+    session.commit()
+    session.refresh(commenter)
+
+    return ReviewUpdateResponse(
+        message=f"Commenter review status updated to {review_data.review_status.value}",
+        id=commenter_id,
+        new_status=review_data.review_status,
+    )
