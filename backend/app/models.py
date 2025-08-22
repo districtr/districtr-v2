@@ -282,3 +282,13 @@ class DistrictrMapsToGroups(SQLModel, table=True):
             primary_key=True,
         )
     )
+
+
+class DistrictUnions(TimeStampMixin, SQLModel, table=True):
+    __table_args__ = ({"postgresql_partition_by": "LIST (document_id)"},)
+    __tablename__ = "district_unions"  # pyright: ignore
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
+    document_id: str = Field(sa_column=Column(UUIDType, primary_key=True))
+    zone: int = Field(primary_key=True)
+    # Using TEXT to store WKT geometry since SQLModel doesn't have native PostGIS support
+    geometry: str = Field(nullable=False)

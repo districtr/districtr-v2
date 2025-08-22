@@ -3,6 +3,7 @@ from fastapi import (
     Depends,
     HTTPException,
     APIRouter,
+    BackgroundTasks,
 )
 from typing import Annotated
 from sqlalchemy import text, bindparam
@@ -25,13 +26,16 @@ from app.save_share.models import (
     DocumentCheckoutRequest,
     DocumentShareStatus,
     DocumentEditStatus,
+    DocumentDraftStatus,
     UserID,
     DocumentShareRequest,
     DocumentShareResponse,
 )
+from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 import bcrypt
 
 
+logging.getLogger("sqlalchemy").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -47,11 +51,77 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
+def update_district_unions(session: Session, document_id: str) -> None:
+    """
+    Update the district_unions materialized view for a document by creating
+    unions of geometries grouped by zone.
+    """
+    logger.info(f"Updating district unions for document {document_id} !!!")
+    try:
+        # First, create a partition for this document if it doesn't exist
+        partition_name = f"district_unions_{document_id.replace('-', '_')}"
+        session.execute(
+            text(f"""
+            CREATE TABLE IF NOT EXISTS document.{partition_name} 
+            PARTITION OF document.district_unions 
+            FOR VALUES IN ('{document_id}')
+        """)
+        )
+
+        # Clear existing data for this document
+        session.execute(
+            text(
+                "DELETE FROM document.district_unions WHERE document_id = :document_id"
+            ),
+            {"document_id": document_id},
+        )
+
+        # Insert new unioned geometries grouped by zone
+        session.execute(
+            text("""
+            INSERT INTO document.district_unions (document_id, zone, geometry, created_at, updated_at)
+            WITH geos AS ( 
+                SELECT * FROM get_zone_assignments_geo(:document_id) 
+            )
+            SELECT 
+                :document_id as document_id,
+                zone::INTEGER as zone,
+                ST_Multi(ST_Transform(ST_Union(geometry), 4326)) as geometry,
+                NOW() as created_at,
+                NOW() as updated_at
+            FROM geos
+            WHERE zone IS NOT NULL
+            GROUP BY zone
+        """),
+            {"document_id": document_id},
+        )
+
+        session.commit()
+        logger.info(f"Updated district unions for document {document_id}")
+
+    except Exception as e:
+        session.rollback()
+        logger.error(
+            f"Failed to update district unions for document {document_id}: {str(e)}"
+        )
+        raise
+
+
 @router.post("/api/document/{document_id}/unlock")
 async def unlock_document(
-    document_id: str, data: UserID, session: Session = Depends(get_session)
+    document_id: str,
+    data: UserID,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     try:
+        # Get document metadata to check if ready to share
+        document = session.execute(
+            text("SELECT * FROM document.document WHERE document_id = :document_id")
+            .bindparams(bindparam(key="document_id", type_=UUIDType))
+            .params(document_id=document_id)
+        ).fetchone()
+
         session.execute(
             text(
                 """DELETE FROM document.map_document_user_session
@@ -65,6 +135,29 @@ async def unlock_document(
         )
 
         session.commit()
+
+        # Check if document is marked as ready to share
+        if (
+            document
+            and document.map_metadata
+            and document.map_metadata.get("draft_status")
+            == DocumentDraftStatus.ready_to_share.value
+        ):
+            logger.info(
+                f"Document {document_id} is ready to share, updating district unions and thumbnail"
+            )
+
+            # Update district unions in background
+            background_tasks.add_task(update_district_unions, session, document_id)
+
+            # Update thumbnail in background
+            background_tasks.add_task(
+                generate_thumbnail,
+                session=session,
+                document_id=document_id,
+                out_directory=THUMBNAIL_BUCKET,
+            )
+
         print("Document unlocked")
         return {"status": DocumentEditStatus.unlocked}
     except Exception as e:
