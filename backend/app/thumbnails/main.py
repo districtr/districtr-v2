@@ -116,14 +116,13 @@ def generate_thumbnail(
         Path to thumbnail file.
     """
     stmt = text("""
-        SELECT color_scheme, parent_layer, child_layer, public_id
+        SELECT color_scheme, public_id
         FROM document.document doc
         JOIN districtrmap ON districtrmap.districtr_map_slug = doc.districtr_map_slug
         WHERE document_id = :document_id
     """)
     results = session.execute(stmt, {"document_id": document_id})
-    color_scheme, parent_layer, child_layer, public_id = results.one()
-
+    color_scheme, public_id = results.one()
     if color_scheme is None or len(color_scheme) == 0:
         color_scheme = DISTRICT_COLORS
 
@@ -134,19 +133,13 @@ def generate_thumbnail(
             return color_scheme[int(row["zone"]) - 1 % len(color_scheme)]
 
     sql = f"""
-    SELECT ST_Collect(geometry) AS geom, zone
-    FROM gerrydb.{parent_layer} geos
-    LEFT JOIN "document.assignments_{document_id}" assigned ON geos.path = assigned.geo_id
-    GROUP BY zone
+        SELECT 
+            zone,
+            geometry as geom
+        FROM document.district_unions
+        WHERE document_id = '{document_id}'
+        ORDER BY zone
     """
-    if child_layer is not None:
-        sql += f"""UNION
-        (SELECT ST_Collect(geometry) AS geom, zone
-        FROM "document.assignments_{document_id}" assigned
-        INNER JOIN gerrydb.{child_layer} blocks ON blocks.path = assigned.geo_id
-        WHERE zone IS NOT NULL
-        GROUP BY zone)"""
-
     conn = session.connection().connection
     gdf = geopandas.read_postgis(sql=sql, con=conn).to_crs(epsg=3857)  # pyright: ignore
     gdf["color"] = gdf.apply(lambda row: coloration(row), axis=1)

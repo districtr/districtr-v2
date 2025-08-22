@@ -293,3 +293,5 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
     zone: int = Field(primary_key=True)
     # Using TEXT to store WKT geometry since SQLModel doesn't have native PostGIS support
     geometry: str = Geometry("MULTIPOLYGON", 4326)
+    # Store demographic data as JSONB since different tables have different columns
+    demographic_data: dict | None = Field(sa_column=Column(JSON, nullable=True))
