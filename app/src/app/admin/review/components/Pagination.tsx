@@ -1,3 +1,5 @@
+import {Button, Flex, Text, Box} from '@radix-ui/themes';
+
 interface PaginationProps {
   currentOffset: number;
   limit: number;
@@ -47,81 +49,69 @@ export default function Pagination({currentOffset, limit, total, onPageChange}: 
   if (totalPages <= 1) return null;
 
   return (
-    <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-      <div className="flex-1 flex justify-between sm:hidden">
-        <button
-          onClick={handlePrevious}
-          disabled={!hasPrev}
-          className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-            hasPrev
-              ? 'text-gray-700 bg-white hover:bg-gray-50'
-              : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-          }`}
-        >
+    <Flex
+      direction="row"
+      gap="2"
+      align="start"
+      justify="between"
+      className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6"
+    >
+      <Flex
+        direction="row"
+        gap="2"
+        align="start"
+        justify="between"
+        className="flex-1 flex justify-between sm:hidden"
+      >
+        <Button onClick={handlePrevious} disabled={!hasPrev}>
           Previous
-        </button>
-        <button
-          onClick={handleNext}
-          disabled={!hasNext}
-          className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-            hasNext
-              ? 'text-gray-700 bg-white hover:bg-gray-50'
-              : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-          }`}
-        >
+        </Button>
+        <Button onClick={handleNext} disabled={!hasNext}>
           Next
-        </button>
-      </div>
-      <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-gray-700">
-            Showing <span className="font-medium">{currentOffset + 1}</span> to{' '}
-            <span className="font-medium">{Math.min(currentOffset + limit, total)}</span> of{' '}
-            <span className="font-medium">{total}</span> results
-          </p>
-        </div>
-        <div>
-          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-            <button
-              onClick={handlePrevious}
-              disabled={!hasPrev}
-              className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-                hasPrev
-                  ? 'text-gray-500 bg-white hover:bg-gray-50'
-                  : 'text-gray-300 bg-gray-100 cursor-not-allowed'
-              }`}
-            >
+        </Button>
+      </Flex>
+      <Flex
+        direction="row"
+        gap="2"
+        align="start"
+        justify="between"
+        className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between"
+      >
+        <Box>
+          <Text size="1">
+            Showing <Text>{currentOffset + 1}</Text> to{' '}
+            <Text>{Math.min(currentOffset + limit, total)}</Text> of <Text>{total}</Text> results
+          </Text>
+        </Box>
+        <Box>
+          <Flex
+            direction="row"
+            gap="2"
+            align="start"
+            justify="between"
+            className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+          >
+            <Button onClick={handlePrevious} disabled={!hasPrev} size="1" variant="soft">
               <span className="sr-only">Previous</span>←
-            </button>
+            </Button>
 
             {getVisiblePages().map(page => (
-              <button
+              <Button
                 key={page}
                 onClick={() => handlePageClick(page)}
-                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                  page === currentPage
-                    ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                }`}
+                size="1"
+                variant={page === currentPage ? 'solid' : 'soft'}
               >
                 {page}
-              </button>
+              </Button>
             ))}
 
-            <button
-              onClick={handleNext}
-              disabled={!hasNext}
-              className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-                hasNext
-                  ? 'text-gray-500 bg-white hover:bg-gray-50'
-                  : 'text-gray-300 bg-gray-100 cursor-not-allowed'
-              }`}
-            >
+            <Button onClick={handleNext} disabled={!hasNext} size="1" variant="soft">
               <span className="sr-only">Next</span>→
-            </button>
-          </nav>
-        </div>
-      </div>
-    </div>
+            </Button>
+          </Flex>
+        </Box>
+      </Flex>
+    </Flex>
   );
 }

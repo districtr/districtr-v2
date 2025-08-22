@@ -28,7 +28,10 @@ export default function ReviewLayout({children}: {children: React.ReactNode}) {
 
   return (
     <PermissionGuard requiredScope="update:update-all">
-      <Flex direction="row" gap="2" align="start" justify="between" className="h-full w-full">
+      <Flex direction={{
+        initial: 'column',
+        md: 'row',
+      }} gap="2" align="start" justify="between" className="h-full w-full">
         {/* Sidebar */}
         <Flex direction="column" className="w-64 bg-white shadow-sm p-4">
           <Flex direction="column" gap="2" justify="between" className="w-full">
@@ -62,7 +65,14 @@ export default function ReviewLayout({children}: {children: React.ReactNode}) {
             className="flex-1 relative overflow-y-auto focus:outline-none w-full"
             id="inner-1"
           >
-            <Flex direction="column" gap="2" align="start" justify="between" className="py-6 w-full" id="inner-2">
+            <Flex
+              direction="column"
+              gap="2"
+              align="start"
+              justify="between"
+              className="py-6 w-full"
+              id="inner-2"
+            >
               <Flex
                 direction="column"
                 gap="2"
