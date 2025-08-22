@@ -31,7 +31,9 @@ export default async function AdminLayout({
         <nav className="bg-white border-b border-gray-200 py-4 px-6">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-800">Districtr Admin</h1>
+              <a href="/admin">
+                <h1 className="text-xl font-semibold text-gray-800">Districtr Admin</h1>
+              </a>
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/">Back to Site</Link>

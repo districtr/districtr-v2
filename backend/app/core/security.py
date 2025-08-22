@@ -3,6 +3,7 @@ from typing import Optional
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import SecurityScopes, HTTPAuthorizationCredentials, HTTPBearer
+import httpx
 
 from app.core.config import get_settings
 
@@ -92,3 +93,39 @@ class VerifyToken:
 
 
 auth = VerifyToken()
+
+
+class VerifyRecaptcha:
+    """Verifies reCAPTCHA tokens"""
+
+    def __init__(self):
+        self.config = get_settings()
+
+    async def verify_recaptcha(self, token: str, host: str):
+        """
+        Verifies reCAPTCHA tokens
+
+        Args:
+            token (str): The reCAPTCHA token to verify
+            host (str): The host of the request
+
+        Raises:
+            HTTPException: If the reCAPTCHA verification fails
+
+        """
+        # Verify reCAPTCHA token
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://www.google.com/recaptcha/api/siteverify",
+                data={
+                    "secret": self.config.RECAPTCHA_SECRET_KEY,
+                    "response": token,
+                    "remoteip": host,
+                },
+            )
+        result = response.json()
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail="reCAPTCHA verification failed")
+
+
+recaptcha = VerifyRecaptcha()
