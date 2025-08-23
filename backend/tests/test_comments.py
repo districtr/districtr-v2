@@ -757,7 +757,10 @@ class TestListingComments:
         session.exec(stmt)
 
     def test_doc_comment_with_no_tags(self, client, document_id, session: Session):
-        blank_response = client.get(f"/api/comments/list?document_id={document_id}")
+        document = client.get(f"/api/document/{document_id}").json()
+        blank_response = client.get(
+            f"/api/comments/list?public_id={document["public_id"]}"
+        )
         assert blank_response.status_code == 200
         assert len(blank_response.json()) == 0
 
@@ -772,7 +775,9 @@ class TestListingComments:
         post_response = client.post("/api/comments/comment", json=comment_data)
         assert post_response.status_code == 201
 
-        get_response = client.get(f"/api/comments/list?document_id={document_id}")
+        get_response = client.get(
+            f"/api/comments/list?public_id={document["public_id"]}"
+        )
         assert get_response.status_code == 200
         assert len(get_response.json()) == 1
 
@@ -790,7 +795,10 @@ class TestListingComments:
 
         self._add_tags(client, session, comment["id"])
 
-        get_response = client.get(f"/api/comments/list?document_id={document_id}")
+        document = client.get(f"/api/document/{document_id}").json()
+        get_response = client.get(
+            f"/api/comments/list?public_id={document["public_id"]}"
+        )
         assert get_response.status_code == 200
         returned = get_response.json()[0]
         assert len(returned["tags"]) == 2

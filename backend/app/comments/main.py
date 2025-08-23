@@ -3,13 +3,13 @@ from fastapi import (
     Depends,
     HTTPException,
     status,
+    Query,
     Request,
 )
 from sqlmodel import Session, select, desc, func
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import any_, text
-import logging
 from typing import Optional
 
 from app.core.dependencies import get_protected_document
@@ -33,6 +33,7 @@ from app.comments.models import (
     DocumentComment,
     PublicCommentListing,
 )
+from app.models import Document
 from app.core.models import DocumentID
 from app.core.security import recaptcha
 
@@ -293,38 +294,57 @@ async def submit_full_comment(
 async def list_comments(
     *,
     session: Session = Depends(get_session),
-    document_id: Optional[str] = None,
-    tag: Optional[str] = None,
+    public_id: Optional[int] = None,
+    tag: Optional[str] = Query(default=None),
+    offset: Optional[int] = Query(default=0, ge=0),
+    limit: Optional[int] = Query(default=100, le=100),
 ):
-    if not document_id and not tag:
+    if not public_id and not tag:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="You must provide either document_id or tag.",
+            detail="You must provide either public_id or tag.",
         )
 
     # .join(Commenter, Comment.commenter_id == Commenter.id)
     query = (
         select(
-            Comment,
+            Comment.title,
+            Comment.comment,
+            Comment.commenter_id,
+            Comment.created_at,
+            Comment.updated_at,
             func.array_agg(Tag.slug).filter(Tag.slug is not None).label("tags"),
+            Document.public_id,
         )
         .join(DocumentComment, Comment.id == DocumentComment.comment_id)
         .outerjoin(CommentTag, Comment.id == CommentTag.comment_id)
         .outerjoin(Tag, CommentTag.tag_id == Tag.id)
-        .group_by(Comment.id)
+        .join(Document, Document.document_id == DocumentComment.document_id)
+        .group_by(Comment.id, Document.public_id)
         .order_by(desc(Comment.created_at))
+        .limit(limit)
     )
-    if document_id:
-        query = query.where(DocumentComment.document_id == document_id)
+    if public_id:
+        query = query.where(Document.public_id == public_id)
     if tag:
         query = query.having(tag == any_(func.array_agg(Tag.slug)))
+    if offset is not None and offset > 0:
+        query = query.offset(offset)
 
     results = session.exec(query)
     rows = results.all()
     return [
         {
-            "comment": comment,
+            "comment": {
+                "title": title,
+                "comment": comment,
+                "commenter_id": commenter_id,
+                "document_id": None,
+                "created_at": created_at,
+                "updated_at": updated_at,
+                "public_id": public_id,
+            },
             "tags": [] if not tags or all(t is None for t in tags) else tags,
         }
-        for comment, tags in rows
+        for title, comment, commenter_id, created_at, updated_at, tags, public_id in rows
     ]

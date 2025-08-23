@@ -213,6 +213,12 @@ class FullCommentFormResponse(BaseModel):
     tags: list[TagPublic]
 
 
+class CommentOpenAccess(CommentCreate):
+    public_id: int
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
 class PublicCommentListing(BaseModel):
-    comment: CommentPublic
+    comment: CommentOpenAccess
     tags: list[str]
