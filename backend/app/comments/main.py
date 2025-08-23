@@ -305,7 +305,6 @@ async def list_comments(
             detail="You must provide either public_id or tag.",
         )
 
-    # .join(Commenter, Comment.commenter_id == Commenter.id)
     query = (
         select(
             Comment.title,
