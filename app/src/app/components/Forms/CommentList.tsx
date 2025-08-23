@@ -6,7 +6,7 @@ import { formatDistanceToNow } from 'date-fns'
 export const CommentList: React.FC<{
   comments: CommentListing[]
 }> = ({ comments }) =>
-  <Flex direction="column" width="100%">
+  <Flex direction="column" width="100%" gap="2">
     {comments.map((c, idx) => (
       <Box key={idx} className="flex flex-col border border-zinc-200 rounded-lg p-4 shadow-sm bg-white">
         <Flex align="center" gap="3" mb="2">
