@@ -1,5 +1,5 @@
 'use client';
-import {Text, Flex} from '@radix-ui/themes';
+import {Flex} from '@radix-ui/themes';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {useMapStore} from '@/app/store/mapStore';
 import {MapTitleDisplay} from './MapTitleDisplay';
@@ -8,6 +8,7 @@ import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';
 import {useRouter} from 'next/navigation';
+import {MapContextModuleAndUnits} from './MapContextModuleAndUnits';
 
 export const MapHeader: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
@@ -36,9 +37,7 @@ export const MapHeader: React.FC = () => {
         mapDocument={mapDocument}
         handleMetadataChange={handleMetadataChange}
       />
-      <Text size="2" className="text-gray-500">
-        {mapDocument?.map_module || ''}
-      </Text>
+      <MapContextModuleAndUnits />
     </Flex>
   );
 };

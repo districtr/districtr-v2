@@ -1,4 +1,4 @@
-import { HeaderSecondTierNav } from '@/app/components/Cms/RichTextEditor/extensions/HeaderSecondTierNav/HeaderSecondTierNav';
+import {HeaderSecondTierNav} from '@/app/components/Cms/RichTextEditor/extensions/HeaderSecondTierNav/HeaderSecondTierNav';
 import {LanguagePicker} from '@/app/components/LanguagePicker/LanguagePicker';
 import RichTextRenderer from '@/app/components/RichTextRenderer/RichTextRenderer';
 import {getAvailableDistrictrMaps} from '@/app/utils/api/apiHandlers/getAvailableDistrictrMaps';

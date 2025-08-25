@@ -82,7 +82,10 @@ const MapCreateButtonsNodeView: React.FC<NodeViewProps> = ({
                 </Flex>
                 <Flex direction="column" gap="2">
                   <Text>Type</Text>
-                  <Select.Root value={type} onValueChange={value => handleUpdate({type: value as 'simple' | 'megaphone'})}>
+                  <Select.Root
+                    value={type}
+                    onValueChange={value => handleUpdate({type: value as 'simple' | 'megaphone'})}
+                  >
                     <Select.Trigger placeholder="Select a type" />
                     <Select.Content>
                       <Select.Item value="simple">Simple</Select.Item>
