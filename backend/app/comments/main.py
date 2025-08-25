@@ -4,16 +4,17 @@ from fastapi import (
     HTTPException,
     status,
     BackgroundTasks,
-    Query,
     Security,
+    Query,
     Request,
 )
-from sqlmodel import Session
+from sqlmodel import Session, select, desc, func
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text, func, select
+from sqlalchemy import text, any_
 
 from app.core.security import auth, TokenScope
+from typing import Optional
 
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
@@ -39,8 +40,9 @@ from app.comments.moderation import (
     moderate_commenter,
     moderate_comment,
     moderate_tag,
-    MODERATION_THRESHOLD,
+    PublicCommentListing,
 )
+from app.models import Document
 from app.core.models import DocumentID
 from app.core.security import recaptcha
 
@@ -329,32 +331,6 @@ def get_comments_base_query(tags: list[str], place: str, state: str, zip_code: s
     return stmt
 
 
-@router.get("/list", response_model=list[PublicCommentResponse])
-async def list_comments(
-    # query params tags, place, state, zip_code
-    tags: list[str] = Query(default=[]),
-    place: str = Query(default=None),
-    state: str = Query(default=None),
-    zip_code: str = Query(default=None),
-    offset: int = Query(default=0),
-    session: Session = Depends(get_session),
-):
-    stmt = get_comments_base_query(
-        tags=tags, place=place, state=state, zip_code=zip_code
-    )
-
-    threshold = MODERATION_THRESHOLD
-    stmt = (
-        stmt.where(Comment.moderation_score < threshold)
-        .where(Commenter.moderation_score < threshold)
-        .having(func.max(func.coalesce(Tag.moderation_score, 0)) < threshold)
-    )
-    stmt = stmt.offset(offset).limit(100)
-
-    results = session.exec(stmt).all()
-    return results
-
-
 @router.get("/admin/list", response_model=list[PublicCommentResponse])
 async def list_comments_admin(
     tags: list[str] = Query(default=[]),
@@ -382,3 +358,77 @@ async def list_comments_admin(
 
     results = session.exec(stmt).all()
     return results
+
+
+@router.get(
+    "/list",
+    response_model=list[PublicCommentListing],
+)
+async def list_comments(
+    *,
+    session: Session = Depends(get_session),
+    public_id: Optional[int] = None,
+    tag: Optional[str] = Query(default=None),
+    offset: Optional[int] = Query(default=0, ge=0),
+    limit: Optional[int] = Query(default=100, le=100),
+):
+    if not public_id and not tag:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="You must provide either public_id or tag.",
+        )
+
+    # TODO resolve this
+    # stmt = get_comments_base_query(
+    #     tags=tags, place=place, state=state, zip_code=zip_code
+    # )
+
+    # threshold = MODERATION_THRESHOLD
+    # stmt = (
+    #     stmt.where(Comment.moderation_score < threshold)
+    #     .where(Commenter.moderation_score < threshold)
+    #     .having(func.max(func.coalesce(Tag.moderation_score, 0)) < threshold)
+    # )
+
+    query = (
+        select(
+            Comment.title,
+            Comment.comment,
+            Comment.commenter_id,
+            Comment.created_at,
+            Comment.updated_at,
+            func.array_agg(Tag.slug).filter(Tag.slug is not None).label("tags"),
+            Document.public_id,
+        )
+        .join(DocumentComment, Comment.id == DocumentComment.comment_id)
+        .outerjoin(CommentTag, Comment.id == CommentTag.comment_id)
+        .outerjoin(Tag, CommentTag.tag_id == Tag.id)
+        .join(Document, Document.document_id == DocumentComment.document_id)
+        .group_by(Comment.id, Document.public_id)
+        .order_by(desc(Comment.created_at))
+        .limit(limit)
+    )
+    if public_id:
+        query = query.where(Document.public_id == public_id)
+    if tag:
+        query = query.having(tag == any_(func.array_agg(Tag.slug)))
+    if offset is not None and offset > 0:
+        query = query.offset(offset)
+
+    results = session.exec(query)
+    rows = results.all()
+    return [
+        {
+            "comment": {
+                "title": title,
+                "comment": comment,
+                "commenter_id": commenter_id,
+                "document_id": None,
+                "created_at": created_at,
+                "updated_at": updated_at,
+                "public_id": public_id,
+            },
+            "tags": [] if not tags or all(t is None for t in tags) else tags,
+        }
+        for title, comment, commenter_id, created_at, updated_at, tags, public_id in rows
+    ]

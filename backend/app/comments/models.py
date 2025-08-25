@@ -136,6 +136,7 @@ class CommentCreateWithRecaptcha(BaseModel):
 
 
 class CommentPublic(CommentCreate):
+    id: int
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -251,3 +252,14 @@ class PublicCommentResponse(BaseModel):
     state: str | None = None
     zip_code: str | None = None
     tags: list[str | None] = []
+
+
+class CommentOpenAccess(CommentCreate):
+    public_id: int
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+class PublicCommentListing(BaseModel):
+    comment: CommentOpenAccess
+    tags: list[str]
