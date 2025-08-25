@@ -7,7 +7,7 @@ import Draggable from 'react-draggable';
 import {DragHandleHorizontalIcon} from '@radix-ui/react-icons';
 import {ToolbarInSidebar} from './ToolbarInSidebar';
 import {styled} from '@stitches/react';
-import { MapContextComment } from './MapContextComment';
+import {MapContextComment} from './MapContextComment';
 
 const StyledScrollArea = styled(ScrollArea, {
   maxWidth: '100%',
