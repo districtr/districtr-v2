@@ -121,6 +121,7 @@ class CommentCreateWithRecaptcha(BaseModel):
 
 
 class CommentPublic(CommentCreate):
+    id: int
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -210,3 +211,14 @@ class FullCommentFormResponse(BaseModel):
     comment: CommentPublic
     commenter: CommenterPublic
     tags: list[TagPublic]
+
+
+class CommentOpenAccess(CommentCreate):
+    public_id: int
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+class PublicCommentListing(BaseModel):
+    comment: CommentOpenAccess
+    tags: list[str]
