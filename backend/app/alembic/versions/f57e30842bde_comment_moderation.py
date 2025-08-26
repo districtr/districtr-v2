@@ -14,7 +14,7 @@ from app.comments.models import ReviewStatus
 
 # revision identifiers, used by Alembic.
 revision: str = "f57e30842bde"
-down_revision: Union[str, None] = "846afa42e0cb"
+down_revision: Union[str, None] = "55cc04197c66"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
