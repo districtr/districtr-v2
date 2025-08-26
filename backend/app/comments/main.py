@@ -389,14 +389,14 @@ async def list_comments(
         )
         .where(
             or_(
-                Commenter.id == None,  # noqa: E711
+                Commenter.id == None,  # noqa: E711 SqlAlchemy wants == not is
                 Commenter.moderation_score < threshold,
                 Commenter.review_status == ReviewStatus.APPROVED,
             )
         )
         .where(
             or_(
-                Tag.id == None,  # noqa: E711
+                Tag.id == None,  # noqa: E711 SqlAlchemy wants == not is
                 Tag.moderation_score < threshold,
                 Tag.review_status == ReviewStatus.APPROVED,
             )
@@ -443,12 +443,12 @@ async def list_comments_admin(
             or_(
                 Commenter.moderation_score < threshold,
                 Commenter.review_status == ReviewStatus.APPROVED,
-                Commenter.id == None,  # noqa: E711
+                Commenter.id == None,  # noqa: E711 SqlAlchemy wants == not is
             )
         )
         .where(
             or_(
-                Tag.id == None,  # noqa: E711
+                Tag.id == None,  # noqa: E711 SqlAlchemy wants == not is
                 Tag.moderation_score < threshold,
                 Tag.review_status == ReviewStatus.APPROVED,
             )
