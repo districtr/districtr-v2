@@ -35,17 +35,9 @@ def rate_offensive_text_ai(text: str) -> ModerationScore | None:
             input=text, model="omni-moderation-latest"
         )
         scores = response.results[0].category_scores
-        # Add other scores as needed
-        worst_score = max(
-            [
-                scores.violence,
-                scores.harassment,
-                scores.sexual,
-                scores.hate,
-                scores.illicit,
-            ]
-        )
-        return ModerationScore(ok=True, score=worst_score)
+        # get all score values
+        score_values = list(scores.__dict__.values())
+        return ModerationScore(ok=True, score=max(score_values))
     except Exception as e:
         logger.info(f"Error during moderation: {e}")
         return ModerationScore(ok=False, score=1.0, error=str(e))
