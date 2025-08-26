@@ -6,6 +6,9 @@ from pytest import MonkeyPatch, fixture
 from tests.utils import fake_verify_recaptcha
 from fastapi.security import SecurityScopes
 from app.main import app
+from app.comments.models import FullCommentFormResponse
+
+TEST_MODERATION_SCORE = 0.001
 
 
 @fixture(autouse=True)
@@ -30,10 +33,36 @@ def override_auth_dependency():
         app.dependency_overrides.pop(auth.verify, None)
 
 
+def mock_review_approve(client, content_type: str, id: int):
+    client.post(
+        "/api/comments/admin/review",
+        json={
+            "content_type": content_type,
+            "review_status": "APPROVED",
+            "id": id,
+        },
+    )
+
+
+def mock_review_approve_full(client, form_response: FullCommentFormResponse):
+    if "tags" in form_response["comment"]:
+        for tag in form_response["comment"]["tags"]:
+            mock_review_approve(client, "tag", tag["id"])
+    if (
+        "commenter_id" in form_response["comment"]
+        and form_response["comment"]["commenter_id"] is not None
+    ):
+        mock_review_approve(
+            client, "commenter", form_response["comment"]["commenter_id"]
+        )
+    if "id" in form_response["comment"] and form_response["comment"]["id"] is not None:
+        mock_review_approve(client, "comment", form_response["comment"]["id"])
+
+
 class TestCommenterEndpoint:
     """Tests for the /api/comments/commenter endpoint"""
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_commenter_success(self, mock_score_text, client, session: Session):
         """Test successful commenter creation"""
         commenter_data = {
@@ -50,7 +79,6 @@ class TestCommenterEndpoint:
             "/api/comments/commenter",
             json={"commenter": commenter_data, "recaptcha_token": "test_token"},
         )
-        print(f"!!!Response: {response.json()}")
 
         assert response.status_code == 201
         data = response.json()
@@ -74,7 +102,7 @@ class TestCommenterEndpoint:
         assert db_commenter.first_name == "John"
         assert db_commenter.email == "john@example.com"
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_commenter_minimal_data(
         self, mock_score_test, client, session: Session
     ):
@@ -97,7 +125,7 @@ class TestCommenterEndpoint:
         assert data["state"] is None
         assert data["zip_code"] is None
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_commenter_upsert_on_conflict(
         self, mock_score_test, client, session: Session
     ):
@@ -140,7 +168,7 @@ class TestCommenterEndpoint:
         assert len(commenters) == 1
         assert commenters[0].place == "Los Angeles"
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_commenter_invalid_email(
         self,
         mock_score_text,
@@ -156,7 +184,7 @@ class TestCommenterEndpoint:
         # Should fail due to database email validation constraint
         assert response.status_code in [400, 422, 500]  # Various possible error codes
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_commenter_empty_required_fields(
         self,
         mock_score_text,
@@ -176,7 +204,7 @@ class TestCommenterEndpoint:
             )
             assert response.status_code in [400, 422, 500]
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_commenter_missing_required_fields(
         self,
         mock_score_text,
@@ -200,7 +228,7 @@ class TestCommenterEndpoint:
 class TestCommentEndpoint:
     """Tests for the /api/comments/comment endpoint"""
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_comment_success(self, mock_score_test, client, session: Session):
         """Test successful comment creation"""
         comment_data = {
@@ -228,7 +256,7 @@ class TestCommentEndpoint:
         assert db_comment.comment == "This is a test comment with some content."
         assert db_comment.commenter_id is None  # Should be null as specified
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_comment_on_document_success(
         self, mock_score_test, client, document_id, session: Session
     ):
@@ -264,7 +292,7 @@ class TestCommentEndpoint:
         assert db_document_comment.comment_id == db_comment.id
         assert db_document_comment.document_id == document_id, response.json()
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_comment_long_content(
         self, mock_score_test, client, session: Session
     ):
@@ -281,7 +309,7 @@ class TestCommentEndpoint:
         data = response.json()
         assert data["comment"] == long_content
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_comment_too_long_content(
         self,
         mock_score_text,
@@ -298,7 +326,7 @@ class TestCommentEndpoint:
         # Should fail due to database constraint
         assert response.status_code in [400, 422, 500]
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_comment_missing_required_fields(
         self,
         mock_score_text,
@@ -318,7 +346,7 @@ class TestCommentEndpoint:
             )
             assert response.status_code == 422
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_comment_empty_required_fields(
         self,
         mock_score_text,
@@ -342,7 +370,7 @@ class TestCommentEndpoint:
 class TestTagEndpoint:
     """Tests for the /api/comments/tag endpoint"""
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_tag_success(self, mock_score_test, client, session: Session):
         """Test successful tag creation"""
         tag_data = {"tag": "Important Issue"}
@@ -362,7 +390,7 @@ class TestTagEndpoint:
         db_tag = session.exec(stmt).one()
         assert db_tag.slug == "important-issue"
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_tag_conflict_success(
         self, mock_score_test, client, session: Session
     ):
@@ -390,7 +418,7 @@ class TestTagEndpoint:
         db_tag = session.exec(stmt).one()
         assert db_tag.slug == "important-issue"
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_tag_with_special_characters(
         self, mock_score_test, client, session: Session
     ):
@@ -407,7 +435,7 @@ class TestTagEndpoint:
         # Special characters should be removed, spaces converted to dashes
         assert data["slug"] == "budget-finance"
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_tag_with_multiple_spaces(
         self, mock_score_test, client, session: Session
     ):
@@ -424,7 +452,7 @@ class TestTagEndpoint:
         # Multiple spaces should be converted to single dashes
         assert data["slug"] == "housing-and-development"
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_tag_duplicate_returns_existing(
         self, mock_score_test, client, session: Session
     ):
@@ -454,7 +482,7 @@ class TestTagEndpoint:
         tags = session.exec(stmt).all()
         assert len(tags) == 1
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_tag_mixed_case_and_spacing(
         self, mock_score_test, client, session: Session
     ):
@@ -471,7 +499,7 @@ class TestTagEndpoint:
         # Should be lowercased, trimmed, and slugified
         assert data["slug"] == "public-safety-security"
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_tag_empty_string(
         self,
         mock_score_text,
@@ -492,7 +520,7 @@ class TestTagEndpoint:
             # Should fail because slugify returns null/empty for invalid input
             assert response.status_code in [400, 422, 500], response.json()
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_tag_missing_required_field(
         self,
         mock_score_text,
@@ -504,7 +532,7 @@ class TestTagEndpoint:
         )
         assert response.status_code == 422
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_tag_numbers_and_hyphens(
         self, mock_score_test, client, session: Session
     ):
@@ -525,7 +553,7 @@ class TestTagEndpoint:
 class TestIntegrationTests:
     """Integration tests for the comments system"""
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_full_comment_system_flow(
         self, mock_score_test, client, session: Session
     ):
@@ -587,7 +615,7 @@ class TestIntegrationTests:
 class TestFullCommentSubmissionEndpoint:
     """Tests for the /api/comments/submit endpoint"""
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_submit_full_comment_success(
         self, mock_score_text, client, session: Session
     ):
@@ -652,7 +680,7 @@ class TestFullCommentSubmissionEndpoint:
         associations = session.exec(associations_stmt).all()
         assert len(associations) == 3
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_submit_full_comment_minimal_data(
         self, mock_score_text, client, session: Session
     ):
@@ -677,7 +705,7 @@ class TestFullCommentSubmissionEndpoint:
         assert len(data["tags"]) == 1
         assert data["tags"][0]["slug"] == "general"
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_submit_full_comment_no_tags(
         self, mock_score_text, client, session: Session
     ):
@@ -701,7 +729,7 @@ class TestFullCommentSubmissionEndpoint:
         assert data["comment"]["title"] == "No Tags Comment"
         assert len(data["tags"]) == 0
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_submit_full_comment_upsert_commenter(
         self, mock_score_text, client, session: Session
     ):
@@ -754,7 +782,7 @@ class TestFullCommentSubmissionEndpoint:
         assert len(commenters) == 1
         assert commenters[0].place == "Los Angeles"
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_submit_full_comment_duplicate_tags(
         self, mock_score_text, client, session: Session
     ):
@@ -784,7 +812,7 @@ class TestFullCommentSubmissionEndpoint:
         assert "environment" in tag_slugs
         assert "environment-climate" in tag_slugs
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_submit_full_comment_invalid_commenter_email(
         self,
         mock_score_text,
@@ -801,7 +829,7 @@ class TestFullCommentSubmissionEndpoint:
         response = client.post("/api/comments/submit", json=form_data)
         assert response.status_code == 422
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_submit_full_comment_missing_required_fields(
         self,
         mock_score_text,
@@ -834,7 +862,7 @@ class TestFullCommentSubmissionEndpoint:
             response = client.post("/api/comments/submit", json=form_data)
             assert response.status_code == 422
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_submit_full_comment_too_long_content(
         self,
         mock_score_text,
@@ -859,7 +887,7 @@ class TestFullCommentSubmissionEndpoint:
 class TestCommentListEndpoints:
     """Tests for the comment list endpoints with moderation filtering"""
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_list_comments_clean_content_only(
         self, mock_score_text, client, session: Session, document_id
     ):
@@ -882,12 +910,14 @@ class TestCommentListEndpoints:
         }
 
         response = client.post("/api/comments/submit", json=clean_form_data)
-        print(f"!!!Response: {response.json()}")
         assert response.status_code == 201
+        # approve the comment
+        mock_review_approve_full(client, response.json())
 
         # Get the list of comments
         response = client.get("/api/comments/list")
         assert response.status_code == 200
+
         comments = response.json()
         assert len(comments) == 1
         assert comments[0]["title"] == "Clean Comment"
@@ -918,8 +948,8 @@ class TestCommentListEndpoints:
         response = client.post("/api/comments/submit", json=profane_form_data)
         assert response.status_code == 201
 
-        # Second comment - clean (score 0.2)
-        mock_score_text.return_value = 0.2
+        # Second comment - clean (score TEST_MODERATION_SCORE)
+        mock_score_text.return_value = TEST_MODERATION_SCORE
         clean_form_data = {
             "commenter": {
                 "first_name": "Alice",
@@ -936,6 +966,7 @@ class TestCommentListEndpoints:
             "recaptcha_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=clean_form_data)
+        mock_review_approve_full(client, response.json())
         assert response.status_code == 201
 
         # Get the list of comments - should only return the clean one
@@ -946,7 +977,7 @@ class TestCommentListEndpoints:
         assert comments[0]["title"] == "Clean Comment"
         assert comments[0]["first_name"] == "Alice"
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_list_comments_with_filters(
         self, mock_score_text, client, session: Session, document_id
     ):
@@ -1019,7 +1050,7 @@ class TestCommentListEndpoints:
         assert len(comments) == 1
         assert "education" in comments[0]["tags"]
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_admin_list_comments_success(
         self, mock_score_text, client, session: Session, document_id
     ):
@@ -1112,7 +1143,7 @@ class TestCommentListEndpoints:
         comments = response.json()
         assert len(comments) == 0
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_admin_list_comments_with_filters(
         self, mock_score_text, client, session: Session, document_id
     ):
@@ -1158,7 +1189,7 @@ class TestCommentListEndpoints:
         assert len(comments) == 1
         assert "testing" in comments[0]["tags"]
 
-    @patch("app.comments.moderation.score_text", return_value=0.2)
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_list_comments_empty_results(
         self, mock_score_text, client, session: Session, document_id
     ):
@@ -1235,29 +1266,13 @@ class TestListingComments:
             "recaptcha_token": "test_token",
         }
         post_response = client.post("/api/comments/comment", json=comment_data)
-        print(f"###############POST RESPONSE: {post_response.json()}")
-        assert post_response.status_code == 201
-        # review approve comment
-        review = client.post(
-            "/api/comments/admin/review",
-            json={
-                "id": post_response.json()["id"],
-                "review_status": "APPROVED",
-                "content_type": "comment",
-            },
-        ).json()
-        print(f"###############REVIEW: {review}")
-        assert review["new_status"] == "APPROVED"
-        # assert review["new_status"] == "APPROVED"
-        # assert review["id"] == post_response.json()["id"]
-        # assert review["message"] == "comment review status updated to APPROVED"
 
-        # get list of comments
-        full_list = client.get("/api/comments/list").json()
-        print(f"###############FULL LIST: {full_list}")
+        mock_review_approve(client, "comment", post_response.json()["id"])
+
         get_response = client.get(
             f"/api/comments/list?public_id={document['public_id']}"
         )
+
         assert get_response.status_code == 200
         assert len(get_response.json()) == 1
 
@@ -1295,7 +1310,7 @@ class TestListingComments:
             "recaptcha_token": "test_token",
         }
         comment = client.post("/api/comments/comment", json=comment_data).json()
-
+        mock_review_approve(client, "comment", comment["id"])
         self._add_tags(client, session, comment["id"])
 
         get_response = client.get("/api/comments/list?tags=world")
@@ -1319,32 +1334,37 @@ class TestListingComments:
         self._add_tags(client, session, comment["id"])
 
         review = client.post(
-            "/api/comments/review/comment",
-            json={"id": comment["id"], "review_status": "REVIEWED"},
+            "/api/comments/admin/review",
+            json={
+                "id": comment["id"],
+                "review_status": "REVIEWED",
+                "content_type": "comment",
+            },
         ).json()
         assert review["new_status"] == "REVIEWED"
         assert review["id"] == comment["id"]
         assert review["message"] == "comment review status updated to REVIEWED"
-        document = client.get(f"/api/document/{document_id}").json()
-        get_response = client.get(
-            f"/api/comments/list?public_id={document["public_id"]}"
-        )
-        assert get_response.status_code == 200
-        returned = get_response.json()[0]
-        assert returned["review_status"] == "REVIEWED"
 
         # approve comment
         review = client.post(
-            "/api/comments/review/comment",
-            json={"id": comment["id"], "review_status": "APPROVED"},
+            "/api/comments/admin/review",
+            json={
+                "id": comment["id"],
+                "review_status": "APPROVED",
+                "content_type": "comment",
+            },
         ).json()
         assert review["new_status"] == "APPROVED"
         assert review["id"] == comment["id"]
 
         # reject comment
         review = client.post(
-            "/api/comments/review/comment",
-            json={"id": comment["id"], "review_status": "REJECTED"},
+            "/api/comments/admin/review",
+            json={
+                "id": comment["id"],
+                "review_status": "REJECTED",
+                "content_type": "comment",
+            },
         ).json()
         assert review["new_status"] == "REJECTED"
         assert review["id"] == comment["id"]

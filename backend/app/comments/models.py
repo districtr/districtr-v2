@@ -230,6 +230,11 @@ class TagPublic(BaseModel):
     slug: str
 
 
+class TagWithId(BaseModel):
+    id: int
+    slug: str
+
+
 class CommentTag(SQLModel, table=True):
     metadata = MetaData(schema=COMMENTS_SCHEMA)
     __table_args__ = (
@@ -276,13 +281,13 @@ class FullCommentFormCreate(BaseModel):
 class FullCommentForm(BaseModel):
     comment: Comment
     commenter: Commenter
-    tags: list[Tag]
+    tags: list[TagWithId]
 
 
 class FullCommentFormResponse(BaseModel):
     comment: CommentPublic
     commenter: CommenterPublic
-    tags: list[TagPublic]
+    tags: list[TagWithId]
 
 
 class ModerationScore(BaseModel):
@@ -294,7 +299,7 @@ class ModerationScore(BaseModel):
 class PublicCommentResponse(BaseModel):
     title: str
     comment: str
-    first_name: str
+    first_name: str | None = None
     last_name: str | None = None
     place: str | None = None
     state: str | None = None

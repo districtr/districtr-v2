@@ -27,6 +27,7 @@ from app.comments.models import (
     CommentCreateWithRecaptcha,
     CommentPublic,
     Tag,
+    TagWithId,
     TagCreateWithRecaptcha,
     TagPublic,
     CommentTag,
@@ -188,23 +189,23 @@ def create_full_comment_submission(
     comment = create_comment_db(form_data.comment, session)
 
     # TODO: Do this as a batch upsert
-    created_tags: list[Tag] = []
-    tag_ids = []
+    created_tags: list[TagWithId] = []
     for tag_create in form_data.tags:
         tag = create_tag_db(tag_create, session)
-        created_tags.append(tag)
-        tag_ids.append(tag.id)
+        created_tags.append(
+            {
+                "id": tag.id,
+                "slug": tag.slug,
+            }
+        )
+    tag_ids = [tag["id"] for tag in created_tags]
 
     create_comment_tag_associations(comment.id, tag_ids, session)
 
     session.commit()
     session.refresh(comment)
 
-    response = FullCommentForm(
-        comment=comment,
-        commenter=commenter,
-        tags=created_tags,
-    )
+    response = FullCommentForm(comment=comment, commenter=commenter, tags=created_tags)
 
     return response
 
@@ -324,7 +325,9 @@ def get_comments_base_query(
             Commenter.place,
             Commenter.state,
             Commenter.zip_code,
-            func.array_agg(Tag.slug).label("tags"),
+            func.coalesce(
+                func.array_agg(Tag.slug).filter(Tag.slug.isnot(None)), []
+            ).label("tags"),
         )
         .outerjoin(Commenter, Comment.commenter_id == Commenter.id)
         .outerjoin(DocumentComment, Comment.id == DocumentComment.comment_id)
@@ -339,7 +342,8 @@ def get_comments_base_query(
     )
 
     if tags:
-        stmt = stmt.where(Tag.slug.in_(tags))
+        # Filter after group by so that any of the tags could be included
+        stmt = stmt.having(func.bool_or(Tag.slug.in_(tags)))
     if place:
         stmt = stmt.where(Commenter.place == place)
     if state:
@@ -386,12 +390,14 @@ async def list_comments(
         )
         .where(
             or_(
+                Commenter.id is None,
                 Commenter.moderation_score < threshold,
                 Commenter.review_status == ReviewStatus.APPROVED,
             )
         )
         .where(
             or_(
+                Tag.id is None,
                 Tag.moderation_score < threshold,
                 Tag.review_status == ReviewStatus.APPROVED,
             )
@@ -399,20 +405,7 @@ async def list_comments(
     )
 
     results = session.exec(stmt).all()
-
-    return [
-        {
-            "title": title,
-            "comment": comment,
-            "first_name": first_name,
-            "last_name": last_name,
-            "place": place,
-            "state": state,
-            "zip_code": zip_code,
-            "tags": tags,
-        }
-        for title, comment, first_name, last_name, place, state, zip_code, tags in results
-    ]
+    return results
 
 
 @router.get("/admin/list", response_model=list[PublicCommentResponse])
@@ -441,9 +434,26 @@ async def list_comments_admin(
 
     threshold = min_moderation_score
     stmt = (
-        stmt.where(Comment.moderation_score < threshold)
-        .where(Commenter.moderation_score < threshold)
-        .having(func.max(func.coalesce(Tag.moderation_score, 0)) < threshold)
+        stmt.where(
+            or_(
+                Comment.moderation_score < threshold,
+                Comment.review_status == ReviewStatus.APPROVED,
+            )
+        )
+        .where(
+            or_(
+                Commenter.moderation_score < threshold,
+                Commenter.review_status == ReviewStatus.APPROVED,
+                Commenter.id is None,
+            )
+        )
+        .where(
+            or_(
+                Tag.id is None,
+                Tag.moderation_score < threshold,
+                Tag.review_status == ReviewStatus.APPROVED,
+            )
+        )
     )
     stmt = stmt.offset(offset).limit(limit)
 
@@ -464,7 +474,6 @@ async def review_comment(
     }[review_data.content_type]
 
     entry = session.get(model, review_data.id)
-    print(f"!!!ENTRY: {entry}")
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
 
