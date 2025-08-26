@@ -1,9 +1,11 @@
 from sqlmodel import Session, select, insert
 from unittest.mock import patch
 from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
-from app.core.security import recaptcha
+from app.core.security import recaptcha, auth
 from pytest import MonkeyPatch, fixture
 from tests.utils import fake_verify_recaptcha
+from fastapi.security import SecurityScopes
+from app.main import app
 
 
 @fixture(autouse=True)
@@ -12,6 +14,20 @@ def patch_recaptcha():
     monkeypatch.setattr(recaptcha, "verify_recaptcha", fake_verify_recaptcha)
     yield
     monkeypatch.undo()
+
+
+@fixture(autouse=True)
+def override_auth_dependency():
+    async def _ok_override(_scopes: SecurityScopes):
+        # Return anything your app expects from a verified token
+        # You can include "scope" with needed permissions if your code reads it.
+        return {"sub": "test-user", "scope": "create:content read:content"}
+
+    app.dependency_overrides[auth.verify] = _ok_override
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(auth.verify, None)
 
 
 class TestCommenterEndpoint:
@@ -34,6 +50,7 @@ class TestCommenterEndpoint:
             "/api/comments/commenter",
             json={"commenter": commenter_data, "recaptcha_token": "test_token"},
         )
+        print(f"!!!Response: {response.json()}")
 
         assert response.status_code == 201
         data = response.json()
@@ -195,7 +212,7 @@ class TestCommentEndpoint:
         }
 
         response = client.post("/api/comments/comment", json=comment_data)
-        print(f"!!!Response: {response.json()}")
+
         assert response.status_code == 201
         data = response.json()
 
@@ -651,7 +668,7 @@ class TestFullCommentSubmissionEndpoint:
         }
 
         response = client.post("/api/comments/submit", json=form_data)
-        print(f"!!!Response: {response.json()}")
+
         assert response.status_code == 201
         data = response.json()
 
@@ -861,9 +878,11 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Public Safety"}],
+            "recaptcha_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=clean_form_data)
+        print(f"!!!Response: {response.json()}")
         assert response.status_code == 201
 
         # Get the list of comments
@@ -894,6 +913,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Budget"}],
+            "recaptcha_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=profane_form_data)
         assert response.status_code == 201
@@ -913,6 +933,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Education"}],
+            "recaptcha_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=clean_form_data)
         assert response.status_code == 201
@@ -945,6 +966,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Education"}, {"tag": "Budget"}],
+            "recaptcha_token": "test_token",
         }
 
         form_data_2 = {
@@ -961,6 +983,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Transportation"}],
+            "recaptcha_token": "test_token",
         }
 
         # Submit both comments
@@ -1015,6 +1038,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Policy"}],
+            "recaptcha_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -1046,6 +1070,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "General"}],
+            "recaptcha_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=moderate_form_data)
         assert response.status_code == 201
@@ -1063,6 +1088,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Issues"}],
+            "recaptcha_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=high_form_data)
         assert response.status_code == 201
@@ -1106,6 +1132,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Testing"}, {"tag": "Admin"}],
+            "recaptcha_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -1150,6 +1177,7 @@ class TestCommentListEndpoints:
                 "document_id": document_id,
             },
             "tags": [{"tag": "Testing"}],
+            "recaptcha_token": "test_token",
         }
 
         response = client.post("/api/comments/submit", json=form_data)
@@ -1207,10 +1235,28 @@ class TestListingComments:
             "recaptcha_token": "test_token",
         }
         post_response = client.post("/api/comments/comment", json=comment_data)
+        print(f"###############POST RESPONSE: {post_response.json()}")
         assert post_response.status_code == 201
+        # review approve comment
+        review = client.post(
+            "/api/comments/admin/review",
+            json={
+                "id": post_response.json()["id"],
+                "review_status": "APPROVED",
+                "content_type": "comment",
+            },
+        ).json()
+        print(f"###############REVIEW: {review}")
+        assert review["new_status"] == "APPROVED"
+        # assert review["new_status"] == "APPROVED"
+        # assert review["id"] == post_response.json()["id"]
+        # assert review["message"] == "comment review status updated to APPROVED"
 
+        # get list of comments
+        full_list = client.get("/api/comments/list").json()
+        print(f"###############FULL LIST: {full_list}")
         get_response = client.get(
-            f"/api/comments/list?public_id={document["public_id"]}"
+            f"/api/comments/list?public_id={document['public_id']}"
         )
         assert get_response.status_code == 200
         assert len(get_response.json()) == 1
@@ -1252,8 +1298,53 @@ class TestListingComments:
 
         self._add_tags(client, session, comment["id"])
 
-        get_response = client.get("/api/comments/list?tag=world")
+        get_response = client.get("/api/comments/list?tags=world")
         assert get_response.status_code == 200
         returned = get_response.json()[0]
         assert len(returned["tags"]) == 2
         assert "hello" in returned["tags"]
+
+    def test_comment_review(self, client, document_id, session: Session):
+        # create comment (this endpoint does not do tagging)
+        comment_data = {
+            "comment": {
+                "title": "Test Comment",
+                "comment": "This is a test comment with some tags.",
+                "document_id": document_id,
+            },
+            "recaptcha_token": "test_token",
+        }
+        comment = client.post("/api/comments/comment", json=comment_data).json()
+
+        self._add_tags(client, session, comment["id"])
+
+        review = client.post(
+            "/api/comments/review/comment",
+            json={"id": comment["id"], "review_status": "REVIEWED"},
+        ).json()
+        assert review["new_status"] == "REVIEWED"
+        assert review["id"] == comment["id"]
+        assert review["message"] == "comment review status updated to REVIEWED"
+        document = client.get(f"/api/document/{document_id}").json()
+        get_response = client.get(
+            f"/api/comments/list?public_id={document["public_id"]}"
+        )
+        assert get_response.status_code == 200
+        returned = get_response.json()[0]
+        assert returned["review_status"] == "REVIEWED"
+
+        # approve comment
+        review = client.post(
+            "/api/comments/review/comment",
+            json={"id": comment["id"], "review_status": "APPROVED"},
+        ).json()
+        assert review["new_status"] == "APPROVED"
+        assert review["id"] == comment["id"]
+
+        # reject comment
+        review = client.post(
+            "/api/comments/review/comment",
+            json={"id": comment["id"], "review_status": "REJECTED"},
+        ).json()
+        assert review["new_status"] == "REJECTED"
+        assert review["id"] == comment["id"]

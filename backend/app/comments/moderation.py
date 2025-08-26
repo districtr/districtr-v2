@@ -18,8 +18,7 @@ st = SafeText(language="en")
 logger = logging.getLogger(__name__)
 
 
-# PROFANITY_SCORE_THRESHOLD: float = 0.5 # unused?
-MODERATION_THRESHOLD: float = 0.4
+MODERATION_THRESHOLD: float = 0.01
 
 
 def rate_offensive_text_ai(text: str) -> ModerationScore | None:

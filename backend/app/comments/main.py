@@ -8,10 +8,10 @@ from fastapi import (
     Query,
     Request,
 )
-from sqlmodel import Session, select, desc, func
+from sqlmodel import Session, select, func
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text, any_
+from sqlalchemy import text, or_
 
 from app.core.security import auth, TokenScope
 from typing import Optional
@@ -20,13 +20,14 @@ from app.core.dependencies import get_protected_document
 from app.core.db import get_session
 from app.comments.models import (
     Commenter,
-    CommenterCreate,
+    CommenterCreateWithRecaptcha,
     CommenterPublic,
     Comment,
     CommentCreate,
+    CommentCreateWithRecaptcha,
     CommentPublic,
     Tag,
-    TagCreate,
+    TagCreateWithRecaptcha,
     TagPublic,
     CommentTag,
     FullCommentForm,
@@ -34,22 +35,27 @@ from app.comments.models import (
     DocumentComment,
     FullCommentFormCreate,
     PublicCommentResponse,
+    ReviewStatusUpdate,
+    ReviewUpdateResponse,
+    ReviewStatus,
 )
 from app.comments.moderation import (
     moderate_submission,
     moderate_commenter,
     moderate_comment,
     moderate_tag,
-    PublicCommentListing,
 )
 from app.models import Document
 from app.core.models import DocumentID
 from app.core.security import recaptcha
+from app.comments.moderation import MODERATION_THRESHOLD
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
 
 
-def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Commenter:
+def create_commenter_db(
+    commenter_data: CommenterCreateWithRecaptcha, session: Session
+) -> Commenter:
     """
     Create a new commenter with upsert on conflict for name + email unique constraint.
     Returns the Commenter model with id.
@@ -114,7 +120,7 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
     return comment
 
 
-def create_tag_db(tag_data: TagCreate, session: Session) -> Tag:
+def create_tag_db(tag_data: TagCreateWithRecaptcha, session: Session) -> Tag:
     """
     Create a new tag using the slugify_tag SQL function.
     Returns the Tag model with id.
@@ -207,7 +213,7 @@ def create_full_comment_submission(
     "/commenter", response_model=CommenterPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_commenter(
-    commenter_data: CommenterCreate,
+    commenter_data: CommenterCreateWithRecaptcha,
     background_tasks: BackgroundTasks,
     request: Request,
     session: Session = Depends(get_session),
@@ -232,7 +238,7 @@ async def create_commenter(
     "/comment", response_model=CommentPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_comment(
-    comment_data: CommentCreate,
+    comment_data: CommentCreateWithRecaptcha,
     background_tasks: BackgroundTasks,
     request: Request,
     session: Session = Depends(get_session),
@@ -253,7 +259,7 @@ async def create_comment(
 
 @router.post("/tag", response_model=TagPublic, status_code=status.HTTP_201_CREATED)
 async def create_tag(
-    tag_data: TagCreate,
+    tag_data: TagCreateWithRecaptcha,
     background_tasks: BackgroundTasks,
     request: Request,
     session: Session = Depends(get_session),
@@ -297,7 +303,15 @@ async def submit_full_comment(
     return response
 
 
-def get_comments_base_query(tags: list[str], place: str, state: str, zip_code: str):
+def get_comments_base_query(
+    tags: list[str],
+    place: str,
+    state: str,
+    zip_code: str,
+    limit: int,
+    offset: int,
+    public_id: int,
+):
     """
     Query the comments table with the given filters.
     """
@@ -312,11 +326,16 @@ def get_comments_base_query(tags: list[str], place: str, state: str, zip_code: s
             Commenter.zip_code,
             func.array_agg(Tag.slug).label("tags"),
         )
-        .join(Commenter, Comment.commenter_id == Commenter.id)
-        .join(DocumentComment, Comment.id == DocumentComment.comment_id)
-        .join(CommentTag, Comment.id == CommentTag.comment_id)
-        .join(Tag, Tag.id == CommentTag.tag_id)
-        .group_by(Comment.id, Commenter.id, DocumentComment.document_id)
+        .outerjoin(Commenter, Comment.commenter_id == Commenter.id)
+        .outerjoin(DocumentComment, Comment.id == DocumentComment.comment_id)
+        .outerjoin(CommentTag, Comment.id == CommentTag.comment_id)
+        .outerjoin(Document, Document.document_id == DocumentComment.document_id)
+        .outerjoin(Tag, Tag.id == CommentTag.tag_id)
+        .group_by(
+            Comment.id, Commenter.id, DocumentComment.document_id, Document.public_id
+        )
+        .limit(limit)
+        .offset(offset)
     )
 
     if tags:
@@ -327,8 +346,73 @@ def get_comments_base_query(tags: list[str], place: str, state: str, zip_code: s
         stmt = stmt.where(Commenter.state == state)
     if zip_code:
         stmt = stmt.where(Commenter.zip_code == zip_code)
-
+    if public_id:
+        stmt = stmt.where(Document.public_id == public_id)
     return stmt
+
+
+@router.get(
+    "/list",
+    response_model=list[PublicCommentResponse],
+)
+async def list_comments(
+    *,
+    session: Session = Depends(get_session),
+    public_id: Optional[int] = None,
+    tags: Optional[list[str]] = Query(default=None),
+    place: Optional[str] = Query(default=None),
+    state: Optional[str] = Query(default=None),
+    zip_code: Optional[str] = Query(default=None),
+    offset: Optional[int] = Query(default=0, ge=0),
+    limit: Optional[int] = Query(default=100, le=100),
+):
+    stmt = get_comments_base_query(
+        tags=tags,
+        place=place,
+        state=state,
+        zip_code=zip_code,
+        limit=limit,
+        offset=offset,
+        public_id=public_id,
+    )
+
+    threshold = MODERATION_THRESHOLD
+    stmt = (
+        stmt.where(
+            or_(
+                Comment.moderation_score < threshold,
+                Comment.review_status == ReviewStatus.APPROVED,
+            )
+        )
+        .where(
+            or_(
+                Commenter.moderation_score < threshold,
+                Commenter.review_status == ReviewStatus.APPROVED,
+            )
+        )
+        .where(
+            or_(
+                Tag.moderation_score < threshold,
+                Tag.review_status == ReviewStatus.APPROVED,
+            )
+        )
+    )
+
+    results = session.exec(stmt).all()
+
+    return [
+        {
+            "title": title,
+            "comment": comment,
+            "first_name": first_name,
+            "last_name": last_name,
+            "place": place,
+            "state": state,
+            "zip_code": zip_code,
+            "tags": tags,
+        }
+        for title, comment, first_name, last_name, place, state, zip_code, tags in results
+    ]
 
 
 @router.get("/admin/list", response_model=list[PublicCommentResponse])
@@ -337,6 +421,7 @@ async def list_comments_admin(
     place: str = Query(default=None),
     state: str = Query(default=None),
     zip_code: str = Query(default=None),
+    public_id: int = Query(default=None),
     # View all comments regardless of moderation score
     min_moderation_score: float = Query(default=1.0),
     offset: int = Query(default=0),
@@ -345,7 +430,13 @@ async def list_comments_admin(
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
 ):
     stmt = get_comments_base_query(
-        tags=tags, place=place, state=state, zip_code=zip_code
+        tags=tags,
+        place=place,
+        state=state,
+        zip_code=zip_code,
+        limit=limit,
+        offset=offset,
+        public_id=public_id,
     )
 
     threshold = min_moderation_score
@@ -360,75 +451,30 @@ async def list_comments_admin(
     return results
 
 
-@router.get(
-    "/list",
-    response_model=list[PublicCommentListing],
-)
-async def list_comments(
-    *,
+@router.post("/admin/review", response_model=ReviewUpdateResponse)
+async def review_comment(
+    review_data: ReviewStatusUpdate,
     session: Session = Depends(get_session),
-    public_id: Optional[int] = None,
-    tag: Optional[str] = Query(default=None),
-    offset: Optional[int] = Query(default=0, ge=0),
-    limit: Optional[int] = Query(default=100, le=100),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
 ):
-    if not public_id and not tag:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="You must provide either public_id or tag.",
-        )
+    model = {
+        "comment": Comment,
+        "commenter": Commenter,
+        "tag": Tag,
+    }[review_data.content_type]
 
-    # TODO resolve this
-    # stmt = get_comments_base_query(
-    #     tags=tags, place=place, state=state, zip_code=zip_code
-    # )
+    entry = session.get(model, review_data.id)
+    print(f"!!!ENTRY: {entry}")
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
 
-    # threshold = MODERATION_THRESHOLD
-    # stmt = (
-    #     stmt.where(Comment.moderation_score < threshold)
-    #     .where(Commenter.moderation_score < threshold)
-    #     .having(func.max(func.coalesce(Tag.moderation_score, 0)) < threshold)
-    # )
+    entry.review_status = review_data.review_status
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
 
-    query = (
-        select(
-            Comment.title,
-            Comment.comment,
-            Comment.commenter_id,
-            Comment.created_at,
-            Comment.updated_at,
-            func.array_agg(Tag.slug).filter(Tag.slug is not None).label("tags"),
-            Document.public_id,
-        )
-        .join(DocumentComment, Comment.id == DocumentComment.comment_id)
-        .outerjoin(CommentTag, Comment.id == CommentTag.comment_id)
-        .outerjoin(Tag, CommentTag.tag_id == Tag.id)
-        .join(Document, Document.document_id == DocumentComment.document_id)
-        .group_by(Comment.id, Document.public_id)
-        .order_by(desc(Comment.created_at))
-        .limit(limit)
+    return ReviewUpdateResponse(
+        message=f"{review_data.content_type} review status updated to {review_data.review_status.value}",
+        id=review_data.id,
+        new_status=review_data.review_status.value,
     )
-    if public_id:
-        query = query.where(Document.public_id == public_id)
-    if tag:
-        query = query.having(tag == any_(func.array_agg(Tag.slug)))
-    if offset is not None and offset > 0:
-        query = query.offset(offset)
-
-    results = session.exec(query)
-    rows = results.all()
-    return [
-        {
-            "comment": {
-                "title": title,
-                "comment": comment,
-                "commenter_id": commenter_id,
-                "document_id": None,
-                "created_at": created_at,
-                "updated_at": updated_at,
-                "public_id": public_id,
-            },
-            "tags": [] if not tags or all(t is None for t in tags) else tags,
-        }
-        for title, comment, commenter_id, created_at, updated_at, tags, public_id in rows
-    ]

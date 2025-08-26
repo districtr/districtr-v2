@@ -12,10 +12,18 @@ from sqlmodel import (
     Integer,
     Float,
 )
-from sqlalchemy import func
+from sqlalchemy import func, Enum as SAEnum
 from app.constants import COMMENTS_SCHEMA
 from app.core.models import TimeStampMixin, SQLModel
 from app.models import Document
+from enum import Enum
+from typing import Literal
+
+
+class ReviewStatus(str, Enum):
+    REVIEWED = "REVIEWED"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
 
 
 class Commenter(TimeStampMixin, SQLModel, table=True):
@@ -62,8 +70,22 @@ class Commenter(TimeStampMixin, SQLModel, table=True):
     place: str = Field(sa_column=Column(String(255), nullable=True))
     state: str = Field(sa_column=Column(String(255), nullable=True))
     zip_code: str = Field(sa_column=Column(String(255), nullable=True))
+
     moderation_score: float = Field(
         sa_column=Column(Float, nullable=True, default=None)
+    )
+    review_status: ReviewStatus | None = Field(
+        default=None,
+        sa_column=Column(
+            SAEnum(
+                ReviewStatus,
+                name="review_status_enum",
+                schema=COMMENTS_SCHEMA,
+                native_enum=True,
+                validate_strings=True,
+            ),
+            nullable=True,
+        ),
     )
 
     def __str__(self) -> str:
@@ -121,6 +143,19 @@ class Comment(TimeStampMixin, SQLModel, table=True):
     moderation_score: float = Field(
         sa_column=Column(Float, nullable=True, default=None)
     )
+    review_status: ReviewStatus | None = Field(
+        default=None,
+        sa_column=Column(
+            SAEnum(
+                ReviewStatus,
+                name="review_status_enum",
+                schema=COMMENTS_SCHEMA,
+                native_enum=True,
+                validate_strings=True,
+            ),
+            nullable=True,
+        ),
+    )
 
 
 class CommentCreate(BaseModel):
@@ -160,6 +195,19 @@ class Tag(TimeStampMixin, SQLModel, table=True):
     )
     moderation_score: float = Field(
         sa_column=Column(Float, nullable=True, default=None)
+    )
+    review_status: ReviewStatus | None = Field(
+        default=None,
+        sa_column=Column(
+            SAEnum(
+                ReviewStatus,
+                name="review_status_enum",
+                schema=COMMENTS_SCHEMA,
+                native_enum=True,
+                validate_strings=True,
+            ),
+            nullable=True,
+        ),
     )
 
 
@@ -260,6 +308,13 @@ class CommentOpenAccess(CommentCreate):
     updated_at: datetime | None
 
 
-class PublicCommentListing(BaseModel):
-    comment: CommentOpenAccess
-    tags: list[str]
+class ReviewStatusUpdate(BaseModel):
+    content_type: Literal["comment", "commenter", "tag"]
+    review_status: ReviewStatus
+    id: int
+
+
+class ReviewUpdateResponse(BaseModel):
+    message: str
+    id: int
+    new_status: ReviewStatus
