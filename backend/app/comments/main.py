@@ -29,7 +29,6 @@ from app.comments.models import (
     Tag,
     TagWithId,
     TagCreateWithRecaptcha,
-    TagPublic,
     CommentTag,
     FullCommentForm,
     FullCommentFormResponse,
@@ -258,7 +257,7 @@ async def create_comment(
     return comment
 
 
-@router.post("/tag", response_model=TagPublic, status_code=status.HTTP_201_CREATED)
+@router.post("/tag", response_model=TagWithId, status_code=status.HTTP_201_CREATED)
 async def create_tag(
     tag_data: TagCreateWithRecaptcha,
     background_tasks: BackgroundTasks,
@@ -390,14 +389,14 @@ async def list_comments(
         )
         .where(
             or_(
-                Commenter.id is None,
+                Commenter.id == None,  # noqa: E711
                 Commenter.moderation_score < threshold,
                 Commenter.review_status == ReviewStatus.APPROVED,
             )
         )
         .where(
             or_(
-                Tag.id is None,
+                Tag.id == None,  # noqa: E711
                 Tag.moderation_score < threshold,
                 Tag.review_status == ReviewStatus.APPROVED,
             )
@@ -444,12 +443,12 @@ async def list_comments_admin(
             or_(
                 Commenter.moderation_score < threshold,
                 Commenter.review_status == ReviewStatus.APPROVED,
-                Commenter.id is None,
+                Commenter.id == None,  # noqa: E711
             )
         )
         .where(
             or_(
-                Tag.id is None,
+                Tag.id == None,  # noqa: E711
                 Tag.moderation_score < threshold,
                 Tag.review_status == ReviewStatus.APPROVED,
             )

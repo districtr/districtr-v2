@@ -1232,14 +1232,16 @@ class TestListingComments:
 
     def _add_tags(self, client, session: Session, comment_id: int):
         # do tagging in Python / SQL
-        client.post(
+        tag1 = client.post(
             "/api/comments/tag",
             json={"tag": {"tag": "hello"}, "recaptcha_token": "test_token"},
         ).json()
-        client.post(
+        tag2 = client.post(
             "/api/comments/tag",
             json={"tag": {"tag": "world"}, "recaptcha_token": "test_token"},
         ).json()
+        mock_review_approve(client, "tag", tag1["id"])
+        mock_review_approve(client, "tag", tag2["id"])
         tag1_id = session.exec(select(Tag.id).where(Tag.slug == "hello")).first()
         tag2_id = session.exec(select(Tag.id).where(Tag.slug == "world")).first()
         associations = [
@@ -1266,7 +1268,6 @@ class TestListingComments:
             "recaptcha_token": "test_token",
         }
         post_response = client.post("/api/comments/comment", json=comment_data)
-
         mock_review_approve(client, "comment", post_response.json()["id"])
 
         get_response = client.get(
@@ -1286,14 +1287,16 @@ class TestListingComments:
             },
             "recaptcha_token": "test_token",
         }
-        comment = client.post("/api/comments/comment", json=comment_data).json()
 
+        comment = client.post("/api/comments/comment", json=comment_data).json()
+        mock_review_approve(client, "comment", comment["id"])
         self._add_tags(client, session, comment["id"])
 
         document = client.get(f"/api/document/{document_id}").json()
         get_response = client.get(
             f"/api/comments/list?public_id={document["public_id"]}"
         )
+
         assert get_response.status_code == 200
         returned = get_response.json()[0]
         assert len(returned["tags"]) == 2
