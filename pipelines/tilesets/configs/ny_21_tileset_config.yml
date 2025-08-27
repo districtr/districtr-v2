@@ -1,0 +1,10 @@
+name: v1 batch tileset load
+tilesets:
+  ny_CD21_2025_view_v1:
+  - gpkg: ny_block_CD21_2025_view_v1.gpkg
+    layer_name: ny_block_CD21_2025_view_v1
+    new_layer_name: ny_block_CD21_2025_view_v1
+  - gpkg: ny_hybrid_block_bg_CD21_2025_view_v1.gpkg
+    layer_name: ny_hybrid_block_bg_CD21_2025_view_v1
+    new_layer_name: ny_hybrid_block_bg_CD21_2025_view_v1
+version: 0.1.0

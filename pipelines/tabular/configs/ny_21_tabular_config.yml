@@ -1,0 +1,7 @@
+name: NY21 district
+version: 0.1.0
+datasets:
+  ak_districtr_view:
+    parent_gpkg: ny_hybrid_block_bg_CD21_2025_view_v1.gpkg
+    child_gpkg: ny_block_CD21_2025_view_v1.gpkg
+    out_path: ny_CD21_2025_view_v1.parquet
