@@ -13,7 +13,13 @@ from app.core.models import SQLModel
 from app.models import Document, MapDocumentUserSession, Assignments
 from app.cms.models import TagsCMSContent, PlacesCMSContent
 from app.save_share.models import MapDocumentToken
-from app.comments.models import Comment, Commenter, Tag, CommentTag, DocumentComment
+from app.comments.models import (
+    Comment,
+    Commenter,
+    Tag,
+    CommentTag,
+    DocumentComment,
+)
 
 dotenv.load_dotenv()
 
@@ -59,6 +65,9 @@ def get_url():
 
 def include_object(object, name, type_, reflected, compare_to):
     print(object, name, type_, reflected, compare_to)
+    if hasattr(object, "schema") and object.schema == "gerrydb":
+        return False
+
     if name and (
         name in POST_GIS_ALPINE_RESERVED_TABLES
         or re.match(r"document.assignments_.+", name)
