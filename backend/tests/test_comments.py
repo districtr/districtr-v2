@@ -1020,6 +1020,8 @@ class TestCommentListEndpoints:
         # Submit both comments
         response1 = client.post("/api/comments/submit", json=form_data_1)
         response2 = client.post("/api/comments/submit", json=form_data_2)
+        mock_review_approve_full(client, response1.json())
+        mock_review_approve_full(client, response2.json())
         assert response1.status_code == 201
         assert response2.status_code == 201
 
@@ -1074,6 +1076,7 @@ class TestCommentListEndpoints:
 
         response = client.post("/api/comments/submit", json=form_data)
         assert response.status_code == 201
+        mock_review_approve_full(client, response.json())
 
         # Test admin endpoint (auth is mocked in conftest.py)
         response = client.get("/api/comments/admin/list")
@@ -1322,7 +1325,7 @@ class TestListingComments:
         assert len(returned["tags"]) == 2
         assert "hello" in returned["tags"]
 
-    def test_comment_review(self, client, document_id, session: Session):
+    def add_comment(self, client, document_id, session: Session):
         # create comment (this endpoint does not do tagging)
         comment_data = {
             "comment": {
@@ -1333,9 +1336,11 @@ class TestListingComments:
             "recaptcha_token": "test_token",
         }
         comment = client.post("/api/comments/comment", json=comment_data).json()
-
         self._add_tags(client, session, comment["id"])
+        return comment
 
+    def test_comment_review_reviewed(self, client, document_id, session: Session):
+        comment = self.add_comment(client, document_id, session)
         review = client.post(
             "/api/comments/admin/review",
             json={
@@ -1347,8 +1352,15 @@ class TestListingComments:
         assert review["new_status"] == "REVIEWED"
         assert review["id"] == comment["id"]
         assert review["message"] == "comment review status updated to REVIEWED"
+        actual = session.exec(
+            select(Comment).where(Comment.id == comment["id"])
+        ).first()
+        assert actual.review_status == "REVIEWED"
 
-        # approve comment
+    def test_comment_review_approved(self, client, document_id, session: Session):
+        comment = self.add_comment(client, document_id, session)
+
+        # First, review to APPROVED
         review = client.post(
             "/api/comments/admin/review",
             json={
@@ -1359,8 +1371,18 @@ class TestListingComments:
         ).json()
         assert review["new_status"] == "APPROVED"
         assert review["id"] == comment["id"]
+        actual = session.exec(
+            select(Comment).where(Comment.id == comment["id"])
+        ).first()
+        assert actual.review_status == "APPROVED"
+        list_result = client.get("/api/comments/list")
+        assert list_result.status_code == 200
+        assert len(list_result.json()) == 1
 
-        # reject comment
+    def test_comment_review_rejected(self, client, document_id, session: Session):
+        comment = self.add_comment(client, document_id, session)
+
+        # First, review to REJECTED
         review = client.post(
             "/api/comments/admin/review",
             json={
@@ -1371,3 +1393,10 @@ class TestListingComments:
         ).json()
         assert review["new_status"] == "REJECTED"
         assert review["id"] == comment["id"]
+        actual = session.exec(
+            select(Comment).where(Comment.id == comment["id"])
+        ).first()
+        assert actual.review_status == "REJECTED"
+        list_result = client.get("/api/comments/list")
+        assert list_result.status_code == 200
+        assert len(list_result.json()) == 0
