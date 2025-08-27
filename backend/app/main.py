@@ -73,9 +73,13 @@ from app.save_share.locks import (
     remove_all_locks,
     check_map_lock,
 )
+from app.save_share.main import (
+    bulk_update_district_stats as _bulk_update_district_stats,
+)
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
+from fastapi import BackgroundTasks
 
 
 if settings.ENVIRONMENT in ("production", "qa"):
@@ -88,9 +92,14 @@ if settings.ENVIRONMENT in ("production", "qa"):
 
 
 @repeat_every(seconds=60)
-async def cleanup_expired_locks():
+async def cleanup_expired_locks(
+    background_tasks: BackgroundTasks,
+):
     session = next(get_session())
-    _cleanup_expired_locks(session=session, hours=1)
+    document_ids = _cleanup_expired_locks(session=session, hours=1)
+    _bulk_update_district_stats(
+        session=session, document_ids=document_ids, background_tasks=background_tasks
+    )
 
 
 @asynccontextmanager
