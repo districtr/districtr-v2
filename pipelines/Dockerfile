@@ -7,6 +7,10 @@ RUN apt-get update && apt-get install -y \
     libgdal-dev \
     build-essential \
     git \
+    pkg-config \
+    libproj-dev \
+    proj-data \
+    proj-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the environment variable for GDAL

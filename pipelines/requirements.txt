@@ -27,7 +27,7 @@ click-plugins==1.1.1
 cligj==0.7.2
     # via fiona
 duckdb==1.0.0
-fiona==1.9.6
+fiona==1.10.1
     # via geopandas
 geopandas==0.14.4
 idna==3.7
