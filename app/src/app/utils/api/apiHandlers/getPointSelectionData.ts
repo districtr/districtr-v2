@@ -10,7 +10,7 @@ export const getPointSelectionData = async ({
   columns: string[];
   source: string;
   filterIds?: Set<string>;
-}): Promise<GeoJSON.FeatureCollection<GeoJSON.Point>> => {
+}): Promise<GeoJSON.FeatureCollection<GeoJSON.Point> | null> => {
   if (!layer) {
     throw new Error('No layer provided');
   }
