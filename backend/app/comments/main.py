@@ -542,7 +542,7 @@ async def list_comments_admin(
 async def review_comment(
     review_data: ReviewStatusUpdate,
     session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
 ):
     model = {
         "comment": Comment,
