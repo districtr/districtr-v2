@@ -19,11 +19,11 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 review_status_enum = sa.Enum(
-    ReviewStatus.REVIEWED.value,
-    ReviewStatus.APPROVED.value,
-    ReviewStatus.REJECTED.value,
+    ReviewStatus,
     name="review_status_enum",
     schema="comments",
+    native_enum=True,
+    validate_strings=True,
 )
 
 
