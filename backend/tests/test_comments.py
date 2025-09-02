@@ -1,62 +1,9 @@
 from sqlmodel import Session, select, insert
 from unittest.mock import patch
 from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
-from app.core.security import recaptcha, auth
-from pytest import MonkeyPatch, fixture
-from tests.utils import fake_verify_recaptcha
-from fastapi.security import SecurityScopes
-from app.main import app
-from app.comments.models import FullCommentFormResponse
+from tests.test_utils import mock_review_approve, mock_review_approve_full
 
 TEST_MODERATION_SCORE = 0.001
-
-
-@fixture(autouse=True)
-def patch_recaptcha():
-    monkeypatch = MonkeyPatch()
-    monkeypatch.setattr(recaptcha, "verify_recaptcha", fake_verify_recaptcha)
-    yield
-    monkeypatch.undo()
-
-
-@fixture(autouse=True)
-def override_auth_dependency():
-    async def _ok_override(_scopes: SecurityScopes):
-        # Return anything your app expects from a verified token
-        # You can include "scope" with needed permissions if your code reads it.
-        return {"sub": "test-user", "scope": "create:content read:content"}
-
-    app.dependency_overrides[auth.verify] = _ok_override
-    try:
-        yield
-    finally:
-        app.dependency_overrides.pop(auth.verify, None)
-
-
-def mock_review_approve(client, content_type: str, id: int):
-    client.post(
-        "/api/comments/admin/review",
-        json={
-            "content_type": content_type,
-            "review_status": "APPROVED",
-            "id": id,
-        },
-    )
-
-
-def mock_review_approve_full(client, form_response: FullCommentFormResponse):
-    if "tags" in form_response["comment"]:
-        for tag in form_response["comment"]["tags"]:
-            mock_review_approve(client, "tag", tag["id"])
-    if (
-        "commenter_id" in form_response["comment"]
-        and form_response["comment"]["commenter_id"] is not None
-    ):
-        mock_review_approve(
-            client, "commenter", form_response["comment"]["commenter_id"]
-        )
-    if "id" in form_response["comment"] and form_response["comment"]["id"] is not None:
-        mock_review_approve(client, "comment", form_response["comment"]["id"])
 
 
 class TestCommenterEndpoint:
