@@ -14,7 +14,9 @@ from tests.constants import (
 from app.utils import create_districtr_map, create_map_group
 from app.core.models import DocumentID
 from pydantic import ValidationError
-from tests.test_utils import mock_review_approve_full
+from tests.test_utils import mock_review_approve_full, patch_recaptcha
+
+REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
 
 
 def test_document_id_public_numeric_string():
