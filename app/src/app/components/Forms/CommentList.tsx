@@ -1,14 +1,17 @@
 import {Box, Flex, Grid, Heading, IconButton, Link, Text} from '@radix-ui/themes';
-import { PersonIcon } from '@radix-ui/react-icons';
-import { type CommentListing } from '@/app/utils/api/apiHandlers/types';
-import { formatDistanceToNow } from 'date-fns'
+import {PersonIcon} from '@radix-ui/react-icons';
+import {type CommentListing} from '@/app/utils/api/apiHandlers/types';
+import {formatDistanceToNow} from 'date-fns';
 
 export const CommentList: React.FC<{
-  comments: CommentListing[]
-}> = ({ comments }) =>
+  comments: CommentListing[];
+}> = ({comments}) => (
   <Flex direction="column" width="100%" gap="2">
     {comments.map((c, idx) => (
-      <Box key={idx} className="flex flex-col border border-zinc-200 rounded-lg p-4 shadow-sm bg-white">
+      <Box
+        key={idx}
+        className="flex flex-col border border-zinc-200 rounded-lg p-4 shadow-sm bg-white"
+      >
         <Flex align="center" gap="3" mb="2">
           <IconButton variant="ghost" size="3" aria-label="Commenter">
             <PersonIcon className="w-5 h-5 text-zinc-600" />
@@ -17,9 +20,9 @@ export const CommentList: React.FC<{
             {c.comment.title}
           </Heading>
         </Flex>
-        <Text className="mb-3 whitespace-pre-line">{(c.comment.comment)}</Text>
+        <Text className="mb-3 whitespace-pre-line">{c.comment.comment}</Text>
         <Flex wrap="wrap" gap="2">
-          {c.tags?.map((tag) => (
+          {c.tags?.map(tag => (
             <Link
               href={`/api/comments/list?tag=${tag}`}
               key={tag}
@@ -34,4 +37,5 @@ export const CommentList: React.FC<{
         </Text>
       </Box>
     ))}
-  </Flex>;
+  </Flex>
+);

@@ -24,6 +24,7 @@ class TokenScope:
     delete_content = "delete:content"
     delete_all_content = "delete:delete-all"
 
+    review_content = "create:content_review"
 
 class UnauthorizedException(HTTPException):
     def __init__(self, detail: str, **kwargs):

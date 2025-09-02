@@ -234,7 +234,7 @@ def load_sample_data(
         gpkg = os.path.join(data_dir, view.gpkg)
 
         if not Path(gpkg).exists():
-            print(f"File {gpkg} does not exist.")
+            logger.info(f"File {gpkg} does not exist.")
             gpkg = f"s3://{settings.R2_BUCKET_NAME}/gerrydb/{view.gpkg}"
 
         try:
