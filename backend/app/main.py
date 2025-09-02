@@ -17,9 +17,9 @@ from sqlalchemy.exc import (
 from sqlalchemy import text
 from sqlmodel import Session, String, select, true, update
 from starlette.middleware.cors import CORSMiddleware
-from sqlalchemy.dialects.postgresql import insert, TEXT, JSONB
+from sqlalchemy.dialects.postgresql import insert
 import logging
-from sqlalchemy import bindparam, cast
+from sqlalchemy import bindparam
 from sqlmodel import ARRAY, INT
 from datetime import datetime
 import sentry_sdk
@@ -64,6 +64,7 @@ from app.models import (
     MapGroup,
     AssignmentsCreate,
 )
+from app.comments.models import DocumentComment, Tag, CommentTag
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
@@ -577,13 +578,26 @@ async def get_document_list(
     )
 
     if len(tags) > 0:
-        stmt = stmt.where(
-            cast(Document.map_metadata["tags"], JSONB).op("?|")(
-                bindparam("tags", value=list(tags), type_=ARRAY(TEXT))
+        stmt = (
+            stmt.join(
+                DocumentComment,
+                DocumentComment.document_id == Document.document_id,
             )
-        ).where(
-            # this is fine to keep as ->> because you're comparing to text
-            Document.map_metadata["draft_status"].astext == "ready_to_share"
+            .join(
+                CommentTag,
+                CommentTag.comment_id == DocumentComment.comment_id,
+            )
+            .join(
+                Tag,
+                Tag.id == CommentTag.tag_id,
+            )
+            .where(
+                Tag.slug.in_(tags),
+            )
+            .where(
+                # this is fine to keep as ->> because you're comparing to text
+                Document.map_metadata["draft_status"].astext == "ready_to_share"
+            )
         )
     elif len(ids) > 0:
         stmt = stmt.where(Document.public_id.in_(ids))
