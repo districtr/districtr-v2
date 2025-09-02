@@ -568,6 +568,9 @@ async def get_document_list(
             Document.updated_at,
             DistrictrMap.name.label("map_module"),
         )
+        .distinct(
+            Document.public_id,
+        )
         .join(
             DistrictrMap,
             Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
