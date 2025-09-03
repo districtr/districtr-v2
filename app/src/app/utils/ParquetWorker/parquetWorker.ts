@@ -14,6 +14,7 @@ import {
 } from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
 import {GEODATA_URL, PARQUET_URL} from '../api/constants';
+import {readRowGroupsObjects} from './parquetUtils';
 
 // Threshold at which we flip to "local scan" mode
 const LOCAL_SCAN_ID_THRESHOLD = 20; // tune
@@ -21,128 +22,10 @@ const MAX_WHOLE_FILE_MB = 200; // safety cap to avoid huge downloads
 
 const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
-  // Simple per-URL local buffer cache
-  _localFileBufferCache: {},
-  _fetching: {},
-
-  async _ensureLocalAsyncBuffer(url: string, expectedByteLength?: number) {
-    if (this._localFileBufferCache[url]) return this._localFileBufferCache[url].file;
-
-    // Prefer OPFS when available (works inside Web Workers)
-    const hasOPFS =
-      typeof navigator !== 'undefined' &&
-      (navigator as any).storage &&
-      (navigator as any).storage.getDirectory;
-    try {
-      if (hasOPFS) {
-        const root = await (navigator as any).storage.getDirectory(); // OPFS root
-        const dir = await root.getDirectoryHandle('parquet-cache', {create: true});
-        const key = encodeURIComponent(url);
-        const fh = await dir.getFileHandle(key, {create: true});
-
-        // Re-download if missing or size mismatch
-        let fileObj = await fh.getFile().catch(() => undefined as any);
-        if (
-          !fileObj ||
-          (expectedByteLength && Number(fileObj.size) !== Number(expectedByteLength))
-        ) {
-          const res = await fetch(url, {credentials: 'omit'});
-          if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
-          const writable = await fh.createWritable();
-          if (res.body) {
-            await res.body.pipeTo(writable); // stream network → disk; no full-buffer in RAM
-          } else {
-            // Fallback if body is not a stream
-            const ab = await res.arrayBuffer();
-            await writable.write(new Uint8Array(ab));
-            await writable.close();
-          }
-          fileObj = await fh.getFile();
-        }
-
-        const file = {
-          byteLength: Number(fileObj.size),
-          async slice(start: number, end?: number) {
-            return await fileObj.slice(start, end).arrayBuffer();
-          },
-        };
-        this._localFileBufferCache[url] = {file, byteLength: file.byteLength};
-        return file;
-      }
-    } catch (e) {
-      // fall through to blob fallback
-    }
-
-    // Fallback: download to Blob (may hold in RAM depending on browser)
-    console.log('Falling back to blob download');
-    const res = await fetch(url, {credentials: 'omit'});
-    if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
-    const blob = await res.blob();
-    const file = {
-      byteLength: blob.size,
-      slice: (start: number, end?: number) => blob.slice(start, end).arrayBuffer(),
-    };
-    this._localFileBufferCache[url] = {file, byteLength: blob.size};
-    return file;
-  },
-  _getRowGroupBoundaries(meta: Awaited<ReturnType<typeof ParquetWorker.getMetaData>>) {
-    const starts: number[] = [];
-    const ends: number[] = [];
-    let cursor = 0;
-    for (const rg of meta.metadata.row_groups) {
-      starts.push(cursor);
-      cursor += Number(rg.num_rows);
-      ends.push(cursor); // exclusive
-    }
-    return {starts, ends};
-  },
-  _makeDemographyAccumulator(mapDocument, brokenIds) {
-    return {
-      mapDocument,
-      brokenIdsSet: new Set(brokenIds || []),
-      indexByPath: new Map<string, number>(),
-      path: [] as string[],
-      sourceLayer: [] as string[],
-      columns: {} as Record<string, number[]>,
-    };
-  },
-  _accumulateDemographyRows(acc, rows: DemographyParquetData[]) {
-    const {brokenIdsSet, mapDocument} = acc;
-    for (const r of rows) {
-      const isParent = r.parent_path === '__parent';
-      const idInSet = isParent ? brokenIdsSet.has(r.path) : brokenIdsSet.has(r.parent_path);
-      // Keep exactly the same semantics as your original parseDemographyData
-      if ((isParent && idInSet) || (!isParent && !idInSet)) continue;
-
-      let idx = acc.indexByPath.get(r.path);
-      if (idx === undefined) {
-        idx = acc.path.length;
-        acc.indexByPath.set(r.path, idx);
-        acc.path.push(r.path);
-        acc.sourceLayer.push(isParent ? mapDocument.parent_layer! : mapDocument.child_layer!);
-        // keep existing column arrays aligned (holes are ok; we finalize later)
-        for (const arr of Object.values(acc.columns))
-          if (arr.length < acc.path.length) arr.length = acc.path.length;
-      }
-
-      const col = r.column_name as AllTabularColumns[number];
-      let arr = acc.columns[col];
-      if (!arr) {
-        arr = acc.columns[col] = new Array(acc.path.length);
-      } else if (arr.length < acc.path.length) {
-        arr.length = acc.path.length;
-      }
-      arr[idx] = Number(r.value);
-    }
-  },
-  _finalizeDemographyAccumulator(acc) {
-    const out: ColumnarTableData = {path: acc.path, sourceLayer: acc.sourceLayer} as any;
-    for (const [k, arr] of Object.entries(acc.columns)) {
-      if (arr.length !== acc.path.length) arr.length = acc.path.length;
-      out[k as AllTabularColumns[number]] = arr;
-    }
-    return out;
-  },
+  _idRgCache: {},
+  _isQueryingDemography: false,
+  _queryDemographyCache: [],
+  updateDemographyCallback: null,
 
   async getMetaData(url) {
     if (this._metaCache[url]) {
@@ -185,8 +68,11 @@ const ParquetWorker: ParquetWorkerClass = {
       }
     }
     const rgRanges = rowGroups.map(i => [i * rg_length, (i + 1) * rg_length]).flat();
-    const rowRange: [number, number] = [rgRanges[0], rgRanges[rgRanges.length - 1]];
-    return rowRange;
+    const rowRanges: [number, number] = [rgRanges[0], rgRanges[rgRanges.length - 1]];
+    return {
+      rowRanges,
+      rowGroups,
+    };
   },
   getRowGroupsFromChildValue(meta, values, values_col = 'path') {
     const rowGroups = [];
@@ -225,7 +111,10 @@ const ParquetWorker: ParquetWorkerClass = {
     }
     const rgRanges = rowGroups.map(i => [i * rg_length, (i + 1) * rg_length]).flat();
     const rowRange: [number, number] = [rgRanges[0], rgRanges[rgRanges.length - 1]];
-    return rowRange;
+    return {
+      rowRanges: rowRange,
+      rowGroups: rowGroups,
+    };
   },
   async getRowRange<T = object>(
     url: string,
@@ -336,46 +225,16 @@ const ParquetWorker: ParquetWorkerClass = {
     console.log('!!!getDemography', mapDocument, brokenIds);
     const url = `${PARQUET_URL}/tabular/${mapDocument.gerrydb_table}.parquet`;
     const meta = await this.getMetaData(url);
-    const fileMB = Number(meta.byteLength) / (1024 * 1024);
-    const idCount = (brokenIds?.length ?? 0) + 1; // +1 for '__parent'
-    const useLocal = idCount >= LOCAL_SCAN_ID_THRESHOLD && fileMB <= MAX_WHOLE_FILE_MB;
-
-    const columns = ['parent_path', 'path', 'column_name', 'value'];
-
-    if (useLocal) {
-      // 1 GET → OPFS, then scan RG-by-RG (bounded memory)
-      const localFile = await this._ensureLocalAsyncBuffer(url, meta.byteLength);
-      const ranges = this.mergeRanges(
-        ['__parent', ...(brokenIds || [])].map(id =>
-          this.getRowGroupsFromParentValue(meta, id, 'parent_path')
-        )
-      );
-      const acc = this._makeDemographyAccumulator(mapDocument, brokenIds);
-      for (let i = 0; i < ranges.length; i++) {
-        const rows = await parquetReadObjects({
-          file: localFile,
-          columns,
-          compressors,
-          rowStart: ranges[i][0],
-          rowEnd: ranges[i][1],
-        });
-        this._accumulateDemographyRows(acc, rows as DemographyParquetData[]);
-      }
-      const parsed = this._finalizeDemographyAccumulator(acc);
-      return {columns: Object.keys(parsed) as AllTabularColumns[number][], results: parsed};
-    }
-
-    // Small query path: keep your existing targeted partial reads
-    const ranges = this.mergeRanges(
-      ['__parent', ...(brokenIds || [])].map(id =>
-        this.getRowGroupsFromParentValue(meta, id, 'parent_path')
-      )
+    const rowMeta = ['__parent', ...(brokenIds || [])].map(id =>
+      this.getRowGroupsFromParentValue(meta, id, 'parent_path')
     );
-    const data = await Promise.all(
-      ranges.map(range => this.getRowRange<DemographyParquetData>(url, range, columns))
-    );
-    const parsed = this.parseDemographyData(data.flat(), mapDocument, brokenIds);
-    this._fetching.demography = false;
+    const data = await readRowGroupsObjects({
+      url,
+      rowGroupIndices: rowMeta.map(r => r.rowGroups).flat(),
+      compressors,
+      columns: ['parent_path', 'path', 'column_name', 'value'],
+    });
+    const parsed = this.parseDemographyData(data.rows, mapDocument, brokenIds);
     return {columns: Object.keys(parsed) as AllTabularColumns[number][], results: parsed};
   },
   async getPointData(layer, columns, source, filterIds) {
@@ -431,11 +290,18 @@ const ParquetWorker: ParquetWorkerClass = {
     // Small query path: keep existing targeted reads
     const meta2 = meta; // alias
     let idRange: [number, number] | undefined = undefined;
+    let rowGroups: number[] | undefined = undefined;
     if (filterIds && filterIds.size > 0) {
-      idRange = this.getRowGroupsFromChildValue(meta2, Array.from(filterIds), 'path');
+      idRange = this.getRowGroupsFromChildValue(meta, Array.from(filterIds), 'path').rowRanges;
+      rowGroups = this.getRowGroupsFromChildValue(meta, Array.from(filterIds), 'path').rowGroups;
     }
-    const parquetData = await this.getRowRange<PointParquetData>(url, idRange, cols);
-    return this.generateGeojsonFromPointData(parquetData, layer, source, filterIds);
+    const parquetData = await readRowGroupsObjects({
+      url,
+      rowGroupIndices: rowGroups!,
+      compressors,
+      columns,
+    });
+    return this.generateGeojsonFromPointData(parquetData.rows, layer, source, filterIds);
   },
 };
 

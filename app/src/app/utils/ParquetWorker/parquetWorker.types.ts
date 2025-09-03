@@ -94,14 +94,26 @@ export type ParquetWorkerClass = {
    * Get the row range that covers the row-groups containing a given parent value.
    * (Used in the small-query path.)
    */
-  getRowGroupsFromParentValue: (meta: MetaInfo, value: string, value_col: string) => RowRange;
-
+  getRowGroupsFromParentValue: (
+    meta: MetaInfo,
+    value: string,
+    value_col: string
+  ) => {
+    rowRanges: [number, number];
+    rowGroups: number[];
+  };
   /**
    * Get the row range that covers the row-groups containing a set of child values.
    * (Used in the small-query path.)
    */
-  getRowGroupsFromChildValue: (meta: MetaInfo, values: string[], values_col: string) => RowRange;
-
+  getRowGroupsFromChildValue: (
+    meta: MetaInfo,
+    values: string[],
+    values_col: string
+  ) => {
+    rowRanges: [number, number];
+    rowGroups: number[];
+  };
   /**
    * Get the data for a given range of rows (rowEnd exclusive).
    */
