@@ -189,11 +189,11 @@ async def unlock_map(
 @app.get("/api/document/{document_id}/stats")
 async def get_document_stats(
     background_tasks: BackgroundTasks,
-    document_id: DocumentID = Depends(parse_document_id),
+    document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
     return update_or_select_district_unions(
-        session, document_id.value, background_tasks
+        session, document.document_id, background_tasks
     )
 
 

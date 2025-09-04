@@ -385,7 +385,7 @@ def update_or_select_district_unions(
             FROM document.district_unions du
             JOIN document.document d ON du.document_id = d.document_id
             WHERE du.document_id = :document_id
-              AND du.updated_at >= d.updated_at
+              AND du.updated_at > d.updated_at
         """).bindparams(bindparam(key="document_id", type_=UUIDType)),
             {"document_id": document_id},
         )
@@ -460,7 +460,7 @@ def update_or_select_district_unions(
             SELECT
                 {doc_id_sql} AS document_id,
                 zone::INTEGER AS zone,
-                ST_Multi(ST_Transform(ST_Union(geometry), 4326)) AS geometry,
+                ST_Multi(ST_Transform(ST_Union(geos.geometry), 4326)) AS geometry,
                 {f"{demographic_json} AS demographic_data" if (gerrydb_table and demographic_json) else "NULL AS demographic_data"},
                 NOW() AS created_at,
                 NOW() AS updated_at
