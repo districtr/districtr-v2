@@ -35,15 +35,18 @@ def upgrade() -> None:
             "updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("NOW()")
         ),
         sa.PrimaryKeyConstraint("document_id", "zone"),
+        sa.ForeignKeyConstraint(
+            ["document_id"],
+            ["document.document.document_id"],
+        ),
         sa.Column("demographic_data", JSON, nullable=True),
-        postgresql_partition_by="LIST (document_id)",
         schema="document",
     )
-    # Create an index on the geometry column for spatial queries using GIST
+    # create an index for document_id
     op.execute(
         sa.text("""
-        CREATE INDEX IF NOT EXISTS idx_district_unions_geometry 
-        ON document.district_unions USING GIST (geometry)
+        CREATE INDEX IF NOT EXISTS idx_district_unions_document_id 
+        ON document.district_unions (document_id DESC)
     """)
     )
 
