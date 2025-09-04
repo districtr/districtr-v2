@@ -63,6 +63,7 @@ from app.models import (
     BBoxGeoJSONs,
     MapGroup,
     AssignmentsCreate,
+    DistrictUnions,
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
@@ -73,9 +74,7 @@ from app.save_share.locks import (
     remove_all_locks,
     check_map_lock,
 )
-from app.save_share.main import (
-    bulk_update_district_stats as _bulk_update_district_stats,
-)
+from app.utils import update_or_select_district_unions
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
@@ -92,14 +91,9 @@ if settings.ENVIRONMENT in ("production", "qa"):
 
 
 @repeat_every(seconds=60)
-async def cleanup_expired_locks(
-    background_tasks: BackgroundTasks,
-):
+async def cleanup_expired_locks():
     session = next(get_session())
-    document_ids = _cleanup_expired_locks(session=session, hours=1)
-    _bulk_update_district_stats(
-        session=session, document_ids=document_ids, background_tasks=background_tasks
-    )
+    _cleanup_expired_locks(session=session, hours=1)
 
 
 @asynccontextmanager
@@ -191,6 +185,17 @@ async def unlock_map(
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/document/{document_id}/stats", response_model=DistrictUnions)
+async def get_document_stats(
+    background_tasks: BackgroundTasks,
+    document_id: DocumentID = Depends(parse_document_id),
+    session: Session = Depends(get_session),
+):
+    return update_or_select_district_unions(
+        session, document_id.value, background_tasks
+    )
 
 
 # matches createMapObject in apiHandlers.ts

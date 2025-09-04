@@ -302,13 +302,15 @@ class DistrictrMapsToGroups(SQLModel, table=True):
 
 
 class DistrictUnions(TimeStampMixin, SQLModel, table=True):
-    __table_args__ = ({"postgresql_partition_by": "LIST (document_id)"},)
     __tablename__ = "district_unions"  # pyright: ignore
     metadata = MetaData(schema=DOCUMENT_SCHEMA)
+    id: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=True))
     document_id: str = Field(
-        sa_column=Column(UUIDType, ForeignKey("document.document_id"), primary_key=True)
+        sa_column=Column(
+            UUIDType, ForeignKey("document.document_id"), index=True, nullable=False
+        )
     )
-    zone: int = Field(primary_key=True)
+    zone: int = Field(nullable=False)
     # Using TEXT to store WKT geometry since SQLModel doesn't have native PostGIS support
     geometry: str = Geometry("MULTIPOLYGON", 4326)
     # Store demographic data as JSONB since different tables have different columns

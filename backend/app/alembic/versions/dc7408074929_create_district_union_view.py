@@ -22,9 +22,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create the district_unions materialized view table with partitioning
+    # Create the district_unions table with an autoincrementing integer primary key
     op.create_table(
         "district_unions",
+        sa.Column(
+            "id", sa.Integer, primary_key=True, autoincrement=True, nullable=False
+        ),
         sa.Column("document_id", UUID, nullable=False),
         sa.Column("zone", sa.Integer, nullable=False),
         sa.Column("geometry", Geometry("MULTIPOLYGON", 4326), nullable=False),
@@ -34,7 +37,6 @@ def upgrade() -> None:
         sa.Column(
             "updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("NOW()")
         ),
-        sa.PrimaryKeyConstraint("document_id", "zone"),
         sa.ForeignKeyConstraint(
             ["document_id"],
             ["document.document.document_id"],
@@ -60,6 +62,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(sa.text("DROP INDEX IF EXISTS document.idx_district_unions_geometry"))
+    op.execute(sa.text("DROP INDEX IF EXISTS document.idx_district_unions_document_id"))
     op.execute(sa.text("DROP INDEX IF EXISTS document.idx_district_unions_updated_at"))
     op.drop_table("district_unions", schema="document")

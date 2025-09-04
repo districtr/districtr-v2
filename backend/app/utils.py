@@ -1,13 +1,15 @@
 from sqlalchemy import text, update
 from sqlalchemy import bindparam, Integer, String, Text
 from sqlalchemy.types import UUID
-from sqlmodel import Session, Float, Boolean
+from sqlmodel import Session, select, Float, Boolean
 import logging
 from app.constants import GERRY_DB_SCHEMA
-from sqlmodel import select
-
-
+from typing import List
 from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
+from app.models import DistrictUnions, Document
+from fastapi import BackgroundTasks
+from app.thumbnails.main import generate_thumbnail
+from app.constants import THUMBNAIL_BUCKET
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -360,3 +362,130 @@ def add_districtr_map_to_map_group(
 
     if autocommit:
         session.commit()
+
+
+def update_or_select_district_unions(
+    session: Session,
+    document_id: str,
+    background_tasks: BackgroundTasks,
+) -> list[DistrictUnions]:
+    """
+    Update the district_unions materialized view for a document by creating
+    unions of geometries grouped by zone, with demographic data aggregation.
+    Returns the rows that were (re)inserted.
+    """
+    try:
+        # If already up to date, just return what's there
+        stmt = (
+            select(DistrictUnions)
+            .where(DistrictUnions.document_id == document_id)
+            .join(Document, DistrictUnions.document_id == Document.document_id)
+            .where(DistrictUnions.updated_at >= Document.updated_at)
+        )
+        result = session.exec(stmt)
+        existing = result.all()
+        if existing:
+            return existing
+
+        # Clear existing data for this document
+        session.execute(
+            text(
+                "DELETE FROM document.district_unions WHERE document_id = :document_id"
+            ),
+            {"document_id": document_id},
+        )
+
+        # Gather document + gerrydb table info
+        doc_row = session.exec(
+            select(
+                Document,
+                DistrictrMap.gerrydb_table_name.label("gerrydb_table_name"),
+            )
+            .join(
+                DistrictrMap,
+                Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+            )
+            .where(Document.document_id == document_id)
+        ).one()
+        gerrydb_table = doc_row.gerrydb_table_name
+
+        # Discover numeric demographic columns (excluding geometry/fid/path)
+        demographic_json = None
+        if gerrydb_table:
+            column_info = session.execute(
+                text("""
+                    SELECT a.attname AS column_name
+                    FROM pg_attribute a
+                    JOIN pg_class t  ON a.attrelid = t.oid
+                    JOIN pg_namespace s ON t.relnamespace = s.oid
+                    WHERE a.attnum > 0
+                      AND NOT a.attisdropped
+                      AND t.relname = :mvname
+                      AND s.nspname = 'gerrydb'
+                      AND a.attname NOT IN ('geometry','fid','path')
+                      AND pg_catalog.format_type(a.atttypid, a.atttypmod) IN (
+                        'double precision','integer','smallint','bigint',
+                        'decimal','numeric','real','smallserial','bigserial','serial'
+                      )
+                    ORDER BY a.attnum;
+                """),
+                {"mvname": gerrydb_table},
+            ).fetchall()
+
+            if column_info:
+                demo_cols = [row.column_name for row in column_info]
+                json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
+                demographic_json = f"json_build_object({', '.join(json_pairs)})"
+
+        # Build INSERT ... RETURNING to get created rows back
+        insert_sql = f"""
+            INSERT INTO document.district_unions
+                (document_id, zone, geometry, demographic_data, created_at, updated_at)
+            WITH geos AS (
+                SELECT * FROM get_zone_assignments_geo(:document_id)
+            )
+            SELECT
+                :document_id::text AS document_id,
+                zone::INTEGER AS zone,
+                ST_Multi(ST_Transform(ST_Union(geometry), 4326)) AS geometry,
+                {f"{demographic_json} AS demographic_data" if (gerrydb_table and demographic_json) else "NULL AS demographic_data"},
+                NOW() AS created_at,
+                NOW() AS updated_at
+            FROM geos
+            {f"INNER JOIN gerrydb.{gerrydb_table} demo ON demo.path = geos.geo_id" if (gerrydb_table and demographic_json) else ""}
+            WHERE zone IS NOT NULL
+            GROUP BY zone
+            RETURNING
+                district_union_id,
+                document_id,
+                zone,
+                geometry,
+                demographic_data,
+                created_at,
+                updated_at
+        """
+
+        # Execute and map the returned rows into DistrictUnions objects
+        returned_rows: List[DistrictUnions] = session.exec(
+            select(DistrictUnions).from_statement(text(insert_sql)),
+            {"document_id": document_id},
+        ).all()
+
+        session.commit()
+
+        # Kick off thumbnail generation (non-blocking)
+        background_tasks.add_task(
+            generate_thumbnail,
+            session=session,
+            document_id=document_id,
+            out_directory=THUMBNAIL_BUCKET,
+        )
+
+        return returned_rows
+
+    except Exception as e:
+        logger.error(
+            f"Failed to update district unions for document {document_id}: {e}"
+        )
+        # optional: session.rollback()
+        raise
