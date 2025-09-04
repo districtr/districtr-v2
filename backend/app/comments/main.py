@@ -13,7 +13,8 @@ from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text, func, select
 
-from app.core.security import auth, TokenScope, or_, and_, exists, literal
+from app.core.security import auth, TokenScope
+from sqlalchemy.sql import or_, and_, exists, literal
 
 from typing import Optional
 
