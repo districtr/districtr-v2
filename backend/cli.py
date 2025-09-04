@@ -216,6 +216,21 @@ def create_districtr_map(
     default=None,
     nargs=4,
 )
+@click.option("--comment", "-c", help="Comment", type=str, required=False)
+@click.option(
+    "--parent-geo-unit-type",
+    "-pgeo",
+    help="Parent geo unit type for display only.",
+    type=str,
+    required=False,
+)
+@click.option(
+    "--child-geo-unit-type",
+    "-cgeo",
+    help="Child geo unit type for display only.",
+    type=str,
+    required=False,
+)
 @with_session
 def update_districtr_map(
     session: Session,
@@ -229,6 +244,10 @@ def update_districtr_map(
     visibility: bool = False,
     bounds: list[float] | None = None,
     map_type: str | None = None,
+    comment: str | None = None,
+    parent_geo_unit_type: str | None = None,
+    child_geo_unit_type: str | None = None,
+    data_source_name: str | None = None,
 ):
     logger.info("Updating districtr map...")
 
@@ -247,6 +266,10 @@ def update_districtr_map(
         tiles_s3_path=tiles_s3_path,
         visible=visibility,
         map_type=map_type,
+        comment=comment,
+        parent_geo_unit_type=parent_geo_unit_type,
+        child_geo_unit_type=child_geo_unit_type,
+        data_source_name=data_source_name,
         bounds=_bounds,
     )
     logger.info(f"Districtr map updated successfully {result}")

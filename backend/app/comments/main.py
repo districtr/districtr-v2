@@ -4,8 +4,8 @@ from fastapi import (
     HTTPException,
     status,
     BackgroundTasks,
-    Query,
     Security,
+    Query,
     Request,
 )
 from sqlmodel import Session
@@ -13,20 +13,23 @@ from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text, func, select
 
-from app.core.security import auth, TokenScope
+from app.core.security import auth, TokenScope, or_, and_, exists, literal
+
+from typing import Optional
 
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
 from app.comments.models import (
     Commenter,
-    CommenterCreate,
+    CommenterCreateWithRecaptcha,
     CommenterPublic,
     Comment,
     CommentCreate,
+    CommentCreateWithRecaptcha,
     CommentPublic,
     Tag,
-    TagCreate,
-    TagPublic,
+    TagCreateWithRecaptcha,
+    TagWithId,
     CommentTag,
     FullCommentForm,
     FullCommentFormResponse,
@@ -35,9 +38,6 @@ from app.comments.models import (
     PublicCommentResponse,
     ReviewStatus,
     ReviewStatusUpdate,
-    CommentReview,
-    TagReview,
-    CommenterReview,
     ReviewUpdateResponse,
 )
 from app.comments.moderation import (
@@ -47,6 +47,7 @@ from app.comments.moderation import (
     moderate_tag,
     MODERATION_THRESHOLD,
 )
+from app.models import Document
 from app.core.models import DocumentID
 from app.core.security import recaptcha
 import logging
@@ -56,7 +57,9 @@ router = APIRouter(tags=["comments"], prefix="/api/comments")
 logger = logging.getLogger(__name__)
 
 
-def create_commenter_db(commenter_data: CommenterCreate, session: Session) -> Commenter:
+def create_commenter_db(
+    commenter_data: CommenterCreateWithRecaptcha, session: Session
+) -> Commenter:
     """
     Create a new commenter with upsert on conflict for name + email unique constraint.
     Returns the Commenter model with id.
@@ -121,7 +124,7 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
     return comment
 
 
-def create_tag_db(tag_data: TagCreate, session: Session) -> Tag:
+def create_tag_db(tag_data: TagCreateWithRecaptcha, session: Session) -> Tag:
     """
     Create a new tag using the slugify_tag SQL function.
     Returns the Tag model with id.
@@ -189,23 +192,23 @@ def create_full_comment_submission(
     comment = create_comment_db(form_data.comment, session)
 
     # TODO: Do this as a batch upsert
-    created_tags: list[Tag] = []
-    tag_ids = []
+    created_tags: list[TagWithId] = []
     for tag_create in form_data.tags:
         tag = create_tag_db(tag_create, session)
-        created_tags.append(tag)
-        tag_ids.append(tag.id)
+        created_tags.append(
+            {
+                "id": tag.id,
+                "slug": tag.slug,
+            }
+        )
+    tag_ids = [tag["id"] for tag in created_tags]
 
     create_comment_tag_associations(comment.id, tag_ids, session)
 
     session.commit()
     session.refresh(comment)
 
-    response = FullCommentForm(
-        comment=comment,
-        commenter=commenter,
-        tags=created_tags,
-    )
+    response = FullCommentForm(comment=comment, commenter=commenter, tags=created_tags)
 
     return response
 
@@ -214,7 +217,7 @@ def create_full_comment_submission(
     "/commenter", response_model=CommenterPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_commenter(
-    commenter_data: CommenterCreate,
+    commenter_data: CommenterCreateWithRecaptcha,
     background_tasks: BackgroundTasks,
     request: Request,
     session: Session = Depends(get_session),
@@ -239,7 +242,7 @@ async def create_commenter(
     "/comment", response_model=CommentPublic, status_code=status.HTTP_201_CREATED
 )
 async def create_comment(
-    comment_data: CommentCreate,
+    comment_data: CommentCreateWithRecaptcha,
     background_tasks: BackgroundTasks,
     request: Request,
     session: Session = Depends(get_session),
@@ -258,9 +261,9 @@ async def create_comment(
     return comment
 
 
-@router.post("/tag", response_model=TagPublic, status_code=status.HTTP_201_CREATED)
+@router.post("/tag", response_model=TagWithId, status_code=status.HTTP_201_CREATED)
 async def create_tag(
-    tag_data: TagCreate,
+    tag_data: TagCreateWithRecaptcha,
     background_tasks: BackgroundTasks,
     request: Request,
     session: Session = Depends(get_session),
@@ -304,10 +307,24 @@ async def submit_full_comment(
     return response
 
 
-def get_comments_base_query(tags: list[str], place: str, state: str, zip_code: str):
+def get_comments_base_query(
+    tags: list[str],
+    place: str,
+    state: str,
+    zip_code: str,
+    limit: int,
+    offset: int,
+    public_id: int | None,
+    moderation_threshold: float = MODERATION_THRESHOLD,
+    exclude_rejected: bool = True,
+):
     """
-    Query the comments table with the given filters.
+    Return comments that pass moderation gates, with ALL their attached tags.
+    If any moderation gate fails (comment, commenter, or any attached tag),
+    the whole comment is excluded.
     """
+
+    # Base SELECT with aggregation over ALL tags
     stmt = (
         select(
             Comment.title,
@@ -317,17 +334,41 @@ def get_comments_base_query(tags: list[str], place: str, state: str, zip_code: s
             Commenter.place,
             Commenter.state,
             Commenter.zip_code,
-            func.array_agg(Tag.slug).label("tags"),
+            func.coalesce(
+                func.array_agg(func.distinct(Tag.slug)).filter(Tag.slug.isnot(None)),
+                [],
+            ).label("tags"),
         )
-        .join(Commenter, Comment.commenter_id == Commenter.id)
-        .join(DocumentComment, Comment.id == DocumentComment.comment_id)
-        .join(CommentTag, Comment.id == CommentTag.comment_id)
-        .join(Tag, Tag.id == CommentTag.tag_id)
-        .group_by(Comment.id, Commenter.id, DocumentComment.document_id)
+        .outerjoin(Commenter, Comment.commenter_id == Commenter.id)
+        # Keep tag joins ONLY for aggregation; don't filter them in WHERE
+        .outerjoin(CommentTag, CommentTag.comment_id == Comment.id)
+        .outerjoin(Tag, Tag.id == CommentTag.tag_id)
+        .group_by(Comment.id, Commenter.id)
+        .limit(limit)
+        .offset(offset)
     )
 
-    if tags:
-        stmt = stmt.where(Tag.slug.in_(tags))
+    # -----------------------------
+    # Document filter via EXISTS
+    # -----------------------------
+    if public_id:
+        doc_exists = (
+            select(literal(1))
+            .select_from(DocumentComment)
+            .join(Document, Document.document_id == DocumentComment.document_id)
+            .where(
+                and_(
+                    DocumentComment.comment_id == Comment.id,
+                    Document.public_id == public_id,
+                )
+            )
+            .correlate(Comment)
+        )
+        stmt = stmt.where(exists(doc_exists))
+
+    # -----------------------------
+    # Location filters (Commenter)
+    # -----------------------------
     if place:
         stmt = stmt.where(Commenter.place == place)
     if state:
@@ -335,30 +376,112 @@ def get_comments_base_query(tags: list[str], place: str, state: str, zip_code: s
     if zip_code:
         stmt = stmt.where(Commenter.zip_code == zip_code)
 
+    # -----------------------------
+    # Tag "search" filter via EXISTS
+    # (do NOT filter the aggregated Tag join)
+    # -----------------------------
+    if tags:
+        has_any_requested_tag = (
+            select(literal(1))
+            .select_from(CommentTag)
+            .join(Tag, Tag.id == CommentTag.tag_id)
+            .where(
+                and_(
+                    CommentTag.comment_id == Comment.id,
+                    Tag.slug.in_(tags),
+                )
+            )
+            .correlate(Comment)
+        )
+        stmt = stmt.where(exists(has_any_requested_tag))
+
+    # -----------------------------
+    # Moderation gates
+    # - Comment: must pass
+    # - Commenter: if present, must pass
+    # - Tags: comment excluded if ANY attached tag fails
+    # -----------------------------
+
+    # Helper booleans (so the logic reads clearly)
+    def passes_entity(score_col, status_col):
+        # Approved always passes
+        # Else must be under threshold or NULL (None)
+        return or_(
+            status_col == ReviewStatus.APPROVED,
+            score_col.is_(None),
+            score_col < moderation_threshold,
+        )
+
+    # Comment moderation
+    comment_ok = passes_entity(Comment.moderation_score, Comment.review_status)
+    if exclude_rejected:
+        comment_ok = and_(Comment.review_status != ReviewStatus.REJECTED, comment_ok)
+    stmt = stmt.where(comment_ok)
+
+    # Commenter moderation (if commenter exists)
+    commenter_ok = passes_entity(Commenter.moderation_score, Commenter.review_status)
+    if exclude_rejected:
+        commenter_ok = and_(
+            Commenter.review_status != ReviewStatus.REJECTED, commenter_ok
+        )
+    stmt = stmt.where(or_(Commenter.id.is_(None), commenter_ok))
+
+    # Tag moderation: exclude the entire comment if ANY attached tag fails.
+    # We phrase this as NOT EXISTS(bad_tag)
+    bad_tag_conds = []
+    if exclude_rejected:
+        bad_tag_conds.append(Tag.review_status == ReviewStatus.REJECTED)
+    # Fails threshold unless explicitly approved
+    bad_tag_conds.append(
+        and_(
+            Tag.review_status != ReviewStatus.APPROVED,
+            Tag.moderation_score.is_not(None),
+            Tag.moderation_score >= moderation_threshold,
+        )
+    )
+
+    bad_tag_exists = (
+        select(literal(1))
+        .select_from(CommentTag)
+        .join(Tag, Tag.id == CommentTag.tag_id)
+        .where(
+            and_(
+                CommentTag.comment_id == Comment.id,
+                or_(*bad_tag_conds),
+            )
+        )
+        .correlate(Comment)
+    )
+    # Allow comments with no tags (NOT EXISTS bad tag is trivially true)
+    stmt = stmt.where(~exists(bad_tag_exists))
+
     return stmt
 
 
-@router.get("/list", response_model=list[PublicCommentResponse])
+@router.get(
+    "/list",
+    response_model=list[PublicCommentResponse],
+)
 async def list_comments(
-    # query params tags, place, state, zip_code
-    tags: list[str] = Query(default=[]),
-    place: str = Query(default=None),
-    state: str = Query(default=None),
-    zip_code: str = Query(default=None),
-    offset: int = Query(default=0),
+    *,
     session: Session = Depends(get_session),
+    public_id: Optional[int] = None,
+    tags: Optional[list[str]] = Query(default=None),
+    place: Optional[str] = Query(default=None),
+    state: Optional[str] = Query(default=None),
+    zip_code: Optional[str] = Query(default=None),
+    offset: Optional[int] = Query(default=0, ge=0),
+    limit: Optional[int] = Query(default=100, le=100),
 ):
     stmt = get_comments_base_query(
-        tags=tags, place=place, state=state, zip_code=zip_code
+        tags=tags,
+        place=place,
+        state=state,
+        zip_code=zip_code,
+        limit=limit,
+        offset=offset,
+        public_id=public_id,
     )
-
-    threshold = MODERATION_THRESHOLD
-    stmt = (
-        stmt.where(Comment.moderation_score < threshold)
-        .where(Commenter.moderation_score < threshold)
-        .having(func.max(func.coalesce(Tag.moderation_score, 0)) < threshold)
-    )
-    stmt = stmt.offset(offset).limit(100)
 
     results = session.exec(stmt).all()
     return results
@@ -370,6 +493,7 @@ async def list_comments_admin(
     place: str = Query(default=None),
     state: str = Query(default=None),
     zip_code: str = Query(default=None),
+    public_id: int = Query(default=None),
     # View all comments regardless of moderation score
     min_moderation_score: float = Query(default=1.0),
     offset: int = Query(default=0),
@@ -378,14 +502,39 @@ async def list_comments_admin(
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
 ):
     stmt = get_comments_base_query(
-        tags=tags, place=place, state=state, zip_code=zip_code
+        tags=tags,
+        place=place,
+        state=state,
+        zip_code=zip_code,
+        limit=limit,
+        offset=offset,
+        public_id=public_id,
+        moderation_threshold=min_moderation_score,
+        exclude_rejected=False,
     )
 
     threshold = min_moderation_score
     stmt = (
-        stmt.where(Comment.moderation_score < threshold)
-        .where(Commenter.moderation_score < threshold)
-        .having(func.max(func.coalesce(Tag.moderation_score, 0)) < threshold)
+        stmt.where(
+            or_(
+                Comment.moderation_score < threshold,
+                Comment.review_status == ReviewStatus.APPROVED,
+            )
+        )
+        .where(
+            or_(
+                Commenter.moderation_score < threshold,
+                Commenter.review_status == ReviewStatus.APPROVED,
+                Commenter.id == None,  # noqa: E711 SqlAlchemy wants == not is
+            )
+        )
+        .where(
+            or_(
+                Tag.id == None,  # noqa: E711 SqlAlchemy wants == not is
+                Tag.moderation_score < threshold,
+                Tag.review_status == ReviewStatus.APPROVED,
+            )
+        )
     )
     stmt = stmt.offset(offset).limit(limit)
 
@@ -393,147 +542,29 @@ async def list_comments_admin(
     return results
 
 
-# Review endpoints
-
-
-@router.get("/review/tags/list", response_model=list[TagReview])
-async def list_tags_for_review(
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, le=100),
-    review_status: ReviewStatus | None = Query(default=None),
-    session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
-):
-    """List tags for review with pagination and filtering by review status"""
-    query = select(Tag)
-
-    if review_status is not None:
-        query = query.where(Tag.review_status == review_status)
-
-    query = query.offset(offset).limit(limit).order_by(Tag.created_at.desc())
-    results = session.exec(query).all()
-    return [TagReview.from_orm(tag) for (tag,) in results]
-
-
-@router.get("/review/comments/list", response_model=list[CommentReview])
-async def list_comments_for_review(
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, le=100),
-    review_status: ReviewStatus | None = Query(default=None),
-    tags: list[str] = Query(default=[]),
-    session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
-):
-    """List comments for review with pagination and filtering by review status and tags"""
-    query = select(Comment)
-
-    if review_status is not None:
-        query = query.where(Comment.review_status == review_status)
-
-    if tags:
-        query = (
-            query.join(CommentTag, Comment.id == CommentTag.comment_id)
-            .join(Tag, Tag.id == CommentTag.tag_id)
-            .where(Tag.slug.in_(tags))
-        )
-
-    query = query.offset(offset).limit(limit).order_by(Comment.created_at.desc())
-    results = session.exec(query).all()
-    return [CommentReview.from_orm(comment) for (comment,) in results]
-
-
-@router.get("/review/commenters/list", response_model=list[CommenterReview])
-async def list_commenters_for_review(
-    offset: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, le=100),
-    review_status: ReviewStatus | None = Query(default=None),
-    session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
-):
-    """List commenters for review with pagination and filtering by review status"""
-    query = select(Commenter)
-
-    if review_status is not None:
-        query = query.where(Commenter.review_status == review_status)
-
-    query = query.offset(offset).limit(limit).order_by(Commenter.created_at.desc())
-    results = session.exec(query).all()
-    return [CommenterReview.from_orm(commenter) for (commenter,) in results]
-
-
-@router.post("/review/comment/{comment_id}", response_model=ReviewUpdateResponse)
+@router.post("/admin/review", response_model=ReviewUpdateResponse)
 async def review_comment(
-    comment_id: int,
     review_data: ReviewStatusUpdate,
     session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+    auth_result: dict = Security(auth.verify, scopes=[TokenScope.review_content]),
 ):
-    comment = session.get(Comment, comment_id)
-    if not comment:
-        raise HTTPException(status_code=404, detail="Comment not found")
+    model = {
+        "comment": Comment,
+        "commenter": Commenter,
+        "tag": Tag,
+    }[review_data.content_type]
 
-    logger.info(
-        f"!!!Reviewing comment {comment_id} with status {review_data.review_status}"
-    )
-    comment.review_status = review_data.review_status
-    session.add(comment)
+    entry = session.get(model, review_data.id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    entry.review_status = review_data.review_status
+    session.add(entry)
     session.commit()
-    session.refresh(comment)
+    session.refresh(entry)
 
     return ReviewUpdateResponse(
-        message=f"Comment review status updated to {review_data.review_status.value}",
-        id=comment_id,
+        message=f"{review_data.content_type} review status updated to {review_data.review_status.value}",
+        id=review_data.id,
         new_status=review_data.review_status.value,
-    )
-
-
-@router.post("/review/tag/{tag_id}", response_model=ReviewUpdateResponse)
-async def review_tag(
-    tag_id: int,
-    review_data: ReviewStatusUpdate,
-    session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
-):
-    """Update the review status of a tag"""
-    tag = session.get(Tag, tag_id)
-    if not tag:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Tag not found"
-        )
-
-    tag.review_status = review_data.review_status
-    session.add(tag)
-    session.commit()
-    session.refresh(tag)
-
-    return ReviewUpdateResponse(
-        message=f"Tag review status updated to {review_data.review_status.value}",
-        id=tag_id,
-        new_status=review_data.review_status,
-    )
-
-
-@router.post("/review/commenter/{commenter_id}", response_model=ReviewUpdateResponse)
-async def review_commenter(
-    commenter_id: int,
-    review_data: ReviewStatusUpdate,
-    session: Session = Depends(get_session),
-    auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
-):
-    """Update the review status of a commenter"""
-    commenter = session.get(Commenter, commenter_id)
-    if not commenter:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Commenter not found"
-        )
-
-    commenter.review_status = review_data.review_status
-    session.add(commenter)
-    session.commit()
-    session.refresh(commenter)
-
-    return ReviewUpdateResponse(
-        message=f"Commenter review status updated to {review_data.review_status.value}",
-        id=commenter_id,
-        new_status=review_data.review_status,
     )

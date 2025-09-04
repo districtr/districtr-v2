@@ -14,16 +14,16 @@ from app.comments.models import ReviewStatus
 
 # revision identifiers, used by Alembic.
 revision: str = "f57e30842bde"
-down_revision: Union[str, None] = "846afa42e0cb"
+down_revision: Union[str, None] = "55cc04197c66"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 review_status_enum = sa.Enum(
-    ReviewStatus.REVIEWED.value,
-    ReviewStatus.APPROVED.value,
-    ReviewStatus.REJECTED.value,
+    ReviewStatus,
     name="review_status_enum",
     schema="comments",
+    native_enum=True,
+    validate_strings=True,
 )
 
 
@@ -37,6 +37,16 @@ def upgrade() -> None:
         schema="comments",
     )
     op.add_column(
+        "commenter",
+        sa.Column("moderation_score", sa.Float(), nullable=True),
+        schema="comments",
+    )
+    op.add_column(
+        "tag",
+        sa.Column("moderation_score", sa.Float(), nullable=True),
+        schema="comments",
+    )
+    op.add_column(
         "comment",
         sa.Column(
             "review_status",
@@ -47,21 +57,11 @@ def upgrade() -> None:
     )
     op.add_column(
         "commenter",
-        sa.Column("moderation_score", sa.Float(), nullable=True),
-        schema="comments",
-    )
-    op.add_column(
-        "commenter",
         sa.Column(
             "review_status",
             review_status_enum,
             nullable=True,
         ),
-        schema="comments",
-    )
-    op.add_column(
-        "tag",
-        sa.Column("moderation_score", sa.Float(), nullable=True),
         schema="comments",
     )
     op.add_column(
