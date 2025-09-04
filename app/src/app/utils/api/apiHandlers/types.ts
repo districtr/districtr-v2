@@ -61,6 +61,10 @@ export interface DocumentObject extends StatusObject {
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
   map_type: 'default' | 'local';
+  comment: string | null;
+  parent_geo_unit_type: string | null;
+  child_geo_unit_type: string | null;
+  data_source_name: string | null;
 }
 
 export interface MinPublicDocument {
@@ -151,4 +155,16 @@ export interface FullCommentFormResponse {
   comment: CommentPublic;
   commenter: CommenterPublic;
   tags: TagPublic[];
+}
+
+export interface CommentListing {
+  comment: {
+    comment: string;
+    commenter_id: number;
+    document_id: string;
+    created_at: Date;
+    title: string;
+    updated_at: Date;
+  };
+  tags?: string[];
 }

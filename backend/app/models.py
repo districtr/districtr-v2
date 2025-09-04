@@ -60,6 +60,14 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
             server_default="default",
         )
     )
+    # Additional comments as necessary for module limitations
+    comment: str | None = Field(nullable=True)
+    # Census unit (usually VTDs) that the parent layer is made up of
+    parent_geo_unit_type: str | None = Field(nullable=True)
+    # Census unit (usually VTDs) that the child layer is made up of
+    child_geo_unit_type: str | None = Field(nullable=True)
+    # Name of the data source for the map
+    data_source_name: str | None = Field(nullable=True)
 
 
 class DistrictrMapPublic(BaseModel):
@@ -88,6 +96,10 @@ class DistrictrMapUpdate(BaseModel):
     num_districts: int | None = None
     visible: bool | None = None
     map_type: str = "default"
+    comment: str | None = None
+    parent_geo_unit_type: str | None = None
+    child_geo_unit_type: str | None = None
+    data_source_name: str | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -205,6 +217,10 @@ class DocumentPublic(BaseModel):
     color_scheme: list[str] | None = None
     map_type: str
     map_module: str | None = None
+    comment: str | None = None
+    parent_geo_unit_type: str | None = None
+    child_geo_unit_type: str | None = None
+    data_source_name: str | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):

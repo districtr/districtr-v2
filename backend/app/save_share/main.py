@@ -274,6 +274,8 @@ async def unlock_document(
         )
         session.commit()
         bulk_update_district_stats(session, [document_id], background_tasks)
+        logger.info("Document unlocked")
+        return {"status": DocumentEditStatus.unlocked}
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=str(e))

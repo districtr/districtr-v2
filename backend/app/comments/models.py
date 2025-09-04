@@ -10,11 +10,20 @@ from sqlmodel import (
     Index,
     CheckConstraint,
     Integer,
+    Float,
 )
-from sqlalchemy import func
+from sqlalchemy import func, Enum as SAEnum
 from app.constants import COMMENTS_SCHEMA
 from app.core.models import TimeStampMixin, SQLModel
 from app.models import Document
+from enum import Enum
+from typing import Literal
+
+
+class ReviewStatus(str, Enum):
+    REVIEWED = "REVIEWED"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
 
 
 class Commenter(TimeStampMixin, SQLModel, table=True):
@@ -62,6 +71,31 @@ class Commenter(TimeStampMixin, SQLModel, table=True):
     state: str = Field(sa_column=Column(String(255), nullable=True))
     zip_code: str = Field(sa_column=Column(String(255), nullable=True))
 
+    moderation_score: float = Field(
+        sa_column=Column(Float, nullable=True, default=None)
+    )
+    review_status: ReviewStatus | None = Field(
+        default=None,
+        sa_column=Column(
+            SAEnum(
+                ReviewStatus,
+                name="review_status_enum",
+                schema=COMMENTS_SCHEMA,
+                native_enum=True,
+                validate_strings=True,
+            ),
+            nullable=True,
+        ),
+    )
+
+    def __str__(self) -> str:
+        fields_to_moderate = self.model_dump(
+            include={"salutation", "first_name", "last_name", "place", "state"},
+            exclude_unset=True,
+            exclude_none=True,
+        )
+        return " ".join(fields_to_moderate.values())
+
 
 class CommenterCreate(BaseModel):
     first_name: str
@@ -106,6 +140,22 @@ class Comment(TimeStampMixin, SQLModel, table=True):
     commenter_id: int = Field(
         sa_column=Column(ForeignKey(Commenter.id), nullable=True, index=True)
     )
+    moderation_score: float = Field(
+        sa_column=Column(Float, nullable=True, default=None)
+    )
+    review_status: ReviewStatus | None = Field(
+        default=None,
+        sa_column=Column(
+            SAEnum(
+                ReviewStatus,
+                name="review_status_enum",
+                schema=COMMENTS_SCHEMA,
+                native_enum=True,
+                validate_strings=True,
+            ),
+            nullable=True,
+        ),
+    )
 
 
 class CommentCreate(BaseModel):
@@ -121,6 +171,7 @@ class CommentCreateWithRecaptcha(BaseModel):
 
 
 class CommentPublic(CommentCreate):
+    id: int
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -142,6 +193,22 @@ class Tag(TimeStampMixin, SQLModel, table=True):
     slug: str = Field(
         sa_column=Column(String(255), nullable=False, unique=True, index=True)
     )
+    moderation_score: float = Field(
+        sa_column=Column(Float, nullable=True, default=None)
+    )
+    review_status: ReviewStatus | None = Field(
+        default=None,
+        sa_column=Column(
+            SAEnum(
+                ReviewStatus,
+                name="review_status_enum",
+                schema=COMMENTS_SCHEMA,
+                native_enum=True,
+                validate_strings=True,
+            ),
+            nullable=True,
+        ),
+    )
 
 
 class TagCreate(BaseModel):
@@ -160,6 +227,11 @@ class TagCreateWithRecaptcha(BaseModel):
 
 
 class TagPublic(BaseModel):
+    slug: str
+
+
+class TagWithId(BaseModel):
+    id: int
     slug: str
 
 
@@ -199,14 +271,55 @@ class DocumentComment(SQLModel, table=True):
     )
 
 
-class FullCommentForm(BaseModel):
+class FullCommentFormCreate(BaseModel):
     comment: CommentCreate
     commenter: CommenterCreate
     tags: list[TagCreate]
     recaptcha_token: str
 
 
+class FullCommentForm(BaseModel):
+    comment: Comment
+    commenter: Commenter
+    tags: list[TagWithId]
+
+
 class FullCommentFormResponse(BaseModel):
     comment: CommentPublic
     commenter: CommenterPublic
-    tags: list[TagPublic]
+    tags: list[TagWithId]
+
+
+class ModerationScore(BaseModel):
+    ok: bool
+    score: float
+    error: str | None = None
+
+
+class PublicCommentResponse(BaseModel):
+    title: str
+    comment: str
+    first_name: str | None = None
+    last_name: str | None = None
+    place: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
+    tags: list[str | None] = []
+
+
+class CommentOpenAccess(CommentCreate):
+    public_id: int
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+class ReviewStatusUpdate(BaseModel):
+    content_type: Literal["comment", "commenter", "tag"]
+    review_status: ReviewStatus
+    id: int
+
+
+class ReviewUpdateResponse(BaseModel):
+    message: str
+    id: int
+    new_status: ReviewStatus
