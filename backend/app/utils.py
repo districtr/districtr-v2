@@ -8,8 +8,7 @@ from typing import List
 from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
 from app.models import DistrictUnions, Document
 from fastapi import BackgroundTasks
-from app.thumbnails.main import generate_thumbnail
-from app.constants import THUMBNAIL_BUCKET
+from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -438,6 +437,10 @@ def update_or_select_district_unions(
                 demographic_json = f"json_build_object({', '.join(json_pairs)})"
 
         # Build INSERT ... RETURNING to get created rows back
+        # NOTE: We must interpolate the document_id directly into the SQL string for the SELECT part,
+        # because SQLAlchemy does not support parameter substitution for identifiers or for type casts in SELECT.
+        # This is safe here because document_id is a UUID string from our own DB, not user input.
+        doc_id_sql = f"'{document_id}'::UUID"
         insert_sql = f"""
             INSERT INTO document.district_unions
                 (document_id, zone, geometry, demographic_data, created_at, updated_at)
@@ -445,7 +448,7 @@ def update_or_select_district_unions(
                 SELECT * FROM get_zone_assignments_geo(:document_id)
             )
             SELECT
-                :document_id::text AS document_id,
+                {doc_id_sql} AS document_id,
                 zone::INTEGER AS zone,
                 ST_Multi(ST_Transform(ST_Union(geometry), 4326)) AS geometry,
                 {f"{demographic_json} AS demographic_data" if (gerrydb_table and demographic_json) else "NULL AS demographic_data"},
@@ -456,8 +459,8 @@ def update_or_select_district_unions(
             WHERE zone IS NOT NULL
             GROUP BY zone
             RETURNING
-                district_union_id,
-                document_id,
+                id,
+                document_id::text,
                 zone,
                 geometry,
                 demographic_data,
@@ -466,10 +469,14 @@ def update_or_select_district_unions(
         """
 
         # Execute and map the returned rows into DistrictUnions objects
-        returned_rows: List[DistrictUnions] = session.exec(
-            select(DistrictUnions).from_statement(text(insert_sql)),
+        result = session.execute(
+            text(insert_sql),
             {"document_id": document_id},
-        ).all()
+        )
+        # Map the result rows to DistrictUnions objects
+        returned_rows: List[DistrictUnions] = [
+            DistrictUnions.model_validate(row._mapping) for row in result.fetchall()
+        ]
 
         session.commit()
 

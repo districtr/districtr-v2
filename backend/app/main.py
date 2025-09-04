@@ -63,7 +63,6 @@ from app.models import (
     BBoxGeoJSONs,
     MapGroup,
     AssignmentsCreate,
-    DistrictUnions,
 )
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
@@ -187,7 +186,7 @@ async def unlock_map(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/document/{document_id}/stats", response_model=DistrictUnions)
+@app.get("/api/document/{document_id}/stats")
 async def get_document_stats(
     background_tasks: BackgroundTasks,
     document_id: DocumentID = Depends(parse_document_id),
