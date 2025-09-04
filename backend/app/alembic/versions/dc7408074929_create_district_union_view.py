@@ -1,7 +1,7 @@
 """create_district_union_view
 
 Revision ID: dc7408074929
-Revises: 846afa42e0cb
+Revises: f57e30842bde
 Create Date: 2025-08-22 13:04:25.907660
 
 """
@@ -10,13 +10,13 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSON
 from geoalchemy2 import Geometry
 
 
 # revision identifiers, used by Alembic.
 revision: str = "dc7408074929"
-down_revision: Union[str, None] = "846afa42e0cb"
+down_revision: Union[str, None] = "f57e30842bde"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -35,10 +35,10 @@ def upgrade() -> None:
             "updated_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("NOW()")
         ),
         sa.PrimaryKeyConstraint("document_id", "zone"),
+        sa.Column("demographic_data", JSON, nullable=True),
         postgresql_partition_by="LIST (document_id)",
         schema="document",
     )
-
     # Create an index on the geometry column for spatial queries using GIST
     op.execute(
         sa.text("""
