@@ -1124,7 +1124,10 @@ def test_get_district_unions(client, document_id_total_vap):
     assert len(data) == 1
 
     # get with public id
-    response = client.get("/api/document/1/stats")
+    document_info = client.get(f"/api/document/{document_id_total_vap}")
+    response = client.get(
+        f"/api/document/{document_info.json().get('public_id')}/stats"
+    )
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
