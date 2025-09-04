@@ -9,6 +9,7 @@ from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
 from app.models import Document, DistrictUnionsResponse
 from fastapi import BackgroundTasks
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -488,14 +489,15 @@ def update_or_select_district_stats(
         ]
 
         session.commit()
-
-        # Kick off thumbnail generation (non-blocking)
-        background_tasks.add_task(
-            generate_thumbnail,
-            session=session,
-            document_id=document_id,
-            out_directory=THUMBNAIL_BUCKET,
-        )
+        s3 = settings.get_s3_client()
+        if returned_rows and s3:
+            # Kick off thumbnail generation (non-blocking)
+            background_tasks.add_task(
+                generate_thumbnail,
+                session=session,
+                document_id=document_id,
+                out_directory=THUMBNAIL_BUCKET,
+            )
 
         return returned_rows
 
