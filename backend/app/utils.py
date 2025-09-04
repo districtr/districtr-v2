@@ -389,10 +389,12 @@ def update_or_select_district_unions(
         """).bindparams(bindparam(key="document_id", type_=UUIDType)),
             {"document_id": document_id},
         )
-        existing = result.all()
-        logger.info(f"Existing: {existing}")
-        if existing:
-            return existing
+        existing_mappings = result.mappings().all()
+        logger.info(f"Existing: {existing_mappings}")
+        if existing_mappings:
+            return [
+                DistrictUnionsResponse.model_validate(row) for row in existing_mappings
+            ]
 
         # Clear existing data for this document
         session.execute(
@@ -478,11 +480,11 @@ def update_or_select_district_unions(
             text(insert_sql),
             {"document_id": document_id},
         )
-        rows = result.fetchall()
+        rows = result.mappings().all()
         logger.info(f"Result: {rows}")
         # Map the result rows to DistrictUnions objects
         returned_rows: List[DistrictUnionsResponse] = [
-            DistrictUnionsResponse.model_validate(dict(row)) for row in rows
+            DistrictUnionsResponse.model_validate(row) for row in rows
         ]
 
         session.commit()
