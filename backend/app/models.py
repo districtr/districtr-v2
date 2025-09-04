@@ -315,3 +315,10 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
     geometry: str = Geometry("MULTIPOLYGON", 4326)
     # Store demographic data as JSONB since different tables have different columns
     demographic_data: dict | None = Field(sa_column=Column(JSON, nullable=True))
+
+
+class DistrictUnionsResponse(BaseModel):
+    zone: int
+    geometry: str
+    demographic_data: dict | None
+    updated_at: datetime
