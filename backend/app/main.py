@@ -73,7 +73,7 @@ from app.save_share.locks import (
     remove_all_locks,
     check_map_lock,
 )
-from app.utils import update_or_select_district_unions
+from app.utils import update_or_select_district_stats
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
@@ -192,7 +192,7 @@ async def get_document_stats(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    return update_or_select_district_unions(
+    return update_or_select_district_stats(
         session, document.document_id, background_tasks
     )
 

@@ -363,7 +363,7 @@ def add_districtr_map_to_map_group(
         session.commit()
 
 
-def update_or_select_district_unions(
+def update_or_select_district_stats(
     session: Session,
     document_id: str,
     background_tasks: BackgroundTasks,
