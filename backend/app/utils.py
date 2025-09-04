@@ -6,7 +6,7 @@ import logging
 from app.constants import GERRY_DB_SCHEMA
 from typing import List
 from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
-from app.models import DistrictUnions, Document
+from app.models import Document, DistrictUnionsResponse
 from fastapi import BackgroundTasks
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 
@@ -367,7 +367,7 @@ def update_or_select_district_unions(
     session: Session,
     document_id: str,
     background_tasks: BackgroundTasks,
-) -> list[DistrictUnions]:
+) -> list[DistrictUnionsResponse]:
     """
     Update the district_unions materialized view for a document by creating
     unions of geometries grouped by zone, with demographic data aggregation.
@@ -375,14 +375,22 @@ def update_or_select_district_unions(
     """
     try:
         # If already up to date, just return what's there
-        stmt = (
-            select(DistrictUnions)
-            .where(DistrictUnions.document_id == document_id)
-            .join(Document, DistrictUnions.document_id == Document.document_id)
-            .where(DistrictUnions.updated_at >= Document.updated_at)
+        result = session.execute(
+            text("""
+            SELECT
+                du.zone,
+                ST_AsGeoJSON(du.geometry) AS geometry,
+                du.demographic_data,
+                du.updated_at
+            FROM document.district_unions du
+            JOIN document.document d ON du.document_id = d.document_id
+            WHERE du.document_id = :document_id
+              AND du.updated_at >= d.updated_at
+        """).bindparams(bindparam(key="document_id", type_=UUIDType)),
+            {"document_id": document_id},
         )
-        result = session.exec(stmt)
         existing = result.all()
+        logger.info(f"Existing: {existing}")
         if existing:
             return existing
 
@@ -459,12 +467,9 @@ def update_or_select_district_unions(
             WHERE zone IS NOT NULL
             GROUP BY zone
             RETURNING
-                id,
-                document_id::text,
                 zone,
-                geometry,
+                ST_AsGeoJSON(geometry) AS geometry,
                 demographic_data,
-                created_at,
                 updated_at
         """
 
@@ -473,9 +478,11 @@ def update_or_select_district_unions(
             text(insert_sql),
             {"document_id": document_id},
         )
+        rows = result.fetchall()
+        logger.info(f"Result: {rows}")
         # Map the result rows to DistrictUnions objects
-        returned_rows: List[DistrictUnions] = [
-            DistrictUnions.model_validate(row._mapping) for row in result.fetchall()
+        returned_rows: List[DistrictUnionsResponse] = [
+            DistrictUnionsResponse.model_validate(dict(row)) for row in rows
         ]
 
         session.commit()
