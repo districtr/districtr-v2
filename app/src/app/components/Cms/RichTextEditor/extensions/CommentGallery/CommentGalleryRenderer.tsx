@@ -1,9 +1,9 @@
 import {Box, Flex, Grid, Heading, IconButton, Link, Text} from '@radix-ui/themes';
 import {PersonIcon} from '@radix-ui/react-icons';
-import {type CommentListing} from '@/app/utils/api/apiHandlers/types';
+import {type CommentListing} from '@/app/utils/api/apiHandlers/getComments';
 import {formatDistanceToNow} from 'date-fns';
 
-export const CommentList: React.FC<{
+export const CommentGalleryRenderer: React.FC<{
   comments: CommentListing[];
 }> = ({comments}) => (
   <Flex direction="column" width="100%" gap="2">
@@ -17,10 +17,10 @@ export const CommentList: React.FC<{
             <PersonIcon className="w-5 h-5 text-zinc-600" />
           </IconButton>
           <Heading size="4" className="text-districtrBlue">
-            {c.comment.title}
+            {c.title}
           </Heading>
         </Flex>
-        <Text className="mb-3 whitespace-pre-line">{c.comment.comment}</Text>
+        <Text className="mb-3 whitespace-pre-line">{c.comment}</Text>
         <Flex wrap="wrap" gap="2">
           {c.tags?.map(tag => (
             <Link
@@ -33,7 +33,7 @@ export const CommentList: React.FC<{
           ))}
         </Flex>
         <Text className="mt-1 text-gray-400 text-xs text-right">
-          {formatDistanceToNow(c.comment.created_at)} ago
+          {formatDistanceToNow(c.created_at)} ago
         </Text>
       </Box>
     ))}

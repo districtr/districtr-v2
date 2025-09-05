@@ -13,6 +13,7 @@ import {domNodeReplacers} from './CustomRenderers/DomNodeRenderers';
 import SectionHeaderNode from '../Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
 import FormNode from '../Cms/RichTextEditor/extensions/CommentSubmissionForm/FormNode';
 import MapCreateButtonsNode from '../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtonsNode';
+import CommentGalleryNode from '../Cms/RichTextEditor/extensions/CommentGallery/CommentGalleryNode';
 
 interface RichTextRendererProps {
   content: string | object;
@@ -36,6 +37,7 @@ const extensions = [
   SectionHeaderNode,
   FormNode,
   MapCreateButtonsNode,
+  CommentGalleryNode,
 ];
 
 const RichTextRenderer: React.FC<RichTextRendererProps> = ({

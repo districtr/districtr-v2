@@ -305,6 +305,7 @@ class PublicCommentResponse(BaseModel):
     state: str | None = None
     zip_code: str | None = None
     tags: list[str | None] = []
+    created_at: datetime | None = None
 
 
 class CommentOpenAccess(CommentCreate):
