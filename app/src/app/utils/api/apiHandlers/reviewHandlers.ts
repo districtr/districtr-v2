@@ -8,51 +8,49 @@ export const REVIEW_STATUS_ENUM = {
 
 export type ReviewStatus = (typeof REVIEW_STATUS_ENUM)[keyof typeof REVIEW_STATUS_ENUM];
 export interface ReviewItem {
-  id: number;
+  // Common fields
   review_status?: ReviewStatus;
   created_at: string;
   updated_at: string;
-}
-
-export interface Comment extends ReviewItem {
   title: string;
   comment: string;
-  commenter_id?: number;
-  moderation_score?: number;
-}
+  first_name: string | null;
+  last_name: string | null;
+  place: string | null;
+  state: string | null;
+  zip_code: string | null;
+  tags: Array<string | null>;
 
-export interface Tag extends ReviewItem {
-  slug: string;
-  moderation_score?: number;
-}
-
-export interface Commenter extends ReviewItem {
-  first_name: string;
-  email: string;
-  salutation?: string;
-  last_name?: string;
-  place?: string;
-  state?: string;
-  zip_code?: string;
-  moderation_score?: number;
+  // Admin fields
+  comment_id: number;
+  comment_review_status: ReviewStatus | null;
+  comment_moderation_score: number | null;
+  commenter_id: number | null;
+  commenter_review_status: ReviewStatus | null;
+  commenter_moderation_score: number | null;
+  tag_ids: Array<number | null>;
+  tag_review_status: Array<ReviewStatus | null>;
+  tag_moderation_score: Array<number | null>;
 }
 
 export interface ReviewStatusUpdate {
   review_status: ReviewStatus;
+  content_type: 'comment' | 'commenter' | 'tag';
+  id: number;
 }
 
 export interface ReviewListParams {
   offset?: number;
   limit?: number;
-  review_status?: ReviewStatus;
+  review_status?: ReviewStatus | null;
   tags?: string[];
 }
 
 // GET endpoints
-export const getCommentsForReview = async (
+export const getAdminCommentsList = async (
   params: ReviewListParams = {},
   session?: any
-): Promise<{ok: true; data: Comment[]} | {ok: false; error: string}> => {
+): Promise<{ok: true; data: ReviewItem[]} | {ok: false; error: string}> => {
   const searchParams = new URLSearchParams();
 
   if (params.offset !== undefined) searchParams.append('offset', params.offset.toString());
@@ -63,71 +61,9 @@ export const getCommentsForReview = async (
   }
 
   const queryString = searchParams.toString();
-  const path = queryString
-    ? `comments/review/comments/list?${queryString}`
-    : 'comments/review/comments/list';
+  const path = queryString ? `comments/admin/list?${queryString}` : 'comments/admin/list';
 
-  const response = await get<Comment[]>(path)({session});
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error: response.error.detail,
-    };
-  }
-
-  return {
-    ok: true,
-    data: response.response,
-  };
-};
-
-export const getTagsForReview = async (
-  params: ReviewListParams = {},
-  session?: any
-): Promise<{ok: true; data: Tag[]} | {ok: false; error: string}> => {
-  const searchParams = new URLSearchParams();
-
-  if (params.offset !== undefined) searchParams.append('offset', params.offset.toString());
-  if (params.limit !== undefined) searchParams.append('limit', params.limit.toString());
-  if (params.review_status) searchParams.append('review_status', params.review_status);
-
-  const queryString = searchParams.toString();
-  const path = queryString
-    ? `comments/review/tags/list?${queryString}`
-    : 'comments/review/tags/list';
-
-  const response = await get<Tag[]>(path)({session});
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error: response.error.detail,
-    };
-  }
-
-  return {
-    ok: true,
-    data: response.response,
-  };
-};
-
-export const getCommentersForReview = async (
-  params: ReviewListParams = {},
-  session?: any
-): Promise<{ok: true; data: Commenter[]} | {ok: false; error: string}> => {
-  const searchParams = new URLSearchParams();
-
-  if (params.offset !== undefined) searchParams.append('offset', params.offset.toString());
-  if (params.limit !== undefined) searchParams.append('limit', params.limit.toString());
-  if (params.review_status) searchParams.append('review_status', params.review_status);
-
-  const queryString = searchParams.toString();
-  const path = queryString
-    ? `comments/review/commenters/list?${queryString}`
-    : 'comments/review/commenters/list';
-
-  const response = await get<Commenter[]>(path)({session});
+  const response = await get<ReviewItem[]>(path)({session});
 
   if (!response.ok) {
     return {
@@ -143,65 +79,20 @@ export const getCommentersForReview = async (
 };
 
 // POST endpoints for updating review status
-export const reviewComment = async (
-  commentId: number,
+export const reviewItem = async (
+  itemId: number,
   reviewStatus: ReviewStatus,
+  entryType: 'comment' | 'commenter' | 'tag',
   session?: any
 ): Promise<{ok: true; message: string} | {ok: false; error: string}> => {
   const response = await post<ReviewStatusUpdate, {message: string; comment_id: number}>(
-    `comments/review/comment/${commentId}`
+    `comments/admin/review`
   )({
-    body: {review_status: reviewStatus},
-    session,
-  });
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error: response.error.detail,
-    };
-  }
-
-  return {
-    ok: true,
-    message: response.response.message,
-  };
-};
-
-export const reviewTag = async (
-  tagId: number,
-  reviewStatus: ReviewStatus,
-  session?: any
-): Promise<{ok: true; message: string} | {ok: false; error: string}> => {
-  const response = await post<ReviewStatusUpdate, {message: string; tag_id: number}>(
-    `comments/review/tag/${tagId}`
-  )({
-    body: {review_status: reviewStatus},
-    session,
-  });
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error: response.error.detail,
-    };
-  }
-
-  return {
-    ok: true,
-    message: response.response.message,
-  };
-};
-
-export const reviewCommenter = async (
-  commenterId: number,
-  reviewStatus: ReviewStatus,
-  session?: any
-): Promise<{ok: true; message: string} | {ok: false; error: string}> => {
-  const response = await post<ReviewStatusUpdate, {message: string; commenter_id: number}>(
-    `comments/review/commenter/${commenterId}`
-  )({
-    body: {review_status: reviewStatus},
+    body: {
+      review_status: reviewStatus,
+      content_type: entryType,
+      id: itemId,
+    },
     session,
   });
 

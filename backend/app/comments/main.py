@@ -14,8 +14,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text, func, select
 
 from app.core.security import auth, TokenScope
-from sqlalchemy.sql import or_, and_, exists, literal
-
+from sqlalchemy.sql import or_, and_, exists, literal, cast
+from sqlalchemy import String
 from typing import Optional
 
 from app.core.dependencies import get_protected_document
@@ -37,6 +37,7 @@ from app.comments.models import (
     DocumentComment,
     FullCommentFormCreate,
     PublicCommentResponse,
+    AdminCommentResponse,
     ReviewStatus,
     ReviewStatusUpdate,
     ReviewUpdateResponse,
@@ -318,6 +319,8 @@ def get_comments_base_query(
     public_id: int | None,
     moderation_threshold: float = MODERATION_THRESHOLD,
     exclude_rejected: bool = True,
+    moderate: bool = True,
+    admin_columns: bool = False,
 ):
     """
     Return comments that pass moderation gates, with ALL their attached tags.
@@ -328,6 +331,30 @@ def get_comments_base_query(
     # Base SELECT with aggregation over ALL tags
     stmt = (
         select(
+            *(
+                [
+                    Comment.id.label("comment_id"),
+                    Comment.review_status.label("comment_review_status"),
+                    Comment.moderation_score.label("comment_moderation_score"),
+                    Commenter.id.label("commenter_id"),
+                    Commenter.review_status.label("commenter_review_status"),
+                    Commenter.moderation_score.label("commenter_moderation_score"),
+                    func.coalesce(
+                        func.array_agg(Tag.id),
+                        [],
+                    ).label("tag_ids"),
+                    func.coalesce(
+                        func.array_agg(cast(Tag.review_status, String)),
+                        [],
+                    ).label("tag_review_status"),
+                    func.coalesce(
+                        func.array_agg(Tag.moderation_score),
+                        [],
+                    ).label("tag_moderation_score"),
+                ]
+                if admin_columns
+                else []
+            ),
             Comment.title,
             Comment.comment,
             Commenter.first_name,
@@ -402,59 +429,63 @@ def get_comments_base_query(
     # - Commenter: if present, must pass
     # - Tags: comment excluded if ANY attached tag fails
     # -----------------------------
+    if moderate:
+        # Helper booleans (so the logic reads clearly)
+        def passes_entity(score_col, status_col):
+            # Approved always passes
+            # Else must be under threshold or NULL (None)
+            return or_(
+                status_col == ReviewStatus.APPROVED,
+                score_col.is_(None),
+                score_col < moderation_threshold,
+            )
 
-    # Helper booleans (so the logic reads clearly)
-    def passes_entity(score_col, status_col):
-        # Approved always passes
-        # Else must be under threshold or NULL (None)
-        return or_(
-            status_col == ReviewStatus.APPROVED,
-            score_col.is_(None),
-            score_col < moderation_threshold,
+        # Comment moderation
+        comment_ok = passes_entity(Comment.moderation_score, Comment.review_status)
+        if exclude_rejected:
+            comment_ok = and_(
+                Comment.review_status != ReviewStatus.REJECTED, comment_ok
+            )
+        stmt = stmt.where(comment_ok)
+
+        # Commenter moderation (if commenter exists)
+        commenter_ok = passes_entity(
+            Commenter.moderation_score, Commenter.review_status
         )
+        if exclude_rejected:
+            commenter_ok = and_(
+                Commenter.review_status != ReviewStatus.REJECTED, commenter_ok
+            )
+        stmt = stmt.where(or_(Commenter.id.is_(None), commenter_ok))
 
-    # Comment moderation
-    comment_ok = passes_entity(Comment.moderation_score, Comment.review_status)
-    if exclude_rejected:
-        comment_ok = and_(Comment.review_status != ReviewStatus.REJECTED, comment_ok)
-    stmt = stmt.where(comment_ok)
-
-    # Commenter moderation (if commenter exists)
-    commenter_ok = passes_entity(Commenter.moderation_score, Commenter.review_status)
-    if exclude_rejected:
-        commenter_ok = and_(
-            Commenter.review_status != ReviewStatus.REJECTED, commenter_ok
-        )
-    stmt = stmt.where(or_(Commenter.id.is_(None), commenter_ok))
-
-    # Tag moderation: exclude the entire comment if ANY attached tag fails.
-    # We phrase this as NOT EXISTS(bad_tag)
-    bad_tag_conds = []
-    if exclude_rejected:
-        bad_tag_conds.append(Tag.review_status == ReviewStatus.REJECTED)
-    # Fails threshold unless explicitly approved
-    bad_tag_conds.append(
-        and_(
-            Tag.review_status != ReviewStatus.APPROVED,
-            Tag.moderation_score.is_not(None),
-            Tag.moderation_score >= moderation_threshold,
-        )
-    )
-
-    bad_tag_exists = (
-        select(literal(1))
-        .select_from(CommentTag)
-        .join(Tag, Tag.id == CommentTag.tag_id)
-        .where(
+        # Tag moderation: exclude the entire comment if ANY attached tag fails.
+        # We phrase this as NOT EXISTS(bad_tag)
+        bad_tag_conds = []
+        if exclude_rejected:
+            bad_tag_conds.append(Tag.review_status == ReviewStatus.REJECTED)
+        # Fails threshold unless explicitly approved
+        bad_tag_conds.append(
             and_(
-                CommentTag.comment_id == Comment.id,
-                or_(*bad_tag_conds),
+                Tag.review_status != ReviewStatus.APPROVED,
+                Tag.moderation_score.is_not(None),
+                Tag.moderation_score >= moderation_threshold,
             )
         )
-        .correlate(Comment)
-    )
-    # Allow comments with no tags (NOT EXISTS bad tag is trivially true)
-    stmt = stmt.where(~exists(bad_tag_exists))
+
+        bad_tag_exists = (
+            select(literal(1))
+            .select_from(CommentTag)
+            .join(Tag, Tag.id == CommentTag.tag_id)
+            .where(
+                and_(
+                    CommentTag.comment_id == Comment.id,
+                    or_(*bad_tag_conds),
+                )
+            )
+            .correlate(Comment)
+        )
+        # Allow comments with no tags (NOT EXISTS bad tag is trivially true)
+        stmt = stmt.where(~exists(bad_tag_exists))
 
     return stmt
 
@@ -488,7 +519,7 @@ async def list_comments(
     return results
 
 
-@router.get("/admin/list", response_model=list[PublicCommentResponse])
+@router.get("/admin/list", response_model=list[AdminCommentResponse])
 async def list_comments_admin(
     tags: list[str] = Query(default=[]),
     place: str = Query(default=None),
@@ -501,6 +532,7 @@ async def list_comments_admin(
     limit: int = Query(default=100),
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+    review_status: ReviewStatus = Query(default=None),
 ):
     stmt = get_comments_base_query(
         tags=tags,
@@ -512,34 +544,44 @@ async def list_comments_admin(
         public_id=public_id,
         moderation_threshold=min_moderation_score,
         exclude_rejected=False,
+        moderate=False,
+        admin_columns=True,
     )
 
     threshold = min_moderation_score
     stmt = (
         stmt.where(
-            or_(
-                Comment.moderation_score < threshold,
-                Comment.review_status == ReviewStatus.APPROVED,
+            and_(
+                or_(
+                    Comment.moderation_score < threshold,
+                    Comment.moderation_score.is_(None),
+                ),
+                Comment.review_status == review_status
+                if review_status
+                else Comment.review_status.is_(None),
             )
         )
-        .where(
-            or_(
-                Commenter.moderation_score < threshold,
-                Commenter.review_status == ReviewStatus.APPROVED,
-                Commenter.id == None,  # noqa: E711 SqlAlchemy wants == not is
-            )
-        )
-        .where(
-            or_(
-                Tag.id == None,  # noqa: E711 SqlAlchemy wants == not is
-                Tag.moderation_score < threshold,
-                Tag.review_status == ReviewStatus.APPROVED,
-            )
-        )
+        # .where(
+        #     or_(
+        #         and_(
+        #             or_(Commenter.moderation_score < threshold, Commenter.moderation_score.is_(None)),
+        #             Commenter.review_status == review_status if review_status else Commenter.review_status.is_(None)
+        #         ),
+        #         Commenter.id == None,  # noqa: E711 SqlAlchemy wants == not is
+        #     )
+        # )
+        # .where(
+        #     or_(
+        #         Tag.id == None,  # noqa: E711 SqlAlchemy wants == not is
+        #         and_(
+        #             or_(Tag.moderation_score < threshold, Tag.moderation_score.is_(None)),
+        #             Tag.review_status == review_status if review_status else Tag.review_status.is_(None)
+        #         )
+        #     )
+        # )
     )
-    stmt = stmt.offset(offset).limit(limit)
-
     results = session.exec(stmt).all()
+    logger.info(results)
     return results
 
 

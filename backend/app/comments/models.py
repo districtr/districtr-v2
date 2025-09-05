@@ -307,6 +307,18 @@ class PublicCommentResponse(BaseModel):
     tags: list[str | None] = []
 
 
+class AdminCommentResponse(PublicCommentResponse):
+    comment_id: int
+    comment_review_status: str | None = None
+    comment_moderation_score: float | None = None
+    commenter_id: int | None = None
+    commenter_review_status: str | None = None
+    commenter_moderation_score: float | None = None
+    tag_ids: list[int | None] = []
+    tag_review_status: list[str | None] = []
+    tag_moderation_score: list[float | None] = []
+
+
 class CommentOpenAccess(CommentCreate):
     public_id: int
     created_at: datetime | None
