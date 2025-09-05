@@ -330,6 +330,7 @@ def get_comments_base_query(
             Commenter.place,
             Commenter.state,
             Commenter.zip_code,
+            Comment.created_at,
             func.coalesce(
                 func.array_agg(func.distinct(Tag.slug)).filter(Tag.slug.isnot(None)),
                 [],

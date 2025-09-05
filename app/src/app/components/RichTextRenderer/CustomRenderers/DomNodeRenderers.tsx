@@ -4,6 +4,7 @@ import {ContentHeader} from '../../Static/ContentHeader';
 import {CommentSubmissionForm} from '../../Forms/CommentSubmissionForm';
 import {PlanGallery} from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
 import {MapCreateButtons} from '../../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
+import { CommentGallery } from '../../Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
 
 export const domNodeReplacers = (disabled: boolean) => {
   const domNodeReplaceFn = (domNode: DOMNode) => {
@@ -63,6 +64,14 @@ export const domNodeReplacers = (disabled: boolean) => {
           const views = JSON.parse(domNode.attribs['views'] ?? 'null');
           const type = JSON.parse(domNode.attribs['type'] ?? 'null');
           return <MapCreateButtons views={views} type={type} />;
+        case 'comment-gallery-node':
+          const ids = JSON.parse(domNode.attribs['ids'] ?? 'null');
+          const tags = JSON.parse(domNode.attribs['tags'] ?? 'null');
+          const limit = JSON.parse(domNode.attribs['limit'] ?? 'null');
+          const place = JSON.parse(domNode.attribs['place'] ?? 'null');
+          const state = JSON.parse(domNode.attribs['state'] ?? 'null');
+          const zipCode = JSON.parse(domNode.attribs['zipCode'] ?? 'null');
+          return <CommentGallery _ids={ids} _tags={tags} _limit={limit} _place={place} _state={state} _zipCode={zipCode} />
       }
     }
   };

@@ -26,6 +26,7 @@ class TokenScope:
 
     review_content = "create:content_review"
 
+
 class UnauthorizedException(HTTPException):
     def __init__(self, detail: str, **kwargs):
         """Returns HTTP 403"""
