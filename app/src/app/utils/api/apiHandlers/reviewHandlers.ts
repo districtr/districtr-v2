@@ -42,8 +42,12 @@ export interface ReviewStatusUpdate {
 export interface ReviewListParams {
   offset?: number;
   limit?: number;
-  review_status?: ReviewStatus | null;
+  reviewStatus?: ReviewStatus | null;
   tags?: string[];
+  place?: string;
+  state?: string;
+  zipCode?: string;
+  minModerationScore?: number;
 }
 
 // GET endpoints
@@ -55,10 +59,15 @@ export const getAdminCommentsList = async (
 
   if (params.offset !== undefined) searchParams.append('offset', params.offset.toString());
   if (params.limit !== undefined) searchParams.append('limit', params.limit.toString());
-  if (params.review_status) searchParams.append('review_status', params.review_status);
+  if (params.reviewStatus) searchParams.append('review_status', params.reviewStatus);
   if (params.tags?.length) {
     params.tags.forEach(tag => searchParams.append('tags', tag));
   }
+  if (params.place?.length) searchParams.append('place', params.place);
+  if (params.state?.length) searchParams.append('state', params.state);
+  if (params.zipCode?.length) searchParams.append('zip_code', params.zipCode);
+  if (params.minModerationScore !== undefined)
+    searchParams.append('min_moderation_score', params.minModerationScore.toString());
 
   const queryString = searchParams.toString();
   const path = queryString ? `comments/admin/list?${queryString}` : 'comments/admin/list';

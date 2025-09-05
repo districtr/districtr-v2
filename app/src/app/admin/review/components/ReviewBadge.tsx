@@ -28,9 +28,7 @@ export const ReviewBadge: React.FC<ReviewBadgeProps> = ({status, onReview, title
               {title}
             </Heading>
           )}
-          <Text size="2">
-            Current Status: {status ?? 'Not reviewed'}
-          </Text>
+          <Text size="2">Current Status: {status ?? 'Not reviewed'}</Text>
           <ReviewButtons status={status} onReview={onReview} />
         </Flex>
       </Popover.Content>

@@ -36,7 +36,7 @@ const StatusText: React.FC<{
       return (
         fallback || (
           <>
-            <Text size="2">You don't have the required permissions to access this page.</Text>
+            <Text size="2">You don&apos;t have the required permissions to access this page.</Text>
             <Text size="2">Please contact an administrator if you believe this is an error.</Text>
             <Text size="2">Required permission: {status}</Text>
           </>

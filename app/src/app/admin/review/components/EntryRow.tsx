@@ -133,12 +133,13 @@ export const EntryRow: React.FC<{
                 </Heading>
               </Box>
             </Flex>
-            {entry.tags.map(tag => (
+            {entry.tags.map((tag,i) => (
               <Flex
                 direction="row"
                 gap="2"
                 align="start"
                 justify="between"
+                key={i}
                 className="flex-1 w-full"
                 onMouseEnter={() => setHoveredSection(`tags-${tag}`)}
                 onMouseLeave={() => setHoveredSection(null)}
