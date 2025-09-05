@@ -561,24 +561,7 @@ async def list_comments_admin(
                 else Comment.review_status.is_(None),
             )
         )
-        # .where(
-        #     or_(
-        #         and_(
-        #             or_(Commenter.moderation_score < threshold, Commenter.moderation_score.is_(None)),
-        #             Commenter.review_status == review_status if review_status else Commenter.review_status.is_(None)
-        #         ),
-        #         Commenter.id == None,  # noqa: E711 SqlAlchemy wants == not is
-        #     )
-        # )
-        # .where(
-        #     or_(
-        #         Tag.id == None,  # noqa: E711 SqlAlchemy wants == not is
-        #         and_(
-        #             or_(Tag.moderation_score < threshold, Tag.moderation_score.is_(None)),
-        #             Tag.review_status == review_status if review_status else Tag.review_status.is_(None)
-        #         )
-        #     )
-        # )
+        # TODO: Filter on tags and comment status?
     )
     results = session.exec(stmt).all()
     logger.info(results)
