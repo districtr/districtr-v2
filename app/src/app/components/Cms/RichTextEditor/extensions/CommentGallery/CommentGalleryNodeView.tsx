@@ -29,6 +29,14 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
   const place: string | undefined = node.attrs.place || undefined;
   const state: string | undefined = node.attrs.state || undefined;
   const zipCode: string | undefined = node.attrs.zipCode || undefined;
+  const paginate: boolean | undefined = node.attrs.paginate || undefined;
+  const showListView: boolean | undefined = node.attrs.showListView || undefined;
+  const showTitles: boolean | undefined = node.attrs.showTitles || undefined;
+  const showPlaces: boolean | undefined = node.attrs.showPlaces || undefined;
+  const showStates: boolean | undefined = node.attrs.showStates || undefined;
+  const showZipCodes: boolean | undefined = node.attrs.showZipCodes || undefined;
+  const showCreatedAt: boolean | undefined = node.attrs.showCreatedAt || undefined;
+  const showIdentitifier: boolean | undefined = node.attrs.showIdentitifier || undefined;
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const handleUpdate = (updates: Partial<CommentGalleryProps>) => {
@@ -64,6 +72,49 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
                 <Heading as="h4">Editing Comment Gallery</Heading>
                 <Flex direction="column" gap="2">
                   <Text>Display Options</Text>
+                </Flex>
+
+                <Flex direction="column" gap="2">
+                  <Text>Display Options</Text>
+                  <CheckboxCards.Root
+                    className="w-full"
+                    columns={{
+                      initial: '2',
+                      md: '3',
+                      lg: '4',
+                    }}
+                    value={[
+                      paginate ? 'paginate' : '',
+                      showListView ? 'showListView' : '',
+                      showIdentitifier ? 'showIdentitifier' : '',
+                      showTitles ? 'showTitles' : '',
+                      showPlaces ? 'showPlaces' : '',
+                      showStates ? 'showStates' : '',
+                      showZipCodes ? 'showZipCodes' : '',
+                      showCreatedAt ? 'showCreatedAt' : '',
+                    ]}
+                    onValueChange={value => {
+                      handleUpdate({
+                        paginate: value.includes('paginate'),
+                        showListView: value.includes('showListView'),
+                        showTitles: value.includes('showTitles'),
+                        showPlaces: value.includes('showPlaces'),
+                        showStates: value.includes('showStates'),
+                        showZipCodes: value.includes('showZipCodes'),
+                        showCreatedAt: value.includes('showCreatedAt'),
+                        showIdentitifier: value.includes('showIdentitifier'),
+                      });
+                    }}
+                  >
+                    <CheckboxCards.Item value="paginate">Paginate Results</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showListView">Show List View</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showIdentitifier">Show Identitifier</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showTitles">Show Titles</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showPlaces">Show Places</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showStates">Show States</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showZipCodes">Show Zip Codes</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showCreatedAt">Show Created At</CheckboxCards.Item>
+                  </CheckboxCards.Root>
                 </Flex>
 
                 <Tabs.Root

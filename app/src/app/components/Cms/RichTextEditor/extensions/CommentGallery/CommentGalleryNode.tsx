@@ -46,6 +46,38 @@ export const CommentGalleryNode = Node.create({
         name: 'limit',
         default: 10,
       },
+      {
+        name: 'showIdentitifier',
+        default: true,
+      },
+      {
+        name: 'showTitles',
+        default: true,
+      },
+      {
+        name: 'showPlaces',
+        default: true,
+      },
+      {
+        name: 'showStates',
+        default: true,
+      },
+      {
+        name: 'showZipCodes',
+        default: true,
+      },
+      {
+        name: 'showCreatedAt',
+        default: true,
+      },
+      {
+        name: 'showListView',
+        default: true,
+      },
+      {
+        name: 'paginate',
+        default: true,
+      },
     ];
 
     return attrs.reduce(
