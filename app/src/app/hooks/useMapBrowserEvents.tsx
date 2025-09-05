@@ -51,6 +51,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
     staleTime: 0,
     placeholderData: _ => null,
     refetchOnWindowFocus: false,
+    enabled: Boolean(mapDocumentData && mapDocumentData?.document_id !== 'anonymous')
   });
 
   useEffect(() => {

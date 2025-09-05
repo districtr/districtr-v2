@@ -38,10 +38,13 @@ export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels
 
 export const LABELS_BREAK_LAYER_ID = 'places_subplace';
 
-export const ZONE_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
+export const ZONE_ASSIGNMENT_STYLE = (
+  colorScheme: string[],
+  accessor: any = (i: number) => ['==', ['feature-state', 'zone'], i + 1]
+) => {
   const colorStyleBaseline: any[] = ['case'];
   let group = [...colorScheme].reduce((val, color, i) => {
-    val.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+    val.push(accessor(i), color); // 1-indexed per mapStore.ts
     return val;
   }, colorStyleBaseline);
   group.push('#cecece');
