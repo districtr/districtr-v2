@@ -73,9 +73,11 @@ from app.save_share.locks import (
     remove_all_locks,
     check_map_lock,
 )
+from app.utils import update_or_select_district_stats
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
+from fastapi import BackgroundTasks
 
 
 if settings.ENVIRONMENT in ("production", "qa"):
@@ -182,6 +184,17 @@ async def unlock_map(
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/document/{document_id}/stats")
+async def get_document_stats(
+    background_tasks: BackgroundTasks,
+    document: Annotated[Document, Depends(get_protected_document)],
+    session: Session = Depends(get_session),
+):
+    return update_or_select_district_stats(
+        session, document.document_id, background_tasks
+    )
 
 
 # matches createMapObject in apiHandlers.ts

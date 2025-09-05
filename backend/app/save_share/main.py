@@ -3,6 +3,7 @@ from fastapi import (
     Depends,
     HTTPException,
     APIRouter,
+    BackgroundTasks,
 )
 from typing import Annotated
 from sqlalchemy import text, bindparam
@@ -32,6 +33,7 @@ from app.save_share.models import (
 import bcrypt
 
 
+logging.getLogger("sqlalchemy").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -49,7 +51,10 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 @router.post("/api/document/{document_id}/unlock")
 async def unlock_document(
-    document_id: str, data: UserID, session: Session = Depends(get_session)
+    document_id: str,
+    data: UserID,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
 ):
     try:
         session.execute(
@@ -63,7 +68,6 @@ async def unlock_document(
             )
             .params(document_id=document_id, user_id=data.user_id)
         )
-
         session.commit()
         logger.info("Document unlocked")
         return {"status": DocumentEditStatus.unlocked}
