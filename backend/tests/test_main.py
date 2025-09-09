@@ -14,7 +14,7 @@ from tests.constants import (
 from app.utils import create_districtr_map, create_map_group
 from app.core.models import DocumentID
 from pydantic import ValidationError
-from tests.test_utils import mock_review_approve_full, patch_recaptcha
+from tests.test_utils import handle_full_submission_approve, patch_recaptcha
 
 REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
 
@@ -1078,7 +1078,7 @@ def test_document_list(
     }
     response = client.post("/api/comments/submit", json=comment_data)
     assert response.status_code == 201
-    mock_review_approve_full(client, response.json())
+    handle_full_submission_approve(client, response.json())
     response = client.get("/api/documents/list?tags=test")
     assert response.status_code == 200
     data = response.json()

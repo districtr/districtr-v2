@@ -4,44 +4,15 @@ from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentCom
 from tests.test_utils import (
     patch_recaptcha,
     override_auth_dependency,
+    handle_approve_comment_entry,
+    handle_full_submission_approve,
 )
-from app.comments.models import FullCommentFormResponse
 
 TEST_MODERATION_SCORE = 0.001
 REQUIRED_AUTO_FIXTURES = [
     patch_recaptcha,
     override_auth_dependency,
 ]
-
-
-def handle_approve(client, content_type: str, id: int):
-    """
-    Test utility to approve a comment, tag, or commenter
-    """
-    client.post(
-        "/api/comments/admin/review",
-        json={
-            "content_type": content_type,
-            "review_status": "APPROVED",
-            "id": id,
-        },
-    )
-
-
-def handle_approve_full(client, form_response: FullCommentFormResponse):
-    """
-    Test utility to approve a full comment submission
-    """
-    if "tags" in form_response["comment"]:
-        for tag in form_response["comment"]["tags"]:
-            handle_approve(client, "tag", tag["id"])
-    if (
-        "commenter_id" in form_response["comment"]
-        and form_response["comment"]["commenter_id"] is not None
-    ):
-        handle_approve(client, "commenter", form_response["comment"]["commenter_id"])
-    if "id" in form_response["comment"] and form_response["comment"]["id"] is not None:
-        handle_approve(client, "comment", form_response["comment"]["id"])
 
 
 class TestCommenterEndpoint:
@@ -897,7 +868,7 @@ class TestCommentListEndpoints:
         response = client.post("/api/comments/submit", json=clean_form_data)
         assert response.status_code == 201
         # approve the comment
-        handle_approve_full(client, response.json())
+        handle_full_submission_approve(client, response.json())
 
         # Get the list of comments
         response = client.get("/api/comments/list")
@@ -951,7 +922,7 @@ class TestCommentListEndpoints:
             "recaptcha_token": "test_token",
         }
         response = client.post("/api/comments/submit", json=clean_form_data)
-        handle_approve_full(client, response.json())
+        handle_full_submission_approve(client, response.json())
         assert response.status_code == 201
 
         # Get the list of comments - should only return the clean one
@@ -1005,8 +976,8 @@ class TestCommentListEndpoints:
         # Submit both comments
         response1 = client.post("/api/comments/submit", json=form_data_1)
         response2 = client.post("/api/comments/submit", json=form_data_2)
-        handle_approve_full(client, response1.json())
-        handle_approve_full(client, response2.json())
+        handle_full_submission_approve(client, response1.json())
+        handle_full_submission_approve(client, response2.json())
         assert response1.status_code == 201
         assert response2.status_code == 201
 
@@ -1061,7 +1032,7 @@ class TestCommentListEndpoints:
 
         response = client.post("/api/comments/submit", json=form_data)
         assert response.status_code == 201
-        handle_approve_full(client, response.json())
+        handle_full_submission_approve(client, response.json())
 
         # Test admin endpoint (auth is mocked in conftest.py)
         response = client.get("/api/comments/admin/list")
@@ -1228,8 +1199,8 @@ class TestListingComments:
             "/api/comments/tag",
             json={"tag": {"tag": "world"}, "recaptcha_token": "test_token"},
         ).json()
-        handle_approve(client, "tag", tag1["id"])
-        handle_approve(client, "tag", tag2["id"])
+        handle_approve_comment_entry(client, "tag", tag1["id"])
+        handle_approve_comment_entry(client, "tag", tag2["id"])
         tag1_id = session.exec(select(Tag.id).where(Tag.slug == "hello")).first()
         tag2_id = session.exec(select(Tag.id).where(Tag.slug == "world")).first()
         associations = [
@@ -1256,7 +1227,7 @@ class TestListingComments:
             "recaptcha_token": "test_token",
         }
         post_response = client.post("/api/comments/comment", json=comment_data)
-        handle_approve(client, "comment", post_response.json()["id"])
+        handle_approve_comment_entry(client, "comment", post_response.json()["id"])
 
         get_response = client.get(
             f"/api/comments/list?public_id={document['public_id']}"
@@ -1277,7 +1248,7 @@ class TestListingComments:
         }
 
         comment = client.post("/api/comments/comment", json=comment_data).json()
-        handle_approve(client, "comment", comment["id"])
+        handle_approve_comment_entry(client, "comment", comment["id"])
         self._add_tags(client, session, comment["id"])
 
         document = client.get(f"/api/document/{document_id}").json()
@@ -1301,7 +1272,7 @@ class TestListingComments:
             "recaptcha_token": "test_token",
         }
         comment = client.post("/api/comments/comment", json=comment_data).json()
-        handle_approve(client, "comment", comment["id"])
+        handle_approve_comment_entry(client, "comment", comment["id"])
         self._add_tags(client, session, comment["id"])
 
         get_response = client.get("/api/comments/list?tags=world")
