@@ -133,7 +133,7 @@ export const EntryRow: React.FC<{
                 </Heading>
               </Box>
             </Flex>
-            {entry.tags.map((tag,i) => (
+            {entry.tags.map((tag, i) => (
               <Flex
                 direction="row"
                 gap="2"
