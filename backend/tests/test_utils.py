@@ -19,7 +19,6 @@ from app.core.security import recaptcha, auth
 from pytest import MonkeyPatch, fixture
 from tests.utils import fake_verify_recaptcha
 from fastapi.security import SecurityScopes
-from app.comments.models import FullCommentFormResponse
 from app.main import app
 
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
@@ -380,29 +379,3 @@ def override_auth_dependency():
         yield
     finally:
         app.dependency_overrides.pop(auth.verify, None)
-
-
-def mock_review_approve(client, content_type: str, id: int):
-    client.post(
-        "/api/comments/admin/review",
-        json={
-            "content_type": content_type,
-            "review_status": "APPROVED",
-            "id": id,
-        },
-    )
-
-
-def mock_review_approve_full(client, form_response: FullCommentFormResponse):
-    if "tags" in form_response["comment"]:
-        for tag in form_response["comment"]["tags"]:
-            mock_review_approve(client, "tag", tag["id"])
-    if (
-        "commenter_id" in form_response["comment"]
-        and form_response["comment"]["commenter_id"] is not None
-    ):
-        mock_review_approve(
-            client, "commenter", form_response["comment"]["commenter_id"]
-        )
-    if "id" in form_response["comment"] and form_response["comment"]["id"] is not None:
-        mock_review_approve(client, "comment", form_response["comment"]["id"])
