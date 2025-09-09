@@ -602,8 +602,10 @@ async def get_document_list(
                 Document.map_metadata["draft_status"].astext == "ready_to_share"
             )
         )
-    elif len(ids) > 0:
+
+    if len(ids) > 0:
         stmt = stmt.where(Document.public_id.in_(ids))
+
     results = session.execute(stmt).fetchall()
     return [
         {
