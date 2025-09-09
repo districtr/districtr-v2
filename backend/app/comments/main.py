@@ -52,11 +52,8 @@ from app.comments.moderation import (
 from app.models import Document
 from app.core.models import DocumentID
 from app.core.security import recaptcha
-import logging
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
-
-logger = logging.getLogger(__name__)
 
 
 def create_commenter_db(
@@ -563,7 +560,6 @@ async def list_comments_admin(
         # TODO: Filter on tags and comment status?
     )
     results = session.exec(stmt).all()
-    logger.info(results)
     return results
 
 
