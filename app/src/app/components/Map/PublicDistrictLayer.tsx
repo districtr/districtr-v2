@@ -3,10 +3,13 @@ import {
   LABELS_BREAK_LAYER_ID,
   ZONE_ASSIGNMENT_STYLE,
 } from '@/app/constants/layers';
+import {NullableZone} from '@/app/constants/types';
 import {useMapStore} from '@/app/store/mapStore';
 import {get} from '@/app/utils/api/factory';
-import { demographyCache } from '@/app/utils/demography/demographyCache';
+import {AllTabularColumns} from '@/app/utils/api/summaryStats';
+import {demographyCache} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
+import {ColumnarTableData} from '@/app/utils/ParquetWorker/parquetWorker.types';
 import {useQuery} from '@tanstack/react-query';
 import {useEffect, useRef} from 'react';
 import {Layer, Source} from 'react-map-gl/dist/esm/exports-maplibre';
@@ -28,8 +31,16 @@ export const PublicDistrictLayer = () => {
       `document/${mapDocument?.public_id}/stats`
     )({});
     if (response.ok) {
-      const geojsonFeatures = response.response.map((row: any) => {
-        return {
+      const geojsonFeatures: GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>[] = [];
+      const columns: Set<AllTabularColumns[number]> = new Set();
+      const demographicData: ColumnarTableData = {
+        path: [],
+        sourceLayer: [],
+      };
+      const assignments: Map<string, NullableZone> = new Map();
+
+      response.response.forEach((row: any, i) => {
+        const feature = {
           type: 'Feature',
           geometry: JSON.parse(row.geometry) as GeoJSON.Geometry,
           properties: {
@@ -37,41 +48,41 @@ export const PublicDistrictLayer = () => {
             zone: row.zone,
           },
         } as GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
+        geojsonFeatures.push(feature);
+        Object.keys(row.demographic_data).forEach(column =>
+          columns.add(column as AllTabularColumns[number])
+        );
+        demographicData.path.push(row.zone);
+        demographicData.sourceLayer.push(mapDocument?.parent_layer ?? '');
+        Object.entries(row.demographic_data).forEach(([column, value]) => {
+          if (!columns.has(column as AllTabularColumns[number]))
+            columns.add(column as AllTabularColumns[number]);
+          if (!(column in demographicData))
+            demographicData[column as AllTabularColumns[number]] = [];
+          demographicData[column as AllTabularColumns[number]]!.push(value as number);
+          assignments.set(row.zone, row.zone);
+        });
       });
+
       data.current = {
         type: 'FeatureCollection',
         features: geojsonFeatures,
       };
+      if (columns.size) {
+        console.log('update', Array.from(columns), demographicData);
+        demographyCache.update({columns: Array.from(columns), results: demographicData});
+        demographyCache.updateZoneTable(assignments);
+        demographyCache.updatePopulations(assignments);
+      }
       // @ts-ignore
       GeometryWorker?.loadGeometry(geojsonFeatures, 'zone');
       // @ts-ignore
-      GeometryWorker?.updateZones(geojsonFeatures.map((f, i) => [f.properties.zone, f.properties.zone-1]));
-
-      // DEMOGRAPHY
-      // const demographyResult = {}
-    // demographyCache.update(result.columns, result.results, dataHash.current);
-    // const availableColumns = demographyCache?.table?.columnNames() ?? [];
-    // const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
-    //   Object.entries(evalColumnConfigs)
-    //     .map(([columnsetKey, config]) => [
-    //       columnsetKey,
-    //       config.filter(entry => availableColumns.includes(entry.column)),
-    //     ])
-    //     .filter(([, config]) => config.length > 0)
-    // );
-    // const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
-    //   Object.entries(choroplethMapVariables)
-    //     .map(([columnsetKey, config]) => [
-    //       columnsetKey,
-    //       config.filter(entry => availableColumns.includes(entry.value)),
-    //     ])
-    //     .filter(([, config]) => config.length > 0)
-    // );
-    // setDataHash(dataHash);
-    // setAvailableColumnSets({
-    //   evaluation: availableEvalSets,
-    //   map: availableMapSets,
-    // });
+      GeometryWorker?.updateZones(
+        geojsonFeatures.map((f, i) => [f.properties?.zone, f.properties?.zone - 1])
+      );
+      return true;
+    } else {
+      return false
     }
   };
 

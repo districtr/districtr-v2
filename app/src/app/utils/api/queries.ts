@@ -76,36 +76,7 @@ export const updateDemography = ({
 };
 
 fetchDemography.subscribe(demography => {
-  if (demography.data) {
-    const {setDataHash, setAvailableColumnSets} = useDemographyStore.getState();
-    const {shatterIds, mapDocument} = useMapStore.getState();
-    const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
-    const result = demography.data;
-    if (!mapDocument || !result) return;
-    demographyCache.update(result.columns, result.results, dataHash);
-    const availableColumns = demographyCache?.table?.columnNames() ?? [];
-    const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
-      Object.entries(evalColumnConfigs)
-        .map(([columnsetKey, config]) => [
-          columnsetKey,
-          config.filter(entry => availableColumns.includes(entry.column)),
-        ])
-        .filter(([, config]) => config.length > 0)
-    );
-    const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
-      Object.entries(choroplethMapVariables)
-        .map(([columnsetKey, config]) => [
-          columnsetKey,
-          config.filter(entry => availableColumns.includes(entry.value)),
-        ])
-        .filter(([, config]) => config.length > 0)
-    );
-    setDataHash(dataHash);
-    setAvailableColumnSets({
-      evaluation: availableEvalSets,
-      map: availableMapSets,
-    });
-  }
+  if (demography.data) demographyCache.update(demography.data);
 });
 
 export {updateMapViews, getQueriesResultsSubs, mapViewsQuery, fetchDemography};

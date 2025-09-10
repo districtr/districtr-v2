@@ -16,6 +16,7 @@ import {
   TableRow,
   TabularDataWithPercent,
   AllMapConfigs,
+  AllEvaluationConfigs,
 } from '../api/summaryStats';
 import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
@@ -27,6 +28,8 @@ import {
 } from '@/app/store/demography/constants';
 import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
+import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
 /**
  * Class to organize queries on current demographic data
  */
@@ -88,15 +91,43 @@ class DemographyCache {
    * @param mapDocument - The map document object.
    * @param hash - The hash representing the new state.
    */
-  update(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
-    if (hash === this.hash) return;
+  update(data: {columns: AllTabularColumns[number][]; results: ColumnarTableData}): void {
+    const {setDataHash, setAvailableColumnSets} = useDemographyStore.getState();
+    const {shatterIds, mapDocument} = useMapStore.getState();
+    const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}|${mapDocument?.public_id}`;
+    if (!mapDocument || !data || dataHash === this.hash) return;
+    const {columns, results} = data;
+    const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
+      Object.entries(evalColumnConfigs)
+        .map(([columnsetKey, config]) => [
+          columnsetKey,
+          config.filter(entry => columns.includes(entry.column)),
+        ])
+        .filter(([, config]) => config.length > 0)
+    );
+    const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
+      Object.entries(choroplethMapVariables)
+        .map(([columnsetKey, config]) => [
+          columnsetKey,
+          config.filter(entry => columns.includes(entry.value)),
+        ])
+        .filter(([, config]) => config.length > 0)
+    );
+    setDataHash(dataHash);
+    setAvailableColumnSets({
+      evaluation: availableEvalSets,
+      map: availableMapSets,
+    });
+
     this.availableColumns = columns;
-    this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
+    this.table = table(results).derive(getColumnDerives(columns)).dedupe('path');
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
     this.updateSummaryStats();
-    this.hash = hash;
+    this.hash = dataHash;
+    console.log('update', dataHash, this.hash);
+    console.log('table', this.table?.objects());
   }
 
   /**
@@ -116,6 +147,7 @@ class DemographyCache {
       zoneColumns.zone[i] = v;
     });
     this.zoneTable = table(zoneColumns);
+    console.log('zoneTable', this.zoneTable?.objects());
   }
 
   /**
