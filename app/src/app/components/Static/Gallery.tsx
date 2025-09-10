@@ -6,10 +6,19 @@ import {Box, Button, Flex, Grid, SegmentedControl, Spinner, Table, Text} from '@
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {nanoid} from 'nanoid';
 
+const getDefaultColumns = (numItems: number) => ({
+  initial: '1',
+  xs: '1',
+  sm: Math.min(2, Math.max(numItems ?? 2, 2)).toString(),
+  md: Math.min(3, Math.max(numItems ?? 3, 2)).toString(),
+  lg: Math.min(4, Math.max(numItems ?? 4, 2)).toString(),
+})
+
 export type GalleryProps<TItem, TFilters, TQueryResult = TItem[]> = {
   title?: string;
   description?: string;
   header?: React.ReactNode;
+  getColumns?: (numItems: number) => Record<string, string>;
 
   // Renderers
   gridRenderer: (item: TItem, index: number) => React.ReactNode;
@@ -52,6 +61,7 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
   paginate,
   limit = 12,
   showListView = false,
+  getColumns = getDefaultColumns,
   initialView = 'grid',
   emptyState,
 }: GalleryProps<TItem, TFilters, TQueryResult>): React.ReactElement | null {
@@ -122,14 +132,7 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
 
       {!!(!noItems && view === 'grid') && (
         <Grid
-          columns={{
-            initial: '1',
-            xs: '1',
-            sm: Math.min(2, Math.max(items?.length ?? 2, 2)).toString(),
-            md: Math.min(3, Math.max(items?.length ?? 3, 2)).toString(),
-            lg: Math.min(4, Math.max(items?.length ?? 4, 2)).toString(),
-            xl: Math.min(6, Math.max(items?.length ?? 6, 2)).toString(),
-          }}
+          columns={getColumns(items?.length ?? 0)}
           gap="4"
           pt="4"
         >
