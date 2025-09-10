@@ -24,7 +24,7 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
         </IconButton>
       )}
       {options.showTitles && (
-        <Heading size="4" className="text-districtrBlue">
+        <Heading size="4" className="text-districtrBlue text-wrap whitespace-pre-line max-w-[18rem] truncate">
           {comment.title}
         </Heading>
       )}
