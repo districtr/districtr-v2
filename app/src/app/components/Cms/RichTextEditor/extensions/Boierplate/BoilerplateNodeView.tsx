@@ -51,7 +51,7 @@ const BoilerplateNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
   }, [customContent, editor]);
 
   return (
-    <NodeViewWrapper className="boilerplate-node border border-gray-300 rounded-md p-4 my-4 bg-gray-50">
+    <NodeViewWrapper className="boilerplate-node border border-gray-300 rounded-md p-4 my-4 bg-gray-50" contentEditable={false}>
       <Flex direction="row" justify="between" align="center" className="mb-4">
         <Box className="mb-4">About the data ...</Box>
         <Button variant="ghost" onClick={deleteNode}>

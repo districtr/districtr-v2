@@ -1,20 +1,8 @@
 'use client';
+
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
 import React, {useRef} from 'react';
-import {
-  Box,
-  Button,
-  CheckboxCards,
-  CheckboxGroup,
-  Dialog,
-  Flex,
-  Heading,
-  Switch,
-  Tabs,
-  Text,
-  TextArea,
-  TextField,
-} from '@radix-ui/themes';
+import {Box, Button, CheckboxCards, Dialog, Flex, Heading, Tabs, Text, TextArea, TextField} from '@radix-ui/themes';
 import {CommentGallery, CommentGalleryProps} from './CommentGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {NoFocusBoundary} from '../NoFocusBoundary';
@@ -23,20 +11,24 @@ import {CmsSettingsChips} from '../EditHelpers/CmsSettingsChips';
 const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   const parentRef = useRef<HTMLDivElement>(null);
   // Use a nested editor for the custom content
-  const ids: number[] | undefined = node.attrs.ids || undefined;
-  const tags: string[] | undefined = node.attrs.tags || undefined;
-  const limit: number | undefined = node.attrs.limit || undefined;
-  const place: string | undefined = node.attrs.place || undefined;
-  const state: string | undefined = node.attrs.state || undefined;
-  const zipCode: string | undefined = node.attrs.zipCode || undefined;
-  const paginate: boolean | undefined = node.attrs.paginate || undefined;
-  const showListView: boolean | undefined = node.attrs.showListView || undefined;
-  const showTitles: boolean | undefined = node.attrs.showTitles || undefined;
-  const showPlaces: boolean | undefined = node.attrs.showPlaces || undefined;
-  const showStates: boolean | undefined = node.attrs.showStates || undefined;
-  const showZipCodes: boolean | undefined = node.attrs.showZipCodes || undefined;
-  const showCreatedAt: boolean | undefined = node.attrs.showCreatedAt || undefined;
-  const showIdentitifier: boolean | undefined = node.attrs.showIdentitifier || undefined;
+  const {
+    ids,
+    tags,
+    limit,
+    place,
+    state,
+    zipCode,
+    title,
+    description,
+    paginate,
+    showListView,
+    showIdentitifier,
+    showTitles,
+    showPlaces,
+    showStates,
+    showZipCodes,
+    showCreatedAt,
+  } = node.attrs as CommentGalleryProps;
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const handleUpdate = (updates: Partial<CommentGalleryProps>) => {
@@ -48,15 +40,15 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
   };
 
   return (
-    <NodeViewWrapper className="relative" ref={parentRef} contentEditable={false}>
+    <NodeViewWrapper className="relative border-[1px] border-blue-500 my-4 rounded-md border-dashed" ref={parentRef} contentEditable={false}>
       <NoFocusBoundary parentRef={parentRef}>
         <CommentGallery
-          _ids={ids}
-          _tags={tags}
-          _place={place}
-          _state={state}
-          _zipCode={zipCode}
-          _limit={limit}
+          ids={ids}
+          tags={tags}
+          place={place}
+          state={state}
+          zipCode={zipCode}
+          limit={limit}
         />
       </NoFocusBoundary>
       <Box position="absolute" top="2" right="2">
@@ -71,7 +63,20 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
               <Flex direction="column" gapY="4">
                 <Heading as="h4">Editing Comment Gallery</Heading>
                 <Flex direction="column" gap="2">
-                  <Text>Display Options</Text>
+                  <Text>Title</Text>
+                  <TextField.Root
+                    placeholder="Title"
+                    value={title}
+                    onChange={e => handleUpdate({title: e.target.value})}
+                  />
+                </Flex>
+                <Flex direction="column" gap="2">
+                  <Text>Description</Text>
+                  <TextArea
+                    placeholder="Description"
+                    value={description}
+                    onChange={e => handleUpdate({description: e.target.value})}
+                  />
                 </Flex>
 
                 <Flex direction="column" gap="2">
@@ -108,7 +113,9 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
                   >
                     <CheckboxCards.Item value="paginate">Paginate Results</CheckboxCards.Item>
                     <CheckboxCards.Item value="showListView">Show List View</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showIdentitifier">Show Identitifier</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showIdentitifier">
+                      Show Identitifier
+                    </CheckboxCards.Item>
                     <CheckboxCards.Item value="showTitles">Show Titles</CheckboxCards.Item>
                     <CheckboxCards.Item value="showPlaces">Show Places</CheckboxCards.Item>
                     <CheckboxCards.Item value="showStates">Show States</CheckboxCards.Item>

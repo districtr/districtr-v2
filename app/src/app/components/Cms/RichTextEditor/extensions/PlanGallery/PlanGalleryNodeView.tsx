@@ -47,7 +47,7 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
   };
 
   return (
-    <NodeViewWrapper className="relative" ref={parentRef} contentEditable={false}>
+    <NodeViewWrapper className="relative border-[1px] border-blue-500 my-4 rounded-md border-dashed" ref={parentRef} contentEditable={false}>
       <NoFocusBoundary parentRef={parentRef}>
         <PlanGallery
           ids={ids}

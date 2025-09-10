@@ -28,6 +28,12 @@ export const CommentGalleryNode = Node.create({
       renderHTML?: (attributes: Record<string, any>) => Record<string, any>;
     }[] = [
       {
+        name: 'title',
+      },
+      {
+        name: 'description',
+      },
+      {
         name: 'ids',
       },
       {

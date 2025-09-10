@@ -4,20 +4,22 @@ import {ContentHeader} from '../../Static/ContentHeader';
 import {CommentSubmissionForm} from '../../Forms/CommentSubmissionForm';
 import {PlanGallery} from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
 import {MapCreateButtons} from '../../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtons';
-import { CommentGallery } from '../../Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
+import {CommentGallery} from '../../Cms/RichTextEditor/extensions/CommentGallery/CommentGallery';
 
 export const domNodeReplacers = (disabled: boolean) => {
   const domNodeReplaceFn = (domNode: DOMNode) => {
     if (domNode.type === 'tag' && domNode.attribs?.['data-type']?.length) {
       switch (domNode.attribs['data-type']) {
-        case 'boilerplate-node':
+        case 'boilerplate-node': {
           const data = domNode.attribs['data-custom-content'];
           const customContent = data ? JSON.parse(data) : null;
           return <BoilerplateNodeRenderer customContent={customContent} />;
-        case 'section-header-node':
+        }
+        case 'section-header-node': {
           // Remove outer quotes
           const title = domNode.attribs['data-title']?.slice(1, -1);
           return <ContentHeader title={title} />;
+        }
         case 'plan-gallery-node': {
           const ids = JSON.parse(domNode.attribs['ids'] ?? 'null');
           const tags = JSON.parse(domNode.attribs['tags'] ?? 'null');
@@ -50,7 +52,7 @@ export const domNodeReplacers = (disabled: boolean) => {
             />
           );
         }
-        case 'form-node':
+        case 'form-node': {
           const mandatoryTags = JSON.parse(domNode.attribs['mandatoryTags'] ?? 'null');
           const allowListModules = JSON.parse(domNode.attribs['allowListModules'] ?? 'null');
           return (
@@ -60,18 +62,50 @@ export const domNodeReplacers = (disabled: boolean) => {
               allowListModules={allowListModules}
             />
           );
-        case 'map-create-buttons-node':
+        }
+        case 'map-create-buttons-node': {
           const views = JSON.parse(domNode.attribs['views'] ?? 'null');
           const type = JSON.parse(domNode.attribs['type'] ?? 'null');
           return <MapCreateButtons views={views} type={type} />;
-        case 'comment-gallery-node':
+        }
+        case 'comment-gallery-node': {
           const ids = JSON.parse(domNode.attribs['ids'] ?? 'null');
           const tags = JSON.parse(domNode.attribs['tags'] ?? 'null');
           const limit = JSON.parse(domNode.attribs['limit'] ?? 'null');
           const place = JSON.parse(domNode.attribs['place'] ?? 'null');
           const state = JSON.parse(domNode.attribs['state'] ?? 'null');
           const zipCode = JSON.parse(domNode.attribs['zipCode'] ?? 'null');
-          return <CommentGallery _ids={ids} _tags={tags} _limit={limit} _place={place} _state={state} _zipCode={zipCode} />
+          const showIdentitifier = JSON.parse(domNode.attribs['showIdentitifier'] ?? 'null');
+          const showTitles = JSON.parse(domNode.attribs['showTitles'] ?? 'null');
+          const title = JSON.parse(domNode.attribs['title'] ?? 'null');
+          const description = JSON.parse(domNode.attribs['description'] ?? 'null');
+          const showPlaces = JSON.parse(domNode.attribs['showPlaces'] ?? 'null');
+          const showStates = JSON.parse(domNode.attribs['showStates'] ?? 'null');
+          const showZipCodes = JSON.parse(domNode.attribs['showZipCodes'] ?? 'null');
+          const showCreatedAt = JSON.parse(domNode.attribs['showCreatedAt'] ?? 'null');
+          const showListView = JSON.parse(domNode.attribs['showListView'] ?? 'null');
+          const paginate = JSON.parse(domNode.attribs['paginate'] ?? 'null');
+          return (
+            <CommentGallery
+              ids={ids}
+              tags={tags}
+              limit={limit}
+              place={place}
+              state={state}
+              zipCode={zipCode}
+              showIdentitifier={showIdentitifier}
+              showTitles={showTitles}
+              showPlaces={showPlaces}
+              title={title}
+              description={description}
+              showStates={showStates}
+              showZipCodes={showZipCodes}
+              showCreatedAt={showCreatedAt}
+              showListView={showListView}
+              paginate={paginate}
+            />
+          );
+        }
       }
     }
   };

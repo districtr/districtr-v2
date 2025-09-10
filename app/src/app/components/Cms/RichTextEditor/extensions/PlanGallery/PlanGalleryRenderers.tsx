@@ -98,5 +98,3 @@ export const PlanTableRow = ({plan, ...flags}: {plan: MinPublicDocument} & PlanF
     </Table.Row>
   );
 };
-
-

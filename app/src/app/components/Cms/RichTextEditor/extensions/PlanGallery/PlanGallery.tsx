@@ -55,4 +55,3 @@ export const PlanGallery: React.FC<PlanGalleryProps> = ({
     />
   );
 };
-

@@ -10,13 +10,13 @@ import {
 import {CommentCard, CommentRow} from './CommentGalleryRenderers';
 
 export interface CommentGalleryProps {
-  _ids?: number[];
-  _tags?: string[];
-  _place?: string;
-  _state?: string;
-  _zipCode?: string;
-  _offset?: number;
-  _limit?: number;
+  ids?: number[];
+  tags?: string[];
+  place?: string;
+  state?: string;
+  zipCode?: string;
+  offset?: number;
+  limit?: number;
   title?: string;
   description?: string;
   paginate?: boolean;
@@ -30,13 +30,13 @@ export interface CommentGalleryProps {
 }
 
 export const CommentGallery: React.FC<CommentGalleryProps> = ({
-  _ids,
-  _tags,
-  _place,
-  _state,
-  _zipCode,
-  _offset,
-  _limit,
+  ids,
+  tags,
+  place,
+  state,
+  zipCode,
+  offset,
+  limit,
   title,
   description,
   showListView,
@@ -48,13 +48,13 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
   showIdentitifier,
 }) => {
   const filters: CommentFilters = {
-    ids: _ids,
-    tags: _tags,
-    place: _place,
-    state: _state,
-    zipCode: _zipCode,
-    offset: _offset,
-    limit: _limit,
+    ids: ids,
+    tags: tags,
+    place: place,
+    state: state,
+    zipCode: zipCode,
+    offset: offset,
+    limit: limit,
   };
 
   return (
@@ -66,13 +66,13 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
       title={title}
       description={description}
       paginate
-      limit={_limit ?? 10}
+      limit={limit ?? 10}
       showListView={showListView}
       filters={filters}
       queryKey={['comments']}
       queryFunction={({filters, limit, offset}) => getPublicComments({...filters, limit, offset})}
       selectItems={data => (data?.ok ? data.response : [])}
-      isError={data => Boolean(data?.ok)}
+      isError={data => !Boolean(data?.ok)}
       errorMessage={data => (data?.ok ? null : data?.error?.detail)}
       gridRenderer={(comment, i) => (
         <CommentCard
