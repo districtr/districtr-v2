@@ -156,15 +156,3 @@ export interface FullCommentFormResponse {
   commenter: CommenterPublic;
   tags: TagPublic[];
 }
-
-export interface CommentListing {
-  comment: {
-    comment: string;
-    commenter_id: number;
-    document_id: string;
-    created_at: Date;
-    title: string;
-    updated_at: Date;
-  };
-  tags?: string[];
-}
