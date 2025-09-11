@@ -8,7 +8,7 @@ import {HighlightOverlayerLayerGroup} from './HighlightOverlayLayerGroup';
 import {useClearMap} from '@/app/hooks/useClearMap';
 import {PointSelectionLayer} from './PointSelectionLayer';
 import {TILESET_URL} from '@/app/utils/api/constants';
-import { useChoroplethRenderer } from '@/app/hooks/useChoroplethRenderer';
+import {useChoroplethRenderer} from '@/app/hooks/useChoroplethRenderer';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;

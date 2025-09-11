@@ -3,7 +3,7 @@ import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from '../store/demography/demographyStore';
 import {useMapStore} from '../store/mapStore';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
-import { useMap } from 'react-map-gl/maplibre';
+import {useMap} from 'react-map-gl/maplibre';
 
 export const useChoroplethRenderer = () => {
   const mapRef = useMap();
