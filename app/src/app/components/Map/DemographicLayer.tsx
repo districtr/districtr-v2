@@ -22,8 +22,6 @@ export const DemographicLayer: React.FC<{
   const lineWidth = child ? 1 : 2;
   const layerFilter = useLayerFilter(child);
 
-  if (!id || !mapDocument) return null;
-
   const layerProps = useMemo(() => {
     const overlayLayerProps: LayerProps = {
       id: `${child ? BLOCK_HOVER_LAYER_ID_CHILD : BLOCK_HOVER_LAYER_ID}${isOverlay ? '_overlay' : ''}`,
@@ -80,7 +78,7 @@ export const DemographicLayer: React.FC<{
         ],
       },
     };
-    if (!isPublic) {
+    if (!isPublic && id) {
       lineLayerProps['source-layer'] = id;
       overlayLayerProps['source-layer'] = id;
     }
@@ -90,6 +88,9 @@ export const DemographicLayer: React.FC<{
       lineLayerProps,
     };
   }, [child, isOverlay, isPublic, id, layerFilter, overlayOpacity]);
+
+  if (!id || !mapDocument) return null;
+
   return (
     <>
       <Layer {...layerProps.overlayLayerProps} />
