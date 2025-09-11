@@ -99,7 +99,7 @@ class DemographyCache {
     const {columns, results} = data;
     this.table = table(results).derive(getColumnDerives(columns)).dedupe('path');
     const tableColumns = this.table.columnNames();
-    this.availableColumns = tableColumns;
+    this.availableColumns = tableColumns as AllTabularColumns[number][];
     const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
       Object.entries(evalColumnConfigs)
         .map(([columnsetKey, config]) => [
