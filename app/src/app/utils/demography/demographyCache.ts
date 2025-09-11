@@ -97,11 +97,14 @@ class DemographyCache {
     const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}|${mapDocument?.public_id}`;
     if (!mapDocument || !data || dataHash === this.hash) return;
     const {columns, results} = data;
+    this.table = table(results).derive(getColumnDerives(columns)).dedupe('path');
+    const tableColumns = this.table.columnNames();
+    this.availableColumns = tableColumns;
     const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
       Object.entries(evalColumnConfigs)
         .map(([columnsetKey, config]) => [
           columnsetKey,
-          config.filter(entry => columns.includes(entry.column)),
+          config.filter(entry => tableColumns.includes(entry.column)),
         ])
         .filter(([, config]) => config.length > 0)
     );
@@ -109,7 +112,7 @@ class DemographyCache {
       Object.entries(choroplethMapVariables)
         .map(([columnsetKey, config]) => [
           columnsetKey,
-          config.filter(entry => columns.includes(entry.value)),
+          config.filter(entry => tableColumns.includes(entry.value)),
         ])
         .filter(([, config]) => config.length > 0)
     );
@@ -119,8 +122,6 @@ class DemographyCache {
       map: availableMapSets,
     });
 
-    this.availableColumns = columns;
-    this.table = table(results).derive(getColumnDerives(columns)).dedupe('path');
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
