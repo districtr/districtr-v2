@@ -28,6 +28,7 @@ export const PublicDistrictLayer = ({isDemographicMap}: {isDemographicMap?: bool
   const data = useRef<GeoJSON.FeatureCollection<GeoJSON.Geometry>>(EMPTY_FT_COLLECTION);
   const mapDocument = useMapStore(state => state.mapDocument);
   const colorScheme = useMapStore(state => state.colorScheme);
+  const setMapOptions = useMapStore(state => state.setMapOptions);
   useChoroplethRenderer();
 
   const fetchData = async () => {
@@ -42,8 +43,11 @@ export const PublicDistrictLayer = ({isDemographicMap}: {isDemographicMap?: bool
         sourceLayer: [],
       };
       const assignments: Map<string, NullableZone> = new Map();
-
+      let statefp = '';
       response.response.forEach((row: any, i) => {
+        if (row.demographic_data.statefp) {
+          statefp = row.demographic_data.statefp;
+        }
         const feature = {
           type: 'Feature',
           geometry: JSON.parse(row.geometry) as GeoJSON.Geometry,
@@ -73,6 +77,9 @@ export const PublicDistrictLayer = ({isDemographicMap}: {isDemographicMap?: bool
         type: 'FeatureCollection',
         features: geojsonFeatures,
       };
+      if (statefp) {
+        setMapOptions({currentStateFp: statefp});
+      }
       if (columns.size) {
         demographyCache.update({columns: Array.from(columns), results: demographicData});
         demographyCache.updateZoneTable(assignments);
