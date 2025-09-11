@@ -125,6 +125,15 @@ const getDissolved = async () => {
   );
   //px convert to km at current zoom
   const bufferInKm = 50 / (mapRef.getCanvas().width / distanceAcrossCanvas);
+  console.log(
+    'getDissolved',
+    activeZones,
+    bufferInKm,
+    currentView.getNorth(),
+    currentView.getSouth(),
+    currentView.getEast(),
+    currentView.getWest()
+  );
   const {centroids, dissolved} = await GeometryWorker.getCentroidsFromView({
     bounds: [
       currentView.getWest(),

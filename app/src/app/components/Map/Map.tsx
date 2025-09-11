@@ -18,7 +18,7 @@ import {MetaLayers} from './MetaLayers';
 // @ts-ignore plugin has no types
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
-import { PublicDistrictLayer } from './PublicDistrictLayer';
+import {PublicDistrictLayer} from './PublicDistrictLayer';
 
 export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   const getStateMapRef = useMapStore(state => state.getMapRef);
@@ -115,7 +115,6 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
       });
     };
   });
-  console.log("map is editing", isEditing);
   return (
     <div
       className={`relative w-full flex-1 flex-grow
@@ -164,7 +163,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
       >
         <CountyLayers />
         {isEditing && <VtdBlockLayers isDemographicMap={isDemographicMap} />}
-        {!isEditing && <PublicDistrictLayer />}
+        {!isEditing && <PublicDistrictLayer isDemographicMap={isDemographicMap} />}
         <MetaLayers isDemographicMap={isDemographicMap} />
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
       </GlMap>

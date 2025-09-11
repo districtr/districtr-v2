@@ -126,8 +126,6 @@ class DemographyCache {
     if (!popsOk) return;
     this.updateSummaryStats();
     this.hash = dataHash;
-    console.log('update', dataHash, this.hash);
-    console.log('table', this.table?.objects());
   }
 
   /**
@@ -147,7 +145,6 @@ class DemographyCache {
       zoneColumns.zone[i] = v;
     });
     this.zoneTable = table(zoneColumns);
-    console.log('zoneTable', this.zoneTable?.objects());
   }
 
   /**
@@ -349,6 +346,8 @@ class DemographyCache {
     ids?: string[];
   }) {
     if (!this.table || !this.colorScale) return;
+    const mapDocument = useMapStore.getState().mapDocument;
+    const isPublic = mapDocument?.document_id === 'anonymous';
     const colorScale = this.colorScale!;
     const derives = {
       color: config.expression
@@ -367,11 +366,10 @@ class DemographyCache {
       if (!isNaN(+value)) {
         color = colorScale(+value);
       }
-
       mapRef.setFeatureState(
         {
           source: BLOCK_SOURCE_ID,
-          sourceLayer: row.sourceLayer,
+          sourceLayer: isPublic ? undefined : row.sourceLayer,
           id,
         },
         {

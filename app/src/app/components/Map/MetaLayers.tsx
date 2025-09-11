@@ -111,6 +111,7 @@ const PopulationTextLayer = () => {
 };
 
 const ZoneNumbersLayer = () => {
+  console.log('ZoneNumbersLayer');
   const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
   const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
   const zoneAssignments = useMapStore(state => state.zoneAssignments);
@@ -130,8 +131,10 @@ const ZoneNumbersLayer = () => {
   const addZoneMetaLayers = async () => {
     const showZoneNumbers = useMapStore.getState().mapOptions.showZoneNumbers;
     const id = `${mapDocumentId}`;
+    console.log('addZoneMetaLayers', showZoneNumbers);
     if (showZoneNumbers) {
       const geoms = await getDissolved();
+      console.log('geoms', geoms);
       if (geoms && mapDocumentId === id) {
         setZoneNumberData(geoms.centroids);
       }

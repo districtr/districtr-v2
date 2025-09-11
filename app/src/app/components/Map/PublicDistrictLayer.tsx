@@ -13,6 +13,10 @@ import {ColumnarTableData} from '@/app/utils/ParquetWorker/parquetWorker.types';
 import {useQuery} from '@tanstack/react-query';
 import {useEffect, useRef} from 'react';
 import {Layer, Source} from 'react-map-gl/dist/esm/exports-maplibre';
+import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
+import { DemographicLayer } from './DemographicLayer';
+
+import { useChoroplethRenderer } from '@/app/hooks/useChoroplethRenderer';
 
 type PublicDistrictData = {
   zone: number;
@@ -20,11 +24,11 @@ type PublicDistrictData = {
   geometry: string; //  GeoJSON.Geometry;
 };
 
-export const PublicDistrictLayer = () => {
+export const PublicDistrictLayer = ({isDemographicMap}: {isDemographicMap?: boolean}) => {
   const data = useRef<GeoJSON.FeatureCollection<GeoJSON.Geometry>>(EMPTY_FT_COLLECTION);
-  const dataHash = useRef<string>('');
   const mapDocument = useMapStore(state => state.mapDocument);
   const colorScheme = useMapStore(state => state.colorScheme);
+  useChoroplethRenderer();
 
   const fetchData = async () => {
     const response = await get<Array<PublicDistrictData>>(
@@ -46,6 +50,7 @@ export const PublicDistrictLayer = () => {
           properties: {
             ...row.demographic_data,
             zone: row.zone,
+            path: row.zone,
           },
         } as GeoJSON.Feature<GeoJSON.Geometry, GeoJSON.GeoJsonProperties>;
         geojsonFeatures.push(feature);
@@ -69,7 +74,6 @@ export const PublicDistrictLayer = () => {
         features: geojsonFeatures,
       };
       if (columns.size) {
-        console.log('update', Array.from(columns), demographicData);
         demographyCache.update({columns: Array.from(columns), results: demographicData});
         demographyCache.updateZoneTable(assignments);
         demographyCache.updatePopulations(assignments);
@@ -82,7 +86,7 @@ export const PublicDistrictLayer = () => {
       );
       return true;
     } else {
-      return false
+      return false;
     }
   };
 
@@ -95,8 +99,8 @@ export const PublicDistrictLayer = () => {
   const lineWidth = 2;
 
   return (
-    <Source id="public-districts" type="geojson" data={data.current}>
-      <Layer
+    <Source id={BLOCK_SOURCE_ID} type="geojson" data={data.current} promoteId="zone">
+      {!isDemographicMap && <Layer
         id={'public-districts-layer-line'}
         beforeId={LABELS_BREAK_LAYER_ID}
         type="line"
@@ -129,8 +133,8 @@ export const PublicDistrictLayer = () => {
             lineWidth,
           ],
         }}
-      />
-      <Layer
+      />}
+      {!isDemographicMap && <Layer
         id="public-districts-layer"
         type="fill"
         source="public-districts"
@@ -141,7 +145,8 @@ export const PublicDistrictLayer = () => {
             ZONE_ASSIGNMENT_STYLE(colorScheme, (i: number) => ['==', ['get', 'zone'], i + 1]) ||
             '#000000',
         }}
-      />
+      />}
+      {isDemographicMap && <DemographicLayer />}
     </Source>
   );
 };
