@@ -82,7 +82,7 @@ export const PublicDistrictLayer = ({isDemographicMap}: {isDemographicMap?: bool
       GeometryWorker?.loadGeometry(geojsonFeatures, 'zone');
       // @ts-ignore
       GeometryWorker?.updateZones(
-        geojsonFeatures.map((f, i) => [f.properties?.zone, f.properties?.zone - 1])
+        geojsonFeatures.map((f, i) => [f.properties?.zone, f.properties?.zone])
       );
       return true;
     } else {
