@@ -66,7 +66,7 @@ export const MapLockShade: React.FC<{loadingState: ReturnType<typeof useMapBrows
             </>
           ) : (
             <>
-              <Text>Loading districts</Text>
+              <Text>Loading districts...</Text>
               <RandomProgressBar isLoading={loadingState.isLoadingPublicDistricts} duration="60s" />
             </>
           )}

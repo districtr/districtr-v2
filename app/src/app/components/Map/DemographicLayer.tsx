@@ -15,7 +15,7 @@ export const DemographicLayer: React.FC<{
   child?: boolean;
 }> = ({child = false}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const isPublic = mapDocument?.document_id === 'anonymous';
+  const isPublic = useMapStore(state => !state.isEditing);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   const isOverlay = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
   const overlayOpacity = useMapStore(state => state.mapOptions.overlayOpacity);
@@ -78,6 +78,8 @@ export const DemographicLayer: React.FC<{
         ],
       },
     };
+    // Public data uses a geojson source, which does not have source-layer
+    // PMTiles sources (as we have them configured) require a source-layer
     if (!isPublic && id) {
       lineLayerProps['source-layer'] = id;
       overlayLayerProps['source-layer'] = id;
