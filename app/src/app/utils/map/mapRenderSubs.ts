@@ -155,7 +155,11 @@ export class MapRenderSubscriber {
         this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
         break;
       case 'shatter':
-        cursor = 'url(/break.png) 12 12, pointer';
+        cursor = 'url(/shatter.png) 12 12, pointer';
+        this.useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
+        break;
+      case 'inspector':
+        cursor = 'url(/inspector.png) 12 12, pointer';
         this.useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
         break;
       default:

@@ -99,18 +99,18 @@ export const summaryStatLabels: Array<{
   supportedModes: EvalModes[];
 }> = [
   {
-    value: 'VAP',
-    label: 'Voting age population',
-    supportedModes: ['share', 'count'],
-  },
-  {
     value: 'TOTPOP',
     label: 'Total population',
     supportedModes: ['share', 'count'],
   },
   {
+    value: 'VAP',
+    label: 'Voting age population',
+    supportedModes: ['share', 'count'],
+  },
+  {
     value: 'VOTERHISTORY',
-    label: 'Voter history',
+    label: 'Voter results',
     supportedModes: ['share'],
   },
 ];

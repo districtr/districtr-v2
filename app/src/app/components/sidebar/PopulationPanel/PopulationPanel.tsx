@@ -160,8 +160,8 @@ export const PopulationPanel = () => {
             zoneStats.maxPopulation !== undefined &&
             zoneStats.maxPopulation !== 0 ? (
               <>
-                <b>{formatNumber(zoneStats.range / zoneStats.maxPopulation, 'percent')}</b> (
-                {formatNumber(zoneStats.range || 0, 'string')})
+                <b>{formatNumber(zoneStats.range / zoneStats.maxPopulation, 'detailedPercent')}</b> (
+                {formatNumber(zoneStats.range || 0, 'string')} people)
               </>
             ) : (
               ' will appear when all districts are started'

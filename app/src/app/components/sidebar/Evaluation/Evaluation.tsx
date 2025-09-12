@@ -166,19 +166,13 @@ const Evaluation: React.FC<EvaluationProps> = ({summaryType, columnConfig}) => {
                           evalMode === 'count' ? f.column : `${f.column}_pct`
                         ) as keyof typeof row;
                         const value = row[column];
-                        const colorValue =
-                          value === undefined
-                            ? undefined
-                            : evalMode === 'count'
-                              ? // @ts-ignore
-                                value / maxValues[column]
-                              : value;
                         let backgroundColor: string | undefined;
-                        if (value === undefined || colorValue === undefined) {
+                        if (value === undefined || evalMode === 'count') {
+                          backgroundColor = 'initial';
                         } else if (colorBg && summaryType === 'VOTERHISTORY') {
                           backgroundColor = PARTISAN_SCALE(((value as number) + 1) / 2);
                         } else if (colorBg && !isUnassigned) {
-                          backgroundColor = interpolateGreys(colorValue as number)
+                          backgroundColor = interpolateGreys(value as number)
                             .replace('rgb', 'rgba')
                             .replace(')', ',0.5)');
                         } else {

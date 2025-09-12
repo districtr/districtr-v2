@@ -25,11 +25,6 @@ export const choroplethMapVariables: {
 } = {
   TOTPOP: [
     {
-      label: 'Population: Total',
-      value: 'total_pop_20',
-      colorScheme: chromatic.schemeBuGn,
-    },
-    {
       label: 'Population: Black',
       value: 'bpop_20',
       variants: ['percent', 'raw'],
@@ -61,10 +56,6 @@ export const choroplethMapVariables: {
     },
   ],
   VAP: [
-    {
-      label: 'Voting Population: Total',
-      value: 'total_vap_20',
-    },
     {
       label: 'Voting Population: Black',
       value: 'bvap_20',

@@ -13,7 +13,7 @@ const BRUSH_MAX_SIZE = 100;
  * @description A slider to select the brush size
  * @returns {JSX.Element} The component
  */
-export function BrushSizeSelector() {
+export const BrushSizeSelector: React.FC<{label?: string}> = ({label = 'Brush Size'}) => {
   const brushSize = useMapStore(state => state.brushSize);
   const setBrushSize = useMapStore(state => state.setBrushSize);
   const access = useMapStore(state => state.mapStatus?.access);
@@ -60,7 +60,7 @@ export function BrushSizeSelector() {
       style={access === 'read' ? {pointerEvents: 'none', opacity: 0.5} : {}}
     >
       <Flex direction="column" width="100%" gap="1">
-        <Text size="1">Brush Size</Text>
+        <Text size="1">{label}</Text>
         <Flex direction="row" gapX="2" mb="3" align="center" width="100%">
           <Slider
             defaultValue={[brushSize]}

@@ -5,6 +5,7 @@ import {useEffect} from 'react';
 import {Flex, Heading, Button, CheckboxCards, Text} from '@radix-ui/themes';
 import {BrushControls} from '@components/Toolbar/ToolControls/BrushControls';
 import {styled} from '@stitches/react';
+import { summaryStatLabels } from '@store/demography/evaluationConfig';
 
 const StyledCheckboxCards = styled(CheckboxCards.Root, {
   display: 'grid',
@@ -49,30 +50,16 @@ export const InspectorControls = () => {
         Inspector mode
       </Heading>
       <Flex direction="row" className="" wrap="wrap" gap="1">
-        <Button
-          variant="soft"
-          color={inspectorMode === 'VAP' ? 'blue' : 'gray'}
-          radius="none"
-          onClick={() => setInspectorMode('VAP')}
-        >
-          Voting Age Population
-        </Button>
-        <Button
-          variant="soft"
-          color={inspectorMode === 'TOTPOP' ? 'blue' : 'gray'}
-          radius="none"
-          onClick={() => setInspectorMode('TOTPOP')}
-        >
-          Total Population
-        </Button>
-        <Button
-          variant="soft"
-          color={inspectorMode === 'VOTERHISTORY' ? 'blue' : 'gray'}
-          radius="none"
-          onClick={() => setInspectorMode('VOTERHISTORY')}
-        >
-          Voter History
-        </Button>
+        {summaryStatLabels.map(f => (
+          <Button
+            variant="soft"
+            color={inspectorMode === f.value ? 'blue' : 'gray'}
+            radius="none"
+            onClick={() => setInspectorMode(f.value)}
+          >
+            {f.label}
+          </Button>
+        ))}
       </Flex>
       <Flex direction="column" py="4" gap="2">
         <Heading as="h3" size="3">

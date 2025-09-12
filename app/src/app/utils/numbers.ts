@@ -3,6 +3,11 @@ const percentFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 0,
   maximumFractionDigits: 1,
 });
+const detailedPercentFormatter = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  minimumFractionDigits: 3,
+  maximumFractionDigits: 3,
+});
 const compactFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   compactDisplay: 'short',
@@ -19,7 +24,14 @@ const standardFormatter = new Intl.NumberFormat('en-US', {
 
 const stringFormatter = (n: number) => Math.round(n).toLocaleString();
 
-export type NumberFormats = 'percent' | 'string' | 'compact' | 'compact3' | 'partisan' | 'standard';
+export type NumberFormats =
+  | 'percent'
+  | 'string'
+  | 'compact'
+  | 'compact3'
+  | 'partisan'
+  | 'standard'
+  | 'detailedPercent';
 export const formatNumber = (value: number | undefined, format: NumberFormats) => {
   if (value === undefined) {
     return value;
@@ -27,6 +39,8 @@ export const formatNumber = (value: number | undefined, format: NumberFormats) =
   switch (format) {
     case 'percent':
       return percentFormatter.format(value);
+    case 'detailedPercent':
+      return detailedPercentFormatter.format(value);
     case 'string': // Added case for 'string'
       return stringFormatter(value); // Format as string
     case 'compact': // Added case for 'compact'
