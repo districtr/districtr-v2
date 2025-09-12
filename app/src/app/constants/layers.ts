@@ -2,7 +2,7 @@ import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'map
 import {useMapStore} from '../store/mapStore';
 import GeometryWorker from '../utils/GeometryWorker';
 import euclideanDistance from '@turf/distance';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyCache';
 
 export const FALLBACK_NUM_DISTRICTS = 4;
 export const BLOCK_SOURCE_ID = 'blocks';
@@ -38,10 +38,13 @@ export const COUNTY_LAYER_IDS: string[] = ['counties_boundary', 'counties_labels
 
 export const LABELS_BREAK_LAYER_ID = 'places_subplace';
 
-export const ZONE_ASSIGNMENT_STYLE = (colorScheme: string[]) => {
+export const ZONE_ASSIGNMENT_STYLE = (
+  colorScheme: string[],
+  accessor: any = (i: number) => ['==', ['feature-state', 'zone'], i + 1]
+) => {
   const colorStyleBaseline: any[] = ['case'];
   let group = [...colorScheme].reduce((val, color, i) => {
-    val.push(['==', ['feature-state', 'zone'], i + 1], color); // 1-indexed per mapStore.ts
+    val.push(accessor(i), color); // 1-indexed per mapStore.ts
     return val;
   }, colorStyleBaseline);
   group.push('#cecece');
@@ -108,7 +111,7 @@ export function getLayerFill(
 }
 
 const getDissolved = async () => {
-  const activeZones = demographyCache.populations
+  const activeZones = demographyService.populations
     .filter(row => row.total_pop_20 > 0)
     .map(f => f.zone);
   const {getMapRef} = useMapStore.getState();

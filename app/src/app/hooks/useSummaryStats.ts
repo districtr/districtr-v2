@@ -1,5 +1,5 @@
 'use client';
-import {demographyCache} from '@utils/demography/demographyCache';
+import {demographyService} from '@utils/demography/demographyCache';
 import {useDemographyStore} from '../store/demography/demographyStore';
 import {useMapStore} from '../store/mapStore';
 import {useChartStore} from '../store/chartStore';
@@ -18,11 +18,11 @@ export const useSummaryStats = (showUnassigned = false) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const demoIsLoaded = mapDocument?.document_id && __demogHash.includes(mapDocument.document_id);
   const zoneData = showUnassigned
-    ? demographyCache.populations
-    : demographyCache.populations.filter(entry => Boolean(entry.zone));
+    ? demographyService.populations
+    : demographyService.populations.filter(entry => Boolean(entry.zone));
   return {
-    summaryStats: demographyCache.summaryStats,
-    zoneStats: demographyCache.zoneStats,
+    summaryStats: demographyService.summaryStats,
+    zoneStats: demographyService.zoneStats,
     zoneData,
     demoIsLoaded,
   };

@@ -1,7 +1,7 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
-import {demographyCache} from '@/app/utils/demography/demographyCache';
+import {demographyService} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import React, {useLayoutEffect, useRef, useState} from 'react';
 import {useEffect} from 'react';
@@ -38,7 +38,7 @@ const PopulationTextLayer = () => {
     }
 
     const idSet: Set<string> = showPopulationNumbers
-      ? new Set(demographyCache.table?.dedupe('path').column('path') ?? [])
+      ? new Set(demographyService.table?.dedupe('path').column('path') ?? [])
       : captiveIds;
 
     const currIds = new Set(pointFeatureCollection.features.map(f => f.properties?.path));

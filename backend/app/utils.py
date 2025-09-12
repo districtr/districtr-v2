@@ -445,6 +445,9 @@ def update_or_select_district_stats(
             if column_info:
                 demo_cols = [row.column_name for row in column_info]
                 json_pairs = [f"'{col}', SUM(demo.{col})" for col in demo_cols]
+                json_pairs.append(
+                    "'statefp', MIN(SUBSTRING(REPLACE(demo.path, 'vtd:', '') FROM 1 FOR 2))"
+                )
                 demographic_json = f"json_build_object({', '.join(json_pairs)})"
 
         # Build INSERT ... RETURNING to get created rows back
@@ -467,7 +470,6 @@ def update_or_select_district_stats(
                 NOW() AS updated_at
             FROM geos
             {f"INNER JOIN gerrydb.{gerrydb_table} demo ON demo.path = geos.geo_id" if (gerrydb_table and demographic_json) else ""}
-            WHERE zone IS NOT NULL
             GROUP BY zone
             RETURNING
                 zone,

@@ -5,7 +5,7 @@ import {DistrictrMap, DocumentObject} from './apiHandlers/types';
 import {getAvailableDistrictrMaps} from '@utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
-import {demographyCache} from '../demography/demographyCache';
+import {demographyService} from '../demography/demographyCache';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {AllEvaluationConfigs, AllMapConfigs, AllTabularColumns} from './summaryStats';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
@@ -76,36 +76,7 @@ export const updateDemography = ({
 };
 
 fetchDemography.subscribe(demography => {
-  if (demography.data) {
-    const {setDataHash, setAvailableColumnSets} = useDemographyStore.getState();
-    const {shatterIds, mapDocument} = useMapStore.getState();
-    const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
-    const result = demography.data;
-    if (!mapDocument || !result) return;
-    demographyCache.update(result.columns, result.results, dataHash);
-    const availableColumns = demographyCache?.table?.columnNames() ?? [];
-    const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
-      Object.entries(evalColumnConfigs)
-        .map(([columnsetKey, config]) => [
-          columnsetKey,
-          config.filter(entry => availableColumns.includes(entry.column)),
-        ])
-        .filter(([, config]) => config.length > 0)
-    );
-    const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
-      Object.entries(choroplethMapVariables)
-        .map(([columnsetKey, config]) => [
-          columnsetKey,
-          config.filter(entry => availableColumns.includes(entry.value)),
-        ])
-        .filter(([, config]) => config.length > 0)
-    );
-    setDataHash(dataHash);
-    setAvailableColumnSets({
-      evaluation: availableEvalSets,
-      map: availableMapSets,
-    });
-  }
+  if (demography.data) demographyService.update(demography.data);
 });
 
 export {updateMapViews, getQueriesResultsSubs, mapViewsQuery, fetchDemography};

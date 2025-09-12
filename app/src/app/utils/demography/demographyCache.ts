@@ -16,6 +16,7 @@ import {
   TableRow,
   TabularDataWithPercent,
   AllMapConfigs,
+  AllEvaluationConfigs,
 } from '../api/summaryStats';
 import {getColumnDerives, getPctDerives, getRollups} from './arquero';
 import * as scale from 'd3-scale';
@@ -27,10 +28,12 @@ import {
 } from '@/app/store/demography/constants';
 import {NullableZone} from '@/app/constants/types';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
+import {useDemographyStore} from '@/app/store/demography/demographyStore';
+import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
 /**
  * Class to organize queries on current demographic data
  */
-class DemographyCache {
+class DemographyService {
   /**
    * Arquero main data table.
    * Reflects the stats pulled from the api/document/{doc id}/demography endpoint
@@ -88,15 +91,42 @@ class DemographyCache {
    * @param mapDocument - The map document object.
    * @param hash - The hash representing the new state.
    */
-  update(columns: AllTabularColumns[number][], data: ColumnarTableData, hash: string): void {
-    if (hash === this.hash) return;
-    this.availableColumns = columns;
-    this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
+  update(data: {columns: AllTabularColumns[number][]; results: ColumnarTableData}): void {
+    const {setDataHash, setAvailableColumnSets} = useDemographyStore.getState();
+    const {shatterIds, mapDocument} = useMapStore.getState();
+    const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}|${mapDocument?.public_id}`;
+    if (!mapDocument || !data || dataHash === this.hash) return;
+    const {columns, results} = data;
+    this.table = table(results).derive(getColumnDerives(columns)).dedupe('path');
+    const tableColumns = this.table.columnNames();
+    this.availableColumns = tableColumns as AllTabularColumns[number][];
+    const availableEvalSets: Record<string, AllEvaluationConfigs> = Object.fromEntries(
+      Object.entries(evalColumnConfigs)
+        .map(([columnsetKey, config]) => [
+          columnsetKey,
+          config.filter(entry => tableColumns.includes(entry.column)),
+        ])
+        .filter(([, config]) => config.length > 0)
+    );
+    const availableMapSets: Record<string, AllMapConfigs> = Object.fromEntries(
+      Object.entries(choroplethMapVariables)
+        .map(([columnsetKey, config]) => [
+          columnsetKey,
+          config.filter(entry => tableColumns.includes(entry.value)),
+        ])
+        .filter(([, config]) => config.length > 0)
+    );
+    setDataHash(dataHash);
+    setAvailableColumnSets({
+      evaluation: availableEvalSets,
+      map: availableMapSets,
+    });
+
     const zoneAssignments = useMapStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
     this.updateSummaryStats();
-    this.hash = hash;
+    this.hash = dataHash;
   }
 
   /**
@@ -317,6 +347,8 @@ class DemographyCache {
     ids?: string[];
   }) {
     if (!this.table || !this.colorScale) return;
+    const mapDocument = useMapStore.getState().mapDocument;
+    const isPublic = mapDocument?.document_id === 'anonymous';
     const colorScale = this.colorScale!;
     const derives = {
       color: config.expression
@@ -335,11 +367,10 @@ class DemographyCache {
       if (!isNaN(+value)) {
         color = colorScale(+value);
       }
-
       mapRef.setFeatureState(
         {
           source: BLOCK_SOURCE_ID,
-          sourceLayer: row.sourceLayer,
+          sourceLayer: isPublic ? undefined : row.sourceLayer,
           id,
         },
         {
@@ -438,4 +469,4 @@ class DemographyCache {
 }
 
 // global demography cache
-export const demographyCache = new DemographyCache();
+export const demographyService = new DemographyService();

@@ -163,7 +163,6 @@ const GeometryWorker: GeometryWorkerClass = {
       typeof featuresOrStringified === 'string'
         ? JSON.parse(featuresOrStringified)
         : featuresOrStringified;
-    const firstEntry = Object.values(this.geometries)[0];
     features.forEach(f => {
       const id = f.properties?.[idProp];
       // TODO: Sometimes, geometries are split across tiles or reloaded at more detailed zoom levels
@@ -171,6 +170,7 @@ const GeometryWorker: GeometryWorkerClass = {
       // and computationally expensive. For now, we just take the first geometry of a given ID
       if (id && !this.geometries[id]) {
         this.geometries[id] = structuredClone(f);
+        this.activeGeometries[id] = this.geometries[id];
       }
     });
   },

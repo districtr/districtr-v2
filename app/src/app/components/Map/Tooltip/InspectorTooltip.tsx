@@ -3,7 +3,7 @@ import {Table} from '@radix-ui/themes';
 import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
 import {useHoverStore} from '@store/hoverFeatures';
-import {demographyCache} from '@utils/demography/demographyCache';
+import {demographyService} from '@utils/demography/demographyCache';
 import {useEffect, useState} from 'react';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@store/demography/constants';
@@ -32,7 +32,7 @@ export const InspectorTooltip = () => {
         inspectorMode === 'VOTERHISTORY'
           ? [...activeColumns, ...activeColumns.map(colName => colName.replace('_lean', '_total'))]
           : activeColumns;
-      const data = demographyCache.calculateSummaryStats(ids, _activeColumns);
+      const data = demographyService.calculateSummaryStats(ids, _activeColumns);
       if (data.length === 1) {
         setInspectorData(data[0]);
       }

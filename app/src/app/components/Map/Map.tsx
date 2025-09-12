@@ -18,6 +18,7 @@ import {MetaLayers} from './MetaLayers';
 // @ts-ignore plugin has no types
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
+import {PublicDistrictLayer} from './PublicDistrictLayer';
 
 export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   const getStateMapRef = useMapStore(state => state.getMapRef);
@@ -28,6 +29,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const synced = useRef<false | (() => void)>(false);
   const {mapRef, onLoad} = useMapRenderer(isDemographicMap ? 'demographic' : 'main');
+  const isEditing = useMapStore(state => state.isEditing);
 
   const initialViewState = useMemo(() => {
     if (!isDemographicMap) {
@@ -113,7 +115,6 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
       });
     };
   });
-
   return (
     <div
       className={`relative w-full flex-1 flex-grow
@@ -161,7 +162,8 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         interactiveLayerIds={INTERACTIVE_LAYERS}
       >
         <CountyLayers />
-        <VtdBlockLayers isDemographicMap={isDemographicMap} />
+        {isEditing && <VtdBlockLayers isDemographicMap={isDemographicMap} />}
+        {!isEditing && <PublicDistrictLayer isDemographicMap={isDemographicMap} />}
         <MetaLayers isDemographicMap={isDemographicMap} />
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
       </GlMap>
