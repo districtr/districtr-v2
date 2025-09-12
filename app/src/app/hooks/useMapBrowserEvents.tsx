@@ -7,6 +7,11 @@ import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {useQuery} from '@tanstack/react-query';
 import {getDocument} from '../utils/api/apiHandlers/getDocument';
 import {useRouter} from 'next/navigation';
+import {getPublicDistricts} from '../utils/api/apiHandlers/getPublicDistricts';
+import {EMPTY_FT_COLLECTION} from '../constants/layers';
+import {demographyService} from '../utils/demography/demographyCache';
+import GeometryWorker from '../utils/GeometryWorker';
+import { MinGeoJSONFeature } from '../utils/GeometryWorker/geometryWorker.types';
 
 interface UseMapBrowserEventsV2Props {
   mapId: string;
@@ -53,6 +58,44 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
     refetchOnWindowFocus: false,
     enabled: Boolean(mapDocumentData && mapDocumentData?.document_id !== 'anonymous'),
   });
+
+  const publicMapData = useRef<GeoJSON.FeatureCollection<GeoJSON.Geometry>>(EMPTY_FT_COLLECTION);
+  const setPublicMapData = useMapStore(state => state.setPublicMapData);
+
+  const {
+    data: publicDistrictsData,
+    isLoading: isLoadingPublicDistricts,
+    isFetching: isFetchingPublicDistricts,
+  } = useQuery({
+    queryKey: ['public-districts', mapDocumentData?.public_id],
+    queryFn: () => getPublicDistricts(mapDocumentData),
+    enabled: Boolean(mapDocumentData?.public_id) && mapDocumentData?.document_id === 'anonymous',
+    placeholderData: _ => null,
+    refetchOnWindowFocus: false,
+  });
+
+  useEffect(() => {
+    if (publicDistrictsData) {
+      const {geojsonFeatures, columns, demographicData, assignments, statefp} = publicDistrictsData;
+      publicMapData.current = {
+        type: 'FeatureCollection',
+        features: geojsonFeatures,
+      };
+      setPublicMapData(publicMapData.current);
+      if (statefp) {
+        useMapStore.getState().setMapOptions({currentStateFp: statefp});
+      }
+      if (columns.size) {
+        demographyService.update({columns: Array.from(columns), results: demographicData});
+        demographyService.updateZoneTable(assignments);
+        demographyService.updatePopulations(assignments);
+      }
+      GeometryWorker?.loadGeometry(geojsonFeatures as MinGeoJSONFeature[], 'zone');
+      GeometryWorker?.updateZones(
+        geojsonFeatures.map((f, i) => [f.properties?.zone, f.properties?.zone])
+      );
+    }
+  }, [publicDistrictsData]);
 
   useEffect(() => {
     if (
@@ -102,6 +145,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
       }, 10000);
     }
   }, [mapDocumentError, assignmentsError, setErrorNotification]);
+
   // SET EDITING MODE
   useEffect(() => {
     setIsEditing(isEditing);
@@ -176,5 +220,7 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
     isFetchingAssignments,
     isLoadingDocument,
     isLoadingAssignments,
+    isLoadingPublicDistricts,
+    isFetchingPublicDistricts,
   };
 };

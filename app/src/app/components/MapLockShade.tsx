@@ -1,20 +1,17 @@
 'use client';
-import React, {useEffect, useLayoutEffect, useState} from 'react';
+import React, {useLayoutEffect, useState} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {Flex, Progress, Spinner, Text} from '@radix-ui/themes';
 import {useVisibilityState} from '../hooks/useVisibilityState';
+import {useMapBrowserEvents} from '../hooks/useMapBrowserEvents';
 
-type LoadingState = {
-  isLoadingDocument: boolean;
-  isLoadingAssignments: boolean;
-  isFetchingDocument: boolean;
-  isFetchingAssignments: boolean;
-};
-
-export const MapLockShade: React.FC<{loadingState: LoadingState}> = ({loadingState}) => {
+export const MapLockShade: React.FC<{loadingState: ReturnType<typeof useMapBrowserEvents>}> = ({
+  loadingState,
+}) => {
   const mapLock = useMapStore(state => state.mapLock);
   const stateIsLoading = useMapStore(state => state.appLoadingState === 'loading');
   const isLocked = mapLock || stateIsLoading || Object.values(loadingState).some(Boolean);
+  const isEditing = useMapStore(state => state.isEditing);
 
   // Prevent flash up on first render before state is finalized
   const {isVisible} = useVisibilityState();
@@ -62,8 +59,17 @@ export const MapLockShade: React.FC<{loadingState: LoadingState}> = ({loadingSta
           justify="center"
           className={`opacity-100 h-auto p-4 transition-height delay-500 transition-opacity rounded-md shdadow-xl duration-1000 bg-white`}
         >
-          <Text>Loading district assignments...</Text>
-          <RandomProgressBar isLoading={loadingState.isFetchingAssignments} duration="20s" />
+          {isEditing ? (
+            <>
+              <Text>Loading district assignments...</Text>
+              <RandomProgressBar isLoading={loadingState.isFetchingAssignments} duration="20s" />
+            </>
+          ) : (
+            <>
+              <Text>Loading districts</Text>
+              <RandomProgressBar isLoading={loadingState.isLoadingPublicDistricts} duration="60s" />
+            </>
+          )}
         </Flex>
       </Flex>
     </Flex>

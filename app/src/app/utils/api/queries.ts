@@ -5,7 +5,7 @@ import {DistrictrMap, DocumentObject} from './apiHandlers/types';
 import {getAvailableDistrictrMaps} from '@utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
-import {demographyCache} from '../demography/demographyCache';
+import {demographyService} from '../demography/demographyCache';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {AllEvaluationConfigs, AllMapConfigs, AllTabularColumns} from './summaryStats';
 import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
@@ -76,7 +76,7 @@ export const updateDemography = ({
 };
 
 fetchDemography.subscribe(demography => {
-  if (demography.data) demographyCache.update(demography.data);
+  if (demography.data) demographyService.update(demography.data);
 });
 
 export {updateMapViews, getQueriesResultsSubs, mapViewsQuery, fetchDemography};

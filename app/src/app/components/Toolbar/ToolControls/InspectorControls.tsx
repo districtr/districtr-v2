@@ -1,6 +1,6 @@
 import {useTooltipStore} from '@store/tooltipStore';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
-import {demographyCache} from '@utils/demography/demographyCache';
+import {demographyService} from '@utils/demography/demographyCache';
 import {useEffect} from 'react';
 import {Flex, Heading, Button, CheckboxCards, Text} from '@radix-ui/themes';
 import {BrushControls} from '@components/Toolbar/ToolControls/BrushControls';
@@ -29,7 +29,7 @@ export const InspectorControls = () => {
   const setActiveColumns = useTooltipStore(state => state.setActiveColumns);
 
   const columnList = CONFIG_BY_COLUMN_SET[inspectorMode]
-    .filter(f => demographyCache.availableColumns.includes(f.sourceCol ?? f.column))
+    .filter(f => demographyService.availableColumns.includes(f.sourceCol ?? f.column))
     .sort((a, b) => a.label.localeCompare(b.label));
 
   const totalColumn = {

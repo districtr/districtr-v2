@@ -33,7 +33,7 @@ import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
 /**
  * Class to organize queries on current demographic data
  */
-class DemographyCache {
+class DemographyService {
   /**
    * Arquero main data table.
    * Reflects the stats pulled from the api/document/{doc id}/demography endpoint
@@ -469,4 +469,4 @@ class DemographyCache {
 }
 
 // global demography cache
-export const demographyCache = new DemographyCache();
+export const demographyService = new DemographyService();

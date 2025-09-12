@@ -10,7 +10,7 @@ import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/helpers';
 import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
 import {useHoverStore as _useHoverStore, HoverFeatureStore} from '../../store/hoverFeatures';
-import {demographyCache} from '../demography/demographyCache';
+import {demographyService} from '../demography/demographyCache';
 import {FocusState, ShatterState} from './types';
 
 /**
@@ -193,7 +193,7 @@ export class MapRenderSubscriber {
   renderColorZones(curr: ColorZoneAssignmentsState, prev?: ColorZoneAssignmentsState) {
     colorZoneAssignments(this.mapRef, curr, prev);
     if (this.useMapStore.getState().isTemporalAction) {
-      demographyCache.updatePopulations(curr[0]);
+      demographyService.updatePopulations(curr[0]);
     }
     const {captiveIds, shatterIds, mapRenderingState, mapOptions} = this.useMapStore.getState();
     if (mapRenderingState !== 'loaded') return;

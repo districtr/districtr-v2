@@ -1,5 +1,5 @@
 import {useLayoutEffect} from 'react';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyCache';
 import {useDemographyStore} from '../store/demography/demographyStore';
 import {useMapStore} from '../store/mapStore';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
@@ -20,7 +20,7 @@ export const useChoroplethRenderer = () => {
     const _map = mapRef.current?.getMap();
     if (_map) {
       const updateFn = () => {
-        const mapScale = demographyCache.calculateDemographyColorScale({
+        const mapScale = demographyService.calculateDemographyColorScale({
           variable: demographicVariable,
           variant: demographicVariant,
           mapRef: _map,

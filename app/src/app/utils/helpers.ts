@@ -13,7 +13,7 @@ import {
 } from '@/app/constants/layers';
 import {MapStore, useMapStore} from '../store/mapStore';
 import {NullableZone} from '../constants/types';
-import {demographyCache} from './demography/demographyCache';
+import {demographyService} from './demography/demographyCache';
 import {DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {fastUniqBy} from './arrays';
 
@@ -139,7 +139,7 @@ export const getFeaturesIntersectingCounties = (
 
   if (!countyFeatures?.length) return;
   const fips = countyFeatures[0].properties.STATEFP + countyFeatures[0].properties.COUNTYFP;
-  return filterFeatures(demographyCache.getFiltered(fips), true);
+  return filterFeatures(demographyService.getFiltered(fips), true);
 };
 
 /**
