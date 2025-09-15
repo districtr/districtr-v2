@@ -1,5 +1,3 @@
-import ParquetWorker from '../../ParquetWorker';
-
 export const getPointSelectionData = async ({
   layer,
   columns,
@@ -14,9 +12,11 @@ export const getPointSelectionData = async ({
   if (!layer) {
     throw new Error('No layer provided');
   }
-  if (!ParquetWorker) {
-    throw new Error('ParquetWorker not found');
-  }
 
-  return await ParquetWorker.getPointData(layer, columns, source, filterIds);
+  const pointsData = await fetch('/api/points', {
+    method: 'POST',
+    body: JSON.stringify({layer, columns, source, filterIds}),
+  });
+  const pointsDataJson = await pointsData.json();
+  return pointsDataJson;
 };

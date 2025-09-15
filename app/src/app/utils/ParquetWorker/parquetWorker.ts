@@ -1,4 +1,3 @@
-import {expose} from 'comlink';
 import {
   ColumnarTableData,
   DemographyParquetData,
@@ -15,7 +14,7 @@ import {
 import {AllTabularColumns} from '../api/summaryStats';
 import {GEODATA_URL, PARQUET_URL} from '../api/constants';
 
-const ParquetWorker: ParquetWorkerClass = {
+export const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
   _idRgCache: {},
 
@@ -235,5 +234,3 @@ const ParquetWorker: ParquetWorkerClass = {
     return this.generateGeojsonFromPointData(parquetData, layer, source, filterIds);
   },
 };
-
-expose(ParquetWorker);

@@ -1,5 +1,4 @@
 import {DocumentObject} from './types';
-import ParquetWorker from '../../ParquetWorker';
 import {ColumnarTableData} from '../../ParquetWorker/parquetWorker.types';
 import {AllTabularColumns} from '../summaryStats';
 
@@ -16,12 +15,13 @@ export const getDemography = async ({
   if (!mapDocument) {
     throw new Error('No document id provided');
   }
-  if (!ParquetWorker) {
-    throw new Error('ParquetWorker not found');
-  }
-  const demographyData = await ParquetWorker.getDemography(mapDocument, brokenIds);
+  const demographyData = await fetch('/api/demography', {
+    method: 'POST',
+    body: JSON.stringify({mapDocument, brokenIds}),
+  });
+  const demographyDataJson = await demographyData.json();
   return {
-    columns: demographyData.columns,
-    results: demographyData.results,
+    columns: demographyDataJson.columns,
+    results: demographyDataJson.results,
   };
 };
