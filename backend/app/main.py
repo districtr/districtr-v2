@@ -15,7 +15,7 @@ from sqlalchemy.exc import (
     IntegrityError,
 )
 from sqlalchemy import text
-from sqlmodel import Session, String, select, true, update
+from sqlmodel import Session, String, select, true, update, col
 from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
@@ -523,25 +523,26 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
-    stmt = (
-        select(
-            Assignments.geo_id,
-            Assignments.zone,
-            ParentChildEdges.parent_path,
-        )
-        .join(Document, onclause=Assignments.document_id == Document.document_id)
+    districtr_map_uuid = session.exec(
+        select(DistrictrMap.uuid)
         .join(
-            DistrictrMap,
-            onclause=Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
+            Document,
+            onclause=col(Document.districtr_map_slug)
+            == DistrictrMap.districtr_map_slug,
         )
-        .outerjoin(
-            ParentChildEdges,
-            onclause=(Assignments.geo_id == ParentChildEdges.child_path)
-            & (ParentChildEdges.districtr_map == DistrictrMap.uuid),
-        )
-        .where(Assignments.document_id == document.document_id)
+        .where(Document.document_id == document.document_id)
+    ).one()
+
+    stmt = select(
+        Assignments.geo_id,
+        Assignments.zone,
+        ParentChildEdges.parent_path,
+    ).outerjoin(
+        ParentChildEdges,
+        onclause=(col(Assignments.geo_id) == ParentChildEdges.child_path)
+        & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
     )
-    return session.execute(stmt).fetchall()
+    return session.exec(stmt).fetchall()
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
