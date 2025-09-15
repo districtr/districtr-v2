@@ -14,7 +14,7 @@ export const NoFocusBoundary = ({
     }
   };
   return (
-    <div onFocusCapture={handleFocusNextParent} className="pointer-events-none">
+    <div onFocusCapture={handleFocusNextParent} className="pointer-events-none opacity-25">
       {children}
     </div>
   );
