@@ -1070,3 +1070,64 @@ def test_document_list(
     data = response.json()
     assert len(data) == 1
     assert data[0].get("public_id") == public_id
+
+
+def test_get_district_unions(client, document_id_total_vap):
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {
+                    "document_id": document_id_total_vap,
+                    "geo_id": "202090441022004",
+                    "zone": 1,
+                },
+                {
+                    "document_id": document_id_total_vap,
+                    "geo_id": "202090428002008",
+                    "zone": 1,
+                },
+                {
+                    "document_id": document_id_total_vap,
+                    "geo_id": "200979691001108",
+                    "zone": 2,
+                },
+            ],
+            "user_id": USER_ID,
+        },
+    )
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert data[0].get("zone")
+    assert data[0].get("geometry")
+    assert data[0].get("demographic_data")
+    assert data[0].get("updated_at")
+    # update assignments to re-generate stats
+    response = client.patch(
+        "/api/update_assignments",
+        json={
+            "assignments": [
+                {
+                    "document_id": document_id_total_vap,
+                    "geo_id": "200979691001108",
+                    "zone": 1,
+                },
+            ],
+            "user_id": USER_ID,
+        },
+    )
+    response = client.get(f"/api/document/{document_id_total_vap}/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+
+    # get with public id
+    document_info = client.get(f"/api/document/{document_id_total_vap}")
+    response = client.get(
+        f"/api/document/{document_info.json().get('public_id')}/stats"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1

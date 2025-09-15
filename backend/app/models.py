@@ -23,6 +23,7 @@ from app.save_share.models import (
     DocumentEditStatus,
     DocumentShareStatus,
 )
+from geoalchemy2 import Geometry
 
 
 class DistrictrMap(TimeStampMixin, SQLModel, table=True):
@@ -298,3 +299,26 @@ class DistrictrMapsToGroups(SQLModel, table=True):
             primary_key=True,
         )
     )
+
+
+class DistrictUnions(TimeStampMixin, SQLModel, table=True):
+    __tablename__ = "district_unions"  # pyright: ignore
+    metadata = MetaData(schema=DOCUMENT_SCHEMA)
+    id: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=True))
+    document_id: str = Field(
+        sa_column=Column(
+            UUIDType, ForeignKey("document.document_id"), index=True, nullable=False
+        )
+    )
+    zone: int = Field(nullable=False)
+    # Using TEXT to store WKT geometry since SQLModel doesn't have native PostGIS support
+    geometry: str = Geometry("MULTIPOLYGON", 4326)
+    # Store demographic data as JSONB since different tables have different columns
+    demographic_data: dict | None = Field(sa_column=Column(JSON, nullable=True))
+
+
+class DistrictUnionsResponse(BaseModel):
+    zone: int
+    geometry: str
+    demographic_data: dict | None
+    updated_at: datetime
