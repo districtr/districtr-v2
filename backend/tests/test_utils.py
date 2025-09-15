@@ -15,7 +15,12 @@ from app.models import DistrictrMap
 from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-
+from app.core.security import recaptcha, auth
+from pytest import MonkeyPatch, fixture
+from tests.utils import fake_verify_recaptcha
+from fastapi.security import SecurityScopes
+from app.main import app
+from app.comments.models import FullCommentFormResponse
 
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 
@@ -353,3 +358,57 @@ def test_unshatter_process(client, document_id):
     assignments_response = client.get(f"/api/get_assignments/{document_id}")
     assignments_data = assignments_response.json()
     assert len(assignments_data) == 1
+
+
+@fixture(autouse=True)
+def patch_recaptcha():
+    monkeypatch = MonkeyPatch()
+    monkeypatch.setattr(recaptcha, "verify_recaptcha", fake_verify_recaptcha)
+    yield
+    monkeypatch.undo()
+
+
+@fixture(autouse=True)
+def override_auth_dependency():
+    async def _ok_override(_scopes: SecurityScopes):
+        # Return anything your app expects from a verified token
+        # You can include "scope" with needed permissions if your code reads it.
+        return {"sub": "test-user", "scope": "create:content read:content"}
+
+    app.dependency_overrides[auth.verify] = _ok_override
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(auth.verify, None)
+
+
+def handle_approve_comment_entry(client, content_type: str, id: int):
+    """
+    Test utility to approve a comment, tag, or commenter
+    """
+    client.post(
+        "/api/comments/admin/review",
+        json={
+            "content_type": content_type,
+            "review_status": "APPROVED",
+            "id": id,
+        },
+    )
+
+
+def handle_full_submission_approve(client, form_response: FullCommentFormResponse):
+    """
+    Test utility to approve a full comment submission
+    """
+    if "tags" in form_response["comment"]:
+        for tag in form_response["comment"]["tags"]:
+            handle_approve_comment_entry(client, "tag", tag["id"])
+    if (
+        "commenter_id" in form_response["comment"]
+        and form_response["comment"]["commenter_id"] is not None
+    ):
+        handle_approve_comment_entry(
+            client, "commenter", form_response["comment"]["commenter_id"]
+        )
+    if "id" in form_response["comment"] and form_response["comment"]["id"] is not None:
+        handle_approve_comment_entry(client, "comment", form_response["comment"]["id"])
