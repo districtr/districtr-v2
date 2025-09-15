@@ -8,12 +8,14 @@ from fastapi import (
     Query,
     Request,
 )
-from sqlmodel import Session, select, func
+from sqlmodel import Session
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text, or_, and_, exists, literal
+from sqlalchemy import text, func, select
 
 from app.core.security import auth, TokenScope
+from sqlalchemy.sql import or_, and_, exists, literal, cast
+from sqlalchemy import String
 from typing import Optional
 
 from app.core.dependencies import get_protected_document
@@ -27,28 +29,29 @@ from app.comments.models import (
     CommentCreateWithRecaptcha,
     CommentPublic,
     Tag,
-    TagWithId,
     TagCreateWithRecaptcha,
+    TagWithId,
     CommentTag,
     FullCommentForm,
     FullCommentFormResponse,
     DocumentComment,
     FullCommentFormCreate,
     PublicCommentResponse,
+    AdminCommentResponse,
+    ReviewStatus,
     ReviewStatusUpdate,
     ReviewUpdateResponse,
-    ReviewStatus,
 )
 from app.comments.moderation import (
     moderate_submission,
     moderate_commenter,
     moderate_comment,
     moderate_tag,
+    MODERATION_THRESHOLD,
 )
 from app.models import Document
 from app.core.models import DocumentID
 from app.core.security import recaptcha
-from app.comments.moderation import MODERATION_THRESHOLD
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
 
@@ -311,9 +314,7 @@ def get_comments_base_query(
     limit: int,
     offset: int,
     public_id: int | None,
-    moderation_threshold: float = MODERATION_THRESHOLD,
-    exclude_rejected: bool = True,
-):
+) -> select:
     """
     Return comments that pass moderation gates, with ALL their attached tags.
     If any moderation gate fails (comment, commenter, or any attached tag),
@@ -391,13 +392,24 @@ def get_comments_base_query(
         )
         stmt = stmt.where(exists(has_any_requested_tag))
 
+    return stmt
+
+
+def moderate_comments_query(
+    stmt: select,
+    moderation_threshold: float = MODERATION_THRESHOLD,
+    exclude_rejected: bool = True,
+) -> select:
+    """
+    Moderate the comments query.
+    """
+
     # -----------------------------
     # Moderation gates
     # - Comment: must pass
     # - Commenter: if present, must pass
     # - Tags: comment excluded if ANY attached tag fails
     # -----------------------------
-
     # Helper booleans (so the logic reads clearly)
     def passes_entity(score_col, status_col):
         # Approved always passes
@@ -449,9 +461,33 @@ def get_comments_base_query(
         .correlate(Comment)
     )
     # Allow comments with no tags (NOT EXISTS bad tag is trivially true)
-    stmt = stmt.where(~exists(bad_tag_exists))
+    return stmt.where(~exists(bad_tag_exists))
 
-    return stmt
+
+def add_admin_columns_to_query(stmt: select) -> select:
+    """
+    Add admin columns to the comments query.
+    """
+    return stmt.add_columns(
+        Comment.id.label("comment_id"),
+        Comment.review_status.label("comment_review_status"),
+        Comment.moderation_score.label("comment_moderation_score"),
+        Commenter.id.label("commenter_id"),
+        Commenter.review_status.label("commenter_review_status"),
+        Commenter.moderation_score.label("commenter_moderation_score"),
+        func.coalesce(
+            func.array_agg(Tag.id),
+            [],
+        ).label("tag_ids"),
+        func.coalesce(
+            func.array_agg(cast(Tag.review_status, String)),
+            [],
+        ).label("tag_review_status"),
+        func.coalesce(
+            func.array_agg(Tag.moderation_score),
+            [],
+        ).label("tag_moderation_score"),
+    )
 
 
 @router.get(
@@ -478,12 +514,12 @@ async def list_comments(
         offset=offset,
         public_id=public_id,
     )
-
+    stmt = moderate_comments_query(stmt)
     results = session.exec(stmt).all()
     return results
 
 
-@router.get("/admin/list", response_model=list[PublicCommentResponse])
+@router.get("/admin/list", response_model=list[AdminCommentResponse])
 async def list_comments_admin(
     tags: list[str] = Query(default=[]),
     place: str = Query(default=None),
@@ -496,6 +532,7 @@ async def list_comments_admin(
     limit: int = Query(default=100),
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+    review_status: ReviewStatus = Query(default=None),
 ):
     stmt = get_comments_base_query(
         tags=tags,
@@ -505,35 +542,23 @@ async def list_comments_admin(
         limit=limit,
         offset=offset,
         public_id=public_id,
-        moderation_threshold=min_moderation_score,
-        exclude_rejected=False,
     )
-
+    stmt = add_admin_columns_to_query(stmt)
     threshold = min_moderation_score
     stmt = (
         stmt.where(
-            or_(
-                Comment.moderation_score < threshold,
-                Comment.review_status == ReviewStatus.APPROVED,
+            and_(
+                or_(
+                    Comment.moderation_score < threshold,
+                    Comment.moderation_score.is_(None),
+                ),
+                Comment.review_status == review_status
+                if review_status
+                else Comment.review_status.is_(None),
             )
         )
-        .where(
-            or_(
-                Commenter.moderation_score < threshold,
-                Commenter.review_status == ReviewStatus.APPROVED,
-                Commenter.id == None,  # noqa: E711 SqlAlchemy wants == not is
-            )
-        )
-        .where(
-            or_(
-                Tag.id == None,  # noqa: E711 SqlAlchemy wants == not is
-                Tag.moderation_score < threshold,
-                Tag.review_status == ReviewStatus.APPROVED,
-            )
-        )
+        # TODO: Filter on tags and comment status?
     )
-    stmt = stmt.offset(offset).limit(limit)
-
     results = session.exec(stmt).all()
     return results
 

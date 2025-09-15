@@ -1032,7 +1032,6 @@ class TestCommentListEndpoints:
 
         response = client.post("/api/comments/submit", json=form_data)
         assert response.status_code == 201
-        handle_full_submission_approve(client, response.json())
 
         # Test admin endpoint (auth is mocked in conftest.py)
         response = client.get("/api/comments/admin/list")
