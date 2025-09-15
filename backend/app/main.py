@@ -533,14 +533,18 @@ async def get_assignments(
         .where(Document.document_id == document.document_id)
     ).one()
 
-    stmt = select(
-        Assignments.geo_id,
-        Assignments.zone,
-        ParentChildEdges.parent_path,
-    ).outerjoin(
-        ParentChildEdges,
-        onclause=(col(Assignments.geo_id) == ParentChildEdges.child_path)
-        & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
+    stmt = (
+        select(
+            Assignments.geo_id,
+            Assignments.zone,
+            ParentChildEdges.parent_path,
+        )
+        .outerjoin(
+            ParentChildEdges,
+            onclause=(col(Assignments.geo_id) == ParentChildEdges.child_path)
+            & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
+        )
+        .where(Assignments.document_id == document.document_id)
     )
     return session.exec(stmt).fetchall()
 
