@@ -307,7 +307,7 @@ class DistrictUnions(TimeStampMixin, SQLModel, table=True):
     id: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=True))
     document_id: str = Field(
         sa_column=Column(
-            UUIDType, ForeignKey("document.document_id"), index=True, nullable=False
+            UUIDType, ForeignKey(Document.document_id), index=True, nullable=False
         )
     )
     zone: int = Field(nullable=False)
