@@ -376,6 +376,7 @@ def update_or_select_district_stats(
     """
     try:
         # If already up to date, just return what's there
+        session.execute(text("SET duckdb.force_execution = true;"))
         result = session.execute(
             text("""
             SELECT
