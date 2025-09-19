@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import text, func, select, String, Select
 
 from app.core.security import auth, TokenScope
-from sqlalchemy.sql import or_, and_, exists, literal, cast
+from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
@@ -322,6 +322,28 @@ def get_comments_base_query(
     the whole comment is excluded.
     """
 
+    tag_subquery = (
+        select(
+            col(CommentTag.comment_id),
+            func.coalesce(
+                func.array_agg(func.distinct(Tag.slug)).filter(
+                    col(Tag.slug).isnot(None)
+                ),
+                [],
+            ).label("tags"),
+            func.count(
+                case(
+                    (col(Tag.slug).in_(tags) if tags else False, 1),  # type: ignore
+                    else_=None,
+                )
+            ).label("matching_tag_count")
+            if tags
+            else literal(0).label("matching_tag_count"),
+        )
+        .outerjoin(Tag, col(Tag.id) == CommentTag.tag_id)
+        .group_by(col(CommentTag.comment_id))
+    ).subquery()
+
     stmt = (
         select(
             col(Comment.title),
@@ -331,23 +353,15 @@ def get_comments_base_query(
             col(Commenter.place),
             col(Commenter.state),
             col(Commenter.zip_code),
-            func.coalesce(
-                func.array_agg(func.distinct(Tag.slug)).filter(
-                    col(Tag.slug).isnot(None)
-                ),
-                [],
-            ).label("tags"),
+            func.coalesce(tag_subquery.c.tags, []).label("tags"),
             col(DocumentComment.zone),
         )
+        .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
+        .outerjoin(tag_subquery, col(Comment.id) == tag_subquery.c.comment_id)
         .outerjoin(
             DocumentComment,
             col(DocumentComment.comment_id) == Comment.id,
         )
-        .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
-        # Keep tag joins ONLY for aggregation; don't filter them in WHERE
-        .outerjoin(CommentTag, col(CommentTag.comment_id) == Comment.id)
-        .outerjoin(Tag, col(Tag.id) == CommentTag.tag_id)
-        .group_by(col(Comment.id), col(Commenter.id))
         .limit(limit)
         .offset(offset)
     )
@@ -380,24 +394,8 @@ def get_comments_base_query(
     if zip_code:
         stmt = stmt.where(col(Commenter.zip_code) == zip_code)
 
-    # -----------------------------
-    # Tag "search" filter via EXISTS
-    # (do NOT filter the aggregated Tag join)
-    # -----------------------------
     if tags:
-        has_any_requested_tag = (
-            select(literal(1))
-            .select_from(CommentTag)
-            .join(Tag, col(Tag.id) == CommentTag.tag_id)
-            .where(
-                and_(
-                    col(CommentTag.comment_id) == Comment.id,
-                    col(Tag.slug).in_(tags),
-                )
-            )
-            .correlate(Comment)
-        )
-        stmt = stmt.where(exists(has_any_requested_tag))
+        stmt = stmt.where(tag_subquery.c.matching_tag_count > 0)
 
     return stmt
 
