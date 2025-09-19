@@ -471,30 +471,133 @@ def moderate_comments_query(
     return stmt.where(~exists(bad_tag_exists))
 
 
-def add_admin_columns_to_query(stmt: Select) -> Select:
+def get_admin_query(
+    tags: list[str] | None,
+    place: str | None,
+    state: str | None,
+    zip_code: str | None,
+    limit: int,
+    offset: int,
+    public_id: int | None,
+    min_moderation_score: float,
+    review_status: ReviewStatus | None,
+) -> Select:
     """
-    Add admin columns to the comments query.
+    Return admin comments query with all admin columns and moderation filtering.
+    This is a standalone query builder for admin endpoints that doesn't rely on
+    get_comments_base_query to avoid complexity.
     """
-    return stmt.add_columns(
-        col(Comment.id).label("comment_id"),
-        col(Comment.review_status).label("comment_review_status"),
-        col(Comment.moderation_score).label("comment_moderation_score"),
-        col(Commenter.id).label("commenter_id"),
-        col(Commenter.review_status).label("commenter_review_status"),
-        col(Commenter.moderation_score).label("commenter_moderation_score"),
-        func.coalesce(
-            func.array_agg(col(Tag.id)),
-            [],
-        ).label("tag_ids"),
-        func.coalesce(
-            func.array_agg(cast(Tag.review_status, String)),
-            [],
-        ).label("tag_review_status"),
-        func.coalesce(
-            func.array_agg(col(Tag.moderation_score)),
-            [],
-        ).label("tag_moderation_score"),
+
+    tag_subquery = (
+        select(
+            col(CommentTag.comment_id),
+            func.coalesce(
+                func.array_agg(func.distinct(Tag.slug)).filter(
+                    col(Tag.slug).isnot(None)
+                ),
+                [],
+            ).label("tags"),
+            func.coalesce(
+                func.array_agg(col(Tag.id)),
+                [],
+            ).label("tag_ids"),
+            func.coalesce(
+                func.array_agg(cast(Tag.review_status, String)),
+                [],
+            ).label("tag_review_status"),
+            func.coalesce(
+                func.array_agg(col(Tag.moderation_score)),
+                [],
+            ).label("tag_moderation_score"),
+            func.count(
+                case(
+                    (col(Tag.slug).in_(tags) if tags else False, 1),  # type: ignore
+                    else_=None,
+                )
+            ).label("matching_tag_count")
+            if tags
+            else literal(0).label("matching_tag_count"),
+        )
+        .outerjoin(Tag, col(Tag.id) == CommentTag.tag_id)
+        .group_by(col(CommentTag.comment_id))
+    ).subquery()
+
+    stmt = (
+        select(
+            col(Comment.title),
+            col(Comment.comment),
+            col(Commenter.first_name),
+            col(Commenter.last_name),
+            col(Commenter.place),
+            col(Commenter.state),
+            col(Commenter.zip_code),
+            func.coalesce(tag_subquery.c.tags, []).label("tags"),
+            col(DocumentComment.zone),
+            col(Comment.id).label("comment_id"),
+            col(Comment.review_status).label("comment_review_status"),
+            col(Comment.moderation_score).label("comment_moderation_score"),
+            col(Commenter.id).label("commenter_id"),
+            col(Commenter.review_status).label("commenter_review_status"),
+            col(Commenter.moderation_score).label("commenter_moderation_score"),
+            func.coalesce(tag_subquery.c.tag_ids, []).label("tag_ids"),
+            func.coalesce(tag_subquery.c.tag_review_status, []).label(
+                "tag_review_status"
+            ),
+            func.coalesce(tag_subquery.c.tag_moderation_score, []).label(
+                "tag_moderation_score"
+            ),
+        )
+        .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
+        .outerjoin(tag_subquery, col(Comment.id) == tag_subquery.c.comment_id)
+        .outerjoin(
+            DocumentComment,
+            col(DocumentComment.comment_id) == Comment.id,
+        )
+        .limit(limit)
+        .offset(offset)
     )
+
+    # Document filter via EXISTS
+    if public_id:
+        doc_exists = (
+            select(literal(1))
+            .select_from(DocumentComment)
+            .join(Document, col(Document.document_id) == DocumentComment.document_id)
+            .where(
+                and_(
+                    col(DocumentComment.comment_id) == Comment.id,
+                    col(Document.public_id) == public_id,
+                )
+            )
+            .correlate(Comment)
+        )
+        stmt = stmt.where(exists(doc_exists))
+
+    # Location filters (Commenter)
+    if place:
+        stmt = stmt.where(col(Commenter.place) == place)
+    if state:
+        stmt = stmt.where(col(Commenter.state) == state)
+    if zip_code:
+        stmt = stmt.where(col(Commenter.zip_code) == zip_code)
+
+    if tags:
+        stmt = stmt.where(tag_subquery.c.matching_tag_count > 0)
+
+    # Admin-specific moderation filtering
+    stmt = stmt.where(
+        and_(
+            or_(
+                col(Comment.moderation_score) < min_moderation_score,
+                col(Comment.moderation_score).is_(None),
+            ),
+            col(Comment.review_status) == review_status
+            if review_status
+            else col(Comment.review_status).is_(None),
+        )
+    )
+
+    return stmt
 
 
 @router.get(
@@ -541,7 +644,7 @@ async def list_comments_admin(
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
     review_status: ReviewStatus = Query(default=None),
 ):
-    stmt = get_comments_base_query(
+    stmt = get_admin_query(
         tags=tags,
         place=place,
         state=state,
@@ -549,22 +652,8 @@ async def list_comments_admin(
         limit=limit,
         offset=offset,
         public_id=public_id,
-    )
-    stmt = add_admin_columns_to_query(stmt)
-    threshold = min_moderation_score
-    stmt = (
-        stmt.where(
-            and_(
-                or_(
-                    col(Comment.moderation_score) < threshold,
-                    col(Comment.moderation_score).is_(None),
-                ),
-                col(Comment.review_status) == review_status
-                if review_status
-                else col(Comment.review_status).is_(None),
-            )
-        )
-        # TODO: Filter on tags and comment status?
+        min_moderation_score=min_moderation_score,
+        review_status=review_status,
     )
     results = session.execute(stmt).all()
     return results
