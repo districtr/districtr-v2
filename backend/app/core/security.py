@@ -1,5 +1,3 @@
-from typing import Optional
-
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import SecurityScopes, HTTPAuthorizationCredentials, HTTPBearer
@@ -54,7 +52,7 @@ class VerifyToken:
     async def verify(
         self,
         security_scopes: SecurityScopes,
-        token: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer()),
+        token: HTTPAuthorizationCredentials | None = Depends(HTTPBearer()),
     ) -> dict:
         if token is None:
             raise UnauthenticatedException

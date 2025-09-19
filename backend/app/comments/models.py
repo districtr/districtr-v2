@@ -164,6 +164,7 @@ class CommentCreate(BaseModel):
     comment: str
     commenter_id: int | None = None
     document_id: str | None = None
+    zone: int | None = None
 
 
 class CommentCreateWithRecaptcha(BaseModel):
@@ -175,6 +176,7 @@ class CommentPublic(CommentCreate):
     id: int
     created_at: datetime | None
     updated_at: datetime | None
+    zone: int | None = None
 
 
 class Tag(TimeStampMixin, SQLModel, table=True):

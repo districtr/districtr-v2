@@ -1,4 +1,4 @@
-from sqlmodel import Session, select, insert
+from sqlmodel import Session, select, insert, col
 from unittest.mock import patch
 from app.comments.models import Commenter, Comment, Tag, CommentTag, DocumentComment
 from tests.test_utils import (
@@ -228,7 +228,7 @@ class TestCommentEndpoint:
             json={"comment": comment_data, "recaptcha_token": "test_token"},
         )
 
-        assert response.status_code == 201
+        assert response.status_code == 201, response.json()
         data = response.json()
 
         assert data["title"] == "Test Comment"
@@ -301,6 +301,40 @@ class TestCommentEndpoint:
                 json={"comment": comment_data, "recaptcha_token": "test_token"},
             )
             assert response.status_code == 422
+
+    @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
+    def test_create_comment_with_zone_and_document(
+        self,
+        mock_score_text,
+        document_id,
+        client,
+        session,
+    ):
+        """Test comment creation with missing required fields"""
+        response = client.post(
+            "/api/comments/comment",
+            json={
+                "comment": {
+                    "title": "Hello",
+                    "comment": "world",
+                    "zone": 1,
+                    "document_id": document_id,
+                },
+                "recaptcha_token": "test_token",
+            },
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["title"] == "Hello"
+        assert data["comment"] == "world"
+        # Because of silly idea to have a separate DocumentComment, it's kind of hard/annoying to get this value back
+        # TODO: DocumentComment has no business being its own table and should be combined with Comment
+        # assert data["zone"] == 1
+        stmt = select(col(DocumentComment.zone)).where(
+            col(DocumentComment.document_id) == document_id
+        )
+        zone = session.exec(stmt).one()
+        assert zone == 1
 
     @patch("app.comments.moderation.score_text", return_value=TEST_MODERATION_SCORE)
     def test_create_comment_empty_required_fields(
