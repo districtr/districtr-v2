@@ -322,7 +322,6 @@ def get_comments_base_query(
     the whole comment is excluded.
     """
 
-    # Base SELECT with aggregation over ALL tags
     stmt = (
         select(
             col(Comment.title),
@@ -338,6 +337,11 @@ def get_comments_base_query(
                 ),
                 [],
             ).label("tags"),
+            col(DocumentComment.zone),
+        )
+        .outerjoin(
+            DocumentComment,
+            col(DocumentComment.comment_id) == Comment.id,
         )
         .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
         # Keep tag joins ONLY for aggregation; don't filter them in WHERE

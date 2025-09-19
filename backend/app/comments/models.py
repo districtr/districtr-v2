@@ -309,6 +309,7 @@ class PublicCommentResponse(BaseModel):
     state: str | None = None
     zip_code: str | None = None
     tags: list[str | None] = []
+    zone: int | None = None
 
 
 class AdminCommentResponse(PublicCommentResponse):
