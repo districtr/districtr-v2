@@ -5,7 +5,7 @@ import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import GeometryWorker from '../utils/GeometryWorker';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyCache';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
@@ -44,7 +44,7 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
       const zoneEntries = Array.from(useMapStore.getState().zoneAssignments.entries());
       GeometryWorker?.updateZones(zoneEntries);
       // Update caches / workers
-      demographyCache.updatePopulations(zoneAssignments);
+      demographyService.updatePopulations(zoneAssignments);
       // If previously not loaded, this is the initial render
       if (previousAppLoadingState !== 'loaded') return;
       const {getMapRef} = useMapStore.getState();

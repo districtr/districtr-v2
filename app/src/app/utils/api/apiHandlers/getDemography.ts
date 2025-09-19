@@ -19,6 +19,15 @@ export const getDemography = async ({
   if (!ParquetWorker) {
     throw new Error('ParquetWorker not found');
   }
+  if (mapDocument.document_id === 'anonymous') {
+    return {
+      columns: [],
+      results: {
+        path: [],
+        sourceLayer: [],
+      },
+    };
+  }
   const demographyData = await ParquetWorker.getDemography(mapDocument, brokenIds);
   return {
     columns: demographyData.columns,

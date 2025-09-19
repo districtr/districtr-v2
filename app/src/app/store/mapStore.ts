@@ -26,7 +26,12 @@ import {
 } from '../utils/helpers';
 import {checkoutDocument, patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
-import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/layers';
+import {
+  BLOCK_SOURCE_ID,
+  EMPTY_FT_COLLECTION,
+  FALLBACK_NUM_DISTRICTS,
+  OVERLAY_OPACITY,
+} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
@@ -35,9 +40,10 @@ import {createWithMiddlewares} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
-import {demographyCache} from '../utils/demography/demographyCache';
+import {demographyService} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
+import {EMPTY_FEATURE_ARRAY} from '../utils/events/mapEvents';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -63,6 +69,9 @@ export interface MapStore {
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
   setMapRef: (map: MutableRefObject<MapRef | null>) => void;
+  // public map get
+  getPublicMapData: () => GeoJSON.FeatureCollection<GeoJSON.Geometry> | null;
+  setPublicMapData: (data: GeoJSON.FeatureCollection<GeoJSON.Geometry>) => void;
   mapLock: boolean;
   setMapLock: (lock: boolean) => void;
   errorNotification: {
@@ -339,6 +348,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       appLoadingState: initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
     });
   },
+  getPublicMapData: () => EMPTY_FT_COLLECTION,
+  setPublicMapData: data => set({getPublicMapData: () => data}),
   mapLock: false,
   setMapLock: mapLock => set({mapLock}),
   errorNotification: {},
@@ -422,7 +433,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setMapViews: mapViews => set({mapViews}),
   mapDocument: null,
   setMapDocument: mapDocument => {
-    demographyCache.clear();
+    demographyService.clear();
     const {
       mapDocument: currentMapDocument,
       activeTool: currentActiveTool,
@@ -453,7 +464,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     }
     allPainted.clear();
     lastSentAssignments.clear();
-    demographyCache.clear();
+    demographyService.clear();
     setFreshMap(true);
     resetZoneAssignments();
     useDemographyStore.getState().clear();

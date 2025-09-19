@@ -2,7 +2,7 @@
 import {useMapStore} from '@store/mapStore';
 import {useChartStore} from '@store/chartStore';
 import {useMemo} from 'react';
-import {demographyCache} from '@utils/demography/demographyCache';
+import {demographyService} from '@utils/demography/demographyCache';
 import {useDemographyStore} from '../store/demography/demographyStore';
 import {FALLBACK_NUM_DISTRICTS} from '../constants/layers';
 import {SummaryRecord} from '../utils/api/summaryStats';
@@ -33,7 +33,7 @@ export const useZonePopulations = (includeUnassigned?: boolean) => {
   const demoIsLoaded = mapDocument?.document_id && demogHash.includes(mapDocument.document_id);
   // TODO: Could be refactored in the main demographyCache class
   const populationData = useMemo(() => {
-    let cleanedData = structuredClone(demographyCache.populations).filter(row =>
+    let cleanedData = structuredClone(demographyService.populations).filter(row =>
       includeUnassigned ? true : Boolean(row.zone)
     );
     const zonesPresent = cleanedData.map(row => row.zone).filter(Boolean);
