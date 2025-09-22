@@ -23,10 +23,12 @@ import {
   HeadingIcon,
   FileTextIcon,
   GlobeIcon,
+  ChatBubbleIcon,
 } from '@radix-ui/react-icons';
 import SectionHeaderNode from '../components/Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
 import FormNode from '../components/Cms/RichTextEditor/extensions/CommentSubmissionForm/FormNode';
 import MapCreateButtonsNode from '../components/Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtonsNode';
+import CommentGalleryNode from '../components/Cms/RichTextEditor/extensions/CommentGallery/CommentGalleryNode';
 
 export const useCmsEditorConfig = (content: string | object, onChange: (json: object) => void) => {
   const editor = useEditor({
@@ -49,6 +51,7 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
       SectionHeaderNode,
       FormNode,
       MapCreateButtonsNode,
+      CommentGalleryNode,
     ],
     content: typeof content === 'string' ? content : content,
     onUpdate: ({editor}) => {
@@ -234,6 +237,14 @@ export const useCmsEditorConfig = (content: string | object, onChange: (json: ob
         editor.chain().focus().setMapCreateButtons().run();
       },
       active: () => editor.isActive('mapCreateButtonsNode'),
+    },
+    {
+      title: 'Insert Comment Gallery',
+      icon: ChatBubbleIcon,
+      onClick: () => {
+        editor.chain().focus().setCommentGallery().run();
+      },
+      active: () => editor.isActive('commentGalleryNode'),
     },
   ];
 
