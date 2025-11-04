@@ -2,7 +2,7 @@ import {Box, Text, Checkbox, Flex, Switch} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {getFeaturesInBbox, getFeaturesIntersectingCounties} from '../../utils/helpers';
 
-export default function PaintByCounty() {
+export const PaintByCounty: React.FC<{label?: string}> = ({label = 'Paint counties'}) => {
   const mapRef = useMapStore(state => state.getMapRef());
   const setPaintFunction = useMapStore(state => state.setPaintFunction);
   const paintByCounty = useMapStore(state => state.mapOptions.paintByCounty);
@@ -24,7 +24,7 @@ export default function PaintByCounty() {
   return (
     <Text as="label" size="1">
       <Flex gap="1" direction="column">
-        County Brush
+        {label}
         <Switch
           size="1"
           checked={paintByCounty}
@@ -35,4 +35,4 @@ export default function PaintByCounty() {
       </Flex>
     </Text>
   );
-}
+};
