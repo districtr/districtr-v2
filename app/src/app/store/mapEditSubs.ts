@@ -1,37 +1,70 @@
 import {debounce} from 'lodash';
 import {saveColorScheme} from '../utils/api/apiHandlers/saveColorScheme';
 import {FormatAssignments} from '../utils/api/apiHandlers/formatAssignments';
-import {patchUpdates} from '../utils/api/mutations';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '../utils/helpers';
 import GeometryWorker from '../utils/GeometryWorker';
 import {demographyCache} from '../utils/demography/demographyCache';
+import {Assignment} from '@utils/api/apiHandlers/types';
+import {idb} from '@utils/idb/idb';
 
 // allowSendZoneUpdates will be set to false to prevent additional zoneUpdates calls from occurring
 // when shattering/healing vtds during an undo/redo operation.
 // We want to prevent intermediary state changes from being sent to the backend.
 let allowSendZoneUpdates = true;
 
-const zoneUpdates = ({getMapRef, zoneAssignments, appLoadingState}: Partial<MapStore>) => {
-  // locked during break or heal
-  const {mapLock, mapDocument, mapStatus, lastUpdatedHash, userID} = _useMapStore.getState();
+const updateIdbAssignments = (_document_id: string) => {
+  const t0 = performance.now();
+  // // locked during break or heal
+  const {
+    mapLock,
+    mapDocument,
+    mapStatus,
+    appLoadingState,
+    zoneAssignments,
+    shatterMappings,
+    shatterIds,
+  } = _useMapStore.getState();
   const document_id = mapDocument?.document_id;
-  if (
-    !mapLock &&
-    getMapRef?.() &&
-    zoneAssignments?.size &&
-    appLoadingState === 'loaded' &&
-    document_id &&
-    mapStatus?.access === 'edit'
-  ) {
-    const assignments = FormatAssignments();
-    if (assignments.length) {
-      patchUpdates.mutate({assignments, updateHash: lastUpdatedHash, userID: userID});
+  if (!mapDocument) return;
+  // ensure document_id hasn't changed
+  if (document_id !== _document_id) return;
+  // map must not be locked
+  if (mapLock) return;
+  // map must be loaded
+  if (appLoadingState !== 'loaded') return;
+  // map must be in edit mode
+  const assignmentsToSave: Assignment[] = [];
+  for (const [geo_id, zone] of zoneAssignments.entries()) {
+    let parent_path = null;
+    if (shatterIds.children.has(geo_id)) {
+      parent_path =
+        Object.entries(shatterMappings).find(([_, children]) => children.has(geo_id))?.[0] ?? null;
     }
+    assignmentsToSave.push({
+      document_id,
+      geo_id,
+      zone,
+      parent_path,
+    });
   }
+  const clientUpdatedAt = new Date().toISOString();
+  idb
+    .updateDocument({
+      id: document_id,
+      document_metadata: mapDocument,
+      assignments: assignmentsToSave,
+      clientLastUpdated: clientUpdatedAt,
+    })
+    .then(r => {
+      console.log('updated idb', r);
+    })
+    .catch(e => {
+      console.error('error updating idb', e);
+    });
 };
 
-const debouncedZoneUpdate = debounce(zoneUpdates, 500);
+const debouncedUpdateIdbAssignments = debounce(updateIdbAssignments, 500);
 
 export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
   const sendZoneUpdatesOnUpdate = useMapStore.subscribe<
@@ -47,8 +80,9 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
       demographyCache.updatePopulations(zoneAssignments);
       // If previously not loaded, this is the initial render
       if (previousAppLoadingState !== 'loaded') return;
-      const {getMapRef} = useMapStore.getState();
-      debouncedZoneUpdate({getMapRef, zoneAssignments, appLoadingState});
+      const {mapDocument} = useMapStore.getState();
+      if (!mapDocument) return;
+      debouncedUpdateIdbAssignments(mapDocument.document_id);
     },
     {equalityFn: shallowCompareArray}
   );

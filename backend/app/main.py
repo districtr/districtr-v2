@@ -20,7 +20,7 @@ from starlette.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
-from sqlmodel import ARRAY, INT
+from sqlmodel import ARRAY
 from datetime import datetime
 import sentry_sdk
 from fastapi_utils.tasks import repeat_every
@@ -55,8 +55,6 @@ from app.models import (
     DocumentEditStatus,
     DocumentMetadata,
     GEOIDS,
-    GEOIDSResponse,
-    AssignedGEOIDS,
     UUIDType,
     ParentChildEdges,
     ShatterResult,
@@ -339,113 +337,80 @@ async def create_document(
     return doc
 
 
-@app.patch("/api/update_assignments")
+@app.put("/api/assignments")
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
     document_id = data.assignments[0].document_id
-    assignments = assignments = data.model_dump()["assignments"]
-    lock_status = check_map_lock(document_id, data.user_id, session)
+    assignments = data.model_dump()["assignments"]
+    last_updated_at = data.model_dump()["last_updated_at"]
 
-    if lock_status == DocumentEditStatus.checked_out:
-        stmt = insert(Assignments).values(assignments)
-        stmt = stmt.on_conflict_do_update(
-            constraint=Assignments.__table__.primary_key,
-            set_={"zone": stmt.excluded.zone},
-        )
-        session.execute(stmt)
-        updated_at = None
-        if len(data.assignments) > 0:
-            updated_at = update_timestamp(session, document_id)
-            logger.info(f"Document updated at {updated_at}")
-        session.commit()
-        return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
-    else:
+    db_last_updated_at = (
+        select(Document.updated_at).where(Document.document_id == document_id).one()
+    )
+
+    if db_last_updated_at > last_updated_at:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Document is locked by another user",
+            detail="Document has been updated since the last update",
         )
 
+    # Clear stale assignments
+    session.execute(
+        Assignments.__table__.delete().where(Assignments.document_id == document_id)
+    )
+    # Insert new assignments
+    stmt = insert(Assignments).values(assignments)
+    session.execute(stmt)
 
-@app.patch(
-    "/api/update_assignments/{document_id}/shatter_parents",
-    response_model=ShatterResult,
+    updated_at = None
+    if len(data.assignments) > 0:
+        updated_at = update_timestamp(session, document_id)
+        logger.info(f"Document updated at {updated_at}")
+    session.commit()
+    return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
+
+
+@app.post(
+    "/api/edges/{document_id}",
+    response_model=list[ShatterResult],
 )
-async def shatter_parent(
+async def get_children(
     document: Annotated[Document, Depends(get_document)],
     data: GEOIDS,
     session: Session = Depends(get_session),
 ):
     assert document.document_id is not None
-    stmt = text(
-        """SELECT *
-        FROM shatter_parent(:input_document_id, :parent_geoids)"""
-    ).bindparams(
-        bindparam(key="input_document_id", type_=UUIDType),
-        bindparam(key="parent_geoids", type_=ARRAY(String)),
-    )
-    results = session.execute(
-        statement=stmt,
-        params={
-            "input_document_id": document.document_id,
-            "parent_geoids": data.geoids,
-        },
-    )
-    # :( was getting validation errors so am just going to loop
-    assignments = [
-        Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
-        for document_id, geo_id, zone in results
-    ]
-    updated_at = update_timestamp(session, document.document_id)
-    result = ShatterResult(parents=data, children=assignments, updated_at=updated_at)
-    session.commit()
-    return result
-
-
-@app.patch(
-    "/api/update_assignments/{document_id}/unshatter_parents",
-    response_model=GEOIDSResponse,
-)
-async def unshatter_parent(
-    document: Annotated[Document, Depends(get_document)],
-    data: AssignedGEOIDS,
-    session: Session = Depends(get_session),
-):
-    stmt = text(
-        """SELECT *
-        FROM unshatter_parent(:input_document_id, :parent_geoids, :input_zone)"""
-    ).bindparams(
-        bindparam(key="input_document_id", type_=UUIDType),
-        bindparam(key="parent_geoids", type_=ARRAY(String)),
-        bindparam(key="input_zone", type_=INT),
-    )
-    results = session.execute(
-        statement=stmt,
-        params={
-            "input_document_id": document.document_id,
-            "parent_geoids": data.geoids,
-            "input_zone": data.zone,
-        },
-    ).first()
-
-    assert (
-        results is not None and document.document_id is not None
-    ), "No results returned from unshatter_parent"
-    updated_at = update_timestamp(session, document.document_id)
-    session.commit()
-
-    if results is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to unshatter parent",
+    districtr_map_slug = session.exec(
+        select(Document.districtr_map_slug).where(
+            Document.document_id == document.document_id
         )
+    ).one()
+    db_districtr_map_uuid = session.exec(
+        select(DistrictrMap.uuid).where(
+            DistrictrMap.districtr_map_slug == districtr_map_slug
+        )
+    ).one()
+    stmt = text(
+        """SELECT child_path, parent_path
+        FROM parentchildedges pce
+        WHERE pce.parent_path = ANY(:parent_geoids)
+        AND pce.districtr_map = :districtr_map_uuid"""
+    ).bindparams(
+        bindparam(key="districtr_map_uuid", type_=UUIDType),
+        bindparam(key="parent_geoids", type_=ARRAY(String)),
+    )
+    results = session.execute(
+        statement=stmt,
+        params={
+            "districtr_map_uuid": db_districtr_map_uuid,
+            "parent_geoids": data.geoids,
+        },
+    ).fetchall()
+    return results
 
-    return {"geoids": results[0], "updated_at": updated_at}
 
-
-@app.patch(
-    "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
-)
+@app.patch("/api/assignments/{document_id}/reset", status_code=status.HTTP_200_OK)
 async def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),

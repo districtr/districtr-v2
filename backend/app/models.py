@@ -242,6 +242,8 @@ class Assignments(SQLModel, table=True):
 class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
     user_id: str
+    last_updated_at: datetime
+    overwrite: bool = False
 
 
 class AssignmentsResponse(SQLModel):
@@ -263,18 +265,17 @@ class AssignedGEOIDS(GEOIDS):
     zone: int | None
 
 
+class ShatterResult(BaseModel):
+    parent_path: str
+    child_path: str
+
+
 class BBoxGeoJSONs(BaseModel):
     features: list[
         pydantic_geojson.feature.FeatureModel
         | pydantic_geojson.multi_polygon.MultiPolygonModel
         | pydantic_geojson.polygon.PolygonModel
     ]
-
-
-class ShatterResult(BaseModel):
-    parents: GEOIDS
-    children: list[Assignments]
-    updated_at: datetime
 
 
 class ColorsSetResult(BaseModel):

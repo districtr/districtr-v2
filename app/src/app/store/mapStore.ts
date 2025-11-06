@@ -24,7 +24,7 @@ import {
   resetZoneColors,
   setZones,
 } from '../utils/helpers';
-import {checkoutDocument, patchReset, patchShatter, patchUnShatter} from '../utils/api/mutations';
+import {checkoutDocument, patchReset} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/layers';
 import {DistrictrMapOptions} from './types';
@@ -38,6 +38,7 @@ import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
+import {postGetChildEdges} from '../utils/api/apiHandlers/postGetChildEdges';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -525,11 +526,11 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     if (!mapRef) return;
     set({mapLock: true});
     const updateHash = new Date().toISOString();
-    const r = await patchShatter.mutate({
-      document_id,
-      geoids,
-      updateHash,
-    });
+    // const r = await patchShatter.mutate({
+    //   document_id,
+    //   geoids,
+    //   updateHash,
+    // });
     geoids.forEach(geoid => {
       mapRef?.setFeatureState(
         {
@@ -553,12 +554,12 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     const updateHash = new Date().toISOString();
     const zone = zoneAssignments.get(parentsToHeal[0])!;
     const sourceLayer = mapDocument?.parent_layer;
-    const r = await patchUnShatter.mutate({
-      geoids: parentsToHeal,
-      zone: zoneAssignments.get(parentsToHeal[0])!,
-      document_id,
-      updateHash,
-    });
+    // const r = await patchUnShatter.mutate({
+    //   geoids: parentsToHeal,
+    //   zone: zoneAssignments.get(parentsToHeal[0])!,
+    //   document_id,
+    //   updateHash,
+    // });
     const children = shatterMappings[parentsToHeal[0]];
     children?.forEach(child => {
       // remove from allPainted
@@ -590,25 +591,20 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
 
     const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
     const updateHash = new Date().toISOString();
-    const {shatterIds, shatterMappings, lockedFeatures} = get();
-    const isAlreadyShattered = geoids.some(id => shatterMappings.hasOwnProperty(id));
-    const shatterResult: ShatterResult = isAlreadyShattered
-      ? ({
-          parents: {geoids},
-          children: Array.from(combineSetValues(shatterMappings, geoids)).map(id => ({
-            geo_id: id,
-            document_id,
-            parent_path: '',
-          })),
-        } as ShatterResult)
-      : await patchShatter.mutate({
-          document_id,
-          geoids,
-          updateHash,
-        });
-
-    if (!shatterResult.children.length) {
-      const mapDocument = get().mapDocument;
+    const {
+      shatterIds,
+      lockedFeatures,
+      mapDocument,
+      zoneAssignments: _zoneAssignments,
+      mapOptions,
+      parentsToHeal,
+      shatterMappings: _shatterMappings,
+    } = get();
+    const edgesResult = await postGetChildEdges({
+      document_id,
+      geoids,
+    });
+    if (!edgesResult?.length) {
       set({
         errorNotification: {
           severity: 2,
@@ -621,35 +617,45 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     // TODO Need to return child edges even if the parent is already shattered
     // currently returns nothing
     const newLockedFeatures = new Set(lockedFeatures);
-    let existingParents = new Set(shatterIds.parents);
-    let existingChildren = new Set(shatterIds.children);
-    const newParent = shatterResult.parents.geoids;
-    const newChildren = new Set(shatterResult.children.map(child => child.geo_id));
-    newChildren.forEach(child => newLockedFeatures.delete(child));
-    const zoneAssignments = new Map(get().zoneAssignments);
-    const multipleShattered = shatterResult.parents.geoids.length > 1;
+    let parents = new Set(shatterIds.parents);
+    let children = new Set(shatterIds.children);
+    let captiveIds = new Set<string>();
+    let shatterMappings = {..._shatterMappings};
+    const zoneAssignments = new Map(_zoneAssignments);
+    const zonesToSet: Record<string, Set<string>> = {};
+    edgesResult.forEach(edge => {
+      parents.add(edge.parent_path);
+      children.add(edge.child_path);
+      captiveIds.add(edge.child_path);
+      if (!zonesToSet[edge.parent_path]) {
+        zonesToSet[edge.parent_path] = new Set([edge.child_path]);
+      } else {
+        zonesToSet[edge.parent_path].add(edge.child_path);
+      }
+
+      if (!shatterMappings[edge.parent_path]) {
+        shatterMappings[edge.parent_path] = new Set([edge.child_path]);
+      } else {
+        shatterMappings[edge.parent_path].add(edge.child_path);
+      }
+    });
+
+    Object.entries(zonesToSet).forEach(([parent, children]) => {
+      setZones(zoneAssignments, parent, children);
+    });
+
     const featureBbox = features[0].geometry && bbox(features[0].geometry);
     const mapBbox =
       featureBbox?.length && featureBbox?.length >= 4
         ? (featureBbox.slice(0, 4) as MapStore['mapOptions']['bounds'])
         : undefined;
 
-    if (!isAlreadyShattered && !multipleShattered) {
-      newParent.forEach(parent => existingParents.add(parent));
-      existingChildren = new Set([...existingChildren, ...newChildren]);
-
-      setZones(zoneAssignments, newParent[0], newChildren);
-      shatterMappings[newParent[0]] = newChildren;
-    } else if (multipleShattered) {
-      // todo handle multiple shattered case
-    } else if (isAlreadyShattered) {
-    }
-
     set({
       shatterIds: {
-        parents: existingParents,
-        children: existingChildren,
+        parents,
+        children,
       },
+      shatterMappings,
       assignmentsHash: updateHash,
       lastUpdatedHash: updateHash,
       // TODO: Should this be true instead?
@@ -657,22 +663,22 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       // break / shatter?
       isTemporalAction: false,
       mapLock: false,
-      captiveIds: newChildren,
+      captiveIds,
       lockedFeatures: newLockedFeatures,
       focusFeatures: [
         {
           id: features[0].id,
           source: BLOCK_SOURCE_ID,
-          sourceLayer: get().mapDocument?.parent_layer,
+          sourceLayer: mapDocument?.parent_layer,
         },
       ],
       activeTool: 'brush',
       zoneAssignments,
-      parentsToHeal: [...get().parentsToHeal, features?.[0]?.id?.toString() || '']
+      parentsToHeal: [...parentsToHeal, features?.[0]?.id?.toString() || '']
         .filter(onlyUnique)
         .filter(f => f.length),
       mapOptions: {
-        ...get().mapOptions,
+        ...mapOptions,
         mode: 'break',
         bounds: mapBbox,
       },

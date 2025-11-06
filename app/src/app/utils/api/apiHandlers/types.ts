@@ -1,14 +1,20 @@
+import {NullableZone} from '@/app/constants/types';
 import {SummaryStatConfig} from '../summaryStats';
 
 export interface Assignment {
   document_id: string;
   geo_id: string;
-  zone: number;
-  parent_path?: string;
+  zone: NullableZone;
+  parent_path: string | null;
 }
 
 export interface AssignmentsCreate {
+  assignments: Assignment[];
+  document_id: string;
+}
+export interface AssignmentsCreateResponse {
   assignments_upserted: number;
+  updated_at: string;
 }
 
 export interface AssignmentsReset {
@@ -86,10 +92,10 @@ export interface ZonePopulation {
   total_pop_20: number;
 }
 
-export interface ShatterResult {
-  parents: {geoids: string[]};
-  children: Assignment[];
-}
+export type ShatterResult = Array<{
+  child_path: string;
+  parent_path: string;
+}>;
 
 export interface ColorsSet {
   success: boolean;
