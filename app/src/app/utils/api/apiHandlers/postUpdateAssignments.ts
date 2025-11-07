@@ -1,22 +1,17 @@
-import axios from 'axios';
-import {Assignment, AssignmentsCreate} from './types';
+import {Assignment, AssignmentsCreate, AssignmentsCreateResponse} from './types';
+import {post} from '../factory';
 
-export const patchUpdateAssignments = async ({
+export const postUpdateAssignments = async ({
   assignments,
-  updateHash,
-  userID,
+  document_id,
 }: {
   assignments: Assignment[];
-  updateHash: string;
-  userID: string | null;
-}): Promise<AssignmentsCreate> => {
-  return await axios
-    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments`, {
-      assignments: assignments,
-      updated_at: updateHash,
-      user_id: userID,
-    })
-    .then(res => {
-      return res.data;
-    });
+  document_id: string;
+}) => {
+  return await post<AssignmentsCreate, AssignmentsCreateResponse>('/api/assignments')({
+    body: {
+      assignments,
+      document_id,
+    },
+  });
 };

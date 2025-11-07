@@ -1,10 +1,15 @@
-import axios from 'axios';
 import {DocumentObject} from './types';
 import {useMapStore} from '@store/mapStore';
+import {get} from '../factory';
 
-export const getDocument = async (document_id?: string): Promise<DocumentObject | null> => {
+export const getDocument = async (document_id?: string) => {
   if (!document_id) {
-    return null;
+    return {
+      ok: false,
+      error: {
+        detail: 'No document ID provided',
+      },
+    };
   }
 
   const {userID} = useMapStore.getState();
@@ -12,8 +17,5 @@ export const getDocument = async (document_id?: string): Promise<DocumentObject 
   if (userID) {
     url.searchParams.set('user_id', userID);
   }
-
-  return await axios.get(url.toString()).then(res => {
-    return res.data;
-  });
+  return await get<DocumentObject>(`/api/document/${document_id}`)({});
 };

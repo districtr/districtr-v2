@@ -25,11 +25,8 @@ export const ResetMapSelectState = (
       source: BLOCK_SOURCE_ID,
       sourceLayer: sourceLayer,
     });
-
-    mapStoreRef.setAccumulatedGeoids(new Set());
     // reset zoneAssignments
     mapStoreRef.resetZoneAssignments();
     // confirm the map has been reset
-    mapStoreRef.setFreshMap(false);
   }
 };

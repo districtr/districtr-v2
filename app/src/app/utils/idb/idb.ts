@@ -1,5 +1,7 @@
 import {Assignment, DocumentObject} from '../api/apiHandlers/types';
 import Dexie, {Table} from 'dexie';
+import {useMapStore} from '@store/mapStore';
+import {NullableZone} from '@/app/constants/types';
 
 // --- Main Document Entry ---
 export interface StoredDocument {
@@ -31,6 +33,50 @@ export class DocumentsDB extends Dexie {
   async deleteDocument(document_id: string) {
     await this.documents.delete(document_id);
   }
+
+  updateIdbAssignments = (
+    mapDocument: DocumentObject,
+    zoneAssignments: Map<string, NullableZone>
+  ) => {
+    // // locked during break or heal
+    const {mapLock, appLoadingState, shatterMappings, shatterIds} = useMapStore.getState();
+    const document_id = mapDocument?.document_id;
+    if (!mapDocument) return;
+    // ensure document_id hasn't changed
+    if (mapLock) return;
+    // map must be loaded
+    if (appLoadingState !== 'loaded') return;
+    // map must be in edit mode
+    const assignmentsToSave: Assignment[] = [];
+    for (const [geo_id, zone] of zoneAssignments.entries()) {
+      let parent_path = null;
+      if (shatterIds.children.has(geo_id)) {
+        parent_path =
+          Object.entries(shatterMappings).find(([_, children]) => children.has(geo_id))?.[0] ??
+          null;
+      }
+      assignmentsToSave.push({
+        document_id,
+        geo_id,
+        zone,
+        parent_path,
+      });
+    }
+    const clientUpdatedAt = new Date().toISOString();
+    idb
+      .updateDocument({
+        id: document_id,
+        document_metadata: mapDocument,
+        assignments: assignmentsToSave,
+        clientLastUpdated: clientUpdatedAt,
+      })
+      .then(r => {
+        console.log('updated idb', r);
+      })
+      .catch(e => {
+        console.error('error updating idb', e);
+      });
+  };
 }
 
 export const idb = new DocumentsDB();
