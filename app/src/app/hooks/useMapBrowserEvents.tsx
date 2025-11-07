@@ -1,12 +1,9 @@
 import {useMapStore} from '@/app/store/mapStore';
-import {unlockMapDocument} from '@utils/api/apiHandlers/unlockMapDocument';
-import {useCallback, useEffect, useRef} from 'react';
+import {useEffect, useRef} from 'react';
 import {useVisibilityState} from './useVisibilityState';
-import {FE_UNLOCK_DELAY} from '../utils/api/constants';
-import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
-import {useQuery} from '@tanstack/react-query';
-import {getDocument} from '../utils/api/apiHandlers/getDocument';
 import {useRouter} from 'next/navigation';
+import { useMapControlsStore } from '../store/mapControlsStore';
+import { useAssignmentsStore } from '../store/assignmentsStore';
 
 interface UseMapBrowserEventsV2Props {
   mapId: string;
@@ -18,9 +15,9 @@ export const useMapBrowserEvents = ({isEditing, mapId}: UseMapBrowserEventsV2Pro
   const {isVisible} = useVisibilityState();
   const unloadTimepoutRef = useRef<NodeJS.Timeout | null>(null);
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
-  const setIsEditing = useMapStore(state => state.setIsEditing);
+  const setIsEditing = useMapControlsStore(state => state.setIsEditing);
+  const setZoneAssignments = useAssignmentsStore(state => state.setZoneAssignments);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const loadZoneAssignments = useMapStore(state => state.loadZoneAssignments);
   const setMapDocument = useMapStore(state => state.setMapDocument);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const router = useRouter();

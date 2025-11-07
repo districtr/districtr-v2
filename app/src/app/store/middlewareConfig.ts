@@ -38,41 +38,16 @@ export const temporalConfig: ZundoOptions<any, MapStore> = {
     if (past.colorScheme !== curr.colorScheme) return past;
     // if not yet loaded, or is a temporal action (eg. silent heal) don't store
     if (past.mapRenderingState !== 'loaded' || curr.isTemporalAction) return null;
-    // if current state has no zoneAssignments, don't store
-    if (!past.zoneAssignments || !curr.zoneAssignments || curr.zoneAssignments?.size === 0)
-      return null;
-    // if assignments have changed size, do store the state
-    if (past.zoneAssignments.size !== curr.zoneAssignments.size) return past;
-    for (const geoid of curr.zoneAssignments.keys()) {
-      if (past.zoneAssignments.get(geoid) !== curr.zoneAssignments.get(geoid)) {
-        // if the same size, but one of the assignments has changed, store the state
-        return past;
-      }
-    }
-    // Otherwise, if a state is recorded for some reason, but the shatterIds are the same size
-    // don't store
-    if (past.shatterIds?.parents.size === curr.shatterIds?.parents.size) return null;
-    // if the shatterIds size have changed, store the state
     return past;
   },
   limit: 20,
   // @ts-ignore: save only partial store
   partialize: state => {
-    const {
-      zoneAssignments,
-      mapRenderingState,
-      appLoadingState,
-      colorScheme,
-      shatterIds,
-      shatterMappings,
-    } = state;
+    const {mapRenderingState, appLoadingState, colorScheme} = state;
     return {
-      zoneAssignments,
       mapRenderingState,
       appLoadingState,
       colorScheme,
-      shatterIds,
-      shatterMappings,
     } as Partial<MapStore>;
   },
 };

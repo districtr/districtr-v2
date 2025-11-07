@@ -5,6 +5,7 @@ import {DistrictrMap, DocumentObject} from './apiHandlers/types';
 import {getAvailableDistrictrMaps} from '@utils/api/apiHandlers/getAvailableDistrictrMaps';
 import {getDemography} from '@utils/api/apiHandlers/getDemography';
 import {useMapStore} from '@/app/store/mapStore';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {demographyCache} from '../demography/demographyCache';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {AllEvaluationConfigs, AllMapConfigs, AllTabularColumns} from './summaryStats';
@@ -44,10 +45,11 @@ const fetchDemography = new QueryObserver<null | {
   queryFn: async () => {
     const state = useMapStore.getState();
     const mapDocument = state.mapDocument;
+    const {shatterIds} = useAssignmentsStore.getState();
     if (!mapDocument) {
       throw new Error('No map document found');
     }
-    const brokenIds = Array.from(state.shatterIds.parents);
+    const brokenIds = Array.from(shatterIds.parents);
     return await getDemography({
       mapDocument,
       brokenIds,
@@ -78,7 +80,8 @@ export const updateDemography = ({
 fetchDemography.subscribe(demography => {
   if (demography.data) {
     const {setDataHash, setAvailableColumnSets} = useDemographyStore.getState();
-    const {shatterIds, mapDocument} = useMapStore.getState();
+    const {mapDocument} = useMapStore.getState();
+    const {shatterIds} = useAssignmentsStore.getState();
     const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
     const result = demography.data;
     if (!mapDocument || !result) return;

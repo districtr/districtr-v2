@@ -1,13 +1,14 @@
 import React from 'react';
 import {ContextMenu, Text} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {CHILD_LAYERS, PARENT_LAYERS} from '../constants/layers';
 
 export const MapContextMenu: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const contextMenu = useMapStore(state => state.contextMenu);
   const handleShatter = useMapStore(state => state.handleShatter);
-  const shatterMappings = useMapStore(state => state.shatterMappings);
+  const shatterMappings = useAssignmentsStore(state => state.shatterMappings);
   const access = useMapStore(state => state.mapStatus?.access);
 
   if (!contextMenu?.data?.layer) return null;

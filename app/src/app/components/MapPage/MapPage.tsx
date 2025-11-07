@@ -15,6 +15,7 @@ import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEvents';
+import { useMapControlsStore } from '@/app/store/mapControlsStore';
 
 interface MapPageProps {
   isEditing: boolean;
@@ -22,14 +23,14 @@ interface MapPageProps {
 }
 
 function ChildMapPage({isEditing, mapId}: MapPageProps) {
-  const showDemographicMap = useMapStore(
+  const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
+  const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
-  const setIsEditing = useMapStore(state => state.setIsEditing);
 
   const loadingState = useMapBrowserEvents({
     mapId,

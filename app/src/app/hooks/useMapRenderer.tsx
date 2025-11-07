@@ -5,6 +5,8 @@ import {useMapStore} from '../store/mapStore';
 import {useHoverStore} from '../store/hoverFeatures';
 import {useDemographyStore} from '../store/demography/demographyStore';
 import {useVisibilityState} from './useVisibilityState';
+import {useMapControlsStore} from '../store/mapControlsStore';
+import {useAssignmentsStore} from '../store/assignmentsStore';
 
 export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main') => {
   const mapRef = useRef<MapRef | null>(null);
@@ -19,7 +21,9 @@ export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main') => {
       mapType,
       useMapStore,
       useHoverStore,
-      useDemographyStore
+      useDemographyStore,
+      useMapControlsStore,
+      useAssignmentsStore
     );
     renderSubscriber.subscribe();
     renderer.current = renderSubscriber;

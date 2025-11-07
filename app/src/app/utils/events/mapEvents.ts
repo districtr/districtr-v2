@@ -15,6 +15,7 @@ import type {
   ViewStateChangeEvent,
 } from 'react-map-gl/maplibre';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
@@ -70,7 +71,8 @@ export const handleFeatureSelection = (
   sourceLayer: string | undefined,
   mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target'] | null
 ) => {
-  switch (mapStore.activeTool) {
+  const mapControls = useMapControlsStore.getState();
+  switch (mapControls.activeTool) {
     case 'shatter':
       const documentId = mapStore.mapDocument?.document_id;
       if (documentId && selectedFeatures?.length) {
@@ -82,7 +84,7 @@ export const handleFeatureSelection = (
       if (sourceLayer && selectedFeatures && mapRef && mapStore) {
         // select on both the map object and the store
         mapStore.selectMapFeatures(selectedFeatures);
-        mapStore.setIsPainting(false);
+        mapControls.setIsPainting(false);
       }
   }
 };
@@ -94,15 +96,16 @@ export const handleFeatureSelection = (
 export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
-  const {activeTool} = mapStore;
+  const mapControls = useMapControlsStore.getState();
+  const {activeTool, paintFunction, brushSize} = mapControls;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
 
   if (POINT_SELECT_TOOLS.includes(activeTool)) {
-    selectedFeatures = mapStore.paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
+    selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
   } else if (AREA_SELECT_TOOLS.includes(activeTool)) {
     const paintLayers = getLayerIdsToPaint(mapStore.mapDocument?.child_layer, activeTool);
-    selectedFeatures = mapStore.paintFunction(mapRef, e, mapStore.brushSize, paintLayers);
+    selectedFeatures = paintFunction(mapRef, e, brushSize, paintLayers);
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
@@ -111,19 +114,21 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
 
 export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapStore = useMapStore.getState();
-  const activeTool = mapStore.activeTool;
-  const isPainting = mapStore.isPainting;
+  const mapControls = useMapControlsStore.getState();
+  const activeTool = mapControls.activeTool;
+  const isPainting = mapControls.isPainting;
 
   if ((activeTool === 'brush' || activeTool === 'eraser') && isPainting) {
     // set isPainting to false
-    mapStore.setIsPainting(false);
+    mapControls.setIsPainting(false);
   }
 };
 
 export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
-  const activeTool = mapStore.activeTool;
+  const mapControls = useMapControlsStore.getState();
+  const activeTool = mapControls.activeTool;
 
   if (activeTool === 'pan') {
     // enable drag pan
@@ -131,7 +136,7 @@ export const handleMapMouseDown = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
   } else if (activeTool === 'brush' || activeTool === 'eraser') {
     // disable drag pan
     mapRef.dragPan.disable();
-    mapStore.setIsPainting(true);
+    mapControls.setIsPainting(true);
   }
 };
 
@@ -140,7 +145,7 @@ export const handleMapMouseEnter = (e: MapLayerMouseEvent | MapLayerTouchEvent) 
   // if so, set is painting true
   // @ts-ignore this is the correct behavior but event types are incorrect
   if (e.originalEvent?.buttons === 1) {
-    useMapStore.getState().setIsPainting(true);
+    useMapControlsStore.getState().setIsPainting(true);
   }
 };
 
@@ -151,7 +156,7 @@ export const handleMapMouseLeave = (e: MapLayerMouseEvent | MapLayerTouchEvent) 
     useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
   }, 250);
-  useMapStore.getState().setIsPainting(false);
+  useMapControlsStore.getState().setIsPainting(false);
 };
 
 export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
@@ -159,13 +164,15 @@ export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) =>
     useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
   }, 250);
-  useMapStore.getState().setIsPainting(false);
+  useMapControlsStore.getState().setIsPainting(false);
 };
 
 export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
-  const {mapOptions, activeTool, isPainting, mapDocument, selectMapFeatures} = mapStore;
+  const mapControls = useMapControlsStore.getState();
+  const {mapOptions, activeTool, isPainting, paintFunction, brushSize} = mapControls;
+  const {mapDocument, selectMapFeatures} = mapStore;
   const setHoverFeatures = useHoverStore.getState().setHoverFeatures;
   const setTooltip = useTooltipStore.getState().setTooltip;
   const sourceLayer = mapDocument?.parent_layer;
@@ -183,7 +190,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     return;
   }
 
-  const selectedFeatures = mapStore.paintFunction(mapRef, e, mapStore.brushSize, paintLayers);
+  const selectedFeatures = paintFunction(mapRef, e, brushSize, paintLayers);
   // sourceCapabilities exists on the UIEvent constructor, which does not appear
   // properly tpyed in the default map events
   // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
@@ -250,7 +257,9 @@ export const handleResetMapSelectState = (map: MapLibreMap | null) => {
 export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
-  if (mapStore.activeTool !== 'pan') {
+  const mapControls = useMapControlsStore.getState();
+  const activeTool = mapControls.activeTool;
+  if (activeTool !== 'pan') {
     return;
   }
   e.preventDefault();
@@ -262,7 +271,7 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
     ? INTERACTIVE_LAYERS
     : [BLOCK_HOVER_LAYER_ID];
 
-  const selectedFeatures = mapStore.paintFunction(mapRef, e, 0, paintLayers, false);
+  const selectedFeatures = mapControls.paintFunction(mapRef, e, 0, paintLayers, false);
 
   if (!selectedFeatures?.length || !mapRef || !sourceLayer) return;
 
@@ -284,8 +293,8 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
 };
 
 export const handleDataLoad = (e: MapSourceDataEvent) => {
-  const {mapDocument, setMapOptions, setMapRenderingState, setWorkerUpdateHash} =
-    useMapStore.getState();
+  const {mapDocument, setMapRenderingState, setWorkerUpdateHash} = useMapStore.getState();
+  const {setMapOptions} = useMapControlsStore.getState();
   const {tiles_s3_path, parent_layer} = mapDocument || {};
   if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
   const tileData = e?.tile?.latestFeatureIndex;

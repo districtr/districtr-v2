@@ -1,32 +1,25 @@
 'use client';
-import type {MapGeoJSONFeature, MapOptions} from 'maplibre-gl';
+import type {MapGeoJSONFeature} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
-import type {ActiveTool, MapFeatureInfo, NullableZone, SpatialUnit} from '@constants/types';
-import {Zone, GDBPath} from '@constants/types';
+import type {MapFeatureInfo} from '@constants/types';
+import {Zone} from '@constants/types';
 import {
   DistrictrMap,
   DocumentObject,
-  RemoteAssignmentsResponse,
-  ShatterResult,
   DocumentMetadata,
   StatusObject,
 } from '@utils/api/apiHandlers/types';
 import maplibregl from 'maplibre-gl';
 import type {MutableRefObject} from 'react';
 import {QueryObserverResult} from '@tanstack/react-query';
-import {
-  ContextMenuState,
-  PaintEventHandler,
-  checkIfSameZone,
-  getFeaturesInBbox,
-  resetZoneColors,
-  setZones,
-} from '../utils/helpers';
-import {checkoutDocument, patchReset} from '../utils/api/mutations';
+import {ContextMenuState} from '@utils/map/types';
+import {checkIfSameZone} from '@utils/map/checkIfSameZone';
+import {resetZoneColors} from '@utils/map/resetZoneColors';
+import {setZones} from '@utils/map/setZones';
+import {patchReset} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
-import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/layers';
-import {DistrictrMapOptions} from './types';
+import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../constants/layers';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
 import {useChartStore} from './chartStore';
@@ -38,7 +31,8 @@ import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
 import {postGetChildEdges} from '../utils/api/apiHandlers/postGetChildEdges';
-import {useMapControlsStore} from './mapControlsStore';
+import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterParents';
+import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
@@ -82,6 +76,10 @@ export interface MapStore {
    */
   mapViews: Partial<QueryObserverResult<DistrictrMap[], Error>>;
   setMapViews: (maps: MapStore['mapViews']) => void;
+  mapDocument: DocumentObject | null;
+  setMapDocument: (mapDocument: DocumentObject) => void;
+  mapStatus: StatusObject | null;
+  setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   colorScheme: string[];
   setColorScheme: (colors: string[]) => void;
 
@@ -95,31 +93,10 @@ export interface MapStore {
    */
   captiveIds: Set<string>;
   /**
-   * All broken parent and child IDs. Used to filter data source level
-   * map tiles.
-   */
-  shatterIds: {
-    parents: Set<string>;
-    children: Set<string>;
-  };
-  /**
-   * An object with parents and their child geometries.
-   * When a broken parent is painted over, this mapping is used to check if all children are in the same zone.
-   * Additionally, it is used when re-entering captive break blocks mode on an already-broken parent.
-   */
-  shatterMappings: Record<string, Set<string>>;
-  /**
    * Leave the captive blocks view and return to the default painting mode.
    * @param {boolean} lock - On exit, optionally lock the features
    */
   exitBlockView: (lock?: boolean) => void;
-  setShatterIds: (
-    existingParents: Set<string>,
-    existingChildren: Set<string>,
-    newParent: string[],
-    newChildren: Set<string>[],
-    multipleShattered: boolean
-  ) => void;
   /**
    * Handles the business logic of fetching the child edges from the backend,
    * breaking the parent into its children, and then entering a focused work mode
@@ -203,8 +180,6 @@ export interface MapStore {
    * @param {Set<string>} lockedFeatures - The new set of locked features.
    */
   setLockedFeatures: (lockedFeatures: MapStore['lockedFeatures']) => void;
-  setLockedZones: (areas: MapStore['mapOptions']['lockPaintedAreas']) => void;
-  toggleLockAllAreas: () => void;
   // FOCUS
   /**
    * Parent IDs that a user is working on in break mode.
@@ -221,11 +196,6 @@ export interface MapStore {
   workerUpdateHash: string;
   setWorkerUpdateHash: (hash: string) => void;
   handleReset: () => void;
-  brushSize: number;
-  setBrushSize: (size: number) => void;
-  paintFunction: PaintEventHandler;
-  setPaintFunction: (paintFunction: PaintEventHandler) => void;
-  clearMapEdits: () => void;
   contextMenu: ContextMenuState | null;
   setContextMenu: (menu: ContextMenuState | null) => void;
 
@@ -234,15 +204,14 @@ export interface MapStore {
   setUserID: () => void;
 
   // USER MAPS / RECENT MAPS
-  // userMaps: Array<DocumentObject & {name?: string; map_module?: string}>;
-  // setUserMaps: (userMaps: MapStore['userMaps']) => void;
-  // upsertUserMap: (props: {
-  //   documentId?: string;
-  //   mapDocument?: MapStore['mapDocument'];
-  //   userMapDocumentId?: string;
-  //   userMapData?: MapStore['userMaps'][number];
-  // }) => void;
-  // deleteUserMap: (documentId: string) => void;
+  userMaps: Array<DocumentObject & {name?: string | null; map_module?: string | null}>;
+  setUserMaps: (userMaps: MapStore['userMaps']) => void;
+  upsertUserMap: (props: {
+    mapDocument?: MapStore['mapDocument'];
+    userMapDocumentId?: string;
+    userMapData?: MapStore['userMaps'][number];
+  }) => void;
+  deleteUserMap: (documentId: string) => void;
   mapName: () => string | undefined;
   mapMetadata: DocumentObject['map_metadata'];
   updateMetadata: (
@@ -279,17 +248,16 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setIsTemporalAction: (isTemporalAction: boolean) => set({isTemporalAction}),
   captiveIds: new Set<string>(),
   exitBlockView: (lock: boolean = false) => {
-    const {focusFeatures, mapOptions, zoneAssignments, shatterMappings, lockFeatures} = get();
+    const {focusFeatures, lockFeatures} = get();
+    const {zoneAssignments, shatterMappings} = useAssignmentsStore.getState();
+    const {setMapOptions} = useMapControlsStore.getState();
 
     set({
       captiveIds: new Set<string>(),
       focusFeatures: [],
-      mapOptions: {
-        ...mapOptions,
-        mode: 'default',
-      },
-      activeTool: 'shatter',
     });
+    setMapOptions({mode: 'default'});
+    useMapControlsStore.setState({activeTool: 'shatter'});
 
     const parentId = focusFeatures?.[0].id?.toString();
     if (!parentId) return;
@@ -309,8 +277,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   errorNotification: {},
   setErrorNotification: errorNotification => set({errorNotification}),
   selectMapFeatures: features => {
-    let {getMapRef} = get();
-    const {accumulatedGeoids, setAccumulatedGeoids, mapDocument} = useAssignmentsStore.getState();
+    const {getMapRef, mapDocument} = get();
+    const {accumulatedGeoids, setAccumulatedGeoids} = useAssignmentsStore.getState();
     const {activeTool, selectedZone: _selectedZone, isEditing} = useMapControlsStore.getState();
     const {setPaintedChanges} = useChartStore.getState();
     const map = getMapRef();
@@ -370,6 +338,77 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   mapViews: {isPending: true},
   setMapViews: mapViews => set({mapViews}),
+  mapDocument: null,
+  setMapDocument: mapDocument => {
+    const currentMapDocument = get().mapDocument;
+    const {resetZoneAssignments} = useAssignmentsStore.getState();
+    const mapControlsState = useMapControlsStore.getState();
+
+    const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
+    const accessIsSame = currentMapDocument?.access === mapDocument.access;
+    const statusIsSame = currentMapDocument?.status === mapDocument.status;
+    const documentIsSame = idIsSame && accessIsSame && statusIsSame;
+    const bothHaveData =
+      typeof currentMapDocument?.updated_at === 'string' &&
+      typeof mapDocument?.updated_at === 'string';
+    const remoteIsNewer = bothHaveData && currentMapDocument.updated_at! < mapDocument.updated_at!;
+    if (documentIsSame && !remoteIsNewer) {
+      return;
+    }
+
+    if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
+      GeometryWorker?.clear();
+    }
+    GeometryWorker?.resetZones();
+    demographyCache.clear();
+    resetZoneAssignments();
+    useDemographyStore.getState().clear();
+    useUnassignFeaturesStore.getState().reset();
+
+    useMapControlsStore.setState({
+      mapOptions: {
+        ...DEFAULT_MAP_OPTIONS,
+        bounds: mapDocument.extent,
+        currentStateFp:
+          currentMapDocument?.parent_layer === mapDocument?.parent_layer
+            ? mapControlsState.mapOptions.currentStateFp
+            : undefined,
+      },
+      activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
+      selectedZone: 1,
+      sidebarPanels: ['population'],
+      isPainting: false,
+      isEditing: mapDocument.access === 'edit',
+    });
+
+    useAssignmentsStore.getState().resetShatterState();
+
+    set({
+      mapDocument,
+      mapStatus: {
+        status: mapDocument.status,
+        access: mapDocument.access,
+        genesis: mapDocument.genesis,
+        token: mapDocument.token,
+        password: mapDocument.password,
+      },
+      colorScheme: extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        mapDocument.num_districts ?? FALLBACK_NUM_DISTRICTS
+      ),
+      captiveIds: new Set(),
+      focusFeatures: [],
+      parentsToHeal: [],
+      lockedFeatures: new Set(),
+      mapLock: false,
+      appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
+      mapRenderingState:
+        mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
+      assignmentsHash: '',
+      lastUpdatedHash: new Date().toISOString(),
+      workerUpdateHash: new Date().toISOString(),
+    });
+  },
   mapStatus: null,
   setMapStatus: mapStatus => {
     const prev = get().mapStatus || {};
@@ -416,7 +455,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     set({mapLock: false, assignmentsHash: updateHash, lastUpdatedHash: updateHash});
   },
   silentlyHeal: async (document_id, parentsToHeal) => {
-    const {getMapRef, zoneAssignments, mapDocument, shatterMappings} = get();
+    const {getMapRef, mapDocument} = get();
+    const {zoneAssignments, shatterMappings} = useAssignmentsStore.getState();
     const mapRef = getMapRef();
     if (!mapRef) return;
     set({mapLock: true});
@@ -456,15 +496,15 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
 
     const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
     const updateHash = new Date().toISOString();
+    const {lockedFeatures, mapDocument, parentsToHeal} = get();
     const {
       shatterIds,
-      lockedFeatures,
-      mapDocument,
-      zoneAssignments: _zoneAssignments,
-      mapOptions,
-      parentsToHeal,
       shatterMappings: _shatterMappings,
-    } = get();
+      zoneAssignments: currentZoneAssignments,
+      replaceZoneAssignments,
+      setShatterState,
+    } = useAssignmentsStore.getState();
+    const {setMapOptions} = useMapControlsStore.getState();
     const edgesResult = await postGetChildEdges({
       document_id,
       geoids,
@@ -485,8 +525,14 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     let parents = new Set(shatterIds.parents);
     let children = new Set(shatterIds.children);
     let captiveIds = new Set<string>();
-    let shatterMappings = {..._shatterMappings};
-    const zoneAssignments = new Map(_zoneAssignments);
+    let shatterMappings = Object.entries(_shatterMappings).reduce(
+      (acc, [parent, children]) => {
+        acc[parent] = new Set(children);
+        return acc;
+      },
+      {} as Record<string, Set<string>>
+    );
+    const zoneAssignments = new Map(currentZoneAssignments);
     const zonesToSet: Record<string, Set<string>> = {};
     edgesResult.forEach(edge => {
       parents.add(edge.parent_path);
@@ -512,15 +558,18 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     const featureBbox = features[0].geometry && bbox(features[0].geometry);
     const mapBbox =
       featureBbox?.length && featureBbox?.length >= 4
-        ? (featureBbox.slice(0, 4) as MapStore['mapOptions']['bounds'])
+        ? (featureBbox.slice(0, 4) as maplibregl.LngLatBoundsLike)
         : undefined;
 
-    set({
+    setShatterState({
       shatterIds: {
         parents,
         children,
       },
       shatterMappings,
+    });
+
+    set({
       assignmentsHash: updateHash,
       lastUpdatedHash: updateHash,
       // TODO: Should this be true instead?
@@ -537,32 +586,24 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
           sourceLayer: mapDocument?.parent_layer,
         },
       ],
-      activeTool: 'brush',
-      zoneAssignments,
       parentsToHeal: [...parentsToHeal, features?.[0]?.id?.toString() || '']
         .filter(onlyUnique)
         .filter(f => f.length),
-      mapOptions: {
-        ...mapOptions,
-        mode: 'break',
-        bounds: mapBbox,
-      },
+    });
+    replaceZoneAssignments(zoneAssignments);
+    useMapControlsStore.setState({activeTool: 'brush'});
+    setMapOptions({
+      mode: 'break',
+      bounds: mapBbox,
     });
   },
   parentsToHeal: [],
   processHealParentsQueue: async (additionalIds = []) => {
     const updateHash = new Date().toISOString();
-    const {
-      isPainting,
-      parentsToHeal: _parentsToHeal,
-      mapDocument,
-      shatterMappings,
-      zoneAssignments,
-      shatterIds,
-      mapLock,
-      lockedFeatures,
-      getMapRef,
-    } = get();
+    const {parentsToHeal: _parentsToHeal, mapDocument, mapLock, lockedFeatures, getMapRef} = get();
+    const {isPainting} = useMapControlsStore.getState();
+    const {shatterMappings, shatterIds, zoneAssignments, replaceZoneAssignments, setShatterState} =
+      useAssignmentsStore.getState();
     const idsToCheck = [..._parentsToHeal, ...additionalIds];
     const mapRef = getMapRef();
     if (
@@ -587,10 +628,16 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     if (parentsToHeal.length) {
       set({mapLock: true});
 
-      const r = await patchUnShatter.mutate({
+      const healZone = parentsToHeal[0].zone;
+      if (healZone == null) {
+        set({mapLock: false});
+        return;
+      }
+
+      const r = await patchUnShatterParents({
         geoids: parentsToHeal.map(f => f.parentId),
-        zone: parentsToHeal[0].zone as any,
-        document_id: mapDocument?.document_id,
+        zone: healZone,
+        document_id: mapDocument.document_id,
         updateHash,
       });
       const children = parentsToHeal
@@ -607,8 +654,19 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         parents: new Set(shatterIds.parents),
         children: new Set(shatterIds.children),
       };
+      const newShatterMappings: Record<string, Set<string>> = Object.entries(
+        shatterMappings
+      ).reduce(
+        (acc, [key, value]) => {
+          acc[key] = new Set(value);
+          return acc;
+        },
+        {} as Record<string, Set<string>>
+      );
       const newLockedFeatures = new Set(lockedFeatures);
-      const childrenToRemove = parentsToHeal.map(f => shatterMappings[f.parentId]).filter(Boolean);
+      const childrenToRemove = parentsToHeal
+        .map(f => newShatterMappings[f.parentId])
+        .filter(Boolean) as Array<Set<string>>;
 
       childrenToRemove.forEach(childSet => {
         childSet.forEach(childId => {
@@ -629,16 +687,18 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       });
 
       parentsToHeal.forEach(parent => {
-        delete shatterMappings[parent.parentId];
+        delete newShatterMappings[parent.parentId];
         newShatterIds.parents.delete(parent.parentId);
         newZoneAssignments.set(parent.parentId, parent.zone!);
       });
-      set({
+      setShatterState({
         shatterIds: newShatterIds,
+        shatterMappings: newShatterMappings,
+      });
+
+      set({
         mapLock: false,
         isTemporalAction: false,
-        shatterMappings: {...shatterMappings},
-        zoneAssignments: newZoneAssignments,
         lockedFeatures: newLockedFeatures,
         lastUpdatedHash: updateHash,
         assignmentsHash: updateHash,
@@ -646,6 +706,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         // get curernt, and filter for any that were removed by this event
         parentsToHeal: get().parentsToHeal.filter(f => !r.geoids.includes(f)),
       });
+      replaceZoneAssignments(newZoneAssignments);
     }
   },
   checkParentsToHeal: parentsToHeal => {
@@ -653,8 +714,15 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       parentsToHeal: [...get().parentsToHeal, ...parentsToHeal].filter(onlyUnique),
     });
   },
-  shatterMappings: {},
-  upsertUserMap: ({mapDocument, userMapData, userMapDocumentId}) => {
+  upsertUserMap: ({
+    mapDocument,
+    userMapData,
+    userMapDocumentId,
+  }: {
+    mapDocument?: MapStore['mapDocument'];
+    userMapData?: MapStore['userMaps'][number];
+    userMapDocumentId?: string;
+  }) => {
     if (!mapDocument?.document_id || mapDocument.access === 'read') return;
     const {userMaps: _userMaps, mapViews: _mapViews, mapDocument: _mapDocument} = get();
     let userMaps = [..._userMaps];
@@ -665,7 +733,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         view => view.districtr_map_slug === mapDocument.districtr_map_slug
       );
       if (documentIndex !== -1) {
-        // @ts-expect-error
         userMaps[documentIndex] = {
           ...documentInfo,
           ...userMaps[documentIndex],
@@ -673,7 +740,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
           map_metadata: mapDocument.map_metadata ?? userMaps[documentIndex].map_metadata,
         };
       } else {
-        // @ts-expect-error
         userMaps = [{...mapDocument, ...documentInfo}, ...userMaps];
       }
     } else if (userMapDocumentId) {
@@ -701,18 +767,16 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       userMaps,
     });
   },
-  deleteUserMap: documentId => {
+  deleteUserMap: (documentId: string) => {
     set(state => ({
       userMaps: state.userMaps.filter(map => map.document_id !== documentId),
     }));
   },
-  shatterIds: {
-    parents: new Set(),
-    children: new Set(),
-  },
 
   handleReset: async () => {
-    const {mapDocument, getMapRef, zoneAssignments, shatterIds} = get();
+    const {mapDocument, getMapRef} = get();
+    const {zoneAssignments, resetZoneAssignments, shatterIds, resetShatterState} =
+      useAssignmentsStore.getState();
     const document_id = mapDocument?.document_id;
 
     if (!document_id) {
@@ -736,81 +800,25 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         mapDocument,
         shatterIds,
       });
+      resetZoneAssignments();
+      resetShatterState();
 
       set({
-        zoneAssignments: new Map(),
-        shatterIds: {
-          parents: new Set(),
-          children: new Set(),
-        },
         appLoadingState: 'loaded',
         mapLock: false,
-        activeTool: 'pan',
         colorScheme: DefaultColorScheme,
         assignmentsHash: updateHash,
         lastUpdatedHash: updateHash,
       });
+      useMapControlsStore.setState({activeTool: 'pan'});
     }
-  },
-  setShatterIds: (existingParents, existingChildren, newParent, newChildren, multipleShattered) => {
-    const zoneAssignments = new Map(get().zoneAssignments);
-
-    if (!multipleShattered) {
-      setZones(zoneAssignments, newParent[0], newChildren[0]);
-    } else {
-      // todo handle multiple shattered case
-    }
-    newParent.forEach(parent => existingParents.add(parent));
-    // there may be a faster way to do this
-    newChildren.forEach(
-      children => (existingChildren = new Set([...existingChildren, ...children]))
-    );
-
-    set({
-      shatterIds: {
-        parents: existingParents,
-        children: existingChildren,
-      },
-      zoneAssignments,
-    });
   },
   focusFeatures: [],
-  toggleLockAllAreas: () => {
-    const {mapOptions, mapDocument} = get();
-    const num_districts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-    set({
-      mapOptions: {
-        ...mapOptions,
-        lockPaintedAreas: mapOptions.lockPaintedAreas.length
-          ? []
-          : new Array(num_districts).fill(0).map((_, i) => i + 1),
-      },
-    });
-  },
-  setLockedZones: areas => {
-    const {mapOptions} = get();
-    set({
-      mapOptions: {
-        ...mapOptions,
-        lockPaintedAreas: areas,
-      },
-    });
-  },
   assignmentsHash: '',
   setAssignmentsHash: hash => set({assignmentsHash: hash}),
   lastUpdatedHash: new Date().toISOString(),
   workerUpdateHash: new Date().toISOString(),
   setWorkerUpdateHash: hash => set({workerUpdateHash: hash}),
-  brushSize: 1,
-  setBrushSize: size => set({brushSize: size}),
-  paintFunction: getFeaturesInBbox,
-  setPaintFunction: paintFunction => set({paintFunction}),
-  clearMapEdits: () =>
-    set({
-      zoneAssignments: new Map(),
-      accumulatedGeoids: new Set<string>(),
-      selectedZone: 1,
-    }),
   contextMenu: null,
   setContextMenu: contextMenu => set({contextMenu}),
   userMaps: [],
@@ -836,7 +844,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     draft_status: null,
   },
   updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
-    // @ts-expect-error
     set(state => {
       const userMaps = get().userMaps;
       const updatedMaps = userMaps.map(map => {

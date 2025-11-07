@@ -12,6 +12,7 @@ import {
 } from '@/app/constants/layers';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';
 
@@ -22,9 +23,10 @@ export const ZoneLayerGroup: React.FC<{
   const mapDocument = useMapStore(state => state.mapDocument);
   const captiveIds = useMapStore(state => state.captiveIds);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
-  const highlightUnassigned = useMapStore(state => state.mapOptions.higlightUnassigned);
-  const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
-  const isOverlayed = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+  const highlightUnassigned = useMapControlsStore(state => state.mapOptions.higlightUnassigned);
+  const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
+  const isOverlayed =
+    useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
   const layerFilter = useLayerFilter(child);
   const lineWidth = child ? 1 : 2;
 

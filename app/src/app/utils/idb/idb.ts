@@ -1,6 +1,7 @@
 import {Assignment, DocumentObject} from '../api/apiHandlers/types';
 import Dexie, {Table} from 'dexie';
 import {useMapStore} from '@store/mapStore';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {NullableZone} from '@/app/constants/types';
 
 // --- Main Document Entry ---
@@ -39,7 +40,8 @@ export class DocumentsDB extends Dexie {
     zoneAssignments: Map<string, NullableZone>
   ) => {
     // // locked during break or heal
-    const {mapLock, appLoadingState, shatterMappings, shatterIds} = useMapStore.getState();
+    const {mapLock, appLoadingState} = useMapStore.getState();
+    const {shatterMappings, shatterIds} = useAssignmentsStore.getState();
     const document_id = mapDocument?.document_id;
     if (!mapDocument) return;
     // ensure document_id hasn't changed

@@ -39,3 +39,15 @@ export const fastUniqBy = <T extends object>(array: T[], property: keyof T) => {
   }
   return result;
 };
+
+export const shallowCompareArray = (curr: unknown[], prev: unknown[]) => {
+  if (curr.length !== prev.length) {
+    return false;
+  }
+  for (let i = 0; i < curr.length; i++) {
+    if (curr[i] !== prev[i]) {
+      return false;
+    }
+  }
+  return true;
+};

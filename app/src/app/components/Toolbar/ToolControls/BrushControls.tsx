@@ -1,11 +1,11 @@
 import {Box, Flex} from '@radix-ui/themes';
-import {useMapStore} from '@store/mapStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {BrushSizeSelector} from '@components/Toolbar/ToolControls/BrushSizeSelector';
 import PaintByCounty from '@components/Toolbar/PaintByCounty';
 import {ZonePicker} from '@components/Toolbar/ZonePicker';
 export const BrushControls = () => {
-  const activeTool = useMapStore(state => state.activeTool);
+  const activeTool = useMapControlsStore(state => state.activeTool);
   const paintCounties = useFeatureFlagStore(state => state.paintCounties);
 
   return (

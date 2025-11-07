@@ -1,10 +1,10 @@
 import PopulationPanel from '@components/sidebar/PopulationPanel';
-import {MapStore} from '@/app/store/mapStore';
+import {MapControlsStore} from '@/app/store/mapControlsStore';
 import {MapValidation} from './MapValidation/MapValidation';
 import {SummaryPanel} from './SummaryPanel';
 
 export interface DataPanelSpec {
-  title: MapStore['sidebarPanels'][number];
+  title: MapControlsStore['sidebarPanels'][number];
   label: string;
   icon?: React.ReactNode;
   content?: React.ReactNode;

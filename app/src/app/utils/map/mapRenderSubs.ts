@@ -1,17 +1,20 @@
 import {PARENT_LAYERS, CHILD_LAYERS, getLayerFill, BLOCK_SOURCE_ID} from '@constants/layers';
-import {
-  ColorZoneAssignmentsState,
-  colorZoneAssignments,
-  getFeaturesInBbox,
-  getFeaturesIntersectingCounties,
-  shallowCompareArray,
-} from '@utils/helpers';
+import {ColorZoneAssignmentsState} from '@utils/map/types';
+import {colorZoneAssignments} from '@utils/map/colorZoneAssignments';
+import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
+import {shallowCompareArray} from '@utils/arrays';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
-import {getFeatureUnderCursor} from '@utils/helpers';
+import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
 import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
 import {useHoverStore as _useHoverStore, HoverFeatureStore} from '../../store/hoverFeatures';
 import {demographyCache} from '../demography/demographyCache';
 import {FocusState, ShatterState} from './types';
+import {
+  useMapControlsStore as _useMapControlsStore,
+  MapControlsStore,
+} from '@store/mapControlsStore';
+import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
 
 /**
  * A class that manages the rendering of the map based on the state of the map store.
@@ -25,24 +28,44 @@ export class MapRenderSubscriber {
   useHoverStore: typeof _useHoverStore;
   useDemographyStore: typeof _useDemographyStore;
   subscriptions: ReturnType<typeof _useMapStore.subscribe>[] = [];
+  useMapControlsStore: typeof _useMapControlsStore;
+  useAssignmentsStore: typeof _useAssignmentsStore;
+  controlSubscriptions: ReturnType<typeof _useMapControlsStore.subscribe>[] = [];
+  assignmentSubscriptions: ReturnType<typeof _useAssignmentsStore.subscribe>[] = [];
+  previousColorState?: ColorZoneAssignmentsState;
 
   constructor(
     mapRef: maplibregl.Map,
     mapType: 'demographic' | 'main' = 'main',
-    useMapStore: typeof _useMapStore,
-    useHoverStore: typeof _useHoverStore,
-    useDemographyStore: typeof _useDemographyStore
+    useMapStore: typeof _useMapStore = _useMapStore,
+    useHoverStore: typeof _useHoverStore = _useHoverStore,
+    useDemographyStore: typeof _useDemographyStore = _useDemographyStore,
+    useMapControlsStore: typeof _useMapControlsStore = _useMapControlsStore,
+    useAssignmentsStore: typeof _useAssignmentsStore = _useAssignmentsStore
   ) {
     this.mapRef = mapRef;
     this.mapType = mapType;
     this.useMapStore = useMapStore;
     this.useHoverStore = useHoverStore;
     this.useDemographyStore = useDemographyStore;
+    this.useMapControlsStore = useMapControlsStore;
+    this.useAssignmentsStore = useAssignmentsStore;
   }
-  renderShatter(curr: ShatterState, prev?: ShatterState) {
-    const [shatterIds, mapRenderingState, highlightBrokenDistricts] = curr;
-    const [prevShatterIds] = prev || [];
-    const {mapDocument, appLoadingState, setMapLock} = this.useMapStore.getState();
+  previousShatterState?: ShatterState;
+
+  renderShatter() {
+    const mapState = this.useMapStore.getState();
+    const controlsState = this.useMapControlsStore.getState();
+    const assignmentsState = this.useAssignmentsStore.getState();
+    const currentState: ShatterState = [
+      assignmentsState.shatterIds,
+      mapState.mapRenderingState,
+      controlsState.mapOptions.highlightBrokenDistricts,
+    ];
+    const prevState = this.previousShatterState;
+    const [shatterIds, mapRenderingState, highlightBrokenDistricts] = currentState;
+    const prevShatterIds = prevState?.[0];
+    const {mapDocument, appLoadingState, setMapLock} = mapState;
     if (mapRenderingState !== 'loaded' || appLoadingState !== 'loaded' || !mapDocument) {
       return;
     }
@@ -83,22 +106,32 @@ export class MapRenderSubscriber {
       setMapLock(false);
       console.log(`Unlocked at`, performance.now());
     });
+    this.previousShatterState = currentState;
   }
   subscribeShatter() {
     this.subscriptions.push(
-      this.useMapStore.subscribe<ShatterState>(
-        state => [
-          state.shatterIds,
-          state.mapRenderingState,
-          state.mapOptions.highlightBrokenDistricts,
-        ],
-        this.renderShatter.bind(this),
+      this.useMapStore.subscribe(
+        state => [state.mapRenderingState, state.appLoadingState],
+        () => this.renderShatter(),
         {equalityFn: shallowCompareArray}
       )
     );
+    this.assignmentSubscriptions.push(
+      this.useAssignmentsStore.subscribe(
+        state => state.shatterIds,
+        () => this.renderShatter()
+      )
+    );
+    this.controlSubscriptions.push(
+      this.useMapControlsStore.subscribe(
+        controls => controls.mapOptions.highlightBrokenDistricts,
+        () => this.renderShatter()
+      )
+    );
+    this.renderShatter();
   }
   renderFocus(focusFeatures: FocusState, previousFocusFeatures?: FocusState) {
-    const {captiveIds, shatterIds} = this.useMapStore.getState();
+    const {captiveIds} = this.useMapStore.getState();
 
     focusFeatures.forEach(feature => {
       this.mapRef.setFeatureState(feature, {focused: true});
@@ -135,8 +168,8 @@ export class MapRenderSubscriber {
       this.useMapStore.subscribe(store => store.focusFeatures, this.renderFocus.bind(this))
     );
   }
-  renderCursor(activeTool: MapStore['activeTool']) {
-    const mapOptions = this.useMapStore.getState().mapOptions;
+  renderCursor(activeTool: MapControlsStore['activeTool']) {
+    const {mapOptions, setPaintFunction} = this.useMapControlsStore.getState();
     const defaultPaintFunction = mapOptions.paintByCounty
       ? getFeaturesIntersectingCounties
       : getFeaturesInBbox;
@@ -144,19 +177,19 @@ export class MapRenderSubscriber {
     switch (activeTool) {
       case 'pan':
         cursor = '';
-        this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
+        setPaintFunction(defaultPaintFunction);
         break;
       case 'brush':
         cursor = 'url(/paintbrush.png) 20 20, none';
-        this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
+        setPaintFunction(defaultPaintFunction);
         break;
       case 'eraser':
         cursor = 'url(/eraser.png) 16 16, pointer';
-        this.useMapStore.getState().setPaintFunction(defaultPaintFunction);
+        setPaintFunction(defaultPaintFunction);
         break;
       case 'shatter':
         cursor = 'url(/break.png) 12 12, pointer';
-        this.useMapStore.getState().setPaintFunction(getFeatureUnderCursor);
+        setPaintFunction(getFeatureUnderCursor);
         break;
       default:
         cursor = '';
@@ -164,8 +197,8 @@ export class MapRenderSubscriber {
     this.mapRef.getCanvas().style.cursor = cursor;
   }
   subscribeCursor() {
-    this.subscriptions.push(
-      this.useMapStore.subscribe<MapStore['activeTool']>(
+    this.controlSubscriptions.push(
+      this.useMapControlsStore.subscribe<MapControlsStore['activeTool']>(
         state => state.activeTool,
         this.renderCursor.bind(this)
       )
@@ -190,13 +223,31 @@ export class MapRenderSubscriber {
       )
     );
   }
-  renderColorZones(curr: ColorZoneAssignmentsState, prev?: ColorZoneAssignmentsState) {
-    colorZoneAssignments(this.mapRef, curr, prev);
-    if (this.useMapStore.getState().isTemporalAction) {
-      demographyCache.updatePopulations(curr[0]);
+  renderColorZones() {
+    const mapState = this.useMapStore.getState();
+    const controlsState = this.useMapControlsStore.getState();
+    const assignmentsState = this.useAssignmentsStore.getState();
+    const zoneAssignments = assignmentsState.zoneAssignments;
+    const shatterIds = assignmentsState.shatterIds;
+    const currentState: ColorZoneAssignmentsState = [
+      zoneAssignments,
+      mapState.mapDocument,
+      shatterIds,
+      mapState.appLoadingState,
+      mapState.mapRenderingState,
+      controlsState.mapOptions.lockPaintedAreas,
+      controlsState.mapOptions.showZoneNumbers,
+    ];
+    colorZoneAssignments(this.mapRef, currentState, this.previousColorState);
+    if (mapState.isTemporalAction) {
+      demographyCache.updatePopulations(zoneAssignments);
     }
-    const {captiveIds, shatterIds, mapRenderingState, mapOptions} = this.useMapStore.getState();
-    if (mapRenderingState !== 'loaded') return;
+    const {captiveIds, mapRenderingState} = mapState;
+    const {mapOptions} = controlsState;
+    if (mapRenderingState !== 'loaded') {
+      this.previousColorState = currentState;
+      return;
+    }
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
       const isParent = PARENT_LAYERS.includes(layerId);
@@ -213,28 +264,45 @@ export class MapRenderSubscriber {
         );
       }
     });
+    this.previousColorState = currentState;
   }
   subscribeColorZones() {
     this.subscriptions.push(
-      this.useMapStore.subscribe<ColorZoneAssignmentsState>(
-        state => [
-          state.zoneAssignments,
-          state.mapDocument,
-          state.shatterIds,
-          state.appLoadingState,
-          state.mapRenderingState,
-          state.mapOptions.lockPaintedAreas,
-          state.mapOptions.showZoneNumbers,
-        ],
-        this.renderColorZones.bind(this),
+      this.useMapStore.subscribe(
+        state => [state.mapDocument, state.appLoadingState, state.mapRenderingState],
+        () => this.renderColorZones(),
         {equalityFn: shallowCompareArray}
       )
     );
+    this.controlSubscriptions.push(
+      this.useMapControlsStore.subscribe(
+        state => [
+          state.mapOptions.lockPaintedAreas,
+          state.mapOptions.showZoneNumbers,
+          state.mapOptions.showDemographicMap,
+        ],
+        () => this.renderColorZones(),
+        {equalityFn: shallowCompareArray}
+      )
+    );
+    this.assignmentSubscriptions.push(
+      this.useAssignmentsStore.subscribe(
+        state => state.zoneAssignments,
+        () => this.renderColorZones()
+      )
+    );
+    this.assignmentSubscriptions.push(
+      this.useAssignmentsStore.subscribe(
+        state => state.shatterIds,
+        () => this.renderColorZones()
+      )
+    );
+    this.renderColorZones();
   }
   checkRender() {
     const mapState = this.useMapStore.getState();
     const mapRef = this.mapRef;
-    const {zoneAssignments} = mapState;
+    const {zoneAssignments} = this.useAssignmentsStore.getState();
     if (zoneAssignments.size === 0) return;
 
     const nonNullAssignment = Array.from(zoneAssignments.entries()).find(f => f.values !== null);
@@ -260,25 +328,14 @@ export class MapRenderSubscriber {
   render() {
     const mapState = this.useMapStore.getState();
     const hoverState = this.useHoverStore.getState();
+    const controlsState = this.useMapControlsStore.getState();
 
-    this.renderShatter([
-      mapState.shatterIds,
-      mapState.mapRenderingState,
-      mapState.mapOptions.highlightBrokenDistricts,
-    ]);
-    this.renderCursor(mapState.activeTool);
+    this.renderShatter();
+    this.renderCursor(controlsState.activeTool);
     this.renderHover(hoverState.hoverFeatures);
     this.renderFocus(mapState.focusFeatures);
     if (this.mapType === 'main') {
-      this.renderColorZones([
-        mapState.zoneAssignments,
-        mapState.mapDocument,
-        mapState.shatterIds,
-        mapState.appLoadingState,
-        mapState.mapRenderingState,
-        mapState.mapOptions.lockPaintedAreas,
-        mapState.mapOptions.showZoneNumbers,
-      ]);
+      this.renderColorZones();
     }
   }
   subscribe() {
@@ -289,12 +346,17 @@ export class MapRenderSubscriber {
     if (this.mapType === 'main') {
       this.subscribeColorZones();
     }
-    this.render.bind(this)();
+    this.render();
     console.log('Subscribed to map render subs', this.subscriptions.length);
   }
 
   unsubscribe() {
     console.log('Unsubscribing from map render subs', this.subscriptions.length);
     this.subscriptions.forEach(unsub => unsub());
+    this.controlSubscriptions.forEach(unsub => unsub());
+    this.assignmentSubscriptions.forEach(unsub => unsub());
+    this.subscriptions = [];
+    this.controlSubscriptions = [];
+    this.assignmentSubscriptions = [];
   }
 }

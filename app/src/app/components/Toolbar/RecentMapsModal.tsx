@@ -1,4 +1,5 @@
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Table, Dialog, Box, Separator, Popover} from '@radix-ui/themes';
@@ -23,7 +24,7 @@ export const RecentMapsModal: React.FC<{
   const upsertUserMap = useMapStore(store => store.upsertUserMap);
   const deleteUserMap = useMapStore(store => store.deleteUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
-  const setActiveTool = useMapStore(store => store.setActiveTool);
+  const setActiveTool = useMapControlsStore(store => store.setActiveTool);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
 
   useEffect(() => {

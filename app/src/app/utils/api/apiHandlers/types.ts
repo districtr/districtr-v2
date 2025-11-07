@@ -108,7 +108,15 @@ export type RemoteAssignmentsResponse = {
   assignments: Assignment[];
 };
 
-export type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | null>;
+export type LocalAssignmentsResponse = {
+  type: 'local';
+  documentId: string;
+  assignments: Assignment[];
+};
+
+export type GetAssignmentsResponse = Promise<
+  RemoteAssignmentsResponse | LocalAssignmentsResponse | null
+>;
 
 export type MapGroup = {
   name: string;

@@ -1,6 +1,6 @@
 import {useMapStore} from '@/app/store/mapStore';
 import {document, metadata} from '../mutations';
-import {handleCreateBlankMetadataObject} from '../../helpers';
+import {handleCreateBlankMetadataObject} from '@utils/metadata/handleCreateBlankMetadataObject';
 import {DocumentMetadata} from '../apiHandlers/types';
 
 export const saveMap = async (latestMetadata: DocumentMetadata | null) => {

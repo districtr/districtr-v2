@@ -1,6 +1,6 @@
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
-import {TooltipState} from '../utils/helpers';
+import {TooltipState} from '@utils/map/types';
 import {devToolsConfig, devwrapper} from './middlewareConfig';
 import {KeyOfSummaryStatConfig} from '../utils/api/summaryStats';
 

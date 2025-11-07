@@ -6,6 +6,7 @@ import {
 } from '@/app/constants/layers';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer} from 'react-map-gl/maplibre';
@@ -15,7 +16,7 @@ export const HighlightOverlayerLayerGroup: React.FC<{
 }> = ({child = false}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
-  const isOverlay = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+  const isOverlay = useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
   const layerFilter = useLayerFilter(child);
   const fillOpacity = isOverlay ? 0.3 : 0.1;
 

@@ -4,11 +4,11 @@ import {
   BLOCK_LAYER_ID,
   BLOCK_LAYER_ID_CHILD,
   BLOCK_SOURCE_ID,
-  LABELS_BREAK_LAYER_ID,
-  OVERLAY_OPACITY,
+  LABELS_BREAK_LAYER_ID
 } from '@/app/constants/layers';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {Layer} from 'react-map-gl/maplibre';
 
 export const DemographicLayer: React.FC<{
@@ -16,8 +16,8 @@ export const DemographicLayer: React.FC<{
 }> = ({child = false}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const id = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
-  const isOverlay = useMapStore(state => state.mapOptions.showDemographicMap) === 'overlay';
-  const overlayOpacity = useMapStore(state => state.mapOptions.overlayOpacity);
+  const isOverlay = useMapControlsStore(state => state.mapOptions.showDemographicMap) === 'overlay';
+  const overlayOpacity = useMapControlsStore(state => state.mapOptions.overlayOpacity);
   const lineWidth = child ? 1 : 2;
   const layerFilter = useLayerFilter(child);
 

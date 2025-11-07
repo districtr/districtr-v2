@@ -1,7 +1,7 @@
 'use client';
 import {AllTabularColumns, SummaryStatConfig} from '@/app/utils/api/summaryStats';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
-import {MapStore, useMapStore} from '@/app/store/mapStore';
+import {MapControlsStore, useMapControlsStore} from '@/app/store/mapControlsStore';
 import {formatNumber} from '@/app/utils/numbers';
 import {
   GearIcon,
@@ -40,7 +40,7 @@ type MapPanelProps = {
 
 const mapDisplayModes: Array<{
   label: string;
-  value: MapStore['mapOptions']['showDemographicMap'];
+  value: MapControlsStore['mapOptions']['showDemographicMap'];
   icon?: React.ReactNode;
 }> = [
   {
@@ -60,8 +60,8 @@ const mapDisplayModes: Array<{
 ];
 
 const getOpacityStates = (
-  mapOptions: MapStore['mapOptions'],
-  setMapOptions: MapStore['setMapOptions']
+  mapOptions: MapControlsStore['mapOptions'],
+  setMapOptions: MapControlsStore['setMapOptions']
 ) => [
   {
     selected: mapOptions.showPaintedDistricts && mapOptions.overlayOpacity > 0,
@@ -81,9 +81,9 @@ const getOpacityStates = (
 ];
 
 export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
-  const mapMode = useMapStore(state => state.mapOptions.showDemographicMap);
-  const setMapOptions = useMapStore(state => state.setMapOptions);
-  const mapOptions = useMapStore(state => state.mapOptions);
+  const mapMode = useMapControlsStore(state => state.mapOptions.showDemographicMap);
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
+  const mapOptions = useMapControlsStore(state => state.mapOptions);
   const isOverlay = mapMode === 'overlay';
 
   const variable = useDemographyStore(state => state.variable);
@@ -98,7 +98,9 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const currentVariableList = availableMapVariables[columnGroup] ?? [];
   const mapVariableConfig = availableMapVariables[columnGroup]?.find(f => f.value === variable);
 
-  const handleSetMapMode = (newMode: MapStore['mapOptions']['showDemographicMap']) => {
+  const handleSetMapMode = (
+    newMode: MapControlsStore['mapOptions']['showDemographicMap']
+  ) => {
     setMapOptions({showDemographicMap: newMode});
     if (!mapVariableConfig) {
       setVariable(availableMapVariables[columnGroup][0].value);
@@ -120,7 +122,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   useEffect(() => {
     // add a listener for option or alt key press and release
     const handleKeyPress = (event: KeyboardEvent) => {
-      const {mapOptions, setMapOptions} = useMapStore.getState();
+      const {mapOptions, setMapOptions} = useMapControlsStore.getState();
       const isOverlayMode = mapOptions.showDemographicMap === 'overlay';
       const activeElement = document.activeElement;
       // if active element is an input, don't do anything

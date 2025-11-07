@@ -1,9 +1,11 @@
 'use client';
 import {MapStore, useMapStore} from '../mapStore';
+import {useMapControlsStore} from '../mapControlsStore';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {updateDemography} from '../../utils/api/queries';
 import {DemographyStore} from './types';
+import {useAssignmentsStore} from '../assignmentsStore';
 
 export var useDemographyStore = create(
   subscribeWithSelector<DemographyStore>((set, get) => ({
@@ -11,7 +13,8 @@ export var useDemographyStore = create(
     setGetMapRef: getMapRef => {
       set({getMapRef});
       const {dataHash, setVariable, variable, setVariant, variant} = get();
-      const {mapDocument, shatterIds} = useMapStore.getState();
+      const {mapDocument} = useMapStore.getState();
+      const {shatterIds} = useAssignmentsStore.getState();
       const currentDataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument?.document_id}`;
       if (currentDataHash === dataHash) {
         // set variable triggers map render/update
@@ -46,7 +49,7 @@ export var useDemographyStore = create(
       });
     },
     unmount: () => {
-      const isSwappingMode = useMapStore.getState().mapOptions.showDemographicMap;
+      const isSwappingMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
       const currScale = get().scale;
       set({
         getMapRef: () => undefined,
@@ -59,7 +62,7 @@ export var useDemographyStore = create(
     setDataHash: dataHash => set({dataHash}),
     updateData: async mapDocument => {
       const {dataHash: currDataHash} = get();
-      const {shatterIds} = useMapStore.getState();
+      const {shatterIds} = useAssignmentsStore.getState();
       if (!mapDocument) return;
       // based on current map state
       const dataHash = `${Array.from(shatterIds.parents).join(',')}|${mapDocument.document_id}`;
