@@ -7,12 +7,11 @@ import {shallowCompareArray} from '@utils/arrays';
 import {useMapStore as _useMapStore, MapStore} from '@store/mapStore';
 import {getFeatureUnderCursor} from '@utils/map/getFeatureUnderCursor';
 import {useDemographyStore as _useDemographyStore} from '../../store/demography/demographyStore';
-import {useHoverStore as _useHoverStore, HoverFeatureStore} from '../../store/hoverFeatures';
 import {demographyCache} from '../demography/demographyCache';
 import {FocusState, ShatterState} from './types';
 import {
   useMapControlsStore as _useMapControlsStore,
-  MapControlsStore,
+  type MapControlsStore,
 } from '@store/mapControlsStore';
 import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
 
@@ -25,7 +24,6 @@ export class MapRenderSubscriber {
   mapRef: maplibregl.Map;
   mapType: 'demographic' | 'main' = 'main';
   useMapStore: typeof _useMapStore;
-  useHoverStore: typeof _useHoverStore;
   useDemographyStore: typeof _useDemographyStore;
   subscriptions: ReturnType<typeof _useMapStore.subscribe>[] = [];
   useMapControlsStore: typeof _useMapControlsStore;
@@ -38,7 +36,6 @@ export class MapRenderSubscriber {
     mapRef: maplibregl.Map,
     mapType: 'demographic' | 'main' = 'main',
     useMapStore: typeof _useMapStore = _useMapStore,
-    useHoverStore: typeof _useHoverStore = _useHoverStore,
     useDemographyStore: typeof _useDemographyStore = _useDemographyStore,
     useMapControlsStore: typeof _useMapControlsStore = _useMapControlsStore,
     useAssignmentsStore: typeof _useAssignmentsStore = _useAssignmentsStore
@@ -46,7 +43,6 @@ export class MapRenderSubscriber {
     this.mapRef = mapRef;
     this.mapType = mapType;
     this.useMapStore = useMapStore;
-    this.useHoverStore = useHoverStore;
     this.useDemographyStore = useDemographyStore;
     this.useMapControlsStore = useMapControlsStore;
     this.useAssignmentsStore = useAssignmentsStore;
@@ -116,12 +112,12 @@ export class MapRenderSubscriber {
         {equalityFn: shallowCompareArray}
       )
     );
-    this.assignmentSubscriptions.push(
-      this.useAssignmentsStore.subscribe(
-        state => state.shatterIds,
-        () => this.renderShatter()
-      )
-    );
+    // this.assignmentSubscriptions.push(
+    //   this.useAssignmentsStore.subscribe(
+    //     state => state.shatterIds,
+    //     () => this.renderShatter()
+    //   )
+    // );
     this.controlSubscriptions.push(
       this.useMapControlsStore.subscribe(
         controls => controls.mapOptions.highlightBrokenDistricts,
@@ -204,25 +200,6 @@ export class MapRenderSubscriber {
       )
     );
   }
-  renderHover(
-    hoverFeatures: HoverFeatureStore['hoverFeatures'],
-    previousHoverFeatures?: HoverFeatureStore['hoverFeatures']
-  ) {
-    previousHoverFeatures?.forEach(feature => {
-      this.mapRef.setFeatureState(feature, {hover: false});
-    });
-    hoverFeatures.forEach(feature => {
-      this.mapRef.setFeatureState(feature, {hover: true});
-    });
-  }
-  subscribeHover() {
-    this.subscriptions.push(
-      this.useHoverStore.subscribe(
-        (state: HoverFeatureStore) => state.hoverFeatures,
-        this.renderHover.bind(this)
-      )
-    );
-  }
   renderColorZones() {
     const mapState = this.useMapStore.getState();
     const controlsState = this.useMapControlsStore.getState();
@@ -285,18 +262,18 @@ export class MapRenderSubscriber {
         {equalityFn: shallowCompareArray}
       )
     );
-    this.assignmentSubscriptions.push(
-      this.useAssignmentsStore.subscribe(
-        state => state.zoneAssignments,
-        () => this.renderColorZones()
-      )
-    );
-    this.assignmentSubscriptions.push(
-      this.useAssignmentsStore.subscribe(
-        state => state.shatterIds,
-        () => this.renderColorZones()
-      )
-    );
+    // this.assignmentSubscriptions.push(
+    //   this.useAssignmentsStore.subscribe(
+    //     state => state.zoneAssignments,
+    //     () => this.renderColorZones()
+    //   )
+    // );
+    // this.assignmentSubscriptions.push(
+    //   this.useAssignmentsStore.subscribe(
+    //     state => state.shatterIds,
+    //     () => this.renderColorZones()
+    //   )
+    // );
     this.renderColorZones();
   }
   checkRender() {
@@ -327,12 +304,10 @@ export class MapRenderSubscriber {
   }
   render() {
     const mapState = this.useMapStore.getState();
-    const hoverState = this.useHoverStore.getState();
     const controlsState = this.useMapControlsStore.getState();
 
     this.renderShatter();
     this.renderCursor(controlsState.activeTool);
-    this.renderHover(hoverState.hoverFeatures);
     this.renderFocus(mapState.focusFeatures);
     if (this.mapType === 'main') {
       this.renderColorZones();
@@ -341,7 +316,6 @@ export class MapRenderSubscriber {
   subscribe() {
     this.subscribeShatter();
     this.subscribeCursor();
-    this.subscribeHover();
     this.subscribeFocus();
     if (this.mapType === 'main') {
       this.subscribeColorZones();

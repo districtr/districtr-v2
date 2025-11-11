@@ -21,6 +21,7 @@ import {
   BLOCK_HOVER_LAYER_ID_CHILD,
   BLOCK_POINTS_LAYER_ID,
   BLOCK_POINTS_LAYER_ID_CHILD,
+  BLOCK_SOURCE_ID,
   INTERACTIVE_LAYERS,
 } from '@/app/constants/layers';
 import {ResetMapSelectState} from '@utils/events/handlers';
@@ -28,6 +29,9 @@ import GeometryWorker from '../GeometryWorker';
 import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
+import {DocumentObject} from '../api/apiHandlers/types';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {setHoverFeatures} from '../map/hoverFeatures';
 import {useHoverStore} from '@/app/store/hoverFeatures';
 
 export const AREA_SELECT_TOOLS = ['brush', 'eraser', 'inspector'];
@@ -71,8 +75,9 @@ export const handleFeatureSelection = (
   sourceLayer: string | undefined,
   mapRef: (MapLayerMouseEvent | MapLayerTouchEvent)['target'] | null
 ) => {
-  const mapControls = useMapControlsStore.getState();
-  switch (mapControls.activeTool) {
+  const {activeTool, selectedZone, setIsPainting} = useMapControlsStore.getState();
+  const {mutateZoneAssignments} = useAssignmentsStore.getState();
+  switch (activeTool) {
     case 'shatter':
       const documentId = mapStore.mapDocument?.document_id;
       if (documentId && selectedFeatures?.length) {
@@ -83,8 +88,12 @@ export const handleFeatureSelection = (
     case 'eraser':
       if (sourceLayer && selectedFeatures && mapRef && mapStore) {
         // select on both the map object and the store
-        mapStore.selectMapFeatures(selectedFeatures);
-        mapControls.setIsPainting(false);
+        mutateZoneAssignments(
+          mapRef,
+          selectedFeatures || [],
+          activeTool === 'brush' ? selectedZone : null
+        );
+        setIsPainting(false);
       }
   }
 };
@@ -97,7 +106,8 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
-  const {activeTool, paintFunction, brushSize} = mapControls;
+  const {activeTool, paintFunction, brushSize, selectedZone} = mapControls;
+  const {mutateZoneAssignments} = useAssignmentsStore.getState();
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
 
@@ -109,7 +119,12 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
-  handleFeatureSelection(selectedFeatures, mapStore, sourceLayer, mapRef);
+  console.log('SELECTED FEATURES', selectedFeatures);
+  mutateZoneAssignments(
+    mapRef,
+    selectedFeatures || [],
+    activeTool === 'brush' ? selectedZone : null
+  );
 }, 25);
 
 export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
@@ -153,15 +168,15 @@ export const handleMapMouseOver = (e: MapLayerMouseEvent | MapLayerTouchEvent) =
 
 export const handleMapMouseLeave = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   setTimeout(() => {
-    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
+    setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
-  }, 250);
+  }, 125);
   useMapControlsStore.getState().setIsPainting(false);
 };
 
 export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
   setTimeout(() => {
-    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
+    setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
   }, 250);
   useMapControlsStore.getState().setIsPainting(false);
@@ -172,8 +187,9 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
   const {mapOptions, activeTool, isPainting, paintFunction, brushSize} = mapControls;
-  const {mapDocument, selectMapFeatures} = mapStore;
-  const setHoverFeatures = useHoverStore.getState().setHoverFeatures;
+  const {mapDocument} = mapStore;
+  const {selectedZone} = mapControls;
+  const {mutateZoneAssignments} = useAssignmentsStore.getState();
   const setTooltip = useTooltipStore.getState().setTooltip;
   const sourceLayer = mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
@@ -196,13 +212,18 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
   const isTouchEvent =
     'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
-  if (isBrushingTool && !isTouchEvent) {
-    setHoverFeatures(selectedFeatures);
+  if (isBrushingTool && !isTouchEvent && !isPainting) {
+    if (activeTool === 'inspector') {
+      useHoverStore.getState().setHoverFeatures(selectedFeatures || []);
+    } else {
+      setHoverFeatures(selectedFeatures || []);
+    }
   }
   if (selectedFeatures && isBrushingTool && isPainting) {
     // selects in the map object; the store object
     // is updated in the mouseup event
-    selectMapFeatures(selectedFeatures);
+    console.log('SELECTED FEATURES', selectedFeatures);
+    mutateZoneAssignments(mapRef, selectedFeatures, activeTool === 'brush' ? selectedZone : null);
   }
 
   if (
@@ -263,7 +284,6 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
     return;
   }
   e.preventDefault();
-  const setHoverFeatures = useHoverStore.getState().setHoverFeatures;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   // Selects from the hover layers instead of the points
   // Otherwise, its hard to select precisely
@@ -275,11 +295,11 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
 
   if (!selectedFeatures?.length || !mapRef || !sourceLayer) return;
 
-  setHoverFeatures(selectedFeatures.slice(0, 1));
+  useHoverStore.getState().setHoverFeatures(selectedFeatures.slice(0, 1));
 
   const handleClose = () => {
     mapStore.setContextMenu(null);
-    setHoverFeatures(EMPTY_FEATURE_ARRAY);
+    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
   };
 
   mapRef.once('movestart', handleClose);
