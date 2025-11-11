@@ -5,12 +5,13 @@ export interface Assignment {
   document_id: string;
   geo_id: string;
   zone: NullableZone;
-  parent_path: string | null;
+  parent_path?: string | null;
 }
 
 export interface AssignmentsCreate {
   assignments: Assignment[];
   document_id: string;
+  last_updated_at: string;
 }
 export interface AssignmentsCreateResponse {
   assignments_upserted: number;
@@ -82,7 +83,6 @@ export interface MinPublicDocument {
 
 export interface DocumentCreate {
   districtr_map_slug: string;
-  user_id: string | null;
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
 }

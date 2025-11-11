@@ -64,12 +64,6 @@ export interface MapStore {
     id?: string;
   };
   setErrorNotification: (errorNotification: MapStore['errorNotification']) => void;
-  /**
-   * Selects map features and updates the zone assignments accordingly.
-   * Debounced zone updates will be sent to backend after a delay.
-   * @param {Array<MapGeoJSONFeature>} features - The features to select on the map.
-   */
-  selectMapFeatures: (features: Array<MapGeoJSONFeature>) => void;
   // MAP DOCUMENT
   /**
    * Available districtr views
@@ -276,66 +270,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setMapLock: mapLock => set({mapLock}),
   errorNotification: {},
   setErrorNotification: errorNotification => set({errorNotification}),
-  selectMapFeatures: features => {
-    const {getMapRef, mapDocument} = get();
-    const {accumulatedGeoids, setAccumulatedGeoids} = useAssignmentsStore.getState();
-    const {activeTool, selectedZone: _selectedZone, isEditing} = useMapControlsStore.getState();
-    const {setPaintedChanges} = useChartStore.getState();
-    const map = getMapRef();
-    const selectedZone = activeTool === 'eraser' ? null : _selectedZone;
-    if (!map || !mapDocument?.document_id || !isEditing) {
-      return;
-    }
-    // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
-    // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
-    // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
-    // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
-    const featureStateCache = map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
-    const featureStateChangesCache =
-      map.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
-    if (!featureStateCache) return;
-    // PAINT
-    const popChanges: Record<number, number> = {};
-    selectedZone !== null && (popChanges[selectedZone] = 0);
-    const zonesUpdated = new Set<Zone>(selectedZone !== null ? [selectedZone] : []);
-    features?.forEach(feature => {
-      const id = feature?.id?.toString() ?? undefined;
-      const sourceLayer = feature.properties.__sourceLayer || feature.sourceLayer;
-      if (!id || !sourceLayer) return;
-      const state = featureStateCache[sourceLayer]?.[id];
-      const stateChanges = featureStateChangesCache?.[sourceLayer]?.[id];
-      const prevAssignment = stateChanges?.zone || state?.zone || false;
-      const shouldSkip =
-        accumulatedGeoids.has(id) || state?.['locked'] || prevAssignment === selectedZone || false;
-      if (shouldSkip) return;
-      accumulatedGeoids.add(feature.properties?.path);
-      zonesUpdated.add(prevAssignment);
-      // TODO: Tiles should have population values as numbers, not strings
-      const popValue = parseInt(feature.properties?.total_pop_20);
-      if (!isNaN(popValue)) {
-        if (prevAssignment) {
-          popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
-        }
-        if (selectedZone) {
-          popChanges[selectedZone] = (popChanges[selectedZone] || 0) + popValue;
-        }
-      }
-      map.setFeatureState(
-        {
-          source: BLOCK_SOURCE_ID,
-          id,
-          sourceLayer,
-        },
-        {selected: true, zone: selectedZone}
-      );
-    });
-
-    setPaintedChanges(popChanges);
-    setAccumulatedGeoids(accumulatedGeoids, zonesUpdated);
-    set({
-      isTemporalAction: false,
-    });
-  },
   mapViews: {isPending: true},
   setMapViews: mapViews => set({mapViews}),
   mapDocument: null,

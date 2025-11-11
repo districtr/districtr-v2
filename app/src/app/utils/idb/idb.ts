@@ -3,6 +3,7 @@ import Dexie, {Table} from 'dexie';
 import {useMapStore} from '@store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {NullableZone} from '@/app/constants/types';
+import {formatAssignmentsFromState} from '../map/formatAssignments';
 
 // --- Main Document Entry ---
 export interface StoredDocument {
@@ -49,21 +50,12 @@ export class DocumentsDB extends Dexie {
     // map must be loaded
     if (appLoadingState !== 'loaded') return;
     // map must be in edit mode
-    const assignmentsToSave: Assignment[] = [];
-    for (const [geo_id, zone] of zoneAssignments.entries()) {
-      let parent_path = null;
-      if (shatterIds.children.has(geo_id)) {
-        parent_path =
-          Object.entries(shatterMappings).find(([_, children]) => children.has(geo_id))?.[0] ??
-          null;
-      }
-      assignmentsToSave.push({
-        document_id,
-        geo_id,
-        zone,
-        parent_path,
-      });
-    }
+    const assignmentsToSave = formatAssignmentsFromState(
+      document_id,
+      zoneAssignments,
+      shatterIds,
+      shatterMappings
+    );
     const clientUpdatedAt = new Date().toISOString();
     idb
       .updateDocument({

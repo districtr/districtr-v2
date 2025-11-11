@@ -15,7 +15,8 @@ import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEvents';
-import { useMapControlsStore } from '@/app/store/mapControlsStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 
 interface MapPageProps {
   isEditing: boolean;
@@ -28,14 +29,32 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   );
   const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
+
+  // Load document with sync support
+  const {isLoading: isLoadingDocument, error: documentError, conflictModal} = useDocumentWithSync({
+    document_id: mapId || undefined,
+    enabled: !!mapId,
+  });
 
   const loadingState = useMapBrowserEvents({
     mapId,
     isEditing,
   });
+
+  // Handle document loading errors
+  useEffect(() => {
+    if (documentError && mapId) {
+      setErrorNotification({
+        message: `Failed to load document: ${documentError.message}`,
+        id: `document-load-error-${mapId}`,
+        severity: 1,
+      });
+    }
+  }, [documentError, mapId, setErrorNotification]);
 
   // Set editing mode based on the route
   useEffect(() => {
@@ -64,11 +83,22 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
           {showDemographicMap && <MapComponent isDemographicMap />}
         </Flex>
         {toolbarLocation === 'map' && <DraggableToolbar />}
-        {!!mapId && <MapLockShade loadingState={loadingState} />}
+        {!!mapId && (
+          <MapLockShade
+            loadingState={{
+              ...loadingState,
+              isLoadingDocument,
+              isLoadingAssignments: isLoadingDocument,
+              isFetchingDocument: isLoadingDocument,
+              isFetchingAssignments: isLoadingDocument,
+            }}
+          />
+        )}
         <MapTooltip />
       </div>
       <MapContextMenu />
       <ErrorNotification />
+      {conflictModal}
     </div>
   );
 }

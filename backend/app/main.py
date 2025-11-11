@@ -70,7 +70,6 @@ from sqlalchemy.sql.functions import coalesce
 from app.save_share.locks import (
     cleanup_expired_locks as _cleanup_expired_locks,
     remove_all_locks,
-    check_map_lock,
 )
 from app.utils import update_or_select_district_stats
 from aiocache import Cache
@@ -213,12 +212,7 @@ async def create_document(
     plan_genesis = "created"
     document_id = results.one()[0]  # should be only one row, one column of results
 
-    # Checking a document's lock status will create one if none is found, as in
-    # the case of new documents
-    lock_status = check_map_lock(document_id, data.user_id, session)
-
     total_assignments = 0
-
     if data.copy_from_doc is not None:
         copy_document_id = parse_document_id(data.copy_from_doc)
         if not copy_document_id:
@@ -297,7 +291,7 @@ async def create_document(
             ).label("map_metadata"),
             coalesce(
                 None,
-                lock_status,
+                "unlocked",
             ).label("status"),
         )
         .where(Document.document_id == document_id)
@@ -345,9 +339,9 @@ async def update_assignments(
     assignments = data.model_dump()["assignments"]
     last_updated_at = data.model_dump()["last_updated_at"]
 
-    db_last_updated_at = (
-        select(Document.updated_at).where(Document.document_id == document_id).one()
-    )
+    db_last_updated_at = session.exec(
+        select(Document.updated_at).where(Document.document_id == document_id)
+    ).one_or_none()
 
     if db_last_updated_at > last_updated_at:
         raise HTTPException(

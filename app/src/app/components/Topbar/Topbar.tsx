@@ -11,13 +11,20 @@ import {
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
-import React, {useRef} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ToolSettings} from '@components/Toolbar/Settings';
-import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
+import {
+  ArrowLeftIcon,
+  CheckIcon,
+  ExclamationTriangleIcon,
+  FileIcon,
+  GearIcon,
+  HamburgerMenuIcon,
+  SymbolIcon,
+} from '@radix-ui/react-icons';
 import {useTemporalStore} from '@store/temporalStore';
-import {document} from '@utils/api/mutations';
 import {DistrictrMap} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
@@ -26,6 +33,10 @@ import {MapHeader} from './MapHeader';
 import {EditStatus} from './EditStatus';
 import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
 import {useRouter} from 'next/navigation';
+import {idb} from '@/app/utils/idb/idb';
+import {useIdbDocument} from '@/app/hooks/useIdbDocument';
+import { useAssignmentsStore } from '@/app/store/assignmentsStore';
+import { createMapDocument } from '@/app/utils/api/apiHandlers/createMapDocument';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -42,26 +53,23 @@ export const Topbar: React.FC = () => {
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const data = mapViews?.data || [];
   const router = useRouter();
-
+  const documentFromIdb = useIdbDocument(mapDocument?.document_id);
+  const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
   const handleSelectMap = (selectedMap: DistrictrMap) => {
     clear();
-
-    document
-      .mutate({
-        districtr_map_slug: selectedMap.districtr_map_slug,
-        user_id: userID,
-      })
-      .then(data => {
-        if (data.document_id) {
-          router.push(`/map/edit/${data.document_id}`);
-        } else {
-          setErrorNotification({
-            severity: 2,
-            id: 'map-not-found',
-            message: 'Map not found',
-          });
-        }
-      });
+    createMapDocument({
+      districtr_map_slug: selectedMap.districtr_map_slug,
+    }).then(r => {
+      if (r.ok) {
+        router.push(`/map/edit/${r.response.document_id}`);
+      } else {
+        setErrorNotification({
+          severity: 2,
+          id: 'map-failed-to-create',
+          message: r.error.detail,
+        });
+      }
+    });
   };
 
   return (
@@ -186,16 +194,33 @@ export const Topbar: React.FC = () => {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
           <MapHeader />
-          <Flex direction="row" align="center" gapX="1">
-            <EditStatus />
-            <Button
+          <Flex direction="row" align="center" gapX="3">
+            <Text size="1" className="italic">
+              Last saved:{' '}
+              {new Date(documentFromIdb?.document_metadata.updated_at ?? '').toLocaleString()}
+            </Text>
+            {documentFromIdb?.clientLastUpdated !==
+            documentFromIdb?.document_metadata.updated_at ? (
+              <IconButton variant="ghost" size="1" color="amber" onClick={handlePutAssignments}>
+                <Flex direction="row" align="center" gapX="1">
+                  <SymbolIcon className="size-4" />
+                  <Text size="1" className="italic">
+                    Updates not yet synced
+                  </Text>
+                </Flex>
+              </IconButton>
+            ) : (
+              <CheckIcon className="size-4" color="green" />
+            )}
+            {/* <EditStatus /> */}
+            {/* <Button
               variant="outline"
               disabled={!mapDocument?.document_id}
               onClick={() => setModalOpen('save-share')}
               size="1"
             >
               Save and Share
-            </Button>
+            </Button> */}
             <IconButton
               variant={settingsOpen ? 'solid' : 'outline'}
               size="1"

@@ -176,7 +176,6 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
-    user_id: str
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
@@ -241,7 +240,6 @@ class Assignments(SQLModel, table=True):
 
 class AssignmentsCreate(BaseModel):
     assignments: list[Assignments]
-    user_id: str
     last_updated_at: datetime
     overwrite: bool = False
 

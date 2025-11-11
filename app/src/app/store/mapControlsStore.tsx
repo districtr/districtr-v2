@@ -1,5 +1,6 @@
 "use client";
 import {create} from 'zustand';
+import {subscribeWithSelector} from 'zustand/middleware';
 import type {MapOptions} from 'maplibre-gl';
 import {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from '../constants/mapDefaults';
 import {ActiveTool, NullableZone, SpatialUnit, Zone} from '../constants/types';
@@ -58,58 +59,61 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   overlayOpacity: OVERLAY_OPACITY,
 };
 
-export const useMapControlsStore = create<MapControlsStore>((set, get) => ({
-  selectedZone: 1,
-  setSelectedZone: zone => {
-    const numDistricts = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-    if (zone <= numDistricts && !get().isPainting) {
-      set({selectedZone: zone});
-    }
-  },
-  isPainting: false,
-  setIsPainting: isPainting => {
-    if (!isPainting) {
-      useAssignmentsStore.getState().ingestAccumulatedGeoids();
-    }
-    set({isPainting});
-  },
-  isEditing: false,
-  setIsEditing: isEditing => set({isEditing}),
-  activeTool: 'pan',
-  setActiveTool: tool => {
-    const canEdit = useMapStore.getState().mapStatus?.access === 'edit';
-    if (canEdit) {
-      set({activeTool: tool});
-    }
-  },
-  brushSize: 1,
-  setBrushSize: brushSize => set({brushSize}),
-  paintFunction: getFeaturesInBbox,
-  setPaintFunction: paintFunction => set({paintFunction}),
-  mapOptions: DEFAULT_MAP_OPTIONS,
-  setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
-  setLockedZones: zones =>
-    set({
-      mapOptions: {
-        ...get().mapOptions,
-        lockPaintedAreas: zones,
-      },
-    }),
-  toggleLockAllAreas: () => {
-    const {mapOptions} = get();
-    const numDistricts = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
-    const nextLockPaintedAreas = mapOptions.lockPaintedAreas.length
-      ? []
-      : Array.from({length: numDistricts}, (_, i) => (i + 1) as NullableZone);
-    set({
-      mapOptions: {
-        ...mapOptions,
-        lockPaintedAreas: nextLockPaintedAreas,
-      },
-    });
-  },
-  spatialUnit: 'tract',
-  setSpatialUnit: spatialUnit => set({spatialUnit}),
-  sidebarPanels: ['population'],
-  setSidebarPanels: sidebarPanels => set({sidebarPanels}),
-}));
+export const useMapControlsStore = create<MapControlsStore>()(
+  subscribeWithSelector((set, get) => ({
+    selectedZone: 1,
+    setSelectedZone: zone => {
+      const numDistricts = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+      if (zone <= numDistricts && !get().isPainting) {
+        set({selectedZone: zone});
+      }
+    },
+    isPainting: false,
+    setIsPainting: isPainting => {
+      if (!isPainting) {
+        console.log("INGESTING ACCUMULATED ASSIGNMENTS");
+        useAssignmentsStore.getState().ingestAccumulatedAssignments();
+      }
+      set({isPainting});
+    },
+    isEditing: false,
+    setIsEditing: isEditing => set({isEditing}),
+    activeTool: 'pan',
+    setActiveTool: tool => {
+      const canEdit = useMapStore.getState().mapStatus?.access === 'edit';
+      if (canEdit) {
+        set({activeTool: tool});
+      }
+    },
+    brushSize: 1,
+    setBrushSize: brushSize => set({brushSize}),
+    paintFunction: getFeaturesInBbox,
+    setPaintFunction: paintFunction => set({paintFunction}),
+    mapOptions: DEFAULT_MAP_OPTIONS,
+    setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+    setLockedZones: zones =>
+      set({
+        mapOptions: {
+          ...get().mapOptions,
+          lockPaintedAreas: zones,
+        },
+      }),
+    toggleLockAllAreas: () => {
+      const {mapOptions} = get();
+      const numDistricts = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+      const nextLockPaintedAreas = mapOptions.lockPaintedAreas.length
+        ? []
+        : Array.from({length: numDistricts}, (_, i) => (i + 1) as NullableZone);
+      set({
+        mapOptions: {
+          ...mapOptions,
+          lockPaintedAreas: nextLockPaintedAreas,
+        },
+      });
+    },
+    spatialUnit: 'tract',
+    setSpatialUnit: spatialUnit => set({spatialUnit}),
+    sidebarPanels: ['population'],
+    setSidebarPanels: sidebarPanels => set({sidebarPanels}),
+  }))
+);
