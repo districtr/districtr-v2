@@ -4,10 +4,9 @@ import {Zone, GDBPath} from '@constants/types';
 import GeometryWorker from '../utils/GeometryWorker';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {idb} from '../utils/idb/idb';
-import {MapStore, useMapStore} from './mapStore';
+import {useMapStore} from './mapStore';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {checkIfSameZone} from '../utils/map/checkIfSameZone';
-import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterParents';
 import {postUpdateAssignments} from '../utils/api/apiHandlers/postUpdateAssignments';
 import {formatAssignmentsFromState} from '../utils/map/formatAssignments';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
@@ -217,7 +216,7 @@ export const useAssignmentsStore = create<AssignmentsStore>((set, get) => ({
     taggedParents.forEach(parentId => {
       const children = shatterMappings[parentId];
       if (!children || !children.size) return;
-      const {shouldHeal, zone} = checkIfSameZone(children, currentZoneAssignments);
+      const {shouldHeal, zone} = checkIfSameZone(children, zoneAssignments);
       if (shouldHeal && zone != null) {
         healedParents.push({parentId, zone, children: new Set(children)});
       } else {
@@ -376,5 +375,3 @@ export const useAssignmentsStore = create<AssignmentsStore>((set, get) => ({
     });
   },
 }));
-
-window.__assignmentsStore = useAssignmentsStore;

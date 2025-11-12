@@ -15,16 +15,16 @@ export const checkIfSameZone = (
 ) => {
   let zone: NullableZone | undefined = undefined;
   let shouldHeal = true;
-
-  idsToCheck?.forEach(id => {
+  for (const id of idsToCheck) {
     const assigment = zoneAssignments.get(id);
     if (zone === undefined) {
       zone = assigment;
     }
     if (assigment !== undefined && assigment !== zone) {
       shouldHeal = false;
+      break;
     }
-  });
+  }
   return {
     shouldHeal,
     zone: zone || null,

@@ -119,12 +119,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   } else {
     // tbd, for pan mode - is there an info mode on click?
   }
-  console.log('SELECTED FEATURES', selectedFeatures);
-  mutateZoneAssignments(
-    mapRef,
-    selectedFeatures || [],
-    activeTool === 'brush' ? selectedZone : null
-  );
+  handleFeatureSelection(selectedFeatures, mapStore, sourceLayer, mapRef);
 }, 25);
 
 export const handleMapMouseUp = (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
