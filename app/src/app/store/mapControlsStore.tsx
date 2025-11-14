@@ -71,7 +71,6 @@ export const useMapControlsStore = create<MapControlsStore>()(
     isPainting: false,
     setIsPainting: isPainting => {
       if (!isPainting) {
-        console.log("INGESTING ACCUMULATED ASSIGNMENTS");
         useAssignmentsStore.getState().ingestAccumulatedAssignments();
       }
       set({isPainting});

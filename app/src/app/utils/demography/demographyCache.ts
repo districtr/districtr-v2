@@ -428,7 +428,6 @@ class DemographyCache {
    * @param zoneAssignments - The zone assignments to use for updating populations.
    */
   updatePopulations(zoneAssignments?: ZoneAssignmentsMap) {
-    console.log('UPDATING POPULATIONS', zoneAssignments);
     const populations = this.calculatePopulations(zoneAssignments);
     if (populations.ok) {
       useChartStore.getState().setDataUpdateHash(`${performance.now()}`);

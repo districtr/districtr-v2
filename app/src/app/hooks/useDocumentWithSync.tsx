@@ -59,7 +59,6 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
 
     try {
       const result: DocumentFetchResult = await fetchDocumentWithSync(document_id, handleConflict);
-      console.log("!!!", result)
       // Set the document in the store
       setMapDocument(result.document);
       const stateUpdates = formatAssignmentsFromDocument(result.assignments);

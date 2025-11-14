@@ -64,9 +64,6 @@ export class DocumentsDB extends Dexie {
         assignments: assignmentsToSave,
         clientLastUpdated: clientUpdatedAt,
       })
-      .then(r => {
-        console.log('updated idb', r);
-      })
       .catch(e => {
         console.error('error updating idb', e);
       });
