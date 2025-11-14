@@ -262,18 +262,12 @@ export class MapRenderSubscriber {
         {equalityFn: shallowCompareArray}
       )
     );
-    // this.assignmentSubscriptions.push(
-    //   this.useAssignmentsStore.subscribe(
-    //     state => state.zoneAssignments,
-    //     () => this.renderColorZones()
-    //   )
-    // );
-    // this.assignmentSubscriptions.push(
-    //   this.useAssignmentsStore.subscribe(
-    //     state => state.shatterIds,
-    //     () => this.renderColorZones()
-    //   )
-    // );
+    this.assignmentSubscriptions.push(
+      this.useAssignmentsStore.subscribe(
+        state => state.zoneAssignments,
+        () => this.renderColorZones()
+      )
+    );
     this.renderColorZones();
   }
   checkRender() {

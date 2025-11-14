@@ -13,6 +13,7 @@ import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {useChartStore} from './chartStore';
 import {useMapControlsStore} from './mapControlsStore';
+import {subscribeWithSelector} from 'zustand/middleware';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -63,315 +64,317 @@ export interface AssignmentsStore {
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
 
-export const useAssignmentsStore = create<AssignmentsStore>((set, get) => ({
-  zoneAssignments: new Map(),
-  zonesLastUpdated: new Map(),
-  accumulatedAssignments: new Map<string, NullableZone>(),
-  shatterIds: {
-    parents: new Set<string>(),
-    children: new Set<string>(),
-  },
-  shatterMappings: {},
-  clientLastUpdated: '',
-  setZoneAssignments: (zone, geoids) => {
-    const updatedAssignments = new Map(get().zoneAssignments);
-    geoids.forEach(geoid => {
-      updatedAssignments.set(geoid, zone);
-    });
+export const useAssignmentsStore = create<AssignmentsStore>()(
+  subscribeWithSelector((set, get) => ({
+    zoneAssignments: new Map(),
+    zonesLastUpdated: new Map(),
+    accumulatedAssignments: new Map<string, NullableZone>(),
+    shatterIds: {
+      parents: new Set<string>(),
+      children: new Set<string>(),
+    },
+    shatterMappings: {},
+    clientLastUpdated: '',
+    setZoneAssignments: (zone, geoids) => {
+      const updatedAssignments = new Map(get().zoneAssignments);
+      geoids.forEach(geoid => {
+        updatedAssignments.set(geoid, zone);
+      });
 
-    const zonesLastUpdated = new Map(get().zonesLastUpdated);
-    const timestamp = new Date().toISOString();
-    if (zone !== null) {
-      zonesLastUpdated.set(zone, timestamp);
-    }
-
-    set({
-      zoneAssignments: updatedAssignments,
-      accumulatedAssignments: new Map<string, NullableZone>(),
-      zonesLastUpdated,
-    });
-  },
-  mutateZoneAssignments: (mapRef, features, zone) => {
-    const {accumulatedAssignments, zonesLastUpdated, zoneAssignments} = get();
-    const {setPaintedChanges} = useChartStore.getState();
-    // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
-    // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
-    // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
-    // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
-    const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
-    const featureStateChangesCache =
-      mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
-    if (!featureStateCache) return;
-    // PAINT
-    const popChanges: Record<number, number> = {};
-    zone !== null && (popChanges[zone] = 0);
-    const timestamp = new Date().toISOString();
-    zone && zonesLastUpdated.set(zone, timestamp);
-    features?.forEach(feature => {
-      const id = feature?.id?.toString() ?? undefined;
-      const sourceLayer = feature.properties.__sourceLayer || feature.sourceLayer;
-      if (!id || !sourceLayer) return;
-      const state = featureStateCache[sourceLayer]?.[id];
-      const stateChanges = featureStateChangesCache?.[sourceLayer]?.[id];
-      const prevAssignment = stateChanges?.zone || state?.zone || false;
-      const shouldSkip =
-        accumulatedAssignments.has(id) || state?.['locked'] || prevAssignment === zone || false;
-      if (shouldSkip) return;
-      accumulatedAssignments.set(id, zone);
-      zonesLastUpdated.set(prevAssignment, timestamp);
-      // TODO: Tiles should have population values as numbers, not strings
-      const popValue = parseInt(feature.properties?.total_pop_20);
-      if (!isNaN(popValue)) {
-        if (prevAssignment) {
-          popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
-        }
-        if (zone) {
-          popChanges[zone] = (popChanges[zone] || 0) + popValue;
-        }
-      }
-      mapRef.setFeatureState(
-        {
-          source: BLOCK_SOURCE_ID,
-          id,
-          sourceLayer,
-        },
-        {selected: true, zone: zone}
-      );
-    });
-    setPaintedChanges(popChanges);
-  },
-
-  setAccumulatedAssignments: (accumulatedAssignments, zonesUpdated) => {
-    const zonesLastUpdated = new Map(get().zonesLastUpdated);
-    const timestamp = new Date().toISOString();
-    zonesUpdated.forEach(zone => {
+      const zonesLastUpdated = new Map(get().zonesLastUpdated);
+      const timestamp = new Date().toISOString();
       if (zone !== null) {
         zonesLastUpdated.set(zone, timestamp);
       }
-    });
 
-    set({
-      accumulatedAssignments: new Map(accumulatedAssignments),
-      zonesLastUpdated,
-    });
-  },
-
-  ingestFromDocument: (data: {
-    zoneAssignments: AssignmentsStore['zoneAssignments'];
-    shatterIds: AssignmentsStore['shatterIds'];
-    shatterMappings: AssignmentsStore['shatterMappings'];
-  }) => {
-    set({
-      zoneAssignments: new Map(data.zoneAssignments),
-      shatterIds: data.shatterIds,
-      shatterMappings: data.shatterMappings,
-    });
-  },
-  ingestAccumulatedAssignments: () => {
-    console.log('INGESTING ACCUMULATED ASSIGNMENTS');
-    const {
-      accumulatedAssignments,
-      shatterIds: _shatterIds,
-      shatterMappings: _shatterMappings,
-      zoneAssignments: currentZoneAssignments,
-      zonesLastUpdated,
-    } = get();
-
-    const {mapDocument, getMapRef, lockedFeatures} = useMapStore.getState();
-    const mapRef = getMapRef();
-    if (!mapDocument || !getMapRef) return;
-
-    const zoneAssignments = new Map(currentZoneAssignments);
-    accumulatedAssignments.forEach((zone, geoid) => {
-      zoneAssignments.set(geoid, zone);
-    });
-
-    const shatterIds = {
-      parents: new Set(_shatterIds.parents),
-      children: new Set(_shatterIds.children),
-    };
-    const shatterMappings: Record<string, Set<string>> = {
-      ..._shatterMappings,
-    };
-
-    const taggedParents = new Set<string>();
-    accumulatedAssignments.forEach((zone, geoid) => {
-      if (shatterIds.children.has(geoid)) {
-        const parentId = Object.entries(shatterMappings).find(([, children]) =>
-          children.has(geoid)
-        )?.[0];
-        if (parentId) {
-          taggedParents.add(parentId);
-        }
-      }
-    });
-
-    const healedParents: Array<{
-      parentId: string;
-      zone: NullableZone;
-      children: Set<string>;
-    }> = [];
-    const parentsToQueue: string[] = [];
-
-    taggedParents.forEach(parentId => {
-      const children = shatterMappings[parentId];
-      if (!children || !children.size) return;
-      const {shouldHeal, zone} = checkIfSameZone(children, zoneAssignments);
-      if (shouldHeal && zone != null) {
-        healedParents.push({parentId, zone, children: new Set(children)});
-      } else {
-        parentsToQueue.push(parentId);
-      }
-    });
-
-    const healedChildIds = new Set<string>();
-    const healedParentIds = new Set<string>();
-    const newLockedFeatures = new Set(lockedFeatures);
-
-    healedParents.forEach(({parentId, zone, children}) => {
-      healedParentIds.add(parentId);
-      children.forEach(childId => {
-        healedChildIds.add(childId);
-        zoneAssignments.delete(childId);
-        shatterIds.children.delete(childId);
-        newLockedFeatures.delete(childId);
-        if (mapRef && mapDocument.child_layer) {
-          mapRef.setFeatureState(
-            {
-              source: BLOCK_SOURCE_ID,
-              id: childId,
-              sourceLayer: mapDocument.child_layer,
-            },
-            {
-              zone: null,
-            }
-          );
-        }
+      set({
+        zoneAssignments: updatedAssignments,
+        accumulatedAssignments: new Map<string, NullableZone>(),
+        zonesLastUpdated,
       });
-      delete shatterMappings[parentId];
-      shatterIds.parents.delete(parentId);
-      zoneAssignments.set(parentId, zone);
-      if (mapRef && mapDocument.parent_layer) {
+    },
+    mutateZoneAssignments: (mapRef, features, zone) => {
+      const {accumulatedAssignments, zonesLastUpdated, zoneAssignments} = get();
+      const {setPaintedChanges} = useChartStore.getState();
+      // We can access the inner state of the map in a more ergonomic way than the convenience method `getFeatureState`
+      // the inner state here gives us access to { [sourceLayer]: { [id]: { ...stateProperties }}}
+      // So, we get things like `zone` and `locked` and `broken` etc without needing to check a bunch of different places
+      // Additionally, since `setFeatureState` happens synchronously, there is no guessing game of when the state updates
+      const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
+      const featureStateChangesCache =
+        mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
+      if (!featureStateCache) return;
+      // PAINT
+      const popChanges: Record<number, number> = {};
+      zone !== null && (popChanges[zone] = 0);
+      const timestamp = new Date().toISOString();
+      zone && zonesLastUpdated.set(zone, timestamp);
+      features?.forEach(feature => {
+        const id = feature?.id?.toString() ?? undefined;
+        const sourceLayer = feature.properties.__sourceLayer || feature.sourceLayer;
+        if (!id || !sourceLayer) return;
+        const state = featureStateCache[sourceLayer]?.[id];
+        const stateChanges = featureStateChangesCache?.[sourceLayer]?.[id];
+        const prevAssignment = stateChanges?.zone || state?.zone || false;
+        const shouldSkip =
+          accumulatedAssignments.has(id) || state?.['locked'] || prevAssignment === zone || false;
+        if (shouldSkip) return;
+        accumulatedAssignments.set(id, zone);
+        zonesLastUpdated.set(prevAssignment, timestamp);
+        // TODO: Tiles should have population values as numbers, not strings
+        const popValue = parseInt(feature.properties?.total_pop_20);
+        if (!isNaN(popValue)) {
+          if (prevAssignment) {
+            popChanges[prevAssignment] = (popChanges[prevAssignment] || 0) - popValue;
+          }
+          if (zone) {
+            popChanges[zone] = (popChanges[zone] || 0) + popValue;
+          }
+        }
         mapRef.setFeatureState(
           {
             source: BLOCK_SOURCE_ID,
-            id: parentId,
-            sourceLayer: mapDocument.parent_layer,
+            id,
+            sourceLayer,
           },
-          {
-            broken: false,
-            zone,
-          }
+          {selected: true, zone: zone}
         );
-      }
-      GeometryWorker?.removeGeometries(Array.from(children));
-    });
+      });
+      setPaintedChanges(popChanges);
+    },
 
-    const zoneEntries = Array.from(zoneAssignments.entries());
-    GeometryWorker?.updateZones(zoneEntries);
-    demographyCache.updatePopulations(zoneAssignments);
-    idb.updateIdbAssignments(mapDocument, zoneAssignments);
+    setAccumulatedAssignments: (accumulatedAssignments, zonesUpdated) => {
+      const zonesLastUpdated = new Map(get().zonesLastUpdated);
+      const timestamp = new Date().toISOString();
+      zonesUpdated.forEach(zone => {
+        if (zone !== null) {
+          zonesLastUpdated.set(zone, timestamp);
+        }
+      });
 
-    set({
-      zoneAssignments,
-      accumulatedAssignments: new Map<string, NullableZone>(),
-      shatterIds,
-      shatterMappings,
-      clientLastUpdated: new Date().toISOString(),
-      zonesLastUpdated: new Map(zonesLastUpdated),
-    });
-  },
+      set({
+        accumulatedAssignments: new Map(accumulatedAssignments),
+        zonesLastUpdated,
+      });
+    },
 
-  replaceZoneAssignments: assignments => {
-    set({
-      zoneAssignments: new Map(assignments),
-    });
-  },
+    ingestFromDocument: (data: {
+      zoneAssignments: AssignmentsStore['zoneAssignments'];
+      shatterIds: AssignmentsStore['shatterIds'];
+      shatterMappings: AssignmentsStore['shatterMappings'];
+    }) => {
+      set({
+        zoneAssignments: new Map(data.zoneAssignments),
+        shatterIds: data.shatterIds,
+        shatterMappings: data.shatterMappings,
+      });
+    },
+    ingestAccumulatedAssignments: () => {
+      console.log('INGESTING ACCUMULATED ASSIGNMENTS');
+      const {
+        accumulatedAssignments,
+        shatterIds: _shatterIds,
+        shatterMappings: _shatterMappings,
+        zoneAssignments: currentZoneAssignments,
+        zonesLastUpdated,
+      } = get();
 
-  resetZoneAssignments: () => {
-    set({
-      zoneAssignments: new Map(),
-      accumulatedAssignments: new Map<string, NullableZone>(),
-      zonesLastUpdated: new Map(),
-      shatterIds: {
-        parents: new Set<string>(),
-        children: new Set<string>(),
-      },
-      shatterMappings: {},
-    });
-  },
+      const {mapDocument, getMapRef, lockedFeatures} = useMapStore.getState();
+      const mapRef = getMapRef();
+      if (!mapDocument || !getMapRef) return;
 
-  setShatterState: ({shatterIds, shatterMappings}) => {
-    set(state => ({
-      shatterIds: shatterIds
-        ? {
-            parents: new Set(shatterIds.parents),
-            children: new Set(shatterIds.children),
+      const zoneAssignments = new Map(currentZoneAssignments);
+      accumulatedAssignments.forEach((zone, geoid) => {
+        zoneAssignments.set(geoid, zone);
+      });
+
+      const shatterIds = {
+        parents: new Set(_shatterIds.parents),
+        children: new Set(_shatterIds.children),
+      };
+      const shatterMappings: Record<string, Set<string>> = {
+        ..._shatterMappings,
+      };
+
+      const taggedParents = new Set<string>();
+      accumulatedAssignments.forEach((zone, geoid) => {
+        if (shatterIds.children.has(geoid)) {
+          const parentId = Object.entries(shatterMappings).find(([, children]) =>
+            children.has(geoid)
+          )?.[0];
+          if (parentId) {
+            taggedParents.add(parentId);
           }
-        : state.shatterIds,
-      shatterMappings: shatterMappings
-        ? Object.keys(shatterMappings).reduce<Record<string, Set<string>>>((acc, key) => {
-            acc[key] = new Set(shatterMappings[key]);
-            return acc;
-          }, {})
-        : state.shatterMappings,
-    }));
-  },
+        }
+      });
 
-  resetShatterState: () => {
-    set({
-      shatterIds: {
-        parents: new Set<string>(),
-        children: new Set<string>(),
-      },
-      shatterMappings: {},
-    });
-  },
+      const healedParents: Array<{
+        parentId: string;
+        zone: NullableZone;
+        children: Set<string>;
+      }> = [];
+      const parentsToQueue: string[] = [];
 
-  handlePutAssignments: async () => {
-    const {zoneAssignments, shatterIds, shatterMappings} = get();
-    // lock map
-    const {setMapLock, mapDocument} = useMapStore.getState();
-    if (!mapDocument?.document_id || !mapDocument.updated_at) return;
-    setMapLock(true);
-    // post assignments
-    const formattedAssignments = formatAssignmentsFromState(
-      mapDocument.document_id,
-      zoneAssignments,
-      shatterIds,
-      shatterMappings
-    );
-    const assignmentsPostResponse = await postUpdateAssignments({
-      assignments: formattedAssignments,
-      document_id: mapDocument.document_id,
-      last_updated_at: mapDocument.updated_at,
-    });
-    // TODO handle conflict on save
-    if (!assignmentsPostResponse.ok) {
-      throw new Error('Failed to post assignments');
-    }
-    const freshServerAssignments = await getAssignments(mapDocument);
-    if (!freshServerAssignments.ok) {
-      throw new Error('Failed to get fresh server assignments');
-    }
-    freshServerAssignments.response.forEach(assignment => {
-      if (assignment.zone !== zoneAssignments.get(assignment.geo_id)) {
-        // TODO handle retry
-        throw new Error('Conflict on save');
+      taggedParents.forEach(parentId => {
+        const children = shatterMappings[parentId];
+        if (!children || !children.size) return;
+        const {shouldHeal, zone} = checkIfSameZone(children, zoneAssignments);
+        if (shouldHeal && zone != null) {
+          healedParents.push({parentId, zone, children: new Set(children)});
+        } else {
+          parentsToQueue.push(parentId);
+        }
+      });
+
+      const healedChildIds = new Set<string>();
+      const healedParentIds = new Set<string>();
+      const newLockedFeatures = new Set(lockedFeatures);
+
+      healedParents.forEach(({parentId, zone, children}) => {
+        healedParentIds.add(parentId);
+        children.forEach(childId => {
+          healedChildIds.add(childId);
+          zoneAssignments.delete(childId);
+          shatterIds.children.delete(childId);
+          newLockedFeatures.delete(childId);
+          if (mapRef && mapDocument.child_layer) {
+            mapRef.setFeatureState(
+              {
+                source: BLOCK_SOURCE_ID,
+                id: childId,
+                sourceLayer: mapDocument.child_layer,
+              },
+              {
+                zone: null,
+              }
+            );
+          }
+        });
+        delete shatterMappings[parentId];
+        shatterIds.parents.delete(parentId);
+        zoneAssignments.set(parentId, zone);
+        if (mapRef && mapDocument.parent_layer) {
+          mapRef.setFeatureState(
+            {
+              source: BLOCK_SOURCE_ID,
+              id: parentId,
+              sourceLayer: mapDocument.parent_layer,
+            },
+            {
+              broken: false,
+              zone,
+            }
+          );
+        }
+        GeometryWorker?.removeGeometries(Array.from(children));
+      });
+
+      const zoneEntries = Array.from(zoneAssignments.entries());
+      GeometryWorker?.updateZones(zoneEntries);
+      demographyCache.updatePopulations(zoneAssignments);
+      idb.updateIdbAssignments(mapDocument, zoneAssignments);
+
+      set({
+        zoneAssignments,
+        accumulatedAssignments: new Map<string, NullableZone>(),
+        shatterIds,
+        shatterMappings,
+        clientLastUpdated: new Date().toISOString(),
+        zonesLastUpdated: new Map(zonesLastUpdated),
+      });
+    },
+
+    replaceZoneAssignments: assignments => {
+      set({
+        zoneAssignments: new Map(assignments),
+      });
+    },
+
+    resetZoneAssignments: () => {
+      set({
+        zoneAssignments: new Map(),
+        accumulatedAssignments: new Map<string, NullableZone>(),
+        zonesLastUpdated: new Map(),
+        shatterIds: {
+          parents: new Set<string>(),
+          children: new Set<string>(),
+        },
+        shatterMappings: {},
+      });
+    },
+
+    setShatterState: ({shatterIds, shatterMappings}) => {
+      set(state => ({
+        shatterIds: shatterIds
+          ? {
+              parents: new Set(shatterIds.parents),
+              children: new Set(shatterIds.children),
+            }
+          : state.shatterIds,
+        shatterMappings: shatterMappings
+          ? Object.keys(shatterMappings).reduce<Record<string, Set<string>>>((acc, key) => {
+              acc[key] = new Set(shatterMappings[key]);
+              return acc;
+            }, {})
+          : state.shatterMappings,
+      }));
+    },
+
+    resetShatterState: () => {
+      set({
+        shatterIds: {
+          parents: new Set<string>(),
+          children: new Set<string>(),
+        },
+        shatterMappings: {},
+      });
+    },
+
+    handlePutAssignments: async () => {
+      const {zoneAssignments, shatterIds, shatterMappings} = get();
+      // lock map
+      const {setMapLock, mapDocument} = useMapStore.getState();
+      if (!mapDocument?.document_id || !mapDocument.updated_at) return;
+      setMapLock(true);
+      // post assignments
+      const formattedAssignments = formatAssignmentsFromState(
+        mapDocument.document_id,
+        zoneAssignments,
+        shatterIds,
+        shatterMappings
+      );
+      const assignmentsPostResponse = await postUpdateAssignments({
+        assignments: formattedAssignments,
+        document_id: mapDocument.document_id,
+        last_updated_at: mapDocument.updated_at,
+      });
+      // TODO handle conflict on save
+      if (!assignmentsPostResponse.ok) {
+        throw new Error('Failed to post assignments');
       }
-    });
-    idb.updateDocument({
-      id: mapDocument.document_id,
-      document_metadata: {
-        ...mapDocument,
-        updated_at: assignmentsPostResponse.response.updated_at,
-      },
-      assignments: freshServerAssignments.response,
-      clientLastUpdated: assignmentsPostResponse.response.updated_at,
-    });
-    setMapLock(false);
-    set({
-      clientLastUpdated: assignmentsPostResponse.response.updated_at,
-    });
-  },
-}));
+      const freshServerAssignments = await getAssignments(mapDocument);
+      if (!freshServerAssignments.ok) {
+        throw new Error('Failed to get fresh server assignments');
+      }
+      freshServerAssignments.response.forEach(assignment => {
+        if (assignment.zone !== zoneAssignments.get(assignment.geo_id)) {
+          // TODO handle retry
+          throw new Error('Conflict on save');
+        }
+      });
+      idb.updateDocument({
+        id: mapDocument.document_id,
+        document_metadata: {
+          ...mapDocument,
+          updated_at: assignmentsPostResponse.response.updated_at,
+        },
+        assignments: freshServerAssignments.response,
+        clientLastUpdated: assignmentsPostResponse.response.updated_at,
+      });
+      setMapLock(false);
+      set({
+        clientLastUpdated: assignmentsPostResponse.response.updated_at,
+      });
+    },
+  }))
+);
