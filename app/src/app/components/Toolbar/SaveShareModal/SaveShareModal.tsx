@@ -21,9 +21,7 @@ export const SaveShareModal: React.FC<{
     mapMetadata ?? DEFAULT_MAP_METADATA
   );
   const [linkCopied, setLinkCopied] = useState(false);
-  const isEditing = useMapStore(
-    state => state.mapDocument?.access === 'edit' && state.mapDocument?.status === 'checked_out'
-  );
+  const isEditing = useMapStore(state => state.mapDocument?.access === 'edit');
   const generateLink = useSaveShareStore(state => state.generateLink);
 
   const handleSave = async () => {

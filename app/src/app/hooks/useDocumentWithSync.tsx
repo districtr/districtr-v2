@@ -10,7 +10,9 @@ import {
 import {SyncConflictModal} from '@/app/components/SyncConflictModal';
 import {Assignment} from '@/app/utils/api/apiHandlers/types';
 import {idb} from '@/app/utils/idb/idb';
-import { formatAssignmentsFromDocument } from '../utils/map/formatAssignments';
+import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
+import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
+import {useRouter} from 'next/navigation';
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
@@ -28,12 +30,13 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
   const [pendingResolution, setPendingResolution] = useState<
     ((resolution: SyncConflictResolution) => void) | null
   >(null);
+  const router = useRouter();
 
   const setMapDocument = useMapStore(state => state.setMapDocument);
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
   const replaceZoneAssignments = useAssignmentsStore(state => state.replaceZoneAssignments);
   const ingestFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
-  
+
   const handleConflict = useCallback(
     (conflict: SyncConflictInfo): Promise<SyncConflictResolution> => {
       return new Promise(resolve => {
@@ -82,16 +85,44 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
             const freshDoc = freshDocResponse.response;
             // Update map store with fresh document
             setMapDocument(freshDoc);
-            
+
             // Get fresh assignments and update store
             const freshAssignments = await getAssignments(freshDoc);
             if (freshAssignments.ok && 'response' in freshAssignments) {
               const freshAssignmentsMap = new Map<string, number | null>();
-              freshAssignments.response.assignments.forEach(assignment => {
+              freshAssignments.response.forEach(assignment => {
                 freshAssignmentsMap.set(assignment.geo_id, assignment.zone);
               });
               replaceZoneAssignments(freshAssignmentsMap);
             }
+          }
+        }
+      } else if (result.conflictResolution === 'fork') {
+        // Create a fork/copy of the local document
+        const localDoc = await idb.getDocument(result.document.document_id);
+        if (localDoc) {
+          try {
+            const newDoc = await createMapDocument({
+              districtr_map_slug: result.document.districtr_map_slug,
+              metadata: result.document.map_metadata,
+              copy_from_doc: result.document.document_id,
+            });
+            // Save the new document to IDB
+            await idb.updateDocument({
+              id: newDoc.document_id,
+              document_metadata: newDoc,
+              assignments: localDoc.assignments || [],
+              clientLastUpdated: new Date().toISOString(),
+            });
+            // Navigate to the new document
+            router.push(`/map/edit/${newDoc.document_id}`);
+            // Load the new document
+            setMapDocument(newDoc);
+            const stateUpdates = formatAssignmentsFromDocument(localDoc.assignments || []);
+            ingestFromDocument(stateUpdates);
+          } catch (err) {
+            console.error('Failed to create fork:', err);
+            setError(new Error('Failed to create document fork'));
           }
         }
       } else if (result.conflictResolution === 'keep-local') {
@@ -111,7 +142,14 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
     } finally {
       setIsLoading(false);
     }
-  }, [document_id, enabled, handleConflict, setMapDocument, replaceZoneAssignments, setAppLoadingState]);
+  }, [
+    document_id,
+    enabled,
+    handleConflict,
+    setMapDocument,
+    replaceZoneAssignments,
+    setAppLoadingState,
+  ]);
 
   useEffect(() => {
     loadDocument();
@@ -140,4 +178,3 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
     ) : null,
   };
 }
-

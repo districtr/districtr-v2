@@ -1,4 +1,4 @@
-"use client";
+'use client';
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import type {MapOptions} from 'maplibre-gl';
@@ -8,7 +8,7 @@ import {DistrictrMapOptions} from './types';
 import {useAssignmentsStore} from './assignmentsStore';
 import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
-import { getFeaturesInBbox } from '@utils/map/getFeaturesInBbox';
+import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 
 type SidebarPanel = 'layers' | 'population' | 'demography' | 'election' | 'mapValidation';
 
@@ -63,7 +63,8 @@ export const useMapControlsStore = create<MapControlsStore>()(
   subscribeWithSelector((set, get) => ({
     selectedZone: 1,
     setSelectedZone: zone => {
-      const numDistricts = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+      const numDistricts =
+        useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
       if (zone <= numDistricts && !get().isPainting) {
         set({selectedZone: zone});
       }
@@ -99,7 +100,8 @@ export const useMapControlsStore = create<MapControlsStore>()(
       }),
     toggleLockAllAreas: () => {
       const {mapOptions} = get();
-      const numDistricts = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
+      const numDistricts =
+        useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
       const nextLockPaintedAreas = mapOptions.lockPaintedAreas.length
         ? []
         : Array.from({length: numDistricts}, (_, i) => (i + 1) as NullableZone);

@@ -4,7 +4,7 @@ import {
   BLOCK_LAYER_ID,
   BLOCK_LAYER_ID_CHILD,
   BLOCK_SOURCE_ID,
-  LABELS_BREAK_LAYER_ID
+  LABELS_BREAK_LAYER_ID,
 } from '@/app/constants/layers';
 import {useLayerFilter} from '@/app/hooks/useLayerFilter';
 import {useMapStore} from '@/app/store/mapStore';

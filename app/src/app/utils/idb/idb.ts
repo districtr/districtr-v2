@@ -36,17 +36,18 @@ export class DocumentsDB extends Dexie {
     await this.documents.delete(document_id);
   }
 
+  async getAllDocuments(): Promise<StoredDocument[]> {
+    return await this.documents.toArray();
+  }
+
   updateIdbAssignments = (
     mapDocument: DocumentObject,
     zoneAssignments: Map<string, NullableZone>
   ) => {
-    // // locked during break or heal
-    const {mapLock, appLoadingState} = useMapStore.getState();
+    const {appLoadingState} = useMapStore.getState();
     const {shatterMappings, shatterIds} = useAssignmentsStore.getState();
     const document_id = mapDocument?.document_id;
     if (!mapDocument) return;
-    // ensure document_id hasn't changed
-    if (mapLock) return;
     // map must be loaded
     if (appLoadingState !== 'loaded') return;
     // map must be in edit mode

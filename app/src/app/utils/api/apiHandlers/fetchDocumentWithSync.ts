@@ -3,7 +3,7 @@ import {getDocument} from './getDocument';
 import {idb, StoredDocument} from '@/app/utils/idb/idb';
 import {getAssignments} from './getAssignments';
 
-export type SyncConflictResolution = 'use-local' | 'use-server' | 'keep-local';
+export type SyncConflictResolution = 'use-local' | 'use-server' | 'keep-local' | 'fork';
 
 export interface DocumentFetchResult {
   document: DocumentObject;
@@ -84,12 +84,19 @@ export async function fetchDocumentWithSync(
     }
   }
 
-  // If no local copy, use server
+  // If no local copy, use server and save to IDB
   if (!localDoc) {
     const assignments = await getAssignments(finalServerDoc!);
     if (!assignments.ok) {
       throw new Error(assignments.error.detail || 'Failed to fetch assignments from server');
     }
+    // Save to IDB for future use
+    await idb.updateDocument({
+      id: documentIdForIdb,
+      document_metadata: finalServerDoc!,
+      assignments: assignments.response,
+      clientLastUpdated: finalServerDoc!.updated_at || new Date().toISOString(),
+    });
     return {
       document: finalServerDoc!,
       assignments: assignments.response,
@@ -175,6 +182,16 @@ export async function fetchDocumentWithSync(
           source: 'remote',
           conflictResolution: resolution,
         };
+      } else if (resolution === 'fork') {
+        // Fork: Create a copy of the local document and use that
+        // The fork will be created by the caller, so we just return the local version
+        // The caller should create a new document with copy_from_doc set to the current document_id
+        return {
+          document: localDoc.document_metadata,
+          assignments: localDoc.assignments || [],
+          source: 'local',
+          conflictResolution: resolution,
+        };
       } else {
         // keep-local - use local but update IDB to prevent conflict detection
         // Update the document's updated_at in IDB to match server's to prevent future conflicts
@@ -214,6 +231,13 @@ export async function fetchDocumentWithSync(
     if (!assignments.ok) {
       throw new Error(assignments.error.detail || 'Failed to fetch assignments from server');
     }
+    // Update IDB with server version
+    await idb.updateDocument({
+      id: documentIdForIdb,
+      document_metadata: finalServerDoc,
+      assignments: assignments.response,
+      clientLastUpdated: serverUpdatedAt || new Date().toISOString(),
+    });
     return {
       document: finalServerDoc,
       assignments: assignments.response,
@@ -235,6 +259,13 @@ export async function fetchDocumentWithSync(
   if (!assignments.ok) {
     throw new Error(assignments.error.detail || 'Failed to fetch assignments from server');
   }
+  // Update IDB with server version
+  await idb.updateDocument({
+    id: documentIdForIdb,
+    document_metadata: finalServerDoc,
+    assignments: assignments.response,
+    clientLastUpdated: serverUpdatedAt || new Date().toISOString(),
+  });
   return {
     document: finalServerDoc,
     assignments: assignments.response,

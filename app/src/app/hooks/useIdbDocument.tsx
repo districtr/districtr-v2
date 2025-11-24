@@ -1,7 +1,7 @@
 import {useEffect, useState} from 'react';
 import {idb} from '../utils/idb/idb';
 import {StoredDocument} from '../utils/idb/idb';
-import { useAssignmentsStore } from '../store/assignmentsStore';
+import {useAssignmentsStore} from '../store/assignmentsStore';
 
 export const useIdbDocument = (document_id: string | null | undefined) => {
   const [documentFromIdb, setDocumentFromIdb] = useState<Omit<

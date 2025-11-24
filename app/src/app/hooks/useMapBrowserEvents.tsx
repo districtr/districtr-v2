@@ -2,8 +2,8 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useEffect, useRef} from 'react';
 import {useVisibilityState} from './useVisibilityState';
 import {useRouter} from 'next/navigation';
-import { useMapControlsStore } from '../store/mapControlsStore';
-import { useAssignmentsStore } from '../store/assignmentsStore';
+import {useMapControlsStore} from '../store/mapControlsStore';
+import {useAssignmentsStore} from '../store/assignmentsStore';
 
 interface UseMapBrowserEventsV2Props {
   mapId: string;

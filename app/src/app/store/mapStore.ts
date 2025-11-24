@@ -280,8 +280,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
 
     const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
     const accessIsSame = currentMapDocument?.access === mapDocument.access;
-    const statusIsSame = currentMapDocument?.status === mapDocument.status;
-    const documentIsSame = idIsSame && accessIsSame && statusIsSame;
+    const documentIsSame = idIsSame && accessIsSame;
     const bothHaveData =
       typeof currentMapDocument?.updated_at === 'string' &&
       typeof mapDocument?.updated_at === 'string';
@@ -320,7 +319,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     set({
       mapDocument,
       mapStatus: {
-        status: mapDocument.status,
         access: mapDocument.access,
         genesis: mapDocument.genesis,
         token: mapDocument.token,

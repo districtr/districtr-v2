@@ -35,8 +35,8 @@ import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
 import {useRouter} from 'next/navigation';
 import {idb} from '@/app/utils/idb/idb';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
-import { useAssignmentsStore } from '@/app/store/assignmentsStore';
-import { createMapDocument } from '@/app/utils/api/apiHandlers/createMapDocument';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);

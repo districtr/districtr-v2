@@ -35,7 +35,11 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   const setUserID = useMapStore(state => state.setUserID);
 
   // Load document with sync support
-  const {isLoading: isLoadingDocument, error: documentError, conflictModal} = useDocumentWithSync({
+  const {
+    isLoading: isLoadingDocument,
+    error: documentError,
+    conflictModal,
+  } = useDocumentWithSync({
     document_id: mapId || undefined,
     enabled: !!mapId,
   });

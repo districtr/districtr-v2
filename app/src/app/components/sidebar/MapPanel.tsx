@@ -98,9 +98,7 @@ export const MapPanel: React.FC<MapPanelProps> = ({columnGroup}) => {
   const currentVariableList = availableMapVariables[columnGroup] ?? [];
   const mapVariableConfig = availableMapVariables[columnGroup]?.find(f => f.value === variable);
 
-  const handleSetMapMode = (
-    newMode: MapControlsStore['mapOptions']['showDemographicMap']
-  ) => {
+  const handleSetMapMode = (newMode: MapControlsStore['mapOptions']['showDemographicMap']) => {
     setMapOptions({showDemographicMap: newMode});
     if (!mapVariableConfig) {
       setVariable(availableMapVariables[columnGroup][0].value);

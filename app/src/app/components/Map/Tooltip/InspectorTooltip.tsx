@@ -8,7 +8,7 @@ import {useEffect, useState} from 'react';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
 import {PARTISAN_SCALE} from '@store/demography/constants';
 import {INSPECTOR_TITLE, TOTAL_COLUMN} from '@components/Map/Tooltip/InpsectorTooltipConfig';
-import { previousHoverFeatures as hoverFeatures } from '@/app/utils/map/hoverFeatures';
+import {previousHoverFeatures as hoverFeatures} from '@/app/utils/map/hoverFeatures';
 export const InspectorTooltip = () => {
   const hoverFeaturesTimestamp = useHoverStore(state => state.hoverFeaturesTimestamp);
   const activeColumns = useTooltipStore(state => state.activeColumns);

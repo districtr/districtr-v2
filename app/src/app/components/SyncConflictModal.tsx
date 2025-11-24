@@ -1,7 +1,10 @@
 import React from 'react';
 import {Dialog, Button, Flex, Text, Box} from '@radix-ui/themes';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {SyncConflictResolution, SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocumentWithSync';
+import {
+  SyncConflictResolution,
+  SyncConflictInfo,
+} from '@/app/utils/api/apiHandlers/fetchDocumentWithSync';
 import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
 
 interface SyncConflictModalProps {
@@ -25,7 +28,10 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
           <Dialog.Title className="m-0 text-xl font-bold flex-1">
             Sync Conflict Detected
           </Dialog.Title>
-          <Dialog.Close className="rounded-full size-[24px] hover:bg-red-100 p-1" aria-label="Close">
+          <Dialog.Close
+            className="rounded-full size-[24px] hover:bg-red-100 p-1"
+            aria-label="Close"
+          >
             <Cross2Icon />
           </Dialog.Close>
         </Flex>
@@ -80,6 +86,9 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
             >
               Use Local Version (Overwrite Server)
             </Button>
+            <Button onClick={() => onResolve('fork')} variant="solid" className="w-full" size="3">
+              Create Copy/Fork (Keep Both Versions)
+            </Button>
             <Button
               onClick={() => onResolve('keep-local')}
               variant="outline"
@@ -94,4 +103,3 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
     </Dialog.Root>
   );
 };
-

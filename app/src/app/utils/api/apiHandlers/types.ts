@@ -34,7 +34,6 @@ export interface DistrictrMap {
 }
 
 export interface StatusObject {
-  status: 'locked' | 'unlocked' | 'checked_out';
   access: 'read' | 'edit';
   genesis: 'shared' | 'copied' | 'created';
   token?: string | null;

@@ -15,7 +15,7 @@ export const MapTitleDisplay: React.FC<{
 
   const isTruncated = _mapName.length > MAX_TITLE_LENGTH;
   const mapName = isTruncated ? `${_mapName.slice(0, MAX_TITLE_LENGTH)}...` : _mapName;
-  const editing = mapDocument?.access === 'edit' && mapDocument?.status === 'checked_out';
+  const editing = mapDocument?.access === 'edit';
   const handleChangeMapName = async () => {
     await handleMetadataChange({
       name: mapTitleInner,

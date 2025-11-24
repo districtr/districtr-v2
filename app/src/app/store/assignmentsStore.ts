@@ -332,10 +332,8 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
 
     handlePutAssignments: async () => {
       const {zoneAssignments, shatterIds, shatterMappings} = get();
-      // lock map
-      const {setMapLock, mapDocument} = useMapStore.getState();
+      const {mapDocument} = useMapStore.getState();
       if (!mapDocument?.document_id || !mapDocument.updated_at) return;
-      setMapLock(true);
       // post assignments
       const formattedAssignments = formatAssignmentsFromState(
         mapDocument.document_id,
@@ -348,18 +346,21 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
         document_id: mapDocument.document_id,
         last_updated_at: mapDocument.updated_at,
       });
-      // TODO handle conflict on save
+      // Handle conflict on save
       if (!assignmentsPostResponse.ok) {
+        if (assignmentsPostResponse.error?.status === 409) {
+          throw new Error('CONFLICT: Document has been updated on server');
+        }
         throw new Error('Failed to post assignments');
       }
       const freshServerAssignments = await getAssignments(mapDocument);
       if (!freshServerAssignments.ok) {
         throw new Error('Failed to get fresh server assignments');
       }
+      // Verify assignments were saved correctly
       freshServerAssignments.response.forEach(assignment => {
         if (assignment.zone !== zoneAssignments.get(assignment.geo_id)) {
-          // TODO handle retry
-          throw new Error('Conflict on save');
+          throw new Error('Conflict on save: assignments mismatch');
         }
       });
       idb.updateDocument({
@@ -371,7 +372,6 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
         assignments: freshServerAssignments.response,
         clientLastUpdated: assignmentsPostResponse.response.updated_at,
       });
-      setMapLock(false);
       set({
         clientLastUpdated: assignmentsPostResponse.response.updated_at,
       });

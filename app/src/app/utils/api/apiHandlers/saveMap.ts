@@ -8,7 +8,7 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
     useMapStore.getState();
   if (!mapDocument?.document_id) return;
 
-  if (mapStatus?.status === 'locked' || mapStatus?.access === 'read') {
+  if (mapStatus?.access === 'read') {
     // atp doesn't matter that it's locked, even with pw; should be able to copy map
     // what we need is a pw entry field to open if there's a pw required in the url
     try {
@@ -29,7 +29,6 @@ export const saveMap = async (latestMetadata: DocumentMetadata | null) => {
       // TODO Neither of these two settings seem to properly tell the client that the document can be edited
       setMapStatus({
         access: updatedMapDoc.access,
-        status: updatedMapDoc.status,
       });
       return newDocumentData;
     } catch (err) {

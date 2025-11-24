@@ -3,7 +3,7 @@ import {Box, Popover, Text} from '@radix-ui/themes';
 import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
 import {InspectorTooltip} from '@components/Map/Tooltip/InspectorTooltip';
-import { useMapControlsStore } from '@/app/store/mapControlsStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 export const MapTooltip = () => {
   const tooltip = useTooltipStore(state => state.tooltip);
