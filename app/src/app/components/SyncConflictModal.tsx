@@ -1,22 +1,20 @@
 import React from 'react';
-import {Dialog, Button, Flex, Text, Box} from '@radix-ui/themes';
+import {Dialog, Button, Flex, Text, Box, Spinner} from '@radix-ui/themes';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {
-  SyncConflictResolution,
-  SyncConflictInfo,
-} from '@/app/utils/api/apiHandlers/fetchDocumentWithSync';
-import {DocumentObject} from '@/app/utils/api/apiHandlers/types';
+import {SyncConflictResolution, SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
 
 interface SyncConflictModalProps {
   open: boolean;
   conflict: SyncConflictInfo;
   onResolve: (resolution: SyncConflictResolution) => void;
+  loading: boolean;
 }
 
 export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
   open,
   conflict,
   onResolve,
+  loading,
 }) => {
   const localDate = new Date(conflict.localLastUpdated).toLocaleString();
   const serverDate = new Date(conflict.serverLastUpdated).toLocaleString();
@@ -41,63 +39,76 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
             to resolve this conflict:
           </Text>
 
-          <Box className="mb-4 p-3 bg-gray-50 rounded">
-            <Text size="2" weight="bold" className="block mb-2">
-              Local Version
-            </Text>
-            <Text size="2" className="block mb-1">
-              Last updated: {localDate}
-            </Text>
-            {conflict.localDocument.map_metadata?.name && (
-              <Text size="2" className="block">
-                Name: {conflict.localDocument.map_metadata.name}
-              </Text>
-            )}
-          </Box>
+          {loading ? (
+            <Box className="flex justify-center items-center w-full h-20">
+              <Spinner />
+            </Box>
+          ) : (
+            <>
+              <Box className="mb-4 p-3 bg-gray-50 rounded">
+                <Text size="2" weight="bold" className="block mb-2">
+                  Local Version
+                </Text>
+                <Text size="2" className="block mb-1">
+                  Last updated: {localDate}
+                </Text>
+                {conflict.localDocument.map_metadata?.name && (
+                  <Text size="2" className="block">
+                    Name: {conflict.localDocument.map_metadata.name}
+                  </Text>
+                )}
+              </Box>
 
-          <Box className="mb-4 p-3 bg-gray-50 rounded">
-            <Text size="2" weight="bold" className="block mb-2">
-              Server Version
-            </Text>
-            <Text size="2" className="block mb-1">
-              Last updated: {serverDate}
-            </Text>
-            {conflict.serverDocument.map_metadata?.name && (
-              <Text size="2" className="block">
-                Name: {conflict.serverDocument.map_metadata.name}
-              </Text>
-            )}
-          </Box>
+              <Box className="mb-4 p-3 bg-gray-50 rounded">
+                <Text size="2" weight="bold" className="block mb-2">
+                  Server Version
+                </Text>
+                <Text size="2" className="block mb-1">
+                  Last updated: {serverDate}
+                </Text>
+                {conflict.serverDocument.map_metadata?.name && (
+                  <Text size="2" className="block">
+                    Name: {conflict.serverDocument.map_metadata.name}
+                  </Text>
+                )}
+              </Box>
 
-          <Flex gap="2" direction="column" className="mt-4">
-            <Button
-              onClick={() => onResolve('use-server')}
-              variant="solid"
-              className="w-full"
-              size="3"
-            >
-              Use Server Version (Overwrite Local)
-            </Button>
-            <Button
-              onClick={() => onResolve('use-local')}
-              variant="solid"
-              className="w-full"
-              size="3"
-            >
-              Use Local Version (Overwrite Server)
-            </Button>
-            <Button onClick={() => onResolve('fork')} variant="solid" className="w-full" size="3">
-              Create Copy/Fork (Keep Both Versions)
-            </Button>
-            <Button
-              onClick={() => onResolve('keep-local')}
-              variant="outline"
-              className="w-full"
-              size="3"
-            >
-              Keep Working on Local (Don't Sync)
-            </Button>
-          </Flex>
+              <Flex gap="2" direction="column" className="mt-4">
+                <Button
+                  onClick={() => onResolve('use-server')}
+                  variant="solid"
+                  className="w-full"
+                  size="3"
+                >
+                  Use Server Version (Overwrite Local)
+                </Button>
+                <Button
+                  onClick={() => onResolve('use-local')}
+                  variant="solid"
+                  className="w-full"
+                  size="3"
+                >
+                  Use Local Version (Overwrite Server)
+                </Button>
+                <Button
+                  onClick={() => onResolve('fork')}
+                  variant="solid"
+                  className="w-full"
+                  size="3"
+                >
+                  Copy Local Version to a New Map (Keep Both)
+                </Button>
+                <Button
+                  onClick={() => onResolve('keep-local')}
+                  variant="outline"
+                  className="w-full"
+                  size="3"
+                >
+                  Keep Working on Local (Don't Sync)
+                </Button>
+              </Flex>
+            </>
+          )}
         </Box>
       </Dialog.Content>
     </Dialog.Root>

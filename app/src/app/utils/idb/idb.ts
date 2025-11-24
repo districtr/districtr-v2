@@ -4,7 +4,6 @@ import {useMapStore} from '@store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {NullableZone} from '@/app/constants/types';
 import {formatAssignmentsFromState} from '../map/formatAssignments';
-
 // --- Main Document Entry ---
 export interface StoredDocument {
   id: string; // UUID key
@@ -42,14 +41,13 @@ export class DocumentsDB extends Dexie {
 
   updateIdbAssignments = (
     mapDocument: DocumentObject,
-    zoneAssignments: Map<string, NullableZone>
+    zoneAssignments: Map<string, NullableZone>,
+    clientLastUpdated: string = new Date().toISOString()
   ) => {
-    const {appLoadingState} = useMapStore.getState();
     const {shatterMappings, shatterIds} = useAssignmentsStore.getState();
     const document_id = mapDocument?.document_id;
     if (!mapDocument) return;
     // map must be loaded
-    if (appLoadingState !== 'loaded') return;
     // map must be in edit mode
     const assignmentsToSave = formatAssignmentsFromState(
       document_id,
@@ -57,17 +55,12 @@ export class DocumentsDB extends Dexie {
       shatterIds,
       shatterMappings
     );
-    const clientUpdatedAt = new Date().toISOString();
-    idb
-      .updateDocument({
-        id: document_id,
-        document_metadata: mapDocument,
-        assignments: assignmentsToSave,
-        clientLastUpdated: clientUpdatedAt,
-      })
-      .catch(e => {
-        console.error('error updating idb', e);
-      });
+    this.updateDocument({
+      id: document_id,
+      document_metadata: mapDocument,
+      assignments: assignmentsToSave,
+      clientLastUpdated: clientLastUpdated,
+    });
   };
 }
 

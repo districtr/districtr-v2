@@ -12,6 +12,7 @@ export interface AssignmentsCreate {
   assignments: Assignment[];
   document_id: string;
   last_updated_at: string;
+  overwrite: boolean;
 }
 export interface AssignmentsCreateResponse {
   assignments_upserted: number;
@@ -62,7 +63,7 @@ export interface DocumentObject extends StatusObject {
   num_districts: number | null;
   map_module: string | null;
   created_at: string;
-  updated_at: string | null;
+  updated_at: string;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;

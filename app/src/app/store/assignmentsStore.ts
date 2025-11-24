@@ -8,12 +8,20 @@ import {useMapStore} from './mapStore';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {checkIfSameZone} from '../utils/map/checkIfSameZone';
 import {postUpdateAssignments} from '../utils/api/apiHandlers/postUpdateAssignments';
-import {formatAssignmentsFromState} from '../utils/map/formatAssignments';
+import {
+  formatAssignmentsFromDocument,
+  formatAssignmentsFromState,
+} from '../utils/map/formatAssignments';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {useChartStore} from './chartStore';
 import {useMapControlsStore} from './mapControlsStore';
 import {subscribeWithSelector} from 'zustand/middleware';
+import {postUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/postUpdateAssignmentsAndVerify';
+import {DocumentObject} from '../utils/api/apiHandlers/types';
+import {SyncConflictInfo, SyncConflictResolution} from '../utils/api/apiHandlers/fetchDocument';
+import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
+import {gold} from '@radix-ui/colors';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -42,13 +50,17 @@ export interface AssignmentsStore {
     zonesUpdated: Set<NullableZone>
   ) => void;
   clientLastUpdated: string;
+  setClientLastUpdated: (updated_at: string) => void;
   /** Flushes accumulated geoids to the worker & downstream caches */
   ingestAccumulatedAssignments: () => void;
-  ingestFromDocument: (data: {
-    zoneAssignments: AssignmentsStore['zoneAssignments'];
-    shatterIds: AssignmentsStore['shatterIds'];
-    shatterMappings: AssignmentsStore['shatterMappings'];
-  }) => void;
+  ingestFromDocument: (
+    data: {
+      zoneAssignments: AssignmentsStore['zoneAssignments'];
+      shatterIds: AssignmentsStore['shatterIds'];
+      shatterMappings: AssignmentsStore['shatterMappings'];
+    },
+    mapDocument?: DocumentObject
+  ) => void;
   /** Replaces the entire assignment map (e.g. after loading from API) */
   replaceZoneAssignments: (assignments: Map<string, NullableZone>) => void;
   /** Clears all assignments and local caches */
@@ -59,7 +71,12 @@ export interface AssignmentsStore {
   ) => void;
   /** Clears all shatter state */
   resetShatterState: () => void;
-  handlePutAssignments: () => void;
+  handlePutAssignments: (overwrite?: boolean) => void;
+  showSaveConflictModal: boolean;
+  handlePutAssignmentsConflict: (
+    resolution: SyncConflictResolution,
+    conflict: SyncConflictInfo
+  ) => void;
 }
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
@@ -75,6 +92,11 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
     },
     shatterMappings: {},
     clientLastUpdated: '',
+    setClientLastUpdated: (updated_at: string) => {
+      set({
+        clientLastUpdated: updated_at,
+      });
+    },
     setZoneAssignments: (zone, geoids) => {
       const updatedAssignments = new Map(get().zoneAssignments);
       geoids.forEach(geoid => {
@@ -158,19 +180,19 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
       });
     },
 
-    ingestFromDocument: (data: {
-      zoneAssignments: AssignmentsStore['zoneAssignments'];
-      shatterIds: AssignmentsStore['shatterIds'];
-      shatterMappings: AssignmentsStore['shatterMappings'];
-    }) => {
+    ingestFromDocument: (data, mapDocument) => {
       set({
         zoneAssignments: new Map(data.zoneAssignments),
         shatterIds: data.shatterIds,
         shatterMappings: data.shatterMappings,
+        clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
       });
+      GeometryWorker?.updateZones(Array.from(data.zoneAssignments.entries()));
+      demographyCache.updatePopulations(data.zoneAssignments);
+      mapDocument &&
+        idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at);
     },
     ingestAccumulatedAssignments: () => {
-      console.log('INGESTING ACCUMULATED ASSIGNMENTS');
       const {
         accumulatedAssignments,
         shatterIds: _shatterIds,
@@ -181,7 +203,7 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
 
       const {mapDocument, getMapRef, lockedFeatures} = useMapStore.getState();
       const mapRef = getMapRef();
-      if (!mapDocument || !getMapRef) return;
+      if (!mapDocument || !getMapRef || !accumulatedAssignments.size) return;
 
       const zoneAssignments = new Map(currentZoneAssignments);
       accumulatedAssignments.forEach((zone, geoid) => {
@@ -330,51 +352,98 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
       });
     },
 
-    handlePutAssignments: async () => {
+    handlePutAssignments: async (overwrite = false) => {
       const {zoneAssignments, shatterIds, shatterMappings} = get();
       const {mapDocument} = useMapStore.getState();
       if (!mapDocument?.document_id || !mapDocument.updated_at) return;
-      // post assignments
-      const formattedAssignments = formatAssignmentsFromState(
-        mapDocument.document_id,
+      const assignmentsPostResponse = await postUpdateAssignmentsAndVerify({
+        mapDocument,
         zoneAssignments,
         shatterIds,
-        shatterMappings
-      );
-      const assignmentsPostResponse = await postUpdateAssignments({
-        assignments: formattedAssignments,
-        document_id: mapDocument.document_id,
-        last_updated_at: mapDocument.updated_at,
+        shatterMappings,
+        overwrite,
       });
-      // Handle conflict on save
-      if (!assignmentsPostResponse.ok) {
-        if (assignmentsPostResponse.error?.status === 409) {
-          throw new Error('CONFLICT: Document has been updated on server');
-        }
-        throw new Error('Failed to post assignments');
+      if (
+        !assignmentsPostResponse.ok &&
+        assignmentsPostResponse.error === 'Document has been updated since the last update'
+      ) {
+        set({
+          showSaveConflictModal: true,
+        });
+      } else if (!assignmentsPostResponse.ok) {
+        throw new Error(assignmentsPostResponse.error);
+      } else if (assignmentsPostResponse.ok) {
+        set({
+          showSaveConflictModal: false,
+          clientLastUpdated: assignmentsPostResponse.response!.updated_at,
+        });
       }
-      const freshServerAssignments = await getAssignments(mapDocument);
-      if (!freshServerAssignments.ok) {
-        throw new Error('Failed to get fresh server assignments');
-      }
-      // Verify assignments were saved correctly
-      freshServerAssignments.response.forEach(assignment => {
-        if (assignment.zone !== zoneAssignments.get(assignment.geo_id)) {
-          throw new Error('Conflict on save: assignments mismatch');
+    },
+    showSaveConflictModal: false,
+    handlePutAssignmentsConflict: async (resolution, conflict) => {
+      switch (resolution) {
+        case 'keep-local': {
+          set({
+            showSaveConflictModal: false,
+          });
+          break;
         }
-      });
-      idb.updateDocument({
-        id: mapDocument.document_id,
-        document_metadata: {
-          ...mapDocument,
-          updated_at: assignmentsPostResponse.response.updated_at,
-        },
-        assignments: freshServerAssignments.response,
-        clientLastUpdated: assignmentsPostResponse.response.updated_at,
-      });
-      set({
-        clientLastUpdated: assignmentsPostResponse.response.updated_at,
-      });
+        case 'use-local': {
+          get().handlePutAssignments(true);
+          break;
+        }
+        case 'use-server': {
+          const remoteAssignments = await getAssignments(conflict.serverDocument);
+          if (!remoteAssignments.ok) {
+            throw new Error('Failed to get remote assignments');
+          }
+          const data = formatAssignmentsFromDocument(remoteAssignments.response);
+          get().ingestFromDocument(
+            {
+              zoneAssignments: data.zoneAssignments,
+              shatterIds: data.shatterIds,
+              shatterMappings: data.shatterMappings,
+            },
+            conflict.serverDocument
+          );
+          set({
+            showSaveConflictModal: false,
+          });
+          break;
+        }
+        case 'fork': {
+          const createMapDocumentResponse = await createMapDocument(conflict.serverDocument);
+          if (!createMapDocumentResponse.ok) {
+            throw new Error('Failed to create map document');
+          }
+          const assignments = await idb.getDocument(conflict?.localDocument.document_id);
+          if (!assignments) {
+            throw new Error('No assignments found in IDB');
+          }
+          const data = formatAssignmentsFromDocument(assignments.assignments);
+          const response = await postUpdateAssignmentsAndVerify({
+            mapDocument: createMapDocumentResponse.response,
+            zoneAssignments: data.zoneAssignments,
+            shatterIds: data.shatterIds,
+            shatterMappings: data.shatterMappings,
+            overwrite: true,
+          });
+          if (!response.ok) {
+            throw new Error('Failed to post assignments');
+          }
+          set({
+            showSaveConflictModal: false,
+          });
+          // redirect to new map document
+          history.pushState(
+            null,
+            '',
+            `/map/edit/${createMapDocumentResponse.response.document_id}`
+          );
+        }
+      }
     },
   }))
 );
+
+window.__assignmentsStore = useAssignmentsStore;

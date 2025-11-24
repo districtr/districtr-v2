@@ -20,6 +20,7 @@ export const formatAssignmentsFromState = (
       document_id,
       geo_id,
       zone,
+      parent_path,
     });
   }
   return assignments;
@@ -34,6 +35,15 @@ export const formatAssignmentsFromDocument = (assignments: Assignment[]) => {
   const shatterMappings: Record<string, Set<string>> = {};
   for (const assignment of assignments) {
     zoneAssignments.set(assignment.geo_id, assignment.zone);
+    if (assignment.parent_path) {
+      shatterIds.parents.add(assignment.parent_path);
+      shatterIds.children.add(assignment.geo_id);
+      if (!shatterMappings[assignment.parent_path]) {
+        shatterMappings[assignment.parent_path] = new Set([assignment.geo_id]);
+      } else {
+        shatterMappings[assignment.parent_path].add(assignment.geo_id);
+      }
+    }
   }
   return {zoneAssignments, shatterIds, shatterMappings} as const;
 };

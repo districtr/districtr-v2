@@ -17,6 +17,7 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEvents';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
+import { SaveConflictModal } from '../SaveConflictModal';
 
 interface MapPageProps {
   isEditing: boolean;
@@ -103,6 +104,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
       <MapContextMenu />
       <ErrorNotification />
       {conflictModal}
+      <SaveConflictModal />
     </div>
   );
 }

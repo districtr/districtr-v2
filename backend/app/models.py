@@ -20,7 +20,6 @@ from app.constants import DOCUMENT_SCHEMA
 from app.core.models import UUIDType, TimeStampMixin, SQLModel
 from app.save_share.models import (
     DocumentDraftStatus,
-    DocumentEditStatus,
     DocumentShareStatus,
 )
 from geoalchemy2 import Geometry
@@ -208,10 +207,6 @@ class DocumentPublic(BaseModel):
     updated_at: datetime
     extent: list[float] | None = None
     map_metadata: DocumentMetadata | None
-    status: DocumentEditStatus = (
-        DocumentEditStatus.unlocked
-    )  # locked, unlocked, checked_out
-    genesis: str | None = None
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
     map_type: str

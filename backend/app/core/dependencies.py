@@ -4,12 +4,10 @@ from app.core.models import DocumentID
 from app.models import Document, DocumentPublic, DistrictrMap
 from app.save_share.models import (
     DocumentShareStatus,
-    DocumentEditStatus,
     MapDocumentToken,
 )
 from sqlalchemy.sql.functions import coalesce
 from sqlalchemy import or_
-from app.save_share.locks import check_map_lock
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 from app.core.db import get_session
 import logging
@@ -82,26 +80,14 @@ def get_document_public(
     document_id: DocumentID = Depends(parse_document_id),
     user_id: str | None = None,
     shared: bool = False,
-    lock_status: DocumentEditStatus | None = None,
 ) -> DocumentPublic:
     """
     Get a document by the public or private ID.
     """
     access_type = DocumentShareStatus.read
-    # Store if lock_status was explicitly provided
-    lock_status_provided = lock_status is not None
 
     if not document_id.is_public:
         access_type = DocumentShareStatus.edit
-        # Only check map lock if no lock_status was explicitly provided
-        if not lock_status_provided:
-            lock_status = check_map_lock(
-                document_id.document_id, user_id=user_id, session=session
-            )
-
-    # Set default lock_status if not provided and not already set
-    if lock_status is None:
-        lock_status = DocumentEditStatus.locked
 
     stmt = select(
         # Obsured document ID
@@ -127,12 +113,6 @@ def get_document_public(
         DistrictrMap.comment.label("comment"),  # pyright: ignore
         # get metadata as a json object
         Document.map_metadata.label("map_metadata"),  # pyright: ignore
-        coalesce(
-            "shared" if shared else "created",
-        ).label("genesis"),
-        coalesce(
-            lock_status,
-        ).label("status"),
         coalesce(
             access_type,
         ).label("access"),

@@ -1,32 +1,21 @@
 from fastapi import (
-    status,
     Depends,
-    HTTPException,
     APIRouter,
-    BackgroundTasks,
 )
 from typing import Annotated
-from sqlalchemy import text, bindparam
-from sqlalchemy.exc import NoResultFound
-from sqlmodel import Session, String
+from sqlalchemy import text
+from sqlmodel import Session
 import logging
 from app.core.db import get_session
 from app.core.dependencies import (
     get_document,
-    get_protected_document,
 )
 from app.models import (
     Document,
 )
-from app.save_share.locks import check_map_lock
 from app.core.config import settings
 import jwt
-from app.core.models import UUIDType
 from app.save_share.models import (
-    DocumentCheckoutRequest,
-    DocumentShareStatus,
-    DocumentEditStatus,
-    UserID,
     DocumentShareRequest,
     DocumentShareResponse,
 )
@@ -47,68 +36,6 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(password.encode("utf-8"), hashed_password.encode("utf-8"))
-
-
-@router.post("/api/document/{document_id}/unlock")
-async def unlock_document(
-    document_id: str,
-    data: UserID,
-    background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-):
-    try:
-        session.execute(
-            text(
-                """DELETE FROM document.map_document_user_session
-                WHERE document_id = :document_id AND user_id = :user_id"""
-            )
-            .bindparams(
-                bindparam(key="document_id", type_=UUIDType),
-                bindparam(key="user_id", type_=String),
-            )
-            .params(document_id=document_id, user_id=data.user_id)
-        )
-        session.commit()
-        logger.info("Document unlocked")
-        return {"status": DocumentEditStatus.unlocked}
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/api/document/{document_id}/status")
-async def get_document_status(
-    document_id: str, data: UserID, session: Session = Depends(get_session)
-):
-    stmt = (
-        text(
-            "SELECT * from document.map_document_user_session WHERE document_id = :document_id"
-        )
-        .bindparams(bindparam(key="document_id", type_=UUIDType))
-        .params(document_id=document_id)
-    )
-    result = session.execute(stmt).fetchone()
-    if result:
-        # if user id matches, return the document checked out, otherwise return locked
-        if result.user_id == data.user_id:
-            # there's already a record so no need to create
-            return {"status": DocumentEditStatus.checked_out}
-
-        # the map is already checked out; should return as locked
-        return {"status": DocumentEditStatus.locked}
-    else:
-        # the map is able to be checked out;
-        # should return as unlocked, but should now
-        # create a record in the map_document_user_session table
-        session.execute(
-            text(
-                f"""INSERT INTO document.map_document_user_session (document_id, user_id)
-                VALUES ('{document_id}', '{data.user_id}')"""
-            )
-        )
-        session.commit()
-
-        return {"status": DocumentEditStatus.checked_out}
 
 
 @router.post("/api/document/{document_id}/share", response_model=DocumentShareResponse)
@@ -187,56 +114,3 @@ async def share_districtr_plan(
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
     return {"token": token, "public_id": document.public_id}
-
-
-@router.post("/api/document/{document_id}/checkout", status_code=status.HTTP_200_OK)
-async def checkout_plan(
-    document: Annotated[Document, Depends(get_protected_document)],
-    data: DocumentCheckoutRequest,
-    session: Session = Depends(get_session),
-):
-    """
-    Check user-provided password against database.
-    - if matches, check if map is checked out
-    - if pw matches and not checked out, check map out to user
-    - if pw matches and checked out, return warning that map is still locked but switch access to edit
-    """
-    try:
-        result = session.execute(
-            text(
-                """
-                SELECT password_hash
-                FROM document.map_document_token
-                WHERE document_id = :document_id
-                """
-            ),
-            {"document_id": document.document_id},
-        ).one()
-    except NoResultFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="This document has not been shared",
-        )
-    logger.info(
-        f"Result: {data.password}, {'None' if not data.password else hash_password(data.password)}, {result.password_hash}"
-    )
-    if not result.password_hash or (
-        data.password and verify_password(data.password, result.password_hash)
-    ):
-        assert document.document_id
-        lock_status = check_map_lock(
-            document_id=document.document_id, user_id=data.user_id, session=session
-        )
-
-        return {
-            "status": lock_status,
-            "access": DocumentShareStatus.edit
-            if lock_status == DocumentEditStatus.unlocked
-            else DocumentShareStatus.read,
-            "document_id": document.document_id,
-        }
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password",
-        )

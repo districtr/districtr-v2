@@ -4,7 +4,6 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
-    Form,
 )
 from typing import Annotated
 import botocore.exceptions
@@ -23,7 +22,6 @@ from sqlalchemy import bindparam
 from sqlmodel import ARRAY
 from datetime import datetime
 import sentry_sdk
-from fastapi_utils.tasks import repeat_every
 from app.assignments import duplicate_document_assignments, batch_insert_assignments
 from app.core.db import get_session
 from app.core.dependencies import (
@@ -52,7 +50,6 @@ from app.models import (
     DocumentCreate,
     DocumentCreatePublic,
     DocumentPublic,
-    DocumentEditStatus,
     DocumentMetadata,
     GEOIDS,
     UUIDType,
@@ -67,10 +64,6 @@ from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
-from app.save_share.locks import (
-    cleanup_expired_locks as _cleanup_expired_locks,
-    remove_all_locks,
-)
 from app.utils import update_or_select_district_stats
 from aiocache import Cache
 from contextlib import asynccontextmanager
@@ -87,18 +80,9 @@ if settings.ENVIRONMENT in ("production", "qa"):
     )
 
 
-@repeat_every(seconds=60)
-async def cleanup_expired_locks():
-    session = next(get_session())
-    _cleanup_expired_locks(session=session, hours=1)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await cleanup_expired_locks()
     yield
-    session = next(get_session())
-    remove_all_locks(session=session)
 
 
 app = FastAPI(lifespan=lifespan)
@@ -157,33 +141,6 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
-@app.post("/api/document/{document_id}/unload", status_code=status.HTTP_200_OK)
-async def unlock_map(
-    document_id: DocumentID = Depends(parse_document_id),
-    user_id: str = Form(...),
-    session: Session = Depends(get_session),
-):
-    """
-    unlock map when tab is unloaded
-    """
-    try:
-        session.execute(
-            text(
-                """DELETE FROM document.map_document_user_session
-                WHERE document_id = :document_id AND user_id = :user_id"""
-            ).bindparams(
-                bindparam(key="document_id", type_=UUIDType),
-                bindparam(key="user_id", type_=String),
-            ),
-            {"document_id": document_id.value, "user_id": user_id},
-        )
-        session.commit()
-        return {"status": DocumentEditStatus.unlocked}
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/api/document/{document_id}/stats")
 async def get_document_stats(
     background_tasks: BackgroundTasks,
@@ -209,7 +166,6 @@ async def create_document(
         text("SELECT create_document(:districtr_map_slug);"),
         {"districtr_map_slug": data.districtr_map_slug},
     )
-    plan_genesis = "created"
     document_id = results.one()[0]  # should be only one row, one column of results
 
     total_assignments = 0
@@ -227,7 +183,6 @@ async def create_document(
             to_document_id=document_id,
             session=session,
         )
-        plan_genesis = "copied"
 
     elif data.assignments is not None and len(data.assignments) > 0:
         max_records = 914_231
@@ -283,16 +238,11 @@ async def create_document(
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
-            coalesce(plan_genesis).label("genesis"),
             coalesce(total_assignments).label("inserted_assignments"),
             # send metadata as a null object on init of document
             coalesce(
                 None,
             ).label("map_metadata"),
-            coalesce(
-                None,
-                "unlocked",
-            ).label("status"),
         )
         .where(Document.document_id == document_id)
         .join(
@@ -343,7 +293,7 @@ async def update_assignments(
         select(Document.updated_at).where(Document.document_id == document_id)
     ).one_or_none()
 
-    if db_last_updated_at > last_updated_at:
+    if db_last_updated_at > last_updated_at and not data.overwrite:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",

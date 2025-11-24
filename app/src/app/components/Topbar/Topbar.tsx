@@ -201,7 +201,7 @@ export const Topbar: React.FC = () => {
             </Text>
             {documentFromIdb?.clientLastUpdated !==
             documentFromIdb?.document_metadata.updated_at ? (
-              <IconButton variant="ghost" size="1" color="amber" onClick={handlePutAssignments}>
+              <IconButton variant="ghost" size="1" color="amber" onClick={() => handlePutAssignments()}>
                 <Flex direction="row" align="center" gapX="1">
                   <SymbolIcon className="size-4" />
                   <Text size="1" className="italic">

@@ -345,7 +345,6 @@ def test_get_document(client, document_id):
     assert data.get("districtr_map_slug") == GERRY_DB_FIXTURE_NAME
     assert data.get("updated_at")
     assert data.get("created_at")
-    assert data.get("status") in ["locked", "unlocked", "checked_out"]
 
 
 def test_patch_assignments(client, document_id):
