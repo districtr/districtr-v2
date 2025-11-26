@@ -27,17 +27,11 @@ export const MapHeader: React.FC = () => {
 
   return (
     <Flex direction="row" align="center" gapX="2">
-      <MapStatus
-        mapDocument={mapDocument}
-        mapMetadata={mapMetadata}
-        handleMetadataChange={handleMetadataChange}
-      />
       <MapTitleDisplay
         mapMetadata={mapMetadata}
         mapDocument={mapDocument}
         handleMetadataChange={handleMetadataChange}
       />
-      <MapContextModuleAndUnits />
     </Flex>
   );
 };

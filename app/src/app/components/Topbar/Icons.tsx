@@ -3,7 +3,7 @@ import React from 'react';
 export const InProgressIcon: React.FC = () => {
   return (
     <svg
-      className="size-8"
+      className="size-6"
       style={{fill: 'var(--blue-indicator)'}}
       version="1.1"
       viewBox="0 0 100 100"
@@ -23,7 +23,7 @@ export const InProgressIcon: React.FC = () => {
 export const ScratchWorkIcon: React.FC = () => {
   return (
     <svg
-      className="size-8 fill-gray-500"
+      className="size-6 fill-gray-500"
       version="1.1"
       viewBox="0 0 100 100"
       xmlns="http://www.w3.org/2000/svg"
@@ -41,7 +41,7 @@ export const ScratchWorkIcon: React.FC = () => {
 export const ReadyIcon: React.FC = () => {
   return (
     <svg
-      className="size-8"
+      className="size-6"
       style={{fill: 'var(--green-indicator'}}
       version="1.1"
       viewBox="0 0 100 100"

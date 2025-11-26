@@ -37,24 +37,23 @@ import {idb} from '@/app/utils/idb/idb';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
+import { SavePopover } from './SavePopover';
+import { SharePopoverAndModal } from './SharePopoverAndModal';
+import { SettingsPopoverAndModal } from './SettingsPopoverAndModal';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
   const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | 'save-share' | null>(
     null
   );
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
-  const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
   const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
   const clear = useTemporalStore(store => store.clear);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const data = mapViews?.data || [];
   const router = useRouter();
-  const documentFromIdb = useIdbDocument(mapDocument?.document_id);
-  const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
   const handleSelectMap = (selectedMap: DistrictrMap) => {
     clear();
     createMapDocument({
@@ -195,50 +194,15 @@ export const Topbar: React.FC = () => {
           </DropdownMenu.Root>
           <MapHeader />
           <Flex direction="row" align="center" gapX="3">
-            <Text size="1" className="italic">
-              Last saved:{' '}
-              {new Date(documentFromIdb?.document_metadata.updated_at ?? '').toLocaleString()}
-            </Text>
-            {documentFromIdb?.clientLastUpdated !==
-            documentFromIdb?.document_metadata.updated_at ? (
-              <IconButton variant="ghost" size="1" color="amber" onClick={() => handlePutAssignments()}>
-                <Flex direction="row" align="center" gapX="1">
-                  <SymbolIcon className="size-4" />
-                  <Text size="1" className="italic">
-                    Updates not yet synced
-                  </Text>
-                </Flex>
-              </IconButton>
-            ) : (
-              <CheckIcon className="size-4" color="green" />
-            )}
-            {/* <EditStatus /> */}
-            {/* <Button
-              variant="outline"
-              disabled={!mapDocument?.document_id}
-              onClick={() => setModalOpen('save-share')}
-              size="1"
-            >
-              Save and Share
-            </Button> */}
-            <IconButton
-              variant={settingsOpen ? 'solid' : 'outline'}
-              size="1"
-              onClick={() => setSettingsOpen(prev => !prev)}
-            >
-              <GearIcon className="size-full p-1" />
-            </IconButton>
+            <SharePopoverAndModal />
+            <SavePopover />
+            <SettingsPopoverAndModal />
+            
           </Flex>
-          {settingsOpen && (
-            <Box className="absolute right-0 lg:right-[-1px] top-full lg:max-w-64 w-full lg:w-[50vw] z-10 bg-white p-4 border-gray-500 border-[1px] lg:max-h-[50vh] overflow-y-auto overflow-x-hidden">
-              <ToolSettings />
-            </Box>
-          )}
         </Flex>
         <MobileDataTabs />
       </Flex>
       <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(null)} />
-      <SaveShareModal open={modalOpen === 'save-share'} onClose={() => setModalOpen(null)} />
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>
