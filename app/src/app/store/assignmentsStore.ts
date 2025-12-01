@@ -7,21 +7,17 @@ import {idb} from '../utils/idb/idb';
 import {useMapStore} from './mapStore';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {checkIfSameZone} from '../utils/map/checkIfSameZone';
-import {postUpdateAssignments} from '../utils/api/apiHandlers/postUpdateAssignments';
 import {
   formatAssignmentsFromDocument,
-  formatAssignmentsFromState,
 } from '../utils/map/formatAssignments';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {useChartStore} from './chartStore';
-import {useMapControlsStore} from './mapControlsStore';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {postUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/postUpdateAssignmentsAndVerify';
 import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {SyncConflictInfo, SyncConflictResolution} from '../utils/api/apiHandlers/fetchDocument';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
-import {gold} from '@radix-ui/colors';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -77,6 +73,19 @@ export interface AssignmentsStore {
     resolution: SyncConflictResolution,
     conflict: SyncConflictInfo
   ) => void;
+  healParentsIfAllChildrenInSameZone: (props: {
+    _parentIds?: AssignmentsStore['shatterIds']['parents'];
+    _zoneAssignments?: AssignmentsStore['zoneAssignments'];
+    _shatterMappings?: AssignmentsStore['shatterMappings'];
+    _lockedFeatures?: Set<string>;
+    _shatterIds?: AssignmentsStore['shatterIds'];
+    _mapRef?: maplibregl.Map;
+    _mapDocument?: DocumentObject;
+  }, mutation: 'refs' | 'state') => {
+    zoneAssignments: Map<string, NullableZone>;
+    shatterIds: AssignmentsStore['shatterIds'];
+    shatterMappings: AssignmentsStore['shatterMappings'];
+  } | undefined;
 }
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
@@ -192,59 +201,41 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
       mapDocument &&
         idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at);
     },
-    ingestAccumulatedAssignments: () => {
-      const {
-        accumulatedAssignments,
-        shatterIds: _shatterIds,
-        shatterMappings: _shatterMappings,
-        zoneAssignments: currentZoneAssignments,
-        zonesLastUpdated,
-      } = get();
 
-      const {mapDocument, getMapRef, lockedFeatures} = useMapStore.getState();
-      const mapRef = getMapRef();
-      if (!mapDocument || !getMapRef || !accumulatedAssignments.size) return;
-
-      const zoneAssignments = new Map(currentZoneAssignments);
-      accumulatedAssignments.forEach((zone, geoid) => {
-        zoneAssignments.set(geoid, zone);
-      });
-
-      const shatterIds = {
-        parents: new Set(_shatterIds.parents),
-        children: new Set(_shatterIds.children),
-      };
-      const shatterMappings: Record<string, Set<string>> = {
-        ..._shatterMappings,
-      };
-
-      const taggedParents = new Set<string>();
-      accumulatedAssignments.forEach((zone, geoid) => {
-        if (shatterIds.children.has(geoid)) {
-          const parentId = Object.entries(shatterMappings).find(([, children]) =>
-            children.has(geoid)
-          )?.[0];
-          if (parentId) {
-            taggedParents.add(parentId);
-          }
-        }
-      });
+    healParentsIfAllChildrenInSameZone: ({
+      _parentIds,
+      _zoneAssignments,
+      _shatterMappings,
+      _lockedFeatures,
+      _shatterIds,
+      _mapRef,
+      _mapDocument,
+    }, mutation
+    ) => {
+      const state = get();
+      const mapStoreState = useMapStore.getState();
+      const parentIds = _parentIds ?? state.shatterIds.parents;
+      const shatterIds = _shatterIds ?? state.shatterIds;
+      const zoneAssignments = _zoneAssignments ?? state.zoneAssignments;
+      const shatterMappings = _shatterMappings ?? state.shatterMappings;
+      const lockedFeatures = _lockedFeatures ?? mapStoreState.lockedFeatures;
+      const mapRef = _mapRef ?? mapStoreState.getMapRef();
+      const mapDocument = _mapDocument ?? mapStoreState.mapDocument;
+      
+      if (!mapRef || !mapDocument) return;
 
       const healedParents: Array<{
         parentId: string;
         zone: NullableZone;
         children: Set<string>;
       }> = [];
-      const parentsToQueue: string[] = [];
 
-      taggedParents.forEach(parentId => {
+      parentIds.forEach(parentId => {
         const children = shatterMappings[parentId];
         if (!children || !children.size) return;
         const {shouldHeal, zone} = checkIfSameZone(children, zoneAssignments);
-        if (shouldHeal && zone != null) {
+        if (shouldHeal) {
           healedParents.push({parentId, zone, children: new Set(children)});
-        } else {
-          parentsToQueue.push(parentId);
         }
       });
 
@@ -291,6 +282,80 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
         GeometryWorker?.removeGeometries(Array.from(children));
       });
 
+      if (mutation === 'refs') {
+        return {
+          zoneAssignments,
+          shatterIds,
+          shatterMappings
+        }
+      } else {
+        set({
+          zoneAssignments: new Map(zoneAssignments),
+          accumulatedAssignments: new Map<string, NullableZone>(),
+          shatterIds: {
+            parents: new Set(shatterIds.parents),
+            children: new Set(shatterIds.children),
+          },
+          shatterMappings: {
+            ...shatterMappings,
+          },
+          clientLastUpdated: new Date().toISOString(),
+          zonesLastUpdated: new Map(get().zonesLastUpdated),
+        })
+      }
+    },
+    ingestAccumulatedAssignments: () => {
+      const {
+        accumulatedAssignments,
+        shatterIds: _currShatterIds,
+        shatterMappings: _currShatterMappings,
+        zoneAssignments: currentZoneAssignments,
+        zonesLastUpdated,
+        healParentsIfAllChildrenInSameZone
+      } = get();
+
+      const {mapDocument, getMapRef, lockedFeatures} = useMapStore.getState();
+      const isFocused = useMapStore.getState().captiveIds.size > 0;
+      const mapRef = getMapRef();
+      if (!mapDocument || !getMapRef || !accumulatedAssignments.size) return;
+
+      const _zoneAssignments = new Map(currentZoneAssignments);
+      accumulatedAssignments.forEach((zone, geoid) => {
+        zoneAssignments.set(geoid, zone);
+      });
+
+      const _shatterIds = {
+        parents: new Set(_currShatterIds.parents),
+        children: new Set(_currShatterIds.children),
+      };
+      const _shatterMappings: Record<string, Set<string>> = {
+        ..._currShatterMappings,
+      };
+
+      const taggedParents = new Set<string>();
+      !isFocused && accumulatedAssignments.forEach((_, geoid) => {
+        if (shatterIds.children.has(geoid)) {
+          const parentId = Object.entries(_shatterMappings).find(([, children]) =>
+            children.has(geoid)
+          )?.[0];
+          if (parentId) {
+            taggedParents.add(parentId);
+          }
+        }
+      });
+
+      const result = healParentsIfAllChildrenInSameZone({
+        _parentIds: taggedParents,
+        _zoneAssignments: _zoneAssignments,
+        _shatterMappings: _shatterMappings,
+        _lockedFeatures: lockedFeatures,
+        _shatterIds: _shatterIds,
+        _mapRef: mapRef,
+        _mapDocument: mapDocument
+      }, 'refs')
+
+      if (!result) return;
+      const {zoneAssignments, shatterIds, shatterMappings} = result;
       const zoneEntries = Array.from(zoneAssignments.entries());
       GeometryWorker?.updateZones(zoneEntries);
       demographyCache.updatePopulations(zoneAssignments);

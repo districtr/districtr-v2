@@ -242,8 +242,8 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setIsTemporalAction: (isTemporalAction: boolean) => set({isTemporalAction}),
   captiveIds: new Set<string>(),
   exitBlockView: (lock: boolean = false) => {
-    const {focusFeatures, lockFeatures} = get();
-    const {zoneAssignments, shatterMappings} = useAssignmentsStore.getState();
+    const {focusFeatures} = get();
+    const {healParentsIfAllChildrenInSameZone} = useAssignmentsStore.getState();
     const {setMapOptions} = useMapControlsStore.getState();
 
     set({
@@ -255,9 +255,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
 
     const parentId = focusFeatures?.[0].id?.toString();
     if (!parentId) return;
-    const willHeal = checkIfSameZone(shatterMappings[parentId], zoneAssignments).shouldHeal;
-    const children = shatterMappings[parentId];
-    if (lock && !willHeal && children?.size) lockFeatures(children, true);
+    healParentsIfAllChildrenInSameZone({}, 'state');
   },
   getMapRef: () => undefined,
   setMapRef: mapRef => {
