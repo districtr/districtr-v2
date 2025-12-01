@@ -3,7 +3,7 @@ import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '@radix-ui/themes';
 import {useRouter, useSearchParams} from 'next/navigation';
-import {getLoadPlanFromShare} from '@/app/utils/api/apiHandlers/getLoadPlanFromPublicId';
+import { postUnlockMapDocument } from '@/app/utils/api/apiHandlers/postUnlockMapDocument';
 
 export const PasswordPromptModal = () => {
   const router = useRouter();
@@ -23,19 +23,15 @@ export const PasswordPromptModal = () => {
     if (!editAccess) {
       // remove pw from url
       router.replace(window.location.pathname);
-    } else if (mapDocument?.public_id) {
+    } else if (mapDocument?.public_id && password) {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await getLoadPlanFromShare({
-          password: password,
-          mapDocument: mapDocument,
-        });
-        if (res?.data?.document_id && res.document_id !== mapDocument?.document_id) {
-          // go to map/edit/res.document_id
-          router.push(`/map/edit/${res.data.document_id}`);
-        } else if (res?.response?.data?.detail) {
-          setError(res.response.data.detail);
+        const res = await postUnlockMapDocument(mapDocument?.public_id, password);
+        if (res.ok) {
+          router.push(`/map/edit/${res.response.document_id}`);
+        } else {
+          setError(res.error?.detail ?? 'An unknown error occurred');
         }
       } catch (error) {
         console.error(error);

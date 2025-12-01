@@ -1,4 +1,4 @@
-import {Assignment, DocumentObject} from '../api/apiHandlers/types';
+import {Assignment, DocumentMetadata, DocumentObject} from '../api/apiHandlers/types';
 import Dexie, {Table} from 'dexie';
 import {useMapStore} from '@store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
@@ -10,6 +10,7 @@ export interface StoredDocument {
   document_metadata: DocumentObject;
   assignments: Assignment[];
   clientLastUpdated: string; // ISO date string
+  password?: string | null;
 }
 
 // --- Dexie Setup ---
@@ -60,6 +61,32 @@ export class DocumentsDB extends Dexie {
       document_metadata: mapDocument,
       assignments: assignmentsToSave,
       clientLastUpdated: clientLastUpdated,
+    });
+  };
+
+  updateIdbMetadata = async (document_id: string, metadata: Partial<DocumentMetadata>) => {
+    const currDocument = await this.getDocument(document_id);
+    if (!currDocument) return;
+    this.updateDocument({
+      id: document_id,
+      document_metadata: {
+        ...currDocument.document_metadata, 
+        map_metadata: {
+          ...(currDocument.document_metadata.map_metadata ?? {}),
+          ...metadata,
+        }
+      },
+      assignments: currDocument.assignments,
+      clientLastUpdated: currDocument.clientLastUpdated,
+    });
+  };
+
+  updatePassword = async (document_id: string, password: string) => {
+    const currDocument = await this.getDocument(document_id);
+    if (!currDocument) return;
+    this.updateDocument({
+      ...currDocument,
+      password: password,
     });
   };
 }

@@ -1,8 +1,8 @@
 import {useState} from 'react';
-import {Box, Popover, Button, Flex, Text, IconButton} from '@radix-ui/themes';
+import {Box, Popover, Button, Flex, Text, IconButton, Inset, Grid} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
-import {ExclamationTriangleIcon, SymbolIcon} from '@radix-ui/react-icons';
+import {CheckIcon, ExclamationTriangleIcon, SymbolIcon} from '@radix-ui/react-icons';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 export const SavePopover = () => {
@@ -20,24 +20,35 @@ export const SavePopover = () => {
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           onClick={() => (isOutdated ? handlePutAssignments() : null)}
+          className={`cursor-pointer`}
         >
-          {isOutdated ? <SymbolIcon color="red" /> : <SymbolIcon color="blue" />}
+          {isOutdated ? <SymbolIcon color="red" className="animate-pulse-spin" /> : <SymbolIcon color="blue" />}
         </IconButton>
       </Popover.Trigger>
-      <Popover.Content maxWidth="360px">
-        <Flex direction="column" align="center" gapX="3">
-          <Text size="1" className="italic">
-            Last synced:{' '}
-            {new Date(documentFromIdb?.document_metadata.updated_at ?? '').toLocaleString()}
-          </Text>
-          {isOutdated ? (
+      <Popover.Content width="320px" align="center">
+        <Grid columns="60px 1fr" gap="2">
+          
+        {isOutdated ? (<Inset side="left" className="flex items-center justify-center bg-red-500 mr-4">
+            <ExclamationTriangleIcon color="white" className="size-6" />
+          </Inset>) : (<Inset side="left" className="flex items-center justify-center bg-green-500 mr-4">
+            <CheckIcon color="white" className="size-6" />
+          </Inset>)}
+          <Flex direction="column" align="start" justify="center"  gapX="3">
+            <Box>
+
             <Text size="1" className="italic">
-              Your changes are saved only to your browser
-              
-              Click to sync your map
+              Last synced:{' '}
+              {new Date(documentFromIdb?.document_metadata.updated_at ?? '').toLocaleString()}
             </Text>
-          ) : null}
-        </Flex>
+            <br/>
+            {isOutdated ? (
+              <Text size="1" className="italic font-bold">
+                Your changes are saved only to your browser. <br/>Click <SymbolIcon color="red" className="inline size-4"/> to sync your map.
+              </Text>
+            ) : null}
+            </Box>
+          </Flex>
+        </Grid>
       </Popover.Content>
     </Popover.Root>
   );

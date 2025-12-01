@@ -1,6 +1,7 @@
 from fastapi import (
     Depends,
     APIRouter,
+    HTTPException,
 )
 from typing import Annotated
 from sqlalchemy import text
@@ -18,9 +19,10 @@ import jwt
 from app.save_share.models import (
     DocumentShareRequest,
     DocumentShareResponse,
+    UnlockFromPublicId,
 )
 import bcrypt
-
+from app.core.dependencies import parse_document_id, get_protected_document
 
 logging.getLogger("sqlalchemy").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
@@ -44,6 +46,8 @@ async def share_districtr_plan(
     data: DocumentShareRequest,
     session: Session = Depends(get_session),
 ):
+    print(f"Setting share for document {document.document_id} to {data.password}")
+    print(f"Hashed password: {hash_password(data.password)}")
     existing_token = session.execute(
         text(
             """
@@ -114,3 +118,33 @@ async def share_districtr_plan(
 
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
     return {"token": token, "public_id": document.public_id}
+
+
+@router.post("/api/document/{document_id}/unlock", response_model=Document)
+async def unlock_map_document(
+    document_id: int,
+    data: UnlockFromPublicId,
+    session: Session = Depends(get_session),
+):
+    parsed_DocumentID = parse_document_id(document_id)
+    protected_document = get_protected_document(
+        document_id=parsed_DocumentID,
+        session=session,
+    )
+    result = session.execute(
+        text(
+            """
+            SELECT password_hash
+            FROM document.map_document_token
+            WHERE document_id = :document_id
+            """
+        ),
+        {"document_id": protected_document.document_id},
+    ).one()
+    
+    hashed_password = hash_password(f"{data.password}") if data.password else None
+
+    if not verify_password(data.password, result.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    return protected_document

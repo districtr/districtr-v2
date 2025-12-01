@@ -1,3 +1,4 @@
+import { useIdbDocument } from '@/app/hooks/useIdbDocument';
 import {useMapStore} from '@/app/store/mapStore';
 import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon} from '@radix-ui/react-icons';
@@ -6,26 +7,14 @@ import {useState} from 'react';
 
 export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
-
   const password = useSaveShareStore(state => state.password);
   const setPassword = useSaveShareStore(state => state.setPassword);
   const sharingMode = useSaveShareStore(state => state.sharingMode);
   const setSharingMode = useSaveShareStore(state => state.setSharingMode);
   const updatePassword = useSaveShareStore(state => state.updatePassword);
   const handleSetPassword = (password: string) => updatePassword(mapDocument, password);
-  const userMap = useMapStore(state =>
-    state.userMaps.find(map => map.document_id === state.mapDocument?.document_id)
-  );
   const mapDocument = useMapStore(state => state.mapDocument);
-
-  const displayPassword = userMap?.password
-    ? showPassword
-      ? userMap.password
-      : userMap.password
-          .split('')
-          .map(() => '•')
-          .join('')
-    : password;
+  const userMap = useIdbDocument(mapDocument?.document_id);
 
   if (!mapDocument || !isEditing) {
     return null;
@@ -64,11 +53,11 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
           <Text>Password</Text>
           <Flex direction="row" gap="2">
             <TextField.Root
-              value={displayPassword}
+              value={password}
               onChange={e => setPassword(e.target.value)}
               disabled={!!userMap?.password}
               className="flex-1"
-              placeholder={displayPassword || 'Enter a password for your map'}
+              placeholder={password || 'Enter a password for your map'}
             />
             {userMap?.password ? (
               <Button variant="soft" onClick={() => setShowPassword(p => !p)}>

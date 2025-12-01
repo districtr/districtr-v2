@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-def parse_document_id(document_id: str) -> DocumentID:
+def parse_document_id(document_id: str | int) -> DocumentID:
     try:
         return DocumentID(document_id=document_id)
     except ValueError:

@@ -8,6 +8,7 @@ import {DocumentObject} from '@utils/api/apiHandlers/types';
 import {styled} from '@stitches/react';
 import {useState} from 'react';
 import {useTemporalStore} from '@/app/store/temporalStore';
+import { idb } from '@/app/utils/idb/idb';
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxHeight: 'calc(100vh-2rem)',

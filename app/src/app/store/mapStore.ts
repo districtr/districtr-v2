@@ -174,25 +174,10 @@ export interface MapStore {
   userID: string | null;
   setUserID: () => void;
 
-  // USER MAPS / RECENT MAPS
-  userMaps: Array<DocumentObject & {name?: string | null; map_module?: string | null}>;
-  setUserMaps: (userMaps: MapStore['userMaps']) => void;
-  upsertUserMap: (props: {
-    mapDocument?: MapStore['mapDocument'];
-    userMapDocumentId?: string;
-    userMapData?: MapStore['userMaps'][number];
-  }) => void;
-  deleteUserMap: (documentId: string) => void;
   mapName: () => string | undefined;
   mapMetadata: DocumentObject['map_metadata'];
   updateMetadata: (
-    documentId: string,
-    name?: any,
-    tags?: any,
-    description?: any,
-    group?: any,
-    eventId?: any,
-    draft_status?: any
+    metadata: Partial<DocumentMetadata>
   ) => void;
   // SHARE MAP
   passwordPrompt: boolean;
@@ -603,65 +588,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       parentsToHeal: [...get().parentsToHeal, ...parentsToHeal].filter(onlyUnique),
     });
   },
-  upsertUserMap: ({
-    mapDocument,
-    userMapData,
-    userMapDocumentId,
-  }: {
-    mapDocument?: MapStore['mapDocument'];
-    userMapData?: MapStore['userMaps'][number];
-    userMapDocumentId?: string;
-  }) => {
-    if (!mapDocument?.document_id || mapDocument.access === 'read') return;
-    const {userMaps: _userMaps, mapViews: _mapViews, mapDocument: _mapDocument} = get();
-    let userMaps = [..._userMaps];
-    const mapViewsData = _mapViews.data;
-    if (mapDocument?.document_id && mapViewsData) {
-      const documentIndex = userMaps.findIndex(f => f.document_id === mapDocument?.document_id);
-      const documentInfo = mapViewsData.find(
-        view => view.districtr_map_slug === mapDocument.districtr_map_slug
-      );
-      if (documentIndex !== -1) {
-        userMaps[documentIndex] = {
-          ...documentInfo,
-          ...userMaps[documentIndex],
-          ...mapDocument,
-          map_metadata: mapDocument.map_metadata ?? userMaps[documentIndex].map_metadata,
-        };
-      } else {
-        userMaps = [{...mapDocument, ...documentInfo}, ...userMaps];
-      }
-    } else if (userMapDocumentId) {
-      const i = userMaps.findIndex(map => map.document_id === userMapDocumentId);
-      if (userMapData) {
-        userMaps.splice(i, 1, userMapData); // Replace the map at index i with the new data
-      } else {
-        // Navigate to home page when deleting current map
-        window.location.href = '/';
-        userMaps.splice(i, 1);
-      }
-    }
-    if (_mapDocument?.document_id === mapDocument?.document_id) {
-      set({
-        mapDocument: {
-          ...mapDocument,
-          map_metadata: {
-            ..._mapDocument.map_metadata,
-            ...mapDocument.map_metadata,
-          },
-        },
-      });
-    }
-    set({
-      userMaps,
-    });
-  },
-  deleteUserMap: (documentId: string) => {
-    set(state => ({
-      userMaps: state.userMaps.filter(map => map.document_id !== documentId),
-    }));
-  },
-
   handleReset: async () => {
     const {mapDocument, getMapRef} = get();
     const {zoneAssignments, resetZoneAssignments, shatterIds, resetShatterState} =
@@ -710,8 +636,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   setWorkerUpdateHash: hash => set({workerUpdateHash: hash}),
   contextMenu: null,
   setContextMenu: contextMenu => set({contextMenu}),
-  userMaps: [],
-  setUserMaps: userMaps => set({userMaps}),
   userID: null,
   setUserID: () => {
     set(state => {
@@ -732,24 +656,18 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     group: null,
     draft_status: null,
   },
-  updateMetadata: (documentId: string, key: keyof DocumentMetadata, value: any) =>
-    set(state => {
-      const userMaps = get().userMaps;
-      const updatedMaps = userMaps.map(map => {
-        if (map.document_id === documentId) {
-          const updatedMetadata = {
-            ...map.map_metadata,
-            [key]: value,
-          };
-          return {
-            ...map,
-            map_metadata: updatedMetadata,
-          };
-        }
-        return map;
-      }) as DocumentObject[];
-      return {userMaps: updatedMaps};
-    }),
+  updateMetadata: (metadata) => {
+    const {mapDocument} = get();
+    set({
+      mapDocument: {
+        ...mapDocument,
+        map_metadata: {
+          ...mapDocument.map_metadata,
+          ...metadata,
+        },
+      },
+    });
+  },
   passwordPrompt: false,
   setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
   password: null,

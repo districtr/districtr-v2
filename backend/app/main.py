@@ -161,13 +161,11 @@ async def get_document_stats(
 async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
-    # try:
     results = session.execute(
         text("SELECT create_document(:districtr_map_slug);"),
         {"districtr_map_slug": data.districtr_map_slug},
     )
     document_id = results.one()[0]  # should be only one row, one column of results
-
     total_assignments = 0
     if data.copy_from_doc is not None:
         copy_document_id = parse_document_id(data.copy_from_doc)
@@ -183,6 +181,7 @@ async def create_document(
             to_document_id=document_id,
             session=session,
         )
+        print(total_assignments)
 
     elif data.assignments is not None and len(data.assignments) > 0:
         max_records = 914_231

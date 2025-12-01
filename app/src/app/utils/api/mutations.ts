@@ -5,4 +5,3 @@ export interface AxiosErrorData {
 
 // Export all mutation observers
 export {patchReset} from './mutations/patchReset';
-export {metadata} from './mutations/metadata';

@@ -16,7 +16,7 @@ class UserID(BaseModel):
     user_id: str
 
 
-class UnlockFromPublicId(UserID):
+class UnlockFromPublicId(BaseModel):
     password: str | None = None
 
 

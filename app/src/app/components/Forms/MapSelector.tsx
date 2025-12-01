@@ -34,6 +34,7 @@ interface ValidationResponse {
 }
 
 const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
+  return null
   const inputRef = useRef<HTMLInputElement>(null);
   const [showMapOptions, setShowMapOptions] = useState(false);
   const [dataResponse, setDataResponse] = useState<ValidationResponse | null>(null);
@@ -62,69 +63,65 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     setNotification(null);
   }, [showMapSelector]);
 
-  const userMaps = useMapStore(state =>
-    state.userMaps.filter(
-      map => !allowListModules?.length || allowListModules.includes(map.map_module ?? '')
-    )
-  );
+  // const userMaps = []
 
-  const validateMap = async (mapId: string) => {
-    let response: ValidationResponse = {
-      input: mapId,
-      isUrl: false,
-      isForeignLink: false,
-      isPublicId: false,
-      mayNotBeUserMap: false,
-      mapInfo: null,
-      message: null,
-      type: null,
-    };
+  // const validateMap = async (mapId: string) => {
+  //   let response: ValidationResponse = {
+  //     input: mapId,
+  //     isUrl: false,
+  //     isForeignLink: false,
+  //     isPublicId: false,
+  //     mayNotBeUserMap: false,
+  //     mapInfo: null,
+  //     message: null,
+  //     type: null,
+  //   };
 
-    try {
-      const _mapUrlIsValid = new URL(mapId);
-      response.isUrl = true;
-      response.isForeignLink = _mapUrlIsValid.hostname !== window.location.hostname;
-    } catch {
-      throw new Error('Not a valid url');
-    }
+  //   try {
+  //     const _mapUrlIsValid = new URL(mapId);
+  //     response.isUrl = true;
+  //     response.isForeignLink = _mapUrlIsValid.hostname !== window.location.hostname;
+  //   } catch {
+  //     throw new Error('Not a valid url');
+  //   }
 
-    // take the slash and then the last characters after the slash
-    const urlStrippedId = mapId.split('/').pop()?.replace('?pw=true', '');
-    const userMap = userMaps?.find(map => map.document_id === urlStrippedId);
-    try {
-      response.mapInfo = await getDocument(urlStrippedId);
-    } catch {
-      throw new Error('Map not found');
-      // could not get document
-    }
-    response.isPublicId = !isNaN(Number(urlStrippedId));
-    response.mayNotBeUserMap = response.isPublicId && !userMap;
-    if (response.isForeignLink) {
-      throw new Error('Please use a link to a Districtr map.');
-    } else if (
-      response.mapInfo &&
-      response.mapInfo.map_metadata?.draft_status !== 'ready_to_share'
-    ) {
-      throw new Error(
-        'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
-      );
-    } else if (
-      response.mapInfo &&
-      !allowListModules.includes(response.mapInfo?.districtr_map_slug ?? '')
-    ) {
-      throw new Error(
-        `Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`
-      );
-    } else if (response.mayNotBeUserMap) {
-      response.message =
-        'Warning: This link is a public map link and may not be your map. Other users can change their maps, which could change the meaning of your comment. Consider making a copy of the map by going to the map and clicking "Save and share" and then create a copy.';
-      response.type = 'warning';
-    } else {
-      response.message = 'Map validated successfully';
-      response.type = 'success';
-    }
-    return response;
-  };
+  //   // take the slash and then the last characters after the slash
+  //   const urlStrippedId = mapId.split('/').pop()?.replace('?pw=true', '');
+  //   // const userMap = userMaps?.find(map => map.document_id === urlStrippedId);
+  //   try {
+  //     response.mapInfo = await getDocument(urlStrippedId);
+  //   } catch {
+  //     throw new Error('Map not found');
+  //     // could not get document
+  //   }
+  //   response.isPublicId = !isNaN(Number(urlStrippedId));
+  //   response.mayNotBeUserMap = response.isPublicId && !userMap;
+  //   if (response.isForeignLink) {
+  //     throw new Error('Please use a link to a Districtr map.');
+  //   } else if (
+  //     response.mapInfo &&
+  //     response.mapInfo.map_metadata?.draft_status !== 'ready_to_share'
+  //   ) {
+  //     throw new Error(
+  //       'Please make sure your map is marked as "ready to share" in the map editor. You can update this in the "Save and share" menu or using the button next to the map title on the top of the map editor.'
+  //     );
+  //   } else if (
+  //     response.mapInfo &&
+  //     !allowListModules.includes(response.mapInfo?.districtr_map_slug ?? '')
+  //   ) {
+  //     throw new Error(
+  //       `Please make sure your map is in the list of allowed modules: ${allowListModules.join(', ')}`
+  //     );
+  //   } else if (response.mayNotBeUserMap) {
+  //     response.message =
+  //       'Warning: This link is a public map link and may not be your map. Other users can change their maps, which could change the meaning of your comment. Consider making a copy of the map by going to the map and clicking "Save and share" and then create a copy.';
+  //     response.type = 'warning';
+  //   } else {
+  //     response.message = 'Map validated successfully';
+  //     response.type = 'success';
+  //   }
+  //   return response;
+  // };
 
   const {isPending, mutate} = useMutation({
     mutationFn: validateMap,

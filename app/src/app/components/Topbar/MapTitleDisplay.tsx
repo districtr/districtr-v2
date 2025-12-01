@@ -105,14 +105,16 @@ export const MapTitleDisplay: React.FC<{
                 aria-label="Edit map name and metadata"
               >
                 <DraftStatusIcon />
-                {!!mapName && <Text size="2">{mapName || '(Edit map name)'}</Text>}
+                {!!mapName && <Text size="2" className="font-bold text-black">{mapName || '(Edit map name)'}</Text>}
                 <MapContextModuleAndUnits />
                 {editing ? <Pencil1Icon /> : null}
               </Flex>
             </Button>
           </Popover.Trigger>
-          <Popover.Content>
-            <Text size="1">Click to edit map name and metadata</Text>
+          <Popover.Content align="center" className="w-full">
+            <Flex direction="row" gap="2" align="center" justify="center">
+            <Text size="1" className="text-center">Click to edit map name and metadata</Text>
+            </Flex>
           </Popover.Content>
         </Popover.Root>
 

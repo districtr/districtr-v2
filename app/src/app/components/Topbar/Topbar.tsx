@@ -1,6 +1,5 @@
 'use client';
 import {
-  Button,
   Text,
   DropdownMenu,
   Flex,
@@ -11,35 +10,26 @@ import {
   Tooltip,
   Tabs,
 } from '@radix-ui/themes';
-import React, {useEffect, useRef} from 'react';
+import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
-import {ToolSettings} from '@components/Toolbar/Settings';
 import {
   ArrowLeftIcon,
-  CheckIcon,
-  ExclamationTriangleIcon,
-  FileIcon,
-  GearIcon,
   HamburgerMenuIcon,
-  SymbolIcon,
 } from '@radix-ui/react-icons';
 import {useTemporalStore} from '@store/temporalStore';
-import {DistrictrMap} from '@utils/api/apiHandlers/types';
+import {DistrictrMap, DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
-import {EditStatus} from './EditStatus';
-import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
 import {useRouter} from 'next/navigation';
-import {idb} from '@/app/utils/idb/idb';
-import {useIdbDocument} from '@/app/hooks/useIdbDocument';
-import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import { SavePopover } from './SavePopover';
 import { SharePopoverAndModal } from './SharePopoverAndModal';
 import { SettingsPopoverAndModal } from './SettingsPopoverAndModal';
+import { saveMapDocumentMetadata } from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
+import { idb } from '@/app/utils/idb/idb';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -47,13 +37,33 @@ export const Topbar: React.FC = () => {
     null
   );
   const mapDocument = useMapStore(state => state.mapDocument);
+  const isEditing = mapDocument?.document_id && mapDocument?.document_id !== 'anonymous';
   const access = useMapStore(state => state.mapStatus?.access);
   const mapViews = useMapStore(state => state.mapViews);
-  const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
   const clear = useTemporalStore(store => store.clear);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const data = mapViews?.data || [];
   const router = useRouter();
+  const updateMetadata = useMapStore(state => state.updateMetadata);
+
+
+  const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
+    if (!mapDocument?.document_id) return;
+    const response = await saveMapDocumentMetadata({
+      document_id: mapDocument?.document_id,
+      metadata: updates,
+    })
+    if (response.ok) {
+      idb.updateIdbMetadata(mapDocument?.document_id, updates);
+      updateMetadata(updates);
+    } else {
+      setErrorNotification({
+        message: 'Failed to save metadata',
+        severity: 2,
+      });
+    }
+  };
+
   const handleSelectMap = (selectedMap: DistrictrMap) => {
     clear();
     createMapDocument({
@@ -173,7 +183,7 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={!showRecentMaps}>
+              <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={false}>
                 View recent maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
@@ -192,12 +202,11 @@ export const Topbar: React.FC = () => {
               </DropdownMenu.Sub>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
-          <MapHeader />
+          <MapHeader handleMetadataChange={handleMetadataChange} />
           <Flex direction="row" align="center" gapX="3">
-            <SharePopoverAndModal />
-            <SavePopover />
+            <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
+            {isEditing && <SavePopover  />}
             <SettingsPopoverAndModal />
-            
           </Flex>
         </Flex>
         <MobileDataTabs />
