@@ -3,7 +3,6 @@ import {Flex} from '@radix-ui/themes';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {useMapStore} from '@/app/store/mapStore';
 import {MapTitleDisplay} from './MapTitleDisplay';
-import {MapStatus} from './MapStatus';
 import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
 import {DEFAULT_MAP_METADATA} from '@/app/utils/language';
 import {saveMap} from '@/app/utils/api/apiHandlers/saveMap';

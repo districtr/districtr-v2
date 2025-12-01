@@ -77,7 +77,6 @@ export interface AssignmentsStore {
     _parentIds?: AssignmentsStore['shatterIds']['parents'];
     _zoneAssignments?: AssignmentsStore['zoneAssignments'];
     _shatterMappings?: AssignmentsStore['shatterMappings'];
-    _lockedFeatures?: Set<string>;
     _shatterIds?: AssignmentsStore['shatterIds'];
     _mapRef?: maplibregl.Map;
     _mapDocument?: DocumentObject;
@@ -206,7 +205,6 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
       _parentIds,
       _zoneAssignments,
       _shatterMappings,
-      _lockedFeatures,
       _shatterIds,
       _mapRef,
       _mapDocument,
@@ -218,7 +216,6 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
       const shatterIds = _shatterIds ?? state.shatterIds;
       const zoneAssignments = _zoneAssignments ?? state.zoneAssignments;
       const shatterMappings = _shatterMappings ?? state.shatterMappings;
-      const lockedFeatures = _lockedFeatures ?? mapStoreState.lockedFeatures;
       const mapRef = _mapRef ?? mapStoreState.getMapRef();
       const mapDocument = _mapDocument ?? mapStoreState.mapDocument;
       
@@ -241,7 +238,6 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
 
       const healedChildIds = new Set<string>();
       const healedParentIds = new Set<string>();
-      const newLockedFeatures = new Set(lockedFeatures);
 
       healedParents.forEach(({parentId, zone, children}) => {
         healedParentIds.add(parentId);
@@ -249,7 +245,6 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
           healedChildIds.add(childId);
           zoneAssignments.delete(childId);
           shatterIds.children.delete(childId);
-          newLockedFeatures.delete(childId);
           if (mapRef && mapDocument.child_layer) {
             mapRef.setFeatureState(
               {
@@ -314,14 +309,14 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
         healParentsIfAllChildrenInSameZone
       } = get();
 
-      const {mapDocument, getMapRef, lockedFeatures} = useMapStore.getState();
+      const {mapDocument, getMapRef} = useMapStore.getState();
       const isFocused = useMapStore.getState().captiveIds.size > 0;
       const mapRef = getMapRef();
       if (!mapDocument || !getMapRef || !accumulatedAssignments.size) return;
 
       const _zoneAssignments = new Map(currentZoneAssignments);
       accumulatedAssignments.forEach((zone, geoid) => {
-        zoneAssignments.set(geoid, zone);
+        _zoneAssignments.set(geoid, zone);
       });
 
       const _shatterIds = {
@@ -334,7 +329,7 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
 
       const taggedParents = new Set<string>();
       !isFocused && accumulatedAssignments.forEach((_, geoid) => {
-        if (shatterIds.children.has(geoid)) {
+        if (_currShatterIds.children.has(geoid)) {
           const parentId = Object.entries(_shatterMappings).find(([, children]) =>
             children.has(geoid)
           )?.[0];
@@ -348,7 +343,6 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
         _parentIds: taggedParents,
         _zoneAssignments: _zoneAssignments,
         _shatterMappings: _shatterMappings,
-        _lockedFeatures: lockedFeatures,
         _shatterIds: _shatterIds,
         _mapRef: mapRef,
         _mapDocument: mapDocument

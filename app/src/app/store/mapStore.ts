@@ -151,29 +151,6 @@ export interface MapStore {
   //   state: keyof MapStore['featureStates'],
   //   action: "add" | "remove" | "toggle"
   // ) => void,
-  /**
-   * A set of feature IDs that are currently locked, preventing any modifications to them.
-   * Map render effects in `mapRenderSubs` -> `lockFeaturesSub`
-   * Lock feature logic in `helpers` -> `getFeaturesInBbox`
-   */
-  lockedFeatures: Set<string>;
-  /**
-   * Locks or unlocks a specific feature by its ID.
-   * @param {string} id - The ID of the feature to lock or unlock.
-   * @param {boolean} lock - If true, the feature will be locked; if false, it will be unlocked.
-   */
-  lockFeature: (id: string, lock: boolean) => void;
-  /**
-   * Locks or unlocks multiple features at once based on their IDs.
-   * @param {Set<string>} ids - A set of feature IDs to lock or unlock.
-   * @param {boolean} lock - If true, the features will be locked; if false, they will be unlocked.
-   */
-  lockFeatures: (ids: Set<string>, lock: boolean) => void;
-  /**
-   * Sets the locked features to a new set of locked features.
-   * @param {Set<string>} lockedFeatures - The new set of locked features.
-   */
-  setLockedFeatures: (lockedFeatures: MapStore['lockedFeatures']) => void;
   // FOCUS
   /**
    * Parent IDs that a user is working on in break mode.
@@ -329,7 +306,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       captiveIds: new Set(),
       focusFeatures: [],
       parentsToHeal: [],
-      lockedFeatures: new Set(),
       mapLock: false,
       appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
       mapRenderingState:
@@ -346,18 +322,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   colorScheme: DefaultColorScheme,
   setColorScheme: colorScheme => set({colorScheme}),
-  lockedFeatures: new Set(),
-  lockFeature: (id, lock) => {
-    const lockedFeatures = new Set(get().lockedFeatures);
-    lock ? lockedFeatures.add(id) : lockedFeatures.delete(id);
-    set({lockedFeatures});
-  },
-  lockFeatures: (featuresToLock, lock) => {
-    const lockedFeatures = new Set(get().lockedFeatures);
-    featuresToLock.forEach(id => (lock ? lockedFeatures.add(id) : lockedFeatures.delete(id)));
-    set({lockedFeatures});
-  },
-  setLockedFeatures: lockedFeatures => set({lockedFeatures}),
   silentlyShatter: async (document_id, geoids) => {
     const {getMapRef, mapDocument} = get();
     const mapRef = getMapRef();
@@ -426,7 +390,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
 
     const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
     const updateHash = new Date().toISOString();
-    const {lockedFeatures, mapDocument, parentsToHeal} = get();
+    const {mapDocument, parentsToHeal} = get();
     const {
       shatterIds,
       shatterMappings: _shatterMappings,
@@ -451,7 +415,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     }
     // TODO Need to return child edges even if the parent is already shattered
     // currently returns nothing
-    const newLockedFeatures = new Set(lockedFeatures);
     let parents = new Set(shatterIds.parents);
     let children = new Set(shatterIds.children);
     let captiveIds = new Set<string>();
@@ -508,7 +471,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       isTemporalAction: false,
       mapLock: false,
       captiveIds,
-      lockedFeatures: newLockedFeatures,
       focusFeatures: [
         {
           id: features[0].id,
@@ -530,7 +492,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   parentsToHeal: [],
   processHealParentsQueue: async (additionalIds = []) => {
     const updateHash = new Date().toISOString();
-    const {parentsToHeal: _parentsToHeal, mapDocument, mapLock, lockedFeatures, getMapRef} = get();
+    const {parentsToHeal: _parentsToHeal, mapDocument, mapLock, getMapRef} = get();
     const {isPainting} = useMapControlsStore.getState();
     const {shatterMappings, shatterIds, zoneAssignments, replaceZoneAssignments, setShatterState} =
       useAssignmentsStore.getState();
@@ -593,7 +555,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         },
         {} as Record<string, Set<string>>
       );
-      const newLockedFeatures = new Set(lockedFeatures);
       const childrenToRemove = parentsToHeal
         .map(f => newShatterMappings[f.parentId])
         .filter(Boolean) as Array<Set<string>>;
@@ -602,7 +563,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
         childSet.forEach(childId => {
           newZoneAssignments.delete(childId);
           newShatterIds.children.delete(childId);
-          newLockedFeatures.delete(childId);
           mapRef.setFeatureState(
             {
               id: childId,
@@ -629,7 +589,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       set({
         mapLock: false,
         isTemporalAction: false,
-        lockedFeatures: newLockedFeatures,
         lastUpdatedHash: updateHash,
         assignmentsHash: updateHash,
         // parents may have been added while this is firing off
