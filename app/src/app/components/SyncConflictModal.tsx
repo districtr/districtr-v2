@@ -104,7 +104,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                   className="w-full"
                   size="3"
                 >
-                  Keep Working on Local (Don't Sync)
+                  Keep Working on Local (Don&apos;t Sync)
                 </Button>
               </Flex>
             </>

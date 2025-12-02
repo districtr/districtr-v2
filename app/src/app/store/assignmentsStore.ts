@@ -506,5 +506,3 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
     },
   }))
 );
-
-window.__assignmentsStore = useAssignmentsStore;

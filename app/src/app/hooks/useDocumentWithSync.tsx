@@ -195,6 +195,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
         open={showConflictModal}
         conflict={conflictInfo}
         onResolve={handleConflict}
+        loading={isLoading}
       />
     ) : null,
   };

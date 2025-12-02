@@ -656,6 +656,16 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   updateMetadata: metadata => {
     const {mapDocument} = get();
+    if (!mapDocument) {
+      set({
+        errorNotification: {
+          severity: 2,
+          message: 'Tried to update metadata on a map document that does not exist',
+          id: 'updateMetadata-no-map-document',
+        },
+      })
+      return;
+    }
     set({
       mapDocument: {
         ...mapDocument,
