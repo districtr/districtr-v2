@@ -34,7 +34,7 @@ interface ValidationResponse {
 }
 
 const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
-  return null
+  return null;
   const inputRef = useRef<HTMLInputElement>(null);
   const [showMapOptions, setShowMapOptions] = useState(false);
   const [dataResponse, setDataResponse] = useState<ValidationResponse | null>(null);

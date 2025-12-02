@@ -173,7 +173,6 @@ export const processFile = ({
             !row[ZONE] ? '' : String(+row[ZONE]),
           ]),
           districtr_map_slug: districtrMap.districtr_map_slug,
-          user_id: userID,
         });
         result &&
           setMapLinks(mapLinks => [

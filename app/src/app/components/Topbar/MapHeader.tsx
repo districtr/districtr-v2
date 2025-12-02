@@ -3,7 +3,7 @@ import {Flex} from '@radix-ui/themes';
 import {useMapMetadata} from '@/app/hooks/useMapMetadata';
 import {useMapStore} from '@/app/store/mapStore';
 import {MapTitleDisplay} from './MapTitleDisplay';
-import { DocumentMetadata } from '@/app/utils/api/apiHandlers/types';
+import {DocumentMetadata} from '@/app/utils/api/apiHandlers/types';
 
 export const MapHeader: React.FC<{
   handleMetadataChange: (updates: Partial<DocumentMetadata>) => Promise<void>;

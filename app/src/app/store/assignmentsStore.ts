@@ -7,9 +7,7 @@ import {idb} from '../utils/idb/idb';
 import {useMapStore} from './mapStore';
 import {BLOCK_SOURCE_ID} from '../constants/layers';
 import {checkIfSameZone} from '../utils/map/checkIfSameZone';
-import {
-  formatAssignmentsFromDocument,
-} from '../utils/map/formatAssignments';
+import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {useChartStore} from './chartStore';
@@ -73,18 +71,23 @@ export interface AssignmentsStore {
     resolution: SyncConflictResolution,
     conflict: SyncConflictInfo
   ) => void;
-  healParentsIfAllChildrenInSameZone: (props: {
-    _parentIds?: AssignmentsStore['shatterIds']['parents'];
-    _zoneAssignments?: AssignmentsStore['zoneAssignments'];
-    _shatterMappings?: AssignmentsStore['shatterMappings'];
-    _shatterIds?: AssignmentsStore['shatterIds'];
-    _mapRef?: maplibregl.Map;
-    _mapDocument?: DocumentObject;
-  }, mutation: 'refs' | 'state') => {
-    zoneAssignments: Map<string, NullableZone>;
-    shatterIds: AssignmentsStore['shatterIds'];
-    shatterMappings: AssignmentsStore['shatterMappings'];
-  } | undefined;
+  healParentsIfAllChildrenInSameZone: (
+    props: {
+      _parentIds?: AssignmentsStore['shatterIds']['parents'];
+      _zoneAssignments?: AssignmentsStore['zoneAssignments'];
+      _shatterMappings?: AssignmentsStore['shatterMappings'];
+      _shatterIds?: AssignmentsStore['shatterIds'];
+      _mapRef?: maplibregl.Map;
+      _mapDocument?: DocumentObject;
+    },
+    mutation: 'refs' | 'state'
+  ) =>
+    | {
+        zoneAssignments: Map<string, NullableZone>;
+        shatterIds: AssignmentsStore['shatterIds'];
+        shatterMappings: AssignmentsStore['shatterMappings'];
+      }
+    | undefined;
 }
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
@@ -201,14 +204,9 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
         idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at);
     },
 
-    healParentsIfAllChildrenInSameZone: ({
-      _parentIds,
-      _zoneAssignments,
-      _shatterMappings,
-      _shatterIds,
-      _mapRef,
-      _mapDocument,
-    }, mutation
+    healParentsIfAllChildrenInSameZone: (
+      {_parentIds, _zoneAssignments, _shatterMappings, _shatterIds, _mapRef, _mapDocument},
+      mutation
     ) => {
       const state = get();
       const mapStoreState = useMapStore.getState();
@@ -218,7 +216,7 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
       const shatterMappings = _shatterMappings ?? state.shatterMappings;
       const mapRef = _mapRef ?? mapStoreState.getMapRef();
       const mapDocument = _mapDocument ?? mapStoreState.mapDocument;
-      
+
       if (!mapRef || !mapDocument) return;
 
       const healedParents: Array<{
@@ -281,8 +279,8 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
         return {
           zoneAssignments,
           shatterIds,
-          shatterMappings
-        }
+          shatterMappings,
+        };
       } else {
         set({
           zoneAssignments: new Map(zoneAssignments),
@@ -296,7 +294,7 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
           },
           clientLastUpdated: new Date().toISOString(),
           zonesLastUpdated: new Map(get().zonesLastUpdated),
-        })
+        });
       }
     },
     ingestAccumulatedAssignments: () => {
@@ -306,7 +304,7 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
         shatterMappings: _currShatterMappings,
         zoneAssignments: currentZoneAssignments,
         zonesLastUpdated,
-        healParentsIfAllChildrenInSameZone
+        healParentsIfAllChildrenInSameZone,
       } = get();
 
       const {mapDocument, getMapRef} = useMapStore.getState();
@@ -328,25 +326,29 @@ export const useAssignmentsStore = create<AssignmentsStore>()(
       };
 
       const taggedParents = new Set<string>();
-      !isFocused && accumulatedAssignments.forEach((_, geoid) => {
-        if (_currShatterIds.children.has(geoid)) {
-          const parentId = Object.entries(_shatterMappings).find(([, children]) =>
-            children.has(geoid)
-          )?.[0];
-          if (parentId) {
-            taggedParents.add(parentId);
+      !isFocused &&
+        accumulatedAssignments.forEach((_, geoid) => {
+          if (_currShatterIds.children.has(geoid)) {
+            const parentId = Object.entries(_shatterMappings).find(([, children]) =>
+              children.has(geoid)
+            )?.[0];
+            if (parentId) {
+              taggedParents.add(parentId);
+            }
           }
-        }
-      });
+        });
 
-      const result = healParentsIfAllChildrenInSameZone({
-        _parentIds: taggedParents,
-        _zoneAssignments: _zoneAssignments,
-        _shatterMappings: _shatterMappings,
-        _shatterIds: _shatterIds,
-        _mapRef: mapRef,
-        _mapDocument: mapDocument
-      }, 'refs')
+      const result = healParentsIfAllChildrenInSameZone(
+        {
+          _parentIds: taggedParents,
+          _zoneAssignments: _zoneAssignments,
+          _shatterMappings: _shatterMappings,
+          _shatterIds: _shatterIds,
+          _mapRef: mapRef,
+          _mapDocument: mapDocument,
+        },
+        'refs'
+      );
 
       if (!result) return;
       const {zoneAssignments, shatterIds, shatterMappings} = result;

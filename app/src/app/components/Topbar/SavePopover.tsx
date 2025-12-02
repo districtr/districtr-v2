@@ -22,30 +22,37 @@ export const SavePopover = () => {
           onClick={() => (isOutdated ? handlePutAssignments() : null)}
           className={`cursor-pointer`}
         >
-          {isOutdated ? <SymbolIcon color="red" className="animate-pulse-spin" /> : <SymbolIcon color="blue" />}
+          {isOutdated ? (
+            <SymbolIcon color="red" className="animate-pulse-spin" />
+          ) : (
+            <SymbolIcon color="blue" />
+          )}
         </IconButton>
       </Popover.Trigger>
       <Popover.Content width="320px" align="center">
         <Grid columns="60px 1fr" gap="2">
-          
-        {isOutdated ? (<Inset side="left" className="flex items-center justify-center bg-red-500 mr-4">
-            <ExclamationTriangleIcon color="white" className="size-6" />
-          </Inset>) : (<Inset side="left" className="flex items-center justify-center bg-green-500 mr-4">
-            <CheckIcon color="white" className="size-6" />
-          </Inset>)}
-          <Flex direction="column" align="start" justify="center"  gapX="3">
+          {isOutdated ? (
+            <Inset side="left" className="flex items-center justify-center bg-red-500 mr-4">
+              <ExclamationTriangleIcon color="white" className="size-6" />
+            </Inset>
+          ) : (
+            <Inset side="left" className="flex items-center justify-center bg-green-500 mr-4">
+              <CheckIcon color="white" className="size-6" />
+            </Inset>
+          )}
+          <Flex direction="column" align="start" justify="center" gapX="3">
             <Box>
-
-            <Text size="1" className="italic">
-              Last synced:{' '}
-              {new Date(documentFromIdb?.document_metadata.updated_at ?? '').toLocaleString()}
-            </Text>
-            <br/>
-            {isOutdated ? (
-              <Text size="1" className="italic font-bold">
-                Your changes are saved only to your browser. <br/>Click <SymbolIcon color="red" className="inline size-4"/> to sync your map.
+              <Text size="1" className="italic">
+                Last synced:{' '}
+                {new Date(documentFromIdb?.document_metadata.updated_at ?? '').toLocaleString()}
               </Text>
-            ) : null}
+              <br />
+              {isOutdated ? (
+                <Text size="1" className="italic font-bold">
+                  Your changes are saved only to your browser. <br />
+                  Click <SymbolIcon color="red" className="inline size-4" /> to sync your map.
+                </Text>
+              ) : null}
             </Box>
           </Flex>
         </Grid>

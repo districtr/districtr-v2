@@ -13,7 +13,7 @@ from app.contiguity.main import (
 )
 from app.utils import create_parent_child_edges
 from tempfile import NamedTemporaryFile
-from tests.constants import FIXTURES_PATH, USER_ID
+from tests.constants import FIXTURES_PATH
 from sqlmodel import Session
 
 
@@ -59,6 +59,20 @@ def test_load_gml(connected_graph):
             print(G.nodes)
             print(G.edges)
             test_check_subgraph_contiguity(G)
+
+
+def put_simple_contiguous_assignments(client: TestClient, document_id: str):
+    response = client.put(
+        "/api/assignments",
+        json={
+            "assignments": [
+                {"document_id": document_id, "geo_id": "A", "zone": 1},
+                {"document_id": document_id, "geo_id": "B", "zone": 2},
+                {"document_id": document_id, "geo_id": "C", "zone": 1},
+            ],
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
+        },
+    )
 
 
 @fixture(name="file_path")
@@ -107,7 +121,7 @@ def document_id_fixture(
 ):
     response = client.post(
         "/api/create_document",
-        json={"districtr_map_slug": "simple_geos", "user_id": USER_ID},
+        json={"districtr_map_slug": "simple_geos"},
     )
     assert response.status_code == 201
     doc = response.json()
@@ -117,19 +131,7 @@ def document_id_fixture(
 
 @fixture(name="simple_contiguous_assignments")
 def simple_contigous_assignments(client: TestClient, document_id: str) -> str:
-    response = client.patch(
-        "/api/update_assignments",
-        json={
-            "assignments": [
-                {"document_id": document_id, "geo_id": "A", "zone": 1},
-                {"document_id": document_id, "geo_id": "B", "zone": 2},
-                {"document_id": document_id, "geo_id": "C", "zone": 1},
-            ],
-            "updated_at": "2023-10-01T00:00:00Z",
-            "user_id": USER_ID,
-        },
-    )
-    assert response.status_code == 200
+    put_simple_contiguous_assignments(client, document_id)
 
     return document_id
 
@@ -238,6 +240,7 @@ def test_simple_geos_discontiguity(
     client: TestClient, simple_contiguous_assignments: str, mock_gerrydb_graph_file
 ):
     document_id = simple_contiguous_assignments
+    put_simple_contiguous_assignments(client, document_id)
     response = client.get(
         f"/api/document/{document_id}/contiguity",
     )
@@ -247,21 +250,17 @@ def test_simple_geos_discontiguity(
     # Break one parent and create discontiguous assignments
     # See `simple_geos_graph` fixture for graph diagram and
     # `simple_contigous_assignments` fixture for existing assignments
-    response = client.patch(
-        f"/api/update_assignments/{document_id}/shatter_parents",
-        json={
-            "geoids": ["A"],
-            "user_id": USER_ID,
-            "updated_at": "2023-10-01T00:00:00Z",
-        },
-    )
     assert response.status_code == 200
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
-            "assignments": [{"document_id": document_id, "geo_id": "e", "zone": 2}],
-            "user_id": USER_ID,
-            "updated_at": "2023-10-01T00:00:00Z",
+            "assignments": [
+                {"document_id": document_id, "geo_id": "a", "zone": 1},
+                {"document_id": document_id, "geo_id": "e", "zone": 2},
+                {"document_id": document_id, "geo_id": "B", "zone": 2},
+                {"document_id": document_id, "geo_id": "C", "zone": 1},
+            ],
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -286,21 +285,16 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
     # Break one parent and create discontiguous assignments
     # See `simple_geos_graph` fixture for graph diagram and
     # `simple_contigous_assignments` fixture for existing assignments
-    response = client.patch(
-        f"/api/update_assignments/{document_id}/shatter_parents",
+    response = client.put(
+        "/api/assignments",
         json={
-            "geoids": ["A"],
-            "user_id": USER_ID,
-            "updated_at": "2023-10-01T00:00:00Z",
-        },
-    )
-    assert response.status_code == 200
-    response = client.patch(
-        "/api/update_assignments",
-        json={
-            "assignments": [{"document_id": document_id, "geo_id": "e", "zone": 2}],
-            "user_id": USER_ID,
-            "updated_at": "2023-10-01T00:00:00Z",
+            "assignments": [
+                {"document_id": document_id, "geo_id": "a", "zone": 1},
+                {"document_id": document_id, "geo_id": "e", "zone": 2},
+                {"document_id": document_id, "geo_id": "B", "zone": 2},
+                {"document_id": document_id, "geo_id": "C", "zone": 1},
+            ],
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -325,7 +319,7 @@ def ks_ellis_document_id(
     )
     response = client.post(
         "/api/create_document",
-        json={"districtr_map_slug": "ks_ellis_geos", "user_id": USER_ID},
+        json={"districtr_map_slug": "ks_ellis_geos"},
     )
     assert response.status_code == 201
     doc = response.json()
@@ -336,8 +330,8 @@ def ks_ellis_document_id(
 @fixture
 def ks_ellis_assignments(client: TestClient, ks_ellis_document_id: str) -> str:
     document_id = ks_ellis_document_id
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "vtd:20051120060", "zone": 1},
@@ -367,8 +361,7 @@ def ks_ellis_assignments(client: TestClient, ks_ellis_document_id: str) -> str:
                 {"document_id": document_id, "geo_id": "vtd:20051000200", "zone": 3},
                 {"document_id": document_id, "geo_id": "vtd:2005100003A", "zone": 3},
             ],
-            "updated_at": "2023-10-01T00:00:00Z",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -380,6 +373,7 @@ def test_ks_ellis_geos_contiguity(
     client: TestClient, ks_ellis_assignments: str, mock_gerrydb_graph_file
 ):
     document_id = ks_ellis_assignments
+
     response = client.get(
         f"/api/document/{document_id}/contiguity",
     )
@@ -392,14 +386,38 @@ def test_fix_ks_ellis_geos_contiguity(
 ):
     document_id = ks_ellis_assignments
 
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
             "assignments": [
+                {"document_id": document_id, "geo_id": "vtd:20051120060", "zone": 1},
+                {"document_id": document_id, "geo_id": "vtd:20051000280", "zone": 1},
+                {"document_id": document_id, "geo_id": "vtd:20051000050", "zone": 1},
+                {"document_id": document_id, "geo_id": "vtd:20051000040", "zone": 1},
+                {"document_id": document_id, "geo_id": "vtd:20051900090", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051900010", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051120070", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051120050", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051120040", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000310", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000300", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000290", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:2005100010A", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000090", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000080", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051000030", "zone": 2},
                 {"document_id": document_id, "geo_id": "vtd:20051900100", "zone": 2},
+                {"document_id": document_id, "geo_id": "vtd:20051900070", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051900060", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051900050", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051000240", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051000230", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051000220", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:2005100021A", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:20051000200", "zone": 3},
+                {"document_id": document_id, "geo_id": "vtd:2005100003A", "zone": 3},
             ],
-            "updated_at": "2023-10-01T00:00:00Z",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -419,10 +437,7 @@ def ks_ellis_parent_only_document_id(
 ):
     response = client.post(
         "/api/create_document",
-        json={
-            "districtr_map_slug": "ks_ellis_county_block",
-            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
-        },
+        json={"districtr_map_slug": "ks_ellis_county_block"},
     )
     assert response.status_code == 201, response.json()
     doc = response.json()
@@ -435,8 +450,8 @@ def ks_ellis_parent_only_assignments(
     client: TestClient, ks_ellis_parent_only_document_id: str
 ) -> str:
     document_id = ks_ellis_parent_only_document_id
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "200510730003052", "zone": 1},
@@ -456,8 +471,7 @@ def ks_ellis_parent_only_assignments(
                 {"document_id": document_id, "geo_id": "200510728014082", "zone": 2},
                 {"document_id": document_id, "geo_id": "200510730001184", "zone": 2},
             ],
-            "updated_at": "2023-10-01T00:00:00Z",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200, response.json()

@@ -1,4 +1,4 @@
-import { useIdbDocument } from '@/app/hooks/useIdbDocument';
+import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {useMapStore} from '@/app/store/mapStore';
 import {useSaveShareStore} from '@/app/store/saveShareStore';
 import {EyeClosedIcon, EyeOpenIcon, Pencil1Icon} from '@radix-ui/react-icons';

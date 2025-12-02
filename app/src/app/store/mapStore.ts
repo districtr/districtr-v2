@@ -176,9 +176,7 @@ export interface MapStore {
 
   mapName: () => string | undefined;
   mapMetadata: DocumentObject['map_metadata'];
-  updateMetadata: (
-    metadata: Partial<DocumentMetadata>
-  ) => void;
+  updateMetadata: (metadata: Partial<DocumentMetadata>) => void;
   // SHARE MAP
   passwordPrompt: boolean;
   setPasswordPrompt: (prompt: boolean) => void;
@@ -656,7 +654,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
     group: null,
     draft_status: null,
   },
-  updateMetadata: (metadata) => {
+  updateMetadata: metadata => {
     const {mapDocument} = get();
     set({
       mapDocument: {

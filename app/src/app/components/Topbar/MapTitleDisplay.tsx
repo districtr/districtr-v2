@@ -105,7 +105,11 @@ export const MapTitleDisplay: React.FC<{
                 aria-label="Edit map name and metadata"
               >
                 <DraftStatusIcon />
-                {!!mapName && <Text size="2" className="font-bold text-black">{mapName || '(Edit map name)'}</Text>}
+                {!!mapName && (
+                  <Text size="2" className="font-bold text-black">
+                    {mapName || '(Edit map name)'}
+                  </Text>
+                )}
                 <MapContextModuleAndUnits />
                 {editing ? <Pencil1Icon /> : null}
               </Flex>
@@ -113,7 +117,9 @@ export const MapTitleDisplay: React.FC<{
           </Popover.Trigger>
           <Popover.Content align="center" className="w-full">
             <Flex direction="row" gap="2" align="center" justify="center">
-            <Text size="1" className="text-center">Click to edit map name and metadata</Text>
+              <Text size="1" className="text-center">
+                Click to edit map name and metadata
+              </Text>
             </Flex>
           </Popover.Content>
         </Popover.Root>
@@ -128,85 +134,91 @@ export const MapTitleDisplay: React.FC<{
               >
                 <Cross2Icon />
               </IconButton>
-            <Dialog.Title>Edit Map Name & Metadata</Dialog.Title>
-            <Box mb="3">
-              <Text as="label" size="2" htmlFor="map-title" mb="1">
-                Map Name
-              </Text>
-              <TextField.Root
-                id="map-title"
-                value={mapTitleInner}
-                placeholder="Map name"
-                onChange={e => setMapTitleInner(e.target.value)}
-                className="w-full"
-                mt="1"
-              >
-                <TextField.Slot>
-                  <Pencil1Icon />
-                </TextField.Slot>
-              </TextField.Root>
-            </Box>
-            <Box mb="3">
-              <Text as="label" size="2" htmlFor="map-desc" mb="1">
-                Description (optional)
-              </Text>
-              <TextArea
-                id="map-desc"
-                value={mapDescriptionInner ?? ''}
-                placeholder="Description (optional)"
-                rows={3}
-                onChange={e => setMapDescriptionInner(e.target.value)}
-                className="w-full"
-                mt="1"
-              />
-            </Box>
+              <Dialog.Title>Edit Map Name & Metadata</Dialog.Title>
+              <Box mb="3">
+                <Text as="label" size="2" htmlFor="map-title" mb="1">
+                  Map Name
+                </Text>
+                <TextField.Root
+                  id="map-title"
+                  value={mapTitleInner}
+                  placeholder="Map name"
+                  onChange={e => setMapTitleInner(e.target.value)}
+                  className="w-full"
+                  mt="1"
+                >
+                  <TextField.Slot>
+                    <Pencil1Icon />
+                  </TextField.Slot>
+                </TextField.Root>
+              </Box>
+              <Box mb="3">
+                <Text as="label" size="2" htmlFor="map-desc" mb="1">
+                  Description (optional)
+                </Text>
+                <TextArea
+                  id="map-desc"
+                  value={mapDescriptionInner ?? ''}
+                  placeholder="Description (optional)"
+                  rows={3}
+                  onChange={e => setMapDescriptionInner(e.target.value)}
+                  className="w-full"
+                  mt="1"
+                />
+              </Box>
 
-            <SegmentedControl.Root
-              value={mapStatusInner}
-              onValueChange={e => setMapStatusInner(e as DraftStatus)}
-              size="1"
-              className="w-full h-full mb-4"
-              style={{width: '100%', maxWidth: '100%'}}
-            >
-              {iconOrder.map(status => (
-                <SegmentedControl.Item key={status} value={status}>
-                  <Flex direction="column" gap="0" align="center" justify="start" className="py-1">
-                    {statusIcons[status]({})}
-                    <Text>{statusText[status]}</Text>
-                  </Flex>
-                </SegmentedControl.Item>
-              ))}
-            </SegmentedControl.Root>
-            <Flex direction="row" gap="2" justify="end">
-              <Button
+              <SegmentedControl.Root
+                value={mapStatusInner}
+                onValueChange={e => setMapStatusInner(e as DraftStatus)}
                 size="1"
-                variant="outline"
-                color="gray"
-                onClick={() => {
-                  setMapTitleInner(_mapName);
-                  setMapDescriptionInner(_mapDescription ?? '');
-                  setOpen(false);
-                }}
+                className="w-full h-full mb-4"
+                style={{width: '100%', maxWidth: '100%'}}
               >
-                Cancel
-              </Button>
-              <Button
-                size="1"
-                variant="solid"
-                color="green"
-                type="submit"
-                onClick={async () => {
-                  await handleMetadataChange({
-                    name: mapTitleInner,
-                    description: mapDescriptionInner,
-                    draft_status: mapStatusInner,
-                  });
-                  setOpen(false);
-                }}
-              >
-                Save
-              </Button>
-            </Flex>
+                {iconOrder.map(status => (
+                  <SegmentedControl.Item key={status} value={status}>
+                    <Flex
+                      direction="column"
+                      gap="0"
+                      align="center"
+                      justify="start"
+                      className="py-1"
+                    >
+                      {statusIcons[status]({})}
+                      <Text>{statusText[status]}</Text>
+                    </Flex>
+                  </SegmentedControl.Item>
+                ))}
+              </SegmentedControl.Root>
+              <Flex direction="row" gap="2" justify="end">
+                <Button
+                  size="1"
+                  variant="outline"
+                  color="gray"
+                  onClick={() => {
+                    setMapTitleInner(_mapName);
+                    setMapDescriptionInner(_mapDescription ?? '');
+                    setOpen(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="1"
+                  variant="solid"
+                  color="green"
+                  type="submit"
+                  onClick={async () => {
+                    await handleMetadataChange({
+                      name: mapTitleInner,
+                      description: mapDescriptionInner,
+                      draft_status: mapStatusInner,
+                    });
+                    setOpen(false);
+                  }}
+                >
+                  Save
+                </Button>
+              </Flex>
             </Box>
           </Dialog.Content>
         </Dialog.Root>

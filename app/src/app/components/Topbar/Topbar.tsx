@@ -13,10 +13,7 @@ import {
 import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
-import {
-  ArrowLeftIcon,
-  HamburgerMenuIcon,
-} from '@radix-ui/react-icons';
+import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
 import {useTemporalStore} from '@store/temporalStore';
 import {DistrictrMap, DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
@@ -25,11 +22,11 @@ import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
 import {useRouter} from 'next/navigation';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
-import { SavePopover } from './SavePopover';
-import { SharePopoverAndModal } from './SharePopoverAndModal';
-import { SettingsPopoverAndModal } from './SettingsPopoverAndModal';
-import { saveMapDocumentMetadata } from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
-import { idb } from '@/app/utils/idb/idb';
+import {SavePopover} from './SavePopover';
+import {SharePopoverAndModal} from './SharePopoverAndModal';
+import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
+import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
+import {idb} from '@/app/utils/idb/idb';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -46,13 +43,12 @@ export const Topbar: React.FC = () => {
   const router = useRouter();
   const updateMetadata = useMapStore(state => state.updateMetadata);
 
-
   const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
     if (!mapDocument?.document_id) return;
     const response = await saveMapDocumentMetadata({
       document_id: mapDocument?.document_id,
       metadata: updates,
-    })
+    });
     if (response.ok) {
       idb.updateIdbMetadata(mapDocument?.document_id, updates);
       updateMetadata(updates);
@@ -205,7 +201,7 @@ export const Topbar: React.FC = () => {
           <MapHeader handleMetadataChange={handleMetadataChange} />
           <Flex direction="row" align="center" gapX="3">
             <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
-            {isEditing && <SavePopover  />}
+            {isEditing && <SavePopover />}
             <SettingsPopoverAndModal />
           </Flex>
         </Flex>

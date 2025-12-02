@@ -11,8 +11,8 @@ import {idb} from '@/app/utils/idb/idb';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {redirect, useRouter} from 'next/navigation';
-import { postUpdateAssignmentsAndVerify } from '../utils/api/apiHandlers/postUpdateAssignmentsAndVerify';
-import { getAssignments } from '../utils/api/apiHandlers/getAssignments';
+import {postUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/postUpdateAssignmentsAndVerify';
+import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
@@ -49,7 +49,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
       switch (resolution) {
         case 'use-local': {
           setMapDocument(conflictInfo?.localDocument);
-          const assignments = await idb.getDocument(conflictInfo?.localDocument.document_id);  
+          const assignments = await idb.getDocument(conflictInfo?.localDocument.document_id);
           if (!assignments) {
             setError(new Error('No assignments found in IDB'));
             break;
@@ -82,15 +82,18 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
             return;
           }
           const data = formatAssignmentsFromDocument(remoteAssignments.response);
-          ingestFromDocument({
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
-          }, conflictInfo?.serverDocument);
+          ingestFromDocument(
+            {
+              zoneAssignments: data.zoneAssignments,
+              shatterIds: data.shatterIds,
+              shatterMappings: data.shatterMappings,
+            },
+            conflictInfo?.serverDocument
+          );
           break;
         }
         case 'keep-local': {
-          const assignments = await idb.getDocument(conflictInfo?.localDocument.document_id);  
+          const assignments = await idb.getDocument(conflictInfo?.localDocument.document_id);
           if (!assignments) {
             setError(new Error('No assignments found in IDB'));
             break;
@@ -112,7 +115,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
             setError(new Error('Failed to create map document'));
             break;
           }
-          const assignments = await idb.getDocument(conflictInfo?.localDocument.document_id);  
+          const assignments = await idb.getDocument(conflictInfo?.localDocument.document_id);
           if (!assignments) {
             setError(new Error('No assignments found in IDB'));
             break;
@@ -132,12 +135,14 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
           router.push(`/map/edit/${createMapDocumentResponse.response.document_id}`);
           break;
         }
-    }
-    setIsLoading(false);
-    setConflictInfo(null);
-    setShowConflictModal(false);
-    setAppLoadingState('loaded');
-  }, [conflictInfo, handlePutAssignments, setMapDocument, router])
+      }
+      setIsLoading(false);
+      setConflictInfo(null);
+      setShowConflictModal(false);
+      setAppLoadingState('loaded');
+    },
+    [conflictInfo, handlePutAssignments, setMapDocument, router]
+  );
 
   useEffect(() => {
     const mapDocument = useMapStore.getState().mapDocument;
@@ -148,10 +153,10 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
       if (!document_id || !enabled) {
         return;
       }
-  
+
       setIsLoading(true);
       setError(null);
-  
+
       const result = await fetchDocument(document_id);
       if (!result.ok) {
         if (result.response) {
@@ -165,17 +170,20 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
       } else {
         setMapDocument(result.response.document);
         const data = formatAssignmentsFromDocument(result.response.assignments);
-        ingestFromDocument({
-          zoneAssignments: data.zoneAssignments,
-          shatterIds: data.shatterIds,
-          shatterMappings: data.shatterMappings,
-        }, result.response.updateLocal ? result.response.document : undefined);
+        ingestFromDocument(
+          {
+            zoneAssignments: data.zoneAssignments,
+            shatterIds: data.shatterIds,
+            shatterMappings: data.shatterMappings,
+          },
+          result.response.updateLocal ? result.response.document : undefined
+        );
         setClientLastUpdated(result.response.document.updated_at!);
         setIsLoading(false);
         setAppLoadingState('loaded');
         return;
       }
-    }
+    };
     loadDocument();
   }, [document_id, enabled]);
 

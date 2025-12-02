@@ -70,7 +70,6 @@ from contextlib import asynccontextmanager
 from fiona.transform import transform
 from fastapi import BackgroundTasks
 
-
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
         dsn="https://b14aae02017e3a9c425de4b22af7dd0c@o4507623009091584.ingest.us.sentry.io/4507623009746944",
@@ -165,9 +164,17 @@ async def create_document(
         text("SELECT create_document(:districtr_map_slug);"),
         {"districtr_map_slug": data.districtr_map_slug},
     )
-    document_id = results.one()[0]  # should be only one row, one column of results
+    document_id = results.one()[0]  # create_document only returns the ID
+    created_document = get_document(
+        document_id=DocumentID(document_id=str(document_id)), session=session
+    )
+
     total_assignments = 0
+
     if data.copy_from_doc is not None:
+        logger.info(
+            f"Copying document. Origin document: {data.copy_from_doc} to {document_id}"
+        )
         copy_document_id = parse_document_id(data.copy_from_doc)
         if not copy_document_id:
             raise HTTPException(status_code=404, detail="Document not found")
@@ -181,7 +188,6 @@ async def create_document(
             to_document_id=document_id,
             session=session,
         )
-        print(total_assignments)
 
     elif data.assignments is not None and len(data.assignments) > 0:
         max_records = 914_231
@@ -218,7 +224,7 @@ async def create_document(
             f"Updating metadata for document: {document_id if not data.copy_from_doc else copied_document.document_id}"
         )
         await update_districtrmap_metadata(
-            document=copied_document, metadata=data.metadata, session=session
+            document=created_document, metadata=data.metadata, session=session
         )
 
     stmt = (
@@ -238,10 +244,7 @@ async def create_document(
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
             coalesce(total_assignments).label("inserted_assignments"),
-            # send metadata as a null object on init of document
-            coalesce(
-                None,
-            ).label("map_metadata"),
+            Document.map_metadata,
         )
         .where(Document.document_id == document_id)
         .join(
@@ -284,6 +287,12 @@ async def create_document(
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
+    if not data.assignments or not len(data.assignments) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No assignments provided",
+        )
+
     document_id = data.assignments[0].document_id
     assignments = data.model_dump()["assignments"]
     last_updated_at = data.model_dump()["last_updated_at"]
@@ -460,13 +469,10 @@ async def get_assignments(
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document_object(
     document_id: DocumentID = Depends(parse_document_id),
-    user_id: str | None = None,
     session: Session = Depends(get_session),
 ):
     try:
-        return get_document_public(
-            document_id=document_id, user_id=user_id, session=session
-        )
+        return get_document_public(document_id=document_id, session=session)
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -9,7 +9,6 @@ from tests.constants import (
     OGR2OGR_PG_CONNECTION_STRING,
     FIXTURES_PATH,
     GERRY_DB_FIXTURE_NAME,
-    USER_ID,
 )
 from app.utils import create_districtr_map, create_map_group
 from app.core.models import DocumentID
@@ -205,7 +204,6 @@ def document_total_vap_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_TOTAL_VAP_FIXTURE_NAME,
-            "user_id": USER_ID,
         },
     )
 
@@ -221,7 +219,6 @@ def document_all_stats_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_ALL_FIXTURE_NAME,
-            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -236,7 +233,6 @@ def document_no_gerrydb_pop_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_NO_POP_FIXTURE_NAME,
-            "user_id": USER_ID,
         },
     )
     document_id = response.json()["document_id"]
@@ -245,7 +241,7 @@ def document_no_gerrydb_pop_fixture(
 
 @pytest.fixture(name="assignments_document_id")
 def assignments_fixture(client, document_id_all_stats):
-    response = client.patch(
+    response = client.put(
         "/api/update_assignments",
         json={
             "assignments": [
@@ -265,8 +261,7 @@ def assignments_fixture(client, document_id_all_stats):
                     "zone": 2,
                 },
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-02T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -276,7 +271,7 @@ def assignments_fixture(client, document_id_all_stats):
 @pytest.fixture(name="assignments_document_id_total_vap")
 def assignments_total_vap_fixture(client, document_id_total_vap):
     document_id = document_id_total_vap
-    response = client.patch(
+    response = client.put(
         "/api/update_assignments",
         json={
             "assignments": [
@@ -284,8 +279,7 @@ def assignments_total_vap_fixture(client, document_id_total_vap):
                 {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-02T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -295,7 +289,7 @@ def assignments_total_vap_fixture(client, document_id_total_vap):
 @pytest.fixture(name="assignments_document_no_gerrydb_pop_id")
 def assignments_no_gerrydb_pop_fixture(client, document_no_gerrydb_pop):
     document_id = document_no_gerrydb_pop
-    response = client.patch(
+    response = client.put(
         "/api/update_assignments",
         json={
             "assignments": [
@@ -303,8 +297,7 @@ def assignments_no_gerrydb_pop_fixture(client, document_no_gerrydb_pop):
                 {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-02T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -322,7 +315,6 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
         },
     )
     data = response.json()
@@ -337,7 +329,7 @@ def test_new_document(client, ks_demo_view_census_blocks_districtrmap):
 
 def test_get_document(client, document_id):
     doc_uuid = uuid.UUID(document_id)
-    response = client.get(f"/api/document/{doc_uuid}?user_id={USER_ID}")
+    response = client.get(f"/api/document/{doc_uuid}")
     assert response.status_code == 200
 
     data = response.json()
@@ -347,17 +339,16 @@ def test_get_document(client, document_id):
     assert data.get("created_at")
 
 
-def test_patch_assignments(client, document_id):
-    response = client.patch(
-        "/api/update_assignments",
+def test_put_assignments(client, document_id):
+    response = client.put(
+        "/api/assignments",
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -366,17 +357,16 @@ def test_patch_assignments(client, document_id):
     assert updated_at is not None
 
 
-def test_patch_assignments_nulls(client, document_id):
-    response = client.patch(
-        "/api/update_assignments",
+def test_put_assignments_nulls(client, document_id):
+    response = client.put(
+        "/api/assignments",
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": None},
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -385,16 +375,15 @@ def test_patch_assignments_nulls(client, document_id):
     assert data.get("updated_at") is not None
 
 
-def test_patch_assignments_twice(client, document_id):
-    response = client.patch(
-        "/api/update_assignments",
+def test_put_assignments_twice(client, document_id):
+    response = client.put(
+        "/api/assignments",
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090441022004", "zone": 0},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 0},
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -402,21 +391,20 @@ def test_patch_assignments_twice(client, document_id):
     assert data.get("assignments_upserted") == 2
     assert data.get("updated_at") is not None
 
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
             "assignments": [
                 {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 1},
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-04T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
     assert data.get("assignments_upserted") == 2
     assert data.get("updated_at") is not None
-    # Check that the assignments were updated and not inserted
+    # Check that the assignments were updated and not insertedpytest -v tests/test_main.py::test_patch_reset_assignments
     doc_uuid = str(uuid.UUID(document_id))
     response = client.get(f"/api/get_assignments/{doc_uuid}")
     assert response.status_code == 200
@@ -430,8 +418,8 @@ def test_patch_assignments_twice(client, document_id):
 
 
 def test_patch_reset_assignments(client, document_id):
-    test_patch_assignments(client, document_id)
-    response = client.patch(f"/api/update_assignments/{document_id}/reset")
+    test_put_assignments(client, document_id)
+    response = client.patch(f"/api/assignments/{document_id}/reset")
     assert response.status_code == 200
     assignments = client.get(f"/api/get_assignments/{document_id}")
     assert assignments.status_code == 200
@@ -734,7 +722,6 @@ def test_new_document_from_block_assignments(client, simple_shatterable_district
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", "2"],
@@ -764,7 +751,6 @@ def test_new_document_from_block_assignments_no_matched_parents(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", "2"],
@@ -794,7 +780,6 @@ def test_new_document_from_block_assignments_no_data(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [],
         },
     )
@@ -817,7 +802,6 @@ def test_new_document_from_block_assignments_some_matched_parents(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", "2"],
@@ -847,7 +831,6 @@ def test_new_document_from_block_assignments_some_nulls(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", ""],
@@ -876,7 +859,6 @@ def test_new_document_from_block_assignments_some_null_geoids(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", ""],
@@ -905,7 +887,6 @@ def test_new_document_from_block_assignments_non_integer_mapping(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "My zone 1"],
                 ["b", ""],
@@ -934,7 +915,6 @@ def test_new_document_from_block_assignments_too_many_unique_zones(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["b", "2"],
@@ -968,7 +948,6 @@ def test_new_document_from_block_assignments_no_children(
         "/api/create_document",
         json={
             "districtr_map_slug": "ks_demo_view_census_blocks",
-            "user_id": USER_ID,
             "assignments": [
                 ["202090441022004", "1"],
                 ["202090428002008", "1"],
@@ -995,7 +974,6 @@ def test_new_document_from_block_assignments_duplicate_blocks_in_input(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
             "assignments": [
                 ["a", "1"],
                 ["a", "1"],  # Dupe!
@@ -1094,8 +1072,8 @@ def test_document_list(
 
 
 def test_get_district_unions(client, document_id_total_vap):
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
             "assignments": [
                 {
@@ -1114,9 +1092,10 @@ def test_get_district_unions(client, document_id_total_vap):
                     "zone": 2,
                 },
             ],
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
         },
     )
+    assert response.status_code == 200
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()
@@ -1126,8 +1105,8 @@ def test_get_district_unions(client, document_id_total_vap):
     assert data[0].get("demographic_data")
     assert data[0].get("updated_at")
     # update assignments to re-generate stats
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
             "assignments": [
                 {
@@ -1136,9 +1115,10 @@ def test_get_district_unions(client, document_id_total_vap):
                     "zone": 1,
                 },
             ],
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-04T17:04:19.349884Z",
         },
     )
+    assert response.status_code == 200
     response = client.get(f"/api/document/{document_id_total_vap}/stats")
     assert response.status_code == 200
     data = response.json()

@@ -70,11 +70,11 @@ export class DocumentsDB extends Dexie {
     this.updateDocument({
       id: document_id,
       document_metadata: {
-        ...currDocument.document_metadata, 
+        ...currDocument.document_metadata,
         map_metadata: {
           ...(currDocument.document_metadata.map_metadata ?? {}),
           ...metadata,
-        }
+        },
       },
       assignments: currDocument.assignments,
       clientLastUpdated: currDocument.clientLastUpdated,

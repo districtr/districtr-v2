@@ -1,13 +1,13 @@
 import os
 import pytest
-from tests.constants import FIXTURES_PATH, USER_ID
+from tests.constants import FIXTURES_PATH
 from unittest.mock import patch
 
 
 @pytest.fixture
 def document_id_with_assignments(client, document_id):
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
             "assignments": [
                 {
@@ -31,8 +31,7 @@ def document_id_with_assignments(client, document_id):
                     "zone": 2,
                 },
             ],
-            "updated_at": "2023-10-01T00:00:00Z",
-            "user_id": USER_ID,
+            "last_updated_at": "2025-12-03T17:04:19.349884Z",
         },
     )
     assert response.status_code == 200
@@ -63,7 +62,7 @@ def test_thumbnail_generator(client, document_id_with_assignments):
 
 
 def test_blank_thumbnail_generator(client, document_id):
-    response = client.get(f"/api/document/{document_id}?user_id={USER_ID}")
+    response = client.get(f"/api/document/{document_id}")
     districtrmap_slug = response.json().get("districtr_map_slug")
     with patch(
         "app.thumbnails.main.get_document_thumbnail_file_path"

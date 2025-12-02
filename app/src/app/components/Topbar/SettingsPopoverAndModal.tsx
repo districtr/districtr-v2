@@ -21,7 +21,10 @@ export const SettingsPopoverAndModal = () => {
           </IconButton>
         </Popover.Trigger>
         <Popover.Content align="center">
-          <Text size="1"> Click  <GearIcon className="size-4 inline" /> to open settings</Text>
+          <Text size="1">
+            {' '}
+            Click <GearIcon className="size-4 inline" /> to open settings
+          </Text>
         </Popover.Content>
       </Popover.Root>
 

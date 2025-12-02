@@ -1,7 +1,7 @@
 import {create} from 'zustand';
 import {MapStore, useMapStore} from './mapStore';
-import { idb } from '../utils/idb/idb';
-import { patchSharePlan } from '../utils/api/apiHandlers/patchSharePlan';
+import {idb} from '../utils/idb/idb';
+import {patchSharePlan} from '../utils/api/apiHandlers/patchSharePlan';
 
 interface SaveShareStore {
   password: string;
@@ -61,7 +61,7 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       document_id: mapDocument?.document_id,
       password: password ?? null,
       access_type: 'edit',
-    })
+    });
     if (response.ok) {
       set({password});
       idb.updatePassword(mapDocument?.document_id, password);
@@ -76,14 +76,18 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
 useMapStore.subscribe(
   state => state.mapDocument,
   (mapDocument, previousMapDocument) => {
-    if (!mapDocument?.document_id || mapDocument?.document_id === previousMapDocument?.document_id) {
+    if (
+      !mapDocument?.document_id ||
+      mapDocument?.document_id === previousMapDocument?.document_id
+    ) {
       return;
     }
-    idb.getDocument(mapDocument?.document_id)
-      .then(userMap => {
-        if (!userMap) return;
-        useSaveShareStore.getState().setPassword(userMap?.document_metadata.password || '');
-        useSaveShareStore.getState().setSharingMode(userMap?.document_metadata.access === 'edit' ? 'edit' : 'read');
-      })
+    idb.getDocument(mapDocument?.document_id).then(userMap => {
+      if (!userMap) return;
+      useSaveShareStore.getState().setPassword(userMap?.document_metadata.password || '');
+      useSaveShareStore
+        .getState()
+        .setSharingMode(userMap?.document_metadata.access === 'edit' ? 'edit' : 'read');
+    });
   }
 );

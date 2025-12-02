@@ -1,6 +1,5 @@
 from tests.constants import (
     GERRY_DB_FIXTURE_NAME,
-    USER_ID,
 )
 from app.save_share.models import DocumentShareStatus
 import jwt
@@ -14,7 +13,6 @@ def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
         },
     )
     assert response.status_code == 201
@@ -37,7 +35,6 @@ def private_document_fixture(client, ks_demo_view_census_blocks_districtrmap):
         "/api/create_document",
         json={
             "districtr_map_slug": GERRY_DB_FIXTURE_NAME,
-            "user_id": USER_ID,
         },
     )
     assert response.status_code == 201
@@ -109,7 +106,7 @@ def test_copy_document(client, private_document):
 
     # First, add some assignments to the original document
     # Get the document to get its updated_at timestamp
-    doc_response = client.get(f"/api/document/{document_id}?user_id={USER_ID}")
+    doc_response = client.get(f"/api/document/{document_id}")
     assert doc_response.status_code == 200
     doc_data = doc_response.json()
 
@@ -144,41 +141,3 @@ def test_copy_document(client, private_document):
     assert response.status_code == 200
     assignments = response.json()
     assert len(assignments) == 2
-
-
-def test_assignments_conflict_handling(client, private_document):
-    """Test that updating assignments with stale last_updated_at returns 409 conflict"""
-    document_id = private_document["document_id"]
-
-    # Get initial document
-    doc_response = client.get(f"/api/document/{document_id}?user_id={USER_ID}")
-    assert doc_response.status_code == 200
-    doc_data = doc_response.json()
-    initial_updated_at = doc_data.get("updated_at")
-
-    # Update assignments successfully
-    response = client.put(
-        "/api/assignments",
-        json={
-            "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-            ],
-            "last_updated_at": initial_updated_at,
-        },
-    )
-    assert response.status_code == 200
-
-    # Try to update again with stale timestamp - should fail with 409
-    response = client.put(
-        "/api/assignments",
-        json={
-            "assignments": [
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 2},
-            ],
-            "last_updated_at": initial_updated_at,  # Stale timestamp
-        },
-    )
-    assert response.status_code == 409
-    assert (
-        "Document has been updated since the last update" in response.json()["detail"]
-    )

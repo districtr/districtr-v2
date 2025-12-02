@@ -59,10 +59,7 @@ export const SaveShareModal: React.FC<{
     setInnerFormState(prev => ({...prev, ...updates}));
   };
 
-  useEffect(
-    () => handleInnerFormStateChange(mapMetadata ?? DEFAULT_MAP_METADATA),
-    [mapMetadata]
-  );
+  useEffect(() => handleInnerFormStateChange(mapMetadata ?? DEFAULT_MAP_METADATA), [mapMetadata]);
 
   useEffect(() => {
     if (linkCopied) {

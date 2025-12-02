@@ -78,7 +78,6 @@ def get_protected_document(
 def get_document_public(
     session: Session,
     document_id: DocumentID = Depends(parse_document_id),
-    user_id: str | None = None,
     shared: bool = False,
 ) -> DocumentPublic:
     """

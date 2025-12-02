@@ -13,6 +13,7 @@ import {
   DashIcon,
   QuestionMarkCircledIcon,
 } from '@radix-ui/react-icons';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 interface ContiguityDetailProps {
   zone: number;
@@ -28,7 +29,7 @@ export default function ContiguityDetail({
   handleUpdateParent,
 }: ContiguityDetailProps) {
   const mapDocument = useMapStore(store => store.mapDocument);
-  const zoneLastUpdated = useMapStore(store => store.zonesLastUpdated.get(zone));
+  const zoneLastUpdated = useAssignmentsStore(store => store.zonesLastUpdated.get(zone));
   const isOutOfSync = zoneLastUpdated && lastUpdated && zoneLastUpdated > lastUpdated;
 
   const [selectedFeature, setSelectedFeature] = useState<number | null>(null);

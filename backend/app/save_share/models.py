@@ -12,10 +12,6 @@ from app.constants import DOCUMENT_SCHEMA
 from app.core.models import TimeStampMixin, UUIDType, SQLModel
 
 
-class UserID(BaseModel):
-    user_id: str
-
-
 class UnlockFromPublicId(BaseModel):
     password: str | None = None
 
@@ -27,12 +23,6 @@ class DocumentShareStatus(str, Enum):
 
 class DocumentShareRequest(BaseModel):
     password: str | None = None
-    access_type: DocumentShareStatus = DocumentShareStatus.read
-
-
-class DocumentCheckoutRequest(BaseModel):
-    password: str | None = None
-    user_id: str
     access_type: DocumentShareStatus = DocumentShareStatus.read
 
 
@@ -68,14 +58,3 @@ class MapDocumentToken(TimeStampMixin, SQLModel, table=True):
     expiration_date: datetime = Field(
         sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
     )
-
-
-class DocumentEditStatus(str, Enum):
-    locked = "locked"
-    unlocked = "unlocked"
-    checked_out = "checked_out"
-
-
-class DocumentGenesis(str, Enum):
-    created = "created"
-    shared = "shared"

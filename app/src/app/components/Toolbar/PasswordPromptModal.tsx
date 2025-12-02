@@ -3,7 +3,7 @@ import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '@radix-ui/themes';
 import {useRouter, useSearchParams} from 'next/navigation';
-import { postUnlockMapDocument } from '@/app/utils/api/apiHandlers/postUnlockMapDocument';
+import {postUnlockMapDocument} from '@/app/utils/api/apiHandlers/postUnlockMapDocument';
 
 export const PasswordPromptModal = () => {
   const router = useRouter();

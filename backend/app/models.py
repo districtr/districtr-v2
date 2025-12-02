@@ -180,6 +180,7 @@ class DocumentCreate(BaseModel):
     assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
+# TODO: Remove this table
 class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     """
     Tracks the user session for a given document
