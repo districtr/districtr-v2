@@ -32,21 +32,22 @@ export const devToolsConfig: DevtoolsOptions = {
 
 export const temporalConfig: ZundoOptions<any, MapStore> = {
   // If diff returns null, not state is stored
-  diff: (past: Partial<MapStore>, curr: Partial<MapStore>) => {
-    // color changes included in undo/redo
-    if (past.colorScheme !== curr.colorScheme) return past;
-    // if not yet loaded, or is a temporal action (eg. silent heal) don't store
-    if (past.mapRenderingState !== 'loaded' || curr.isTemporalAction) return null;
-    return past;
-  },
+  // diff: (past: Partial<MapStore>, curr: Partial<MapStore>) => {
+  //   // color changes included in undo/redo
+  //   if (past.colorScheme !== curr.colorScheme) return past;
+  //   // if not yet loaded, or is a temporal action (eg. silent heal) don't store
+  //   if (past.mapRenderingState !== 'loaded' || curr.isTemporalAction) return null;
+  //   return past;
+  // },
   limit: 20,
   // @ts-ignore: save only partial store
   partialize: state => {
-    const {mapRenderingState, appLoadingState, colorScheme} = state;
+    const {shatterIds, shatterMappings, zoneAssignments, clientLastUpdated} = state;
     return {
-      mapRenderingState,
-      appLoadingState,
-      colorScheme,
+      shatterIds,
+      shatterMappings,
+      zoneAssignments,
+      clientLastUpdated,
     } as Partial<MapStore>;
   },
 };

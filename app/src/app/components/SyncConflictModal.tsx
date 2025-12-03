@@ -1,7 +1,8 @@
 import React from 'react';
-import {Dialog, Button, Flex, Text, Box, Spinner} from '@radix-ui/themes';
+import {Dialog, Button, Flex, Text, Box, Spinner, Grid} from '@radix-ui/themes';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {SyncConflictResolution, SyncConflictInfo} from '@/app/utils/api/apiHandlers/fetchDocument';
+import {CloudIcon, LocalIcon, ForkIcon} from './SyncConflictModalIcons';
 
 interface SyncConflictModalProps {
   open: boolean;
@@ -33,10 +34,16 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
             <Cross2Icon />
           </Dialog.Close>
         </Flex>
-        <Box p="3">
+        <Box p="0">
           <Text size="3" className="block mb-4">
-            Both the local and server versions of this document have been updated. Please choose how
-            to resolve this conflict:
+            You have unsaved changes on your computer.
+            <br />
+            <br />
+            Since you last saved, other users (or you, on another device!) have made changes to this
+            map.
+            <br />
+            <br />
+            This map can only have one version. Please choose how to resolve this conflict:
           </Text>
 
           {loading ? (
@@ -61,7 +68,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
 
               <Box className="mb-4 p-3 bg-gray-50 rounded">
                 <Text size="2" weight="bold" className="block mb-2">
-                  Server Version
+                  Cloud Version
                 </Text>
                 <Text size="2" className="block mb-1">
                   Last updated: {serverDate}
@@ -74,37 +81,48 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
               </Box>
 
               <Flex gap="2" direction="column" className="mt-4">
-                <Button
-                  onClick={() => onResolve('use-server')}
-                  variant="solid"
-                  className="w-full"
-                  size="3"
-                >
-                  Use Server Version (Overwrite Local)
-                </Button>
-                <Button
-                  onClick={() => onResolve('use-local')}
-                  variant="solid"
-                  className="w-full"
-                  size="3"
-                >
-                  Use Local Version (Overwrite Server)
-                </Button>
-                <Button
-                  onClick={() => onResolve('fork')}
-                  variant="solid"
-                  className="w-full"
-                  size="3"
-                >
-                  Copy Local Version to a New Map (Keep Both)
-                </Button>
+                <Grid columns="3" gap="2">
+                  <Button
+                    onClick={() => onResolve('use-server')}
+                    variant="solid"
+                    className="w-full h-auto py-4"
+                    size="3"
+                  >
+                    <Flex direction="column" align="center" gap="2">
+                      <CloudIcon />
+                      <Text size="2">Use the cloud version (overwrite my plan)</Text>
+                    </Flex>
+                  </Button>
+                  <Button
+                    onClick={() => onResolve('use-local')}
+                    variant="solid"
+                    className="w-full h-auto py-4"
+                    size="3"
+                  >
+                    <Flex direction="column" align="center" gap="2">
+                      <LocalIcon />
+                      <Text size="2">Use my plan (overwrite the cloud version)</Text>
+                    </Flex>
+                  </Button>
+                  <Button
+                    onClick={() => onResolve('fork')}
+                    variant="solid"
+                    className="w-full h-auto py-4"
+                    size="3"
+                  >
+                    <Flex direction="column" align="center" gap="2">
+                      <ForkIcon />
+                      <Text size="2">Make my plan a new map (keep both)</Text>
+                    </Flex>
+                  </Button>
+                </Grid>
                 <Button
                   onClick={() => onResolve('keep-local')}
                   variant="outline"
                   className="w-full"
                   size="3"
                 >
-                  Keep Working on Local (Don&apos;t Sync)
+                  I&apos;ll deal with this later
                 </Button>
               </Flex>
             </>

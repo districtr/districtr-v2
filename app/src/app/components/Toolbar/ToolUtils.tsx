@@ -12,6 +12,7 @@ import {
 import {useTemporalStore} from '@/app/store/temporalStore';
 import {useCallback} from 'react';
 import {debounce} from 'lodash';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -30,7 +31,9 @@ export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = access === 'edit';
-  const {futureStates, pastStates, redo, undo} = useTemporalStore(state => state); // TemporalState<MapStore>
+  const {futureStates, pastStates, redo, undo} = useAssignmentsStore.temporal.getState();
+  console.log('futureStates', futureStates);
+  console.log('pastStates', pastStates);
   const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);

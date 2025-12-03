@@ -34,6 +34,8 @@ import {postGetChildEdges} from '../utils/api/apiHandlers/postGetChildEdges';
 import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterParents';
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
+import {create} from 'zustand';
+import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -118,8 +120,6 @@ export interface MapStore {
    * @param {string[]} [additionalIds] - Optional array of additional IDs to include in the healing process.
    */
   processHealParentsQueue: (additionalIds?: string[]) => void;
-  silentlyShatter: (document_id: string, geoids: string[]) => Promise<void>;
-  silentlyHeal: (document_id: string, parentsToHeal: MapStore['parentsToHeal']) => Promise<void>;
   /**
    * Removes local shatter data and updates the map view based on the provided parents to heal.
    * This function checks the current state of parents and determines if any need to be healed,
@@ -193,7 +193,7 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
+export var useMapStore = create<MapStore>((set, get) => ({
   appLoadingState: initialLoadingState,
   setAppLoadingState: appLoadingState => set({appLoadingState}),
   mapRenderingState: 'initializing',
@@ -305,64 +305,6 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
   },
   colorScheme: DefaultColorScheme,
   setColorScheme: colorScheme => set({colorScheme}),
-  silentlyShatter: async (document_id, geoids) => {
-    const {getMapRef, mapDocument} = get();
-    const mapRef = getMapRef();
-    if (!mapRef) return;
-    set({mapLock: true});
-    const updateHash = new Date().toISOString();
-    // const r = await patchShatter.mutate({
-    //   document_id,
-    //   geoids,
-    //   updateHash,
-    // });
-    geoids.forEach(geoid => {
-      mapRef?.setFeatureState(
-        {
-          source: BLOCK_SOURCE_ID,
-          id: geoid,
-          sourceLayer: mapDocument?.parent_layer,
-        },
-        {
-          broken: true,
-          zone: null,
-        }
-      );
-    });
-    set({mapLock: false, assignmentsHash: updateHash, lastUpdatedHash: updateHash});
-  },
-  silentlyHeal: async (document_id, parentsToHeal) => {
-    const {getMapRef, mapDocument} = get();
-    const {zoneAssignments, shatterMappings} = useAssignmentsStore.getState();
-    const mapRef = getMapRef();
-    if (!mapRef) return;
-    set({mapLock: true});
-    const updateHash = new Date().toISOString();
-    const zone = zoneAssignments.get(parentsToHeal[0])!;
-    const sourceLayer = mapDocument?.parent_layer;
-    // const r = await patchUnShatter.mutate({
-    //   geoids: parentsToHeal,
-    //   zone: zoneAssignments.get(parentsToHeal[0])!,
-    //   document_id,
-    //   updateHash,
-    // });
-    const children = shatterMappings[parentsToHeal[0]];
-
-    parentsToHeal.forEach(parent => {
-      mapRef?.setFeatureState(
-        {
-          source: BLOCK_SOURCE_ID,
-          id: parent,
-          sourceLayer,
-        },
-        {
-          broken: false,
-          zone,
-        }
-      );
-    });
-    set({mapLock: false, assignmentsHash: updateHash, lastUpdatedHash: updateHash});
-  },
   handleShatter: async (document_id, features) => {
     if (!features.length) {
       console.log('NO FEATURES');
@@ -601,11 +543,20 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
       appLoadingState: 'loading',
     });
     const updateHash = new Date().toISOString();
-    const resetResponse = await patchReset.mutate(document_id);
+    const resetResponse = await patchUpdateReset(document_id);
+    if (!resetResponse.ok) {
+      set({
+        errorNotification: {
+          severity: 2,
+          message:
+            'Failed to reset map. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.',
+        },
+      });
+      return;
+    }
 
-    if (resetResponse.document_id === document_id) {
+    if (resetResponse.response.document_id === document_id) {
       const initialState = useMapStore.getInitialState();
-      useMapStore.temporal.getState().clear();
       GeometryWorker?.resetZones();
       resetZoneColors({
         zoneAssignments,
@@ -663,7 +614,7 @@ export var useMapStore = createWithMiddlewares<MapStore>((set, get) => ({
           message: 'Tried to update metadata on a map document that does not exist',
           id: 'updateMetadata-no-map-document',
         },
-      })
+      });
       return;
     }
     set({
