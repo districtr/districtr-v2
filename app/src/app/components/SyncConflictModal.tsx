@@ -25,11 +25,12 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
       <Dialog.Content>
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">
-            Sync Conflict Detected
+            Save Conflict Detected
           </Dialog.Title>
           <Dialog.Close
             className="rounded-full size-[24px] hover:bg-red-100 p-1"
             aria-label="Close"
+            onClick={() => onResolve('keep-local')}
           >
             <Cross2Icon />
           </Dialog.Close>
@@ -83,17 +84,6 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
               <Flex gap="2" direction="column" className="mt-4">
                 <Grid columns="3" gap="2">
                   <Button
-                    onClick={() => onResolve('use-server')}
-                    variant="solid"
-                    className="w-full h-auto py-4"
-                    size="3"
-                  >
-                    <Flex direction="column" align="center" gap="2">
-                      <CloudIcon />
-                      <Text size="2">Use the cloud version (overwrite the version)</Text>
-                    </Flex>
-                  </Button>
-                  <Button
                     onClick={() => onResolve('use-local')}
                     variant="solid"
                     className="w-full h-auto py-4"
@@ -105,6 +95,17 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                     </Flex>
                   </Button>
                   <Button
+                    onClick={() => onResolve('use-server')}
+                    variant="solid"
+                    className="w-full h-auto py-4"
+                    size="3"
+                  >
+                    <Flex direction="column" align="center" gap="2">
+                      <CloudIcon />
+                      <Text size="2">Use the cloud version (overwrite the version)<br/><br/></Text>
+                    </Flex>
+                  </Button>
+                  <Button
                     onClick={() => onResolve('fork')}
                     variant="solid"
                     className="w-full h-auto py-4"
@@ -112,7 +113,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                   >
                     <Flex direction="column" align="center" gap="2">
                       <ForkIcon />
-                      <Text size="2">Make this version a new plan (keep both)</Text>
+                      <Text size="2">Make this version <br/>a new plan <br/>(keep both)</Text>
                     </Flex>
                   </Button>
                 </Grid>

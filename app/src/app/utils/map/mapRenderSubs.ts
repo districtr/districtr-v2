@@ -271,7 +271,6 @@ export class MapRenderSubscriber {
     this.renderColorZones();
   }
   checkRender() {
-    const mapState = this.useMapStore.getState();
     const mapRef = this.mapRef;
     const {zoneAssignments} = this.useAssignmentsStore.getState();
     if (zoneAssignments.size === 0) return;

@@ -4,6 +4,7 @@ import {useMapStore} from '@/app/store/mapStore';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
 import {CheckIcon, ExclamationTriangleIcon, SymbolIcon} from '@radix-ui/react-icons';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {CloudSavedIcon, CloudNotSavedIcon} from './Icons';
 
 export const SavePopover = () => {
   const [hovered, setHovered] = useState(false);
@@ -22,11 +23,7 @@ export const SavePopover = () => {
           onClick={() => (isOutdated ? handlePutAssignments() : null)}
           className={`cursor-pointer`}
         >
-          {isOutdated ? (
-            <SymbolIcon color="red" className="animate-pulse-spin" />
-          ) : (
-            <SymbolIcon color="blue" />
-          )}
+          {isOutdated ? <CloudNotSavedIcon /> : <CloudSavedIcon />}
         </IconButton>
       </Popover.Trigger>
       <Popover.Content width="320px" align="center">
@@ -50,7 +47,11 @@ export const SavePopover = () => {
               {isOutdated ? (
                 <Text size="1" className="italic font-bold">
                   Your changes are saved only to your browser. <br />
-                  Click <SymbolIcon color="red" className="inline size-4" /> to sync your map.
+                  Click{' '}
+                  <Box style={{display: 'inline-block', transform: 'translateY(4px)'}}>
+                    <CloudNotSavedIcon />
+                  </Box>{' '}
+                  to save your changes to the cloud.
                 </Text>
               ) : null}
             </Box>

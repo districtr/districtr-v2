@@ -89,7 +89,7 @@ export const fetchDocument = async (document_id: string): FetchDocumentResult =>
 
   return {
     ok: false,
-    error: `Cloud Sync Conflict: This document was updated at ${remoteTimestamp} and your last updates are from ${localTimestamp}.`,
+    error: `Cloud Save Conflict: This document was updated at ${remoteTimestamp} and your last updates are from ${localTimestamp}.`,
     response: {
       localDocument: idbDocument.document_metadata,
       localLastUpdated: localTimestamp.toISOString(),
