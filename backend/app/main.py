@@ -306,19 +306,21 @@ async def update_assignments(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
         )
-
-    # Clear stale assignments
+    # Use a single TRUNCATE statement if Assignments is partitioned per-document, otherwise use bulk delete as before
     session.execute(
-        Assignments.__table__.delete().where(Assignments.document_id == document_id)
+        text("DELETE FROM document.assignments WHERE document_id = :document_id"),
+        {"document_id": document_id}
     )
-    # Insert new assignments
-    stmt = insert(Assignments).values(assignments)
-    session.execute(stmt)
+
+    # Use executemany for bulk insert if possible (sqlalchemy handles this with session.execute(insert(...).values(...)))
+    stmt = insert(Assignments)
+    session.execute(stmt, assignments)
 
     updated_at = None
     if len(data.assignments) > 0:
         updated_at = update_timestamp(session, document_id)
         logger.info(f"Document updated at {updated_at}")
+
     session.commit()
     return {"assignments_inserted": len(data.assignments), "updated_at": updated_at}
 
