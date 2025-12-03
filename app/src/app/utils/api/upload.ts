@@ -4,7 +4,6 @@ import Papa from 'papaparse';
 import {DistrictrMap} from '@/app/utils/api/apiHandlers/types';
 import {uploadAssignments} from './apiHandlers/uploadAssignments';
 import {useMapStore} from '@/app/store/mapStore';
-import {AxiosError} from 'axios';
 
 const MAX_ROWS = 914_231;
 const ROWS_TO_TEST = 200;
@@ -167,30 +166,34 @@ export const processFile = ({
       }
 
       try {
-        result = await uploadAssignments({
+        const uploadResult = await uploadAssignments({
           assignments: rows.map(row => [
             geoidHandler(row[GEOID]),
             !row[ZONE] ? '' : String(+row[ZONE]),
           ]),
           districtr_map_slug: districtrMap.districtr_map_slug,
         });
-        result &&
+        if (uploadResult.ok && result && result.document_id) {
+          result = uploadResult.response;
           setMapLinks(mapLinks => [
             ...mapLinks,
-            // @ts-ignore
-            {...districtrMap, document_id: result.document_id, filename: file.name},
+            {...districtrMap, document_id: result!.document_id, filename: file.name},
           ]);
-      } catch (error: unknown) {
-        if (error instanceof AxiosError) {
+        } else {
           setError({
             ok: false,
             detail: {
-              message: error.response?.data.detail,
+              message: uploadResult.ok ? 'Unknown error encountered' : uploadResult.error.detail,
             },
           });
-        } else {
-          setError('Unknown error encountered');
         }
+      } catch (error: unknown) {
+        setError({
+          ok: false,
+          detail: {
+            message: error instanceof Error ? error.message : 'Unknown error encountered',
+          },
+        });
       }
     },
   });

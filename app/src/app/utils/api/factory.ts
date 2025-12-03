@@ -6,7 +6,6 @@ import {ClientSession} from '@/app/lib/auth0';
  * API endpoint handler factory
  * @param API route excluding /api/
  * @returns A function that takes a method and returns the final API caller
- * // TODO We should slowly start to convert all existing API callers to use this factory
  */
 export const make = (path: string) => {
   return <TBody extends object, TResponse = any>(
@@ -16,9 +15,11 @@ export const make = (path: string) => {
     return async ({
       body,
       session,
+      queryParams,
     }: {
       body?: TBody;
       session?: ClientSession;
+      queryParams?: Record<string, string | number | boolean | (string | number)[]>;
     }): Promise<
       | {
           ok: true;
@@ -50,7 +51,20 @@ export const make = (path: string) => {
       }
 
       const apiUrl = API_URL || '';
-      const fullPath = `${apiUrl}/api/${path}`;
+      let fullPath = `${apiUrl}/api/${path}`;
+
+      // Add query parameters if provided
+      if (queryParams && Object.keys(queryParams).length > 0) {
+        const url = new URL(fullPath);
+        Object.entries(queryParams).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            value.forEach(v => url.searchParams.append(key, String(v)));
+          } else {
+            url.searchParams.set(key, String(value));
+          }
+        });
+        fullPath = url.toString();
+      }
 
       try {
         const response = await fetch(fullPath, fetchOptions);

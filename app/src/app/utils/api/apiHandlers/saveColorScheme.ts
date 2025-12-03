@@ -1,7 +1,7 @@
-import axios from 'axios';
 import {ColorsSet} from './types';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import {useMapStore} from '@store/mapStore';
+import {patch} from '../factory';
 
 export const saveColorScheme = async ({
   document_id,
@@ -9,23 +9,26 @@ export const saveColorScheme = async ({
 }: {
   document_id: string;
   colors: string[];
-}): Promise<ColorsSet | undefined> => {
+}) => {
   if (colors === DefaultColorScheme || !document_id) {
-    return;
+    return {
+      ok: true,
+      response: undefined,
+    } as const;
   }
-  return await axios
-    .patch(`${process.env.NEXT_PUBLIC_API_URL}/api/document/${document_id}/update_colors`, colors)
-    .then(res => {
-      return res.data;
-    })
-    .catch(err => {
-      console.error(err);
-      const setErrorNotification = useMapStore.getState().setErrorNotification;
-      setErrorNotification({
-        message: err.response?.data?.message,
-        severity: 2,
-        id: `change-colors-${document_id}-${colors.join('-')}`,
-      });
-      throw err;
+
+  const response = await patch<string[], ColorsSet>(`document/${document_id}/update_colors`)({
+    body: colors,
+  });
+
+  if (!response.ok) {
+    const setErrorNotification = useMapStore.getState().setErrorNotification;
+    setErrorNotification({
+      message: response.error.detail,
+      severity: 2,
+      id: `change-colors-${document_id}-${colors.join('-')}`,
     });
+  }
+
+  return response;
 };

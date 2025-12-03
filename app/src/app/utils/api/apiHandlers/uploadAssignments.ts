@@ -1,4 +1,4 @@
-import axios from 'axios';
+import {post} from '../factory';
 
 /**
  *
@@ -8,14 +8,23 @@ import axios from 'axios';
  * @param gerrydb_table_name
  * @param assignments
  */
-export const uploadAssignments: (updateData: {
+export const uploadAssignments = async ({
+  assignments,
+  districtr_map_slug,
+}: {
   assignments: [string, string][];
   districtr_map_slug: string;
-}) => Promise<{document_id: string}> = async ({assignments, districtr_map_slug}) => {
-  return await axios
-    .post(`${process.env.NEXT_PUBLIC_API_URL}/api/create_document`, {
+}) => {
+  return await post<
+    {
+      assignments: [string, string][];
+      districtr_map_slug: string;
+    },
+    {document_id: string}
+  >('create_document')({
+    body: {
       assignments,
       districtr_map_slug,
-    })
-    .then(res => res.data);
+    },
+  });
 };

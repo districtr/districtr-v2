@@ -5,7 +5,6 @@ import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {useEffect, useMemo} from 'react';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
-import {isAxiosError} from 'axios';
 import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDisplay';
 import ContiguityDetail from './ContiguityDetail';
 
@@ -15,7 +14,11 @@ export const Contiguity = () => {
   const {data, error, isLoading, refetch, dataUpdatedAt} = useQuery(
     {
       queryKey: ['Contiguity', mapDocument?.document_id],
-      queryFn: () => mapDocument && getContiguity(mapDocument),
+      queryFn: async () => {
+        if (!mapDocument) return null;
+        const result = await getContiguity(mapDocument);
+        return result.ok ? result.response : null;
+      },
       enabled: !!mapDocument,
       staleTime: 0,
       retry: false,
@@ -57,11 +60,7 @@ export const Contiguity = () => {
   }
 
   if (error) {
-    if (isAxiosError(error)) {
-      return <Blockquote color="red">{error.response?.data?.detail || error.message}</Blockquote>;
-    } else {
-      return <Blockquote color="red">{error.message}</Blockquote>;
-    }
+    return <Blockquote color="red">{error.message}</Blockquote>;
   }
 
   return (

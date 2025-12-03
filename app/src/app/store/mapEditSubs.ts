@@ -17,10 +17,11 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
 
   const _addColorSchemeSub = useMapStore.subscribe<MapStore['colorScheme']>(
     state => state.colorScheme,
-    colorScheme => {
+    async colorScheme => {
       const {mapDocument, mapStatus} = useMapStore.getState();
       if (mapDocument && mapStatus?.access === 'edit') {
-        saveColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
+        await saveColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
+        // Error handling is done inside saveColorScheme
       }
     },
     {equalityFn: shallowCompareArray}
