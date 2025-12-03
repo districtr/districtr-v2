@@ -320,7 +320,7 @@ async def update_assignments(
         updated_at = update_timestamp(session, document_id)
         logger.info(f"Document updated at {updated_at}")
     session.commit()
-    return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
+    return {"assignments_inserted": len(data.assignments), "updated_at": updated_at}
 
 
 @app.post(

@@ -15,7 +15,7 @@ export interface AssignmentsCreate {
   overwrite: boolean;
 }
 export interface AssignmentsCreateResponse {
-  assignments_upserted: number;
+  assignments_inserted: number;
   updated_at: string;
 }
 

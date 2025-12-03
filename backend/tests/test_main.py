@@ -352,7 +352,7 @@ def test_put_assignments(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert response.json().get("assignments_upserted") == 3
+    assert response.json().get("assignments_inserted") == 3
     updated_at = response.json().get("updated_at")
     assert updated_at is not None
 
@@ -399,7 +399,7 @@ def test_put_assignments_nulls(client, document_id):
     )
     assert response.status_code == 200
     data = response.json()
-    assert data.get("assignments_upserted") == 3
+    assert data.get("assignments_inserted") == 3
     assert data.get("updated_at") is not None
 
 
@@ -416,7 +416,7 @@ def test_put_assignments_twice(client, document_id):
     )
     assert response.status_code == 200
     data = response.json()
-    assert data.get("assignments_upserted") == 2
+    assert data.get("assignments_inserted") == 2
     assert data.get("updated_at") is not None
 
     response = client.put(
@@ -430,7 +430,7 @@ def test_put_assignments_twice(client, document_id):
         },
     )
     assert response.status_code == 200
-    assert data.get("assignments_upserted") == 2
+    assert data.get("assignments_inserted") == 2
     assert data.get("updated_at") is not None
     # Check that the assignments were updated and not insertedpytest -v tests/test_main.py::test_patch_reset_assignments
     doc_uuid = str(uuid.UUID(document_id))
