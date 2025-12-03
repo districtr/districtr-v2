@@ -11,5 +11,5 @@ export const useTemporalStore = () => {
     pastStates,
     redo,
     undo,
-  }
-}
+  };
+};

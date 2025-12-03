@@ -8,7 +8,7 @@ export const ResetMapButton: React.FC<{dialogOnly?: boolean}> = ({dialogOnly}) =
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
   const handleClickResetMap = () => {
-    clear();
+    useAssignmentsStore.temporal.getState().clear();
     handleReset();
   };
 

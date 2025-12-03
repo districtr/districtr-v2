@@ -370,7 +370,7 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) =
           source: BLOCK_SOURCE_ID,
           sourceLayer: mapDocument?.parent_layer,
         },
-      ]
+      ],
     });
     useMapControlsStore.setState({activeTool: 'brush'});
     setMapOptions({

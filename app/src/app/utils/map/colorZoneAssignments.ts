@@ -37,7 +37,7 @@ export const colorZoneAssignments = (
   if (
     !mapRef || // map does not exist
     !mapDocument || // map document is not loaded
-    (appLoadingState !== 'loaded') || // app was blurred, loading, or temporal state was mutatated
+    appLoadingState !== 'loaded' || // app was blurred, loading, or temporal state was mutatated
     mapRenderingState !== 'loaded' // map layers are not loaded
   ) {
     return;

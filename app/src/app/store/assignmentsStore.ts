@@ -334,7 +334,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((
           if (parentId) {
             taggedParents.add(parentId);
           }
-      }
+        }
       });
 
     const result = healParentsIfAllChildrenInSameZone(
@@ -386,15 +386,18 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((
   setShatterState: ({shatterIds, shatterMappings, zoneAssignments}) => {
     set({
       shatterIds: {
-          parents: new Set(shatterIds.parents),
-          children: new Set(shatterIds.children),
+        parents: new Set(shatterIds.parents),
+        children: new Set(shatterIds.children),
+      },
+      shatterMappings: Object.keys(shatterMappings).reduce<Record<string, Set<string>>>(
+        (acc, key) => {
+          acc[key] = new Set(shatterMappings[key]);
+          return acc;
         },
-      shatterMappings: Object.keys(shatterMappings).reduce<Record<string, Set<string>>>((acc, key) => {
-        acc[key] = new Set(shatterMappings[key]);
-        return acc;
-      }, {}),
+        {}
+      ),
       zoneAssignments: new Map(zoneAssignments),
-    })
+    });
   },
 
   resetShatterState: () => {
@@ -431,7 +434,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((
       throw new Error(assignmentsPostResponse.error);
     } else if (assignmentsPostResponse.ok) {
       set({
-        showSaveConflictModal: false
+        showSaveConflictModal: false,
       });
     }
   },

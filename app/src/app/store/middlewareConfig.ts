@@ -1,7 +1,7 @@
 import {devtools, DevtoolsOptions, PersistOptions} from 'zustand/middleware';
 import {MapStore} from './mapStore';
 import {ZundoOptions} from 'zundo';
-import { AssignmentsStore } from './assignmentsStore';
+import {AssignmentsStore} from './assignmentsStore';
 
 const prodWrapper: typeof devtools = (store: any) => store;
 export const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
@@ -40,9 +40,14 @@ export const temporalConfig: ZundoOptions<any, AssignmentsStore> = {
     // if the client timestamp is the same, don't store
     if (past.clientLastUpdated === curr.clientLastUpdated) return null;
     // If not yet ingested, don't store
-    if (past.clientLastUpdated === "" || curr.clientLastUpdated === "") return null;
+    if (past.clientLastUpdated === '' || curr.clientLastUpdated === '') return null;
     // If the difference is less than the minimum diff time, don't store
-    if (new Date(curr.clientLastUpdated.toString()).getTime() - new Date(past.clientLastUpdated.toString()).getTime() < MIN_DIFF_MS) return null;
+    if (
+      new Date(curr.clientLastUpdated.toString()).getTime() -
+        new Date(past.clientLastUpdated.toString()).getTime() <
+      MIN_DIFF_MS
+    )
+      return null;
     return past;
   },
   limit: 20,
