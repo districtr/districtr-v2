@@ -13,7 +13,7 @@ import {ColumnarTableData} from '../ParquetWorker/parquetWorker.types';
 import {evalColumnConfigs} from '@/app/store/demography/evaluationConfig';
 import {choroplethMapVariables} from '@/app/store/demography/constants';
 
-const INITIAL_VIEW_LIMIT = 30;
+const INITIAL_VIEW_LIMIT = 500;
 const INITIAL_VIEW_OFFSET = 0;
 
 const mapViewsQuery = new QueryObserver<DistrictrMap[]>(queryClient, {
