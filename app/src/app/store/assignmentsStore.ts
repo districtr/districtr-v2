@@ -62,7 +62,7 @@ export interface AssignmentsStore {
   resetZoneAssignments: () => void;
   /** Replaces or merges shatter state */
   setShatterState: (
-    state: Partial<Pick<AssignmentsStore, 'shatterIds' | 'shatterMappings'>>
+    state: Pick<AssignmentsStore, 'shatterIds' | 'shatterMappings' | 'zoneAssignments'>
   ) => void;
   /** Clears all shatter state */
   resetShatterState: () => void;
@@ -198,7 +198,6 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((
       shatterMappings: data.shatterMappings,
       clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
     });
-    GeometryWorker?.updateZones(Array.from(data.zoneAssignments.entries()));
     demographyCache.updatePopulations(data.zoneAssignments);
     mapDocument &&
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at);
@@ -335,7 +334,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((
           if (parentId) {
             taggedParents.add(parentId);
           }
-        }
+      }
       });
 
     const result = healParentsIfAllChildrenInSameZone(
@@ -352,8 +351,6 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((
 
     if (!result) return;
     const {zoneAssignments, shatterIds, shatterMappings} = result;
-    const zoneEntries = Array.from(zoneAssignments.entries());
-    GeometryWorker?.updateZones(zoneEntries);
     demographyCache.updatePopulations(zoneAssignments);
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
 
@@ -386,21 +383,18 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((
     });
   },
 
-  setShatterState: ({shatterIds, shatterMappings}) => {
-    set(state => ({
-      shatterIds: shatterIds
-        ? {
-            parents: new Set(shatterIds.parents),
-            children: new Set(shatterIds.children),
-          }
-        : state.shatterIds,
-      shatterMappings: shatterMappings
-        ? Object.keys(shatterMappings).reduce<Record<string, Set<string>>>((acc, key) => {
-            acc[key] = new Set(shatterMappings[key]);
-            return acc;
-          }, {})
-        : state.shatterMappings,
-    }));
+  setShatterState: ({shatterIds, shatterMappings, zoneAssignments}) => {
+    set({
+      shatterIds: {
+          parents: new Set(shatterIds.parents),
+          children: new Set(shatterIds.children),
+        },
+      shatterMappings: Object.keys(shatterMappings).reduce<Record<string, Set<string>>>((acc, key) => {
+        acc[key] = new Set(shatterMappings[key]);
+        return acc;
+      }, {}),
+      zoneAssignments: new Map(zoneAssignments),
+    })
   },
 
   resetShatterState: () => {
@@ -437,8 +431,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((
       throw new Error(assignmentsPostResponse.error);
     } else if (assignmentsPostResponse.ok) {
       set({
-        showSaveConflictModal: false,
-        clientLastUpdated: assignmentsPostResponse.response!.updated_at,
+        showSaveConflictModal: false
       });
     }
   },

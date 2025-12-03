@@ -34,11 +34,10 @@ export const colorZoneAssignments = (
     previousState?.[2] || null,
   ];
   const isInitialRender = previousState?.[3] !== 'loaded' || previousState?.[4] !== 'loaded';
-  const isTemporal = useMapStore.getState().isTemporalAction;
   if (
     !mapRef || // map does not exist
     !mapDocument || // map document is not loaded
-    (appLoadingState !== 'loaded' && !isTemporal) || // app was blurred, loading, or temporal state was mutatated
+    (appLoadingState !== 'loaded') || // app was blurred, loading, or temporal state was mutatated
     mapRenderingState !== 'loaded' // map layers are not loaded
   ) {
     return;

@@ -2,13 +2,11 @@ import {AlertDialog, Button, Flex} from '@radix-ui/themes';
 import React from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
-import {useTemporalStore} from '@/app/store/temporalStore';
 
 export const ResetMapButton: React.FC<{dialogOnly?: boolean}> = ({dialogOnly}) => {
   const noZonesAreAssigned = useAssignmentsStore(state => !state.zoneAssignments.size);
   const access = useMapStore(state => state.mapStatus?.access);
   const handleReset = useMapStore(state => state.handleReset);
-  const clear = useTemporalStore(state => state.clear);
   const handleClickResetMap = () => {
     clear();
     handleReset();

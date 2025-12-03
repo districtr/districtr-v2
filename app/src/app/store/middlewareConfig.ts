@@ -1,6 +1,7 @@
 import {devtools, DevtoolsOptions, PersistOptions} from 'zustand/middleware';
 import {MapStore} from './mapStore';
 import {ZundoOptions} from 'zundo';
+import { AssignmentsStore } from './assignmentsStore';
 
 const prodWrapper: typeof devtools = (store: any) => store;
 export const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
@@ -30,15 +31,20 @@ export const devToolsConfig: DevtoolsOptions = {
   },
 };
 
-export const temporalConfig: ZundoOptions<any, MapStore> = {
+const MIN_DIFF_MS = 3000;
+
+export const temporalConfig: ZundoOptions<any, AssignmentsStore> = {
   // If diff returns null, not state is stored
-  // diff: (past: Partial<MapStore>, curr: Partial<MapStore>) => {
-  //   // color changes included in undo/redo
-  //   if (past.colorScheme !== curr.colorScheme) return past;
-  //   // if not yet loaded, or is a temporal action (eg. silent heal) don't store
-  //   if (past.mapRenderingState !== 'loaded' || curr.isTemporalAction) return null;
-  //   return past;
-  // },
+  diff: (past: Partial<AssignmentsStore>, curr: Partial<AssignmentsStore>) => {
+    if (!past.clientLastUpdated || !curr.clientLastUpdated) return null;
+    // if the client timestamp is the same, don't store
+    if (past.clientLastUpdated === curr.clientLastUpdated) return null;
+    // If not yet ingested, don't store
+    if (past.clientLastUpdated === "" || curr.clientLastUpdated === "") return null;
+    // If the difference is less than the minimum diff time, don't store
+    if (new Date(curr.clientLastUpdated.toString()).getTime() - new Date(past.clientLastUpdated.toString()).getTime() < MIN_DIFF_MS) return null;
+    return past;
+  },
   limit: 20,
   // @ts-ignore: save only partial store
   partialize: state => {
@@ -48,6 +54,6 @@ export const temporalConfig: ZundoOptions<any, MapStore> = {
       shatterMappings,
       zoneAssignments,
       clientLastUpdated,
-    } as Partial<MapStore>;
+    } as Partial<AssignmentsStore>;
   },
 };

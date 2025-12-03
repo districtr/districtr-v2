@@ -14,7 +14,6 @@ import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
 import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
-import {useTemporalStore} from '@store/temporalStore';
 import {DistrictrMap, DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
@@ -37,7 +36,6 @@ export const Topbar: React.FC = () => {
   const isEditing = mapDocument?.document_id && mapDocument?.document_id !== 'anonymous';
   const access = useMapStore(state => state.mapStatus?.access);
   const mapViews = useMapStore(state => state.mapViews);
-  const clear = useTemporalStore(store => store.clear);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const data = mapViews?.data || [];
   const router = useRouter();
@@ -61,7 +59,6 @@ export const Topbar: React.FC = () => {
   };
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
-    clear();
     createMapDocument({
       districtr_map_slug: selectedMap.districtr_map_slug,
     }).then(r => {

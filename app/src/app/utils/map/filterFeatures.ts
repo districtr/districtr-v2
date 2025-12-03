@@ -31,10 +31,9 @@ export const filterFeatures = (
 ) => {
   // first, dedupe
   const features: MapGeoJSONFeature[] = fastUniqBy(_features, 'id');
-  const {captiveIds, mapDocument, checkParentsToHeal} = useMapStore.getState();
+  const {captiveIds, mapDocument} = useMapStore.getState();
   const {mapOptions, selectedZone, activeTool} = useMapControlsStore.getState();
   const {zoneAssignments, shatterIds} = useAssignmentsStore.getState();
-  const parentIdsToHeal: MapStore['parentsToHeal'] = [];
   const filterFunctions: Array<(f: MapGeoJSONFeature) => boolean> = [...additionalFilters];
   if (captiveIds.size && !allowOutsideCaptiveIds) {
     filterFunctions.push(f => captiveIds.has(f.id?.toString() || ''));
@@ -56,7 +55,6 @@ export const filterFeatures = (
       const isParent = shatterIds.parents.has(id);
       if (isParent) {
         // check if parent IDs have been painted solid
-        parentIdsToHeal.push(id);
         // don't paint parents with children
         return false;
       } else {
@@ -71,6 +69,5 @@ export const filterFeatures = (
   const filteredFeatures = features.filter(feature => {
     return filterFunctions.every(f => f(feature));
   });
-  parentIdsToHeal.length && checkParentsToHeal(parentIdsToHeal);
   return filteredFeatures;
 };

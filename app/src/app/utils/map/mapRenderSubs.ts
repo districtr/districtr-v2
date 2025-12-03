@@ -14,6 +14,7 @@ import {
   type MapControlsStore,
 } from '@store/mapControlsStore';
 import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
+import GeometryWorker from '../GeometryWorker';
 
 /**
  * A class that manages the rendering of the map based on the state of the map store.
@@ -216,9 +217,8 @@ export class MapRenderSubscriber {
       controlsState.mapOptions.showZoneNumbers,
     ];
     colorZoneAssignments(this.mapRef, currentState, this.previousColorState);
-    if (mapState.isTemporalAction) {
-      demographyCache.updatePopulations(zoneAssignments);
-    }
+    demographyCache.updatePopulations(zoneAssignments);
+    GeometryWorker?.updateZones(Array.from(zoneAssignments.entries()));
     const {captiveIds, mapRenderingState} = mapState;
     const {mapOptions} = controlsState;
     if (mapRenderingState !== 'loaded') {

@@ -61,6 +61,7 @@ export var useDemographyStore = create(
     dataHash: '',
     setDataHash: dataHash => set({dataHash}),
     updateData: async mapDocument => {
+      console.log('updating data', mapDocument?.document_id);
       const {dataHash: currDataHash} = get();
       const {shatterIds} = useAssignmentsStore.getState();
       if (!mapDocument) return;

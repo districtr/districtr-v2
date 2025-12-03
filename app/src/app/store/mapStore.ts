@@ -49,8 +49,6 @@ export interface MapStore {
   setAppLoadingState: (state: MapStore['appLoadingState']) => void;
   mapRenderingState: 'loaded' | 'initializing' | 'loading';
   setMapRenderingState: (state: MapStore['mapRenderingState']) => void;
-  isTemporalAction: boolean;
-  setIsTemporalAction: (isTemporal: boolean) => void;
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
   setMapRef: (map: MutableRefObject<MapRef | null>) => void;
@@ -108,33 +106,6 @@ export interface MapStore {
    * TODO: Multiple break/shatter is not yet implemented.
    */
   handleShatter: (document_id: string, features: Array<Partial<MapGeoJSONFeature>>) => void;
-  /**
-   * Sends unshatter patches to the server that remove the child assignments
-   * and add parents under the specified zone.
-   * This function processes the queue of parents to heal and updates the state accordingly.
-   * This WILL NOT fire off if there is another server interaction happening (eg. assignment patch updates.)
-   *
-   * @param {string[]} [additionalIds] - Optional array of additional IDs to include in the healing process.
-   */
-  processHealParentsQueue: (additionalIds?: string[]) => void;
-  /**
-   * Removes local shatter data and updates the map view based on the provided parents to heal.
-   * This function checks the current state of parents and determines if any need to be healed,
-   * updating the relevant state and sending necessary requests to the server.
-   *
-   * @param {MapStore['parentsToHeal']} parentsToHeal - An array of additional parent IDs that need to be checked for healing.
-   */
-  checkParentsToHeal: (parentsToHeal: MapStore['parentsToHeal']) => void;
-  /**
-   * A list of parent IDs that are queued for healing.
-   * This property tracks the parents that need to be processed for healing,
-   * allowing the application to manage state effectively during the healing process.
-   * Healing occurs on exit from break mode, or after a zone assignment update is complete
-   * and the application is idle.
-   *
-   * @type {string[]}
-   */
-  parentsToHeal: string[];
   // LOCK
   // TODO: Refactor to something like this
   // featureStates: {
@@ -195,8 +166,6 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) =
   setAppLoadingState: appLoadingState => set({appLoadingState}),
   mapRenderingState: 'initializing',
   setMapRenderingState: mapRenderingState => set({mapRenderingState}),
-  isTemporalAction: false,
-  setIsTemporalAction: (isTemporalAction: boolean) => set({isTemporalAction}),
   captiveIds: new Set<string>(),
   exitBlockView: (lock: boolean = false) => {
     const {focusFeatures} = get();
@@ -285,7 +254,6 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) =
       ),
       captiveIds: new Set(),
       focusFeatures: [],
-      parentsToHeal: [],
       mapLock: false,
       appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
       mapRenderingState:
@@ -304,16 +272,21 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) =
   colorScheme: DefaultColorScheme,
   setColorScheme: colorScheme => set({colorScheme}),
   handleShatter: async (document_id, features) => {
+    const {mapDocument, mapLock, setMapLock} = get();
     if (!features.length) {
-      console.log('NO FEATURES');
+      console.log('Shatter: NO FEATURES');
+      setMapLock(false);
       return;
     }
-    set({mapLock: true});
+    if (mapLock) {
+      console.log('Shatter: MAP LOCKED');
+      return;
+    }
+    setMapLock(true);
     // set BLOCK_LAYER_ID based on features[0] to focused true
 
     const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
     const updateHash = new Date().toISOString();
-    const {mapDocument, parentsToHeal} = get();
     const {
       shatterIds,
       shatterMappings: _shatterMappings,
@@ -383,15 +356,12 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) =
         children,
       },
       shatterMappings,
+      zoneAssignments: zoneAssignments,
     });
 
     set({
       assignmentsHash: updateHash,
       lastUpdatedHash: updateHash,
-      // TODO: Should this be true instead?
-      // Is there a way to clean up the state history during
-      // break / shatter?
-      isTemporalAction: false,
       mapLock: false,
       captiveIds,
       focusFeatures: [
@@ -400,130 +370,12 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) =
           source: BLOCK_SOURCE_ID,
           sourceLayer: mapDocument?.parent_layer,
         },
-      ],
-      parentsToHeal: [...parentsToHeal, features?.[0]?.id?.toString() || '']
-        .filter(onlyUnique)
-        .filter(f => f.length),
+      ]
     });
-    replaceZoneAssignments(zoneAssignments);
     useMapControlsStore.setState({activeTool: 'brush'});
     setMapOptions({
       mode: 'break',
       bounds: mapBbox,
-    });
-  },
-  parentsToHeal: [],
-  processHealParentsQueue: async (additionalIds = []) => {
-    const updateHash = new Date().toISOString();
-    const {parentsToHeal: _parentsToHeal, mapDocument, mapLock, getMapRef} = get();
-    const {isPainting} = useMapControlsStore.getState();
-    const {shatterMappings, shatterIds, zoneAssignments, replaceZoneAssignments, setShatterState} =
-      useAssignmentsStore.getState();
-    const idsToCheck = [..._parentsToHeal, ...additionalIds];
-    const mapRef = getMapRef();
-    if (
-      !mapRef ||
-      isPainting ||
-      mapLock ||
-      !idsToCheck.length ||
-      !mapDocument ||
-      !mapDocument.child_layer ||
-      queryClient.isMutating()
-    ) {
-      return;
-    }
-    const parentsToHeal = idsToCheck
-      .filter(parentId => shatterMappings.hasOwnProperty(parentId))
-      .map(parentId => ({
-        parentId,
-        ...checkIfSameZone(shatterMappings[parentId], zoneAssignments),
-      }))
-      .filter(f => f.shouldHeal);
-
-    if (parentsToHeal.length) {
-      set({mapLock: true});
-
-      const healZone = parentsToHeal[0].zone;
-      if (healZone == null) {
-        set({mapLock: false});
-        return;
-      }
-
-      const r = await patchUnShatterParents({
-        geoids: parentsToHeal.map(f => f.parentId),
-        zone: healZone,
-        document_id: mapDocument.document_id,
-        updateHash,
-      });
-      const children = parentsToHeal
-        .map(f => ({
-          parent: f.parentId,
-          children: shatterMappings[f.parentId],
-        }))
-        .forEach(entry => {
-          const {children, parent} = entry;
-          GeometryWorker?.removeGeometries(Array.from(children));
-        });
-      const newZoneAssignments = new Map(zoneAssignments);
-      const newShatterIds = {
-        parents: new Set(shatterIds.parents),
-        children: new Set(shatterIds.children),
-      };
-      const newShatterMappings: Record<string, Set<string>> = Object.entries(
-        shatterMappings
-      ).reduce(
-        (acc, [key, value]) => {
-          acc[key] = new Set(value);
-          return acc;
-        },
-        {} as Record<string, Set<string>>
-      );
-      const childrenToRemove = parentsToHeal
-        .map(f => newShatterMappings[f.parentId])
-        .filter(Boolean) as Array<Set<string>>;
-
-      childrenToRemove.forEach(childSet => {
-        childSet.forEach(childId => {
-          newZoneAssignments.delete(childId);
-          newShatterIds.children.delete(childId);
-          mapRef.setFeatureState(
-            {
-              id: childId,
-              source: BLOCK_SOURCE_ID,
-              sourceLayer: mapDocument.child_layer || '',
-            },
-            {
-              zone: null,
-            }
-          );
-        });
-      });
-
-      parentsToHeal.forEach(parent => {
-        delete newShatterMappings[parent.parentId];
-        newShatterIds.parents.delete(parent.parentId);
-        newZoneAssignments.set(parent.parentId, parent.zone!);
-      });
-      setShatterState({
-        shatterIds: newShatterIds,
-        shatterMappings: newShatterMappings,
-      });
-
-      set({
-        mapLock: false,
-        isTemporalAction: false,
-        lastUpdatedHash: updateHash,
-        assignmentsHash: updateHash,
-        // parents may have been added while this is firing off
-        // get curernt, and filter for any that were removed by this event
-        parentsToHeal: get().parentsToHeal.filter(f => !r.geoids.includes(f)),
-      });
-      replaceZoneAssignments(newZoneAssignments);
-    }
-  },
-  checkParentsToHeal: parentsToHeal => {
-    set({
-      parentsToHeal: [...get().parentsToHeal, ...parentsToHeal].filter(onlyUnique),
     });
   },
   handleReset: async () => {

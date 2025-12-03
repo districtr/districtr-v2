@@ -9,10 +9,10 @@ import {
   ResetIcon,
   MagnifyingGlassIcon,
 } from '@radix-ui/react-icons';
-import {useTemporalStore} from '@/app/store/temporalStore';
 import {useCallback} from 'react';
 import {debounce} from 'lodash';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useTemporalStore} from '@/app/store/temporalStore';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -31,8 +31,9 @@ export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = access === 'edit';
-  const {futureStates, pastStates, redo, undo} = useAssignmentsStore.temporal.getState();
-  const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
+
+  const {futureStates, pastStates, redo, undo} = useTemporalStore();
+
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);
   const metaKey =
@@ -76,7 +77,6 @@ export const useActiveTools = () => {
       label: 'Undo',
       icon: ResetIcon,
       onClick: () => {
-        setIsTemporalAction(true);
         handleUndo();
       },
       hotKeyAccessor: e => {
@@ -92,7 +92,6 @@ export const useActiveTools = () => {
       icon: ResetIcon,
       iconStyle: {transform: 'rotateY(180deg)'},
       onClick: () => {
-        setIsTemporalAction(true);
         handleRedo();
       },
       hotKeyAccessor: e => {

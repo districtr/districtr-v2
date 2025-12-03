@@ -178,7 +178,6 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
           },
           result.response.updateLocal ? result.response.document : undefined
         );
-        setClientLastUpdated(result.response.document.updated_at!);
         setIsLoading(false);
         setAppLoadingState('loaded');
         return;

@@ -7,7 +7,6 @@ import {useRouter} from 'next/navigation';
 import {DocumentObject} from '@utils/api/apiHandlers/types';
 import {styled} from '@stitches/react';
 import {useState} from 'react';
-import {useTemporalStore} from '@/app/store/temporalStore';
 import {idb} from '@/app/utils/idb/idb';
 
 const DialogContentContainer = styled(Dialog.Content, {
@@ -48,9 +47,6 @@ export const RecentMapsModal: React.FC<{
       loadRecentMaps();
     }
   }, [dialogOpen]);
-
-  const clear = useTemporalStore(store => store.clear);
-
   const handleUnloadMapDocument = () => {
     // Navigate to home page
     setMapDocument({} as DocumentObject);
@@ -58,10 +54,8 @@ export const RecentMapsModal: React.FC<{
   };
 
   const handleMapDocument = async (data: DocumentObject) => {
-    clear();
     // Navigate to edit mode with the UUID
     router.push(`/map/edit/${data.document_id}`);
-
     // close dialog
     setDialogOpen(false);
     onClose?.();
