@@ -13,7 +13,7 @@ export const Contiguity = () => {
   const colorScheme = useMapStore(store => store.colorScheme);
   const {data, error, isLoading, refetch, dataUpdatedAt} = useQuery(
     {
-      queryKey: ['Contiguity', mapDocument?.document_id],
+      queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
       queryFn: async () => {
         if (!mapDocument) return null;
         const result = await getContiguity(mapDocument);
@@ -33,7 +33,7 @@ export const Contiguity = () => {
 
   useEffect(() => {
     refetch();
-  }, [mapDocument?.document_id, refetch]);
+  }, [mapDocument?.document_id, mapDocument?.updated_at, refetch]);
 
   const tableData = useMemo(() => {
     if (!data) return [];
