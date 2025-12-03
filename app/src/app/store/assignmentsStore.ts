@@ -16,7 +16,7 @@ import {postUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/postUpdat
 import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {SyncConflictInfo, SyncConflictResolution} from '../utils/api/apiHandlers/fetchDocument';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
-import {createWithMiddlewares} from './middlewares';
+import {createWithFullMiddlewares} from './middlewares';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -93,7 +93,7 @@ export interface AssignmentsStore {
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
 
-export const useAssignmentsStore = createWithMiddlewares<AssignmentsStore>((set, get) => ({
+export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((set, get) => ({
   zoneAssignments: new Map(),
   zonesLastUpdated: new Map(),
   accumulatedAssignments: new Map<string, NullableZone>(),

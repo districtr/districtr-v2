@@ -2,9 +2,9 @@ import {persist, subscribeWithSelector} from 'zustand/middleware';
 import {devToolsConfig, devwrapper, persistOptions, temporalConfig} from './middlewareConfig';
 import {temporal} from 'zundo';
 import {create, StateCreator} from 'zustand';
-import {StateWithMiddleware} from './types';
+import {StateWithDevWrapperAndSubscribe, StateWithFullMiddleware} from './types';
 
-export const createWithMiddlewares = <TState>(config: StateCreator<TState, [], [], TState>) => {
+export const createWithFullMiddlewares = <TState>(config: StateCreator<TState, [], [], TState>) => {
   return create(
     persist(
       devwrapper(
@@ -19,5 +19,18 @@ export const createWithMiddlewares = <TState>(config: StateCreator<TState, [], [
       ),
       persistOptions
     )
-  ) as StateWithMiddleware<TState>;
+  ) as StateWithFullMiddleware<TState>;
+};
+
+
+export const createWithDevWrapperAndSubscribe = <TState>(config: StateCreator<TState, [], [], TState>) => {
+  return create(
+    devwrapper(
+      subscribeWithSelector<TState>(config),
+      {
+        ...devToolsConfig,
+        name: 'Districtr Map Store',
+      }
+    )
+  ) as StateWithDevWrapperAndSubscribe<TState>;
 };

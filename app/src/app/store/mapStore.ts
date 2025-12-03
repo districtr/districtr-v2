@@ -3,7 +3,6 @@ import type {MapGeoJSONFeature} from 'maplibre-gl';
 import type {MapRef} from 'react-map-gl/maplibre';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import type {MapFeatureInfo} from '@constants/types';
-import {Zone} from '@constants/types';
 import {
   DistrictrMap,
   DocumentObject,
@@ -17,13 +16,11 @@ import {ContextMenuState} from '@utils/map/types';
 import {checkIfSameZone} from '@utils/map/checkIfSameZone';
 import {resetZoneColors} from '@utils/map/resetZoneColors';
 import {setZones} from '@utils/map/setZones';
-import {patchReset} from '../utils/api/mutations';
 import bbox from '@turf/bbox';
 import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../constants/layers';
 import {onlyUnique} from '../utils/arrays';
 import {queryClient} from '../utils/api/queryClient';
-import {useChartStore} from './chartStore';
-import {createWithMiddlewares} from './middlewares';
+import {createWithDevWrapperAndSubscribe} from './middlewares';
 import GeometryWorker from '../utils/GeometryWorker';
 import {nanoid} from 'nanoid';
 import {useUnassignFeaturesStore} from './unassignedFeatures';
@@ -34,7 +31,6 @@ import {postGetChildEdges} from '../utils/api/apiHandlers/postGetChildEdges';
 import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterParents';
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
-import {create} from 'zustand';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
@@ -193,7 +189,7 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export var useMapStore = create<MapStore>((set, get) => ({
+export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) => ({
   appLoadingState: initialLoadingState,
   setAppLoadingState: appLoadingState => set({appLoadingState}),
   mapRenderingState: 'initializing',

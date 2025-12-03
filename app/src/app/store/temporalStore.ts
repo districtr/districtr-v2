@@ -9,4 +9,5 @@ import {useAssignmentsStore} from './assignmentsStore';
 export const useTemporalStore = <T>(
   selector: (state: TemporalState<Partial<MapStore>>) => T,
   equality?: (a: T, b: T) => boolean
+  // @ts-ignore: TODO: fix this
 ) => useStore(useAssignmentsStore.temporal, selector, equality);
