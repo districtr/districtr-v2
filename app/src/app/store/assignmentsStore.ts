@@ -93,7 +93,9 @@ export interface AssignmentsStore {
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
 
-export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((set, get) => ({
+export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
+  'Districtr Assignments Store'
+)((set, get) => ({
   zoneAssignments: new Map(),
   zonesLastUpdated: new Map(),
   accumulatedAssignments: new Map<string, NullableZone>(),

@@ -159,321 +159,324 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) => ({
-  appLoadingState: initialLoadingState,
-  setAppLoadingState: appLoadingState => set({appLoadingState}),
-  mapRenderingState: 'initializing',
-  setMapRenderingState: mapRenderingState => set({mapRenderingState}),
-  captiveIds: new Set<string>(),
-  exitBlockView: (lock: boolean = false) => {
-    const {focusFeatures} = get();
-    const {healParentsIfAllChildrenInSameZone} = useAssignmentsStore.getState();
-    const {setMapOptions} = useMapControlsStore.getState();
+export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr Map Store')(
+  (set, get) => ({
+    appLoadingState: initialLoadingState,
+    setAppLoadingState: appLoadingState => set({appLoadingState}),
+    mapRenderingState: 'initializing',
+    setMapRenderingState: mapRenderingState => set({mapRenderingState}),
+    captiveIds: new Set<string>(),
+    exitBlockView: (lock: boolean = false) => {
+      const {focusFeatures} = get();
+      const {healParentsIfAllChildrenInSameZone} = useAssignmentsStore.getState();
+      const {setMapOptions} = useMapControlsStore.getState();
 
-    set({
-      captiveIds: new Set<string>(),
-      focusFeatures: [],
-    });
-    setMapOptions({mode: 'default'});
-    useMapControlsStore.setState({activeTool: 'shatter'});
-
-    const parentId = focusFeatures?.[0].id?.toString();
-    if (!parentId) return;
-    healParentsIfAllChildrenInSameZone({}, 'state');
-  },
-  getMapRef: () => undefined,
-  setMapRef: mapRef => {
-    set({
-      getMapRef: () => mapRef.current?.getMap(),
-      appLoadingState: initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
-    });
-  },
-  mapLock: false,
-  setMapLock: mapLock => set({mapLock}),
-  errorNotification: {},
-  setErrorNotification: errorNotification => set({errorNotification}),
-  mapViews: {isPending: true},
-  setMapViews: mapViews => set({mapViews}),
-  mapDocument: null,
-  setMapDocument: mapDocument => {
-    const currentMapDocument = get().mapDocument;
-    const {resetZoneAssignments} = useAssignmentsStore.getState();
-    const mapControlsState = useMapControlsStore.getState();
-
-    const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
-    const accessIsSame = currentMapDocument?.access === mapDocument.access;
-    const documentIsSame = idIsSame && accessIsSame;
-    const bothHaveData =
-      typeof currentMapDocument?.updated_at === 'string' &&
-      typeof mapDocument?.updated_at === 'string';
-    const remoteIsNewer = bothHaveData && currentMapDocument.updated_at! < mapDocument.updated_at!;
-    if (documentIsSame && !remoteIsNewer) {
-      return;
-    }
-
-    if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
-      GeometryWorker?.clear();
-    }
-    GeometryWorker?.resetZones();
-    demographyCache.clear();
-    resetZoneAssignments();
-    useDemographyStore.getState().clear();
-    useUnassignFeaturesStore.getState().reset();
-
-    useMapControlsStore.setState({
-      mapOptions: {
-        ...DEFAULT_MAP_OPTIONS,
-        bounds: mapDocument.extent,
-        currentStateFp:
-          currentMapDocument?.parent_layer === mapDocument?.parent_layer
-            ? mapControlsState.mapOptions.currentStateFp
-            : undefined,
-      },
-      activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
-      selectedZone: 1,
-      sidebarPanels: ['population'],
-      isPainting: false,
-      isEditing: mapDocument.access === 'edit',
-    });
-
-    useAssignmentsStore.getState().resetShatterState();
-
-    set({
-      mapDocument,
-      mapStatus: {
-        access: mapDocument.access,
-        genesis: mapDocument.genesis,
-        token: mapDocument.token,
-        password: mapDocument.password,
-      },
-      colorScheme: extendColorArray(
-        mapDocument.color_scheme ?? DefaultColorScheme,
-        mapDocument.num_districts ?? FALLBACK_NUM_DISTRICTS
-      ),
-      captiveIds: new Set(),
-      focusFeatures: [],
-      mapLock: false,
-      appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
-      mapRenderingState:
-        mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
-      assignmentsHash: '',
-      lastUpdatedHash: new Date().toISOString(),
-      workerUpdateHash: new Date().toISOString(),
-    });
-  },
-  mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
-  mapStatus: null,
-  setMapStatus: mapStatus => {
-    const prev = get().mapStatus || {};
-    set({mapStatus: {...prev, ...mapStatus} as StatusObject});
-  },
-  colorScheme: DefaultColorScheme,
-  setColorScheme: colorScheme => set({colorScheme}),
-  handleShatter: async (document_id, features) => {
-    const {mapDocument, mapLock, setMapLock} = get();
-    if (!features.length) {
-      setMapLock(false);
-      return;
-    }
-    if (mapLock) {
-      return;
-    }
-    setMapLock(true);
-    // set BLOCK_LAYER_ID based on features[0] to focused true
-
-    const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
-    const updateHash = new Date().toISOString();
-    const {
-      shatterIds,
-      shatterMappings: _shatterMappings,
-      zoneAssignments: currentZoneAssignments,
-      replaceZoneAssignments,
-      setShatterState,
-    } = useAssignmentsStore.getState();
-    const {setMapOptions} = useMapControlsStore.getState();
-    const edgesResult = await postGetChildEdges({
-      document_id,
-      geoids,
-    });
-    if (!edgesResult?.length) {
       set({
-        errorNotification: {
-          severity: 2,
-          message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
-          id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
-        },
+        captiveIds: new Set<string>(),
+        focusFeatures: [],
       });
-      return;
-    }
-    // TODO Need to return child edges even if the parent is already shattered
-    // currently returns nothing
-    let parents = new Set(shatterIds.parents);
-    let children = new Set(shatterIds.children);
-    let captiveIds = new Set<string>();
-    let shatterMappings = Object.entries(_shatterMappings).reduce(
-      (acc, [parent, children]) => {
-        acc[parent] = new Set(children);
-        return acc;
-      },
-      {} as Record<string, Set<string>>
-    );
-    const zoneAssignments = new Map(currentZoneAssignments);
-    const zonesToSet: Record<string, Set<string>> = {};
-    edgesResult.forEach(edge => {
-      parents.add(edge.parent_path);
-      children.add(edge.child_path);
-      captiveIds.add(edge.child_path);
-      if (!zonesToSet[edge.parent_path]) {
-        zonesToSet[edge.parent_path] = new Set([edge.child_path]);
-      } else {
-        zonesToSet[edge.parent_path].add(edge.child_path);
+      setMapOptions({mode: 'default'});
+      useMapControlsStore.setState({activeTool: 'shatter'});
+
+      const parentId = focusFeatures?.[0].id?.toString();
+      if (!parentId) return;
+      healParentsIfAllChildrenInSameZone({}, 'state');
+    },
+    getMapRef: () => undefined,
+    setMapRef: mapRef => {
+      set({
+        getMapRef: () => mapRef.current?.getMap(),
+        appLoadingState: initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
+      });
+    },
+    mapLock: false,
+    setMapLock: mapLock => set({mapLock}),
+    errorNotification: {},
+    setErrorNotification: errorNotification => set({errorNotification}),
+    mapViews: {isPending: true},
+    setMapViews: mapViews => set({mapViews}),
+    mapDocument: null,
+    setMapDocument: mapDocument => {
+      const currentMapDocument = get().mapDocument;
+      const {resetZoneAssignments} = useAssignmentsStore.getState();
+      const mapControlsState = useMapControlsStore.getState();
+
+      const idIsSame = currentMapDocument?.document_id === mapDocument.document_id;
+      const accessIsSame = currentMapDocument?.access === mapDocument.access;
+      const documentIsSame = idIsSame && accessIsSame;
+      const bothHaveData =
+        typeof currentMapDocument?.updated_at === 'string' &&
+        typeof mapDocument?.updated_at === 'string';
+      const remoteIsNewer =
+        bothHaveData && currentMapDocument.updated_at! < mapDocument.updated_at!;
+      if (documentIsSame && !remoteIsNewer) {
+        return;
       }
 
-      if (!shatterMappings[edge.parent_path]) {
-        shatterMappings[edge.parent_path] = new Set([edge.child_path]);
-      } else {
-        shatterMappings[edge.parent_path].add(edge.child_path);
+      if (currentMapDocument?.tiles_s3_path !== mapDocument.tiles_s3_path) {
+        GeometryWorker?.clear();
       }
-    });
-
-    Object.entries(zonesToSet).forEach(([parent, children]) => {
-      setZones(zoneAssignments, parent, children);
-    });
-
-    const featureBbox = features[0].geometry && bbox(features[0].geometry);
-    const mapBbox =
-      featureBbox?.length && featureBbox?.length >= 4
-        ? (featureBbox.slice(0, 4) as maplibregl.LngLatBoundsLike)
-        : undefined;
-
-    setShatterState({
-      shatterIds: {
-        parents,
-        children,
-      },
-      shatterMappings,
-      zoneAssignments: zoneAssignments,
-    });
-
-    set({
-      assignmentsHash: updateHash,
-      lastUpdatedHash: updateHash,
-      mapLock: false,
-      captiveIds,
-      focusFeatures: [
-        {
-          id: features[0].id,
-          source: BLOCK_SOURCE_ID,
-          sourceLayer: mapDocument?.parent_layer,
-        },
-      ],
-    });
-    useMapControlsStore.setState({activeTool: 'brush'});
-    setMapOptions({
-      mode: 'break',
-      bounds: mapBbox,
-    });
-  },
-  handleReset: async () => {
-    const {mapDocument, getMapRef} = get();
-    const {zoneAssignments, resetZoneAssignments, shatterIds, resetShatterState} =
-      useAssignmentsStore.getState();
-    const document_id = mapDocument?.document_id;
-
-    if (!document_id) {
-      return;
-    }
-    set({
-      mapLock: true,
-      appLoadingState: 'loading',
-    });
-    const updateHash = new Date().toISOString();
-    const resetResponse = await patchUpdateReset(document_id);
-    if (!resetResponse.ok) {
-      set({
-        errorNotification: {
-          severity: 2,
-          message:
-            'Failed to reset map. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.',
-        },
-      });
-      return;
-    }
-
-    if (resetResponse.response.document_id === document_id) {
-      const initialState = useMapStore.getInitialState();
       GeometryWorker?.resetZones();
-      resetZoneColors({
-        zoneAssignments,
-        mapRef: getMapRef(),
-        mapDocument,
-        shatterIds,
-      });
+      demographyCache.clear();
       resetZoneAssignments();
-      resetShatterState();
+      useDemographyStore.getState().clear();
+      useUnassignFeaturesStore.getState().reset();
+
+      useMapControlsStore.setState({
+        mapOptions: {
+          ...DEFAULT_MAP_OPTIONS,
+          bounds: mapDocument.extent,
+          currentStateFp:
+            currentMapDocument?.parent_layer === mapDocument?.parent_layer
+              ? mapControlsState.mapOptions.currentStateFp
+              : undefined,
+        },
+        activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
+        selectedZone: 1,
+        sidebarPanels: ['population'],
+        isPainting: false,
+        isEditing: mapDocument.access === 'edit',
+      });
+
+      useAssignmentsStore.getState().resetShatterState();
 
       set({
-        appLoadingState: 'loaded',
+        mapDocument,
+        mapStatus: {
+          access: mapDocument.access,
+          genesis: mapDocument.genesis,
+          token: mapDocument.token,
+          password: mapDocument.password,
+        },
+        colorScheme: extendColorArray(
+          mapDocument.color_scheme ?? DefaultColorScheme,
+          mapDocument.num_districts ?? FALLBACK_NUM_DISTRICTS
+        ),
+        captiveIds: new Set(),
+        focusFeatures: [],
         mapLock: false,
-        colorScheme: DefaultColorScheme,
+        appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
+        mapRenderingState:
+          mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
+        assignmentsHash: '',
+        lastUpdatedHash: new Date().toISOString(),
+        workerUpdateHash: new Date().toISOString(),
+      });
+    },
+    mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
+    mapStatus: null,
+    setMapStatus: mapStatus => {
+      const prev = get().mapStatus || {};
+      set({mapStatus: {...prev, ...mapStatus} as StatusObject});
+    },
+    colorScheme: DefaultColorScheme,
+    setColorScheme: colorScheme => set({colorScheme}),
+    handleShatter: async (document_id, features) => {
+      const {mapDocument, mapLock, setMapLock} = get();
+      if (!features.length) {
+        setMapLock(false);
+        return;
+      }
+      if (mapLock) {
+        return;
+      }
+      setMapLock(true);
+      // set BLOCK_LAYER_ID based on features[0] to focused true
+
+      const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
+      const updateHash = new Date().toISOString();
+      const {
+        shatterIds,
+        shatterMappings: _shatterMappings,
+        zoneAssignments: currentZoneAssignments,
+        replaceZoneAssignments,
+        setShatterState,
+      } = useAssignmentsStore.getState();
+      const {setMapOptions} = useMapControlsStore.getState();
+      const edgesResult = await postGetChildEdges({
+        document_id,
+        geoids,
+      });
+      if (!edgesResult?.length) {
+        set({
+          errorNotification: {
+            severity: 2,
+            message: `Breaking this geography failed. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.`,
+            id: `break-patchShatter-no-children-${mapDocument?.districtr_map_slug}-${mapDocument?.document_id}-geoid-${JSON.stringify(geoids)}`,
+          },
+        });
+        return;
+      }
+      // TODO Need to return child edges even if the parent is already shattered
+      // currently returns nothing
+      let parents = new Set(shatterIds.parents);
+      let children = new Set(shatterIds.children);
+      let captiveIds = new Set<string>();
+      let shatterMappings = Object.entries(_shatterMappings).reduce(
+        (acc, [parent, children]) => {
+          acc[parent] = new Set(children);
+          return acc;
+        },
+        {} as Record<string, Set<string>>
+      );
+      const zoneAssignments = new Map(currentZoneAssignments);
+      const zonesToSet: Record<string, Set<string>> = {};
+      edgesResult.forEach(edge => {
+        parents.add(edge.parent_path);
+        children.add(edge.child_path);
+        captiveIds.add(edge.child_path);
+        if (!zonesToSet[edge.parent_path]) {
+          zonesToSet[edge.parent_path] = new Set([edge.child_path]);
+        } else {
+          zonesToSet[edge.parent_path].add(edge.child_path);
+        }
+
+        if (!shatterMappings[edge.parent_path]) {
+          shatterMappings[edge.parent_path] = new Set([edge.child_path]);
+        } else {
+          shatterMappings[edge.parent_path].add(edge.child_path);
+        }
+      });
+
+      Object.entries(zonesToSet).forEach(([parent, children]) => {
+        setZones(zoneAssignments, parent, children);
+      });
+
+      const featureBbox = features[0].geometry && bbox(features[0].geometry);
+      const mapBbox =
+        featureBbox?.length && featureBbox?.length >= 4
+          ? (featureBbox.slice(0, 4) as maplibregl.LngLatBoundsLike)
+          : undefined;
+
+      setShatterState({
+        shatterIds: {
+          parents,
+          children,
+        },
+        shatterMappings,
+        zoneAssignments: zoneAssignments,
+      });
+
+      set({
         assignmentsHash: updateHash,
         lastUpdatedHash: updateHash,
+        mapLock: false,
+        captiveIds,
+        focusFeatures: [
+          {
+            id: features[0].id,
+            source: BLOCK_SOURCE_ID,
+            sourceLayer: mapDocument?.parent_layer,
+          },
+        ],
       });
-      useMapControlsStore.setState({activeTool: 'pan'});
-    }
-  },
-  focusFeatures: [],
-  assignmentsHash: '',
-  setAssignmentsHash: hash => set({assignmentsHash: hash}),
-  lastUpdatedHash: new Date().toISOString(),
-  workerUpdateHash: new Date().toISOString(),
-  setWorkerUpdateHash: hash => set({workerUpdateHash: hash}),
-  contextMenu: null,
-  setContextMenu: contextMenu => set({contextMenu}),
-  userID: null,
-  setUserID: () => {
-    set(state => {
-      const userID = state.userID;
-      if (userID === null) {
-        return {userID: nanoid()};
-      } else {
-        return {userID};
+      useMapControlsStore.setState({activeTool: 'brush'});
+      setMapOptions({
+        mode: 'break',
+        bounds: mapBbox,
+      });
+    },
+    handleReset: async () => {
+      const {mapDocument, getMapRef} = get();
+      const {zoneAssignments, resetZoneAssignments, shatterIds, resetShatterState} =
+        useAssignmentsStore.getState();
+      const document_id = mapDocument?.document_id;
+
+      if (!document_id) {
+        return;
       }
-    });
-  },
-  mapName: () => get().mapDocument?.map_metadata?.name || undefined,
-  mapMetadata: {
-    name: null,
-    tags: null,
-    description: null,
-    eventId: null,
-    group: null,
-    draft_status: null,
-  },
-  updateMetadata: metadata => {
-    const {mapDocument} = get();
-    if (!mapDocument) {
       set({
-        errorNotification: {
-          severity: 2,
-          message: 'Tried to update metadata on a map document that does not exist',
-          id: 'updateMetadata-no-map-document',
+        mapLock: true,
+        appLoadingState: 'loading',
+      });
+      const updateHash = new Date().toISOString();
+      const resetResponse = await patchUpdateReset(document_id);
+      if (!resetResponse.ok) {
+        set({
+          errorNotification: {
+            severity: 2,
+            message:
+              'Failed to reset map. Please refresh this page and try again. If this error persists, please share the error code below the Districtr team.',
+          },
+        });
+        return;
+      }
+
+      if (resetResponse.response.document_id === document_id) {
+        const initialState = useMapStore.getInitialState();
+        GeometryWorker?.resetZones();
+        resetZoneColors({
+          zoneAssignments,
+          mapRef: getMapRef(),
+          mapDocument,
+          shatterIds,
+        });
+        resetZoneAssignments();
+        resetShatterState();
+
+        set({
+          appLoadingState: 'loaded',
+          mapLock: false,
+          colorScheme: DefaultColorScheme,
+          assignmentsHash: updateHash,
+          lastUpdatedHash: updateHash,
+        });
+        useMapControlsStore.setState({activeTool: 'pan'});
+      }
+    },
+    focusFeatures: [],
+    assignmentsHash: '',
+    setAssignmentsHash: hash => set({assignmentsHash: hash}),
+    lastUpdatedHash: new Date().toISOString(),
+    workerUpdateHash: new Date().toISOString(),
+    setWorkerUpdateHash: hash => set({workerUpdateHash: hash}),
+    contextMenu: null,
+    setContextMenu: contextMenu => set({contextMenu}),
+    userID: null,
+    setUserID: () => {
+      set(state => {
+        const userID = state.userID;
+        if (userID === null) {
+          return {userID: nanoid()};
+        } else {
+          return {userID};
+        }
+      });
+    },
+    mapName: () => get().mapDocument?.map_metadata?.name || undefined,
+    mapMetadata: {
+      name: null,
+      tags: null,
+      description: null,
+      eventId: null,
+      group: null,
+      draft_status: null,
+    },
+    updateMetadata: metadata => {
+      const {mapDocument} = get();
+      if (!mapDocument) {
+        set({
+          errorNotification: {
+            severity: 2,
+            message: 'Tried to update metadata on a map document that does not exist',
+            id: 'updateMetadata-no-map-document',
+          },
+        });
+        return;
+      }
+      set({
+        mapDocument: {
+          ...mapDocument,
+          map_metadata: {
+            ...mapDocument.map_metadata,
+            ...metadata,
+          },
         },
       });
-      return;
-    }
-    set({
-      mapDocument: {
-        ...mapDocument,
-        map_metadata: {
-          ...mapDocument.map_metadata,
-          ...metadata,
-        },
-      },
-    });
-  },
-  passwordPrompt: false,
-  setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
-  password: null,
-  setPassword: password => set({password}),
-}));
+    },
+    passwordPrompt: false,
+    setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
+    password: null,
+    setPassword: password => set({password}),
+  })
+);

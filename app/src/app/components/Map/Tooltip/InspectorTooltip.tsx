@@ -2,7 +2,6 @@
 import {Table} from '@radix-ui/themes';
 import {formatNumber} from '@utils/numbers';
 import {useTooltipStore} from '@store/tooltipStore';
-import {useHoverStore} from '@store/hoverFeatures';
 import {demographyCache} from '@utils/demography/demographyCache';
 import {useEffect, useState} from 'react';
 import {CONFIG_BY_COLUMN_SET} from '@store/demography/evaluationConfig';
@@ -10,7 +9,6 @@ import {PARTISAN_SCALE} from '@store/demography/constants';
 import {INSPECTOR_TITLE, TOTAL_COLUMN} from '@components/Map/Tooltip/InpsectorTooltipConfig';
 import {previousHoverFeatures as hoverFeatures} from '@/app/utils/map/hoverFeatures';
 export const InspectorTooltip = () => {
-  const hoverFeaturesTimestamp = useHoverStore(state => state.hoverFeaturesTimestamp);
   const activeColumns = useTooltipStore(state => state.activeColumns);
   const inspectorMode = useTooltipStore(state => state.inspectorMode);
   const inspectorFormat = useTooltipStore(state => state.inspectorFormat);

@@ -14,7 +14,6 @@ import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEvents';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
@@ -43,11 +42,6 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   } = useDocumentWithSync({
     document_id: mapId || undefined,
     enabled: !!mapId,
-  });
-
-  const loadingState = useMapBrowserEvents({
-    mapId,
-    isEditing,
   });
 
   // Handle document loading errors
@@ -90,7 +84,6 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
         {!!mapId && (
           <MapLockShade
             loadingState={{
-              ...loadingState,
               isLoadingDocument,
               isLoadingAssignments: isLoadingDocument,
               isFetchingDocument: isLoadingDocument,
