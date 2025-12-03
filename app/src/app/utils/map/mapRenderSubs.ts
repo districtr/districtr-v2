@@ -101,7 +101,6 @@ export class MapRenderSubscriber {
 
     this.mapRef.once('render', () => {
       setMapLock(false);
-      console.log(`Unlocked at`, performance.now());
     });
     this.previousShatterState = currentState;
   }
@@ -314,11 +313,9 @@ export class MapRenderSubscriber {
       this.subscribeColorZones();
     }
     this.render();
-    console.log('Subscribed to map render subs', this.subscriptions.length);
   }
 
   unsubscribe() {
-    console.log('Unsubscribing from map render subs', this.subscriptions.length);
     this.subscriptions.forEach(unsub => unsub());
     this.controlSubscriptions.forEach(unsub => unsub());
     this.assignmentSubscriptions.forEach(unsub => unsub());

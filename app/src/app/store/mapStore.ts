@@ -272,12 +272,10 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) =
   handleShatter: async (document_id, features) => {
     const {mapDocument, mapLock, setMapLock} = get();
     if (!features.length) {
-      console.log('Shatter: NO FEATURES');
       setMapLock(false);
       return;
     }
     if (mapLock) {
-      console.log('Shatter: MAP LOCKED');
       return;
     }
     setMapLock(true);
@@ -383,7 +381,6 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) =
     const document_id = mapDocument?.document_id;
 
     if (!document_id) {
-      console.log('No document ID to reset.');
       return;
     }
     set({

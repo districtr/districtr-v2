@@ -189,8 +189,6 @@ class DemographyCache {
       )
     );
     if (missingPopulations.size) {
-      console.log('missingPopulations', missingPopulations.size, missingPopulations.objects());
-      console.log('Populations not yet loaded');
       return {
         ok: false,
       };

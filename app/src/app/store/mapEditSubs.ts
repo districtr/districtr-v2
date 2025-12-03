@@ -20,7 +20,6 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     colorScheme => {
       const {mapDocument, mapStatus} = useMapStore.getState();
       if (mapDocument && mapStatus?.access === 'edit') {
-        console.log('Color scheme updating:', colorScheme, mapStatus);
         saveColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
       }
     },

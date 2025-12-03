@@ -73,7 +73,6 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   useEffect(() => {
     const unsub = initSubs();
     return () => {
-      console.log('unsubscribing');
       unsub();
     };
   }, []);

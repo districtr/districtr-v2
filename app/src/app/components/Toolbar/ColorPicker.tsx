@@ -41,7 +41,6 @@ export const ColorPicker = <T extends boolean>({
     const newValue = colorScheme[index];
     hotkeyRef.current = null;
     if (multiple) {
-      console.log('!!!', defaultValue, value, newValue);
     } else {
       onValueChange(index, newValue);
     }
