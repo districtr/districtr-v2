@@ -206,11 +206,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const isTouchEvent =
     'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
   if (isBrushingTool && !isTouchEvent && !isPainting) {
-    if (activeTool === 'inspector') {
-      // do nothing
-    } else {
-      setHoverFeatures(selectedFeatures || []);
-    }
+    setHoverFeatures(selectedFeatures || []);
   }
   if (selectedFeatures && isBrushingTool && isPainting) {
     // selects in the map object; the store object

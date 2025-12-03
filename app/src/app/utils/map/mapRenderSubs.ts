@@ -15,6 +15,7 @@ import {
 } from '@store/mapControlsStore';
 import {useAssignmentsStore as _useAssignmentsStore} from '@store/assignmentsStore';
 import GeometryWorker from '../GeometryWorker';
+import { idb } from '../idb/idb';
 
 /**
  * A class that manages the rendering of the map based on the state of the map store.
@@ -271,7 +272,12 @@ export class MapRenderSubscriber {
   }
   checkRender() {
     const mapRef = this.mapRef;
-    const {zoneAssignments} = this.useAssignmentsStore.getState();
+    const {zoneAssignments, clientLastUpdated} = this.useAssignmentsStore.getState();
+    if (!clientLastUpdated.length) {
+      // refresh the page
+      window.location.reload();
+    }
+    
     if (zoneAssignments.size === 0) return;
 
     const nonNullAssignment = Array.from(zoneAssignments.entries()).find(f => f.values !== null);
