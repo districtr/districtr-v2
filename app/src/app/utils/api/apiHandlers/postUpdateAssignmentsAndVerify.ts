@@ -5,6 +5,7 @@ import {postUpdateAssignments} from './postUpdateAssignments';
 import {AssignmentsStore} from '@/app/store/assignmentsStore';
 import {idb} from '../../idb/idb';
 import {getAssignments} from './getAssignments';
+import { useMapStore } from '@/app/store/mapStore';
 
 type PostUpdateAssignmentsAndVerifyResponse =
   | {
@@ -61,7 +62,7 @@ export const postUpdateAssignmentsAndVerify = async ({
       throw new Error('Conflict on save: assignments mismatch');
     }
   });
-  idb.updateDocument({
+  await idb.updateDocument({
     id: mapDocument.document_id,
     document_metadata: {
       ...mapDocument,
@@ -69,6 +70,9 @@ export const postUpdateAssignmentsAndVerify = async ({
     },
     assignments: freshServerAssignments.response,
     clientLastUpdated: assignmentsPostResponse.response.updated_at,
+  });
+  useMapStore.getState().mutateMapDocument({
+    updated_at: assignmentsPostResponse.response.updated_at,
   });
   return {
     ok: true,

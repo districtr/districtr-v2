@@ -70,6 +70,7 @@ export interface MapStore {
   setMapViews: (maps: MapStore['mapViews']) => void;
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  mutateMapDocument: (mapDocument: Partial<DocumentObject>) => void;
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   colorScheme: string[];
@@ -294,6 +295,7 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) =
       workerUpdateHash: new Date().toISOString(),
     });
   },
+  mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
   mapStatus: null,
   setMapStatus: mapStatus => {
     const prev = get().mapStatus || {};
