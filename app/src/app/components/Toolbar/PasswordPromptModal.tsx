@@ -12,7 +12,6 @@ export const PasswordPromptModal = () => {
   const [password, setPassword] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const shareMapMessage = useMapStore(store => store.shareMapMessage);
   const mapDocument = useMapStore(store => store.mapDocument);
 
   useEffect(() => {
@@ -80,7 +79,6 @@ export const PasswordPromptModal = () => {
             <Button onClick={() => handleProceed(true)}>Submit</Button>
             <Button onClick={() => handleProceed(false)}>Cancel and Proceed to Map</Button>
           </Flex>
-          <Text>{shareMapMessage ?? ''}</Text>
         </Box>
         {isLoading && <Progress className="m-4" duration="20s" />}
         {error && <Blockquote color="red">{error}</Blockquote>}

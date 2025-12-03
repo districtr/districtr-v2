@@ -150,8 +150,6 @@ export interface MapStore {
   setPasswordPrompt: (prompt: boolean) => void;
   password: string | null;
   setPassword: (password: string | null | undefined) => void;
-  shareMapMessage: string | null;
-  setShareMapMessage: (message: string | null) => void;
 }
 
 const initialLoadingState =
@@ -481,6 +479,4 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>((set, get) =
   setPasswordPrompt: prompt => set({passwordPrompt: prompt}),
   password: null,
   setPassword: password => set({password}),
-  shareMapMessage: null,
-  setShareMapMessage: message => set({shareMapMessage: message}),
 }));

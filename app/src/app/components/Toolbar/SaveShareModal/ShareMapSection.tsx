@@ -12,9 +12,9 @@ export const ShareMapSection: React.FC<{isEditing: boolean}> = ({isEditing}) => 
   const sharingMode = useSaveShareStore(state => state.sharingMode);
   const setSharingMode = useSaveShareStore(state => state.setSharingMode);
   const updatePassword = useSaveShareStore(state => state.updatePassword);
-  const handleSetPassword = (password: string) => updatePassword(mapDocument, password);
   const mapDocument = useMapStore(state => state.mapDocument);
   const userMap = useIdbDocument(mapDocument?.document_id);
+  const handleSetPassword = (password: string) => updatePassword(mapDocument, password);
 
   if (!mapDocument || !isEditing) {
     return null;

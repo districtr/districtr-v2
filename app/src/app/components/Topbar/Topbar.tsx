@@ -29,9 +29,7 @@ import {idb} from '@/app/utils/idb/idb';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
-  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | 'save-share' | null>(
-    null
-  );
+  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
   const isEditing = mapDocument?.document_id && mapDocument?.document_id !== 'anonymous';
   const access = useMapStore(state => state.mapStatus?.access);

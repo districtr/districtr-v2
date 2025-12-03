@@ -28,6 +28,7 @@ export const useIdbDocument = (document_id: string | null | undefined) => {
           document_metadata: documentFromIdb.document_metadata,
           clientLastUpdated: documentFromIdb.clientLastUpdated,
           id: documentFromIdb.id,
+          password: documentFromIdb.password,
         });
       }
     };

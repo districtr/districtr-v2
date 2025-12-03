@@ -84,7 +84,7 @@ useMapStore.subscribe(
     }
     idb.getDocument(mapDocument?.document_id).then(userMap => {
       if (!userMap) return;
-      useSaveShareStore.getState().setPassword(userMap?.document_metadata.password || '');
+      useSaveShareStore.getState().setPassword(userMap?.password || '');
       useSaveShareStore
         .getState()
         .setSharingMode(userMap?.document_metadata.access === 'edit' ? 'edit' : 'read');

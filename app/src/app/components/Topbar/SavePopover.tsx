@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {Box, Popover, Button, Flex, Text, IconButton, Inset, Grid} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
 import {useIdbDocument} from '@/app/hooks/useIdbDocument';
-import {CheckIcon, ExclamationTriangleIcon, SymbolIcon} from '@radix-ui/react-icons';
+import {CheckIcon, ExclamationTriangleIcon} from '@radix-ui/react-icons';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {CloudSavedIcon, CloudNotSavedIcon} from './Icons';
 
