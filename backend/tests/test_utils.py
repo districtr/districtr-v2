@@ -21,6 +21,7 @@ from tests.utils import fake_verify_recaptcha
 from fastapi.security import SecurityScopes
 from app.main import app
 from app.comments.models import FullCommentFormResponse
+from datetime import datetime
 
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 
@@ -304,7 +305,7 @@ def test_post_edges(client, session: Session, document_id):
         "/api/assignments",
         json={
             "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
-            "last_updated_at": "2025-12-03T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200

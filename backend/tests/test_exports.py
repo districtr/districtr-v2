@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from tests.constants import FIXTURES_PATH
-
+from datetime import datetime
 
 @pytest.fixture(name="assignments_document_id")
 def assignments_fixture(client, document_id) -> str:
@@ -13,7 +13,7 @@ def assignments_fixture(client, document_id) -> str:
                 {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
-            "last_updated_at": "2025-12-03T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -111,7 +111,7 @@ def simple_child_geoids_document_id(
                 {"document_id": document_id, "geo_id": "b", "zone": 1},
                 {"document_id": document_id, "geo_id": "c", "zone": 2},
             ],
-            "last_updated_at": "2025-12-03T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200, response.json()

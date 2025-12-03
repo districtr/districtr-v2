@@ -5,7 +5,7 @@ from app.save_share.models import DocumentShareStatus
 import jwt
 from app.core.config import settings
 from pytest import fixture
-
+from datetime import datetime
 
 @fixture(name="public_document")
 def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
@@ -117,7 +117,7 @@ def test_copy_document(client, private_document):
                 {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
                 {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
             ],
-            "last_updated_at": doc_data.get("updated_at", "2023-01-01T00:00:00"),
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200

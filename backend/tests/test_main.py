@@ -14,7 +14,7 @@ from app.utils import create_districtr_map, create_map_group
 from app.core.models import DocumentID
 from pydantic import ValidationError
 from tests.test_utils import handle_full_submission_approve, patch_recaptcha
-
+from datetime import datetime
 REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
 
 
@@ -261,7 +261,7 @@ def assignments_fixture(client, document_id_all_stats):
                     "zone": 2,
                 },
             ],
-            "last_updated_at": "2025-12-02T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -279,7 +279,7 @@ def assignments_total_vap_fixture(client, document_id_total_vap):
                 {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
-            "last_updated_at": "2025-12-02T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -297,7 +297,7 @@ def assignments_no_gerrydb_pop_fixture(client, document_no_gerrydb_pop):
                 {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
-            "last_updated_at": "2025-12-02T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -348,7 +348,7 @@ def test_put_assignments(client, document_id):
                 {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
             ],
-            "last_updated_at": "2025-12-03T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -356,12 +356,13 @@ def test_put_assignments(client, document_id):
     updated_at = response.json().get("updated_at")
     assert updated_at is not None
 
-def test_put_assignments_conflict(client, document_id):
+def test_put_assignments_conflict(client, document_no_gerrydb_pop):
+    document_id = document_no_gerrydb_pop
     response = client.put(
         "/api/assignments",
         json={
             "assignments": [{"document_id": document_id, "geo_id": "202090441022004", "zone": 1}],
-            "last_updated_at": "2025-12-04T00:00:00.000000Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -369,7 +370,7 @@ def test_put_assignments_conflict(client, document_id):
         "/api/assignments",
         json={
             "assignments": [{"document_id": document_id, "geo_id": "202090441022004", "zone": 1}],
-            "last_updated_at": "2025-12-03T00:00:00.000000Z",
+            "last_updated_at": "1970-01-01T00:00:00.000000Z",
         },
     )
     assert response.status_code == 409
@@ -378,7 +379,7 @@ def test_put_assignments_conflict(client, document_id):
         "/api/assignments",
         json={
             "assignments": [{"document_id": document_id, "geo_id": "202090441022004", "zone": 1}],
-            "last_updated_at": "2025-12-03T17:04:00.000000Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
             "overwrite": True,
         },
     )
@@ -394,7 +395,7 @@ def test_put_assignments_nulls(client, document_id):
                 {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": None},
             ],
-            "last_updated_at": "2025-12-03T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -411,7 +412,7 @@ def test_put_assignments_twice(client, document_id):
                 {"document_id": document_id, "geo_id": "202090441022004", "zone": 0},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 0},
             ],
-            "last_updated_at": "2025-12-03T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -426,7 +427,7 @@ def test_put_assignments_twice(client, document_id):
                 {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
                 {"document_id": document_id, "geo_id": "200979691001108", "zone": 1},
             ],
-            "last_updated_at": "2025-12-04T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -1120,7 +1121,7 @@ def test_get_district_unions(client, document_id_total_vap):
                     "zone": 2,
                 },
             ],
-            "last_updated_at": "2025-12-03T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -1143,7 +1144,7 @@ def test_get_district_unions(client, document_id_total_vap):
                     "zone": 1,
                 },
             ],
-            "last_updated_at": "2025-12-04T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200

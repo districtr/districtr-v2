@@ -2,6 +2,7 @@ import os
 import pytest
 from tests.constants import FIXTURES_PATH
 from unittest.mock import patch
+from datetime import datetime
 
 
 @pytest.fixture
@@ -31,7 +32,7 @@ def document_id_with_assignments(client, document_id):
                     "zone": 2,
                 },
             ],
-            "last_updated_at": "2025-12-03T17:04:19.349884Z",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
