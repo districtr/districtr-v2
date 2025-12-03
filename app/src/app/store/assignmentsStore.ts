@@ -419,7 +419,6 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>((
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
     if (!idbDocument) return;
-    console.log('idbDocument', idbDocument.document_metadata);
     const assignmentsPostResponse = await postUpdateAssignmentsAndVerify({
       mapDocument: idbDocument.document_metadata,
       zoneAssignments,
