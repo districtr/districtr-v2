@@ -5,7 +5,7 @@ import {postUpdateAssignments} from './postUpdateAssignments';
 import {AssignmentsStore} from '@/app/store/assignmentsStore';
 import {idb} from '../../idb/idb';
 import {getAssignments} from './getAssignments';
-import { useMapStore } from '@/app/store/mapStore';
+import {useMapStore} from '@/app/store/mapStore';
 
 type PostUpdateAssignmentsAndVerifyResponse =
   | {

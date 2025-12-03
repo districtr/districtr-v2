@@ -36,7 +36,7 @@ export const SaveShareModal: React.FC<{
       districtr_map_slug: mapDocument?.districtr_map_slug,
       metadata: {
         ...mapDocument?.map_metadata,
-        name: mapMetadata?.name ? `${mapMetadata.name} (Copy)` : "",
+        name: mapMetadata?.name ? `${mapMetadata.name} (Copy)` : '',
       },
     });
     if (response.ok) {
