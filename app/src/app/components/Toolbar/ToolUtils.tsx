@@ -32,8 +32,6 @@ export const useActiveTools = () => {
   const access = useMapStore(state => state.mapStatus?.access);
   const isEditing = access === 'edit';
   const {futureStates, pastStates, redo, undo} = useAssignmentsStore.temporal.getState();
-  console.log('futureStates', futureStates);
-  console.log('pastStates', pastStates);
   const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);
