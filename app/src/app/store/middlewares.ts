@@ -22,15 +22,13 @@ export const createWithFullMiddlewares = <TState>(config: StateCreator<TState, [
   ) as StateWithFullMiddleware<TState>;
 };
 
-
-export const createWithDevWrapperAndSubscribe = <TState>(config: StateCreator<TState, [], [], TState>) => {
+export const createWithDevWrapperAndSubscribe = <TState>(
+  config: StateCreator<TState, [], [], TState>
+) => {
   return create(
-    devwrapper(
-      subscribeWithSelector<TState>(config),
-      {
-        ...devToolsConfig,
-        name: 'Districtr Map Store',
-      }
-    )
+    devwrapper(subscribeWithSelector<TState>(config), {
+      ...devToolsConfig,
+      name: 'Districtr Map Store',
+    })
   ) as StateWithDevWrapperAndSubscribe<TState>;
 };
