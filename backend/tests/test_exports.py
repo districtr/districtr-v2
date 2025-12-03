@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from tests.constants import FIXTURES_PATH
 from datetime import datetime
 
+
 @pytest.fixture(name="assignments_document_id")
 def assignments_fixture(client, document_id) -> str:
     response = client.put(

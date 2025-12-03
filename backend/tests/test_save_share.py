@@ -7,6 +7,7 @@ from app.core.config import settings
 from pytest import fixture
 from datetime import datetime
 
+
 @fixture(name="public_document")
 def document_fixture(client, ks_demo_view_census_blocks_districtrmap):
     response = client.post(

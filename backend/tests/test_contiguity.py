@@ -17,6 +17,7 @@ from tests.constants import FIXTURES_PATH
 from sqlmodel import Session
 from datetime import datetime
 
+
 @fixture
 def connected_graph():
     G = Graph()
@@ -70,7 +71,7 @@ def put_simple_contiguous_assignments(client: TestClient, document_id: str):
                 {"document_id": document_id, "geo_id": "B", "zone": 2},
                 {"document_id": document_id, "geo_id": "C", "zone": 1},
             ],
-            "last_updated_at": datetime.now().astimezone().isoformat()
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
 
@@ -260,7 +261,7 @@ def test_simple_geos_discontiguity(
                 {"document_id": document_id, "geo_id": "B", "zone": 2},
                 {"document_id": document_id, "geo_id": "C", "zone": 1},
             ],
-            "last_updated_at": datetime.now().astimezone().isoformat()
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -294,7 +295,7 @@ def test_simple_geos_discontiguity_subgraph_bboxes(
                 {"document_id": document_id, "geo_id": "B", "zone": 2},
                 {"document_id": document_id, "geo_id": "C", "zone": 1},
             ],
-            "last_updated_at": datetime.now().astimezone().isoformat()
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -361,7 +362,7 @@ def ks_ellis_assignments(client: TestClient, ks_ellis_document_id: str) -> str:
                 {"document_id": document_id, "geo_id": "vtd:20051000200", "zone": 3},
                 {"document_id": document_id, "geo_id": "vtd:2005100003A", "zone": 3},
             ],
-            "last_updated_at": datetime.now().astimezone().isoformat()
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -417,7 +418,7 @@ def test_fix_ks_ellis_geos_contiguity(
                 {"document_id": document_id, "geo_id": "vtd:20051000200", "zone": 3},
                 {"document_id": document_id, "geo_id": "vtd:2005100003A", "zone": 3},
             ],
-            "last_updated_at": datetime.now().astimezone().isoformat()
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -471,7 +472,7 @@ def ks_ellis_parent_only_assignments(
                 {"document_id": document_id, "geo_id": "200510728014082", "zone": 2},
                 {"document_id": document_id, "geo_id": "200510730001184", "zone": 2},
             ],
-            "last_updated_at": datetime.now().astimezone().isoformat()
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200, response.json()

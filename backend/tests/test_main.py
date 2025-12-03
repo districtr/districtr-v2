@@ -15,6 +15,7 @@ from app.core.models import DocumentID
 from pydantic import ValidationError
 from tests.test_utils import handle_full_submission_approve, patch_recaptcha
 from datetime import datetime
+
 REQUIRED_AUTO_FIXTURES = [patch_recaptcha]
 
 
@@ -356,12 +357,15 @@ def test_put_assignments(client, document_id):
     updated_at = response.json().get("updated_at")
     assert updated_at is not None
 
+
 def test_put_assignments_conflict(client, document_no_gerrydb_pop):
     document_id = document_no_gerrydb_pop
     response = client.put(
         "/api/assignments",
         json={
-            "assignments": [{"document_id": document_id, "geo_id": "202090441022004", "zone": 1}],
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1}
+            ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
@@ -369,16 +373,23 @@ def test_put_assignments_conflict(client, document_no_gerrydb_pop):
     response = client.put(
         "/api/assignments",
         json={
-            "assignments": [{"document_id": document_id, "geo_id": "202090441022004", "zone": 1}],
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1}
+            ],
             "last_updated_at": "1970-01-01T00:00:00.000000Z",
         },
     )
     assert response.status_code == 409
-    assert response.json().get("detail") == "Document has been updated since the last update"
+    assert (
+        response.json().get("detail")
+        == "Document has been updated since the last update"
+    )
     response = client.put(
         "/api/assignments",
         json={
-            "assignments": [{"document_id": document_id, "geo_id": "202090441022004", "zone": 1}],
+            "assignments": [
+                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1}
+            ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
             "overwrite": True,
         },
