@@ -297,6 +297,10 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
   });
 };
 
+export const throttledSetWorkerHash = throttle((hash: string) => {
+  useMapStore.getState().setWorkerUpdateHash(hash);
+}, 1000);
+
 export const handleDataLoad = (e: MapSourceDataEvent) => {
   const {mapDocument, setMapRenderingState, setWorkerUpdateHash} = useMapStore.getState();
   const {setMapOptions} = useMapControlsStore.getState();
@@ -318,7 +322,7 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
       mapDocument,
       idProp: 'path',
     });
-    setWorkerUpdateHash(new Date().toISOString());
+    throttledSetWorkerHash(new Date().toISOString());
   }
 };
 
