@@ -40,6 +40,13 @@ export class DocumentsDB extends Dexie {
     return await this.documents.toArray();
   }
 
+  async getAllDocumentObjects(): Promise<DocumentObject[]> {
+    return await this.documents
+      .toCollection()
+      .toArray()
+      .then(documents => documents.map(document => document.document_metadata));
+  }
+
   updateIdbAssignments = (
     mapDocument: DocumentObject,
     zoneAssignments: Map<string, NullableZone>,

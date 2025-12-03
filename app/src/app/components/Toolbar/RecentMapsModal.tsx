@@ -8,6 +8,7 @@ import {DocumentObject} from '@utils/api/apiHandlers/types';
 import {styled} from '@stitches/react';
 import {useState} from 'react';
 import {idb} from '@/app/utils/idb/idb';
+import {useUserMaps} from '@/app/hooks/useUserMaps';
 
 const DialogContentContainer = styled(Dialog.Content, {
   maxHeight: 'calc(100vh-2rem)',
@@ -23,30 +24,13 @@ export const RecentMapsModal: React.FC<{
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const setActiveTool = useMapControlsStore(store => store.setActiveTool);
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
-  const [recentMaps, setRecentMaps] = useState<DocumentObject[]>([]);
+  const [updateTrigger, setUpdateTrigger] = useState<string | null | number>(null);
+  const recentMaps = useUserMaps(updateTrigger);
 
   useEffect(() => {
     setDialogOpen(open || false);
   }, [open]);
 
-  // Load recent maps from IndexedDB
-  useEffect(() => {
-    const loadRecentMaps = async () => {
-      const storedDocs = await idb.getAllDocuments();
-      // Sort by clientLastUpdated descending (most recent first)
-      const sortedDocs = storedDocs
-        .map(doc => doc.document_metadata)
-        .sort((a, b) => {
-          const aTime = new Date(a.updated_at || 0).getTime();
-          const bTime = new Date(b.updated_at || 0).getTime();
-          return bTime - aTime;
-        });
-      setRecentMaps(sortedDocs);
-    };
-    if (dialogOpen) {
-      loadRecentMaps();
-    }
-  }, [dialogOpen]);
   const handleUnloadMapDocument = () => {
     // Navigate to home page
     setMapDocument({} as DocumentObject);
@@ -72,7 +56,30 @@ export const RecentMapsModal: React.FC<{
         const bTime = new Date(b.updated_at || 0).getTime();
         return bTime - aTime;
       });
-    setRecentMaps(sortedDocs);
+    setUpdateTrigger(Date.now());
+  };
+
+  const handleChangeName = async (userMapData: DocumentObject | undefined) => {
+    if (userMapData && userMapData.document_id) {
+      // Update the document in IndexedDB
+      const storedDoc = await idb.getDocument(userMapData.document_id);
+      if (storedDoc) {
+        await idb.updateDocument({
+          ...storedDoc,
+          document_metadata: userMapData,
+        });
+        // Reload the list
+        const storedDocs = await idb.getAllDocuments();
+        const sortedDocs = storedDocs
+          .map(doc => doc.document_metadata)
+          .sort((a, b) => {
+            const aTime = new Date(a.updated_at || 0).getTime();
+            const bTime = new Date(b.updated_at || 0).getTime();
+            return bTime - aTime;
+          });
+        setUpdateTrigger(Date.now());
+      }
+    }
   };
 
   useEffect(() => {
@@ -134,28 +141,7 @@ export const RecentMapsModal: React.FC<{
                 <RecentMapsRow
                   key={userMap.document_id || i}
                   active={mapDocument?.document_id === userMap.document_id}
-                  onChange={async userMapData => {
-                    if (userMapData && userMapData.document_id) {
-                      // Update the document in IndexedDB
-                      const storedDoc = await idb.getDocument(userMapData.document_id);
-                      if (storedDoc) {
-                        await idb.updateDocument({
-                          ...storedDoc,
-                          document_metadata: userMapData,
-                        });
-                        // Reload the list
-                        const storedDocs = await idb.getAllDocuments();
-                        const sortedDocs = storedDocs
-                          .map(doc => doc.document_metadata)
-                          .sort((a, b) => {
-                            const aTime = new Date(a.updated_at || 0).getTime();
-                            const bTime = new Date(b.updated_at || 0).getTime();
-                            return bTime - aTime;
-                          });
-                        setRecentMaps(sortedDocs);
-                      }
-                    }
-                  }}
+                  onChange={handleChangeName}
                   data={userMap}
                   onSelect={handleMapDocument}
                   onDelete={() => {
