@@ -31,7 +31,7 @@ export const ColorPicker = <T extends boolean>({
   onValueChange,
   multiple,
   disabledValues,
-  _colorScheme
+  _colorScheme,
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const _stateColorScheme = useMapStore(state => state.colorScheme);

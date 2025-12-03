@@ -5,7 +5,7 @@ import {Cross2Icon} from '@radix-ui/react-icons';
 import {Box, Flex, Dialog, Heading, Button} from '@radix-ui/themes';
 import {ColorPicker} from './ColorPicker';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
-import { idb } from '@/app/utils/idb/idb';
+import {idb} from '@/app/utils/idb/idb';
 
 export const ColorChangeModal: React.FC<{
   open?: boolean;
@@ -56,7 +56,6 @@ export const ColorChangeModal: React.FC<{
     setInnerColorScheme(colorScheme);
     onClose?.();
   };
-
 
   useEffect(() => {
     setDialogOpen(open || false);
@@ -113,9 +112,10 @@ export const ColorChangeModal: React.FC<{
         {/* save button */}
         <Flex justify="end" gapX="2">
           <Button onClick={handleSave}>Save</Button>
-          <Button variant="outline" onClick={handleCancel}>Cancel</Button>
+          <Button variant="outline" onClick={handleCancel}>
+            Cancel
+          </Button>
         </Flex>
-
       </Dialog.Content>
     </Dialog.Root>
   );
