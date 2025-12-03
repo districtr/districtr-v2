@@ -356,6 +356,34 @@ def test_put_assignments(client, document_id):
     updated_at = response.json().get("updated_at")
     assert updated_at is not None
 
+def test_put_assignments_conflict(client, document_id):
+    response = client.put(
+        "/api/assignments",
+        json={
+            "assignments": [{"document_id": document_id, "geo_id": "202090441022004", "zone": 1}],
+            "last_updated_at": "2025-12-04T00:00:00.000000Z",
+        },
+    )
+    assert response.status_code == 200
+    response = client.put(
+        "/api/assignments",
+        json={
+            "assignments": [{"document_id": document_id, "geo_id": "202090441022004", "zone": 1}],
+            "last_updated_at": "2025-12-03T00:00:00.000000Z",
+        },
+    )
+    assert response.status_code == 409
+    assert response.json().get("detail") == "Document has been updated since the last update"
+    response = client.put(
+        "/api/assignments",
+        json={
+            "assignments": [{"document_id": document_id, "geo_id": "202090441022004", "zone": 1}],
+            "last_updated_at": "2025-12-03T17:04:00.000000Z",
+            "overwrite": True,
+        },
+    )
+    assert response.status_code == 200
+
 
 def test_put_assignments_nulls(client, document_id):
     response = client.put(
