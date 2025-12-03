@@ -9,11 +9,11 @@ export const saveMapDocumentMetadata = async ({
   metadata: Partial<DocumentMetadata>;
 }) => {
   console.log('saving metadata', metadata);
-  return await put<Partial<DocumentMetadata>, DocumentMetadata>(
-    `document/${document_id}/metadata`
-  )({
-    body: {
-      ...metadata
-    },
-  });
+  return await put<Partial<DocumentMetadata>, DocumentMetadata>(`document/${document_id}/metadata`)(
+    {
+      body: {
+        ...metadata,
+      },
+    }
+  );
 };

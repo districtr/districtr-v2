@@ -69,17 +69,24 @@ export const MapTitleDisplay: React.FC<{
   }
 
   // If not editing, just show text or truncated text with tooltip
-  if (!editing && !isTruncated) {
-    return <Text size="2">{mapName}</Text>;
-  }
-
-  if (!editing && isTruncated) {
+  if (!editing) {
     return (
-      <Tooltip content={_mapName}>
-        <Flex align="center" gapX="1" direction="row">
-          <Text size="2">{mapName}</Text>
+      <Flex align="center" gapX="1" direction="row">
+        <Flex direction="row" align="center" gapX="1">
+          <DraftStatusIcon />
+          {isTruncated ? (
+            <Tooltip content={_mapName}>
+              <Flex align="center" gapX="1" direction="row">
+                <Text size="2">{mapName}</Text>
+                <MapContextModuleAndUnits />
+              </Flex>
+            </Tooltip>
+          ) : (
+            <Text size="2">{mapName}</Text>
+          )}
+          <MapContextModuleAndUnits />
         </Flex>
-      </Tooltip>
+      </Flex>
     );
   }
 
