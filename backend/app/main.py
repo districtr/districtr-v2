@@ -21,6 +21,7 @@ import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY
 from datetime import datetime
+from uuid import uuid4
 import sentry_sdk
 from app.assignments import duplicate_document_assignments, batch_insert_assignments
 from app.core.db import get_session
@@ -306,23 +307,43 @@ async def update_assignments(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document has been updated since the last update",
         )
-    # Use a single TRUNCATE statement if Assignments is partitioned per-document, otherwise use bulk delete as before
+    # Delete existing assignments for this document
     session.execute(
         text("DELETE FROM document.assignments WHERE document_id = :document_id"),
         {"document_id": document_id}
     )
+    # Use COPY for faster bulk insert with partitioned tables
+    # Create a temporary table for bulk loading
+    (load_id, _) = str(uuid4()).split("-", maxsplit=1)
+    temp_table_name = f"temp_assignments_{load_id}"
+    session.execute(
+        text(f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT)")
+    )
 
-    # Use executemany for bulk insert if possible (sqlalchemy handles this with session.execute(insert(...).values(...)))
-    stmt = insert(Assignments)
-    session.execute(stmt, assignments)
+    # Use COPY to bulk load data into temp table
+    cursor = session.connection().connection.cursor()
+    with cursor.copy(f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN") as copy:
+        for assignment in assignments:
+            # Handle None zone values
+            zone_val = assignment.get("zone") if assignment.get("zone") is not None else None
+            copy.write_row([document_id, assignment["geo_id"], zone_val])
 
+    # Insert from temp table into partitioned assignments table
+    # PostgreSQL will automatically route to the correct partition based on document_id
+    inserted_count = session.execute(
+        text(f"""
+        INSERT INTO document.assignments (document_id, geo_id, zone)
+        SELECT document_id, geo_id, zone
+        FROM {temp_table_name}
+        """),
+    ).rowcount
     updated_at = None
     if len(data.assignments) > 0:
         updated_at = update_timestamp(session, document_id)
         logger.info(f"Document updated at {updated_at}")
 
     session.commit()
-    return {"assignments_inserted": len(data.assignments), "updated_at": updated_at}
+    return {"assignments_inserted": inserted_count, "updated_at": updated_at}
 
 
 @app.post(
