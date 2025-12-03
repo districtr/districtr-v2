@@ -16,7 +16,6 @@ from sqlalchemy.exc import (
 from sqlalchemy import text
 from sqlmodel import Session, String, select, true, update, col
 from starlette.middleware.cors import CORSMiddleware
-from sqlalchemy.dialects.postgresql import insert
 import logging
 from sqlalchemy import bindparam
 from sqlmodel import ARRAY
@@ -310,22 +309,28 @@ async def update_assignments(
     # Delete existing assignments for this document
     session.execute(
         text("DELETE FROM document.assignments WHERE document_id = :document_id"),
-        {"document_id": document_id}
+        {"document_id": document_id},
     )
     # Use COPY for faster bulk insert with partitioned tables
     # Create a temporary table for bulk loading
     (load_id, _) = str(uuid4()).split("-", maxsplit=1)
     temp_table_name = f"temp_assignments_{load_id}"
     session.execute(
-        text(f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT)")
+        text(
+            f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT)"
+        )
     )
 
     # Use COPY to bulk load data into temp table
     cursor = session.connection().connection.cursor()
-    with cursor.copy(f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN") as copy:
+    with cursor.copy(
+        f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
+    ) as copy:
         for assignment in assignments:
             # Handle None zone values
-            zone_val = assignment.get("zone") if assignment.get("zone") is not None else None
+            zone_val = (
+                assignment.get("zone") if assignment.get("zone") is not None else None
+            )
             copy.write_row([document_id, assignment["geo_id"], zone_val])
 
     # Insert from temp table into partitioned assignments table
