@@ -90,7 +90,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                   >
                     <Flex direction="column" align="center" gap="2">
                       <CloudIcon />
-                      <Text size="2">Use the cloud version (overwrite my plan)</Text>
+                      <Text size="2">Use the cloud version (overwrite the version)</Text>
                     </Flex>
                   </Button>
                   <Button
@@ -101,7 +101,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                   >
                     <Flex direction="column" align="center" gap="2">
                       <LocalIcon />
-                      <Text size="2">Use my plan (overwrite the cloud version)</Text>
+                      <Text size="2">Use this version (overwrite the cloud version)</Text>
                     </Flex>
                   </Button>
                   <Button
@@ -112,7 +112,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                   >
                     <Flex direction="column" align="center" gap="2">
                       <ForkIcon />
-                      <Text size="2">Make my plan a new map (keep both)</Text>
+                      <Text size="2">Make this version a new plan (keep both)</Text>
                     </Flex>
                   </Button>
                 </Grid>
