@@ -34,6 +34,10 @@ export const SaveShareModal: React.FC<{
     const response = await createMapDocument({
       copy_from_doc: mapDocument?.public_id,
       districtr_map_slug: mapDocument?.districtr_map_slug,
+      metadata: {
+        ...mapDocument?.map_metadata,
+        name: mapMetadata?.name ? `${mapMetadata.name} (Copy)` : "",
+      },
     });
     if (response.ok) {
       router.push(`/map/edit/${response.response.document_id}`);
