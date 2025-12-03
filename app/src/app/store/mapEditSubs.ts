@@ -1,4 +1,4 @@
-import {saveColorScheme} from '../utils/api/apiHandlers/saveColorScheme';
+import {patchUpdateColorScheme} from '../utils/api/apiHandlers/patchUpdateColorScheme';
 import {useMapStore as _useMapStore, MapStore} from './mapStore';
 import {shallowCompareArray} from '@utils/arrays';
 import GeometryWorker from '../utils/GeometryWorker';
@@ -20,7 +20,7 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     async colorScheme => {
       const {mapDocument, mapStatus} = useMapStore.getState();
       if (mapDocument && mapStatus?.access === 'edit') {
-        await saveColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
+        await patchUpdateColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
         // Error handling is done inside saveColorScheme
       }
     },

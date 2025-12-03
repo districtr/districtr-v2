@@ -3,7 +3,7 @@ import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import {useMapStore} from '@store/mapStore';
 import {patch} from '../factory';
 
-export const saveColorScheme = async ({
+export const patchUpdateColorScheme = async ({
   document_id,
   colors,
 }: {

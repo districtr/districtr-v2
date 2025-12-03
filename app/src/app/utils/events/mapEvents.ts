@@ -29,10 +29,8 @@ import GeometryWorker from '../GeometryWorker';
 import {ActiveTool} from '@/app/constants/types';
 import {throttle} from 'lodash';
 import {useTooltipStore} from '@/app/store/tooltipStore';
-import {DocumentObject} from '../api/apiHandlers/types';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {setHoverFeatures} from '../map/hoverFeatures';
-import {useHoverStore} from '@/app/store/hoverFeatures';
 
 export const AREA_SELECT_TOOLS = ['brush', 'eraser', 'inspector'];
 export const POINT_SELECT_TOOLS = ['shatter'];
@@ -209,7 +207,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
     'touches' in e || (e.originalEvent as any)?.sourceCapabilities?.firesTouchEvents;
   if (isBrushingTool && !isTouchEvent && !isPainting) {
     if (activeTool === 'inspector') {
-      useHoverStore.getState().setHoverFeatures(selectedFeatures || []);
+      // do nothing
     } else {
       setHoverFeatures(selectedFeatures || []);
     }
@@ -289,11 +287,8 @@ export const handleMapContextMenu = (e: MapLayerMouseEvent | MapLayerTouchEvent)
 
   if (!selectedFeatures?.length || !mapRef || !sourceLayer) return;
 
-  useHoverStore.getState().setHoverFeatures(selectedFeatures.slice(0, 1));
-
   const handleClose = () => {
     mapStore.setContextMenu(null);
-    useHoverStore.getState().setHoverFeatures(EMPTY_FEATURE_ARRAY);
   };
 
   mapRef.once('movestart', handleClose);

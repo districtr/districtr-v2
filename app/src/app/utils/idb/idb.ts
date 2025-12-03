@@ -81,6 +81,18 @@ export class DocumentsDB extends Dexie {
     });
   };
 
+  updateColorScheme = async (document_id: string, colorScheme: string[]) => {
+    const currDocument = await this.getDocument(document_id);
+    if (!currDocument) return;
+    this.updateDocument({
+      ...currDocument,
+      document_metadata: {
+        ...currDocument.document_metadata,
+        color_scheme: colorScheme,
+      },
+    });
+  };
+
   updatePassword = async (document_id: string, password: string) => {
     const currDocument = await this.getDocument(document_id);
     if (!currDocument) return;

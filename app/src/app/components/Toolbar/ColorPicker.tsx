@@ -14,6 +14,7 @@ export type ColorPickerProps<T extends boolean = false> = T extends true
       onValueChange: (indices: number[], color: string[]) => void;
       multiple: true;
       disabledValues?: NullableZone[];
+      _colorScheme?: string[];
     }
   : {
       defaultValue: number;
@@ -21,6 +22,7 @@ export type ColorPickerProps<T extends boolean = false> = T extends true
       onValueChange: (i: number, color: string) => void;
       multiple?: false;
       disabledValues?: NullableZone[];
+      _colorScheme?: string[];
     };
 
 export const ColorPicker = <T extends boolean>({
@@ -29,9 +31,11 @@ export const ColorPicker = <T extends boolean>({
   onValueChange,
   multiple,
   disabledValues,
+  _colorScheme
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const colorScheme = useMapStore(state => state.colorScheme);
+  const _stateColorScheme = useMapStore(state => state.colorScheme);
+  const colorScheme = _colorScheme ?? _stateColorScheme;
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
