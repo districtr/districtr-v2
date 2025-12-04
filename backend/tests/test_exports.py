@@ -9,10 +9,11 @@ def assignments_fixture(client, document_id) -> str:
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -107,10 +108,11 @@ def simple_child_geoids_document_id(
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "a", "zone": 1},
-                {"document_id": document_id, "geo_id": "b", "zone": 1},
-                {"document_id": document_id, "geo_id": "c", "zone": 2},
+                ["a", 1],
+                ["b", 1],
+                ["c", 2],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },

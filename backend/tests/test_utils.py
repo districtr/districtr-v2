@@ -304,7 +304,8 @@ def test_post_edges(client, session: Session, document_id):
     response = client.put(
         "/api/assignments",
         json={
-            "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
+            "document_id": document_id,
+            "assignments": [["A", 1]],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )

@@ -114,9 +114,10 @@ def test_copy_document(client, private_document):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },

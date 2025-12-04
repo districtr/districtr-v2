@@ -10,27 +10,12 @@ def document_id_with_assignments(client, document_id):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {
-                    "document_id": document_id,
-                    "geo_id": "202090441022004",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id,
-                    "geo_id": "202090428002008",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id,
-                    "geo_id": "202090443032011",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id,
-                    "geo_id": "200979691001108",
-                    "zone": 2,
-                },
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["202090443032011", 1],
+                ["200979691001108", 2],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },

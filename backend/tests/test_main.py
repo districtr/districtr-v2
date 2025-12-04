@@ -243,24 +243,13 @@ def document_no_gerrydb_pop_fixture(
 @pytest.fixture(name="assignments_document_id")
 def assignments_fixture(client, document_id_all_stats):
     response = client.put(
-        "/api/update_assignments",
+        "/api/assignments",
         json={
+            "document_id": document_id_all_stats,
             "assignments": [
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "202090441022004",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "202090428002008",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_all_stats,
-                    "geo_id": "200979691001108",
-                    "zone": 2,
-                },
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -273,12 +262,13 @@ def assignments_fixture(client, document_id_all_stats):
 def assignments_total_vap_fixture(client, document_id_total_vap):
     document_id = document_id_total_vap
     response = client.put(
-        "/api/update_assignments",
+        "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -291,12 +281,13 @@ def assignments_total_vap_fixture(client, document_id_total_vap):
 def assignments_no_gerrydb_pop_fixture(client, document_no_gerrydb_pop):
     document_id = document_no_gerrydb_pop
     response = client.put(
-        "/api/update_assignments",
+        "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -344,10 +335,11 @@ def test_put_assignments(client, document_id):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -363,8 +355,9 @@ def test_put_assignments_conflict(client, document_no_gerrydb_pop):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1}
+                ["202090441022004", 1]
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -373,8 +366,9 @@ def test_put_assignments_conflict(client, document_no_gerrydb_pop):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1}
+                ["202090441022004", 1]
             ],
             "last_updated_at": "1970-01-01T00:00:00.000000Z",
         },
@@ -387,8 +381,9 @@ def test_put_assignments_conflict(client, document_no_gerrydb_pop):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1}
+                ["202090441022004", 1]
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
             "overwrite": True,
@@ -401,10 +396,11 @@ def test_put_assignments_nulls(client, document_id):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": None},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", None],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -419,9 +415,10 @@ def test_put_assignments_twice(client, document_id):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 0},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 0},
+                ["202090441022004", 0],
+                ["200979691001108", 0],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -434,9 +431,10 @@ def test_put_assignments_twice(client, document_id):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 1},
+                ["202090441022004", 1],
+                ["200979691001108", 1],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -1115,22 +1113,11 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id_total_vap,
             "assignments": [
-                {
-                    "document_id": document_id_total_vap,
-                    "geo_id": "202090441022004",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_total_vap,
-                    "geo_id": "202090428002008",
-                    "zone": 1,
-                },
-                {
-                    "document_id": document_id_total_vap,
-                    "geo_id": "200979691001108",
-                    "zone": 2,
-                },
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
@@ -1148,12 +1135,9 @@ def test_get_district_unions(client, document_id_total_vap):
     response = client.put(
         "/api/assignments",
         json={
+            "document_id": document_id_total_vap,
             "assignments": [
-                {
-                    "document_id": document_id_total_vap,
-                    "geo_id": "200979691001108",
-                    "zone": 1,
-                },
+                ["200979691001108", 1],
             ],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
