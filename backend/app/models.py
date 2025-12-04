@@ -235,7 +235,8 @@ class Assignments(SQLModel, table=True):
 
 
 class AssignmentsCreate(BaseModel):
-    assignments: list[Assignments]
+    document_id: str
+    assignments: list[list[str | int | None]]  # [[geo_id, zone], ...]
     last_updated_at: datetime
     overwrite: bool = False
 

@@ -1,13 +1,13 @@
 import {NullableZone} from '@/app/constants/types';
 import {formatAssignmentsFromState} from '../../map/formatAssignments';
-import {DocumentObject} from './types';
-import {postUpdateAssignments} from './postUpdateAssignments';
+import {AssignmentArray, DocumentObject} from './types';
+import {putUpdateAssignments} from './putUpdateAssignments';
 import {AssignmentsStore} from '@/app/store/assignmentsStore';
 import {idb} from '../../idb/idb';
 import {getAssignments} from './getAssignments';
 import {useMapStore} from '@/app/store/mapStore';
 
-type PostUpdateAssignmentsAndVerifyResponse =
+type PutUpdateAssignmentsAndVerifyResponse =
   | {
       ok: true;
       response: {
@@ -18,7 +18,7 @@ type PostUpdateAssignmentsAndVerifyResponse =
       ok: false;
       error: string;
     };
-export const postUpdateAssignmentsAndVerify = async ({
+export const putUpdateAssignmentsAndVerify = async ({
   mapDocument,
   zoneAssignments,
   shatterIds,
@@ -30,14 +30,15 @@ export const postUpdateAssignmentsAndVerify = async ({
   shatterIds: AssignmentsStore['shatterIds'];
   shatterMappings: AssignmentsStore['shatterMappings'];
   overwrite?: boolean;
-}): Promise<PostUpdateAssignmentsAndVerifyResponse> => {
+}): Promise<PutUpdateAssignmentsAndVerifyResponse> => {
   const formattedAssignments = formatAssignmentsFromState(
     mapDocument.document_id,
     zoneAssignments,
     shatterIds,
-    shatterMappings
+    shatterMappings,
+    'assignment_array'
   );
-  const assignmentsPostResponse = await postUpdateAssignments({
+  const assignmentsPostResponse = await putUpdateAssignments({
     assignments: formattedAssignments,
     document_id: mapDocument.document_id,
     last_updated_at: mapDocument.updated_at!,

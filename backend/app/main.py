@@ -293,9 +293,9 @@ async def update_assignments(
             detail="No assignments provided",
         )
 
-    document_id = data.assignments[0].document_id
-    assignments = data.model_dump()["assignments"]
-    last_updated_at = data.model_dump()["last_updated_at"]
+    document_id = data.document_id
+    assignments = data.assignments  # [[geo_id, zone], ...]
+    last_updated_at = data.last_updated_at
 
     db_last_updated_at = session.exec(
         select(Document.updated_at).where(Document.document_id == document_id)
@@ -327,11 +327,10 @@ async def update_assignments(
         f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
     ) as copy:
         for assignment in assignments:
-            # Handle None zone values
-            zone_val = (
-                assignment.get("zone") if assignment.get("zone") is not None else None
-            )
-            copy.write_row([document_id, assignment["geo_id"], zone_val])
+            # assignment is [geo_id, zone]
+            geo_id = assignment[0]
+            zone_val = assignment[1] if len(assignment) > 1 else None
+            copy.write_row([document_id, geo_id, zone_val])
 
     # Insert from temp table into partitioned assignments table
     # PostgreSQL will automatically route to the correct partition based on document_id

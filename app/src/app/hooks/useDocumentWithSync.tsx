@@ -11,7 +11,7 @@ import {idb} from '@/app/utils/idb/idb';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
 import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
 import {redirect, useRouter} from 'next/navigation';
-import {postUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/postUpdateAssignmentsAndVerify';
+import {putUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/putUpdateAssignmentsAndVerify';
 import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
@@ -60,7 +60,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
             shatterIds: data.shatterIds,
             shatterMappings: data.shatterMappings,
           });
-          const response = await postUpdateAssignmentsAndVerify({
+          const response = await putUpdateAssignmentsAndVerify({
             mapDocument: conflictInfo?.localDocument,
             zoneAssignments: data.zoneAssignments,
             shatterIds: data.shatterIds,
@@ -121,7 +121,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
             break;
           }
           const data = formatAssignmentsFromDocument(assignments.assignments);
-          const response = await postUpdateAssignmentsAndVerify({
+          const response = await putUpdateAssignmentsAndVerify({
             mapDocument: createMapDocumentResponse.response,
             zoneAssignments: data.zoneAssignments,
             shatterIds: data.shatterIds,

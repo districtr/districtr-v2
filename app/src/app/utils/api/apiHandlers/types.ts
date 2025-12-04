@@ -8,8 +8,10 @@ export interface Assignment {
   parent_path?: string | null;
 }
 
+export type AssignmentArray = [string, NullableZone];
+
 export interface AssignmentsCreate {
-  assignments: Assignment[];
+  assignments: AssignmentArray[];
   document_id: string;
   last_updated_at: string;
   overwrite: boolean;

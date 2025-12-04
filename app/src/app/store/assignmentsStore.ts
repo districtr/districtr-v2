@@ -12,7 +12,7 @@ import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {useChartStore} from './chartStore';
 import {subscribeWithSelector} from 'zustand/middleware';
-import {postUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/postUpdateAssignmentsAndVerify';
+import {putUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/putUpdateAssignmentsAndVerify';
 import {DocumentObject} from '../utils/api/apiHandlers/types';
 import {SyncConflictInfo, SyncConflictResolution} from '../utils/api/apiHandlers/fetchDocument';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
@@ -418,7 +418,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
     if (!idbDocument) return;
-    const assignmentsPostResponse = await postUpdateAssignmentsAndVerify({
+    const assignmentsPostResponse = await putUpdateAssignmentsAndVerify({
       mapDocument: idbDocument.document_metadata,
       zoneAssignments,
       shatterIds,
@@ -482,7 +482,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           throw new Error('No assignments found in IDB');
         }
         const data = formatAssignmentsFromDocument(assignments.assignments);
-        const response = await postUpdateAssignmentsAndVerify({
+        const response = await putUpdateAssignmentsAndVerify({
           mapDocument: createMapDocumentResponse.response,
           zoneAssignments: data.zoneAssignments,
           shatterIds: data.shatterIds,

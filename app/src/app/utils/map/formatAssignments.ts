@@ -1,30 +1,61 @@
 import {AssignmentsStore} from '@/app/store/assignmentsStore';
-import {Assignment} from '../api/apiHandlers/types';
-import {StoredDocument} from '../idb/idb';
+import {Assignment, AssignmentArray} from '../api/apiHandlers/types';
 import {NullableZone} from '@/app/constants/types';
 
-export const formatAssignmentsFromState = (
+export function formatAssignmentsFromState(
   document_id: string,
   zoneAssignments: AssignmentsStore['zoneAssignments'],
   shatterIds: AssignmentsStore['shatterIds'],
-  shatterMappings: AssignmentsStore['shatterMappings']
-) => {
-  const assignments: Assignment[] = [];
-  for (const [geo_id, zone] of zoneAssignments.entries()) {
-    let parent_path = null;
-    if (shatterIds.children.has(geo_id)) {
-      parent_path =
-        Object.entries(shatterMappings).find(([_, children]) => children.has(geo_id))?.[0] ?? null;
+  shatterMappings: AssignmentsStore['shatterMappings'],
+  type: 'assignment'
+): Assignment[];
+
+export function formatAssignmentsFromState(
+  document_id: string,
+  zoneAssignments: AssignmentsStore['zoneAssignments'],
+  shatterIds: AssignmentsStore['shatterIds'],
+  shatterMappings: AssignmentsStore['shatterMappings'],
+  type: 'assignment_array'
+): AssignmentArray[];
+
+export function formatAssignmentsFromState(
+  document_id: string,
+  zoneAssignments: AssignmentsStore['zoneAssignments'],
+  shatterIds: AssignmentsStore['shatterIds'],
+  shatterMappings: AssignmentsStore['shatterMappings'],
+  type: 'assignment' | 'assignment_array'
+): Assignment[] | AssignmentArray[] {
+  switch (type) {
+    case 'assignment': {
+      const assignments: Assignment[] = [];
+      for (const [geo_id, zone] of zoneAssignments.entries()) {
+        let parent_path = null;
+        if (shatterIds.children.has(geo_id)) {
+          parent_path =
+            Object.entries(shatterMappings).find(([_, children]) => children.has(geo_id))?.[0] ??
+            null;
+        }
+        assignments.push({
+          document_id,
+          geo_id,
+          zone,
+          parent_path,
+        });
+      }
+      return assignments;
     }
-    assignments.push({
-      document_id,
-      geo_id,
-      zone,
-      parent_path,
-    });
+    case 'assignment_array': {
+      const assignments: AssignmentArray[] = [];
+      for (const [geo_id, zone] of zoneAssignments.entries()) {
+        assignments.push([geo_id, zone]);
+      }
+      return assignments;
+    }
+    default: {
+      throw new Error(`Invalid type: ${type}`);
+    }
   }
-  return assignments;
-};
+}
 
 export const formatAssignmentsFromDocument = (assignments: Assignment[]) => {
   const zoneAssignments = new Map<string, NullableZone>();

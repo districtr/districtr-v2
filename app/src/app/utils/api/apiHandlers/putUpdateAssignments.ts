@@ -1,13 +1,13 @@
-import {Assignment, AssignmentsCreate, AssignmentsCreateResponse} from './types';
+import {AssignmentArray, AssignmentsCreate, AssignmentsCreateResponse} from './types';
 import {put} from '../factory';
 
-export const postUpdateAssignments = async ({
+export const putUpdateAssignments = async ({
   assignments,
   document_id,
   last_updated_at,
   overwrite = false,
 }: {
-  assignments: Assignment[];
+  assignments: AssignmentArray[];
   document_id: string;
   last_updated_at: string;
   overwrite?: boolean;

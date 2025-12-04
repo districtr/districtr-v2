@@ -1,9 +1,8 @@
 import {Assignment, DocumentMetadata, DocumentObject} from '../api/apiHandlers/types';
 import Dexie, {Table} from 'dexie';
-import {useMapStore} from '@store/mapStore';
-import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {NullableZone} from '@/app/constants/types';
 import {formatAssignmentsFromState} from '../map/formatAssignments';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 // --- Main Document Entry ---
 export interface StoredDocument {
   id: string; // UUID key
@@ -61,7 +60,8 @@ export class DocumentsDB extends Dexie {
       document_id,
       zoneAssignments,
       shatterIds,
-      shatterMappings
+      shatterMappings,
+      'assignment'
     );
     this.updateDocument({
       id: document_id,
