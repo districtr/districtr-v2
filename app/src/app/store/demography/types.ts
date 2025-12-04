@@ -90,5 +90,8 @@ export interface DemographyStore {
    * @param mapDocument - The map document from the main map.
    * @returns A promise that resolves when the data update is complete.
    */
-  updateData: (mapDocument: MapStore['mapDocument']) => Promise<void>;
+  updateData: (
+    mapDocument: MapStore['mapDocument'],
+    _brokenIds?: string[]
+  ) => Promise<void>;
 }
