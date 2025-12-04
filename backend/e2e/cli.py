@@ -329,12 +329,10 @@ class DistrictrTestClient:
         
         # Add document_id and parent_path to each assignment
         formatted_assignments = [
-            {
-                "document_id": document_id,
-                "geo_id": a.get("geo_id"),
-                "zone": a.get("zone"),
-                "parent_path": a.get("parent_path")
-            }
+            [
+                a.get("geo_id"),
+                a.get("zone"),
+            ]
             for a in assignments
         ]
         
@@ -665,14 +663,25 @@ async def run_test(
             ]
             sessions = await asyncio.gather(*tasks)
         else:
-            # New schema: phased approach with delay between update requests
-            # Phase 1: Create all documents concurrently
-            click.echo(f"\n📄 Phase 1: Creating {users} documents concurrently...")
-            create_tasks = [
-                create_document_new(client, map_slug, i)
-                for i in range(users)
-            ]
-            sessions = await asyncio.gather(*create_tasks)
+            # New schema: phased approach with delay between requests
+            # Phase 1: Create documents (with optional delay between each)
+            if user_delay > 0:
+                click.echo(f"\n📄 Phase 1: Creating {users} documents (with {user_delay}s delay between each)...")
+                sessions = []
+                for i in range(users):
+                    session = await create_document_new(client, map_slug, i)
+                    sessions.append(session)
+                    
+                    if i < users - 1:
+                        click.echo(f"  ⏳ Waiting {user_delay}s before next document creation...")
+                        await asyncio.sleep(user_delay)
+            else:
+                click.echo(f"\n📄 Phase 1: Creating {users} documents concurrently...")
+                create_tasks = [
+                    create_document_new(client, map_slug, i)
+                    for i in range(users)
+                ]
+                sessions = await asyncio.gather(*create_tasks)
             
             successful_creates = sum(1 for s in sessions if s.document_id)
             click.echo(f"  ✓ Created {successful_creates}/{users} documents")
