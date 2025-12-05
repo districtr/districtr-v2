@@ -40,7 +40,7 @@ export const colorZoneAssignments = (
     appLoadingState !== 'loaded' || // app was blurred, loading, or temporal state was mutatated
     mapRenderingState !== 'loaded' // map layers are not loaded
   ) {
-    return false
+    return false;
   }
   const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
   const featureStateChangesCache =

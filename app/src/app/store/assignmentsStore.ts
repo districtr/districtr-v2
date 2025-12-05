@@ -592,7 +592,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           onNavigate(createMapDocumentResponse.response.document_id);
         } else {
           // Fallback to history.pushState for save conflicts
-          history.pushState(null, '', `/map/edit/${createMapDocumentResponse.response.document_id}`);
+          history.pushState(
+            null,
+            '',
+            `/map/edit/${createMapDocumentResponse.response.document_id}`
+          );
         }
         onComplete?.();
         break;

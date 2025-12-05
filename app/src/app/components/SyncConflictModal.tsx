@@ -118,7 +118,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                     <Flex direction="column" align="center" gap="2">
                       <ForkIcon />
                       <Text size="2">
-                        Clone this version and make a new plan <br/> (keep both)
+                        Clone this version and make a new plan <br /> (keep both)
                       </Text>
                     </Flex>
                   </Button>

@@ -356,9 +356,7 @@ def test_put_assignments_conflict(client, document_no_gerrydb_pop):
         "/api/assignments",
         json={
             "document_id": document_id,
-            "assignments": [
-                ["202090441022004", 1]
-            ],
+            "assignments": [["202090441022004", 1]],
             "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
@@ -367,9 +365,7 @@ def test_put_assignments_conflict(client, document_no_gerrydb_pop):
         "/api/assignments",
         json={
             "document_id": document_id,
-            "assignments": [
-                ["202090441022004", 1]
-            ],
+            "assignments": [["202090441022004", 1]],
             "last_updated_at": "1970-01-01T00:00:00.000000Z",
         },
     )
@@ -382,9 +378,7 @@ def test_put_assignments_conflict(client, document_no_gerrydb_pop):
         "/api/assignments",
         json={
             "document_id": document_id,
-            "assignments": [
-                ["202090441022004", 1]
-            ],
+            "assignments": [["202090441022004", 1]],
             "last_updated_at": datetime.now().astimezone().isoformat(),
             "overwrite": True,
         },

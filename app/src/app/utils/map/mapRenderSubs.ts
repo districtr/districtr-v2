@@ -216,24 +216,24 @@ export class MapRenderSubscriber {
       controlsState.mapOptions.lockPaintedAreas,
       controlsState.mapOptions.showZoneNumbers,
     ];
-    
+
     // Always update GeometryWorker zones to keep it in sync
     GeometryWorker?.updateZones(Array.from(zoneAssignments.entries()));
-    
+
     // Update demography cache
     demographyCache.updatePopulations(zoneAssignments);
-    
+
     // Only render colors if map is fully loaded
     if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
       this.previousColorState = currentState;
       return;
     }
-    
+
     const renderSuccess = colorZoneAssignments(this.mapRef, currentState, this.previousColorState);
     if (renderSuccess) {
       this.previousColorState = currentState;
     }
-    
+
     const {captiveIds} = mapState;
     const {mapOptions} = controlsState;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
@@ -283,13 +283,15 @@ export class MapRenderSubscriber {
     this.subscriptions.push(
       this.useMapStore.subscribe(
         state => state.mapRenderingState,
-        (mapRenderingState) => {
+        mapRenderingState => {
           const mapState = this.useMapStore.getState();
           const assignmentsState = this.useAssignmentsStore.getState();
           // If map just became loaded and we have assignments, ensure rendering
-          if (mapRenderingState === 'loaded' && 
-              mapState.appLoadingState === 'loaded' && 
-              assignmentsState.zoneAssignments.size > 0) {
+          if (
+            mapRenderingState === 'loaded' &&
+            mapState.appLoadingState === 'loaded' &&
+            assignmentsState.zoneAssignments.size > 0
+          ) {
             // Use requestAnimationFrame to ensure map is fully ready
             requestAnimationFrame(() => {
               this.renderColorZones();
@@ -304,14 +306,18 @@ export class MapRenderSubscriber {
     const mapRef = this.mapRef;
     const mapState = this.useMapStore.getState();
     const {zoneAssignments, clientLastUpdated, shatterIds} = this.useAssignmentsStore.getState();
-    
+
     if (!clientLastUpdated.length) {
       // refresh the page
       window.location.reload();
     }
 
     // Don't check if map isn't ready
-    if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded' || !mapState.mapDocument) {
+    if (
+      mapState.mapRenderingState !== 'loaded' ||
+      mapState.appLoadingState !== 'loaded' ||
+      !mapState.mapDocument
+    ) {
       return;
     }
 
@@ -334,12 +340,14 @@ export class MapRenderSubscriber {
     // Check if at least one assignment is not correctly applied
     const needsRender = assignmentsToCheck.some(([id, zone]) => {
       const isChild = shatterIds.children.has(id);
-      const sourceLayer = isChild ? mapState.mapDocument?.child_layer : mapState.mapDocument?.parent_layer;
+      const sourceLayer = isChild
+        ? mapState.mapDocument?.child_layer
+        : mapState.mapDocument?.parent_layer;
       if (!sourceLayer) return false;
-      
+
       const layerData = featureStateCache[sourceLayer];
       if (!layerData) return true; // Layer doesn't exist, needs render
-      
+
       const featureState = layerData[id];
       return !featureState || featureState.zone !== zone;
     });

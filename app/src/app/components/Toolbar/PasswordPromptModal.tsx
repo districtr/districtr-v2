@@ -78,8 +78,12 @@ export const PasswordPromptModal = () => {
             disabled={isLoading}
           ></TextField.Root>
           <Flex gap="2" py="2">
-            <Button onClick={() => handleProceed(true)} disabled={isLoading}>Submit</Button>
-            <Button onClick={() => handleProceed(false)} disabled={isLoading}>Cancel and Proceed to Map</Button>
+            <Button onClick={() => handleProceed(true)} disabled={isLoading}>
+              Submit
+            </Button>
+            <Button onClick={() => handleProceed(false)} disabled={isLoading}>
+              Cancel and Proceed to Map
+            </Button>
           </Flex>
         </Box>
         {isLoading && <Progress className="m-4" duration="20s" />}
