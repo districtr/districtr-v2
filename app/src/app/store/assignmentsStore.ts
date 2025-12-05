@@ -215,11 +215,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       shatterMappings: data.shatterMappings,
       clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
     });
-    demographyCache.updatePopulations(data.zoneAssignments);
     if (mapDocument) {
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at);
-      useMapStore.getState().setMapDocument(mapDocument);
+      useMapStore.getState().mutateMapDocument(mapDocument);
     }
+    demographyCache.updatePopulations(data.zoneAssignments);
   },
 
   healParentsIfAllChildrenInSameZone: (
