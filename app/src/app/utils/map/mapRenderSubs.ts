@@ -294,6 +294,7 @@ export class MapRenderSubscriber {
   checkRender() {
     const mapRef = this.mapRef;
     const mapState = this.useMapStore.getState();
+    if (!mapRef || !mapState.mapDocument?.document_id) return;
     const {zoneAssignments, clientLastUpdated, shatterIds} = this.useAssignmentsStore.getState();
 
     if (!clientLastUpdated.length) {

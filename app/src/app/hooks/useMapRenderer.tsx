@@ -24,12 +24,18 @@ export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main') => {
       useAssignmentsStore
     );
     renderSubscriber.subscribe();
+    requestAnimationFrame(() => {
+      renderer.current?.checkRender();
+    });
     renderer.current = renderSubscriber;
     // This is paranoid
     // On every idle, it checks the map state
     // This takes like 0.1ms to run, so it's not a big deal
     mapRef.current.getMap().on('idle', () => {
-      renderer.current?.checkRender();
+      // request animation frame
+      requestAnimationFrame(() => {
+        renderer.current?.checkRender();
+      });
     });
   };
 
