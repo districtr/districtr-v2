@@ -34,7 +34,11 @@ export const useMapRenderer = (mapType: 'demographic' | 'main' = 'main') => {
   }, []);
 
   useEffect(() => {
-    renderer.current?.checkRender();
+    if (isVisible && renderer.current) {
+      requestAnimationFrame(() => {
+        renderer.current?.checkRender();
+      });
+    }
   }, [isVisible]);
 
   return {

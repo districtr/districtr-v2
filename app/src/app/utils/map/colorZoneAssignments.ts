@@ -40,12 +40,12 @@ export const colorZoneAssignments = (
     appLoadingState !== 'loaded' || // app was blurred, loading, or temporal state was mutatated
     mapRenderingState !== 'loaded' // map layers are not loaded
   ) {
-    return;
+    return false
   }
   const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
   const featureStateChangesCache =
     mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.stateChanges;
-  if (!featureStateCache) return;
+  if (!featureStateCache) return false;
 
   zoneAssignments.forEach((zone, id) => {
     if (!id) return;
@@ -86,4 +86,5 @@ export const colorZoneAssignments = (
       }
     );
   });
+  return true;
 };

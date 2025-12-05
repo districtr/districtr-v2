@@ -216,15 +216,26 @@ export class MapRenderSubscriber {
       controlsState.mapOptions.lockPaintedAreas,
       controlsState.mapOptions.showZoneNumbers,
     ];
-    colorZoneAssignments(this.mapRef, currentState, this.previousColorState);
-    demographyCache.updatePopulations(zoneAssignments);
+    
+    // Always update GeometryWorker zones to keep it in sync
     GeometryWorker?.updateZones(Array.from(zoneAssignments.entries()));
-    const {captiveIds, mapRenderingState} = mapState;
-    const {mapOptions} = controlsState;
-    if (mapRenderingState !== 'loaded') {
+    
+    // Update demography cache
+    demographyCache.updatePopulations(zoneAssignments);
+    
+    // Only render colors if map is fully loaded
+    if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded') {
       this.previousColorState = currentState;
       return;
     }
+    
+    const renderSuccess = colorZoneAssignments(this.mapRef, currentState, this.previousColorState);
+    if (renderSuccess) {
+      this.previousColorState = currentState;
+    }
+    
+    const {captiveIds} = mapState;
+    const {mapOptions} = controlsState;
     [...PARENT_LAYERS, ...CHILD_LAYERS].forEach(layerId => {
       const isHover = layerId.includes('hover');
       const isParent = PARENT_LAYERS.includes(layerId);
@@ -241,7 +252,6 @@ export class MapRenderSubscriber {
         );
       }
     });
-    this.previousColorState = currentState;
   }
   subscribeColorZones() {
     this.subscriptions.push(
@@ -268,21 +278,44 @@ export class MapRenderSubscriber {
         () => this.renderColorZones()
       )
     );
+    // Subscribe to mapRenderingState changes to ensure rendering happens
+    // when map becomes loaded after assignments are already loaded
+    this.subscriptions.push(
+      this.useMapStore.subscribe(
+        state => state.mapRenderingState,
+        (mapRenderingState) => {
+          const mapState = this.useMapStore.getState();
+          const assignmentsState = this.useAssignmentsStore.getState();
+          // If map just became loaded and we have assignments, ensure rendering
+          if (mapRenderingState === 'loaded' && 
+              mapState.appLoadingState === 'loaded' && 
+              assignmentsState.zoneAssignments.size > 0) {
+            // Use requestAnimationFrame to ensure map is fully ready
+            requestAnimationFrame(() => {
+              this.renderColorZones();
+            });
+          }
+        }
+      )
+    );
     this.renderColorZones();
   }
   checkRender() {
     const mapRef = this.mapRef;
-    const {zoneAssignments, clientLastUpdated} = this.useAssignmentsStore.getState();
+    const mapState = this.useMapStore.getState();
+    const {zoneAssignments, clientLastUpdated, shatterIds} = this.useAssignmentsStore.getState();
+    
     if (!clientLastUpdated.length) {
       // refresh the page
       window.location.reload();
     }
 
-    if (zoneAssignments.size === 0) return;
+    // Don't check if map isn't ready
+    if (mapState.mapRenderingState !== 'loaded' || mapState.appLoadingState !== 'loaded' || !mapState.mapDocument) {
+      return;
+    }
 
-    const nonNullAssignment = Array.from(zoneAssignments.entries()).find(f => f.values !== null);
-    if (!nonNullAssignment) return;
-    const [nonNullId, nonNullZone] = nonNullAssignment;
+    if (zoneAssignments.size === 0) return;
 
     const featureStateCache = mapRef.style.sourceCaches?.[BLOCK_SOURCE_ID]?._state?.state;
     if (!featureStateCache) return;
@@ -290,13 +323,28 @@ export class MapRenderSubscriber {
     const layers = Object.keys(featureStateCache);
     if (layers.length === 0) return;
 
-    const stateIsApplied = layers.some(layer => {
-      const layerData = featureStateCache[layer];
-      const nonNullEntrydata = layerData[nonNullId];
-      return nonNullEntrydata?.zone === nonNullZone;
+    // Check multiple assignments to ensure rendering is correct
+    // Sample up to 10 assignments to check (for performance)
+    const assignmentsToCheck = Array.from(zoneAssignments.entries())
+      .filter(([, zone]) => zone !== null)
+      .slice(0, 10);
+
+    if (assignmentsToCheck.length === 0) return;
+
+    // Check if at least one assignment is not correctly applied
+    const needsRender = assignmentsToCheck.some(([id, zone]) => {
+      const isChild = shatterIds.children.has(id);
+      const sourceLayer = isChild ? mapState.mapDocument?.child_layer : mapState.mapDocument?.parent_layer;
+      if (!sourceLayer) return false;
+      
+      const layerData = featureStateCache[sourceLayer];
+      if (!layerData) return true; // Layer doesn't exist, needs render
+      
+      const featureState = layerData[id];
+      return !featureState || featureState.zone !== zone;
     });
 
-    if (!stateIsApplied) {
+    if (needsRender) {
       this.render();
     }
   }
