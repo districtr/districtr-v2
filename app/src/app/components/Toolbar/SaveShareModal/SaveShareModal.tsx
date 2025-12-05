@@ -24,13 +24,16 @@ export const SaveShareModal: React.FC<{
     mapMetadata ?? DEFAULT_MAP_METADATA
   );
   const [linkCopied, setLinkCopied] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const setMapLock = useMapStore(state => state.setMapLock);
   const isEditing = useMapStore(state => state.mapDocument?.access === 'edit');
   const generateLink = useSaveShareStore(state => state.generateLink);
 
   const handleCopy = async () => {
     if (!mapDocument?.public_id) return;
-    setLoading(true);
+    setMapLock({
+      isLocked: true,
+      reason: 'Creating map copy',
+    })
     const response = await createMapDocument({
       copy_from_doc: mapDocument?.public_id,
       districtr_map_slug: mapDocument?.districtr_map_slug,
@@ -48,13 +51,16 @@ export const SaveShareModal: React.FC<{
         severity: 2,
       });
     }
-    setLoading(false);
+    setMapLock(null);
   };
 
   const handleSave = async () => {
-    setLoading(true);
+    setMapLock({
+      isLocked: true,
+      reason: 'Saving map assignments',
+    })
     handleMetadataChange(innerFormState).then(() => {
-      setLoading(false);
+      setMapLock(null);
       onClose();
     });
   };

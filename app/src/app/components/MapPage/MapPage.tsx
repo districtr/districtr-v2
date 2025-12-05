@@ -33,6 +33,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
+  const mapLock = useMapStore(state => state.mapLock);
 
   // Load document with sync support
   const {
@@ -83,6 +84,7 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
         {toolbarLocation === 'map' && <DraggableToolbar />}
         {!!mapId && (
           <MapLockShade
+            mapLock={mapLock}
             loadingState={{
               isLoadingDocument,
               isLoadingAssignments: isLoadingDocument,

@@ -101,7 +101,7 @@ export class MapRenderSubscriber {
     });
 
     this.mapRef.once('render', () => {
-      setMapLock(false);
+      setMapLock(null);
     });
     this.previousShatterState = currentState;
   }

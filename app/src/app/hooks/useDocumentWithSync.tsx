@@ -38,6 +38,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
   const ingestFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
   const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
   const setClientLastUpdated = useAssignmentsStore(state => state.setClientLastUpdated);
+  const setMapLock = useMapStore(state => state.setMapLock);
 
   const handleConflict = useCallback(
     async (resolution: SyncConflictResolution) => {
@@ -48,6 +49,8 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
       }
       switch (resolution) {
         case 'use-local': {
+          setShowConflictModal(false);
+          setMapLock({isLocked: true, reason: 'Loading local version, overwriting cloud version.'});
           setMapDocument(conflictInfo?.localDocument);
           const assignments = await idb.getDocument(conflictInfo?.localDocument.document_id);
           if (!assignments) {
@@ -72,9 +75,12 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
             break;
           }
           setClientLastUpdated(response.response.updated_at);
+          setMapLock(null);
           break;
         }
         case 'use-server': {
+          setShowConflictModal(false);
+          setMapLock({isLocked: true, reason: 'Loading cloud version, overwriting local version.'});
           const remoteAssignments = await getAssignments(conflictInfo?.serverDocument);
           setMapDocument(conflictInfo?.serverDocument);
           if (!remoteAssignments.ok) {
@@ -90,6 +96,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
             },
             conflictInfo?.serverDocument
           );
+          setMapLock(null);
           break;
         }
         case 'keep-local': {
@@ -108,6 +115,8 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
           break;
         }
         case 'fork': {
+          setShowConflictModal(false);
+          setMapLock({isLocked: true, reason: 'Creating a new plan from your changes.'});
           const createMapDocumentResponse = await createMapDocument({
             districtr_map_slug: conflictInfo?.serverDocument.districtr_map_slug,
           });
@@ -133,6 +142,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
             break;
           }
           router.push(`/map/edit/${createMapDocumentResponse.response.document_id}`);
+          setMapLock(null);
           break;
         }
       }

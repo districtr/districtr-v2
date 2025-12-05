@@ -52,8 +52,11 @@ export interface MapStore {
   // MAP CANVAS REF AND CONTROLS
   getMapRef: () => maplibregl.Map | undefined;
   setMapRef: (map: MutableRefObject<MapRef | null>) => void;
-  mapLock: boolean;
-  setMapLock: (lock: boolean) => void;
+  mapLock: {
+    isLocked: boolean;
+    reason: string;
+  } | null;
+  setMapLock: (lock: MapStore['mapLock']) => void;
   errorNotification: {
     message?: string;
     severity?: 1 | 2 | 3; // 1: dialog, 2: toast, 3: silent
@@ -159,7 +162,7 @@ const initialLoadingState =
     ? 'loading'
     : 'initializing';
 
-export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr Map Store')(
+export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr Map Store')(
   (set, get) => ({
     appLoadingState: initialLoadingState,
     setAppLoadingState: appLoadingState => set({appLoadingState}),
@@ -189,7 +192,7 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr M
         appLoadingState: initialLoadingState === 'initializing' ? 'loaded' : get().appLoadingState,
       });
     },
-    mapLock: false,
+    mapLock: null,
     setMapLock: mapLock => set({mapLock}),
     errorNotification: {},
     setErrorNotification: errorNotification => set({errorNotification}),
@@ -254,7 +257,7 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr M
         ),
         captiveIds: new Set(),
         focusFeatures: [],
-        mapLock: false,
+        mapLock: null,
         appLoadingState: mapDocument?.genesis === 'copied' ? 'loaded' : 'initializing',
         mapRenderingState:
           mapDocument.tiles_s3_path === currentMapDocument?.tiles_s3_path ? 'loaded' : 'loading',
@@ -274,13 +277,13 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr M
     handleShatter: async (document_id, features) => {
       const {mapDocument, mapLock, setMapLock} = get();
       if (!features.length) {
-        setMapLock(false);
+        setMapLock(null);
         return;
       }
       if (mapLock) {
         return;
       }
-      setMapLock(true);
+      setMapLock({isLocked: true, reason: 'Breaking districts'});
       // set BLOCK_LAYER_ID based on features[0] to focused true
 
       const geoids = features.map(f => f.id?.toString()).filter(Boolean) as string[];
@@ -360,7 +363,7 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr M
       set({
         assignmentsHash: updateHash,
         lastUpdatedHash: updateHash,
-        mapLock: false,
+        mapLock: null,
         captiveIds,
         focusFeatures: [
           {
@@ -386,7 +389,7 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr M
         return;
       }
       set({
-        mapLock: true,
+        mapLock: {isLocked: true, reason: 'Resetting map'},
         appLoadingState: 'loading',
       });
       const updateHash = new Date().toISOString();
@@ -416,7 +419,7 @@ export var useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr M
 
         set({
           appLoadingState: 'loaded',
-          mapLock: false,
+          mapLock: null,
           colorScheme: DefaultColorScheme,
           assignmentsHash: updateHash,
           lastUpdatedHash: updateHash,

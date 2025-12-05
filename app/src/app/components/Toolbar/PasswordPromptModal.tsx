@@ -28,6 +28,7 @@ export const PasswordPromptModal = () => {
       try {
         const res = await postUnlockMapDocument(mapDocument?.public_id, password);
         if (res.ok) {
+          setDialogOpen(false);
           router.push(`/map/edit/${res.response.document_id}`);
         } else {
           setError(res.error?.detail ?? 'An unknown error occurred');
@@ -74,10 +75,11 @@ export const PasswordPromptModal = () => {
             type="password"
             value={password ?? undefined}
             onChange={e => setPassword(e.target.value || null)}
+            disabled={isLoading}
           ></TextField.Root>
           <Flex gap="2" py="2">
-            <Button onClick={() => handleProceed(true)}>Submit</Button>
-            <Button onClick={() => handleProceed(false)}>Cancel and Proceed to Map</Button>
+            <Button onClick={() => handleProceed(true)} disabled={isLoading}>Submit</Button>
+            <Button onClick={() => handleProceed(false)} disabled={isLoading}>Cancel and Proceed to Map</Button>
           </Flex>
         </Box>
         {isLoading && <Progress className="m-4" duration="20s" />}

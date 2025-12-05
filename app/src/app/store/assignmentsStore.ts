@@ -1,4 +1,3 @@
-import {create} from 'zustand';
 import {NullableZone} from '../constants/types';
 import {Zone, GDBPath} from '@constants/types';
 import GeometryWorker from '../utils/GeometryWorker';
@@ -414,10 +413,11 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
 
   handlePutAssignments: async (overwrite = false) => {
     const {zoneAssignments, shatterIds, shatterMappings} = get();
-    const {mapDocument} = useMapStore.getState();
+    const {mapDocument, setMapLock} = useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
     if (!idbDocument) return;
+    setMapLock({isLocked: true, reason: 'Saving plan'});
     const assignmentsPostResponse = await putUpdateAssignmentsAndVerify({
       mapDocument: idbDocument.document_metadata,
       zoneAssignments,
@@ -439,6 +439,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         showSaveConflictModal: false,
       });
     }
+    setMapLock(null);
   },
   showSaveConflictModal: false,
   handlePutAssignmentsConflict: async (resolution, conflict) => {

@@ -103,7 +103,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                     <Flex direction="column" align="center" gap="2">
                       <CloudIcon />
                       <Text size="2">
-                        Use the cloud version (overwrite the version)
+                        Use the cloud version (overwrite this version)
                         <br />
                         <br />
                       </Text>
@@ -118,8 +118,7 @@ export const SyncConflictModal: React.FC<SyncConflictModalProps> = ({
                     <Flex direction="column" align="center" gap="2">
                       <ForkIcon />
                       <Text size="2">
-                        Make this version <br />a new plan <br />
-                        (keep both)
+                        Clone this version and make a new plan <br/> (keep both)
                       </Text>
                     </Flex>
                   </Button>
