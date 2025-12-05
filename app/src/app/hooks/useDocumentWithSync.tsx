@@ -1,4 +1,4 @@
-import {useState, useEffect, useCallback, use} from 'react';
+import {useState, useEffect} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {
@@ -7,12 +7,8 @@ import {
   SyncConflictResolution,
 } from '@/app/utils/api/apiHandlers/fetchDocument';
 import {SyncConflictModal} from '@/app/components/SyncConflictModal';
-import {idb} from '@/app/utils/idb/idb';
 import {formatAssignmentsFromDocument} from '../utils/map/formatAssignments';
-import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
-import {redirect, useRouter} from 'next/navigation';
-import {putUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/putUpdateAssignmentsAndVerify';
-import {getAssignments} from '../utils/api/apiHandlers/getAssignments';
+import {useRouter} from 'next/navigation';
 interface UseDocumentWithSyncOptions {
   document_id: string | null | undefined;
   enabled?: boolean;
@@ -27,132 +23,36 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
   const [error, setError] = useState<Error | null>(null);
   const [conflictInfo, setConflictInfo] = useState<SyncConflictInfo | null>(null);
   const [showConflictModal, setShowConflictModal] = useState(false);
-  const [pendingResolution, setPendingResolution] = useState<
-    ((resolution: SyncConflictResolution) => void) | null
-  >(null);
-  const router = useRouter();
-
   const setMapDocument = useMapStore(state => state.setMapDocument);
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
-  const replaceZoneAssignments = useAssignmentsStore(state => state.replaceZoneAssignments);
   const ingestFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
-  const handlePutAssignments = useAssignmentsStore(state => state.handlePutAssignments);
-  const setClientLastUpdated = useAssignmentsStore(state => state.setClientLastUpdated);
-  const setMapLock = useMapStore(state => state.setMapLock);
+  const resolveConflict = useAssignmentsStore(state => state.resolveConflict);
+  const router = useRouter();
 
-  const handleConflict = useCallback(
-    async (resolution: SyncConflictResolution) => {
-      if (!conflictInfo) {
-        setError(new Error('No conflict info to resolve'));
-        setIsLoading(false);
-        return;
-      }
-      switch (resolution) {
-        case 'use-local': {
-          setShowConflictModal(false);
-          setMapLock({isLocked: true, reason: 'Loading local version, overwriting cloud version.'});
-          setMapDocument(conflictInfo?.localDocument);
-          const assignments = await idb.getDocument(conflictInfo?.localDocument.document_id);
-          if (!assignments) {
-            setError(new Error('No assignments found in IDB'));
-            break;
-          }
-          const data = formatAssignmentsFromDocument(assignments.assignments);
-          ingestFromDocument({
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
-          });
-          const response = await putUpdateAssignmentsAndVerify({
-            mapDocument: conflictInfo?.localDocument,
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
-            overwrite: true,
-          });
-          if (!response.ok) {
-            setError(new Error('Failed to post assignments'));
-            break;
-          }
-          setClientLastUpdated(response.response.updated_at);
-          setMapLock(null);
-          break;
-        }
-        case 'use-server': {
-          setShowConflictModal(false);
-          setMapLock({isLocked: true, reason: 'Loading cloud version, overwriting local version.'});
-          const remoteAssignments = await getAssignments(conflictInfo?.serverDocument);
-          setMapDocument(conflictInfo?.serverDocument);
-          if (!remoteAssignments.ok) {
-            setError(new Error('Failed to get remote assignments'));
-            return;
-          }
-          const data = formatAssignmentsFromDocument(remoteAssignments.response);
-          ingestFromDocument(
-            {
-              zoneAssignments: data.zoneAssignments,
-              shatterIds: data.shatterIds,
-              shatterMappings: data.shatterMappings,
-            },
-            conflictInfo?.serverDocument
-          );
-          setMapLock(null);
-          break;
-        }
-        case 'keep-local': {
-          const assignments = await idb.getDocument(conflictInfo?.localDocument.document_id);
-          if (!assignments) {
-            setError(new Error('No assignments found in IDB'));
-            break;
-          }
-          const data = formatAssignmentsFromDocument(assignments.assignments);
-          setMapDocument(conflictInfo?.localDocument);
-          ingestFromDocument({
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
-          });
-          break;
-        }
-        case 'fork': {
-          setShowConflictModal(false);
-          setMapLock({isLocked: true, reason: 'Creating a new plan from your changes.'});
-          const createMapDocumentResponse = await createMapDocument({
-            districtr_map_slug: conflictInfo?.serverDocument.districtr_map_slug,
-          });
-          if (!createMapDocumentResponse.ok) {
-            setError(new Error('Failed to create map document'));
-            break;
-          }
-          const assignments = await idb.getDocument(conflictInfo?.localDocument.document_id);
-          if (!assignments) {
-            setError(new Error('No assignments found in IDB'));
-            break;
-          }
-          const data = formatAssignmentsFromDocument(assignments.assignments);
-          const response = await putUpdateAssignmentsAndVerify({
-            mapDocument: createMapDocumentResponse.response,
-            zoneAssignments: data.zoneAssignments,
-            shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
-            overwrite: true,
-          });
-          if (!response.ok) {
-            setError(new Error('Failed to post assignments'));
-            break;
-          }
-          router.push(`/map/edit/${createMapDocumentResponse.response.document_id}`);
-          setMapLock(null);
-          break;
-        }
-      }
+  const handleConflict = async (resolution: SyncConflictResolution) => {
+    if (!conflictInfo) {
+      setError(new Error('No conflict info to resolve'));
       setIsLoading(false);
-      setConflictInfo(null);
-      setShowConflictModal(false);
-      setAppLoadingState('loaded');
-    },
-    [conflictInfo, handlePutAssignments, setMapDocument, router]
-  );
+      return;
+    }
+    try {
+      await resolveConflict(resolution, conflictInfo, {
+        context: 'load',
+        onNavigate: documentId => {
+          router.push(`/map/edit/${documentId}`);
+        },
+        onComplete: () => {
+          setIsLoading(false);
+          setConflictInfo(null);
+          setShowConflictModal(false);
+          setAppLoadingState('loaded');
+        },
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to resolve conflict'));
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const mapDocument = useMapStore.getState().mapDocument;

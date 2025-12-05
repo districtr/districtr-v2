@@ -71,6 +71,16 @@ export interface AssignmentsStore {
     resolution: SyncConflictResolution,
     conflict: SyncConflictInfo
   ) => void;
+  /** Unified conflict resolution method that handles both save and load conflicts */
+  resolveConflict: (
+    resolution: SyncConflictResolution,
+    conflict: SyncConflictInfo,
+    options?: {
+      onNavigate?: (documentId: string) => void;
+      onComplete?: () => void;
+      context?: 'save' | 'load';
+    }
+  ) => Promise<void>;
   healParentsIfAllChildrenInSameZone: (
     props: {
       _parentIds?: AssignmentsStore['shatterIds']['parents'];
@@ -442,25 +452,84 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     setMapLock(null);
   },
   showSaveConflictModal: false,
-  handlePutAssignmentsConflict: async (resolution, conflict) => {
+  resolveConflict: async (resolution, conflict, options = {}) => {
+    const {onNavigate, onComplete, context = 'save'} = options;
+    const {setMapDocument, setMapLock, setAppLoadingState} = useMapStore.getState();
+    const state = get();
+
     switch (resolution) {
       case 'keep-local': {
+        if (context === 'load') {
+          const assignments = await idb.getDocument(conflict.localDocument.document_id);
+          if (!assignments) {
+            throw new Error('No assignments found in IDB');
+          }
+          const data = formatAssignmentsFromDocument(assignments.assignments);
+          setMapDocument(conflict.localDocument);
+          state.ingestFromDocument({
+            zoneAssignments: data.zoneAssignments,
+            shatterIds: data.shatterIds,
+            shatterMappings: data.shatterMappings,
+          });
+        }
         set({
           showSaveConflictModal: false,
         });
+        onComplete?.();
         break;
       }
       case 'use-local': {
-        get().handlePutAssignments(true);
+        set({
+          showSaveConflictModal: false,
+        });
+        if (context === 'save') {
+          // For save conflicts, use the existing handlePutAssignments with overwrite
+          await state.handlePutAssignments(true);
+        } else {
+          // For load conflicts, upload local assignments to server
+          setMapLock({isLocked: true, reason: 'Loading local version, overwriting cloud version.'});
+          setMapDocument(conflict.localDocument);
+          const assignments = await idb.getDocument(conflict.localDocument.document_id);
+          if (!assignments) {
+            throw new Error('No assignments found in IDB');
+          }
+          const data = formatAssignmentsFromDocument(assignments.assignments);
+          state.ingestFromDocument({
+            zoneAssignments: data.zoneAssignments,
+            shatterIds: data.shatterIds,
+            shatterMappings: data.shatterMappings,
+          });
+          const response = await putUpdateAssignmentsAndVerify({
+            mapDocument: conflict.localDocument,
+            zoneAssignments: data.zoneAssignments,
+            shatterIds: data.shatterIds,
+            shatterMappings: data.shatterMappings,
+            overwrite: true,
+          });
+          if (!response.ok) {
+            throw new Error('Failed to post assignments');
+          }
+          state.setClientLastUpdated(response.response.updated_at);
+          setMapLock(null);
+        }
+        onComplete?.();
         break;
       }
       case 'use-server': {
+        set({
+          showSaveConflictModal: false,
+        });
+        setMapLock({
+          isLocked: true,
+          reason: 'Loading cloud version, overwriting local version.',
+        });
         const remoteAssignments = await getAssignments(conflict.serverDocument);
         if (!remoteAssignments.ok) {
           throw new Error('Failed to get remote assignments');
         }
+        setMapDocument(conflict.serverDocument);
         const data = formatAssignmentsFromDocument(remoteAssignments.response);
-        get().ingestFromDocument(
+        state.ingestFromDocument(
           {
             zoneAssignments: data.zoneAssignments,
             shatterIds: data.shatterIds,
@@ -468,17 +537,23 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           },
           conflict.serverDocument
         );
-        set({
-          showSaveConflictModal: false,
-        });
+        setMapLock(null);
+        onComplete?.();
         break;
       }
       case 'fork': {
+        set({
+          showSaveConflictModal: false,
+        });
+        setMapLock({isLocked: true, reason: 'Creating a new plan from your changes.'});
         const createMapDocumentResponse = await createMapDocument(conflict.serverDocument);
         if (!createMapDocumentResponse.ok) {
           throw new Error('Failed to create map document');
         }
-        const assignments = await idb.getDocument(conflict?.localDocument.document_id);
+        // Set the map document to the newly created one BEFORE uploading assignments
+        // so that putUpdateAssignmentsAndVerify mutates the correct document
+        setMapDocument(createMapDocumentResponse.response);
+        const assignments = await idb.getDocument(conflict.localDocument.document_id);
         if (!assignments) {
           throw new Error('No assignments found in IDB');
         }
@@ -493,12 +568,43 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         if (!response.ok) {
           throw new Error('Failed to post assignments');
         }
-        set({
-          showSaveConflictModal: false,
+        // Update the map document with the server's updated_at timestamp
+        setMapDocument({
+          ...createMapDocumentResponse.response,
+          updated_at: response.response.updated_at,
         });
-        // redirect to new map document
-        history.pushState(null, '', `/map/edit/${createMapDocumentResponse.response.document_id}`);
+        // Update clientLastUpdated to match server timestamp to avoid sync conflicts
+        state.setClientLastUpdated(response.response.updated_at);
+        // Ingest the assignments we just uploaded
+        state.ingestFromDocument(
+          {
+            zoneAssignments: data.zoneAssignments,
+            shatterIds: data.shatterIds,
+            shatterMappings: data.shatterMappings,
+          },
+          {
+            ...createMapDocumentResponse.response,
+            updated_at: response.response.updated_at,
+          }
+        );
+        setMapLock(null);
+        if (onNavigate) {
+          onNavigate(createMapDocumentResponse.response.document_id);
+        } else {
+          // Fallback to history.pushState for save conflicts
+          history.pushState(null, '', `/map/edit/${createMapDocumentResponse.response.document_id}`);
+        }
+        onComplete?.();
+        break;
       }
     }
+  },
+  handlePutAssignmentsConflict: async (resolution, conflict) => {
+    await get().resolveConflict(resolution, conflict, {
+      context: 'save',
+      onComplete: () => {
+        // Additional save-specific completion logic if needed
+      },
+    });
   },
 }));
