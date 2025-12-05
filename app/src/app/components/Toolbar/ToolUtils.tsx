@@ -118,6 +118,5 @@ export const useActiveTools = () => {
       },
     },
   ];
-  if (!isEditing) return [];
   return config;
 };
