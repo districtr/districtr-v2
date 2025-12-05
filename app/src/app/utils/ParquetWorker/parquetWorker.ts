@@ -204,6 +204,9 @@ const ParquetWorker: ParquetWorkerClass = {
     } as GeoJSON.FeatureCollection<GeoJSON.Point>;
   },
   async getDemography(mapDocument, brokenIds) {
+    if (!(mapDocument?.gerrydb_table)) {
+      return {columns: [], results: {path: [], sourceLayer: []}};
+    }
     const url = `${PARQUET_URL}/tabular/${mapDocument.gerrydb_table}.parquet`;
     const meta = await this.getMetaData(url);
     const ranges = this.mergeRanges(
