@@ -11,7 +11,6 @@ import {
 } from '@radix-ui/react-icons';
 import {useCallback} from 'react';
 import {debounce} from 'lodash';
-import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useTemporalStore} from '@/app/store/temporalStore';
 
 export type ActiveToolConfig = {
@@ -119,6 +118,6 @@ export const useActiveTools = () => {
       },
     },
   ];
-  if (status === 'locked') return [];
+  if (!isEditing) return [];
   return config;
 };
