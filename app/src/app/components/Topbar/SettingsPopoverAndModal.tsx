@@ -16,6 +16,7 @@ export const SettingsPopoverAndModal = () => {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             onClick={() => setModalOpen(true)}
+            className="cursor-pointer"
           >
             <GearIcon className="size-full" />
           </IconButton>

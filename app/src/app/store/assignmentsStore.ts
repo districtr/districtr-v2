@@ -13,9 +13,14 @@ import {useChartStore} from './chartStore';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {putUpdateAssignmentsAndVerify} from '../utils/api/apiHandlers/putUpdateAssignmentsAndVerify';
 import {DocumentObject} from '../utils/api/apiHandlers/types';
-import {SyncConflictInfo, SyncConflictResolution} from '../utils/api/apiHandlers/fetchDocument';
+import {
+  fetchDocument,
+  SyncConflictInfo,
+  SyncConflictResolution,
+} from '../utils/api/apiHandlers/fetchDocument';
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
+import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -65,7 +70,8 @@ export interface AssignmentsStore {
   ) => void;
   /** Clears all shatter state */
   resetShatterState: () => void;
-  handlePutAssignments: (overwrite?: boolean) => void;
+  handlePutAssignments: (overwrite?: boolean) => Promise<void>;
+  handleRevert: (mapDocument: DocumentObject) => Promise<void>;
   showSaveConflictModal: boolean;
   handlePutAssignmentsConflict: (
     resolution: SyncConflictResolution,
@@ -210,8 +216,10 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
     });
     demographyCache.updatePopulations(data.zoneAssignments);
-    mapDocument &&
+    if (mapDocument) {
       idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at);
+      useMapStore.getState().setMapDocument(mapDocument);
+    }
   },
 
   healParentsIfAllChildrenInSameZone: (
@@ -449,6 +457,32 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         showSaveConflictModal: false,
       });
     }
+    setMapLock(null);
+  },
+  handleRevert: async (mapDocument: DocumentObject) => {
+    // before doing this operation
+    const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument.document_id);
+    const {setErrorNotification, setMapLock} = useMapStore.getState();
+    const {ingestFromDocument} = get();
+    if (!confirmedMapDocument) {
+      setErrorNotification({
+        message:
+          'The map you are trying to revert to is not the current map. Please refresh your page and try again.',
+        severity: 2,
+      });
+      return;
+    }
+    setMapLock({isLocked: true, reason: 'Reverting map to last save.'});
+    const documentResult = await fetchDocument(mapDocument.document_id, 'remote');
+    if (!documentResult.ok) {
+      setErrorNotification({
+        message: 'Failed to fetch document. Please refresh your page and try again.',
+        severity: 2,
+      });
+      return;
+    }
+    const data = formatAssignmentsFromDocument(documentResult.response.assignments);
+    ingestFromDocument(data, documentResult.response.document);
     setMapLock(null);
   },
   showSaveConflictModal: false,

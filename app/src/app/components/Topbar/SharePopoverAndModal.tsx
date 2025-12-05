@@ -22,6 +22,7 @@ export const SharePopoverAndModal: React.FC<{
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             variant="ghost"
+            className="cursor-pointer"
           >
             <Share1Icon color={!mapDocument?.document_id ? 'gray' : 'blue'} />
           </IconButton>

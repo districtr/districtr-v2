@@ -37,7 +37,10 @@ type FetchDocumentResult = Promise<
       response?: SyncConflictInfo;
     }
 >;
-export const fetchDocument = async (document_id: string): FetchDocumentResult => {
+export const fetchDocument = async (
+  document_id: string,
+  source: 'remote' | 'local' | 'auto' = 'auto'
+): FetchDocumentResult => {
   const isPublic = !isUUID(document_id);
   const [idbDocument, remoteMetadata] = await Promise.all([
     idb.getDocument(document_id),
@@ -57,7 +60,7 @@ export const fetchDocument = async (document_id: string): FetchDocumentResult =>
     idbDocument?.document_metadata.updated_at || '1970-01-01T00:00:00Z'
   );
   const remoteIsNewer = remoteTimestamp && remoteTimestamp > localTimestamp;
-  if (!idbDocument || (isPublic && remoteIsNewer)) {
+  if (!idbDocument || (isPublic && remoteIsNewer) || source === 'remote') {
     const remoteAssignments = await getAssignments(remoteMetadata.response);
     if (!remoteAssignments.ok) {
       return {

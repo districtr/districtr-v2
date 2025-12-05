@@ -26,6 +26,7 @@ import {SharePopoverAndModal} from './SharePopoverAndModal';
 import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
 import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
 import {idb} from '@/app/utils/idb/idb';
+import {RevertPopover} from './RevertPopover';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
@@ -197,6 +198,7 @@ export const Topbar: React.FC = () => {
           <Flex direction="row" align="center" gapX="3">
             <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
             {isEditing && <SavePopover />}
+            {isEditing && <RevertPopover />}
             <SettingsPopoverAndModal />
           </Flex>
         </Flex>
