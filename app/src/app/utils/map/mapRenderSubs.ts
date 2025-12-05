@@ -170,28 +170,17 @@ export class MapRenderSubscriber {
     const defaultPaintFunction = mapOptions.paintByCounty
       ? getFeaturesIntersectingCounties
       : getFeaturesInBbox;
-    let cursor;
     switch (activeTool) {
       case 'pan':
-        cursor = '';
-        setPaintFunction(defaultPaintFunction);
-        break;
       case 'brush':
-        cursor = 'url(/paintbrush.png) 20 20, none';
-        setPaintFunction(defaultPaintFunction);
-        break;
       case 'eraser':
-        cursor = 'url(/eraser.png) 16 16, pointer';
         setPaintFunction(defaultPaintFunction);
         break;
       case 'shatter':
-        cursor = 'url(/break.png) 12 12, pointer';
         setPaintFunction(getFeatureUnderCursor);
         break;
       default:
-        cursor = '';
     }
-    this.mapRef.getCanvas().style.cursor = cursor;
   }
   subscribeCursor() {
     this.controlSubscriptions.push(

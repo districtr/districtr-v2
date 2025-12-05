@@ -104,8 +104,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
-  const {activeTool, paintFunction, brushSize, selectedZone} = mapControls;
-  const {mutateZoneAssignments} = useAssignmentsStore.getState();
+  const {activeTool, paintFunction, brushSize} = mapControls;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
 

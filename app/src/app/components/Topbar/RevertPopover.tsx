@@ -8,7 +8,6 @@ import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 export const RevertPopover = () => {
   const [hovered, setHovered] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const mapDocument = useMapStore(state => state.mapDocument);
   const documentFromIdb = useIdbDocument(mapDocument?.document_id);
   const isOutdated =
@@ -17,11 +16,10 @@ export const RevertPopover = () => {
 
   const handleConfirmRevert = async () => {
     if (!mapDocument) return;
-    setLoading(true);
     try {
+      setModalOpen(false)
       await handleRevert(mapDocument);
     } finally {
-      setLoading(false);
       setModalOpen(false);
       setHovered(false);
     }
@@ -72,13 +70,12 @@ export const RevertPopover = () => {
             <Button
               variant="soft"
               color="gray"
-              disabled={loading}
               onClick={() => setModalOpen(false)}
             >
               Cancel
             </Button>
-            <Button variant="solid" color="red" disabled={loading} onClick={handleConfirmRevert}>
-              {loading ? 'Reverting...' : 'Revert Changes'}
+            <Button variant="solid" color="red" onClick={handleConfirmRevert}>
+              Revert Changes
             </Button>
           </Flex>
         </Dialog.Content>
