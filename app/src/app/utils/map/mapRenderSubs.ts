@@ -205,7 +205,10 @@ export class MapRenderSubscriber {
       controlsState.mapOptions.lockPaintedAreas,
       controlsState.mapOptions.showZoneNumbers,
     ];
-
+    // When painting, don't render colors
+    if (controlsState.isPainting) {
+      return;
+    };
     // Always update GeometryWorker zones to keep it in sync
     GeometryWorker?.updateZones(Array.from(zoneAssignments.entries()));
 
@@ -294,7 +297,8 @@ export class MapRenderSubscriber {
   checkRender() {
     const mapRef = this.mapRef;
     const mapState = this.useMapStore.getState();
-    if (!mapRef || !mapState.mapDocument?.document_id) return;
+    const isPainting = this.useMapControlsStore.getState().isPainting;
+    if (!mapRef || !mapState.mapDocument?.document_id || isPainting) return;
     const {zoneAssignments, clientLastUpdated, shatterIds} = this.useAssignmentsStore.getState();
 
     if (!clientLastUpdated.length) {
