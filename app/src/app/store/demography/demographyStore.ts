@@ -92,7 +92,7 @@ export var useDemographyStore = create(
         Object.entries(evalColumnConfigs)
           .map(([columnsetKey, config]) => [
             columnsetKey,
-            config.filter(entry => availableColumns.includes(entry.column)),
+            config.filter(entry => availableColumns.includes(entry.sourceCol ?? entry.column)),
           ])
           .filter(([, config]) => config.length > 0)
       );

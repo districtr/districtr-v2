@@ -38,7 +38,7 @@ export const SummaryPanel: React.FC<SummaryPanelProps> = ({
     }
   }, [availableSummaries]);
 
-  if (!availableColumnSets?.length || !summaryType || !columnConfig) {
+  if (!availableColumnSets?.length || !summaryType || !columnConfig || displayedColumnSets.every(f => !availableSummaries[f])) {
     return (
       <Blockquote color="crimson">
         <Text>Election statistics are not available for this map.</Text>
