@@ -125,7 +125,7 @@ export const processFile = ({
     GEOID: number;
   };
 }) => {
-  const {setErrorNotification, userID} = useMapStore.getState();
+  const {setErrorNotification} = useMapStore.getState();
   if (!file) {
     setErrorNotification({
       message: 'No file selected',
@@ -173,7 +173,7 @@ export const processFile = ({
           ]),
           districtr_map_slug: districtrMap.districtr_map_slug,
         });
-        if (uploadResult.ok && result && result.document_id) {
+        if (uploadResult.ok && uploadResult.response?.document_id) {
           result = uploadResult.response;
           setMapLinks(mapLinks => [
             ...mapLinks,
@@ -183,7 +183,9 @@ export const processFile = ({
           setError({
             ok: false,
             detail: {
-              message: uploadResult.ok ? 'Unknown error encountered' : uploadResult.error.detail,
+              message: uploadResult.ok
+                ? 'Unknown error encountered while uploading assignments'
+                : uploadResult.error.detail,
             },
           });
         }
@@ -191,7 +193,10 @@ export const processFile = ({
         setError({
           ok: false,
           detail: {
-            message: error instanceof Error ? error.message : 'Unknown error encountered',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Unknown error encountered after uploading assignments',
           },
         });
       }
