@@ -17,7 +17,7 @@ export const RevertPopover = () => {
   const handleConfirmRevert = async () => {
     if (!mapDocument) return;
     try {
-      setModalOpen(false)
+      setModalOpen(false);
       await handleRevert(mapDocument);
     } finally {
       setModalOpen(false);
@@ -67,11 +67,7 @@ export const RevertPopover = () => {
             version. <br /> Are you sure you want to proceed?
           </Dialog.Description>
           <Flex justify="end" gap="3" mt="4">
-            <Button
-              variant="soft"
-              color="gray"
-              onClick={() => setModalOpen(false)}
-            >
+            <Button variant="soft" color="gray" onClick={() => setModalOpen(false)}>
               Cancel
             </Button>
             <Button variant="solid" color="red" onClick={handleConfirmRevert}>

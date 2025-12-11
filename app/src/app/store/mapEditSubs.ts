@@ -19,7 +19,8 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
     state => state.colorScheme,
     async colorScheme => {
       const {mapDocument, mapStatus} = useMapStore.getState();
-      const colorSchemeIsSame = mapDocument?.color_scheme && shallowCompareArray(colorScheme, mapDocument?.color_scheme);
+      const colorSchemeIsSame =
+        mapDocument?.color_scheme && shallowCompareArray(colorScheme, mapDocument?.color_scheme);
       if (mapDocument && mapStatus?.access === 'edit' && !colorSchemeIsSame) {
         await patchUpdateColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
         // Error handling is done inside saveColorScheme
