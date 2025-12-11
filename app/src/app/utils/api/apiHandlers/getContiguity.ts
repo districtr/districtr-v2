@@ -1,7 +1,21 @@
 import {DocumentObject} from './types';
 import {get} from '../factory';
 
-export const getContiguity = async (mapDocument: DocumentObject) => {
+type ContiguityResponse =
+  | {
+      ok: true;
+      response: Record<string, number>;
+    }
+  | {
+      ok: false;
+      error: {
+        detail: string;
+      };
+    };
+
+export const getContiguity = async (
+  mapDocument?: DocumentObject | null
+): Promise<ContiguityResponse> => {
   if (!mapDocument) {
     return {
       ok: false,
