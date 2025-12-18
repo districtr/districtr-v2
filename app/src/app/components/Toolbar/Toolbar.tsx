@@ -74,6 +74,7 @@ export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = 
 };
 
 export const DraggableToolbar = () => {
+  const nodeRef = useRef<HTMLDivElement>(null);
   const isEditing = useMapStore(state => state.isEditing);
   const activeTool = useMapStore(state => state.activeTool);
   const setActiveTool = useMapStore(state => state.setActiveTool);
@@ -147,6 +148,7 @@ export const DraggableToolbar = () => {
       defaultPosition={isMobile ? {x: 0, y: 0} : {x: x === null ? 100 : x, y: y === null ? 100 : y}}
       position={isMobile ? {x: 0, y: 0} : {x: x === null ? 100 : x, y: y === null ? 100 : y}}
       handle="#handle"
+      nodeRef={toolbarItemsRef}
       grid={[10, 10]}
       onStart={() => {
         previousActiveTool.current = activeTool;
@@ -187,7 +189,7 @@ export const DraggableToolbar = () => {
                   cursor: 'move',
                 }}
               >
-                <MoveIcon fontSize={'12'} />
+                  <MoveIcon fontSize={'12'} />
               </IconButton>
             </Tooltip>
             <Tooltip content="Rotate the toolbar">

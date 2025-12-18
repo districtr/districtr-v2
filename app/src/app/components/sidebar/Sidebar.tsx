@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, {useRef} from 'react';
 import DataPanels from './DataPanels';
 import {Box, Flex, IconButton, ScrollArea} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
@@ -22,6 +22,8 @@ export default function SidebarComponent() {
     typeof window !== 'undefined' ? window.innerWidth * 0.35 : 350
   );
   const [hovered, setHovered] = React.useState(false);
+  const [dragging, setDragging] = React.useState(false);
+  const nodeRef = useRef<HTMLDivElement>(null);
   return (
     <div
       className="
@@ -54,30 +56,39 @@ export default function SidebarComponent() {
       >
         <Draggable
           handle="#sidebar-handle"
+          nodeRef={nodeRef}
+          onStart={() => {
+            setDragging(true);
+          }}
           onDrag={(e: any) => {
             if (e.clientX) {
               setWidth(window.innerWidth - e.clientX);
             }
           }}
+          onStop={() => {
+            setDragging(false);
+          }}
           grid={[25, 0]}
           bounds="parent"
           axis="x"
         >
-          <IconButton
-            variant="surface"
-            color="gray"
-            id="sidebar-handle"
-            style={{
-              width: '16px',
-              background: 'rgba(245, 245, 245)',
-              height: '40px',
-              cursor: 'ew-resize',
-              opacity: hovered ? 1 : 0,
-              transition: 'opacity 0.2s',
-            }}
-          >
-            <DragHandleHorizontalIcon />
-          </IconButton>
+          <div ref={nodeRef}>
+            <IconButton
+              variant="surface"
+              color="gray"
+              id="sidebar-handle"
+              style={{
+                width: '16px',
+                background: 'rgba(245, 245, 245)',
+                height: '40px',
+                cursor: 'ew-resize',
+                opacity: dragging ? 0 : hovered ? 1 : 0,
+                transition: 'opacity 0.2s',
+              }}
+            >
+              <DragHandleHorizontalIcon />
+            </IconButton>
+          </div>
         </Draggable>
       </div>
       <Flex direction="column" gap="3" className="size-full">
