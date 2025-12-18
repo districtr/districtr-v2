@@ -22,8 +22,8 @@ RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3 ca-certificates
 
 # Install node modules
-COPY --link package-lock.json package.json ./
-RUN npm ci --include=dev
+COPY --link bun.lock package.json ./
+RUN bun install --include=dev
 
 RUN echo NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL && \
     echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" > .env.production && \
@@ -33,10 +33,10 @@ RUN echo NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL && \
 COPY --link . .
 
 # Build application
-RUN npm run build
+RUN bun run build
 
 # Remove development dependencies
-RUN npm prune --omit=dev
+RUN bun prune --omit=dev
 
 # Final stage for app image
 FROM base
@@ -46,4 +46,4 @@ COPY --from=build /app /app
 
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
-CMD [ "npm", "run", "start" ]
+CMD [ "bun", "run", "start" ]
