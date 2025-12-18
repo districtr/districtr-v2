@@ -19,7 +19,11 @@ ARG NEXT_PUBLIC_S3_BUCKET_URL
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3 ca-certificates
+    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3 ca-certificates 
+
+# Install Bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH="/root/.bun/bin:$PATH"
 
 # Install node modules
 COPY --link bun.lock package.json ./
