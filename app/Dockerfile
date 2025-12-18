@@ -38,9 +38,6 @@ COPY --link . .
 # Build application
 RUN bun run build
 
-# Remove development dependencies
-RUN bun prune --omit=dev
-
 # Final stage for app image
 FROM base
 
