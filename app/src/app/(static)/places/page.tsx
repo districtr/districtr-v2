@@ -1,7 +1,6 @@
 import {listCMSContent, PlacesCMSContent} from '@/app/utils/api/cms';
 import {fastUniqBy} from '@/app/utils/arrays';
-import {Card, Flex, Grid, Heading, Link, Text} from '@radix-ui/themes';
-import NextLink from 'next/link';
+import {Card, Flex, Grid, Heading, Text, Link} from '@radix-ui/themes';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600;
@@ -43,9 +42,7 @@ export default async function TagsPage() {
               </Text>
             )}
             <br />
-            <NextLink href={`/place/${content.slug}`} passHref legacyBehavior>
-              <Link>Go to place</Link>
-            </NextLink>
+            <Link href={`/place/${content.slug}`}>Go to place</Link>
           </Card>
         ))}
       </Grid>
