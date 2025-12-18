@@ -1,4 +1,3 @@
-import React, { use} from 'react';
 import MapPage from '@/app/components/MapPage/MapPage';
 import {generateMapPageMetadata} from '@/app/utils/metadata/pageMetadataUtils';
 import {MapPageProps} from '../../types';
