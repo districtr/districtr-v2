@@ -41,6 +41,9 @@ RUN bun run build
 # Final stage for app image
 FROM base
 
+# Install Bun for runtime
+RUN npm i -g bun
+
 # Copy built application
 COPY --from=build /app /app
 
