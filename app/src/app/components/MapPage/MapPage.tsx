@@ -17,6 +17,7 @@ import {useToolbarStore} from '@/app/store/toolbarStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
 import {SaveConflictModal} from '../SaveConflictModal';
+import { migrateUserMapsFromLocalStorage } from '@/app/utils/idb/migrateUserMaps';
 
 interface MapPageProps {
   isEditing: boolean;
@@ -34,6 +35,11 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
   const mapLock = useMapStore(state => state.mapLock);
+
+  // Run migration on app load
+  useEffect(() => {
+    migrateUserMapsFromLocalStorage();
+  }, []);
 
   // Load document with sync support
   const {

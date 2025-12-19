@@ -15,10 +15,5 @@ export const Providers: React.FC<{
     session && setSession(session);
   }, [session]);
 
-  // Run migration on app load
-  useEffect(() => {
-    migrateUserMapsFromLocalStorage();
-  }, []);
-
   return <div>{children}</div>;
 };
