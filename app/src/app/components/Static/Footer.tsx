@@ -1,7 +1,5 @@
 import React from 'react';
 import {Box, Flex, Grid, Heading, Link, Text} from '@radix-ui/themes';
-import NextLink from 'next/link';
-import Image from 'next/image';
 import {PlaceMapModal} from './PlaceMap/PlaceMapModal';
 
 export const Footer: React.FC = () => (
@@ -17,11 +15,11 @@ export const Footer: React.FC = () => (
           gap="9"
         >
           <Flex direction="column" gapY="4">
-            <NextLink href="/">
+            <Link href="/">
               <Heading as="h3" className="text-lg font-bold text-white cursor-pointer">
                 Districtr
               </Heading>
-            </NextLink>
+            </Link>
             <Text className="text-white font-bold">
               <i>You</i> draw the lines.
             </Text>
@@ -34,12 +32,12 @@ export const Footer: React.FC = () => (
             <Text className="text-white font-bold mb-4" size="2">
               START DRAWING
             </Text>
-            <NextLink href="/places" legacyBehavior className="">
-              <Link className=" !cursor-pointer !text-districtrLightBlue">List</Link>
-            </NextLink>
-            <NextLink href="/tags" legacyBehavior>
-              <Link className=" !cursor-pointer !text-districtrLightBlue">Tags</Link>
-            </NextLink>
+            <Link href="/places" className=" !cursor-pointer !text-districtrLightBlue">
+              List
+            </Link>
+            <Link href="/tags" className=" !cursor-pointer !text-districtrLightBlue">
+              Tags
+            </Link>
             <PlaceMapModal>
               <Link className=" !cursor-pointer !text-districtrLightBlue">Map</Link>
             </PlaceMapModal>
@@ -49,21 +47,21 @@ export const Footer: React.FC = () => (
               LEARN MORE
             </Text>
 
-            <NextLink href="/about" legacyBehavior>
-              <Link className=" !cursor-pointer !text-districtrLightBlue">About</Link>
-            </NextLink>
-            <NextLink href="/guide" legacyBehavior>
-              <Link className=" !cursor-pointer !text-districtrLightBlue">Guide</Link>
-            </NextLink>
-            <NextLink href="/data" legacyBehavior>
-              <Link className=" !cursor-pointer !text-districtrLightBlue">Data</Link>
-            </NextLink>
-            <NextLink href="/rules" legacyBehavior>
-              <Link className=" !cursor-pointer !text-districtrLightBlue">Rules</Link>
-            </NextLink>
-            <NextLink href="/updates" legacyBehavior>
-              <Link className=" !cursor-pointer !text-districtrLightBlue">Updates</Link>
-            </NextLink>
+            <Link href="/about" className=" !cursor-pointer !text-districtrLightBlue">
+              About
+            </Link>
+            <Link href="/guide" className=" !cursor-pointer !text-districtrLightBlue">
+              Guide
+            </Link>
+            <Link href="/data" className=" !cursor-pointer !text-districtrLightBlue">
+              Data
+            </Link>
+            <Link href="/rules" className=" !cursor-pointer !text-districtrLightBlue">
+              Rules
+            </Link>
+            <Link href="/updates" className=" !cursor-pointer !text-districtrLightBlue">
+              Updates
+            </Link>
           </Flex>
 
           <Flex direction="column" className="text-white">
@@ -71,19 +69,23 @@ export const Footer: React.FC = () => (
               BIG PICTURE
             </Text>
 
-            <NextLink href="/contact" legacyBehavior>
-              <Link className=" !cursor-pointer !text-districtrLightBlue">Contact</Link>
-            </NextLink>
-            <NextLink href="https://mggg.org/" legacyBehavior>
-              <Link target="_blank" className="!cursor-pointer !text-districtrLightBlue">
-                Data and Democracy Lab
-              </Link>
-            </NextLink>
-            <NextLink href="https://github.com/districtr/districtr-v2" legacyBehavior>
-              <Link target="_blank" className="!cursor-pointer !text-districtrLightBlue">
-                GitHub
-              </Link>
-            </NextLink>
+            <Link href="/contact" className=" !cursor-pointer !text-districtrLightBlue">
+              Contact
+            </Link>
+            <Link
+              href="https://mggg.org/"
+              target="_blank"
+              className="!cursor-pointer !text-districtrLightBlue"
+            >
+              Data and Democracy Lab
+            </Link>
+            <Link
+              href="https://github.com/districtr/districtr-v2"
+              target="_blank"
+              className="!cursor-pointer !text-districtrLightBlue"
+            >
+              GitHub
+            </Link>
           </Flex>
         </Grid>
       </Box>
@@ -96,12 +98,10 @@ export const Footer: React.FC = () => (
         align="center"
         gap="2"
       >
-        <Text className="text-center my-1" size="2">
+        <Text className="text-center my-1" size="3">
           Copyright 2025, Data and Democracy Lab. All rights reserved.
         </Text>
-        <NextLink href="/admin/cms" legacyBehavior>
-          <Link size="2">Admin Login</Link>
-        </NextLink>
+        <Link href="/admin/cms">Admin Login</Link>
       </Flex>
     </Box>
   </>

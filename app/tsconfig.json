@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -10,7 +14,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
@@ -18,12 +22,24 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@components/*": ["./src/app/components/*"],
-      "@api/*": ["./src/app/api/*"],
-      "@constants/*": ["./src/app/constants/*"],
-      "@store/*": ["./src/app/store/*"],
-      "@utils/*": ["./src/app/utils/*"]
+      "@/*": [
+        "./src/*"
+      ],
+      "@components/*": [
+        "./src/app/components/*"
+      ],
+      "@api/*": [
+        "./src/app/api/*"
+      ],
+      "@constants/*": [
+        "./src/app/constants/*"
+      ],
+      "@store/*": [
+        "./src/app/store/*"
+      ],
+      "@utils/*": [
+        "./src/app/utils/*"
+      ]
     },
     "target": "ES6"
   },
@@ -36,6 +52,9 @@
     "src/app/page.jsx",
     "src/app/api/apiHandlers.test.js",
     "src/app/components/sidebar/MapModeSelector.jsx",
+    ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules"
+  ]
 }

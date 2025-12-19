@@ -1,20 +1,22 @@
-import {NextResponse, NextRequest} from 'next/server';
 import {auth0} from '@/app/lib/auth0';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: Request) {
+  // Note that proxy uses the standard Request type
   const authRes = await auth0.middleware(request);
 
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+
   // authentication routes — let the middleware handle it
-  if (request.nextUrl.pathname.startsWith('/auth')) {
+  if (pathname.startsWith('/auth')) {
     return authRes;
   }
 
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    const {origin} = new URL(request.url);
+  if (pathname.startsWith('/admin')) {
     const session = await auth0.getSession();
 
     if (!session) {
-      return NextResponse.redirect(`${origin}/auth/login`);
+      return Response.redirect(`${url.origin}/auth/login`, 302);
     }
     return authRes;
   }

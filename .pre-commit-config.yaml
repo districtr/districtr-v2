@@ -10,5 +10,5 @@ repos:
     hooks:
       - id: prettier
         name: Run Prettier
-        entry: bash -c "cd app && npm run prettier"
+        entry: bash -c "cd app && bun run prettier"
         language: system

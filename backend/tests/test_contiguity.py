@@ -63,7 +63,7 @@ def test_load_gml(connected_graph):
 
 
 def put_simple_contiguous_assignments(client: TestClient, document_id: str):
-    response = client.put(
+    client.put(
         "/api/assignments",
         json={
             "document_id": document_id,

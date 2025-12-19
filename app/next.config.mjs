@@ -1,18 +1,17 @@
 import {withSentryConfig} from '@sentry/nextjs';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    missingSuspenseWithCSRBailout: false,
-  },
-  resolve: {
-    alias: {
-      '@src': 'app/src',
-      '@components': 'app/src/components',
-      '@utils': 'app/src/utils',
-      '@api': 'app/src/api',
-      '@store': 'app/src/store',
-      '@constants': 'app/src/constants',
-    },
+  // Path aliases are configured in tsconfig.json and automatically used by Next.js
+  webpack: (config, {isServer, webpack}) => {
+    // Exclude Node.js modules from client-side bundles
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false
+      };
+    }
+    return config;
   },
 };
 

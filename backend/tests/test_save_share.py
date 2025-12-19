@@ -109,7 +109,6 @@ def test_copy_document(client, private_document):
     # Get the document to get its updated_at timestamp
     doc_response = client.get(f"/api/document/{document_id}")
     assert doc_response.status_code == 200
-    doc_data = doc_response.json()
 
     response = client.put(
         "/api/assignments",

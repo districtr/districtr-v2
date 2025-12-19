@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, {useRef, useEffect} from 'react';
 import DataPanels from './DataPanels';
 import {Box, Flex, IconButton, ScrollArea} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
@@ -18,10 +18,16 @@ const StyledScrollArea = styled(ScrollArea, {
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
-  const [width, setWidth] = React.useState(
-    typeof window !== 'undefined' ? window.innerWidth * 0.35 : 350
-  );
+  const [width, setWidth] = React.useState(350);
   const [hovered, setHovered] = React.useState(false);
+  const [dragging, setDragging] = React.useState(false);
+  const nodeRef = useRef<HTMLDivElement>(null);
+
+  // Set initial width after mount to avoid hydration mismatch
+  useEffect(() => {
+    setWidth(window.innerWidth * 0.35);
+  }, []);
+
   return (
     <div
       className="
@@ -54,30 +60,39 @@ export default function SidebarComponent() {
       >
         <Draggable
           handle="#sidebar-handle"
+          nodeRef={nodeRef}
+          onStart={() => {
+            setDragging(true);
+          }}
           onDrag={(e: any) => {
             if (e.clientX) {
               setWidth(window.innerWidth - e.clientX);
             }
           }}
+          onStop={() => {
+            setDragging(false);
+          }}
           grid={[25, 0]}
           bounds="parent"
           axis="x"
         >
-          <IconButton
-            variant="surface"
-            color="gray"
-            id="sidebar-handle"
-            style={{
-              width: '16px',
-              background: 'rgba(245, 245, 245)',
-              height: '40px',
-              cursor: 'ew-resize',
-              opacity: hovered ? 1 : 0,
-              transition: 'opacity 0.2s',
-            }}
-          >
-            <DragHandleHorizontalIcon />
-          </IconButton>
+          <div ref={nodeRef}>
+            <IconButton
+              variant="surface"
+              color="gray"
+              id="sidebar-handle"
+              style={{
+                width: '16px',
+                background: 'rgba(245, 245, 245)',
+                height: '40px',
+                cursor: 'ew-resize',
+                opacity: dragging ? 0 : hovered ? 1 : 0,
+                transition: 'opacity 0.2s',
+              }}
+            >
+              <DragHandleHorizontalIcon />
+            </IconButton>
+          </div>
         </Draggable>
       </div>
       <Flex direction="column" gap="3" className="size-full">

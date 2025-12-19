@@ -8,7 +8,8 @@ export const PlaceMapModal: React.FC<{
   children?: React.ReactNode;
   _open?: boolean;
   _setOpen?: (open: boolean) => void;
-}> = ({children, _open, _setOpen}) => {
+  noTrigger?: boolean;
+}> = ({children, _open, _setOpen, noTrigger}) => {
   const [modalOpen, setModalOpen] = useState(_open);
   const isOpen = _open || modalOpen;
   const handleOpenChange = _setOpen || setModalOpen;
@@ -20,16 +21,19 @@ export const PlaceMapModal: React.FC<{
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={handleOpenChange}>
-      <Dialog.Trigger className="cursor-pointer">
-        {children ? (
-          children
-        ) : (
-          <Link className="text-sm !tracking-wider !font-bold" href="#">
-            Start Mapping
-          </Link>
-        )}
-      </Dialog.Trigger>
+      {!noTrigger && (
+        <Dialog.Trigger>
+          {children ? (
+            children
+          ) : (
+            <Link className="text-sm !tracking-wider !font-bold cursor-pointer" href="#">
+              Start Mapping
+            </Link>
+          )}
+        </Dialog.Trigger>
+      )}
       <Dialog.Content maxWidth="80vw" className="overflow-hidden">
+        <Dialog.Title className="sr-only">Map of available state</Dialog.Title>
         {isOpen && <ResponsivePlaceMap />}
       </Dialog.Content>
     </Dialog.Root>

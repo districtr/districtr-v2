@@ -95,18 +95,10 @@ export const VtdBlockLayers: React.FC<{
         url={`pmtiles://${TILESET_URL}/${mapDocument.tiles_s3_path}`}
         promoteId="path"
       >
-        {!isDemographicMap && (
-          <>
-            <ZoneLayerGroup />
-            <ZoneLayerGroup child />
-          </>
-        )}
-        {!!showDemography && (
-          <>
-            <DemographicLayer />
-            <DemographicLayer child />
-          </>
-        )}
+        {!isDemographicMap && <ZoneLayerGroup child />}
+        {!isDemographicMap && <ZoneLayerGroup />}
+        {!!showDemography && <DemographicLayer child />}
+        {!!showDemography && <DemographicLayer />}
         <HighlightOverlayerLayerGroup />
         <HighlightOverlayerLayerGroup child />
       </Source>
