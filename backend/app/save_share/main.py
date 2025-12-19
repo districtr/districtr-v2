@@ -142,8 +142,6 @@ async def grant_edit_access_to_map_document(
         {"document_id": protected_document.document_id},
     ).one()
 
-    hashed_password = hash_password(f"{data.password}") if data.password else None
-
     if not verify_password(data.password, result.password_hash):
         raise HTTPException(status_code=401, detail="Invalid password")
 

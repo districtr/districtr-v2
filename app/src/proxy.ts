@@ -3,7 +3,7 @@ import {auth0} from '@/app/lib/auth0';
 export async function proxy(request: Request) {
   // Note that proxy uses the standard Request type
   const authRes = await auth0.middleware(request);
-  
+
   const url = new URL(request.url);
   const pathname = url.pathname;
 
