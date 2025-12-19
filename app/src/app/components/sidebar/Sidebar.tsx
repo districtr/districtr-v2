@@ -1,5 +1,5 @@
 'use client';
-import React, {useRef} from 'react';
+import React, {useRef, useEffect} from 'react';
 import DataPanels from './DataPanels';
 import {Box, Flex, IconButton, ScrollArea} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
@@ -18,12 +18,16 @@ const StyledScrollArea = styled(ScrollArea, {
 
 export default function SidebarComponent() {
   const document_id = useMapStore(store => store.mapDocument?.document_id);
-  const [width, setWidth] = React.useState(
-    typeof window !== 'undefined' ? window.innerWidth * 0.35 : 350
-  );
+  const [width, setWidth] = React.useState(350);
   const [hovered, setHovered] = React.useState(false);
   const [dragging, setDragging] = React.useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
+
+  // Set initial width after mount to avoid hydration mismatch
+  useEffect(() => {
+    setWidth(window.innerWidth * 0.35);
+  }, []);
+
   return (
     <div
       className="
