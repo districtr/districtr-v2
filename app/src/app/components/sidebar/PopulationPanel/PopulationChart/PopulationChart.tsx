@@ -1,4 +1,5 @@
 import {MapStore, useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import React, {useCallback, useState} from 'react';
 import {formatNumber} from '@/app/utils/numbers';
 import {Group} from '@visx/group';
@@ -24,8 +25,8 @@ export const PopulationChart: React.FC<{
 }) => {
   const chartOptions = useChartStore(state => state.chartOptions);
   const colorScheme = useMapStore(state => state.colorScheme);
-  const setSelectedZone = useMapStore(state => state.setSelectedZone);
-  const selectedZone = useMapStore(state => state.selectedZone);
+  const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
+  const selectedZone = useMapControlsStore(state => state.selectedZone);
 
   const {
     popBarScaleToCurrent: scaleToCurrent,

@@ -1,6 +1,7 @@
 'use client';
 import {Text} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import React, {useRef} from 'react';
 import {BrushControls} from '@/app/components/Toolbar/ToolControls/BrushControls';
 import {ActiveTool} from '@constants/types';
@@ -43,7 +44,7 @@ const ToolControlsConfig: Record<
 export const ToolControls: React.FC<{
   isMobile?: boolean;
 }> = ({isMobile}) => {
-  const {Component} = useMapStore(state => ToolControlsConfig[state.activeTool] || {});
+  const {Component} = useMapControlsStore(state => ToolControlsConfig[state.activeTool] || {});
   const {x, y, maxXY, rotation, customizeToolbar, toolbarLocation, toolbarWidth, toolbarHeight} =
     useToolbarStore();
   const isHorizontal =

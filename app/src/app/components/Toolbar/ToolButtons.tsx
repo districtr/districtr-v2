@@ -1,7 +1,7 @@
 'use client';
 import {Flex, IconButton} from '@radix-ui/themes';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import {useMapStore} from '@store/mapStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import React, {useState} from 'react';
 import {ActiveTool} from '@constants/types';
 import {useToolbarStore} from '@/app/store/toolbarStore';
@@ -12,8 +12,8 @@ export const ToolButtons: React.FC<{
   toolbarItemsRef: React.RefObject<HTMLDivElement>;
   isMobile?: boolean;
 }> = ({showShortcuts, isMobile, toolbarItemsRef}) => {
-  const activeTool = useMapStore(state => state.activeTool);
-  const setActiveTool = useMapStore(state => state.setActiveTool);
+  const activeTool = useMapControlsStore(state => state.activeTool);
+  const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
   const [activeTooltip, setActiveTooltip] = useState<ActiveTool | null>(null);
   const {rotation: userRotation, customizeToolbar, toolbarSize} = useToolbarStore(state => state);

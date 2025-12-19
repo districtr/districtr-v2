@@ -9,7 +9,6 @@ import {EyeOpenIcon, LockClosedIcon, LockOpen1Icon, Pencil2Icon} from '@radix-ui
 export const useMapStatus = () => {
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const mapStatus = useMapStore(state => state.mapStatus);
-  const status = mapStatus?.status;
   const access = mapStatus?.access;
   const mapMetadata = useMapMetadata();
   const pwRequired = useSearchParams().get('pw');
@@ -24,15 +23,8 @@ export const useMapStatus = () => {
     if (access === 'read') {
       return [EyeOpenIcon, STATUS_TOOLTIPS.viewOnly, 'blue'];
     }
-    if (status === 'locked' && access === 'edit') {
-      return [LockClosedIcon, STATUS_TOOLTIPS.checkedOut, 'bronze'];
-    }
     return [Pencil2Icon, STATUS_TOOLTIPS.editing, 'green'];
-  }, [status, access, document_id, mapMetadata, pwRequired]) as [
-    React.FC,
-    string,
-    BadgeProps['color'],
-  ];
+  }, [access, document_id, mapMetadata, pwRequired]) as [React.FC, string, BadgeProps['color']];
 
   const onClick = pwRequired ? () => setPasswordPrompt(true) : null;
   return {

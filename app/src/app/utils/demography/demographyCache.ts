@@ -4,7 +4,9 @@ import type {ColumnTable} from 'arquero';
 import {BLOCK_SOURCE_ID, FALLBACK_NUM_DISTRICTS} from '../../constants/layers';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapStore, useMapStore} from '../../store/mapStore';
+import {useAssignmentsStore, ZoneAssignmentsMap} from '../../store/assignmentsStore';
 import {useChartStore} from '../../store/chartStore';
+import {useMapControlsStore} from '../../store/mapControlsStore';
 import {
   DemographyRow,
   MaxValues,
@@ -92,7 +94,7 @@ class DemographyCache {
     if (hash === this.hash) return;
     this.availableColumns = columns;
     this.table = table(data).derive(getColumnDerives(columns)).dedupe('path');
-    const zoneAssignments = useMapStore.getState().zoneAssignments;
+    const zoneAssignments = useAssignmentsStore.getState().zoneAssignments;
     const popsOk = this.updatePopulations(zoneAssignments);
     if (!popsOk) return;
     this.updateSummaryStats();
@@ -104,7 +106,7 @@ class DemographyCache {
    *
    * @param zoneAssignments - The zone assignments to update.
    */
-  updateZoneTable(zoneAssignments: MapStore['zoneAssignments']): void {
+  updateZoneTable(zoneAssignments: ZoneAssignmentsMap): void {
     const rows = zoneAssignments.size;
     const zoneColumns = {
       path: new Array(rows),
@@ -167,7 +169,7 @@ class DemographyCache {
    * @returns The calculated populations.
    */
   calculatePopulations(
-    zoneAssignments?: MapStore['zoneAssignments']
+    zoneAssignments?: ZoneAssignmentsMap
   ): {ok: true; table: SummaryTable} | {ok: false} {
     const numZones = useMapStore.getState().mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     if (zoneAssignments) {
@@ -186,9 +188,7 @@ class DemographyCache {
           row['total_pop_20'] === undefined && row['zone'] !== undefined
       )
     );
-
     if (missingPopulations.size) {
-      console.log('Populations not yet loaded');
       return {
         ok: false,
       };
@@ -397,7 +397,7 @@ class DemographyCache {
       const uniqueQuantiles = Array.from(new Set(quantiles.quantilesList));
       const actualBinsLength = Math.min(numberOfBins, uniqueQuantiles.length + 1);
 
-      const mapMode = useMapStore.getState().mapOptions.showDemographicMap;
+      const mapMode = useMapControlsStore.getState().mapOptions.showDemographicMap;
       const defaultColor =
         mapMode === 'side-by-side' ? DEFAULT_COLOR_SCHEME : DEFAULT_COLOR_SCHEME_GRAY;
       let colorscheme = defaultColor[Math.max(3, actualBinsLength)];
@@ -425,7 +425,7 @@ class DemographyCache {
    *
    * @param zoneAssignments - The zone assignments to use for updating populations.
    */
-  updatePopulations(zoneAssignments?: MapStore['zoneAssignments']) {
+  updatePopulations(zoneAssignments?: ZoneAssignmentsMap) {
     const populations = this.calculatePopulations(zoneAssignments);
     if (populations.ok) {
       useChartStore.getState().setDataUpdateHash(`${performance.now()}`);

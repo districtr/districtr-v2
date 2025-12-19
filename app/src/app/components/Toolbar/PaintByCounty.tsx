@@ -1,12 +1,14 @@
 import {Box, Text, Checkbox, Flex, Switch} from '@radix-ui/themes';
 import {useMapStore} from '@/app/store/mapStore';
-import {getFeaturesInBbox, getFeaturesIntersectingCounties} from '../../utils/helpers';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import {getFeaturesIntersectingCounties} from '@utils/map/getFeaturesIntersectingCounties';
 
 export default function PaintByCounty() {
   const mapRef = useMapStore(state => state.getMapRef());
-  const setPaintFunction = useMapStore(state => state.setPaintFunction);
-  const paintByCounty = useMapStore(state => state.mapOptions.paintByCounty);
-  const setMapOptions = useMapStore(state => state.setMapOptions);
+  const setPaintFunction = useMapControlsStore(state => state.setPaintFunction);
+  const paintByCounty = useMapControlsStore(state => state.mapOptions.paintByCounty);
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const access = useMapStore(state => state.mapStatus?.access);
 
   const handleToggle = () => {

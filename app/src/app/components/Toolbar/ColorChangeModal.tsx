@@ -2,9 +2,10 @@ import {useMapStore} from '@/app/store/mapStore';
 import React, {useEffect, useMemo, useState} from 'react';
 import {TwitterPicker, type ColorResult} from 'react-color';
 import {Cross2Icon} from '@radix-ui/react-icons';
-import {Box, Flex, Dialog, Heading} from '@radix-ui/themes';
+import {Box, Flex, Dialog, Heading, Button} from '@radix-ui/themes';
 import {ColorPicker} from './ColorPicker';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
+import {idb} from '@/app/utils/idb/idb';
 
 export const ColorChangeModal: React.FC<{
   open?: boolean;
@@ -17,6 +18,12 @@ export const ColorChangeModal: React.FC<{
   const numDistricts = mapDocument?.num_districts ?? 4;
   const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [colorSelectIndex, setColorSelectIndex] = useState(0);
+  const [innerColorScheme, setInnerColorScheme] = useState(colorScheme);
+  const setErrorNotification = useMapStore(store => store.setErrorNotification);
+
+  useEffect(() => {
+    setInnerColorScheme(colorScheme);
+  }, [colorScheme]);
 
   const filteredColors = useMemo(
     () =>
@@ -24,18 +31,30 @@ export const ColorChangeModal: React.FC<{
         0,
         17
       ),
-    [colorScheme, numDistricts]
+    [innerColorScheme, numDistricts]
   );
 
   const handleColorPick = (idx: number, color: ColorResult) => {
-    const planColors = colorScheme.slice(0, numDistricts);
+    const planColors = innerColorScheme.slice(0, numDistricts);
     if (planColors.includes(color.hex)) {
       // reject repeating a district color
       return;
     }
     let dupe = [...planColors];
     dupe[colorSelectIndex] = color.hex;
-    setColorScheme(dupe);
+    setInnerColorScheme(dupe);
+  };
+
+  const handleSave = async () => {
+    if (!mapDocument?.document_id) return;
+    const _idbResult = await idb.updateColorScheme(mapDocument.document_id, innerColorScheme);
+    setColorScheme(innerColorScheme);
+    onClose?.();
+  };
+
+  const handleCancel = () => {
+    setInnerColorScheme(colorScheme);
+    onClose?.();
   };
 
   useEffect(() => {
@@ -72,6 +91,7 @@ export const ColorChangeModal: React.FC<{
             onValueChange={(value: number) => {
               setColorSelectIndex(value);
             }}
+            _colorScheme={innerColorScheme}
           />
           {colorSelectIndex !== undefined && (
             <Flex direction="column" gapY="2" mt="4">
@@ -80,7 +100,7 @@ export const ColorChangeModal: React.FC<{
                 Choose a color for <u>District {colorSelectIndex + 1}</u>
               </Heading>
               <TwitterPicker
-                color={colorScheme[colorSelectIndex]}
+                color={innerColorScheme[colorSelectIndex]}
                 colors={filteredColors}
                 onChangeComplete={color => handleColorPick(colorSelectIndex, color)}
                 triangle="hide"
@@ -89,6 +109,13 @@ export const ColorChangeModal: React.FC<{
             </Flex>
           )}
         </Box>
+        {/* save button */}
+        <Flex justify="end" gapX="2">
+          <Button onClick={handleSave}>Save</Button>
+          <Button variant="outline" onClick={handleCancel}>
+            Cancel
+          </Button>
+        </Flex>
       </Dialog.Content>
     </Dialog.Root>
   );

@@ -47,7 +47,18 @@ export const PlanGalleryInner = ({
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const {data: plans, isLoading} = useQuery({
     queryKey: ['plans', ids, tags, page],
-    queryFn: () => getPlans({ids, tags, limit: displayLimit, offset: page * displayLimit}),
+    queryFn: async () => {
+      const result = await getPlans({
+        ids,
+        tags,
+        limit: displayLimit,
+        offset: page * displayLimit,
+      });
+      if (!result.ok) {
+        throw new Error(result.error.detail);
+      }
+      return result.response;
+    },
   });
   const showPagination = paginate && plans && (plans.length === displayLimit || page > 0);
   const noMaps = !isLoading && !plans?.length;

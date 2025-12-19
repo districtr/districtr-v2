@@ -1,9 +1,9 @@
 import {useMemo} from 'react';
-import {useMapStore} from '../store/mapStore';
 import {FilterSpecification} from 'maplibre-gl';
+import {useAssignmentsStore} from '../store/assignmentsStore';
 
 export const useLayerFilter = (child: boolean) => {
-  const shatterIds = useMapStore(state => state.shatterIds);
+  const shatterIds = useAssignmentsStore(state => state.shatterIds);
 
   const layerFilter = useMemo(() => {
     const ids = child ? shatterIds.children : shatterIds.parents;

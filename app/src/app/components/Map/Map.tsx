@@ -9,6 +9,7 @@ import {MAP_OPTIONS} from '@constants/configuration';
 import {handleWheelOrPinch, mapContainerEvents, mapEventHandlers} from '@utils/events/mapEvents';
 import {INTERACTIVE_LAYERS} from '@constants/layers';
 import {useMapStore} from '@store/mapStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import GlMap, {MapRef, NavigationControl} from 'react-map-gl/maplibre';
 import {useLayoutEffect} from 'react';
@@ -24,9 +25,10 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
   const mapContainer: MutableRefObject<HTMLDivElement | null> = useRef(null);
   const mapLock = useMapStore(state => state.mapLock);
   const setMapRef = useMapStore(state => state.setMapRef);
-  const mapOptions = useMapStore(state => state.mapOptions);
+  const mapOptions = useMapControlsStore(state => state.mapOptions);
   const document_id = useMapStore(state => state.mapDocument?.document_id);
   const synced = useRef<false | (() => void)>(false);
+  const activeTool = useMapControlsStore(state => state.activeTool);
   const {mapRef, onLoad} = useMapRenderer(isDemographicMap ? 'demographic' : 'main');
 
   const initialViewState = useMemo(() => {
@@ -120,6 +122,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         ${mapLock ? 'pointer-events-none' : ''}
         ${document_id ? '' : 'opacity-25 pointer-events-none'}
         ${isDemographicMap ? 'border-l-2 border-black' : ''}
+        cursor-${activeTool}
         `}
       ref={mapContainer}
     >

@@ -1,6 +1,7 @@
 import {devtools, DevtoolsOptions, PersistOptions} from 'zustand/middleware';
 import {MapStore} from './mapStore';
 import {ZundoOptions} from 'zundo';
+import {AssignmentsStore} from './assignmentsStore';
 
 const prodWrapper: typeof devtools = (store: any) => store;
 export const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
@@ -9,7 +10,6 @@ export const persistOptions: PersistOptions<MapStore, Partial<MapStore>> = {
   name: 'districtr-persistrictr',
   version: 0,
   partialize: state => ({
-    userMaps: state.userMaps,
     userID: state.userID,
   }),
 };
@@ -31,48 +31,34 @@ export const devToolsConfig: DevtoolsOptions = {
   },
 };
 
-export const temporalConfig: ZundoOptions<any, MapStore> = {
+const MIN_DIFF_MS = 3000;
+
+export const temporalConfig: ZundoOptions<any, AssignmentsStore> = {
   // If diff returns null, not state is stored
-  diff: (past: Partial<MapStore>, curr: Partial<MapStore>) => {
-    // color changes included in undo/redo
-    if (past.colorScheme !== curr.colorScheme) return past;
-    // if not yet loaded, or is a temporal action (eg. silent heal) don't store
-    if (past.mapRenderingState !== 'loaded' || curr.isTemporalAction) return null;
-    // if current state has no zoneAssignments, don't store
-    if (!past.zoneAssignments || !curr.zoneAssignments || curr.zoneAssignments?.size === 0)
+  diff: (past: Partial<AssignmentsStore>, curr: Partial<AssignmentsStore>) => {
+    if (!past.clientLastUpdated || !curr.clientLastUpdated) return null;
+    // if the client timestamp is the same, don't store
+    if (past.clientLastUpdated === curr.clientLastUpdated) return null;
+    // If not yet ingested, don't store
+    if (past.clientLastUpdated === '' || curr.clientLastUpdated === '') return null;
+    // If the difference is less than the minimum diff time, don't store
+    if (
+      new Date(curr.clientLastUpdated.toString()).getTime() -
+        new Date(past.clientLastUpdated.toString()).getTime() <
+      MIN_DIFF_MS
+    )
       return null;
-    // if assignments have changed size, do store the state
-    if (past.zoneAssignments.size !== curr.zoneAssignments.size) return past;
-    for (const geoid of curr.zoneAssignments.keys()) {
-      if (past.zoneAssignments.get(geoid) !== curr.zoneAssignments.get(geoid)) {
-        // if the same size, but one of the assignments has changed, store the state
-        return past;
-      }
-    }
-    // Otherwise, if a state is recorded for some reason, but the shatterIds are the same size
-    // don't store
-    if (past.shatterIds?.parents.size === curr.shatterIds?.parents.size) return null;
-    // if the shatterIds size have changed, store the state
     return past;
   },
   limit: 20,
   // @ts-ignore: save only partial store
   partialize: state => {
-    const {
-      zoneAssignments,
-      mapRenderingState,
-      appLoadingState,
-      colorScheme,
-      shatterIds,
-      shatterMappings,
-    } = state;
+    const {shatterIds, shatterMappings, zoneAssignments, clientLastUpdated} = state;
     return {
-      zoneAssignments,
-      mapRenderingState,
-      appLoadingState,
-      colorScheme,
       shatterIds,
       shatterMappings,
-    } as Partial<MapStore>;
+      zoneAssignments,
+      clientLastUpdated,
+    } as Partial<AssignmentsStore>;
   },
 };

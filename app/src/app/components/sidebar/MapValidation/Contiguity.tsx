@@ -5,17 +5,18 @@ import {useQuery} from '@tanstack/react-query';
 import {queryClient} from '@utils/api/queryClient';
 import {useEffect, useMemo} from 'react';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
-import {isAxiosError} from 'axios';
 import {RefreshButton, TimestampDisplay} from '@/app/components/Time/TimestampDisplay';
 import ContiguityDetail from './ContiguityDetail';
 
 export const Contiguity = () => {
   const mapDocument = useMapStore(store => store.mapDocument);
   const colorScheme = useMapStore(store => store.colorScheme);
-  const {data, error, isLoading, refetch, dataUpdatedAt} = useQuery(
+  const {data, isLoading, refetch, dataUpdatedAt} = useQuery(
     {
-      queryKey: ['Contiguity', mapDocument?.document_id],
-      queryFn: () => mapDocument && getContiguity(mapDocument),
+      queryKey: ['Contiguity', mapDocument?.document_id, mapDocument?.updated_at],
+      queryFn: async () => {
+        return await getContiguity(mapDocument);
+      },
       enabled: !!mapDocument,
       staleTime: 0,
       retry: false,
@@ -24,23 +25,25 @@ export const Contiguity = () => {
     },
     queryClient
   );
+
   const lastUpdatedContiguity = dataUpdatedAt
     ? new Date(dataUpdatedAt ?? null).toISOString()
     : null;
 
   useEffect(() => {
     refetch();
-  }, [mapDocument?.document_id, refetch]);
+  }, [mapDocument?.document_id, mapDocument?.updated_at, refetch]);
 
   const tableData = useMemo(() => {
-    if (!data) return [];
+    if (!data || !data.ok) return [];
+    const entries = data.response;
     const cleanData: any = [];
     const numDistricts = mapDocument?.num_districts ?? FALLBACK_NUM_DISTRICTS;
     for (let i = 1; i < numDistricts + 1; i++) {
-      if (i in data) {
+      if (i in entries) {
         cleanData.push({
           zone: i,
-          contiguity: data[i],
+          contiguity: entries[i],
         });
       } else {
         cleanData.push({
@@ -56,12 +59,10 @@ export const Contiguity = () => {
     return <div>Loading...</div>;
   }
 
-  if (error) {
-    if (isAxiosError(error)) {
-      return <Blockquote color="red">{error.response?.data?.detail || error.message}</Blockquote>;
-    } else {
-      return <Blockquote color="red">{error.message}</Blockquote>;
-    }
+  if (!data || !data.ok) {
+    return (
+      <Blockquote color="red">{data?.error?.detail ?? 'Error fetching contiguity'}</Blockquote>
+    );
   }
 
   return (

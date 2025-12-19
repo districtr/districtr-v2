@@ -5,6 +5,7 @@ import {ParentSize} from '@visx/responsive'; // Import ParentSize
 import InfoTip from '@components/InfoTip';
 import {useChartStore} from '@store/chartStore';
 import {useMapStore} from '@store/mapStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import {PopulationChart} from './PopulationChart/PopulationChart';
 import {PopulationPanelOptions} from './PopulationPanelOptions';
 import {LockClosedIcon, LockOpen2Icon} from '@radix-ui/react-icons';
@@ -28,15 +29,15 @@ export const PopulationPanel = () => {
     zoneStats.minPopulation !== undefined &&
     zoneStats.minPopulation > 0;
 
-  const lockPaintedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
+  const lockPaintedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const chartOptions = useChartStore(state => state.chartOptions);
   const showDistrictNumbers = chartOptions.popShowDistrictNumbers;
   const setChartOptions = useChartStore(state => state.setChartOptions);
-  const setLockedZones = useMapStore(state => state.setLockedZones);
-  const toggleLockAllAreas = useMapStore(state => state.toggleLockAllAreas);
+  const setLockedZones = useMapControlsStore(state => state.setLockedZones);
+  const toggleLockAllAreas = useMapControlsStore(state => state.toggleLockAllAreas);
   const allAreLocked = populationData.every((d: any) => lockPaintedAreas?.includes(d.zone));
-  const setSelectedZone = useMapStore(state => state.setSelectedZone);
-  const selectedZone = useMapStore(state => state.selectedZone);
+  const setSelectedZone = useMapControlsStore(state => state.setSelectedZone);
+  const selectedZone = useMapControlsStore(state => state.selectedZone);
   const access = useMapStore(state => state.mapStatus?.access);
   const handleLockChange = (zone: number) => {
     if (lockPaintedAreas.includes(zone)) {

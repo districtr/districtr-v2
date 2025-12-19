@@ -26,7 +26,7 @@ export const MapStatus: React.FC<{
   const draftStatus = mapMetadata?.draft_status ?? 'scratch';
   const Icon = statusIcons[draftStatus] ?? ScratchWorkIcon;
   const StatusText = statusText[draftStatus] ?? 'Scratch Work';
-  const editing = mapDocument?.access === 'edit' && mapDocument?.status === 'checked_out';
+  const editing = mapDocument?.access === 'edit';
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleChangeStatus = async (status: DraftStatus) => {

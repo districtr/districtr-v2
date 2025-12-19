@@ -20,7 +20,6 @@ from app.constants import DOCUMENT_SCHEMA
 from app.core.models import UUIDType, TimeStampMixin, SQLModel
 from app.save_share.models import (
     DocumentDraftStatus,
-    DocumentEditStatus,
     DocumentShareStatus,
 )
 from geoalchemy2 import Geometry
@@ -176,12 +175,12 @@ class Document(TimeStampMixin, SQLModel, table=True):
 
 class DocumentCreate(BaseModel):
     districtr_map_slug: str
-    user_id: str
     metadata: DocumentMetadata | None = None
     copy_from_doc: str | int | None = None  # document_id to copy from
     assignments: list[list[str]] | None = None  # Option to load block assignments
 
 
+# TODO: Remove this table
 class MapDocumentUserSession(TimeStampMixin, SQLModel, table=True):
     """
     Tracks the user session for a given document
@@ -209,10 +208,6 @@ class DocumentPublic(BaseModel):
     updated_at: datetime
     extent: list[float] | None = None
     map_metadata: DocumentMetadata | None
-    status: DocumentEditStatus = (
-        DocumentEditStatus.unlocked
-    )  # locked, unlocked, checked_out
-    genesis: str | None = None
     access: DocumentShareStatus = DocumentShareStatus.edit
     color_scheme: list[str] | None = None
     map_type: str
@@ -240,8 +235,10 @@ class Assignments(SQLModel, table=True):
 
 
 class AssignmentsCreate(BaseModel):
-    assignments: list[Assignments]
-    user_id: str
+    document_id: str
+    assignments: list[list[str | int | None]]  # [[geo_id, zone], ...]
+    last_updated_at: datetime
+    overwrite: bool = False
 
 
 class AssignmentsResponse(SQLModel):
@@ -263,18 +260,17 @@ class AssignedGEOIDS(GEOIDS):
     zone: int | None
 
 
+class ShatterResult(BaseModel):
+    parent_path: str
+    child_path: str
+
+
 class BBoxGeoJSONs(BaseModel):
     features: list[
         pydantic_geojson.feature.FeatureModel
         | pydantic_geojson.multi_polygon.MultiPolygonModel
         | pydantic_geojson.polygon.PolygonModel
     ]
-
-
-class ShatterResult(BaseModel):
-    parents: GEOIDS
-    children: list[Assignments]
-    updated_at: datetime
 
 
 class ColorsSetResult(BaseModel):

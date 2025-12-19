@@ -1,6 +1,8 @@
 import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import React, {useLayoutEffect, useRef, useState} from 'react';
@@ -20,10 +22,12 @@ const PopulationTextLayer = () => {
   const captiveIds = useMapStore(state => state.captiveIds);
   const [pointFeatureCollection, setPointFeatureCollection] =
     useState<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
-  const showBlockPopulationNumbers = useMapStore(
+  const showBlockPopulationNumbers = useMapControlsStore(
     state => state.mapOptions.showBlockPopulationNumbers
   );
-  const showPopulationNumbers = useMapStore(state => state.mapOptions.showPopulationNumbers);
+  const showPopulationNumbers = useMapControlsStore(
+    state => state.mapOptions.showPopulationNumbers
+  );
   const workerUpdateHash = useMapStore(state => state.workerUpdateHash);
   const demographyHash = useDemographyStore(state => state.dataHash);
 
@@ -111,24 +115,26 @@ const PopulationTextLayer = () => {
 };
 
 const ZoneNumbersLayer = () => {
-  const showZoneNumbers = useMapStore(state => state.mapOptions.showZoneNumbers);
-  const showPaintedDistricts = useMapStore(state => state.mapOptions.showPaintedDistricts);
-  const zoneAssignments = useMapStore(state => state.zoneAssignments);
+  const showZoneNumbers = useMapControlsStore(state => state.mapOptions.showZoneNumbers);
+  const showPaintedDistricts = useMapControlsStore(state => state.mapOptions.showPaintedDistricts);
+  const zoneAssignments = useAssignmentsStore(state => state.zoneAssignments);
   const colorScheme = useMapStore(state => state.colorScheme);
   const mapDocumentId = useMapStore(state => state.mapDocument?.document_id);
   const getMapRef = useMapStore(state => state.getMapRef);
-  const lockedAreas = useMapStore(state => state.mapOptions.lockPaintedAreas);
+  const lockedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const [zoneNumberData, setZoneNumberData] =
     useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
   const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
   const mapRenderingState = useMapStore(state => state.mapRenderingState);
   const appLoadingState = useMapStore(state => state.appLoadingState);
-  const shouldHide = useMapStore(
-    state => state.mapOptions.showBlockPopulationNumbers && state.focusFeatures.length
+  const focusFeaturesLength = useMapStore(state => state.focusFeatures.length);
+  const showBlockPopulationNumbers = useMapControlsStore(
+    state => state.mapOptions.showBlockPopulationNumbers
   );
+  const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
 
   const addZoneMetaLayers = async () => {
-    const showZoneNumbers = useMapStore.getState().mapOptions.showZoneNumbers;
+    const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
     const id = `${mapDocumentId}`;
     if (showZoneNumbers) {
       const geoms = await getDissolved();

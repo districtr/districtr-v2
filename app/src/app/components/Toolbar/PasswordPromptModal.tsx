@@ -3,7 +3,7 @@ import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '@radix-ui/themes';
 import {useRouter, useSearchParams} from 'next/navigation';
-import {getLoadPlanFromShare} from '@/app/utils/api/apiHandlers/getLoadPlanFromPublicId';
+import {postGrantEditAccess} from '@/app/utils/api/apiHandlers/postGrantEditAccess';
 
 export const PasswordPromptModal = () => {
   const router = useRouter();
@@ -12,7 +12,6 @@ export const PasswordPromptModal = () => {
   const [password, setPassword] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const shareMapMessage = useMapStore(store => store.shareMapMessage);
   const mapDocument = useMapStore(store => store.mapDocument);
 
   useEffect(() => {
@@ -23,19 +22,16 @@ export const PasswordPromptModal = () => {
     if (!editAccess) {
       // remove pw from url
       router.replace(window.location.pathname);
-    } else if (mapDocument?.public_id) {
+    } else if (mapDocument?.public_id && password) {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await getLoadPlanFromShare({
-          password: password,
-          mapDocument: mapDocument,
-        });
-        if (res?.data?.document_id && res.document_id !== mapDocument?.document_id) {
-          // go to map/edit/res.document_id
-          router.push(`/map/edit/${res.data.document_id}`);
-        } else if (res?.response?.data?.detail) {
-          setError(res.response.data.detail);
+        const res = await postGrantEditAccess(mapDocument?.public_id, password);
+        if (res.ok) {
+          setDialogOpen(false);
+          router.push(`/map/edit/${res.response.document_id}`);
+        } else {
+          setError(res.error?.detail ?? 'An unknown error occurred');
         }
       } catch (error) {
         console.error(error);
@@ -79,12 +75,16 @@ export const PasswordPromptModal = () => {
             type="password"
             value={password ?? undefined}
             onChange={e => setPassword(e.target.value || null)}
+            disabled={isLoading}
           ></TextField.Root>
           <Flex gap="2" py="2">
-            <Button onClick={() => handleProceed(true)}>Submit</Button>
-            <Button onClick={() => handleProceed(false)}>Cancel and Proceed to Map</Button>
+            <Button onClick={() => handleProceed(true)} disabled={isLoading}>
+              Submit
+            </Button>
+            <Button onClick={() => handleProceed(false)} disabled={isLoading}>
+              Cancel and Proceed to Map
+            </Button>
           </Flex>
-          <Text>{shareMapMessage ?? ''}</Text>
         </Box>
         {isLoading && <Progress className="m-4" duration="20s" />}
         {error && <Blockquote color="red">{error}</Blockquote>}
