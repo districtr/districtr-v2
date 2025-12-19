@@ -1,0 +1,3 @@
+psql -U $POSTGRES_USER -d $POSTGRES_DB -c "CREATE EXTENSION pg_duckdb;"
+psql -U $POSTGRES_USER -d $POSTGRES_DB -c "CREATE EXTENSION postgis;"
+psql -U $POSTGRES_USER -d $POSTGRES_DB -c "CREATE EXTENSION postgis_raster;"
