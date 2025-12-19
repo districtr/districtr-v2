@@ -31,7 +31,7 @@ export const MapContextMenu: React.FC = () => {
   const handleSelect = () => {
     if (!mapDocument || !shatterableId) return;
     const shatterData = isChild ? {id: shatterableId} : contextMenu.data;
-    handleShatter(mapDocument.document_id, [shatterData]);
+    handleShatter([shatterData]);
     contextMenu.close();
   };
 
