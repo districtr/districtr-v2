@@ -7,7 +7,7 @@ const prodWrapper: typeof devtools = (store: any) => store;
 export const devwrapper = process.env.NODE_ENV === 'development' ? devtools : prodWrapper;
 
 export const persistOptions: PersistOptions<MapStore, Partial<MapStore>> = {
-  name: 'districtr-persistrictr',
+  name: 'districtr-persist-v2',
   version: 0,
   partialize: state => ({
     userID: state.userID,
