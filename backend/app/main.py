@@ -51,7 +51,6 @@ from app.models import (
     DocumentCreatePublic,
     DocumentPublic,
     DocumentMetadata,
-    GEOIDS,
     UUIDType,
     ParentChildEdges,
     ShatterResult,
@@ -287,6 +286,38 @@ async def create_document(
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
+    """
+    Update assignments for a document with optimistic concurrency control.
+
+    This endpoint replaces all existing assignments for a document with the provided
+    assignments. It uses optimistic concurrency control to prevent overwriting changes
+    made by other clients.
+
+    The last_updated_at parameter is used for conflict detection:
+    - The client should provide the timestamp of the last known update to the document
+    - The server compares this with the document's current updated_at timestamp in the database
+    - If the database timestamp is newer (document was modified by another client),
+      a 409 Conflict error is raised unless overwrite=True
+    - This ensures that concurrent updates don't silently overwrite each other's changes. They
+      must be explicitly allowed by setting overwrite=True.
+
+    Args:
+        data (AssignmentsCreate): The request data containing:
+            - document_id: The ID of the document to update
+            - assignments: List of assignment pairs [[geo_id, zone], ...]
+            - last_updated_at: Timestamp of the client's last known update (for conflict detection)
+            - overwrite: If True, allows overwriting even if document was updated by another client
+        session (Session): Database session dependency
+
+    Returns:
+        dict: Response containing:
+            - assignments_inserted: Number of assignments inserted
+            - updated_at: New timestamp after the update
+
+    Raises:
+        HTTPException: 400 if no assignments provided
+        HTTPException: 409 if document was updated by another client and overwrite=False
+    """
     if not data.assignments or not len(data.assignments) > 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -350,21 +381,15 @@ async def update_assignments(
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}
 
 
-@app.post(
-    "/api/edges/{document_id}",
+@app.get(
+    "/api/gerrydb/edges/{districtr_map_slug}",
     response_model=list[ShatterResult],
 )
 async def get_children(
-    document: Annotated[Document, Depends(get_document)],
-    data: GEOIDS,
+    districtr_map_slug: str,
+    parent_geoid: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    assert document.document_id is not None
-    districtr_map_slug = session.exec(
-        select(Document.districtr_map_slug).where(
-            Document.document_id == document.document_id
-        )
-    ).one()
     db_districtr_map_uuid = session.exec(
         select(DistrictrMap.uuid).where(
             DistrictrMap.districtr_map_slug == districtr_map_slug
@@ -383,7 +408,7 @@ async def get_children(
         statement=stmt,
         params={
             "districtr_map_uuid": db_districtr_map_uuid,
-            "parent_geoids": data.geoids,
+            "parent_geoids": parent_geoid,
         },
     ).fetchall()
     return results

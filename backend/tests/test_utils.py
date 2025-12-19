@@ -300,7 +300,7 @@ def document_id_fixture(
     return doc["document_id"]
 
 
-def test_post_edges(client, session: Session, document_id):
+def test_get_edges(client, session: Session, document_id):
     response = client.put(
         "/api/assignments",
         json={
@@ -312,9 +312,8 @@ def test_post_edges(client, session: Session, document_id):
     assert response.status_code == 200
 
     # Test
-    response = client.post(
-        f"/api/edges/{document_id}",
-        json={"geoids": ["A"]},
+    response = client.get(
+        "/api/gerrydb/edges/simple_geos?parent_geoid=A",
     )
     assert response.status_code == 200
     data = response.json()

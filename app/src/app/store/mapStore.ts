@@ -27,7 +27,7 @@ import {useUnassignFeaturesStore} from './unassignedFeatures';
 import {demographyCache} from '../utils/demography/demographyCache';
 import {useDemographyStore} from './demography/demographyStore';
 import {extendColorArray} from '../utils/colors';
-import {postGetChildEdges} from '../utils/api/apiHandlers/postGetChildEdges';
+import {getChildEdges} from '../utils/api/apiHandlers/getChildEdges';
 import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterParents';
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
@@ -108,7 +108,7 @@ export interface MapStore {
    *
    * TODO: Multiple break/shatter is not yet implemented.
    */
-  handleShatter: (document_id: string, features: Array<Partial<MapGeoJSONFeature>>) => void;
+  handleShatter: (features: Array<Partial<MapGeoJSONFeature>>) => void;
   // LOCK
   // TODO: Refactor to something like this
   // featureStates: {
@@ -274,13 +274,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     },
     colorScheme: DefaultColorScheme,
     setColorScheme: colorScheme => set({colorScheme}),
-    handleShatter: async (document_id, features) => {
+    handleShatter: async features => {
       const {mapDocument, mapLock, setMapLock} = get();
       if (!features.length) {
         setMapLock(null);
         return;
       }
-      if (mapLock) {
+      if (mapLock || !mapDocument?.districtr_map_slug) {
         return;
       }
       setMapLock({isLocked: true, reason: 'Breaking districts'});
@@ -292,12 +292,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         shatterIds,
         shatterMappings: _shatterMappings,
         zoneAssignments: currentZoneAssignments,
-        replaceZoneAssignments,
         setShatterState,
       } = useAssignmentsStore.getState();
       const {setMapOptions} = useMapControlsStore.getState();
-      const edgesResult = await postGetChildEdges({
-        document_id,
+      const edgesResult = await getChildEdges({
+        districtr_map_slug: mapDocument.districtr_map_slug,
         geoids,
       });
       if (!edgesResult?.length) {

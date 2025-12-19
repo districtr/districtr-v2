@@ -79,7 +79,7 @@ export const handleFeatureSelection = (
     case 'shatter':
       const documentId = mapStore.mapDocument?.document_id;
       if (documentId && selectedFeatures?.length) {
-        mapStore.handleShatter(documentId, selectedFeatures || []);
+        mapStore.handleShatter(selectedFeatures || []);
       }
       return;
     case 'brush':

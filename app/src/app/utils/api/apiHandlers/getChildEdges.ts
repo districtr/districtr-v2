@@ -1,16 +1,16 @@
 import type {ShatterResult} from './types';
-import {post} from '../factory';
+import {get} from '../factory';
 
-export const postGetChildEdges = async ({
-  document_id,
+export const getChildEdges = async ({
+  districtr_map_slug,
   geoids,
 }: {
-  document_id: string;
+  districtr_map_slug: string;
   geoids: string[];
 }): Promise<ShatterResult> => {
-  return await post<{geoids: string[]}, ShatterResult>(`edges/${document_id}`)({
-    body: {
-      geoids: geoids,
+  return await get<ShatterResult>(`gerrydb/edges/${districtr_map_slug}`)({
+    queryParams: {
+      parent_geoid: geoids,
     },
   }).then(res => {
     if (res.ok) {
