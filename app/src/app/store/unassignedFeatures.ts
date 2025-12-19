@@ -1,4 +1,5 @@
 import {useMapStore} from '@/app/store/mapStore';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import {LngLatBoundsLike} from 'maplibre-gl';
 import {create} from 'zustand';
@@ -30,7 +31,8 @@ export const useUnassignFeaturesStore = create<UnassignedFeatureStore>((set, get
       selectedIndex: null,
     }),
   updateUnassignedFeatures: async () => {
-    const {shatterIds, mapDocument, getMapRef} = useMapStore.getState();
+    const {mapDocument, getMapRef} = useMapStore.getState();
+    const {shatterIds} = useAssignmentsStore.getState();
     const mapRef = getMapRef();
     if (!GeometryWorker || !mapRef) return;
     // const expectedFeatures = demographyCache.table?.size;

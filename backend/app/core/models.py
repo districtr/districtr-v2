@@ -49,7 +49,7 @@ class DocumentID(BaseModel):
         ValueError: If the private document_id is not a valid UUID.
     """
 
-    document_id: str
+    document_id: str | int
 
     @computed_field
     @property

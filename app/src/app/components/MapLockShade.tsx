@@ -3,6 +3,7 @@ import React, {useEffect, useLayoutEffect, useState} from 'react';
 import {useMapStore} from '../store/mapStore';
 import {Flex, Progress, Spinner, Text} from '@radix-ui/themes';
 import {useVisibilityState} from '../hooks/useVisibilityState';
+import {MapStore} from '../store/mapStore';
 
 type LoadingState = {
   isLoadingDocument: boolean;
@@ -11,10 +12,12 @@ type LoadingState = {
   isFetchingAssignments: boolean;
 };
 
-export const MapLockShade: React.FC<{loadingState: LoadingState}> = ({loadingState}) => {
-  const mapLock = useMapStore(state => state.mapLock);
+export const MapLockShade: React.FC<{loadingState: LoadingState; mapLock: MapStore['mapLock']}> = ({
+  loadingState,
+  mapLock,
+}) => {
   const stateIsLoading = useMapStore(state => state.appLoadingState === 'loading');
-  const isLocked = mapLock || stateIsLoading || Object.values(loadingState).some(Boolean);
+  const isLocked = mapLock?.isLocked || stateIsLoading || Object.values(loadingState).some(Boolean);
 
   // Prevent flash up on first render before state is finalized
   const {isVisible} = useVisibilityState();
@@ -46,25 +49,40 @@ export const MapLockShade: React.FC<{loadingState: LoadingState}> = ({loadingSta
         <Spinner size="3" />
       </Flex>
       <Flex direction="column" align="center" justify="center" className="m-4 w-60 h-auto" gap="2">
-        <Flex
-          direction="column"
-          align="center"
-          justify="center"
-          className={`opacity-100 h-auto p-4 transition-height delay-500 transition-opacity rounded-md shdadow-xl duration-1000 bg-white `}
-          // 1000ms delay on height transition, 0 duration
-        >
-          <Text>Loading map metadata...</Text>
-          <RandomProgressBar isLoading={loadingState.isFetchingDocument} />
-        </Flex>
-        <Flex
-          direction="column"
-          align="center"
-          justify="center"
-          className={`opacity-100 h-auto p-4 transition-height delay-500 transition-opacity rounded-md shdadow-xl duration-1000 bg-white`}
-        >
-          <Text>Loading district assignments...</Text>
-          <RandomProgressBar isLoading={loadingState.isFetchingAssignments} duration="20s" />
-        </Flex>
+        {mapLock?.reason ? (
+          <Flex
+            direction="column"
+            align="center"
+            justify="center"
+            className={`opacity-100 h-auto p-4 transition-height delay-500 transition-opacity rounded-md shdadow-xl duration-1000 bg-white text-center`}
+            // 1000ms delay on height transition, 0 duration
+          >
+            <Text>{mapLock.reason}</Text>
+            <RandomProgressBar isLoading={mapLock.isLocked} />
+          </Flex>
+        ) : (
+          <>
+            <Flex
+              direction="column"
+              align="center"
+              justify="center"
+              className={`opacity-100 h-auto p-4 transition-height delay-500 transition-opacity rounded-md shdadow-xl duration-1000 bg-white `}
+              // 1000ms delay on height transition, 0 duration
+            >
+              <Text>Loading map metadata...</Text>
+              <RandomProgressBar isLoading={loadingState.isFetchingDocument} />
+            </Flex>
+            <Flex
+              direction="column"
+              align="center"
+              justify="center"
+              className={`opacity-100 h-auto p-4 transition-height delay-500 transition-opacity rounded-md shdadow-xl duration-1000 bg-white`}
+            >
+              <Text>Loading district assignments...</Text>
+              <RandomProgressBar isLoading={loadingState.isFetchingAssignments} duration="20s" />
+            </Flex>
+          </>
+        )}
       </Flex>
     </Flex>
   );

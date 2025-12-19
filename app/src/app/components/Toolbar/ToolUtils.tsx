@@ -9,9 +9,9 @@ import {
   ResetIcon,
   MagnifyingGlassIcon,
 } from '@radix-ui/react-icons';
-import {useTemporalStore} from '@/app/store/temporalStore';
 import {useCallback} from 'react';
 import {debounce} from 'lodash';
+import {useTemporalStore} from '@/app/store/temporalStore';
 
 export type ActiveToolConfig = {
   hotKeyAccessor: (event: KeyboardEvent) => boolean;
@@ -28,10 +28,11 @@ export type ActiveToolConfig = {
 
 export const useActiveTools = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const status = useMapStore(state => state.mapStatus?.status);
   const access = useMapStore(state => state.mapStatus?.access);
-  const {futureStates, pastStates, redo, undo} = useTemporalStore(state => state); // TemporalState<MapStore>
-  const setIsTemporalAction = useMapStore(state => state.setIsTemporalAction);
+  const isEditing = access === 'edit';
+
+  const {futureStates, pastStates, redo, undo} = useTemporalStore();
+
   const handleUndo = useCallback(debounce(undo, 100), [undo]);
   const handleRedo = useCallback(debounce(redo, 100), [redo]);
   const metaKey =
@@ -51,7 +52,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'P',
       mode: 'brush',
-      disabled: !mapDocument?.document_id || status === 'locked' || access === 'read',
+      disabled: !mapDocument?.document_id || !isEditing,
       label: 'Paint',
       icon: Pencil2Icon,
       hotKeyAccessor: e => {
@@ -61,7 +62,7 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: 'E',
       mode: 'eraser',
-      disabled: !mapDocument?.document_id || status === 'locked' || access === 'read',
+      disabled: !mapDocument?.document_id || !isEditing,
       label: 'Erase',
       icon: EraserIcon,
       hotKeyAccessor: e => {
@@ -71,11 +72,10 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: `${metaKey} + Z`,
       mode: 'undo',
-      disabled: pastStates.length === 0 || access === 'read',
+      disabled: pastStates.length === 0 || !isEditing,
       label: 'Undo',
       icon: ResetIcon,
       onClick: () => {
-        setIsTemporalAction(true);
         handleUndo();
       },
       hotKeyAccessor: e => {
@@ -86,12 +86,11 @@ export const useActiveTools = () => {
     {
       hotKeyLabel: `${metaKey} + Shift + Z`,
       mode: 'redo',
-      disabled: futureStates.length === 0 || access === 'read',
+      disabled: futureStates.length === 0 || !isEditing,
       label: 'Redo',
       icon: ResetIcon,
       iconStyle: {transform: 'rotateY(180deg)'},
       onClick: () => {
-        setIsTemporalAction(true);
         handleRedo();
       },
       hotKeyAccessor: e => {
@@ -119,6 +118,5 @@ export const useActiveTools = () => {
       },
     },
   ];
-  if (status === 'locked') return [];
   return config;
 };

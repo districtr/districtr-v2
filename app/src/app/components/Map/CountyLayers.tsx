@@ -1,12 +1,12 @@
 'use client';
-import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
 
 export const CountyLayers = () => {
-  const mapOptions = useMapStore(state => state.mapOptions);
+  const mapOptions = useMapControlsStore(state => state.mapOptions);
 
   const countyFilter = useMemo(() => {
     return [

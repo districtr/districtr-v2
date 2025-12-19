@@ -2,10 +2,11 @@ import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
 import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapRef} from 'react-map-gl/maplibre';
 import {MapStore} from '@/app/store/mapStore';
+import {AssignmentsStore, useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 const mapShatterableFeatures = (
   features: Array<MapGeoJSONFeature>,
-  shatterMappings: MapStore['shatterMappings'],
+  shatterMappings: AssignmentsStore['shatterMappings'],
   child_layer: string
 ) => {};
 
@@ -17,19 +18,17 @@ const mapShatterableFeatures = (
  */
 export const ResetMapSelectState = (
   map: MapRef | null,
-  mapStoreRef: MapStore,
+  _mapStoreRef: MapStore,
   sourceLayer: string
 ) => {
-  if (map && Object.keys(mapStoreRef.zoneAssignments).length) {
+  const {zoneAssignments, resetZoneAssignments} = useAssignmentsStore.getState();
+  if (map && zoneAssignments.size) {
     map.removeFeatureState({
       source: BLOCK_SOURCE_ID,
       sourceLayer: sourceLayer,
     });
-
-    mapStoreRef.setAccumulatedGeoids(new Set());
     // reset zoneAssignments
-    mapStoreRef.resetZoneAssignments();
+    resetZoneAssignments();
     // confirm the map has been reset
-    mapStoreRef.setFreshMap(false);
   }
 };

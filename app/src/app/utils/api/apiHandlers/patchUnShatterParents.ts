@@ -1,4 +1,4 @@
-import axios from 'axios';
+import {patch} from '../factory';
 
 export const patchUnShatterParents = async ({
   document_id,
@@ -10,17 +10,19 @@ export const patchUnShatterParents = async ({
   geoids: string[];
   zone: number;
   updateHash: string;
-}): Promise<{geoids: string[]}> => {
-  return await axios
-    .patch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/update_assignments/${document_id}/unshatter_parents`,
-      {
-        geoids,
-        zone,
-        updated_at: updateHash,
-      }
-    )
-    .then(res => {
-      return res.data;
-    });
+}) => {
+  return await patch<
+    {
+      geoids: string[];
+      zone: number;
+      updated_at: string;
+    },
+    {geoids: string[]}
+  >(`update_assignments/${document_id}/unshatter_parents`)({
+    body: {
+      geoids,
+      zone,
+      updated_at: updateHash,
+    },
+  });
 };

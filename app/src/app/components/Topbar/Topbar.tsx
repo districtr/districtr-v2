@@ -1,6 +1,5 @@
 'use client';
 import {
-  Button,
   Text,
   DropdownMenu,
   Flex,
@@ -14,54 +13,64 @@ import {
 import React, {useRef} from 'react';
 import {useMapStore} from '@store/mapStore';
 import {RecentMapsModal} from '@components/Toolbar/RecentMapsModal';
-import {ToolSettings} from '@components/Toolbar/Settings';
-import {ArrowLeftIcon, GearIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
-import {useTemporalStore} from '@store/temporalStore';
-import {document} from '@utils/api/mutations';
-import {DistrictrMap} from '@utils/api/apiHandlers/types';
+import {ArrowLeftIcon, HamburgerMenuIcon} from '@radix-ui/react-icons';
+import {DistrictrMap, DocumentMetadata} from '@utils/api/apiHandlers/types';
 import {defaultPanels} from '@components/sidebar/DataPanelUtils';
 import {PasswordPromptModal} from '../Toolbar/PasswordPromptModal';
 import {UploaderModal} from '../Toolbar/UploaderModal';
 import {MapHeader} from './MapHeader';
-import {EditStatus} from './EditStatus';
-import {SaveShareModal} from '../Toolbar/SaveShareModal/SaveShareModal';
 import {useRouter} from 'next/navigation';
+import {createMapDocument} from '@/app/utils/api/apiHandlers/createMapDocument';
+import {SavePopover} from './SavePopover';
+import {SharePopoverAndModal} from './SharePopoverAndModal';
+import {SettingsPopoverAndModal} from './SettingsPopoverAndModal';
+import {saveMapDocumentMetadata} from '@/app/utils/api/apiHandlers/saveMapDocumentMetadata';
+import {idb} from '@/app/utils/idb/idb';
+import {RevertPopover} from './RevertPopover';
 
 export const Topbar: React.FC = () => {
   const handleReset = useMapStore(state => state.handleReset);
-  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | 'save-share' | null>(
-    null
-  );
-  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [modalOpen, setModalOpen] = React.useState<'upload' | 'recents' | null>(null);
   const mapDocument = useMapStore(state => state.mapDocument);
+  const isEditing = mapDocument?.document_id && mapDocument?.document_id !== 'anonymous';
   const access = useMapStore(state => state.mapStatus?.access);
-  const userID = useMapStore(state => state.userID);
   const mapViews = useMapStore(state => state.mapViews);
-  const showRecentMaps = useMapStore(state => state.userMaps.length > 0);
-  const clear = useTemporalStore(store => store.clear);
   const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const data = mapViews?.data || [];
   const router = useRouter();
+  const updateMetadata = useMapStore(state => state.updateMetadata);
+
+  const handleMetadataChange = async (updates: Partial<DocumentMetadata>) => {
+    if (!mapDocument?.document_id) return;
+    const response = await saveMapDocumentMetadata({
+      document_id: mapDocument?.document_id,
+      metadata: updates,
+    });
+    if (response.ok) {
+      idb.updateIdbMetadata(mapDocument?.document_id, updates);
+      updateMetadata(updates);
+    } else {
+      setErrorNotification({
+        message: 'Failed to save metadata',
+        severity: 2,
+      });
+    }
+  };
 
   const handleSelectMap = (selectedMap: DistrictrMap) => {
-    clear();
-
-    document
-      .mutate({
-        districtr_map_slug: selectedMap.districtr_map_slug,
-        user_id: userID,
-      })
-      .then(data => {
-        if (data.document_id) {
-          router.push(`/map/edit/${data.document_id}`);
-        } else {
-          setErrorNotification({
-            severity: 2,
-            id: 'map-not-found',
-            message: 'Map not found',
-          });
-        }
-      });
+    createMapDocument({
+      districtr_map_slug: selectedMap.districtr_map_slug,
+    }).then(r => {
+      if (r.ok) {
+        router.push(`/map/edit/${r.response.document_id}`);
+      } else {
+        setErrorNotification({
+          severity: 2,
+          id: 'map-failed-to-create',
+          message: r.error.detail,
+        });
+      }
+    });
   };
 
   return (
@@ -166,7 +175,7 @@ export const Topbar: React.FC = () => {
                   </DropdownMenu.Item>
                 </DropdownMenu.SubContent>
               </DropdownMenu.Sub>
-              <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={!showRecentMaps}>
+              <DropdownMenu.Item onClick={() => setModalOpen('recents')} disabled={false}>
                 View recent maps
               </DropdownMenu.Item>
               <DropdownMenu.Sub>
@@ -185,35 +194,17 @@ export const Topbar: React.FC = () => {
               </DropdownMenu.Sub>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
-          <MapHeader />
-          <Flex direction="row" align="center" gapX="1">
-            <EditStatus />
-            <Button
-              variant="outline"
-              disabled={!mapDocument?.document_id}
-              onClick={() => setModalOpen('save-share')}
-              size="1"
-            >
-              Save and Share
-            </Button>
-            <IconButton
-              variant={settingsOpen ? 'solid' : 'outline'}
-              size="1"
-              onClick={() => setSettingsOpen(prev => !prev)}
-            >
-              <GearIcon className="size-full p-1" />
-            </IconButton>
+          <MapHeader handleMetadataChange={handleMetadataChange} />
+          <Flex direction="row" align="center" gapX="3">
+            <SharePopoverAndModal handleMetadataChange={handleMetadataChange} />
+            {isEditing && <SavePopover />}
+            {isEditing && <RevertPopover />}
+            <SettingsPopoverAndModal />
           </Flex>
-          {settingsOpen && (
-            <Box className="absolute right-0 lg:right-[-1px] top-full lg:max-w-64 w-full lg:w-[50vw] z-10 bg-white p-4 border-gray-500 border-[1px] lg:max-h-[50vh] overflow-y-auto overflow-x-hidden">
-              <ToolSettings />
-            </Box>
-          )}
         </Flex>
         <MobileDataTabs />
       </Flex>
       <RecentMapsModal open={modalOpen === 'recents'} onClose={() => setModalOpen(null)} />
-      <SaveShareModal open={modalOpen === 'save-share'} onClose={() => setModalOpen(null)} />
       <UploaderModal open={modalOpen === 'upload'} onClose={() => setModalOpen(null)} />
       <PasswordPromptModal />
     </>

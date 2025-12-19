@@ -1,11 +1,10 @@
-import axios from 'axios';
 import {CommentListing} from './types';
-import {API_URL} from '../constants';
+import {get} from '../factory';
 
-export const getDocumentComments = async (document_id: string): Promise<CommentListing[]> => {
-  const url = new URL(`${API_URL}/api/comments/list?document_id=${document_id}`);
-
-  return await axios.get(url.toString()).then(res => {
-    return res.data;
+export const getDocumentComments = async (document_id: string) => {
+  return await get<CommentListing[]>('comments/list')({
+    queryParams: {
+      document_id,
+    },
   });
 };

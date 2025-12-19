@@ -3,8 +3,7 @@ import {useMapStore} from '../store/mapStore';
 import GeometryWorker from '../utils/GeometryWorker';
 import euclideanDistance from '@turf/distance';
 import {demographyCache} from '../utils/demography/demographyCache';
-
-export const FALLBACK_NUM_DISTRICTS = 4;
+export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
 export const BLOCK_POINTS_LAYER_ID = 'blocks-points';
@@ -20,8 +19,6 @@ export const LINE_LAYERS = [BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD] as const;
 export const ZONE_LABEL_LAYERS = ['ZONE_OUTLINE', 'ZONE_LABEL', 'ZONE_LABEL_BG'];
 export const PARENT_LAYERS = [BLOCK_LAYER_ID, BLOCK_HOVER_LAYER_ID];
 export const COUNTY_LAYERS = ['counties_fill', 'counties_boundary', 'counties_labels'];
-
-export const OVERLAY_OPACITY = 0.7;
 
 export const CHILD_LAYERS = [
   BLOCK_LAYER_ID_CHILD,

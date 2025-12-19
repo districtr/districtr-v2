@@ -4,11 +4,11 @@ import {Box, Button, Flex, Text} from '@radix-ui/themes';
 import {PinLeftIcon} from '@radix-ui/react-icons';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {Toolbar} from '../Toolbar/Toolbar';
-import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 
 export const ToolbarInSidebar = () => {
   const toolbarLocation = useToolbarStore(store => store.toolbarLocation);
-  const activeTool = useMapStore(store => store.activeTool);
+  const activeTool = useMapControlsStore(store => store.activeTool);
   const setToolbarLocation = useToolbarStore(store => store.setToolbarLocation);
   const [hovered, setHovered] = useState(false);
   if (toolbarLocation !== 'sidebar') return null;
