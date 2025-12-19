@@ -5,14 +5,9 @@ import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Table, Dialog, Box, Separator, Popover} from '@radix-ui/themes';
 import {useRouter} from 'next/navigation';
 import {DocumentObject} from '@utils/api/apiHandlers/types';
-import {styled} from '@stitches/react';
 import {useState} from 'react';
 import {idb} from '@/app/utils/idb/idb';
 import {useUserMaps} from '@/app/hooks/useUserMaps';
-
-const DialogContentContainer = styled(Dialog.Content, {
-  maxHeight: 'calc(100vh-2rem)',
-});
 
 export const RecentMapsModal: React.FC<{
   open?: boolean;
@@ -23,13 +18,8 @@ export const RecentMapsModal: React.FC<{
   const mapDocument = useMapStore(store => store.mapDocument);
   const setMapDocument = useMapStore(store => store.setMapDocument);
   const setActiveTool = useMapControlsStore(store => store.setActiveTool);
-  const [dialogOpen, setDialogOpen] = React.useState(open || false);
   const [updateTrigger, setUpdateTrigger] = useState<string | null | number>(null);
   const recentMaps = useUserMaps(updateTrigger);
-
-  useEffect(() => {
-    setDialogOpen(open || false);
-  }, [open]);
 
   const handleUnloadMapDocument = () => {
     // Navigate to home page
@@ -41,7 +31,6 @@ export const RecentMapsModal: React.FC<{
     // Navigate to edit mode with the UUID
     router.push(`/map/edit/${data.document_id}`);
     // close dialog
-    setDialogOpen(false);
     onClose?.();
   };
 
@@ -78,33 +67,35 @@ export const RecentMapsModal: React.FC<{
             return bTime - aTime;
           });
         setUpdateTrigger(Date.now());
+
       }
     }
   };
 
   useEffect(() => {
-    if (!dialogOpen) {
+    if (!open) {
       setActiveTool('pan');
+      // Ensure body pointer-events is restored when dialog closes
+      document.body.style.pointerEvents = '';
     }
-  }, [dialogOpen]);
+    // Cleanup on unmount
+    return () => {
+      document.body.style.pointerEvents = '';
+    };
+  }, [open, setActiveTool]);
 
-  useEffect(() => {
-    if (!dialogOpen) {
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
       onClose?.();
     }
-  }, [dialogOpen]);
+  };
 
   if (!recentMaps?.length) {
     return null;
   }
 
   return (
-    <Dialog.Root
-      open={dialogOpen}
-      onOpenChange={isOpen =>
-        isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen)
-      }
-    >
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       {!!showTrigger && (
         <Dialog.Trigger>
           <Button variant="ghost" disabled={!recentMaps.length}>
@@ -112,7 +103,7 @@ export const RecentMapsModal: React.FC<{
           </Button>
         </Dialog.Trigger>
       )}
-      <DialogContentContainer className="sm:w-[95vw] md:w-[60vw]">
+      <Dialog.Content className="sm:w-[95vw] md:w-[60vw] max-h-[calc(100vh-2rem)]" id="recent-maps-modal">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
           <Dialog.Close
@@ -153,7 +144,7 @@ export const RecentMapsModal: React.FC<{
             </Table.Body>
           </Table.Root>
         </Box>
-      </DialogContentContainer>
+      </Dialog.Content>
     </Dialog.Root>
   );
 };
