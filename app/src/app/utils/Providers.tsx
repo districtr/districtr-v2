@@ -2,6 +2,7 @@
 import {useEffect} from 'react';
 import {useCmsFormStore} from '../store/cmsFormStore';
 import {ClientSession} from '@/app/lib/auth0';
+import {migrateUserMapsFromLocalStorage} from '../utils/idb/migrateUserMaps';
 // import { UserProvider } from '@auth0/nextjs-auth0/client';
 
 export const Providers: React.FC<{
@@ -13,6 +14,11 @@ export const Providers: React.FC<{
   useEffect(() => {
     session && setSession(session);
   }, [session]);
+
+  // Run migration on app load
+  useEffect(() => {
+    migrateUserMapsFromLocalStorage();
+  }, []);
 
   return <div>{children}</div>;
 };
