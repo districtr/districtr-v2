@@ -11,7 +11,7 @@ from enum import Enum
 from app.constants import DOCUMENT_SCHEMA
 from app.core.models import TimeStampMixin, UUIDType, SQLModel
 
-    
+
 class GrantEditAccessRequest(BaseModel):
     password: str | None = None
 

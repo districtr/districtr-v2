@@ -208,7 +208,7 @@ export class MapRenderSubscriber {
     // When painting, don't render colors
     if (controlsState.isPainting) {
       return;
-    };
+    }
     // Always update GeometryWorker zones to keep it in sync
     GeometryWorker?.updateZones(Array.from(zoneAssignments.entries()));
 
