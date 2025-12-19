@@ -1,5 +1,6 @@
 import {idb} from './idb';
 import {DocumentObject} from '../api/apiHandlers/types';
+import { useMapStore } from '@/app/store/mapStore';
 
 interface LocalStoragePersistState {
   state: {
@@ -26,13 +27,11 @@ export async function migrateUserMapsFromLocalStorage(): Promise<void> {
   if (typeof window === 'undefined' || !window.localStorage) {
     return;
   }
-
   try {
     // If archive already exists, migration has already run
     if (localStorage.getItem(ARCHIVE_STORAGE_KEY)) {
       return;
     }
-
     // Check if the old localStorage key exists
     const oldStorageData = localStorage.getItem(OLD_STORAGE_KEY);
     if (!oldStorageData) {
@@ -76,16 +75,19 @@ export async function migrateUserMapsFromLocalStorage(): Promise<void> {
         
         // Only migrate if it doesn't already exist (to avoid overwriting newer data)
         if (!existingDoc) {
-          // Use updated_at if available, otherwise use created_at, otherwise current time
-          const clientLastUpdated =
-            map.updated_at || map.created_at || new Date().toISOString();
+          // Create document metadata with old updated_at timestamp
+          const migratedMetadata: DocumentObject = {
+            ...(map as DocumentObject),
+          };
 
-          // Create StoredDocument structure
+          // Create StoredDocument structure with empty assignments
+          // The old timestamp will flag fetchDocument to get assignments from the remote server
           await idb.updateDocument({
             id: documentId,
-            document_metadata: map as DocumentObject,
-            assignments: [], // No assignments stored in localStorage
-            clientLastUpdated: clientLastUpdated,
+            document_metadata: migratedMetadata,
+            assignments: [], // Explicitly empty - assignments will be fetched from server
+            clientLastUpdated: new Date().toISOString(),
+            shouldFetchAssignments: true,
           });
         }
       } catch (error) {
@@ -105,6 +107,7 @@ export async function migrateUserMapsFromLocalStorage(): Promise<void> {
     if (archivedData === oldStorageData) {
       // Archive succeeded, delete the old key
       localStorage.removeItem(OLD_STORAGE_KEY);
+      window.location.reload();
     } else {
       console.error('Failed to verify localStorage archive - keeping old key');
     }
@@ -112,4 +115,5 @@ export async function migrateUserMapsFromLocalStorage(): Promise<void> {
     console.error('Error during user maps migration:', error);
     // Don't throw - migration failures shouldn't break the app
   }
+  // reload
 }

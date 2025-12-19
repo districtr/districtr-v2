@@ -10,6 +10,7 @@ export interface StoredDocument {
   assignments: Assignment[];
   clientLastUpdated: string; // ISO date string
   password?: string | null;
+  shouldFetchAssignments?: boolean;
 }
 
 // --- Dexie Setup ---
