@@ -60,7 +60,12 @@ export const fetchDocument = async (
     idbDocument?.document_metadata.updated_at || '1970-01-01T00:00:00Z'
   );
   const remoteIsNewer = remoteTimestamp && remoteTimestamp > localTimestamp;
-  if (!idbDocument || (isPublic && remoteIsNewer) || source === 'remote' || idbDocument.shouldFetchAssignments === true) {
+  if (
+    !idbDocument ||
+    (isPublic && remoteIsNewer) ||
+    source === 'remote' ||
+    idbDocument.shouldFetchAssignments === true
+  ) {
     const remoteAssignments = await getAssignments(remoteMetadata.response);
     if (!remoteAssignments.ok) {
       return {
