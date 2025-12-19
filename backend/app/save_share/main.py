@@ -19,7 +19,7 @@ import jwt
 from app.save_share.models import (
     DocumentShareRequest,
     DocumentShareResponse,
-    UnlockFromPublicId,
+    GrantEditAccessRequest,
 )
 import bcrypt
 from app.core.dependencies import parse_document_id, get_protected_document
@@ -120,10 +120,10 @@ async def share_districtr_plan(
     return {"token": token, "public_id": document.public_id}
 
 
-@router.post("/api/document/{document_id}/unlock", response_model=Document)
-async def unlock_map_document(
+@router.post("/api/document/{document_id}/edit_access", response_model=Document)
+async def grant_edit_access_to_map_document(
     document_id: int,
-    data: UnlockFromPublicId,
+    data: GrantEditAccessRequest,
     session: Session = Depends(get_session),
 ):
     parsed_DocumentID = parse_document_id(document_id)

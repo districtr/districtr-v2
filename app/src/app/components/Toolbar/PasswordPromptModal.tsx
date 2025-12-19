@@ -3,7 +3,7 @@ import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Dialog, Box, TextField, Progress, Blockquote} from '@radix-ui/themes';
 import {useRouter, useSearchParams} from 'next/navigation';
-import {postUnlockMapDocument} from '@/app/utils/api/apiHandlers/postUnlockMapDocument';
+import {postGrantEditAccess} from '@/app/utils/api/apiHandlers/postGrantEditAccess';
 
 export const PasswordPromptModal = () => {
   const router = useRouter();
@@ -26,7 +26,7 @@ export const PasswordPromptModal = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await postUnlockMapDocument(mapDocument?.public_id, password);
+        const res = await postGrantEditAccess(mapDocument?.public_id, password);
         if (res.ok) {
           setDialogOpen(false);
           router.push(`/map/edit/${res.response.document_id}`);
