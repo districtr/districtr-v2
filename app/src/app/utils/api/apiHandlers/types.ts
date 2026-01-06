@@ -1,14 +1,24 @@
+import {NullableZone} from '@/app/constants/types';
 import {SummaryStatConfig} from '../summaryStats';
 
 export interface Assignment {
   document_id: string;
   geo_id: string;
-  zone: number;
-  parent_path?: string;
+  zone: NullableZone;
+  parent_path?: string | null;
 }
 
+export type AssignmentArray = [string, NullableZone];
+
 export interface AssignmentsCreate {
-  assignments_upserted: number;
+  assignments: AssignmentArray[];
+  document_id: string;
+  last_updated_at: string;
+  overwrite: boolean;
+}
+export interface AssignmentsCreateResponse {
+  assignments_inserted: number;
+  updated_at: string;
 }
 
 export interface AssignmentsReset {
@@ -27,7 +37,6 @@ export interface DistrictrMap {
 }
 
 export interface StatusObject {
-  status: 'locked' | 'unlocked' | 'checked_out';
   access: 'read' | 'edit';
   genesis: 'shared' | 'copied' | 'created';
   token?: string | null;
@@ -56,7 +65,7 @@ export interface DocumentObject extends StatusObject {
   num_districts: number | null;
   map_module: string | null;
   created_at: string;
-  updated_at: string | null;
+  updated_at: string;
   extent: [number, number, number, number]; // [minx, miny, maxx, maxy]
   map_metadata: DocumentMetadata;
   color_scheme: string[] | null;
@@ -76,7 +85,6 @@ export interface MinPublicDocument {
 
 export interface DocumentCreate {
   districtr_map_slug: string;
-  user_id: string | null;
   metadata?: DocumentMetadata;
   copy_from_doc?: string | number;
 }
@@ -86,10 +94,10 @@ export interface ZonePopulation {
   total_pop_20: number;
 }
 
-export interface ShatterResult {
-  parents: {geoids: string[]};
-  children: Assignment[];
-}
+export type ShatterResult = Array<{
+  child_path: string;
+  parent_path: string;
+}>;
 
 export interface ColorsSet {
   success: boolean;
@@ -102,7 +110,15 @@ export type RemoteAssignmentsResponse = {
   assignments: Assignment[];
 };
 
-export type GetAssignmentsResponse = Promise<RemoteAssignmentsResponse | null>;
+export type LocalAssignmentsResponse = {
+  type: 'local';
+  documentId: string;
+  assignments: Assignment[];
+};
+
+export type GetAssignmentsResponse = Promise<
+  RemoteAssignmentsResponse | LocalAssignmentsResponse | null
+>;
 
 export type MapGroup = {
   name: string;

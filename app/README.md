@@ -6,18 +6,16 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with
 Set up your development environment:
 
 ```bash
-cp .env.dev .env.local && npm i
+cp .env.dev .env.local
+# install bun
+npm i -g bun 
+# install packages
+bun install
 ```
 
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
 bun dev
 ```
 

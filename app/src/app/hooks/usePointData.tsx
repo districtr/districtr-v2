@@ -1,5 +1,6 @@
-import {MutableRefObject, useEffect, useRef, useState} from 'react';
+import {MutableRefObject, useRef} from 'react';
 import {useMapStore} from '../store/mapStore';
+import {useAssignmentsStore} from '../store/assignmentsStore';
 import {getPointSelectionData} from '../utils/api/apiHandlers/getPointSelectionData';
 import {BLOCK_LAYER_ID, BLOCK_LAYER_ID_CHILD, EMPTY_FT_COLLECTION} from '../constants/layers';
 import {useQuery} from '@tanstack/react-query';
@@ -37,7 +38,7 @@ const updateData = async (
 export const usePointData = (child?: boolean) => {
   const data = useRef<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
   const mapDocument = useMapStore(state => state.mapDocument);
-  const exposedChildIds = useMapStore(state => state.shatterIds.children);
+  const exposedChildIds = useAssignmentsStore(state => state.shatterIds.children);
   const layer = child ? mapDocument?.child_layer : mapDocument?.parent_layer;
   useQuery({
     queryKey: [

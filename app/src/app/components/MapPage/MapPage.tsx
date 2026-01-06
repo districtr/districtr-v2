@@ -14,7 +14,10 @@ import {Flex} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
 import {initSubs} from '@store/subscriptions';
 import {useToolbarStore} from '@/app/store/toolbarStore';
-import {useMapBrowserEvents} from '@/app/hooks/useMapBrowserEvents';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useDocumentWithSync} from '@/app/hooks/useDocumentWithSync';
+import {SaveConflictModal} from '../SaveConflictModal';
+import { migrateUserMapsFromLocalStorage } from '@/app/utils/idb/migrateUserMaps';
 
 interface MapPageProps {
   isEditing: boolean;
@@ -22,19 +25,42 @@ interface MapPageProps {
 }
 
 function ChildMapPage({isEditing, mapId}: MapPageProps) {
-  const showDemographicMap = useMapStore(
+  const showDemographicMap = useMapControlsStore(
     state => state.mapOptions.showDemographicMap === 'side-by-side'
   );
+  const setIsEditing = useMapControlsStore(state => state.setIsEditing);
   const toolbarLocation = useToolbarStore(state => state.toolbarLocation);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   // check if userid in local storage; if not, create one
   const userID = useMapStore(state => state.userID);
   const setUserID = useMapStore(state => state.setUserID);
-  const setIsEditing = useMapStore(state => state.setIsEditing);
+  const mapLock = useMapStore(state => state.mapLock);
 
-  const loadingState = useMapBrowserEvents({
-    mapId,
-    isEditing,
+  // Run migration on app load
+  useEffect(() => {
+    migrateUserMapsFromLocalStorage();
+  }, []);
+
+  // Load document with sync support
+  const {
+    isLoading: isLoadingDocument,
+    error: documentError,
+    conflictModal,
+  } = useDocumentWithSync({
+    document_id: mapId || undefined,
+    enabled: !!mapId,
   });
+
+  // Handle document loading errors
+  useEffect(() => {
+    if (documentError && mapId) {
+      setErrorNotification({
+        message: `Failed to load document: ${documentError.message}`,
+        id: `document-load-error-${mapId}`,
+        severity: 1,
+      });
+    }
+  }, [documentError, mapId, setErrorNotification]);
 
   // Set editing mode based on the route
   useEffect(() => {
@@ -48,7 +74,6 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
   useEffect(() => {
     const unsub = initSubs();
     return () => {
-      console.log('unsubscribing');
       unsub();
     };
   }, []);
@@ -63,11 +88,23 @@ function ChildMapPage({isEditing, mapId}: MapPageProps) {
           {showDemographicMap && <MapComponent isDemographicMap />}
         </Flex>
         {toolbarLocation === 'map' && <DraggableToolbar />}
-        {!!mapId && <MapLockShade loadingState={loadingState} />}
+        {!!mapId && (
+          <MapLockShade
+            mapLock={mapLock}
+            loadingState={{
+              isLoadingDocument,
+              isLoadingAssignments: isLoadingDocument,
+              isFetchingDocument: isLoadingDocument,
+              isFetchingAssignments: isLoadingDocument,
+            }}
+          />
+        )}
         <MapTooltip />
       </div>
       <MapContextMenu />
       <ErrorNotification />
+      {conflictModal}
+      <SaveConflictModal />
     </div>
   );
 }

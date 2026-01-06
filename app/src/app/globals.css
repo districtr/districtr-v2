@@ -41,3 +41,31 @@ body {
 	--em-font-family: var(--font-nunito), serif;
 	--quote-font-family: var(--font-nunito), serif;
 }
+/* pulse spin animation twist back and forth */
+@keyframes pulse-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(60deg);
+  }
+  100% {
+    transform: rotate(0);
+  }
+}
+
+.animate-pulse-spin {
+  animation: pulse-spin 2s infinite ease-in-out;
+}
+
+.cursor-pan {
+}
+.cursor-brush canvas {
+  cursor: url(/paintbrush.png) 20 20, none;
+}
+.cursor-eraser canvas {
+  cursor: url(/eraser.png) 16 16, pointer;
+}
+.cursor-shatter canvas {
+  cursor: url(/break.png) 12 12, pointer;
+}

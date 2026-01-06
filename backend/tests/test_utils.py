@@ -15,7 +15,13 @@ from app.models import DistrictrMap
 from tests.constants import OGR2OGR_PG_CONNECTION_STRING, FIXTURES_PATH
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-
+from app.core.security import recaptcha, auth
+from pytest import MonkeyPatch, fixture
+from tests.utils import fake_verify_recaptcha
+from fastapi.security import SecurityScopes
+from app.main import app
+from app.comments.models import FullCommentFormResponse
+from datetime import datetime
 
 GERRY_DB_TOTPOP_FIXTURE_NAME = "ks_demo_view_census_blocks_summary_stats"
 
@@ -287,7 +293,6 @@ def document_id_fixture(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
         },
     )
     assert response.status_code == 201
@@ -295,61 +300,77 @@ def document_id_fixture(
     return doc["document_id"]
 
 
-def test_shattering(client, session: Session, document_id):
-    response = client.patch(
-        "/api/update_assignments",
+def test_get_edges(client, session: Session, document_id):
+    response = client.put(
+        "/api/assignments",
         json={
-            "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
-            "updated_at": "2023-10-01T00:00:00Z",
-            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
+            "document_id": document_id,
+            "assignments": [["A", 1]],
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
 
     # Test
-    response = client.patch(
-        f"/api/update_assignments/{document_id}/shatter_parents",
-        json={"geoids": ["A"]},
+    response = client.get(
+        "/api/gerrydb/edges/simple_geos?parent_geoid=A",
     )
     assert response.status_code == 200
     data = response.json()
-    assert len(data["parents"]["geoids"]) == 1
-    assert data["parents"]["geoids"][0] == "A"
-    assert len(data["children"]) == 2
-    assert len({d["document_id"] for d in data["children"]}) == 1
-    assert {d["geo_id"] for d in data["children"]} == {"a", "e"}
-    assert all(d["zone"] == 1 for d in data["children"])
+    assert len(data) == 2
+    assert all(d["parent_path"] == "A" for d in data)
+    assert all(d["child_path"] in {"a", "e"} for d in data)
 
 
-def test_unshatter_process(client, document_id):
-    response = client.patch(
-        "/api/update_assignments",
+@fixture(autouse=True)
+def patch_recaptcha():
+    monkeypatch = MonkeyPatch()
+    monkeypatch.setattr(recaptcha, "verify_recaptcha", fake_verify_recaptcha)
+    yield
+    monkeypatch.undo()
+
+
+@fixture(autouse=True)
+def override_auth_dependency():
+    async def _ok_override(_scopes: SecurityScopes):
+        # Return anything your app expects from a verified token
+        # You can include "scope" with needed permissions if your code reads it.
+        return {"sub": "test-user", "scope": "create:content read:content"}
+
+    app.dependency_overrides[auth.verify] = _ok_override
+    try:
+        yield
+    finally:
+        app.dependency_overrides.pop(auth.verify, None)
+
+
+def handle_approve_comment_entry(client, content_type: str, id: int):
+    """
+    Test utility to approve a comment, tag, or commenter
+    """
+    client.post(
+        "/api/comments/admin/review",
         json={
-            "assignments": [{"document_id": document_id, "geo_id": "A", "zone": 1}],
-            "updated_at": "2023-10-01T00:00:00Z",
-            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
+            "content_type": content_type,
+            "review_status": "APPROVED",
+            "id": id,
         },
     )
 
-    # Test
-    response = client.patch(
-        f"/api/update_assignments/{document_id}/shatter_parents",
-        json={"geoids": ["A"]},
-    )
-    assignments_response = client.get(f"/api/get_assignments/{document_id}")
-    assignments_data = assignments_response.json()
-    assert len(assignments_data) == 2
-    # Unshatter
-    response = client.patch(
-        f"/api/update_assignments/{document_id}/unshatter_parents",
-        json={"geoids": ["A"], "zone": 1},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    # Verify the response contains the expected data
-    assert "geoids" in data
-    assert len(data["geoids"]) == 1
-    # Confirm assignments are now length 1
-    assignments_response = client.get(f"/api/get_assignments/{document_id}")
-    assignments_data = assignments_response.json()
-    assert len(assignments_data) == 1
+
+def handle_full_submission_approve(client, form_response: FullCommentFormResponse):
+    """
+    Test utility to approve a full comment submission
+    """
+    if "tags" in form_response["comment"]:
+        for tag in form_response["comment"]["tags"]:
+            handle_approve_comment_entry(client, "tag", tag["id"])
+    if (
+        "commenter_id" in form_response["comment"]
+        and form_response["comment"]["commenter_id"] is not None
+    ):
+        handle_approve_comment_entry(
+            client, "commenter", form_response["comment"]["commenter_id"]
+        )
+    if "id" in form_response["comment"] and form_response["comment"]["id"] is not None:
+        handle_approve_comment_entry(client, "comment", form_response["comment"]["id"])

@@ -18,6 +18,8 @@ import {
   TextField,
 } from '@radix-ui/themes';
 import {QueryClientProvider, useMutation} from '@tanstack/react-query';
+import {idb} from '@/app/utils/idb/idb';
+import {useUserMaps} from '@/app/hooks/useUserMaps';
 
 interface MapSelectorProps {
   allowListModules: string[];
@@ -39,12 +41,14 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
   const [dataResponse, setDataResponse] = useState<ValidationResponse | null>(null);
 
   const showMapSelector = useFormState(state => state.showMapSelector);
+  const setErrorNotification = useMapStore(state => state.setErrorNotification);
   const comment = useFormState(state => state.comment);
   const mapId = comment?.document_id ?? '';
   const [savedMapId, setSavedMapId] = useState<string | null>(null);
 
   const setShowMapSelector = useFormState(state => state.setShowMapSelector);
   const setFormState = useFormState(state => state.setFormState);
+  const userMaps = useUserMaps();
 
   const [notification, setNotification] = useState<null | {
     type: 'error' | 'success' | 'warning';
@@ -61,12 +65,6 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     setDataResponse(null);
     setNotification(null);
   }, [showMapSelector]);
-
-  const userMaps = useMapStore(state =>
-    state.userMaps.filter(
-      map => !allowListModules?.length || allowListModules.includes(map.map_module ?? '')
-    )
-  );
 
   const validateMap = async (mapId: string) => {
     let response: ValidationResponse = {
@@ -91,11 +89,11 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
     // take the slash and then the last characters after the slash
     const urlStrippedId = mapId.split('/').pop()?.replace('?pw=true', '');
     const userMap = userMaps?.find(map => map.document_id === urlStrippedId);
-    try {
-      response.mapInfo = await getDocument(urlStrippedId);
-    } catch {
+    const document = await getDocument(urlStrippedId);
+    if (document.ok) {
+      response.mapInfo = document.response;
+    } else {
       throw new Error('Map not found');
-      // could not get document
     }
     response.isPublicId = !isNaN(Number(urlStrippedId));
     response.mayNotBeUserMap = response.isPublicId && !userMap;
@@ -225,7 +223,7 @@ const MapSelectorInner: React.FC<MapSelectorProps> = ({allowListModules}) => {
                     className="w-full rounded-none h-auto p-2 justify-start"
                   >
                     <Flex direction="column" gap="0" className="text-left py-2" align="start">
-                      <Text>{map.map_metadata?.name ?? map.name}</Text>
+                      <Text>{map.map_metadata?.name ?? 'Plan'}</Text>
                       <Text>{map.map_module}</Text>
                       {map.updated_at && (
                         <Text size="1">

@@ -19,11 +19,14 @@ ARG NEXT_PUBLIC_S3_BUCKET_URL
 
 # Install packages needed to build node modules
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3 ca-certificates
+    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3 ca-certificates 
+
+# Install Bun
+RUN npm i -g bun
 
 # Install node modules
-COPY --link package-lock.json package.json ./
-RUN npm ci --include=dev
+COPY --link bun.lock package.json ./
+RUN bun install --include=dev
 
 RUN echo NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL && \
     echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" > .env.production && \
@@ -33,17 +36,17 @@ RUN echo NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL && \
 COPY --link . .
 
 # Build application
-RUN npm run build
-
-# Remove development dependencies
-RUN npm prune --omit=dev
+RUN bun run build
 
 # Final stage for app image
 FROM base
+
+# Install Bun for runtime
+RUN npm i -g bun
 
 # Copy built application
 COPY --from=build /app /app
 
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
-CMD [ "npm", "run", "start" ]
+CMD [ "bun", "run", "start" ]

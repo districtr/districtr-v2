@@ -1,6 +1,7 @@
 'use client';
 import {Flex, IconButton, Tooltip} from '@radix-ui/themes';
 import {useMapStore} from '@store/mapStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import {MoveIcon, PinRightIcon, RotateCounterClockwiseIcon} from '@radix-ui/react-icons';
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {ActiveTool} from '@constants/types';
@@ -13,9 +14,9 @@ import {ToolButtons} from './ToolButtons';
 const TOOLBAR_PADDING = 12;
 
 export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = () => {
-  const isEditing = useMapStore(state => state.isEditing);
-  const activeTool = useMapStore(state => state.activeTool);
-  const setActiveTool = useMapStore(state => state.setActiveTool);
+  const isEditing = useMapControlsStore(state => state.isEditing);
+  const activeTool = useMapControlsStore(state => state.activeTool);
+  const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const {
     x: userX,
@@ -74,9 +75,9 @@ export const Toolbar: React.FC<{overrideRotation?: ToolbarState['rotation']}> = 
 };
 
 export const DraggableToolbar = () => {
-  const isEditing = useMapStore(state => state.isEditing);
-  const activeTool = useMapStore(state => state.activeTool);
-  const setActiveTool = useMapStore(state => state.setActiveTool);
+  const isEditing = useMapControlsStore(state => state.isEditing);
+  const activeTool = useMapControlsStore(state => state.activeTool);
+  const setActiveTool = useMapControlsStore(state => state.setActiveTool);
   const setToolbarLocation = useToolbarStore(state => state.setToolbarLocation);
   const {
     x: userX,
@@ -147,6 +148,7 @@ export const DraggableToolbar = () => {
       defaultPosition={isMobile ? {x: 0, y: 0} : {x: x === null ? 100 : x, y: y === null ? 100 : y}}
       position={isMobile ? {x: 0, y: 0} : {x: x === null ? 100 : x, y: y === null ? 100 : y}}
       handle="#handle"
+      nodeRef={toolbarItemsRef}
       grid={[10, 10]}
       onStart={() => {
         previousActiveTool.current = activeTool;
@@ -187,7 +189,7 @@ export const DraggableToolbar = () => {
                   cursor: 'move',
                 }}
               >
-                <MoveIcon fontSize={'12'} />
+                  <MoveIcon fontSize={'12'} />
               </IconButton>
             </Tooltip>
             <Tooltip content="Rotate the toolbar">

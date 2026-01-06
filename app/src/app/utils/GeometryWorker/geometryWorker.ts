@@ -415,7 +415,7 @@ const GeometryWorker: GeometryWorkerClass = {
         visitedZones.add(zone);
         this.previousCentroids[zone] = centroid;
       } catch (e) {
-        console.log(e);
+        console.error(e);
       }
     }
     return {

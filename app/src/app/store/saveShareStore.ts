@@ -1,12 +1,13 @@
 import {create} from 'zustand';
 import {MapStore, useMapStore} from './mapStore';
-import {sharePlan} from '../utils/api/mutations/sharePlan';
+import {idb} from '../utils/idb/idb';
+import {patchSharePlan} from '../utils/api/apiHandlers/patchSharePlan';
 
 interface SaveShareStore {
   password: string;
   setPassword: (password: string) => void;
   generateLink: () => Promise<void>;
-  updatePassword: (mapDocument: MapStore['mapDocument'], password: string) => void;
+  updatePassword: (mapDocument: MapStore['mapDocument'], password: string) => Promise<void>;
   sharingMode: 'read' | 'edit';
   setSharingMode: (sharingMode: 'read' | 'edit') => void;
 }
@@ -16,7 +17,8 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
   setPassword: password => set({password}),
   generateLink: async () => {
     const {password, sharingMode} = get();
-    const {upsertUserMap, setErrorNotification, mapDocument, isEditing} = useMapStore.getState();
+    const {setErrorNotification, mapDocument} = useMapStore.getState();
+    const isEditing = mapDocument?.access === 'edit';
 
     if (!isEditing) {
       return;
@@ -26,11 +28,16 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
       setErrorNotification({message: 'No document found while generating share link', severity: 2});
       return;
     }
-    const {public_id: publicId} = await sharePlan.mutate({
+    const response = await patchSharePlan({
       document_id: mapDocument?.document_id,
       password: password ?? null,
       access_type: sharingMode,
     });
+    if (!response.ok) {
+      setErrorNotification({message: response.error.detail, severity: 2});
+      return;
+    }
+    const {public_id: publicId} = response.response;
 
     let shareableLink = new URL(`${window.location.origin}/map/${publicId}`);
     if (sharingMode === 'read') {
@@ -44,32 +51,23 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
     }
 
     navigator.clipboard.writeText(shareableLink.toString());
-    upsertUserMap({
-      documentId: mapDocument?.document_id,
-      mapDocument: {
-        ...mapDocument,
-        password: password,
-        public_id: publicId,
-      },
-    });
   },
-  updatePassword: (mapDocument: MapStore['mapDocument'], password: string) => {
-    const {upsertUserMap} = useMapStore.getState();
+  updatePassword: async (mapDocument: MapStore['mapDocument'], password: string) => {
     if (!mapDocument?.document_id) {
       return;
     }
-    upsertUserMap({
-      documentId: mapDocument?.document_id,
-      mapDocument: {
-        ...mapDocument,
-        password: password,
-      },
-    });
-    sharePlan.mutate({
+    const {setErrorNotification} = useMapStore.getState();
+    const response = await patchSharePlan({
       document_id: mapDocument?.document_id,
       password: password ?? null,
       access_type: 'edit',
     });
+    if (response.ok) {
+      set({password});
+      idb.updatePassword(mapDocument?.document_id, password);
+    } else {
+      setErrorNotification({message: response.error.detail, severity: 2});
+    }
   },
   sharingMode: 'read',
   setSharingMode: sharingMode => set({sharingMode}),
@@ -78,13 +76,18 @@ export const useSaveShareStore = create<SaveShareStore>((set, get) => ({
 useMapStore.subscribe(
   state => state.mapDocument,
   (mapDocument, previousMapDocument) => {
-    if (mapDocument?.document_id === previousMapDocument?.document_id) {
+    if (
+      !mapDocument?.document_id ||
+      mapDocument?.document_id === previousMapDocument?.document_id
+    ) {
       return;
     }
-    const userMap = useMapStore
-      .getState()
-      .userMaps.find(map => map.document_id === mapDocument?.document_id);
-    useSaveShareStore.getState().setPassword(userMap?.password || '');
-    useSaveShareStore.getState().setSharingMode(userMap?.password ? 'edit' : 'read');
+    idb.getDocument(mapDocument?.document_id).then(userMap => {
+      if (!userMap) return;
+      useSaveShareStore.getState().setPassword(userMap?.password || '');
+      useSaveShareStore
+        .getState()
+        .setSharingMode(userMap?.document_metadata.access === 'edit' ? 'edit' : 'read');
+    });
   }
 );

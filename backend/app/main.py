@@ -4,7 +4,6 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
-    Form,
 )
 from typing import Annotated
 import botocore.exceptions
@@ -15,15 +14,14 @@ from sqlalchemy.exc import (
     IntegrityError,
 )
 from sqlalchemy import text
-from sqlmodel import Session, String, select, true, update
+from sqlmodel import Session, String, select, true, update, col
 from starlette.middleware.cors import CORSMiddleware
-from sqlalchemy.dialects.postgresql import insert, TEXT, JSONB
 import logging
-from sqlalchemy import bindparam, cast
-from sqlmodel import ARRAY, INT
+from sqlalchemy import bindparam
+from sqlmodel import ARRAY
 from datetime import datetime
+from uuid import uuid4
 import sentry_sdk
-from fastapi_utils.tasks import repeat_every
 from app.assignments import duplicate_document_assignments, batch_insert_assignments
 from app.core.db import get_session
 from app.core.dependencies import (
@@ -52,11 +50,7 @@ from app.models import (
     DocumentCreate,
     DocumentCreatePublic,
     DocumentPublic,
-    DocumentEditStatus,
     DocumentMetadata,
-    GEOIDS,
-    GEOIDSResponse,
-    AssignedGEOIDS,
     UUIDType,
     ParentChildEdges,
     ShatterResult,
@@ -64,21 +58,16 @@ from app.models import (
     MapGroup,
     AssignmentsCreate,
 )
+from app.comments.models import DocumentComment, Tag, CommentTag
 from pydantic_geojson import PolygonModel
 from pydantic_geojson._base import Coordinates
 from sqlalchemy.sql import func
 from sqlalchemy.sql.functions import coalesce
-from app.save_share.locks import (
-    cleanup_expired_locks as _cleanup_expired_locks,
-    remove_all_locks,
-    check_map_lock,
-)
 from app.utils import update_or_select_district_stats
 from aiocache import Cache
 from contextlib import asynccontextmanager
 from fiona.transform import transform
 from fastapi import BackgroundTasks
-
 
 if settings.ENVIRONMENT in ("production", "qa"):
     sentry_sdk.init(
@@ -89,18 +78,9 @@ if settings.ENVIRONMENT in ("production", "qa"):
     )
 
 
-@repeat_every(seconds=60)
-async def cleanup_expired_locks():
-    session = next(get_session())
-    _cleanup_expired_locks(session=session, hours=1)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await cleanup_expired_locks()
     yield
-    session = next(get_session())
-    remove_all_locks(session=session)
 
 
 app = FastAPI(lifespan=lifespan)
@@ -159,33 +139,6 @@ async def db_is_alive(session: Session = Depends(get_session)):
         )
 
 
-@app.post("/api/document/{document_id}/unload", status_code=status.HTTP_200_OK)
-async def unlock_map(
-    document_id: DocumentID = Depends(parse_document_id),
-    user_id: str = Form(...),
-    session: Session = Depends(get_session),
-):
-    """
-    unlock map when tab is unloaded
-    """
-    try:
-        session.execute(
-            text(
-                """DELETE FROM document.map_document_user_session
-                WHERE document_id = :document_id AND user_id = :user_id"""
-            ).bindparams(
-                bindparam(key="document_id", type_=UUIDType),
-                bindparam(key="user_id", type_=String),
-            ),
-            {"document_id": document_id.value, "user_id": user_id},
-        )
-        session.commit()
-        return {"status": DocumentEditStatus.unlocked}
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/api/document/{document_id}/stats")
 async def get_document_stats(
     background_tasks: BackgroundTasks,
@@ -206,21 +159,21 @@ async def get_document_stats(
 async def create_document(
     data: DocumentCreate, session: Session = Depends(get_session)
 ):
-    # try:
     results = session.execute(
         text("SELECT create_document(:districtr_map_slug);"),
         {"districtr_map_slug": data.districtr_map_slug},
     )
-    plan_genesis = "created"
-    document_id = results.one()[0]  # should be only one row, one column of results
-
-    # Checking a document's lock status will create one if none is found, as in
-    # the case of new documents
-    lock_status = check_map_lock(document_id, data.user_id, session)
+    document_id = results.one()[0]  # create_document only returns the ID
+    created_document = get_document(
+        document_id=DocumentID(document_id=str(document_id)), session=session
+    )
 
     total_assignments = 0
 
     if data.copy_from_doc is not None:
+        logger.info(
+            f"Copying document. Origin document: {data.copy_from_doc} to {document_id}"
+        )
         copy_document_id = parse_document_id(data.copy_from_doc)
         if not copy_document_id:
             raise HTTPException(status_code=404, detail="Document not found")
@@ -234,7 +187,6 @@ async def create_document(
             to_document_id=document_id,
             session=session,
         )
-        plan_genesis = "copied"
 
     elif data.assignments is not None and len(data.assignments) > 0:
         max_records = 914_231
@@ -271,7 +223,7 @@ async def create_document(
             f"Updating metadata for document: {document_id if not data.copy_from_doc else copied_document.document_id}"
         )
         await update_districtrmap_metadata(
-            document=copied_document, metadata=data.metadata, session=session
+            document=created_document, metadata=data.metadata, session=session
         )
 
     stmt = (
@@ -290,16 +242,8 @@ async def create_document(
             DistrictrMap.num_districts.label("num_districts"),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
-            coalesce(plan_genesis).label("genesis"),
             coalesce(total_assignments).label("inserted_assignments"),
-            # send metadata as a null object on init of document
-            coalesce(
-                None,
-            ).label("map_metadata"),
-            coalesce(
-                None,
-                lock_status,
-            ).label("status"),
+            Document.map_metadata,
         )
         .where(Document.document_id == document_id)
         .join(
@@ -338,113 +282,139 @@ async def create_document(
     return doc
 
 
-@app.patch("/api/update_assignments")
+@app.put("/api/assignments")
 async def update_assignments(
     data: AssignmentsCreate, session: Session = Depends(get_session)
 ):
-    document_id = data.assignments[0].document_id
-    assignments = assignments = data.model_dump()["assignments"]
-    lock_status = check_map_lock(document_id, data.user_id, session)
+    """
+    Update assignments for a document with optimistic concurrency control.
 
-    if lock_status == DocumentEditStatus.checked_out:
-        stmt = insert(Assignments).values(assignments)
-        stmt = stmt.on_conflict_do_update(
-            constraint=Assignments.__table__.primary_key,
-            set_={"zone": stmt.excluded.zone},
+    This endpoint replaces all existing assignments for a document with the provided
+    assignments. It uses optimistic concurrency control to prevent overwriting changes
+    made by other clients.
+
+    The last_updated_at parameter is used for conflict detection:
+    - The client should provide the timestamp of the last known update to the document
+    - The server compares this with the document's current updated_at timestamp in the database
+    - If the database timestamp is newer (document was modified by another client),
+      a 409 Conflict error is raised unless overwrite=True
+    - This ensures that concurrent updates don't silently overwrite each other's changes. They
+      must be explicitly allowed by setting overwrite=True.
+
+    Args:
+        data (AssignmentsCreate): The request data containing:
+            - document_id: The ID of the document to update
+            - assignments: List of assignment pairs [[geo_id, zone], ...]
+            - last_updated_at: Timestamp of the client's last known update (for conflict detection)
+            - overwrite: If True, allows overwriting even if document was updated by another client
+        session (Session): Database session dependency
+
+    Returns:
+        dict: Response containing:
+            - assignments_inserted: Number of assignments inserted
+            - updated_at: New timestamp after the update
+
+    Raises:
+        HTTPException: 400 if no assignments provided
+        HTTPException: 409 if document was updated by another client and overwrite=False
+    """
+    if not data.assignments or not len(data.assignments) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No assignments provided",
         )
-        session.execute(stmt)
-        updated_at = None
-        if len(data.assignments) > 0:
-            updated_at = update_timestamp(session, document_id)
-            logger.info(f"Document updated at {updated_at}")
-        session.commit()
-        return {"assignments_upserted": len(data.assignments), "updated_at": updated_at}
-    else:
+
+    document_id = data.document_id
+    assignments = data.assignments  # [[geo_id, zone], ...]
+    last_updated_at = data.last_updated_at
+
+    db_last_updated_at = session.exec(
+        select(Document.updated_at).where(Document.document_id == document_id)
+    ).one_or_none()
+
+    if db_last_updated_at > last_updated_at and not data.overwrite:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Document is locked by another user",
+            detail="Document has been updated since the last update",
         )
+    # Delete existing assignments for this document
+    session.execute(
+        text("DELETE FROM document.assignments WHERE document_id = :document_id"),
+        {"document_id": document_id},
+    )
+    # Use COPY for faster bulk insert with partitioned tables
+    # Create a temporary table for bulk loading
+    (load_id, _) = str(uuid4()).split("-", maxsplit=1)
+    temp_table_name = f"temp_assignments_{load_id}"
+    session.execute(
+        text(
+            f"CREATE TEMP TABLE {temp_table_name} (document_id UUID, geo_id TEXT, zone INT)"
+        )
+    )
+
+    # Use COPY to bulk load data into temp table
+    cursor = session.connection().connection.cursor()
+    with cursor.copy(
+        f"COPY {temp_table_name} (document_id, geo_id, zone) FROM STDIN"
+    ) as copy:
+        for assignment in assignments:
+            # assignment is [geo_id, zone]
+            geo_id = assignment[0]
+            zone_val = assignment[1] if len(assignment) > 1 else None
+            copy.write_row([document_id, geo_id, zone_val])
+
+    # Insert from temp table into partitioned assignments table
+    # PostgreSQL will automatically route to the correct partition based on document_id
+    inserted_count = session.execute(
+        text(f"""
+        INSERT INTO document.assignments (document_id, geo_id, zone)
+        SELECT document_id, geo_id, zone
+        FROM {temp_table_name}
+        """),
+    ).rowcount
+    updated_at = None
+    if len(data.assignments) > 0:
+        updated_at = update_timestamp(session, document_id)
+        logger.info(f"Document updated at {updated_at}")
+
+    session.commit()
+    return {"assignments_inserted": inserted_count, "updated_at": updated_at}
 
 
-@app.patch(
-    "/api/update_assignments/{document_id}/shatter_parents",
-    response_model=ShatterResult,
+@app.get(
+    "/api/gerrydb/edges/{districtr_map_slug}",
+    response_model=list[ShatterResult],
 )
-async def shatter_parent(
-    document: Annotated[Document, Depends(get_document)],
-    data: GEOIDS,
+async def get_children(
+    districtr_map_slug: str,
+    parent_geoid: list[str] = Query(default=[]),
     session: Session = Depends(get_session),
 ):
-    assert document.document_id is not None
+    db_districtr_map_uuid = session.exec(
+        select(DistrictrMap.uuid).where(
+            DistrictrMap.districtr_map_slug == districtr_map_slug
+        )
+    ).one()
     stmt = text(
-        """SELECT *
-        FROM shatter_parent(:input_document_id, :parent_geoids)"""
+        """SELECT child_path, parent_path
+        FROM parentchildedges pce
+        WHERE pce.parent_path = ANY(:parent_geoids)
+        AND pce.districtr_map = :districtr_map_uuid"""
     ).bindparams(
-        bindparam(key="input_document_id", type_=UUIDType),
+        bindparam(key="districtr_map_uuid", type_=UUIDType),
         bindparam(key="parent_geoids", type_=ARRAY(String)),
     )
     results = session.execute(
         statement=stmt,
         params={
-            "input_document_id": document.document_id,
-            "parent_geoids": data.geoids,
+            "districtr_map_uuid": db_districtr_map_uuid,
+            "parent_geoids": parent_geoid,
         },
-    )
-    # :( was getting validation errors so am just going to loop
-    assignments = [
-        Assignments(document_id=str(document_id), geo_id=geo_id, zone=zone)
-        for document_id, geo_id, zone in results
-    ]
-    updated_at = update_timestamp(session, document.document_id)
-    result = ShatterResult(parents=data, children=assignments, updated_at=updated_at)
-    session.commit()
-    return result
+    ).fetchall()
+    return results
 
 
-@app.patch(
-    "/api/update_assignments/{document_id}/unshatter_parents",
-    response_model=GEOIDSResponse,
-)
-async def unshatter_parent(
-    document: Annotated[Document, Depends(get_document)],
-    data: AssignedGEOIDS,
-    session: Session = Depends(get_session),
-):
-    stmt = text(
-        """SELECT *
-        FROM unshatter_parent(:input_document_id, :parent_geoids, :input_zone)"""
-    ).bindparams(
-        bindparam(key="input_document_id", type_=UUIDType),
-        bindparam(key="parent_geoids", type_=ARRAY(String)),
-        bindparam(key="input_zone", type_=INT),
-    )
-    results = session.execute(
-        statement=stmt,
-        params={
-            "input_document_id": document.document_id,
-            "parent_geoids": data.geoids,
-            "input_zone": data.zone,
-        },
-    ).first()
-
-    assert (
-        results is not None and document.document_id is not None
-    ), "No results returned from unshatter_parent"
-    updated_at = update_timestamp(session, document.document_id)
-    session.commit()
-
-    if results is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Unable to unshatter parent",
-        )
-
-    return {"geoids": results[0], "updated_at": updated_at}
-
-
-@app.patch(
-    "/api/update_assignments/{document_id}/reset", status_code=status.HTTP_200_OK
-)
+@app.patch("/api/assignments/{document_id}/reset", status_code=status.HTTP_200_OK)
 async def reset_map(
     document: Annotated[Document, Depends(get_document)],
     session: Session = Depends(get_session),
@@ -522,37 +492,39 @@ async def get_assignments(
     document: Annotated[Document, Depends(get_protected_document)],
     session: Session = Depends(get_session),
 ):
+    districtr_map_uuid = session.exec(
+        select(DistrictrMap.uuid)
+        .join(
+            Document,
+            onclause=col(Document.districtr_map_slug)
+            == DistrictrMap.districtr_map_slug,
+        )
+        .where(Document.document_id == document.document_id)
+    ).one()
+
     stmt = (
         select(
             Assignments.geo_id,
             Assignments.zone,
             ParentChildEdges.parent_path,
         )
-        .join(Document, onclause=Assignments.document_id == Document.document_id)
-        .join(
-            DistrictrMap,
-            onclause=Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
-        )
         .outerjoin(
             ParentChildEdges,
-            onclause=(Assignments.geo_id == ParentChildEdges.child_path)
-            & (ParentChildEdges.districtr_map == DistrictrMap.uuid),
+            onclause=(col(Assignments.geo_id) == ParentChildEdges.child_path)
+            & (col(ParentChildEdges.districtr_map) == districtr_map_uuid),
         )
         .where(Assignments.document_id == document.document_id)
     )
-    return session.execute(stmt).fetchall()
+    return session.exec(stmt).fetchall()
 
 
 @app.get("/api/document/{document_id}", response_model=DocumentPublic)
 async def get_document_object(
     document_id: DocumentID = Depends(parse_document_id),
-    user_id: str | None = None,
     session: Session = Depends(get_session),
 ):
     try:
-        return get_document_public(
-            document_id=document_id, user_id=user_id, session=session
-        )
+        return get_document_public(document_id=document_id, session=session)
     except NoResultFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -580,6 +552,9 @@ async def get_document_list(
             Document.updated_at,
             DistrictrMap.name.label("map_module"),
         )
+        .distinct(
+            Document.public_id,
+        )
         .join(
             DistrictrMap,
             Document.districtr_map_slug == DistrictrMap.districtr_map_slug,
@@ -590,16 +565,31 @@ async def get_document_list(
     )
 
     if len(tags) > 0:
-        stmt = stmt.where(
-            cast(Document.map_metadata["tags"], JSONB).op("?|")(
-                bindparam("tags", value=list(tags), type_=ARRAY(TEXT))
+        stmt = (
+            stmt.join(
+                DocumentComment,
+                DocumentComment.document_id == Document.document_id,
             )
-        ).where(
-            # this is fine to keep as ->> because you're comparing to text
-            Document.map_metadata["draft_status"].astext == "ready_to_share"
+            .join(
+                CommentTag,
+                CommentTag.comment_id == DocumentComment.comment_id,
+            )
+            .join(
+                Tag,
+                Tag.id == CommentTag.tag_id,
+            )
+            .where(
+                Tag.slug.in_(tags),
+            )
+            .where(
+                # this is fine to keep as ->> because you're comparing to text
+                Document.map_metadata["draft_status"].astext == "ready_to_share"
+            )
         )
-    elif len(ids) > 0:
+
+    if len(ids) > 0:
         stmt = stmt.where(Document.public_id.in_(ids))
+
     results = session.execute(stmt).fetchall()
     return [
         {

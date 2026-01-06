@@ -8,13 +8,13 @@ from fastapi import (
     Query,
     Request,
 )
-from sqlmodel import Session, select, func
+from sqlmodel import Session, col
 from sqlalchemy.exc import IntegrityError, DataError
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import text, or_, and_, exists, literal
+from sqlalchemy import text, func, select, String, Select
 
 from app.core.security import auth, TokenScope
-from typing import Optional
+from sqlalchemy.sql import or_, and_, exists, literal, cast, case
 
 from app.core.dependencies import get_protected_document
 from app.core.db import get_session
@@ -27,28 +27,29 @@ from app.comments.models import (
     CommentCreateWithRecaptcha,
     CommentPublic,
     Tag,
-    TagWithId,
     TagCreateWithRecaptcha,
+    TagWithId,
     CommentTag,
     FullCommentForm,
     FullCommentFormResponse,
     DocumentComment,
     FullCommentFormCreate,
     PublicCommentResponse,
+    AdminCommentResponse,
+    ReviewStatus,
     ReviewStatusUpdate,
     ReviewUpdateResponse,
-    ReviewStatus,
 )
 from app.comments.moderation import (
     moderate_submission,
     moderate_commenter,
     moderate_comment,
     moderate_tag,
+    MODERATION_THRESHOLD,
 )
 from app.models import Document
 from app.core.models import DocumentID
 from app.core.security import recaptcha
-from app.comments.moderation import MODERATION_THRESHOLD
 
 router = APIRouter(tags=["comments"], prefix="/api/comments")
 
@@ -85,7 +86,7 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
     Returns the Comment model with id.
     """
     # if comment is submitted with a document ID, get the document ID
-    if "document_id" in comment_data and comment_data.document_id is not None:
+    if comment_data.document_id is not None:
         try:
             document = get_protected_document(
                 document_id=DocumentID(document_id=comment_data.document_id),
@@ -107,15 +108,18 @@ def create_comment_db(comment_data: CommentCreate, session: Session) -> Comment:
 
     comment = Comment(**kwargs)
     session.add(comment)
-    session.commit()
-    session.refresh(comment)
+    # Ensures the next query still executes within the same transaction
+    session.flush()
 
     if comment_data.document_id is not None:
         create_document_comment(
             comment_id=comment.id,
             document_id=comment_data.document_id,
+            zone=comment_data.zone,
             session=session,
         )
+
+    session.commit()
 
     return comment
 
@@ -156,8 +160,8 @@ def create_comment_tag_associations(
 
 
 def create_document_comment(
-    comment_id: int, document_id: str, session: Session
-) -> None:
+    comment_id: int, document_id: str, zone: int | None, session: Session
+) -> DocumentComment:
     """
     Create a document comment.
     """
@@ -166,10 +170,10 @@ def create_document_comment(
     )
 
     stmt = insert(DocumentComment).values(
-        comment_id=comment_id, document_id=document.document_id
+        comment_id=comment_id, document_id=document.document_id, zone=zone
     )
-    session.execute(stmt)
-    session.commit()
+    document_comment: DocumentComment = session.exec(stmt)  # type: ignore
+    return document_comment
 
 
 def create_full_comment_submission(
@@ -304,24 +308,21 @@ async def submit_full_comment(
 
 
 def get_comments_base_query(
-    tags: list[str],
-    place: str,
-    state: str,
-    zip_code: str,
+    tags: list[str] | None,
+    place: str | None,
+    state: str | None,
+    zip_code: str | None,
     limit: int,
     offset: int,
     public_id: int | None,
-    moderation_threshold: float = MODERATION_THRESHOLD,
-    exclude_rejected: bool = True,
-):
+) -> Select:
     """
     Return comments that pass moderation gates, with ALL their attached tags.
     If any moderation gate fails (comment, commenter, or any attached tag),
     the whole comment is excluded.
     """
 
-    # Base SELECT with aggregation over ALL tags
-    stmt = (
+    tag_subquery = (
         select(
             Comment.title,
             Comment.comment,
@@ -331,16 +332,44 @@ def get_comments_base_query(
             Commenter.state,
             Commenter.zip_code,
             Comment.created_at,
+            col(CommentTag.comment_id),
             func.coalesce(
-                func.array_agg(func.distinct(Tag.slug)).filter(Tag.slug.isnot(None)),
+                func.array_agg(func.distinct(Tag.slug)).filter(
+                    col(Tag.slug).isnot(None)
+                ),
                 [],
             ).label("tags"),
+            func.count(
+                case(
+                    (col(Tag.slug).in_(tags) if tags else False, 1),  # type: ignore
+                    else_=None,
+                )
+            ).label("matching_tag_count")
+            if tags
+            else literal(0).label("matching_tag_count"),
         )
-        .outerjoin(Commenter, Comment.commenter_id == Commenter.id)
-        # Keep tag joins ONLY for aggregation; don't filter them in WHERE
-        .outerjoin(CommentTag, CommentTag.comment_id == Comment.id)
-        .outerjoin(Tag, Tag.id == CommentTag.tag_id)
-        .group_by(Comment.id, Commenter.id)
+        .outerjoin(Tag, col(Tag.id) == CommentTag.tag_id)
+        .group_by(col(CommentTag.comment_id))
+    ).subquery()
+
+    stmt = (
+        select(
+            col(Comment.title),
+            col(Comment.comment),
+            col(Commenter.first_name),
+            col(Commenter.last_name),
+            col(Commenter.place),
+            col(Commenter.state),
+            col(Commenter.zip_code),
+            func.coalesce(tag_subquery.c.tags, []).label("tags"),
+            col(DocumentComment.zone),
+        )
+        .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
+        .outerjoin(tag_subquery, col(Comment.id) == tag_subquery.c.comment_id)
+        .outerjoin(
+            DocumentComment,
+            col(DocumentComment.comment_id) == Comment.id,
+        )
         .limit(limit)
         .offset(offset)
     )
@@ -352,11 +381,11 @@ def get_comments_base_query(
         doc_exists = (
             select(literal(1))
             .select_from(DocumentComment)
-            .join(Document, Document.document_id == DocumentComment.document_id)
+            .join(Document, col(Document.document_id) == DocumentComment.document_id)
             .where(
                 and_(
-                    DocumentComment.comment_id == Comment.id,
-                    Document.public_id == public_id,
+                    col(DocumentComment.comment_id) == Comment.id,
+                    col(Document.public_id) == public_id,
                 )
             )
             .correlate(Comment)
@@ -367,30 +396,26 @@ def get_comments_base_query(
     # Location filters (Commenter)
     # -----------------------------
     if place:
-        stmt = stmt.where(Commenter.place == place)
+        stmt = stmt.where(col(Commenter.place) == place)
     if state:
-        stmt = stmt.where(Commenter.state == state)
+        stmt = stmt.where(col(Commenter.state) == state)
     if zip_code:
-        stmt = stmt.where(Commenter.zip_code == zip_code)
+        stmt = stmt.where(col(Commenter.zip_code) == zip_code)
 
-    # -----------------------------
-    # Tag "search" filter via EXISTS
-    # (do NOT filter the aggregated Tag join)
-    # -----------------------------
     if tags:
-        has_any_requested_tag = (
-            select(literal(1))
-            .select_from(CommentTag)
-            .join(Tag, Tag.id == CommentTag.tag_id)
-            .where(
-                and_(
-                    CommentTag.comment_id == Comment.id,
-                    Tag.slug.in_(tags),
-                )
-            )
-            .correlate(Comment)
-        )
-        stmt = stmt.where(exists(has_any_requested_tag))
+        stmt = stmt.where(tag_subquery.c.matching_tag_count > 0)
+
+    return stmt
+
+
+def moderate_comments_query(
+    stmt: Select,
+    moderation_threshold: float = MODERATION_THRESHOLD,
+    exclude_rejected: bool = True,
+) -> Select:
+    """
+    Moderate the comments query.
+    """
 
     # -----------------------------
     # Moderation gates
@@ -398,7 +423,6 @@ def get_comments_base_query(
     # - Commenter: if present, must pass
     # - Tags: comment excluded if ANY attached tag fails
     # -----------------------------
-
     # Helper booleans (so the logic reads clearly)
     def passes_entity(score_col, status_col):
         # Approved always passes
@@ -412,16 +436,18 @@ def get_comments_base_query(
     # Comment moderation
     comment_ok = passes_entity(Comment.moderation_score, Comment.review_status)
     if exclude_rejected:
-        comment_ok = and_(Comment.review_status != ReviewStatus.REJECTED, comment_ok)
+        comment_ok = and_(
+            col(Comment.review_status) != ReviewStatus.REJECTED, comment_ok
+        )
     stmt = stmt.where(comment_ok)
 
     # Commenter moderation (if commenter exists)
     commenter_ok = passes_entity(Commenter.moderation_score, Commenter.review_status)
     if exclude_rejected:
         commenter_ok = and_(
-            Commenter.review_status != ReviewStatus.REJECTED, commenter_ok
+            col(Commenter.review_status) != ReviewStatus.REJECTED, commenter_ok
         )
-    stmt = stmt.where(or_(Commenter.id.is_(None), commenter_ok))
+    stmt = stmt.where(or_(col(Commenter.id).is_(None), commenter_ok))
 
     # Tag moderation: exclude the entire comment if ANY attached tag fails.
     # We phrase this as NOT EXISTS(bad_tag)
@@ -431,26 +457,153 @@ def get_comments_base_query(
     # Fails threshold unless explicitly approved
     bad_tag_conds.append(
         and_(
-            Tag.review_status != ReviewStatus.APPROVED,
-            Tag.moderation_score.is_not(None),
-            Tag.moderation_score >= moderation_threshold,
+            col(Tag.review_status) != ReviewStatus.APPROVED,
+            col(Tag.moderation_score).is_not(None),
+            col(Tag.moderation_score) >= moderation_threshold,
         )
     )
 
     bad_tag_exists = (
         select(literal(1))
         .select_from(CommentTag)
-        .join(Tag, Tag.id == CommentTag.tag_id)
+        .join(Tag, col(Tag.id) == CommentTag.tag_id)
         .where(
             and_(
-                CommentTag.comment_id == Comment.id,
+                col(CommentTag.comment_id) == Comment.id,
                 or_(*bad_tag_conds),
             )
         )
         .correlate(Comment)
     )
     # Allow comments with no tags (NOT EXISTS bad tag is trivially true)
-    stmt = stmt.where(~exists(bad_tag_exists))
+    return stmt.where(~exists(bad_tag_exists))
+
+
+def get_admin_query(
+    tags: list[str] | None,
+    place: str | None,
+    state: str | None,
+    zip_code: str | None,
+    limit: int,
+    offset: int,
+    public_id: int | None,
+    min_moderation_score: float,
+    review_status: ReviewStatus | None,
+) -> Select:
+    """
+    Return admin comments query with all admin columns and moderation filtering.
+    This is a standalone query builder for admin endpoints that doesn't rely on
+    get_comments_base_query to avoid complexity.
+    """
+
+    tag_subquery = (
+        select(
+            col(CommentTag.comment_id),
+            func.coalesce(
+                func.array_agg(func.distinct(Tag.slug)).filter(
+                    col(Tag.slug).isnot(None)
+                ),
+                [],
+            ).label("tags"),
+            func.coalesce(
+                func.array_agg(col(Tag.id)),
+                [],
+            ).label("tag_ids"),
+            func.coalesce(
+                func.array_agg(cast(Tag.review_status, String)),
+                [],
+            ).label("tag_review_status"),
+            func.coalesce(
+                func.array_agg(col(Tag.moderation_score)),
+                [],
+            ).label("tag_moderation_score"),
+            func.count(
+                case(
+                    (col(Tag.slug).in_(tags) if tags else False, 1),  # type: ignore
+                    else_=None,
+                )
+            ).label("matching_tag_count")
+            if tags
+            else literal(0).label("matching_tag_count"),
+        )
+        .outerjoin(Tag, col(Tag.id) == CommentTag.tag_id)
+        .group_by(col(CommentTag.comment_id))
+    ).subquery()
+
+    stmt = (
+        select(
+            col(Comment.title),
+            col(Comment.comment),
+            col(Commenter.first_name),
+            col(Commenter.last_name),
+            col(Commenter.place),
+            col(Commenter.state),
+            col(Commenter.zip_code),
+            func.coalesce(tag_subquery.c.tags, []).label("tags"),
+            col(DocumentComment.zone),
+            col(Comment.id).label("comment_id"),
+            col(Comment.review_status).label("comment_review_status"),
+            col(Comment.moderation_score).label("comment_moderation_score"),
+            col(Commenter.id).label("commenter_id"),
+            col(Commenter.review_status).label("commenter_review_status"),
+            col(Commenter.moderation_score).label("commenter_moderation_score"),
+            func.coalesce(tag_subquery.c.tag_ids, []).label("tag_ids"),
+            func.coalesce(tag_subquery.c.tag_review_status, []).label(
+                "tag_review_status"
+            ),
+            func.coalesce(tag_subquery.c.tag_moderation_score, []).label(
+                "tag_moderation_score"
+            ),
+        )
+        .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
+        .outerjoin(tag_subquery, col(Comment.id) == tag_subquery.c.comment_id)
+        .outerjoin(
+            DocumentComment,
+            col(DocumentComment.comment_id) == Comment.id,
+        )
+        .limit(limit)
+        .offset(offset)
+    )
+
+    # Document filter via EXISTS
+    if public_id:
+        doc_exists = (
+            select(literal(1))
+            .select_from(DocumentComment)
+            .join(Document, col(Document.document_id) == DocumentComment.document_id)
+            .where(
+                and_(
+                    col(DocumentComment.comment_id) == Comment.id,
+                    col(Document.public_id) == public_id,
+                )
+            )
+            .correlate(Comment)
+        )
+        stmt = stmt.where(exists(doc_exists))
+
+    # Location filters (Commenter)
+    if place:
+        stmt = stmt.where(col(Commenter.place) == place)
+    if state:
+        stmt = stmt.where(col(Commenter.state) == state)
+    if zip_code:
+        stmt = stmt.where(col(Commenter.zip_code) == zip_code)
+
+    if tags:
+        stmt = stmt.where(tag_subquery.c.matching_tag_count > 0)
+
+    # Admin-specific moderation filtering
+    stmt = stmt.where(
+        and_(
+            or_(
+                col(Comment.moderation_score) < min_moderation_score,
+                col(Comment.moderation_score).is_(None),
+            ),
+            col(Comment.review_status) == review_status
+            if review_status
+            else col(Comment.review_status).is_(None),
+        )
+    )
 
     return stmt
 
@@ -462,13 +615,13 @@ def get_comments_base_query(
 async def list_comments(
     *,
     session: Session = Depends(get_session),
-    public_id: Optional[int] = None,
-    tags: Optional[list[str]] = Query(default=None),
-    place: Optional[str] = Query(default=None),
-    state: Optional[str] = Query(default=None),
-    zip_code: Optional[str] = Query(default=None),
-    offset: Optional[int] = Query(default=0, ge=0),
-    limit: Optional[int] = Query(default=100, le=100),
+    public_id: int | None = None,
+    tags: list[str] | None = Query(default=None),
+    place: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    zip_code: str | None = Query(default=None),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, le=100),
 ):
     stmt = get_comments_base_query(
         tags=tags,
@@ -479,12 +632,12 @@ async def list_comments(
         offset=offset,
         public_id=public_id,
     )
-
-    results = session.exec(stmt).all()
+    stmt = moderate_comments_query(stmt)
+    results = session.execute(stmt).all()
     return results
 
 
-@router.get("/admin/list", response_model=list[PublicCommentResponse])
+@router.get("/admin/list", response_model=list[AdminCommentResponse])
 async def list_comments_admin(
     tags: list[str] = Query(default=[]),
     place: str = Query(default=None),
@@ -497,8 +650,9 @@ async def list_comments_admin(
     limit: int = Query(default=100),
     session: Session = Depends(get_session),
     auth_result: dict = Security(auth.verify, scopes=[TokenScope.create_content]),
+    review_status: ReviewStatus = Query(default=None),
 ):
-    stmt = get_comments_base_query(
+    stmt = get_admin_query(
         tags=tags,
         place=place,
         state=state,
@@ -506,36 +660,10 @@ async def list_comments_admin(
         limit=limit,
         offset=offset,
         public_id=public_id,
-        moderation_threshold=min_moderation_score,
-        exclude_rejected=False,
+        min_moderation_score=min_moderation_score,
+        review_status=review_status,
     )
-
-    threshold = min_moderation_score
-    stmt = (
-        stmt.where(
-            or_(
-                Comment.moderation_score < threshold,
-                Comment.review_status == ReviewStatus.APPROVED,
-            )
-        )
-        .where(
-            or_(
-                Commenter.moderation_score < threshold,
-                Commenter.review_status == ReviewStatus.APPROVED,
-                Commenter.id == None,  # noqa: E711 SqlAlchemy wants == not is
-            )
-        )
-        .where(
-            or_(
-                Tag.id == None,  # noqa: E711 SqlAlchemy wants == not is
-                Tag.moderation_score < threshold,
-                Tag.review_status == ReviewStatus.APPROVED,
-            )
-        )
-    )
-    stmt = stmt.offset(offset).limit(limit)
-
-    results = session.exec(stmt).all()
+    results = session.execute(stmt).all()
     return results
 
 

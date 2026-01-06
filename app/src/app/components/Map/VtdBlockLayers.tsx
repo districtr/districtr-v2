@@ -1,6 +1,7 @@
 import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useLayoutEffect, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, useMap} from 'react-map-gl/maplibre';
@@ -11,19 +12,20 @@ import {demographyCache} from '@/app/utils/demography/demographyCache';
 import {useClearMap} from '@/app/hooks/useClearMap';
 import {PointSelectionLayer} from './PointSelectionLayer';
 import {TILESET_URL} from '@/app/utils/api/constants';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 export const VtdBlockLayers: React.FC<{
   isDemographicMap?: boolean;
 }> = ({isDemographicMap}) => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const setMapRenderingState = useMapStore(state => state.setMapRenderingState);
-  const showDemographicMap = useMapStore(state => state.mapOptions.showDemographicMap);
+  const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
   const demographicVariable = useDemographyStore(state => state.variable);
   const demographicVariant = useDemographyStore(state => state.variant);
   const [loadedTiles, setLoadedTiles] = useState('');
   const setScale = useDemographyStore(state => state.setScale);
   const demographyDataHash = useDemographyStore(state => state.dataHash);
-  const shatterIds = useMapStore(state => state.shatterIds);
+  const shatterIds = useAssignmentsStore(state => state.shatterIds);
   const showDemography = isDemographicMap || showDemographicMap === 'overlay';
   const mapRef = useMap();
   const numberOfBins = useDemographyStore(state => state.numberOfBins);
@@ -93,18 +95,10 @@ export const VtdBlockLayers: React.FC<{
         url={`pmtiles://${TILESET_URL}/${mapDocument.tiles_s3_path}`}
         promoteId="path"
       >
-        {!isDemographicMap && (
-          <>
-            <ZoneLayerGroup />
-            <ZoneLayerGroup child />
-          </>
-        )}
-        {!!showDemography && (
-          <>
-            <DemographicLayer />
-            <DemographicLayer child />
-          </>
-        )}
+        {!isDemographicMap && <ZoneLayerGroup child />}
+        {!isDemographicMap && <ZoneLayerGroup />}
+        {!!showDemography && <DemographicLayer child />}
+        {!!showDemography && <DemographicLayer />}
         <HighlightOverlayerLayerGroup />
         <HighlightOverlayerLayerGroup child />
       </Source>

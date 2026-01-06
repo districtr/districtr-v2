@@ -13,6 +13,7 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?:
   const router = useRouter();
   const userID = useMapStore(stat => stat.userID);
   const setUserID = useMapStore(stat => stat.setUserID);
+  const setErrorNotification = useMapStore(stat => stat.setErrorNotification);
 
   useEffect(() => {
     !userID && setUserID();
@@ -22,9 +23,15 @@ export const CreateButton: React.FC<{view: Partial<DistrictrMap>; extraClasses?:
     view.districtr_map_slug &&
       createMapDocument({
         districtr_map_slug: view.districtr_map_slug,
-        user_id: userID,
-      }).then(data => {
-        router.push(`/map/edit/${data.document_id}`);
+      }).then(r => {
+        if (r.ok) {
+          router.push(`/map/edit/${r.response.document_id}`);
+        } else {
+          setErrorNotification({
+            message: r.error.detail,
+            severity: 2,
+          });
+        }
       });
   };
 

@@ -1,20 +1,21 @@
 import pytest
 from fastapi.testclient import TestClient
-from tests.constants import FIXTURES_PATH, USER_ID
+from tests.constants import FIXTURES_PATH
+from datetime import datetime
 
 
 @pytest.fixture(name="assignments_document_id")
 def assignments_fixture(client, document_id) -> str:
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "202090441022004", "zone": 1},
-                {"document_id": document_id, "geo_id": "202090428002008", "zone": 1},
-                {"document_id": document_id, "geo_id": "200979691001108", "zone": 2},
+                ["202090441022004", 1],
+                ["202090428002008", 1],
+                ["200979691001108", 2],
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200
@@ -100,21 +101,20 @@ def simple_child_geoids_document_id(
         "/api/create_document",
         json={
             "districtr_map_slug": "simple_geos",
-            "user_id": USER_ID,
         },
     )
     assert response.status_code == 201, response.json()
     document_id = response.json()["document_id"]
-    response = client.patch(
-        "/api/update_assignments",
+    response = client.put(
+        "/api/assignments",
         json={
+            "document_id": document_id,
             "assignments": [
-                {"document_id": document_id, "geo_id": "a", "zone": 1},
-                {"document_id": document_id, "geo_id": "b", "zone": 1},
-                {"document_id": document_id, "geo_id": "c", "zone": 2},
+                ["a", 1],
+                ["b", 1],
+                ["c", 2],
             ],
-            "updated_at": "2023-01-01T00:00:00",
-            "user_id": "b097794f-8eba-4892-84b5-ad0dd5931795",
+            "last_updated_at": datetime.now().astimezone().isoformat(),
         },
     )
     assert response.status_code == 200, response.json()

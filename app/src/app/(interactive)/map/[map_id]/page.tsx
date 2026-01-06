@@ -5,7 +5,7 @@ import {MapPageProps} from '../types';
 
 export const generateMetadata = generateMapPageMetadata;
 
-export default function ViewPage({params}: MapPageProps) {
-  const {map_id} = params;
+export default async function ViewPage({params}: MapPageProps) {
+  const {map_id} = await params;
   return <MapPage isEditing={false} mapId={map_id} />;
 }

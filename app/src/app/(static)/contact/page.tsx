@@ -1,5 +1,4 @@
 import {Flex, Heading, Text, Link, Box} from '@radix-ui/themes';
-import NextLink from 'next/link';
 
 export default function GuidePage() {
   return (

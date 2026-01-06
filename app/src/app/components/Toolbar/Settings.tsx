@@ -2,9 +2,11 @@ import React from 'react';
 import {Heading, CheckboxGroup, Flex, Button, Text, Box} from '@radix-ui/themes';
 import {useFeatureFlagStore} from '@store/featureFlagStore';
 import {useMapStore} from '@store/mapStore';
+import {useMapControlsStore} from '@store/mapControlsStore';
 import {useToolbarStore} from '@/app/store/toolbarStore';
 import {FALLBACK_NUM_DISTRICTS} from '@/app/constants/layers';
 import {ColorChangeModal} from './ColorChangeModal';
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
   {
@@ -34,9 +36,9 @@ const TOOLBAR_SIZES: Array<{label: string; value: number}> = [
  */
 export const ToolSettings: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const parentsAreBroken = useMapStore(state => state.shatterIds.parents.size);
-  const mapOptions = useMapStore(state => state.mapOptions);
-  const setMapOptions = useMapStore(state => state.setMapOptions);
+  const parentsAreBroken = useAssignmentsStore(state => state.shatterIds.parents.size);
+  const mapOptions = useMapControlsStore(state => state.mapOptions);
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
   const setToolbarSize = useToolbarStore(state => state.setToolbarSize);
   const toolbarSize = useToolbarStore(state => state.toolbarSize);
   const customizeToolbar = useToolbarStore(state => state.customizeToolbar);

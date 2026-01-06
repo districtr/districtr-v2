@@ -1,16 +1,13 @@
 import {useMapStore} from '@/app/store/mapStore';
+import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import React, {useEffect} from 'react';
 import {Cross2Icon} from '@radix-ui/react-icons';
 import {Button, Flex, Text, Table, Dialog, Box, Separator, Popover} from '@radix-ui/themes';
-import {usePathname, useSearchParams, useRouter} from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import {DocumentObject} from '@utils/api/apiHandlers/types';
-import {styled} from '@stitches/react';
-import {useTemporalStore} from '@/app/store/temporalStore';
-import {unlockMapDocument} from '@/app/utils/api/apiHandlers/unlockMapDocument';
-
-const DialogContentContainer = styled(Dialog.Content, {
-  maxHeight: 'calc(100vh-2rem)',
-});
+import {useState} from 'react';
+import {idb} from '@/app/utils/idb/idb';
+import {useUserMaps} from '@/app/hooks/useUserMaps';
 
 export const RecentMapsModal: React.FC<{
   open?: boolean;
@@ -19,68 +16,94 @@ export const RecentMapsModal: React.FC<{
 }> = ({open, onClose, showTrigger}) => {
   const router = useRouter();
   const mapDocument = useMapStore(store => store.mapDocument);
-  const userMaps = useMapStore(store => store.userMaps);
-  const upsertUserMap = useMapStore(store => store.upsertUserMap);
-  const deleteUserMap = useMapStore(store => store.deleteUserMap);
   const setMapDocument = useMapStore(store => store.setMapDocument);
-  const setActiveTool = useMapStore(store => store.setActiveTool);
-  const [dialogOpen, setDialogOpen] = React.useState(open || false);
-
-  useEffect(() => {
-    setDialogOpen(open || false);
-  }, [open]);
-
-  const clear = useTemporalStore(store => store.clear);
+  const setActiveTool = useMapControlsStore(store => store.setActiveTool);
+  const [updateTrigger, setUpdateTrigger] = useState<string | null | number>(null);
+  const recentMaps = useUserMaps(updateTrigger);
 
   const handleUnloadMapDocument = () => {
     // Navigate to home page
     setMapDocument({} as DocumentObject);
     router.push('/map');
-    // release the lock on the map in the db
-    unlockMapDocument(mapDocument?.document_id as string);
   };
 
-  const handleMapDocument = (data: DocumentObject) => {
-    clear();
+  const handleMapDocument = async (data: DocumentObject) => {
     // Navigate to edit mode with the UUID
     router.push(`/map/edit/${data.document_id}`);
-
     // close dialog
-    setDialogOpen(false);
     onClose?.();
   };
 
-  useEffect(() => {
-    if (!dialogOpen) {
-      setActiveTool('pan');
+  const handleDeleteMap = async (documentId: string) => {
+    await idb.deleteDocument(documentId);
+    // Reload the list
+    const storedDocs = await idb.getAllDocuments();
+    const sortedDocs = storedDocs
+      .map(doc => doc.document_metadata)
+      .sort((a, b) => {
+        const aTime = new Date(a.updated_at || 0).getTime();
+        const bTime = new Date(b.updated_at || 0).getTime();
+        return bTime - aTime;
+      });
+    setUpdateTrigger(Date.now());
+  };
+
+  const handleChangeName = async (userMapData: DocumentObject | undefined) => {
+    if (userMapData && userMapData.document_id) {
+      // Update the document in IndexedDB
+      const storedDoc = await idb.getDocument(userMapData.document_id);
+      if (storedDoc) {
+        await idb.updateDocument({
+          ...storedDoc,
+          document_metadata: userMapData,
+        });
+        // Reload the list
+        const storedDocs = await idb.getAllDocuments();
+        const sortedDocs = storedDocs
+          .map(doc => doc.document_metadata)
+          .sort((a, b) => {
+            const aTime = new Date(a.updated_at || 0).getTime();
+            const bTime = new Date(b.updated_at || 0).getTime();
+            return bTime - aTime;
+          });
+        setUpdateTrigger(Date.now());
+
+      }
     }
-  }, [dialogOpen]);
+  };
 
   useEffect(() => {
-    if (!dialogOpen) {
+    if (!open) {
+      setActiveTool('pan');
+      // Ensure body pointer-events is restored when dialog closes
+      document.body.style.pointerEvents = '';
+    }
+    // Cleanup on unmount
+    return () => {
+      document.body.style.pointerEvents = '';
+    };
+  }, [open, setActiveTool]);
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
       onClose?.();
     }
-  }, [dialogOpen]);
+  };
 
-  if (!userMaps?.length) {
+  if (!recentMaps?.length) {
     return null;
   }
 
   return (
-    <Dialog.Root
-      open={dialogOpen}
-      onOpenChange={isOpen =>
-        isOpen ? setDialogOpen(isOpen) : onClose ? onClose() : setDialogOpen(isOpen)
-      }
-    >
+    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
       {!!showTrigger && (
         <Dialog.Trigger>
-          <Button variant="ghost" disabled={!userMaps.length}>
+          <Button variant="ghost" disabled={!recentMaps.length}>
             Recent Maps
           </Button>
         </Dialog.Trigger>
       )}
-      <DialogContentContainer className="sm:w-[95vw] md:w-[60vw]">
+      <Dialog.Content className="sm:w-[95vw] md:w-[60vw] max-h-[calc(100vh-2rem)]" id="recent-maps-modal">
         <Flex align="center" className="mb-4">
           <Dialog.Title className="m-0 text-xl font-bold flex-1">Recent Maps</Dialog.Title>
           <Dialog.Close
@@ -104,22 +127,16 @@ export const RecentMapsModal: React.FC<{
             </Table.Header>
 
             <Table.Body>
-              {userMaps.map((userMap, i) => (
+              {recentMaps.map((userMap, i) => (
                 // for all maps, including active map
                 <RecentMapsRow
-                  key={i}
+                  key={userMap.document_id || i}
                   active={mapDocument?.document_id === userMap.document_id}
-                  onChange={userMapData =>
-                    upsertUserMap({
-                      // @ts-expect-error
-                      userMapData,
-                      userMapDocumentId: userMap.document_id,
-                    })
-                  }
+                  onChange={handleChangeName}
                   data={userMap}
                   onSelect={handleMapDocument}
                   onDelete={() => {
-                    deleteUserMap(userMap.document_id);
+                    handleDeleteMap(userMap.document_id);
                   }}
                   onUnload={handleUnloadMapDocument}
                 />
@@ -127,7 +144,7 @@ export const RecentMapsModal: React.FC<{
             </Table.Body>
           </Table.Root>
         </Box>
-      </DialogContentContainer>
+      </Dialog.Content>
     </Dialog.Root>
   );
 };

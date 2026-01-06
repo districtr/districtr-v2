@@ -25,9 +25,9 @@ export default async function Page({params}: {params: Promise<{slug: string}>}) 
     );
   }
 
-  const availableMaps =
-    cmsData.content.districtr_map_slugs &&
-    maps.filter(m => cmsData.content.districtr_map_slugs!.includes(m.districtr_map_slug));
+  const availableMaps = maps.ok
+    ? maps.response.filter(m => cmsData.content.districtr_map_slugs!.includes(m.districtr_map_slug))
+    : null;
 
   return (
     <Flex direction="column" width="100%">
