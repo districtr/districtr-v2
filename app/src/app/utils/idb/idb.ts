@@ -86,9 +86,7 @@ export class DocumentsDB extends Dexie {
 
     // If immediate save requested, flush any pending update first
     if (immediate) {
-      await this.flushPendingUpdate()
-      // Early return after immediate flush - don't set up a new debounced save
-      return
+      this.flushPendingUpdate();
     }
 
     // Clear existing timeout if any
