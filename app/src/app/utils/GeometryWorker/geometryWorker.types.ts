@@ -33,23 +33,25 @@ export type GeometryWorkerClass = {
   zoneAssignments: Record<string, number>;
   previousCentroids: Record<number, GeoJSON.Feature<GeoJSON.Point>>;
   /**
+   * Point data for center of mass calculations.
+   */
+  pointData: GeoJSON.FeatureCollection<GeoJSON.Point>;
+  /**
+   * Sets the point data for center of mass calculations.
+   * @param pointData - The point data to store.
+   */
+  setPointData: (pointData: GeoJSON.FeatureCollection<GeoJSON.Point>) => void;
+  /**
+   * Gets the point data for center of mass calculations.
+   * @returns The stored point data.
+   */
+  getPointData: () => GeoJSON.FeatureCollection<GeoJSON.Point>;
+  /**
    * Updates the zone assignments of the geometries.
    * @param entries - An array of [id, zone] pairs to update.
    */
   updateZones: (entries: Array<[string, unknown]>) => void;
   handleShatterHeal: (data: {parents: string[]; children: string[]}) => void;
-  /**
-   * Loads geometries from an array of features or a string.
-   * @param features - The features to load. These should be formatted as a minimal version of the Maplibre MapGeoJSON Feature type or stringified version thereof.
-   * @param idProp - The property to use as the ID.
-   */
-  loadGeometry: (features: MinGeoJSONFeature[] | string, idProp: string) => void;
-  loadTileData: (data: {
-    tileData: Uint8Array;
-    tileID: {x: number; y: number; z: number};
-    mapDocument: DocumentObject;
-    idProp: string;
-  }) => Array<MinGeoJSONFeature>;
   /**
    * Removes geometries from the collection.
    * @param ids - The IDs of the geometries to remove.
@@ -73,22 +75,8 @@ export type GeometryWorkerClass = {
     bboxGeom: GeoJSON.Polygon;
   };
   /**
-   * Calculate the center of mass for a set of polygons
-   *
-   * @param geojson Set of polygons to calculate the center of mass for
-   * @param bounds Bounds of the view
-   * @param width Width of the subcanvas to render the polygons on. A higher number will result in a more accurate center of mass.
-   * @param height Height of the subcanvas to render the polygons on. A higher number will result in a more accurate center of mass.
-   * @returns [lng, lat] of the center of mass
-   */
-  computeCenterOfMass: (
-    geojson: GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
-    bounds: [number, number, number, number],
-    width?: number,
-    height?: number
-  ) => Promise<[number, number] | null>;
-  /**
-   * Strategy for finding centroids by dissolving the zone geometries and finding the center of mass.
+   * Strategy for finding centroids by calculating weighted center of mass from point data.
+   * Uses point data stored in the worker (set via setPointData).
    * @param bounds number[] the view bounds
    * @param activeZones list of current drawn zones
    * @returns CentroidReturn
@@ -96,15 +84,14 @@ export type GeometryWorkerClass = {
    */
   getCentersOfMass: (
     bounds: [number, number, number, number],
-    activeZones: number[],
-    canvasWidth?: number,
-    canvasHeight?: number
+    activeZones: number[]
   ) => Promise<CentroidReturn>;
   /**
-   * Strategy for finding centroids choosing random centroids that do not intersect with each other
+   * Strategy for finding centroids choosing random points that do not intersect with each other.
+   * Uses point data stored in the worker (set via setPointData).
    * @param bounds number[] the view bounds
    * @param activeZones list of current drawn zones
-   * @param minBuffer number minimum buffer distance between centroids in pixels
+   * @param minBuffer number minimum buffer distance between centroids in kilometers
    * @returns CentroidReturn
    * @see getCentroidsFromView
    */
@@ -114,11 +101,12 @@ export type GeometryWorkerClass = {
     minBuffer?: number
   ) => Promise<CentroidReturn>;
   /**
-   * Parses geometries within a specified view and returns their centroids.
-   * @param minLon - The minimum longitude of the view.
-   * @param minLat - The minimum latitude of the view.
-   * @param maxLon - The maximum longitude of the view.
-   * @param maxLat - The maximum latitude of the view.
+   * Parses point data within a specified view and returns their centroids.
+   * Uses point data stored in the worker (set via setPointData).
+   * @param bounds - The view bounds [minLon, minLat, maxLon, maxLat]
+   * @param activeZones - List of current drawn zones
+   * @param strategy - Strategy to use for centroid calculation
+   * @param minBuffer - Minimum buffer distance between centroids in kilometers
    * @returns The centroids and dissolved outlines of the parsed features within the view.
    */
   getCentroidsFromView: (props: {
@@ -126,8 +114,6 @@ export type GeometryWorkerClass = {
     activeZones: number[];
     strategy: 'center-of-mass' | 'non-colliding-centroids';
     minBuffer?: number;
-    canvasWidth?: number;
-    canvasHeight?: number;
   }) => Promise<CentroidReturn>;
   /**
    * Retrieves the centroids of the geometries with the given IDs.

@@ -1,4 +1,4 @@
-import {EMPTY_FT_COLLECTION, getDissolved, ZONE_LABEL_STYLE} from '@/app/constants/layers';
+import {EMPTY_FT_COLLECTION, getZoneCentersInView, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -135,9 +135,22 @@ const ZoneNumbersLayer = () => {
 
   const addZoneMetaLayers = async () => {
     const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
+    const map = getMapRef();
+    if (!map) return;
+    const currentView = map.getBounds();
+    const bounds = [
+      currentView.getWest(),
+      currentView.getSouth(),
+      currentView.getEast(),
+      currentView.getNorth(),
+    ] as [number, number, number, number];
     const id = `${mapDocumentId}`;
+    const activeZones = demographyCache.populations.filter(p => p.total_pop_20 > 0).map(p => p.zone);
     if (showZoneNumbers) {
-      const geoms = await getDissolved();
+      const geoms = await getZoneCentersInView({
+        activeZones,
+        bounds,
+      });
       if (geoms && mapDocumentId === id) {
         setZoneNumberData(geoms.centroids);
       }
