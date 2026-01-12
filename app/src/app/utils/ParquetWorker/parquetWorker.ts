@@ -2,30 +2,42 @@ import {expose} from 'comlink';
 import {
   ColumnarTableData,
   DemographyParquetData,
+  MetaInfo,
   ParquetWorkerClass,
   PointParquetData,
 } from './parquetWorker.types';
 import {compressors} from 'hyparquet-compressors';
-import {
-  byteLengthFromUrl,
-  asyncBufferFromUrl,
-  parquetMetadataAsync,
-  parquetReadObjects,
-} from 'hyparquet';
+import {byteLengthFromUrl, asyncBufferFromUrl, parquetMetadataAsync, parquetReadObjects} from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
 import {GEODATA_URL, PARQUET_URL} from '../api/constants';
+import {
+  enhanceAsyncBufferWithRangeGroups,
+  EnhancedAsyncBuffer,
+  mergeByteRanges,
+} from './parquetWorkerUtils';
 
 const ParquetWorker: ParquetWorkerClass = {
   _metaCache: {},
   _idRgCache: {},
 
-  async getMetaData(url) {
+  async getMetaData(url, enablePrefetch = true) {
     if (this._metaCache[url]) {
       return this._metaCache[url];
     }
     const byteLength = await byteLengthFromUrl(url).then(Number);
-    const file = await asyncBufferFromUrl({url, byteLength});
-    let metadata = await parquetMetadataAsync(file);
+    let file = await asyncBufferFromUrl({url, byteLength});
+
+    // Enhance buffer with multi-range prefetch capability
+    if (enablePrefetch) {
+      file = enhanceAsyncBufferWithRangeGroups(file, {
+        url,
+        fetchInit: {mode: 'cors', credentials: 'omit'},
+        maxPartsPerRequest: 24,
+        maxGap: 64 * 1024, // 64KB gap threshold for merging ranges
+      });
+    }
+
+    const metadata = await parquetMetadataAsync(file);
     this._metaCache[url] = {
       metadata,
       url,
@@ -34,15 +46,15 @@ const ParquetWorker: ParquetWorkerClass = {
     };
     return this._metaCache[url];
   },
-  getRowGroupsFromParentValue(meta, value, value_col = 'parent_path') {
-    const rowGroups = [];
+
+  getRowGroupIndicesFromParentValue(meta, value, value_col = 'parent_path') {
+    const rowGroupIndices: number[] = [];
     if (!meta.metadata.row_groups.length) {
       throw new Error('No row groups found');
     }
     const parent_path_col_index = meta.metadata.row_groups[0].columns.findIndex(f =>
       f.meta_data?.path_in_schema.includes(value_col)
     );
-    const rg_length = Number(meta.metadata.row_groups[0].num_rows);
     if (parent_path_col_index === -1) {
       throw new Error('No parent path column found');
     }
@@ -53,16 +65,26 @@ const ParquetWorker: ParquetWorkerClass = {
         throw new Error('No statistics found');
       }
       if (min <= value && max >= value) {
-        rowGroups.push(i);
+        rowGroupIndices.push(i);
       }
       if (max > value) {
         break;
       }
     }
-    const rgRanges = rowGroups.map(i => [i * rg_length, (i + 1) * rg_length]).flat();
+    return rowGroupIndices;
+  },
+
+  getRowGroupsFromParentValue(meta, value, value_col = 'parent_path') {
+    const rowGroupIndices = this.getRowGroupIndicesFromParentValue(meta, value, value_col);
+    if (rowGroupIndices.length === 0) {
+      throw new Error('No matching row groups found');
+    }
+    const rg_length = Number(meta.metadata.row_groups[0].num_rows);
+    const rgRanges = rowGroupIndices.map(i => [i * rg_length, (i + 1) * rg_length]).flat();
     const rowRange: [number, number] = [rgRanges[0], rgRanges[rgRanges.length - 1]];
     return rowRange;
   },
+
   getRowGroupsFromChildValue(meta, values, values_col = 'path') {
     const rowGroups = [];
     if (!meta.metadata.row_groups.length) {
@@ -102,11 +124,59 @@ const ParquetWorker: ParquetWorkerClass = {
     const rowRange: [number, number] = [rgRanges[0], rgRanges[rgRanges.length - 1]];
     return rowRange;
   },
-  async getRowRange<T = object>(
-    url: string,
-    range: [number, number] | undefined,
-    columns?: string[]
-  ) {
+
+  getByteRangesForRowGroups(meta, rowGroupIndices, columnNames) {
+    const ranges: Array<[number, number]> = [];
+
+    // Get column indices if column names provided
+    let columnIndices: number[] | undefined;
+    if (columnNames && meta.metadata.row_groups[0]) {
+      columnIndices = [];
+      for (let i = 0; i < meta.metadata.row_groups[0].columns.length; i++) {
+        const col = meta.metadata.row_groups[0].columns[i];
+        const colName = col.meta_data?.path_in_schema?.[0];
+        if (colName && columnNames.includes(colName)) {
+          columnIndices.push(i);
+        }
+      }
+    }
+
+    for (const rgIndex of rowGroupIndices) {
+      const rowGroup = meta.metadata.row_groups[rgIndex];
+      if (!rowGroup) continue;
+
+      const columns = columnIndices
+        ? columnIndices.map(i => rowGroup.columns[i]).filter(Boolean)
+        : rowGroup.columns;
+
+      for (const col of columns) {
+        const colMeta = col.meta_data;
+        if (!colMeta) continue;
+
+        // Use dictionary_page_offset if available, otherwise data_page_offset
+        const startOffset = colMeta.dictionary_page_offset ?? colMeta.data_page_offset;
+        if (startOffset === undefined) continue;
+
+        const start = Number(startOffset);
+        const size = Number(colMeta.total_compressed_size ?? 0);
+        if (size > 0) {
+          ranges.push([start, start + size]);
+        }
+      }
+    }
+
+    return ranges;
+  },
+
+  async prefetchByteRanges(meta, byteRanges) {
+    const enhancedFile = meta.file as EnhancedAsyncBuffer;
+    if (enhancedFile.prefetch) {
+      const mergedRanges = mergeByteRanges(byteRanges);
+      await enhancedFile.prefetch(mergedRanges);
+    }
+  },
+
+  async getRowRange<T = object>(url: string, range: [number, number] | undefined, columns?: string[]) {
     const meta = await this.getMetaData(url);
     return (await parquetReadObjects({
       file: meta.file,
@@ -116,6 +186,7 @@ const ParquetWorker: ParquetWorkerClass = {
       rowEnd: range?.[1],
     })) as T[];
   },
+
   mergeRanges(ranges) {
     // First, normalize each range so start <= end
     const normalized = ranges.map(([a, b]) => [Math.min(a, b), Math.max(a, b)] as [number, number]);
@@ -140,6 +211,7 @@ const ParquetWorker: ParquetWorkerClass = {
 
     return merged;
   },
+
   parseDemographyData(data, mapDocument, brokenIds) {
     const brokenIdsSet = new Set(brokenIds);
     // Optimize: single pass to build columnarData directly, avoid intermediate wideDataDict and double iteration
@@ -161,14 +233,9 @@ const ParquetWorker: ParquetWorkerClass = {
         continue;
       }
       // Add path and sourceLayer only once per unique path
-      if (
-        columnarData.path.length === 0 ||
-        columnarData.path[columnarData.path.length - 1] !== path
-      ) {
+      if (columnarData.path.length === 0 || columnarData.path[columnarData.path.length - 1] !== path) {
         columnarData.path.push(path);
-        columnarData.sourceLayer.push(
-          isParent ? mapDocument.parent_layer! : mapDocument.child_layer!
-        );
+        columnarData.sourceLayer.push(isParent ? mapDocument.parent_layer! : mapDocument.child_layer!);
       }
       // Initialize column if not already
       if (!seenColumns.has(column_name)) {
@@ -180,6 +247,7 @@ const ParquetWorker: ParquetWorkerClass = {
     }
     return columnarData as ColumnarTableData;
   },
+
   generateGeojsonFromPointData(pointData, layer, source, filterIds) {
     const features = [];
     for (const d of pointData) {
@@ -203,30 +271,57 @@ const ParquetWorker: ParquetWorkerClass = {
       features,
     } as GeoJSON.FeatureCollection<GeoJSON.Point>;
   },
+
   async getDemography(mapDocument, brokenIds) {
     if (!mapDocument?.gerrydb_table) {
       return {columns: [], results: {path: [], sourceLayer: []}};
     }
     const url = `${PARQUET_URL}/tabular/${mapDocument.gerrydb_table}.parquet`;
     const meta = await this.getMetaData(url);
+
+    // Collect all row group indices needed
+    const allRowGroupIndices: number[] = [];
+    const searchValues = ['__parent', ...(brokenIds || [])];
+
+    for (const id of searchValues) {
+      try {
+        const indices = this.getRowGroupIndicesFromParentValue(meta, id, 'parent_path');
+        allRowGroupIndices.push(...indices);
+      } catch {
+        // Skip if no matching row groups found for this value
+      }
+    }
+
+    // Deduplicate row group indices
+    const uniqueRowGroupIndices = [...new Set(allRowGroupIndices)].sort((a, b) => a - b);
+
+    // Get byte ranges for these row groups (only for the columns we need)
+    const columns = ['parent_path', 'path', 'column_name', 'value'];
+    const byteRanges = this.getByteRangesForRowGroups(meta, uniqueRowGroupIndices, columns);
+
+    // Prefetch all byte ranges in a single multi-range request
+    if (byteRanges.length > 0) {
+      await this.prefetchByteRanges(meta, byteRanges);
+    }
+
+    // Now compute row ranges and fetch data (will hit cache)
     const ranges = this.mergeRanges(
-      ['__parent', ...(brokenIds || [])].map(id =>
-        this.getRowGroupsFromParentValue(meta, id, 'parent_path')
-      )
+      searchValues.map(id => {
+        try {
+          return this.getRowGroupsFromParentValue(meta, id, 'parent_path');
+        } catch {
+          return [0, 0] as [number, number];
+        }
+      }).filter(([start, end]) => start !== end)
     );
+
     const data = await Promise.all(
-      ranges.map(range =>
-        this.getRowRange<DemographyParquetData>(url, range, [
-          'parent_path',
-          'path',
-          'column_name',
-          'value',
-        ])
-      )
+      ranges.map(range => this.getRowRange<DemographyParquetData>(url, range, columns))
     );
     const parsed = this.parseDemographyData(data.flat(), mapDocument, brokenIds);
     return {columns: Object.keys(parsed) as AllTabularColumns[number][], results: parsed};
   },
+
   async getPointData(layer, columns, source, filterIds) {
     const url = `${GEODATA_URL}/tilesets/${layer}_points.parquet`;
     const meta = await this.getMetaData(url);
