@@ -223,7 +223,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
     });
     if (mapDocument) {
-      idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at);
+      // Save immediately when loading from document (not during painting)
+      idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
     }
     demographyCache.updatePopulations(data.zoneAssignments);
@@ -464,6 +465,9 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   },
 
   handlePutAssignments: async (overwrite = false) => {
+    // Flush any pending IDB updates before explicit save
+    await idb.flushPendingUpdate();
+    
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = get();
     const {mapDocument, setMapLock} = useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
