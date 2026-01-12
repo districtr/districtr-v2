@@ -1,5 +1,4 @@
 import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
-import {DocumentObject} from '../api/apiHandlers/types';
 
 export type CentroidReturn = {
   dissolved: GeoJSON.FeatureCollection;
@@ -75,30 +74,15 @@ export type GeometryWorkerClass = {
     bboxGeom: GeoJSON.Polygon;
   };
   /**
-   * Strategy for finding centroids by calculating weighted center of mass from point data.
-   * Uses point data stored in the worker (set via setPointData).
-   * @param bounds number[] the view bounds
-   * @param activeZones list of current drawn zones
+   * Finds the median point for each zone.
+   * @param bounds - The view bounds [minLon, minLat, maxLon, maxLat]
+   * @param activeZones - List of current drawn zones
    * @returns CentroidReturn
    * @see getCentroidsFromView
    */
-  getCentersOfMass: (
+  getMedianPoint: (
     bounds: [number, number, number, number],
     activeZones: number[]
-  ) => Promise<CentroidReturn>;
-  /**
-   * Strategy for finding centroids choosing random points that do not intersect with each other.
-   * Uses point data stored in the worker (set via setPointData).
-   * @param bounds number[] the view bounds
-   * @param activeZones list of current drawn zones
-   * @param minBuffer number minimum buffer distance between centroids in kilometers
-   * @returns CentroidReturn
-   * @see getCentroidsFromView
-   */
-  getNonCollidingRandomCentroids: (
-    bounds: [number, number, number, number],
-    activeZones: number[],
-    minBuffer?: number
   ) => Promise<CentroidReturn>;
   /**
    * Parses point data within a specified view and returns their centroids.
@@ -106,14 +90,12 @@ export type GeometryWorkerClass = {
    * @param bounds - The view bounds [minLon, minLat, maxLon, maxLat]
    * @param activeZones - List of current drawn zones
    * @param strategy - Strategy to use for centroid calculation
-   * @param minBuffer - Minimum buffer distance between centroids in kilometers
    * @returns The centroids and dissolved outlines of the parsed features within the view.
    */
   getCentroidsFromView: (props: {
     bounds: [number, number, number, number];
     activeZones: number[];
-    strategy: 'center-of-mass' | 'non-colliding-centroids';
-    minBuffer?: number;
+    strategy: 'median-point';
   }) => Promise<CentroidReturn>;
   /**
    * Retrieves the centroids of the geometries with the given IDs.

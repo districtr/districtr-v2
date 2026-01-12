@@ -2,16 +2,13 @@ import {expose} from 'comlink';
 import dissolve from '@turf/dissolve';
 import centerOfMass from '@turf/center-of-mass';
 import {GeometryWorkerClass, MinGeoJSONFeature} from './geometryWorker.types';
-import bboxClip from '@turf/bbox-clip';
-import {LngLatBoundsLike, MapGeoJSONFeature} from 'maplibre-gl';
+import {LngLatBoundsLike} from 'maplibre-gl';
 import bbox from '@turf/bbox';
-import booleanWithin from '@turf/boolean-within';
-import distance from '@turf/distance';
-import union from '@turf/union';
 import nearestPoint from '@turf/nearest-point';
 import {EMPTY_FT_COLLECTION} from '../../constants/layers';
 
-const CENTROID_BUFFER_KM = 10;
+const POINT_LIMIT = 256;
+const MIN_POPULATION = 300;
 
 const explodeMultiPolygonToPolygons = (
   feature: GeoJSON.MultiPolygon
@@ -142,7 +139,7 @@ const GeometryWorker: GeometryWorkerClass = {
       bboxGeom,
     };
   },
-  async getCentersOfMass(
+  async getMedianPoint(
     bounds: [number, number, number, number],
     activeZones: number[]
   ) {
@@ -158,21 +155,27 @@ const GeometryWorker: GeometryWorkerClass = {
     
     // Group points by zone and filter by bounds
     const zonePoints: Record<number, GeoJSON.Feature<GeoJSON.Point>[]> = {};
+    const coords: Record<number, {lng: number[], lat: number[]}> = {};
     
     pointData.features.forEach(point => {
       const id = point.properties?.path;
       if (!id) return;
       const zone = this.zoneAssignments[id];
       if (zone === null || zone === undefined || !activeZones.includes(zone)) return;
-      
+      // Limit 64 points per zone
+      if (zonePoints[zone]?.length >= POINT_LIMIT) return;
       const [lng, lat] = point.geometry.coordinates;
       // Filter points within bounds
       if (lng < minLon || lng > maxLon || lat < minLat || lat > maxLat) return;
+      if (point.properties?.total_pop_20 < MIN_POPULATION && zonePoints[zone]?.length > 0) return;
       
       if (!zonePoints[zone]) {
         zonePoints[zone] = [];
+        coords[zone] = {lng: [], lat: []};
       }
       zonePoints[zone].push(point);
+      coords[zone].lng.push(lng);
+      coords[zone].lat.push(lat);
     });
 
     // For each zone, create bbox around points and find nearest point to center
@@ -183,26 +186,20 @@ const GeometryWorker: GeometryWorkerClass = {
       // Create a FeatureCollection from the zone's points
       const zonePointCollection: GeoJSON.FeatureCollection<GeoJSON.Point> = {
         type: 'FeatureCollection',
-        features: points,
+        features: points
       };
-      
-      // Calculate bbox around the points in this zone
-      const zoneBbox = bbox(zonePointCollection);
-      const [bboxMinLon, bboxMinLat, bboxMaxLon, bboxMaxLat] = zoneBbox;
-      
-      // Find the center of the bbox
-      const bboxCenter: GeoJSON.Feature<GeoJSON.Point> = {
+      const medianLat = coords[zone].lat.sort((a, b) => a - b)[Math.floor(coords[zone].lat.length / 2)];
+      const medianLng = coords[zone].lng.sort((a, b) => a - b)[Math.floor(coords[zone].lng.length / 2)];
+      const targetPoint: GeoJSON.Feature<GeoJSON.Point> = {
         type: 'Feature',
-        properties: {},
         geometry: {
           type: 'Point',
-          coordinates: [(bboxMinLon + bboxMaxLon) / 2, (bboxMinLat + bboxMaxLat) / 2],
+          coordinates: [medianLng, medianLat],
         },
+        properties: {},
       };
-      
-      // Find the nearest point to the bbox center
-      const nearest = nearestPoint(bboxCenter, zonePointCollection);
-      
+      const nearest = nearestPoint(targetPoint, zonePointCollection);
+
       if (nearest) {
         centroids.features.push({
           type: 'Feature',
@@ -211,116 +208,7 @@ const GeometryWorker: GeometryWorkerClass = {
         } as GeoJSON.Feature<GeoJSON.Point>);
       }
     });
-
-    return {
-      centroids,
-      dissolved,
-    };
-  },
-  async getNonCollidingRandomCentroids(
-    bounds: [number, number, number, number],
-    activeZones: number[],
-    minBuffer?: number
-  ) {
-    const pointData = this.pointData;
-    const {centroids, dissolved, visitedZones, bboxGeom} = this.getCentroidBoilerplate(bounds);
-    if (!activeZones.length || !pointData?.features?.length) {
-      return {
-        centroids,
-        dissolved,
-      };
-    }
-    const minimumDistance = minBuffer ?? CENTROID_BUFFER_KM;
-    const [minLon, minLat, maxLon, maxLat] = bounds;
-
-    // re-use previous centroids if possible
-    Object.entries(this.previousCentroids).forEach(([zone, previousCentroid]) => {
-      const previousCentroidId = previousCentroid.properties?.id;
-      if (!previousCentroidId) return;
-      const currentZone = this.zoneAssignments[previousCentroidId];
-      const zoneChanged = currentZone !== +zone && activeZones.includes(currentZone);
-      // if this geo was erased or change the zone, do not re-use it
-      if (currentZone === null || zoneChanged) {
-        return;
-      }
-      // check if within current view
-      const geoIsWithinView = booleanWithin(previousCentroid, bboxGeom);
-      if (!geoIsWithinView) {
-        return;
-      }
-      try {
-        // check if it intersects with any other centroid given the new view
-        const intersectsAny = centroids.features.some(pointFeature => {
-          const distanceBetween = distance(previousCentroid, pointFeature, {units: 'kilometers'});
-          return distanceBetween < minimumDistance;
-        });
-        if (intersectsAny) {
-          return;
-        }
-        centroids.features.push(previousCentroid);
-        visitedZones.add(+zone);
-      } catch (e) {}
-    });
     
-    // Filter points by bounds and zone assignments
-    const validPoints = pointData.features
-      .map(point => {
-        const id = point.properties?.path;
-        if (!id) return null;
-        const zone = this.zoneAssignments[id];
-        if (zone === null || zone === undefined || !activeZones.includes(zone)) return null;
-        
-        const [lng, lat] = point.geometry.coordinates;
-        // Filter points within bounds
-        if (lng < minLon || lng > maxLon || lat < minLat || lat > maxLat) return null;
-        
-        return {point, zone, id};
-      })
-      .filter((p): p is {point: GeoJSON.Feature<GeoJSON.Point>; zone: number; id: string} => p !== null);
-    
-    // Randomly sort points to avoid bias
-    const shuffledPoints = validPoints.sort(() => Math.random() - 0.5);
-    
-    for (const {point, zone, id} of shuffledPoints) {
-      // once every zone has a point, break the loop
-      if (activeZones.every(z => visitedZones.has(z))) break;
-      
-      const zoneIsNeeded = !visitedZones.has(zone);
-      if (!zoneIsNeeded) continue;
-      
-      // Check if point is within view bounds
-      const pointFeature: GeoJSON.Feature<GeoJSON.Point> = {
-        type: 'Feature',
-        geometry: point.geometry,
-        properties: {},
-      };
-      const geoIsWithinView = booleanWithin(pointFeature, bboxGeom);
-      if (!geoIsWithinView) continue;
-      
-      try {
-        // Check if it intersects with any other centroid
-        const intersectsAny = Object.entries(this.previousCentroids).some(
-          ([cZone, prevCentroid]) => {
-            if (+zone === +cZone || !prevCentroid || !cZone) return false;
-            const distanceBetween = distance(pointFeature, prevCentroid, {units: 'kilometers'});
-            return distanceBetween < minimumDistance;
-          }
-        );
-        // if it intersects with any other centroid of the current view, skip
-        if (intersectsAny) continue;
-        
-        const centroid: GeoJSON.Feature<GeoJSON.Point> = {
-          type: 'Feature',
-          properties: {zone, id},
-          geometry: point.geometry,
-        };
-        centroids.features.push(centroid);
-        visitedZones.add(zone);
-        this.previousCentroids[zone] = centroid;
-      } catch (e) {
-        console.error(e);
-      }
-    }
     return {
       centroids,
       dissolved,
@@ -329,16 +217,13 @@ const GeometryWorker: GeometryWorkerClass = {
   async getCentroidsFromView({
     bounds,
     activeZones,
-    strategy = 'non-colliding-centroids',
-    minBuffer,
+    strategy = 'median-point',
   }) {
     switch (strategy) {
-      case 'center-of-mass':
-        return await this.getCentersOfMass(bounds, activeZones);
-      case 'non-colliding-centroids':
-        return await this.getNonCollidingRandomCentroids(bounds, activeZones, minBuffer);
+      case 'median-point':
+        return await this.getMedianPoint(bounds, activeZones);
       default:
-        return await this.getNonCollidingRandomCentroids(bounds, activeZones);
+        return await this.getMedianPoint(bounds, activeZones);
     }
   },
   getCentroidsByIds(ids) {

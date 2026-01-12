@@ -150,7 +150,7 @@ const ZoneNumbersLayer = () => {
       const geoms = await GeometryWorker.getCentroidsFromView({
         activeZones,
         bounds,
-        strategy: 'center-of-mass',
+        strategy: 'median-point',
       });
       if (geoms && mapDocumentId === id) {
         setZoneNumberData(geoms.centroids);
