@@ -133,7 +133,8 @@ const ZoneNumbersLayer = () => {
   );
   const shouldHide = showBlockPopulationNumbers && focusFeaturesLength;
 
-  const addZoneMetaLayers = async () => {
+  const addZoneMetaLayers = async (
+  ) => {
     const showZoneNumbers = useMapControlsStore.getState().mapOptions.showZoneNumbers;
     const map = getMapRef();
     if (!map) return;
@@ -182,11 +183,15 @@ const ZoneNumbersLayer = () => {
       map.loadImage('/lock.png').then(image => map.addImage('lock', image.data));
       map.on('moveend', handleUpdate);
       map.on('zoomend', handleUpdate);
+      map.on('resize', handleUpdate);
+      map.on('idle', handleUpdate);
     }
     return () => {
       if (map) {
         map.off('moveend', handleUpdate);
         map.off('zoomend', handleUpdate);
+        map.off('resize', handleUpdate);
+        map.off('idle', handleUpdate);
       }
     };
   }, [getMapRef]);
