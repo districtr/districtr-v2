@@ -291,6 +291,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const {
         shatterIds,
         parentToChild: _parentToChild,
+        childToParent: _childToParent,
         zoneAssignments: currentZoneAssignments,
         setShatterState,
       } = useAssignmentsStore.getState();
@@ -315,12 +316,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       let children = new Set(shatterIds.children);
       let captiveIds = new Set<string>();
       let parentToChild = new Map(_parentToChild);
+      let childToParent = new Map(_childToParent);
       const zoneAssignments = new Map(currentZoneAssignments);
       const zonesToSet: Record<string, Set<string>> = {};
       edgesResult.forEach(edge => {
         parents.add(edge.parent_path);
         children.add(edge.child_path);
         captiveIds.add(edge.child_path);
+        childToParent.set(edge.child_path, edge.parent_path);
         if (!zonesToSet[edge.parent_path]) {
           zonesToSet[edge.parent_path] = new Set([edge.child_path]);
         } else {
@@ -351,6 +354,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           children,
         },
         parentToChild,
+        childToParent,
         zoneAssignments: zoneAssignments,
       });
 
