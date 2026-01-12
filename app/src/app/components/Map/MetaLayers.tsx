@@ -1,4 +1,4 @@
-import {EMPTY_FT_COLLECTION, getZoneCentersInView, ZONE_LABEL_STYLE} from '@/app/constants/layers';
+import {EMPTY_FT_COLLECTION, ZONE_LABEL_STYLE} from '@/app/constants/layers';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
