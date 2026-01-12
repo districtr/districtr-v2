@@ -146,10 +146,11 @@ const ZoneNumbersLayer = () => {
     ] as [number, number, number, number];
     const id = `${mapDocumentId}`;
     const activeZones = demographyCache.populations.filter(p => p.total_pop_20 > 0).map(p => p.zone);
-    if (showZoneNumbers) {
-      const geoms = await getZoneCentersInView({
+    if (showZoneNumbers && GeometryWorker) {
+      const geoms = await GeometryWorker.getCentroidsFromView({
         activeZones,
         bounds,
+        strategy: 'center-of-mass',
       });
       if (geoms && mapDocumentId === id) {
         setZoneNumberData(geoms.centroids);

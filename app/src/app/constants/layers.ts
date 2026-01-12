@@ -1,5 +1,4 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
-import GeometryWorker from '../utils/GeometryWorker';
 export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -100,24 +99,3 @@ export function getLayerFill(
     return innerFillSpec;
   }
 }
-
-const getZoneCentersInView = async ({
-  activeZones,
-  bounds
-}: {
-  activeZones: number[];
-  bounds: [number, number, number, number];
-}) => {
-  // Only run on client side to avoid SSR issues
-  if (typeof window === 'undefined' || !GeometryWorker) return;
-  // Use point data from GeometryWorker (set by usePointData hook)
-  // The worker uses its internal pointData automatically
-  const {centroids, dissolved} = await GeometryWorker.getCentroidsFromView({
-    bounds,
-    activeZones,
-    strategy: 'center-of-mass',
-  });
-  return {centroids, dissolved};
-};
-
-export {getZoneCentersInView};
