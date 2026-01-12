@@ -6,7 +6,7 @@ import {AssignmentsStore, useAssignmentsStore} from '@/app/store/assignmentsStor
 
 const mapShatterableFeatures = (
   features: Array<MapGeoJSONFeature>,
-  shatterMappings: AssignmentsStore['shatterMappings'],
+  parentToChild: AssignmentsStore['parentToChild'],
   child_layer: string
 ) => {};
 

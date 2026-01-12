@@ -52,7 +52,7 @@ export class DocumentsDB extends Dexie {
     zoneAssignments: Map<string, NullableZone>,
     clientLastUpdated: string = new Date().toISOString()
   ) => {
-    const {shatterMappings, shatterIds} = useAssignmentsStore.getState();
+    const {shatterIds, childToParent} = useAssignmentsStore.getState();
     const document_id = mapDocument?.document_id;
     if (!mapDocument) return;
     // map must be loaded
@@ -61,7 +61,7 @@ export class DocumentsDB extends Dexie {
       document_id,
       zoneAssignments,
       shatterIds,
-      shatterMappings,
+      childToParent,
       'assignment'
     );
     this.updateDocument({

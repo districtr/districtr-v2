@@ -8,7 +8,7 @@ export const MapContextMenu: React.FC = () => {
   const mapDocument = useMapStore(state => state.mapDocument);
   const contextMenu = useMapStore(state => state.contextMenu);
   const handleShatter = useMapStore(state => state.handleShatter);
-  const shatterMappings = useAssignmentsStore(state => state.shatterMappings);
+  const childToParent = useAssignmentsStore(state => state.childToParent);
   const access = useMapStore(state => state.mapStatus?.access);
 
   if (!contextMenu?.data?.layer) return null;
@@ -20,12 +20,7 @@ export const MapContextMenu: React.FC = () => {
 
   const isChild = CHILD_LAYERS.includes(contextMenu.data.layer.id);
   const id = contextMenu.data.id?.toString() || '';
-  const parent =
-    (isChild &&
-      Object.entries(shatterMappings).find(([key, value]) => {
-        return value.has(id);
-      })?.[0]) ||
-    false;
+  const parent = (isChild && childToParent.get(id)) || false;
   const shatterableId = isChild && parent ? parent : contextMenu?.data?.id;
 
   const handleSelect = () => {

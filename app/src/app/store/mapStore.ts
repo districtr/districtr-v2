@@ -290,7 +290,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const updateHash = new Date().toISOString();
       const {
         shatterIds,
-        shatterMappings: _shatterMappings,
+        parentToChild: _parentToChild,
         zoneAssignments: currentZoneAssignments,
         setShatterState,
       } = useAssignmentsStore.getState();
@@ -314,13 +314,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       let parents = new Set(shatterIds.parents);
       let children = new Set(shatterIds.children);
       let captiveIds = new Set<string>();
-      let shatterMappings = Object.entries(_shatterMappings).reduce(
-        (acc, [parent, children]) => {
-          acc[parent] = new Set(children);
-          return acc;
-        },
-        {} as Record<string, Set<string>>
-      );
+      let parentToChild = new Map(_parentToChild);
       const zoneAssignments = new Map(currentZoneAssignments);
       const zonesToSet: Record<string, Set<string>> = {};
       edgesResult.forEach(edge => {
@@ -333,10 +327,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           zonesToSet[edge.parent_path].add(edge.child_path);
         }
 
-        if (!shatterMappings[edge.parent_path]) {
-          shatterMappings[edge.parent_path] = new Set([edge.child_path]);
+        // Update parentToChild
+        if (!parentToChild.has(edge.parent_path)) {
+          parentToChild.set(edge.parent_path, new Set([edge.child_path]));
         } else {
-          shatterMappings[edge.parent_path].add(edge.child_path);
+          parentToChild.get(edge.parent_path)!.add(edge.child_path);
         }
       });
 
@@ -355,7 +350,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           parents,
           children,
         },
-        shatterMappings,
+        parentToChild,
         zoneAssignments: zoneAssignments,
       });
 
