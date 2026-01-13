@@ -7,7 +7,12 @@ import {
   PointParquetData,
 } from './parquetWorker.types';
 import {compressors} from 'hyparquet-compressors';
-import {byteLengthFromUrl, asyncBufferFromUrl, parquetMetadataAsync, parquetReadObjects} from 'hyparquet';
+import {
+  byteLengthFromUrl,
+  asyncBufferFromUrl,
+  parquetMetadataAsync,
+  parquetReadObjects,
+} from 'hyparquet';
 import {AllTabularColumns} from '../api/summaryStats';
 import {GEODATA_URL, PARQUET_URL} from '../api/constants';
 import {
@@ -176,7 +181,11 @@ const ParquetWorker: ParquetWorkerClass = {
     }
   },
 
-  async getRowRange<T = object>(url: string, range: [number, number] | undefined, columns?: string[]) {
+  async getRowRange<T = object>(
+    url: string,
+    range: [number, number] | undefined,
+    columns?: string[]
+  ) {
     const meta = await this.getMetaData(url);
     return (await parquetReadObjects({
       file: meta.file,
@@ -233,9 +242,14 @@ const ParquetWorker: ParquetWorkerClass = {
         continue;
       }
       // Add path and sourceLayer only once per unique path
-      if (columnarData.path.length === 0 || columnarData.path[columnarData.path.length - 1] !== path) {
+      if (
+        columnarData.path.length === 0 ||
+        columnarData.path[columnarData.path.length - 1] !== path
+      ) {
         columnarData.path.push(path);
-        columnarData.sourceLayer.push(isParent ? mapDocument.parent_layer! : mapDocument.child_layer!);
+        columnarData.sourceLayer.push(
+          isParent ? mapDocument.parent_layer! : mapDocument.child_layer!
+        );
       }
       // Initialize column if not already
       if (!seenColumns.has(column_name)) {
@@ -306,13 +320,15 @@ const ParquetWorker: ParquetWorkerClass = {
 
     // Now compute row ranges and fetch data (will hit cache)
     const ranges = this.mergeRanges(
-      searchValues.map(id => {
-        try {
-          return this.getRowGroupsFromParentValue(meta, id, 'parent_path');
-        } catch {
-          return [0, 0] as [number, number];
-        }
-      }).filter(([start, end]) => start !== end)
+      searchValues
+        .map(id => {
+          try {
+            return this.getRowGroupsFromParentValue(meta, id, 'parent_path');
+          } catch {
+            return [0, 0] as [number, number];
+          }
+        })
+        .filter(([start, end]) => start !== end)
     );
 
     const data = await Promise.all(

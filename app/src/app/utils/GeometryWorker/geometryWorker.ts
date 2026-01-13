@@ -139,10 +139,7 @@ const GeometryWorker: GeometryWorkerClass = {
       bboxGeom,
     };
   },
-  async getMedianPoint(
-    bounds: [number, number, number, number],
-    activeZones: number[]
-  ) {
+  async getMedianPoint(bounds: [number, number, number, number], activeZones: number[]) {
     const pointData = this.pointData;
     const {centroids, dissolved} = this.getCentroidBoilerplate(bounds);
     if (!activeZones.length || !pointData?.features?.length) {
@@ -152,11 +149,11 @@ const GeometryWorker: GeometryWorkerClass = {
       };
     }
     const [minLon, minLat, maxLon, maxLat] = bounds;
-    
+
     // Group points by zone and filter by bounds
     const zonePoints: Record<number, GeoJSON.Feature<GeoJSON.Point>[]> = {};
-    const coords: Record<number, {lng: number[], lat: number[]}> = {};
-    
+    const coords: Record<number, {lng: number[]; lat: number[]}> = {};
+
     pointData.features.forEach(point => {
       const id = point.properties?.path;
       if (!id) return;
@@ -168,7 +165,7 @@ const GeometryWorker: GeometryWorkerClass = {
       // Filter points within bounds
       if (lng < minLon || lng > maxLon || lat < minLat || lat > maxLat) return;
       if (point.properties?.total_pop_20 < MIN_POPULATION && zonePoints[zone]?.length > 0) return;
-      
+
       if (!zonePoints[zone]) {
         zonePoints[zone] = [];
         coords[zone] = {lng: [], lat: []};
@@ -182,14 +179,18 @@ const GeometryWorker: GeometryWorkerClass = {
     Object.entries(zonePoints).forEach(([zoneStr, points]) => {
       if (!points.length) return;
       const zone = +zoneStr;
-      
+
       // Create a FeatureCollection from the zone's points
       const zonePointCollection: GeoJSON.FeatureCollection<GeoJSON.Point> = {
         type: 'FeatureCollection',
-        features: points
+        features: points,
       };
-      const medianLat = coords[zone].lat.sort((a, b) => a - b)[Math.floor(coords[zone].lat.length / 2)];
-      const medianLng = coords[zone].lng.sort((a, b) => a - b)[Math.floor(coords[zone].lng.length / 2)];
+      const medianLat = coords[zone].lat.sort((a, b) => a - b)[
+        Math.floor(coords[zone].lat.length / 2)
+      ];
+      const medianLng = coords[zone].lng.sort((a, b) => a - b)[
+        Math.floor(coords[zone].lng.length / 2)
+      ];
       const targetPoint: GeoJSON.Feature<GeoJSON.Point> = {
         type: 'Feature',
         geometry: {
@@ -208,17 +209,13 @@ const GeometryWorker: GeometryWorkerClass = {
         } as GeoJSON.Feature<GeoJSON.Point>);
       }
     });
-    
+
     return {
       centroids,
       dissolved,
     };
   },
-  async getCentroidsFromView({
-    bounds,
-    activeZones,
-    strategy = 'median-point',
-  }) {
+  async getCentroidsFromView({bounds, activeZones, strategy = 'median-point'}) {
     switch (strategy) {
       case 'median-point':
         return await this.getMedianPoint(bounds, activeZones);

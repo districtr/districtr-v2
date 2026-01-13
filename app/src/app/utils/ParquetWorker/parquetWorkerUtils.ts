@@ -270,7 +270,10 @@ export function enhanceAsyncBufferWithRangeGroups(
     await fetchMultiRangesAndCache(rangeGroups);
   };
 
-  enhancedFile.slice = (start: number, end: number = file.byteLength): ArrayBuffer | Promise<ArrayBuffer> => {
+  enhancedFile.slice = (
+    start: number,
+    end: number = file.byteLength
+  ): ArrayBuffer | Promise<ArrayBuffer> => {
     start = Math.max(0, start | 0);
     end = Math.min(file.byteLength, end | 0);
     if (end <= start) return new ArrayBuffer(0);
@@ -312,7 +315,17 @@ export function enhanceAsyncBufferWithRangeGroups(
  * @returns Array of [start, end] byte ranges covering the requested row groups
  */
 export function getByteRangesForRowGroups(
-  metadata: {row_groups: Array<{columns: Array<{meta_data?: {dictionary_page_offset?: bigint; data_page_offset?: bigint; total_compressed_size?: bigint}}>}>},
+  metadata: {
+    row_groups: Array<{
+      columns: Array<{
+        meta_data?: {
+          dictionary_page_offset?: bigint;
+          data_page_offset?: bigint;
+          total_compressed_size?: bigint;
+        };
+      }>;
+    }>;
+  },
   rowGroupIndices: number[],
   columnIndices?: number[]
 ): Array<[number, number]> {
