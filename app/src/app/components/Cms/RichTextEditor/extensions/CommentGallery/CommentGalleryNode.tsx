@@ -53,7 +53,7 @@ export const CommentGalleryNode = Node.create({
         default: 10,
       },
       {
-        name: 'showIdentitifier',
+        name: 'showIdentifier',
         default: true,
       },
       {

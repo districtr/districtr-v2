@@ -22,7 +22,7 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
     description,
     paginate,
     showListView,
-    showIdentitifier,
+    showIdentifier,
     showTitles,
     showPlaces,
     showStates,
@@ -91,7 +91,7 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
                     value={[
                       paginate ? 'paginate' : '',
                       showListView ? 'showListView' : '',
-                      showIdentitifier ? 'showIdentitifier' : '',
+                      showIdentifier ? 'showIdentifier' : '',
                       showTitles ? 'showTitles' : '',
                       showPlaces ? 'showPlaces' : '',
                       showStates ? 'showStates' : '',
@@ -107,14 +107,14 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
                         showStates: value.includes('showStates'),
                         showZipCodes: value.includes('showZipCodes'),
                         showCreatedAt: value.includes('showCreatedAt'),
-                        showIdentitifier: value.includes('showIdentitifier'),
+                        showIdentifier: value.includes('showIdentifier'),
                       });
                     }}
                   >
                     <CheckboxCards.Item value="paginate">Paginate Results</CheckboxCards.Item>
                     <CheckboxCards.Item value="showListView">Show List View</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showIdentitifier">
-                      Show Identitifier
+                    <CheckboxCards.Item value="showIdentifier">
+                      Show Identifier
                     </CheckboxCards.Item>
                     <CheckboxCards.Item value="showTitles">Show Titles</CheckboxCards.Item>
                     <CheckboxCards.Item value="showPlaces">Show Places</CheckboxCards.Item>

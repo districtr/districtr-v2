@@ -75,7 +75,7 @@ export const domNodeReplacers = (disabled: boolean) => {
           const place = JSON.parse(domNode.attribs['place'] ?? 'null');
           const state = JSON.parse(domNode.attribs['state'] ?? 'null');
           const zipCode = JSON.parse(domNode.attribs['zipCode'] ?? 'null');
-          const showIdentitifier = JSON.parse(domNode.attribs['showIdentitifier'] ?? 'null');
+          const showIdentifier = JSON.parse(domNode.attribs['showIdentifier'] ?? 'null');
           const showTitles = JSON.parse(domNode.attribs['showTitles'] ?? 'null');
           const title = JSON.parse(domNode.attribs['title'] ?? 'null');
           const description = JSON.parse(domNode.attribs['description'] ?? 'null');
@@ -93,7 +93,7 @@ export const domNodeReplacers = (disabled: boolean) => {
               place={place}
               state={state}
               zipCode={zipCode}
-              showIdentitifier={showIdentitifier}
+              showIdentifier={showIdentifier}
               showTitles={showTitles}
               showPlaces={showPlaces}
               title={title}

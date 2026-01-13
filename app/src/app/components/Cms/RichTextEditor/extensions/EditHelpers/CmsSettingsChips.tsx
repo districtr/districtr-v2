@@ -1,9 +1,11 @@
 import React from 'react';
 import {Flex, Box, Button, Text, TextField} from '@radix-ui/themes';
 
+type EntryValue = string | number;
+
 export const CmsSettingsChips: React.FC<{
-  entries: string[] | number[];
-  handleUpdate: (updates: {[key: string]: string[] | number[]}) => void;
+  entries: EntryValue[];
+  handleUpdate: (updates: Record<string, EntryValue[]>) => void;
   property: string;
   showTitle?: boolean;
 }> = ({entries, handleUpdate, property, showTitle = false}) => {
@@ -16,7 +18,6 @@ export const CmsSettingsChips: React.FC<{
           <Button
             className="hover:bg-red-500 hover:text-white w-auto mr-2"
             variant="outline"
-            // @ts-expect-error
             onClick={() => handleUpdate({[property]: entries.filter(t => t !== entry)})}
             key={i}
           >
@@ -32,7 +33,6 @@ export const CmsSettingsChips: React.FC<{
         />
         <Button
           onClick={() => {
-            // @ts-expect-error
             handleUpdate({[property]: [...(entries || []), text]});
             setText('');
           }}

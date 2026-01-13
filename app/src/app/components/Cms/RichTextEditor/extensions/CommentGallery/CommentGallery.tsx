@@ -26,7 +26,7 @@ export interface CommentGalleryProps {
   showStates?: boolean;
   showZipCodes?: boolean;
   showCreatedAt?: boolean;
-  showIdentitifier?: boolean;
+  showIdentifier?: boolean;
 }
 
 export const CommentGallery: React.FC<CommentGalleryProps> = ({
@@ -45,7 +45,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
   showStates,
   showZipCodes,
   showCreatedAt,
-  showIdentitifier,
+  showIdentifier,
 }) => {
   const filters: CommentFilters = {
     ids: ids,
@@ -79,7 +79,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
           key={i}
           comment={comment}
           options={{
-            showIdentitifier,
+            showIdentifier,
             showTitles,
             showPlaces,
             showStates,
@@ -91,7 +91,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
       tableHeader={
         <>
           {showTitles && <Table.ColumnHeaderCell>Title</Table.ColumnHeaderCell>}
-          {showIdentitifier && <Table.ColumnHeaderCell>Identifier</Table.ColumnHeaderCell>}
+          {showIdentifier && <Table.ColumnHeaderCell>Name</Table.ColumnHeaderCell>}
           {showPlaces && <Table.ColumnHeaderCell>Place</Table.ColumnHeaderCell>}
           {showStates && <Table.ColumnHeaderCell>State</Table.ColumnHeaderCell>}
           {showZipCodes && <Table.ColumnHeaderCell>Zip</Table.ColumnHeaderCell>}
@@ -103,7 +103,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
           key={i}
           comment={comment}
           options={{
-            showIdentitifier,
+            showIdentifier,
             showTitles,
             showPlaces,
             showStates,
