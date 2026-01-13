@@ -5,9 +5,10 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {demographyCache} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
-import React, {useLayoutEffect, useRef, useState} from 'react';
+import React, {useLayoutEffect, useMemo, useState} from 'react';
 import {useEffect} from 'react';
 import {Source, Layer} from 'react-map-gl/maplibre';
+import {throttle} from 'lodash';
 
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
@@ -124,7 +125,6 @@ const ZoneNumbersLayer = () => {
   const lockedAreas = useMapControlsStore(state => state.mapOptions.lockPaintedAreas);
   const [zoneNumberData, setZoneNumberData] =
     useState<GeoJSON.FeatureCollection>(EMPTY_FT_COLLECTION);
-  const updateTimeout = useRef<ReturnType<typeof setTimeout> | null>();
   const mapRenderingState = useMapStore(state => state.mapRenderingState);
   const appLoadingState = useMapStore(state => state.appLoadingState);
   const focusFeaturesLength = useMapStore(state => state.focusFeatures.length);
@@ -161,16 +161,14 @@ const ZoneNumbersLayer = () => {
     }
   };
 
-  const handleUpdate = () => {
-    if (!updateTimeout.current) {
-      addZoneMetaLayers();
-      updateTimeout.current = setTimeout(() => {
-        updateTimeout.current = null;
-      }, 100);
-    }
-  };
+  const handleUpdate = useMemo(
+    () => throttle(addZoneMetaLayers, 250, {leading: true, trailing: true}),
+    [mapDocumentId]
+  );
 
-  useLayoutEffect(handleUpdate, [
+  useLayoutEffect(() => {
+    handleUpdate();
+  }, [
     showZoneNumbers,
     zoneAssignments,
     mapRenderingState,
@@ -187,6 +185,7 @@ const ZoneNumbersLayer = () => {
       map.on('idle', handleUpdate);
     }
     return () => {
+      handleUpdate.cancel();
       if (map) {
         map.off('moveend', handleUpdate);
         map.off('zoomend', handleUpdate);
@@ -194,7 +193,7 @@ const ZoneNumbersLayer = () => {
         map.off('idle', handleUpdate);
       }
     };
-  }, [getMapRef]);
+  }, [getMapRef, handleUpdate]);
 
   useEffect(() => {
     setZoneNumberData(EMPTY_FT_COLLECTION);
