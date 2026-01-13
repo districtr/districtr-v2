@@ -26,8 +26,9 @@ export class DocumentsDB extends Dexie {
     // Set up beforeunload handler to flush pending updates
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', () => {
-        // Use sendBeacon for reliable async save on page unload
+        // Attempt to flush pending updates on page unload
         // Note: We can't await here, but IndexedDB operations are usually fast enough
+        // to complete before the page closes. Data loss is possible on rapid close.
         this.flushPendingUpdate().catch(() => {
           // Silently fail on unload - user is leaving anyway
         });
@@ -75,6 +76,8 @@ export class DocumentsDB extends Dexie {
    * Debounced version of updateIdbAssignments that batches rapid updates.
    * Saves to IDB after the user pauses painting for DEBOUNCE_DELAY ms.
    * Use flushPendingUpdate() to force immediate save.
+   * 
+   * @param immediate - If true, saves immediately without debouncing
    */
   updateIdbAssignments = (
     mapDocument: DocumentObject,
@@ -84,19 +87,38 @@ export class DocumentsDB extends Dexie {
   ) => {
     if (!mapDocument) return;
 
-    // If immediate save requested, flush any pending update first
-    if (immediate) {
-      this.flushPendingUpdate();
-    }
-
     // Clear existing timeout if any
     if (this.pendingUpdate?.timeoutId) {
       clearTimeout(this.pendingUpdate.timeoutId);
+      this.pendingUpdate.timeoutId = null;
     }
 
     // Store the latest parameters, capturing current state
     const {shatterIds, childToParent} = useAssignmentsStore.getState();
     
+    // If immediate save requested, save synchronously without debouncing
+    if (immediate) {
+      const document_id = mapDocument?.document_id;
+      if (!document_id) return;
+      
+      const assignmentsToSave = formatAssignmentsFromState(
+        document_id,
+        zoneAssignments,
+        shatterIds,
+        childToParent,
+        'assignment'
+      );
+      
+      // Fire and forget - don't set pending update
+      this.updateDocument({
+        id: document_id,
+        document_metadata: mapDocument,
+        assignments: assignmentsToSave,
+        clientLastUpdated: clientLastUpdated,
+      });
+      return;
+    }
+
     // Set new timeout to save after debounce delay
     const timeoutId = setTimeout(() => {
       this.flushPendingUpdate();
