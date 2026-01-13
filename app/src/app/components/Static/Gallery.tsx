@@ -1,3 +1,21 @@
+/**
+ * Generic Gallery Component
+ *
+ * A reusable, type-safe gallery that provides:
+ * - Grid and list (table) view modes with toggle
+ * - Pagination with "peek ahead" strategy for accurate next-page detection
+ * - Loading, error, and empty states
+ * - Flexible data fetching via queryFunction prop
+ *
+ * Used by PlanGallery and CommentGallery to reduce code duplication.
+ *
+ * @example
+ * <Gallery<MyItem, MyFilters>
+ *   filters={{ category: 'featured' }}
+ *   queryFunction={({ filters, limit, offset }) => fetchItems(filters, limit, offset)}
+ *   gridRenderer={(item) => <ItemCard item={item} />}
+ * />
+ */
 'use client';
 import React, {useMemo, useRef, useState} from 'react';
 import {QueryClientProvider, useQuery} from '@tanstack/react-query';
@@ -6,42 +24,57 @@ import {Box, Button, Flex, Grid, SegmentedControl, Spinner, Table, Text} from '@
 import {ContentSection} from '@/app/components/Static/ContentSection';
 import {nanoid} from 'nanoid';
 
+/** Returns responsive column counts based on the number of items */
 const getDefaultColumns = (numItems: number) => ({
   initial: '1',
   xs: '1',
   sm: Math.min(2, Math.max(numItems ?? 2, 2)).toString(),
   md: Math.min(3, Math.max(numItems ?? 3, 2)).toString(),
   lg: Math.min(4, Math.max(numItems ?? 4, 2)).toString(),
-})
+});
 
 export type GalleryProps<TItem, TFilters, TQueryResult = TItem[]> = {
+  /** Optional title displayed above the gallery */
   title?: string;
+  /** Optional description displayed below the title */
   description?: string;
+  /** Optional custom header content */
   header?: React.ReactNode;
+  /** Custom column configuration function for the grid */
   getColumns?: (numItems: number) => Record<string, string>;
 
   // Renderers
+  /** Render function for each item in grid view (required) */
   gridRenderer: (item: TItem, index: number) => React.ReactNode;
+  /** Render function for each item in table/list view */
   tableRowRenderer?: (item: TItem, index: number) => React.ReactNode;
+  /** Table header cells for list view */
   tableHeader?: React.ReactNode;
 
   // Data fetching
+  /** Filter object passed to queryFunction */
   filters: TFilters;
-  queryFunction: (args: {
-    filters: TFilters;
-    limit: number;
-    offset: number;
-  }) => Promise<TQueryResult>;
+  /** Async function to fetch data. Receives filters, limit, and offset. */
+  queryFunction: (args: {filters: TFilters; limit: number; offset: number}) => Promise<TQueryResult>;
+  /** Extract items array from query result (for non-standard response shapes) */
   selectItems?: (data: TQueryResult | undefined) => TItem[];
+  /** Determine if response represents an error state */
   isError?: (data: TQueryResult | undefined) => boolean;
+  /** Extract error message from response */
   errorMessage?: (data: TQueryResult | undefined) => React.ReactNode;
+  /** Additional query key segments for cache differentiation */
   queryKey?: unknown[];
 
   // Behavior
+  /** Enable pagination controls */
   paginate?: boolean;
+  /** Number of items per page (default: 12) */
   limit?: number;
+  /** Show grid/list view toggle */
   showListView?: boolean;
+  /** Initial view mode (default: 'grid') */
   initialView?: 'grid' | 'list';
+  /** Custom empty state content */
   emptyState?: React.ReactNode;
 };
 
@@ -65,7 +98,7 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
   initialView = 'grid',
   emptyState,
 }: GalleryProps<TItem, TFilters, TQueryResult>): React.ReactElement | null {
-  // avoid collisions on query key
+  // Unique ID to avoid query key collisions when multiple galleries exist on the same page
   const galleryQueryId = useRef(nanoid());
   const [page, setPage] = useState(0);
   const [displayLimit] = useState<number>(Number(limit) || 12);
@@ -73,13 +106,17 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
 
   const {data, isLoading} = useQuery({
     queryKey: ['gallery', galleryQueryId, ...(queryKey ?? []), filters, page, displayLimit],
+    // "Peek ahead" pagination: request limit+1 items to detect if more pages exist
+    // This avoids showing a "Next" button that leads to an empty page
     queryFn: () => queryFunction({filters, limit: displayLimit + 1, offset: page * displayLimit}),
   });
 
   const {items, hasNextPage} = useMemo(() => {
     const rawItems = selectItems ? selectItems(data) : ((data as unknown as TItem[]) ?? []);
+    // If we got more items than displayLimit, there's another page
     const hasMore = rawItems.length > displayLimit;
     return {
+      // Only display up to displayLimit items (hide the "peek" item)
       items: hasMore ? rawItems.slice(0, displayLimit) : rawItems,
       hasNextPage: hasMore,
     };
@@ -180,6 +217,10 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
   );
 }
 
+/**
+ * Gallery wrapper that provides QueryClientProvider context.
+ * Use this component when the gallery is rendered outside of an existing QueryClientProvider.
+ */
 export function Gallery<TItem, TFilters, TQueryResult = TItem[]>(
   props: GalleryProps<TItem, TFilters, TQueryResult>
 ) {

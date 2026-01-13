@@ -1,9 +1,16 @@
+/**
+ * Renderers for CommentGallery grid and table views.
+ *
+ * These components are passed to the generic Gallery as gridRenderer and tableRowRenderer.
+ * They handle conditional display of fields based on the options prop.
+ */
 'use client';
-import {Box, Flex, Heading, IconButton, Link, Table, Text} from '@radix-ui/themes';
+import {Box, Flex, Heading, IconButton, Table, Text} from '@radix-ui/themes';
 import {PersonIcon} from '@radix-ui/react-icons';
 import {type CommentListing} from '@/app/utils/api/apiHandlers/getComments';
 import {formatDistanceToNow} from 'date-fns';
 
+/** Display options passed from CommentGallery to control which fields are shown */
 interface CommentRenderersProps {
   comment: CommentListing;
   options: {
@@ -16,11 +23,13 @@ interface CommentRenderersProps {
   };
 }
 
+/** Formats commenter's first and last name, with fallback to 'Anonymous' */
 const getCommenterName = (comment: CommentListing) => {
   const parts = [comment.first_name, comment.last_name].filter(Boolean);
   return parts.length > 0 ? parts.join(' ') : 'Anonymous';
 };
 
+/** Card renderer for grid view - displays comment with optional metadata */
 export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options}) => (
   <Box className="flex flex-col border border-zinc-200 rounded-lg p-4 shadow-sm bg-white h-full">
     <Flex align="center" gap="3" mb="2">
@@ -59,6 +68,7 @@ export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options})
   </Box>
 );
 
+/** Row renderer for table/list view - displays comment fields as table cells */
 export const CommentRow: React.FC<CommentRenderersProps> = ({comment, options}) => (
   <Table.Row>
     {options.showTitles && <Table.Cell>{comment.title}</Table.Cell>}

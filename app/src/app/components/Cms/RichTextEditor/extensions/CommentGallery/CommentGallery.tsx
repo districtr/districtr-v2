@@ -1,3 +1,11 @@
+/**
+ * CommentGallery - CMS-embeddable component for displaying public comments
+ *
+ * This component can be inserted into CMS pages via the TipTap editor.
+ * It supports filtering by IDs, tags, location, and configurable display options.
+ *
+ * Uses the generic Gallery component for consistent pagination and view modes.
+ */
 'use client';
 import React from 'react';
 import {Gallery} from '@/app/components/Static/Gallery';
@@ -9,6 +17,7 @@ import {
 } from '@/app/utils/api/apiHandlers/getComments';
 import {CommentCard, CommentRow} from './CommentGalleryRenderers';
 
+/** Props for CommentGallery - matches attributes defined in CommentGalleryNode */
 export interface CommentGalleryProps {
   ids?: number[];
   tags?: string[];
