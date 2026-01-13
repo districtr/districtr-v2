@@ -331,7 +331,7 @@ def get_comments_base_query(
             Commenter.place,
             Commenter.state,
             Commenter.zip_code,
-            Comment.created_at,
+            col(Comment.created_at),
             col(CommentTag.comment_id),
             func.coalesce(
                 func.array_agg(func.distinct(Tag.slug)).filter(
@@ -369,6 +369,7 @@ def get_comments_base_query(
         select(
             col(Comment.title),
             col(Comment.comment),
+            col(Comment.created_at),
             col(Commenter.first_name),
             col(Commenter.last_name),
             col(Commenter.place),
@@ -377,6 +378,7 @@ def get_comments_base_query(
             func.coalesce(tag_subquery.c.tags, []).label("tags"),
             col(DocumentComment.zone),
         )
+        .select_from(Comment)
         .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
         .outerjoin(tag_subquery, col(Comment.id) == tag_subquery.c.comment_id)
         .outerjoin(
