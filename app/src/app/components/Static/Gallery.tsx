@@ -73,17 +73,22 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
 
   const {data, isLoading} = useQuery({
     queryKey: ['gallery', galleryQueryId, ...(queryKey ?? []), filters, page, displayLimit],
-    queryFn: () => queryFunction({filters, limit: displayLimit, offset: page * displayLimit}),
+    queryFn: () => queryFunction({filters, limit: displayLimit + 1, offset: page * displayLimit}),
   });
 
-  const items = useMemo<TItem[]>(() => {
-    if (selectItems) return selectItems(data);
-    return (data as unknown as TItem[]) ?? [];
-  }, [data, selectItems]);
+  const {items, hasNextPage} = useMemo(() => {
+    const rawItems = selectItems ? selectItems(data) : ((data as unknown as TItem[]) ?? []);
+    const hasMore = rawItems.length > displayLimit;
+    return {
+      items: hasMore ? rawItems.slice(0, displayLimit) : rawItems,
+      hasNextPage: hasMore,
+    };
+  }, [data, selectItems, displayLimit]);
+
   const computedIsError = isError ? isError(data) : false;
   const computedErrorMessage = errorMessage ? errorMessage(data) : undefined;
 
-  const showPagination = !!(paginate && items && (items.length === displayLimit || page > 0));
+  const showPagination = !!(paginate && (hasNextPage || page > 0));
   const noItems = !isLoading && (!items || items.length === 0);
 
   if (isLoading) {
@@ -156,7 +161,7 @@ export function GalleryInner<TItem, TFilters, TQueryResult = TItem[]>({
           <Button onClick={() => setPage(page - 1)} disabled={page === 0}>
             Previous
           </Button>
-          <Button onClick={() => setPage(page + 1)} disabled={(items?.length ?? 0) < displayLimit}>
+          <Button onClick={() => setPage(page + 1)} disabled={!hasNextPage}>
             Next
           </Button>
         </Flex>
