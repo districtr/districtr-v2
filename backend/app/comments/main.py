@@ -348,8 +348,21 @@ def get_comments_base_query(
             if tags
             else literal(0).label("matching_tag_count"),
         )
+        .select_from(CommentTag)
+        .join(Comment, col(Comment.id) == CommentTag.comment_id)
+        .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
         .outerjoin(Tag, col(Tag.id) == CommentTag.tag_id)
-        .group_by(col(CommentTag.comment_id))
+        .group_by(
+            col(CommentTag.comment_id),
+            Comment.title,
+            Comment.comment,
+            Comment.created_at,
+            Commenter.first_name,
+            Commenter.last_name,
+            Commenter.place,
+            Commenter.state,
+            Commenter.zip_code,
+        )
     ).subquery()
 
     stmt = (
