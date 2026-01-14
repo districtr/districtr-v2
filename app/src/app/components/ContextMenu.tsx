@@ -20,7 +20,7 @@ export const MapContextMenu: React.FC = () => {
 
   const isChild = CHILD_LAYERS.includes(contextMenu.data.layer.id);
   const id = contextMenu.data.id?.toString() || '';
-  const parent = (isChild && childToParent.get(id)) || false;
+  const isParent = (isChild && childToParent.get(id)) || false;
   const shatterableId = isChild && parent ? parent : contextMenu?.data?.id;
 
   const handleSelect = () => {
@@ -65,7 +65,7 @@ export const MapContextMenu: React.FC = () => {
           <>
             <ContextMenu.Label>
               <Text size="1" color="gray">
-                Parent: {parent}
+                Parent: {isParent}
               </Text>
             </ContextMenu.Label>
             <ContextMenu.Item
