@@ -23,15 +23,13 @@ export class DocumentsDB extends Dexie {
       documents: 'id, clientLastUpdated',
     });
     
-    // Set up beforeunload handler to flush pending updates
     if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', () => {
-        // Attempt to flush pending updates on page unload
-        // Note: We can't await here, but IndexedDB operations are usually fast enough
-        // to complete before the page closes. Data loss is possible on rapid close.
-        this.flushPendingUpdate().catch(() => {
-          // Silently fail on unload - user is leaving anyway
-        });
+      window.addEventListener('beforeunload', (e) => {
+        if (this.pendingUpdate) {
+          // Block unload until save completes
+          e.preventDefault();
+          e.returnValue = '';
+        }
       });
     }
   }
