@@ -154,6 +154,11 @@ export default function ReviewHome() {
             <Text>Review and moderate comments, tags, and commenters</Text>
           </Box>
           {isLoading && <Spinner />}
+          {data && !data.ok && (
+            <Blockquote color="red">
+              Error loading comments: {data.error?.detail || 'Unknown error'}
+            </Blockquote>
+          )}
           {data?.ok && data?.response.length > 0 && (
             <>
               {data?.response.map(item => (
