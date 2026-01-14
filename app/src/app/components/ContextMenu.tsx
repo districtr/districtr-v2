@@ -21,7 +21,7 @@ export const MapContextMenu: React.FC = () => {
   const isChild = CHILD_LAYERS.includes(contextMenu.data.layer.id);
   const id = contextMenu.data.id?.toString() || '';
   const isParent = (isChild && childToParent.get(id)) || false;
-  const shatterableId = isChild && parent ? parent : contextMenu?.data?.id;
+  const shatterableId = isChild && isParent ? isParent : contextMenu?.data?.id;
 
   const handleSelect = () => {
     if (!mapDocument || !shatterableId) return;
