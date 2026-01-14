@@ -34,7 +34,7 @@ export const Header: React.FC = () => {
     <>
       <Box className="p-4 bg-gray-100 sticky top-0 shadow-sm z-[10000]">
         <Flex direction="row" justify="between" className="mx-auto max-w-screen-lg">
-          <Heading size="4" className="site-title text-districtrBlue">
+          <Heading size="4" as="h3" className="site-title text-districtrBlue">
             <a href="/">Districtr</a>
           </Heading>
           <Flex direction="row" gapX="4" className="text-sm tracking-wider !hidden md:!flex">

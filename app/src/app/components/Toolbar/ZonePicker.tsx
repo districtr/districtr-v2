@@ -15,7 +15,7 @@ export function ZonePicker() {
   };
 
   return (
-    <Box className={access === 'read' ? 'pointer-events-none opacity-50' : ''}>
+    <Box className={access === 'read' ? 'pointer-events-none opacity-50' : ''} data-testid="zone-picker">
       <ColorPicker onValueChange={handleRadioChange} defaultValue={0} value={selectedZone - 1} />
     </Box>
   );

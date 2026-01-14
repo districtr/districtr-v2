@@ -16,7 +16,7 @@ export const CommentList: React.FC<{
           <IconButton variant="ghost" size="3" aria-label="Commenter">
             <PersonIcon className="w-5 h-5 text-zinc-600" />
           </IconButton>
-          <Heading size="4" className="text-districtrBlue">
+          <Heading size="4" as="h3" className="text-districtrBlue">
             {c.comment.title}
           </Heading>
         </Flex>
