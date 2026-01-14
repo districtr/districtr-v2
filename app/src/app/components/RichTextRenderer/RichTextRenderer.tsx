@@ -6,7 +6,7 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import BoilerplateNode from '../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNode';
+import BoilerplateNode from '../Cms/RichTextEditor/extensions/boilerplate/BoilerplateNode';
 import PlanGalleryNode from '../Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
 import parse from 'html-react-parser';
 import {domNodeReplacers} from './CustomRenderers/DomNodeRenderers';

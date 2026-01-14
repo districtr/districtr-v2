@@ -1,5 +1,5 @@
 import {DOMNode} from 'html-react-parser';
-import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boierplate/BoilerplateNodeRenderer';
+import BoilerplateNodeRenderer from '../../Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNodeRenderer';
 import {ContentHeader} from '../../Static/ContentHeader';
 import {CommentSubmissionForm} from '../../Forms/CommentSubmissionForm';
 import {PlanGallery} from '../../Cms/RichTextEditor/extensions/PlanGallery/PlanGallery';
