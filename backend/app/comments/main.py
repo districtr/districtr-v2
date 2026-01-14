@@ -660,7 +660,7 @@ async def list_comments_admin(
     zip_code: str = Query(default=None),
     public_id: int = Query(default=None),
     # View all comments regardless of moderation score
-    min_moderation_score: float = Query(default=1.0),
+    min_moderation_score: float = Query(default=0),
     offset: int = Query(default=0),
     limit: int = Query(default=100),
     session: Session = Depends(get_session),

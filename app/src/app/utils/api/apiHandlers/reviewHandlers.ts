@@ -42,49 +42,28 @@ export interface ReviewStatusUpdate {
 export interface ReviewListParams {
   offset?: number;
   limit?: number;
-  reviewStatus?: ReviewStatus | null;
+  review_status?: ReviewStatus | null;
   tags?: string[];
   place?: string;
   state?: string;
-  zipCode?: string;
-  minModerationScore?: number;
+  zip_code?: string;
+  min_moderation_score?: number;
 }
 
 // GET endpoints
 export const getAdminCommentsList = async (
   params: ReviewListParams = {},
   session?: any
-): Promise<{ok: true; data: ReviewItem[]} | {ok: false; error: string}> => {
-  const searchParams = new URLSearchParams();
-
-  if (params.offset !== undefined) searchParams.append('offset', params.offset.toString());
-  if (params.limit !== undefined) searchParams.append('limit', params.limit.toString());
-  if (params.reviewStatus) searchParams.append('review_status', params.reviewStatus);
-  if (params.tags?.length) {
-    params.tags.forEach(tag => searchParams.append('tags', tag));
+) => {
+  const searchParams: Record<string, string | number | boolean | (string | number)[]> = {};
+ for (const [key, value] of Object.entries(params)) {
+  if (value) {
+    searchParams[key] = value;
   }
-  if (params.place?.length) searchParams.append('place', params.place);
-  if (params.state?.length) searchParams.append('state', params.state);
-  if (params.zipCode?.length) searchParams.append('zip_code', params.zipCode);
-  if (params.minModerationScore !== undefined)
-    searchParams.append('min_moderation_score', params.minModerationScore.toString());
+ }
 
-  const queryString = searchParams.toString();
-  const path = queryString ? `comments/admin/list?${queryString}` : 'comments/admin/list';
-
-  const response = await get<ReviewItem[]>(path)({session});
-
-  if (!response.ok) {
-    return {
-      ok: false,
-      error: response.error.detail,
-    };
-  }
-
-  return {
-    ok: true,
-    data: response.response,
-  };
+  const response = await get<ReviewItem[]>('comments/admin/list')({session, queryParams: searchParams});
+  return response;
 };
 
 // POST endpoints for updating review status
