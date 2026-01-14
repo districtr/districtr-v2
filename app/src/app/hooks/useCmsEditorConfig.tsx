@@ -7,8 +7,8 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import BoilerplateNode from '../components/Cms/RichTextEditor/extensions/boilerplate/BoilerplateNode';
-import {PlanGalleryNode} from '../components/Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
+import BoilerplateNode from '@/app/components/Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNode';
+import {PlanGalleryNode} from '@/app/components/Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
 import {
   FontBoldIcon,
   FontItalicIcon,
@@ -25,10 +25,10 @@ import {
   GlobeIcon,
   ChatBubbleIcon,
 } from '@radix-ui/react-icons';
-import SectionHeaderNode from '../components/Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
-import FormNode from '../components/Cms/RichTextEditor/extensions/CommentSubmissionForm/FormNode';
-import MapCreateButtonsNode from '../components/Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtonsNode';
-import CommentGalleryNode from '../components/Cms/RichTextEditor/extensions/CommentGallery/CommentGalleryNode';
+import SectionHeaderNode from '@/app/components/Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
+import FormNode from '@/app/components/Cms/RichTextEditor/extensions/CommentSubmissionForm/FormNode';
+import MapCreateButtonsNode from '@/app/components/Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtonsNode';
+import CommentGalleryNode from '@/app/components/Cms/RichTextEditor/extensions/CommentGallery/CommentGalleryNode';
 
 export const useCmsEditorConfig = (content: string | object, onChange: (json: object) => void) => {
   const editor = useEditor({

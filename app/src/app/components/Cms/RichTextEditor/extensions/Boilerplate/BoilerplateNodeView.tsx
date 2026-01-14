@@ -10,7 +10,7 @@ import React, {useEffect} from 'react';
 import {Box, Button, Dialog, Flex, Heading, Text} from '@radix-ui/themes';
 import RichTextEditor from '../../RichTextEditor';
 
-const BoilerplateNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
+export const BoilerplateNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   // Use a nested editor for the custom content
   const customContent = node.attrs.customContent || null;
   const [dialogOpen, setDialogOpen] = React.useState(false);

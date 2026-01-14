@@ -6,14 +6,14 @@ import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
-import BoilerplateNode from '../Cms/RichTextEditor/extensions/boilerplate/BoilerplateNode';
-import PlanGalleryNode from '../Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
+import BoilerplateNode from '@/app/components/Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNode';
+import PlanGalleryNode from '@/app/components/Cms/RichTextEditor/extensions/PlanGallery/PlanGalleryNode';
 import parse from 'html-react-parser';
 import {domNodeReplacers} from './CustomRenderers/DomNodeRenderers';
-import SectionHeaderNode from '../Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
-import FormNode from '../Cms/RichTextEditor/extensions/CommentSubmissionForm/FormNode';
-import MapCreateButtonsNode from '../Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtonsNode';
-import CommentGalleryNode from '../Cms/RichTextEditor/extensions/CommentGallery/CommentGalleryNode';
+import SectionHeaderNode from '@/app/components/Cms/RichTextEditor/extensions/SectionHeader/SectionHeaderNode';
+import FormNode from '@/app/components/Cms/RichTextEditor/extensions/CommentSubmissionForm/FormNode';
+import MapCreateButtonsNode from '@/app/components/Cms/RichTextEditor/extensions/MapCreateButtons/MapCreateButtonsNode';
+import CommentGalleryNode from '@/app/components/Cms/RichTextEditor/extensions/CommentGallery/CommentGalleryNode';
 
 interface RichTextRendererProps {
   content: string | object;
