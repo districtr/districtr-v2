@@ -84,7 +84,8 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
           {
             zoneAssignments: data.zoneAssignments,
             shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
+            parentToChild: data.parentToChild,
+            childToParent: data.childToParent,
           },
           result.response.updateLocal ? result.response.document : undefined
         );

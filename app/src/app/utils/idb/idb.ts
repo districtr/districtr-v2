@@ -22,6 +22,16 @@ export class DocumentsDB extends Dexie {
     this.version(1).stores({
       documents: 'id, clientLastUpdated',
     });
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', (e) => {
+        if (this.pendingUpdate) {
+          // Block unload until save completes
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      });
+    }
   }
 
   async updateDocument(document: StoredDocument) {
@@ -47,24 +57,113 @@ export class DocumentsDB extends Dexie {
       .then(documents => documents.map(document => document.document_metadata));
   }
 
+  // Debounce state for batching rapid updates
+  private pendingUpdate: {
+    mapDocument: DocumentObject;
+    zoneAssignments: Map<string, NullableZone>;
+    shatterIds: {parents: Set<string>; children: Set<string>};
+    childToParent: Map<string, string>;
+    clientLastUpdated: string;
+    timeoutId: ReturnType<typeof setTimeout> | null;
+  } | null = null;
+
+  // Debounce delay in milliseconds (500ms = save after user pauses for half a second)
+  private readonly DEBOUNCE_DELAY = 500;
+
+  /**
+   * Debounced version of updateIdbAssignments that batches rapid updates.
+   * Saves to IDB after the user pauses painting for DEBOUNCE_DELAY ms.
+   * Use flushPendingUpdate() to force immediate save.
+   * 
+   * @param immediate - If true, saves immediately without debouncing
+   */
   updateIdbAssignments = (
     mapDocument: DocumentObject,
     zoneAssignments: Map<string, NullableZone>,
-    clientLastUpdated: string = new Date().toISOString()
+    clientLastUpdated: string = new Date().toISOString(),
+    immediate: boolean = false
   ) => {
-    const {shatterMappings, shatterIds} = useAssignmentsStore.getState();
-    const document_id = mapDocument?.document_id;
     if (!mapDocument) return;
-    // map must be loaded
-    // map must be in edit mode
+
+    // Clear existing timeout if any
+    if (this.pendingUpdate?.timeoutId) {
+      clearTimeout(this.pendingUpdate.timeoutId);
+      this.pendingUpdate.timeoutId = null;
+    }
+
+    // Store the latest parameters, capturing current state
+    const {shatterIds, childToParent} = useAssignmentsStore.getState();
+    
+    // If immediate save requested, save synchronously without debouncing
+    if (immediate) {
+      const document_id = mapDocument?.document_id;
+      if (!document_id) return;
+      
+      const assignmentsToSave = formatAssignmentsFromState(
+        document_id,
+        zoneAssignments,
+        shatterIds,
+        childToParent,
+        'assignment'
+      );
+      
+      // Fire and forget - don't set pending update
+      this.updateDocument({
+        id: document_id,
+        document_metadata: mapDocument,
+        assignments: assignmentsToSave,
+        clientLastUpdated: clientLastUpdated,
+      });
+      return;
+    }
+
+    // Set new timeout to save after debounce delay
+    const timeoutId = setTimeout(() => {
+      this.flushPendingUpdate();
+    }, this.DEBOUNCE_DELAY);
+
+    this.pendingUpdate = {
+      mapDocument,
+      zoneAssignments: new Map(zoneAssignments), // Clone to capture current state
+      shatterIds: {
+        parents: new Set(shatterIds.parents),
+        children: new Set(shatterIds.children),
+      },
+      childToParent: new Map(childToParent),
+      clientLastUpdated,
+      timeoutId,
+    };
+  };
+
+  /**
+   * Immediately saves any pending update to IDB.
+   * Useful for critical saves (e.g., before navigation, on explicit save).
+   */
+  flushPendingUpdate = async () => {
+    if (!this.pendingUpdate) return;
+
+    const {mapDocument, zoneAssignments, shatterIds, childToParent, clientLastUpdated} =
+      this.pendingUpdate;
+
+    // Clear the pending update
+    if (this.pendingUpdate.timeoutId) {
+      clearTimeout(this.pendingUpdate.timeoutId);
+    }
+    this.pendingUpdate = null;
+
+    // Perform the actual save using captured state
+    const document_id = mapDocument?.document_id;
+    if (!mapDocument || !document_id) return;
+
     const assignmentsToSave = formatAssignmentsFromState(
       document_id,
       zoneAssignments,
       shatterIds,
-      shatterMappings,
+      childToParent,
       'assignment'
     );
-    this.updateDocument({
+
+    await this.updateDocument({
       id: document_id,
       document_metadata: mapDocument,
       assignments: assignmentsToSave,
