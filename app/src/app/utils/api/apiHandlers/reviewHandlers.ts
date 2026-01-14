@@ -10,8 +10,7 @@ export type ReviewStatus = (typeof REVIEW_STATUS_ENUM)[keyof typeof REVIEW_STATU
 export interface ReviewItem {
   // Common fields
   review_status?: ReviewStatus;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
   title: string;
   comment: string;
   first_name: string | null;
@@ -20,6 +19,8 @@ export interface ReviewItem {
   state: string | null;
   zip_code: string | null;
   tags: Array<string | null>;
+  zone?: number | null;
+  public_id?: number | null;
 
   // Admin fields
   comment_id: number;

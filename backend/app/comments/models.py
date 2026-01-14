@@ -311,6 +311,7 @@ class PublicCommentResponse(BaseModel):
     tags: list[str | None] = []
     created_at: datetime | None = None
     zone: int | None = None
+    public_id: int | None = None
 
 
 class AdminCommentResponse(PublicCommentResponse):

@@ -315,6 +315,8 @@ def get_comments_base_query(
     limit: int,
     offset: int,
     public_id: int | None,
+    search: str | None = None,
+    has_map: bool | None = None,
 ) -> Select:
     """
     Return comments that pass moderation gates, with ALL their attached tags.
@@ -377,6 +379,7 @@ def get_comments_base_query(
             col(Commenter.zip_code),
             func.coalesce(tag_subquery.c.tags, []).label("tags"),
             col(DocumentComment.zone),
+            col(Document.public_id),
         )
         .select_from(Comment)
         .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
@@ -384,6 +387,10 @@ def get_comments_base_query(
         .outerjoin(
             DocumentComment,
             col(DocumentComment.comment_id) == Comment.id,
+        )
+        .outerjoin(
+            Document,
+            col(Document.document_id) == DocumentComment.document_id,
         )
         .limit(limit)
         .offset(offset)
@@ -419,6 +426,27 @@ def get_comments_base_query(
 
     if tags:
         stmt = stmt.where(tag_subquery.c.matching_tag_count > 0)
+
+    # -----------------------------
+    # Text search filter (ILIKE on title and comment)
+    # -----------------------------
+    if search:
+        search_pattern = f"%{search}%"
+        stmt = stmt.where(
+            or_(
+                col(Comment.title).ilike(search_pattern),
+                col(Comment.comment).ilike(search_pattern),
+            )
+        )
+
+    # -----------------------------
+    # Has map filter (comments with associated map)
+    # -----------------------------
+    if has_map is not None:
+        if has_map:
+            stmt = stmt.where(col(Document.public_id).isnot(None))
+        else:
+            stmt = stmt.where(col(Document.public_id).is_(None))
 
     return stmt
 
@@ -556,6 +584,7 @@ def get_admin_query(
             col(Commenter.zip_code),
             func.coalesce(tag_subquery.c.tags, []).label("tags"),
             col(DocumentComment.zone),
+            col(Document.public_id),
             col(Comment.id).label("comment_id"),
             col(Comment.review_status).label("comment_review_status"),
             col(Comment.moderation_score).label("comment_moderation_score"),
@@ -570,12 +599,11 @@ def get_admin_query(
                 "tag_moderation_score"
             ),
         )
+        .select_from(Comment)
         .outerjoin(Commenter, col(Comment.commenter_id) == Commenter.id)
         .outerjoin(tag_subquery, col(Comment.id) == tag_subquery.c.comment_id)
-        .outerjoin(
-            DocumentComment,
-            col(DocumentComment.comment_id) == Comment.id,
-        )
+        .outerjoin(DocumentComment, col(DocumentComment.comment_id) == Comment.id)
+        .outerjoin(Document, col(Document.document_id) == DocumentComment.document_id)
         .limit(limit)
         .offset(offset)
     )
@@ -611,7 +639,7 @@ def get_admin_query(
     stmt = stmt.where(
         and_(
             or_(
-                col(Comment.moderation_score) < min_moderation_score,
+                col(Comment.moderation_score) > min_moderation_score,
                 col(Comment.moderation_score).is_(None),
             ),
             col(Comment.review_status) == review_status
@@ -637,6 +665,8 @@ async def list_comments(
     zip_code: str | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
+    search: str | None = Query(default=None, description="Search in title and comment text"),
+    has_map: bool | None = Query(default=None, description="Filter for comments with/without maps"),
 ):
     stmt = get_comments_base_query(
         tags=tags,
@@ -646,6 +676,8 @@ async def list_comments(
         limit=limit,
         offset=offset,
         public_id=public_id,
+        search=search,
+        has_map=has_map,
     )
     stmt = moderate_comments_query(stmt)
     results = session.execute(stmt).all()
