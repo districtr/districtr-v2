@@ -5,8 +5,8 @@
  * They handle conditional display of fields based on the options prop.
  */
 'use client';
-import {Box, Flex, Heading, IconButton, Table, Text} from '@radix-ui/themes';
-import {PersonIcon} from '@radix-ui/react-icons';
+import {Badge, Box, Flex, Heading, Table, Text} from '@radix-ui/themes';
+import {PersonIcon, CalendarIcon, GlobeIcon} from '@radix-ui/react-icons';
 import {type CommentListing} from '@/app/utils/api/apiHandlers/getComments';
 import {formatDistanceToNow} from 'date-fns';
 
@@ -20,6 +20,7 @@ interface CommentRenderersProps {
     showStates?: boolean;
     showZipCodes?: boolean;
     showCreatedAt?: boolean;
+    showMaps?: boolean;
   };
 }
 
@@ -29,55 +30,173 @@ const getCommenterName = (comment: CommentListing) => {
   return parts.length > 0 ? parts.join(' ') : 'Anonymous';
 };
 
-/** Card renderer for grid view - displays comment with optional metadata */
-export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options}) => (
-  <Box className="flex flex-col border border-zinc-200 rounded-lg p-4 shadow-sm bg-white h-full">
-    <Flex align="center" gap="3" mb="2">
-      {options.showIdentifier && (
-        <Flex align="center" gap="2">
-          <IconButton variant="ghost" size="3" aria-label="Commenter">
-            <PersonIcon className="w-5 h-5 text-zinc-600" />
-          </IconButton>
-          <Text size="2" color="gray">{getCommenterName(comment)}</Text>
-        </Flex>
-      )}
-      {options.showTitles && (
-        <Heading size="4" className="text-districtrBlue text-wrap whitespace-pre-line max-w-[18rem] truncate">
-          {comment.title}
-        </Heading>
-      )}
-    </Flex>
-    <Text className="mb-3 whitespace-pre-line">{comment.comment}</Text>
-    <Flex wrap="wrap" gap="2">
-      {comment.tags?.map(tag => (
-        <Text 
-          // TODO: Add tag list pages
-          // href={`/api/comments/list?tag=${tag}`}
-          key={tag}
-          className="px-2 py-1 text-sm rounded-full bg-purple-100 text-black"
-        >
-          {tag}
-        </Text>
-      ))}
-    </Flex>
-    {options.showCreatedAt && (
-      <Text className="mt-1 text-gray-400 text-xs text-right">
-        {formatDistanceToNow(new Date(comment.created_at))} ago
-      </Text>
+/** Formats location string from place, state, and zip */
+const getLocationString = (comment: CommentListing) => {
+  const parts = [];
+  if (comment.place) parts.push(comment.place);
+  if (comment.state) parts.push(comment.state);
+  if (comment.zip_code) parts.push(comment.zip_code);
+  return parts.join(', ');
+};
+
+/** Map link component for comments with associated maps */
+const MapLink: React.FC<{publicId: number; zone?: number | null}> = ({publicId, zone}) => (
+  <a
+    href={`/map/${publicId}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md text-sm font-medium transition-colors"
+    onClick={e => e.stopPropagation()}
+  >
+    <GlobeIcon className="w-4 h-4" />
+    View Map
+    {zone !== null && zone !== undefined && (
+      <Badge size="1" color="blue" variant="soft">
+        Zone {zone}
+      </Badge>
     )}
-  </Box>
+  </a>
 );
+
+/** Card renderer for grid view - displays comment with optional metadata */
+export const CommentCard: React.FC<CommentRenderersProps> = ({comment, options}) => {
+  const hasLocation =
+    (options.showPlaces && comment.place) ||
+    (options.showStates && comment.state) ||
+    (options.showZipCodes && comment.zip_code);
+
+  return (
+    <Box className="flex flex-col h-full bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+      {/* Header */}
+      <Box className="px-4 pt-4 pb-3 border-b border-slate-100 bg-slate-50">
+        <Flex align="start" justify="between" gap="3">
+          <Flex direction="column" gap="1" className="flex-1 min-w-0">
+            {options.showTitles && comment.title && (
+              <Heading
+                size="3"
+                className="text-slate-800 line-clamp-2"
+                title={comment.title}
+              >
+                {comment.title}
+              </Heading>
+            )}
+            {options.showIdentifier && (
+              <Flex align="center" gap="1.5">
+                <PersonIcon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                <Text size="2" color="gray" className="truncate">
+                  {getCommenterName(comment)}
+                </Text>
+              </Flex>
+            )}
+          </Flex>
+          {options.showCreatedAt && comment.created_at && (
+            <Flex align="center" gap="1" className="flex-shrink-0">
+              <CalendarIcon className="w-3 h-3 text-slate-400" />
+              <Text size="1" color="gray" className="whitespace-nowrap">
+                {formatDistanceToNow(new Date(comment.created_at), {addSuffix: true})}
+              </Text>
+            </Flex>
+          )}
+        </Flex>
+      </Box>
+
+      {/* Content */}
+      <Box className="px-4 py-3 flex-1">
+        <Text
+          size="2"
+          className="text-slate-600 whitespace-pre-line line-clamp-4"
+        >
+          {comment.comment}
+        </Text>
+      </Box>
+
+      {/* Footer */}
+      <Box className="px-4 pb-4 pt-2 mt-auto">
+        {/* Location */}
+        {hasLocation && (
+          <Text size="1" color="gray" className="block mb-2">
+            📍 {getLocationString(comment)}
+          </Text>
+        )}
+
+        {/* Tags and Map */}
+        <Flex wrap="wrap" gap="2" align="center">
+          {comment.tags?.map(tag => (
+            <Badge
+              key={tag}
+              size="1"
+              variant="surface"
+              color="purple"
+              className="cursor-default"
+            >
+              #{tag}
+            </Badge>
+          ))}
+          {options.showMaps && comment.public_id && (
+            <MapLink publicId={comment.public_id} zone={comment.zone} />
+          )}
+        </Flex>
+      </Box>
+    </Box>
+  );
+};
 
 /** Row renderer for table/list view - displays comment fields as table cells */
 export const CommentRow: React.FC<CommentRenderersProps> = ({comment, options}) => (
-  <Table.Row>
-    {options.showTitles && <Table.Cell>{comment.title}</Table.Cell>}
-    {options.showIdentifier && <Table.Cell>{getCommenterName(comment)}</Table.Cell>}
-    {options.showPlaces && <Table.Cell>{comment.place}</Table.Cell>}
-    {options.showStates && <Table.Cell>{comment.state}</Table.Cell>}
-    {options.showZipCodes && <Table.Cell>{comment.zip_code}</Table.Cell>}
+  <Table.Row className="hover:bg-slate-50 transition-colors">
+    {options.showTitles && (
+      <Table.Cell>
+        <Text weight="medium" className="line-clamp-1">
+          {comment.title}
+        </Text>
+      </Table.Cell>
+    )}
+    {options.showIdentifier && (
+      <Table.Cell>
+        <Flex align="center" gap="1.5">
+          <PersonIcon className="w-3.5 h-3.5 text-slate-400" />
+          <Text size="2">{getCommenterName(comment)}</Text>
+        </Flex>
+      </Table.Cell>
+    )}
+    {options.showPlaces && (
+      <Table.Cell>
+        <Text size="2" color="gray">
+          {comment.place || '—'}
+        </Text>
+      </Table.Cell>
+    )}
+    {options.showStates && (
+      <Table.Cell>
+        <Text size="2" color="gray">
+          {comment.state || '—'}
+        </Text>
+      </Table.Cell>
+    )}
+    {options.showZipCodes && (
+      <Table.Cell>
+        <Text size="2" color="gray">
+          {comment.zip_code || '—'}
+        </Text>
+      </Table.Cell>
+    )}
+    {options.showMaps && (
+      <Table.Cell>
+        {comment.public_id ? (
+          <MapLink publicId={comment.public_id} zone={comment.zone} />
+        ) : (
+          <Text size="2" color="gray">
+            —
+          </Text>
+        )}
+      </Table.Cell>
+    )}
     {options.showCreatedAt && (
-      <Table.Cell>{formatDistanceToNow(new Date(comment.created_at))} ago</Table.Cell>
+      <Table.Cell>
+        <Text size="2" color="gray">
+          {formatDistanceToNow(new Date(comment.created_at), {addSuffix: true})}
+        </Text>
+      </Table.Cell>
     )}
   </Table.Row>
 );

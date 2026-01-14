@@ -28,6 +28,8 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
     showStates,
     showZipCodes,
     showCreatedAt,
+    showFilters,
+    showMaps,
   } = node.attrs as CommentGalleryProps;
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -49,6 +51,18 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
           state={state}
           zipCode={zipCode}
           limit={limit}
+          showFilters={showFilters}
+          showMaps={showMaps}
+          showIdentifier={showIdentifier}
+          showTitles={showTitles}
+          showPlaces={showPlaces}
+          showStates={showStates}
+          showZipCodes={showZipCodes}
+          showCreatedAt={showCreatedAt}
+          showListView={showListView}
+          paginate={paginate}
+          title={title}
+          description={description}
         />
       </NoFocusBoundary>
       <Box position="absolute" top="2" right="2">
@@ -97,6 +111,8 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
                       showStates ? 'showStates' : '',
                       showZipCodes ? 'showZipCodes' : '',
                       showCreatedAt ? 'showCreatedAt' : '',
+                      showFilters ? 'showFilters' : '',
+                      showMaps ? 'showMaps' : '',
                     ]}
                     onValueChange={value => {
                       handleUpdate({
@@ -108,6 +124,8 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
                         showZipCodes: value.includes('showZipCodes'),
                         showCreatedAt: value.includes('showCreatedAt'),
                         showIdentifier: value.includes('showIdentifier'),
+                        showFilters: value.includes('showFilters'),
+                        showMaps: value.includes('showMaps'),
                       });
                     }}
                   >
@@ -121,6 +139,8 @@ const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes
                     <CheckboxCards.Item value="showStates">Show States</CheckboxCards.Item>
                     <CheckboxCards.Item value="showZipCodes">Show Zip Codes</CheckboxCards.Item>
                     <CheckboxCards.Item value="showCreatedAt">Show Created At</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showFilters">Show Filter Controls</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showMaps">Show Map Links</CheckboxCards.Item>
                   </CheckboxCards.Root>
                 </Flex>
 

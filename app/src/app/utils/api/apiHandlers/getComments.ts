@@ -10,13 +10,16 @@ import {get} from '../factory';
 export interface CommentListing {
   title: string;
   comment: string;
-  first_name: string;
-  last_name: string;
-  place: string;
-  state: string;
-  zip_code: string;
+  first_name: string | null;
+  last_name: string | null;
+  place: string | null;
+  state: string | null;
+  zip_code: string | null;
   created_at: Date;
   tags?: string[];
+  zone?: number | null;
+  /** Public ID of the associated map, if any */
+  public_id?: number | null;
 }
 
 /** Filter options for querying public comments */
@@ -35,7 +38,15 @@ export interface CommentFilters {
   offset?: number;
   /** Number of results to return */
   limit?: number;
+  /** Search in title and comment text */
+  search?: string;
+  /** Filter for comments with/without maps */
+  hasMap?: boolean;
 }
+
+/** Convert camelCase to snake_case for API query params */
+const toSnakeCase = (str: string): string =>
+  str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 
 /**
  * Fetch public comments with optional filters.
@@ -44,8 +55,9 @@ export interface CommentFilters {
 export const getPublicComments = async (filters: CommentFilters) => {
   const queryParams: Record<string, string | number | boolean | (string | number)[]> = {};
   for (const [key, value] of Object.entries(filters)) {
-    if (value) {
-      queryParams[key] = value;
+    if (value !== undefined && value !== null && value !== '') {
+      // Convert camelCase keys to snake_case for backend API
+      queryParams[toSnakeCase(key)] = value;
     }
   }
   return await get<CommentListing[]>('comments/list')({queryParams});

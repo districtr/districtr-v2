@@ -85,6 +85,8 @@ export const domNodeReplacers = (disabled: boolean) => {
           const showCreatedAt = JSON.parse(domNode.attribs['showCreatedAt'] ?? 'null');
           const showListView = JSON.parse(domNode.attribs['showListView'] ?? 'null');
           const paginate = JSON.parse(domNode.attribs['paginate'] ?? 'null');
+          const showFilters = JSON.parse(domNode.attribs['showFilters'] ?? 'null');
+          const showMaps = JSON.parse(domNode.attribs['showMaps'] ?? 'null');
           return (
             <CommentGallery
               ids={ids}
@@ -103,6 +105,8 @@ export const domNodeReplacers = (disabled: boolean) => {
               showCreatedAt={showCreatedAt}
               showListView={showListView}
               paginate={paginate}
+              showFilters={showFilters}
+              showMaps={showMaps}
             />
           );
         }
