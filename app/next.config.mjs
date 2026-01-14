@@ -1,7 +1,10 @@
 import {withSentryConfig} from '@sentry/nextjs';
+import createMDX from '@next/mdx';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Configure pageExtensions to include MDX files
+  pageExtensions: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'],
   // Path aliases are configured in tsconfig.json and automatically used by Next.js
   webpack: (config, {isServer, webpack}) => {
     // Exclude Node.js modules from client-side bundles
@@ -15,7 +18,11 @@ const nextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
+const withMDX = createMDX({
+  // Add markdown plugins here if needed
+});
+
+export default withSentryConfig(withMDX(nextConfig), {
   // For all available options, see:
   // https://github.com/getsentry/sentry-webpack-plugin#options
 
