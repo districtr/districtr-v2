@@ -89,3 +89,4 @@ pipelines/build/*
 # editors
 .vscode/
 .zed/
+/app/test-results

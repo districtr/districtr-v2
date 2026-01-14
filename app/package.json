@@ -9,7 +9,13 @@
     "lint": "next lint",
     "prettier": "prettier --write src/**/*.{tsx,ts} --config .prettierrc.js",
     "ts": "tsc --noEmit --incremental",
-    "ts:watch": "yarn ts --watch"
+    "ts:watch": "yarn ts --watch",
+    "test:e2e:minimal": "playwright test tests/map/map-creation.spec.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:local": "BASE_URL=http://localhost:3000 playwright test",
+    "test:e2e:preview": "BASE_URL=$PREVIEW_URL playwright test"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.13.0",
@@ -87,6 +93,7 @@
   },
   "devDependencies": {
     "@flydotio/dockerfile": "^0.5.8",
+    "@playwright/test": "^1.40.0",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",
