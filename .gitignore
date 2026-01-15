@@ -45,7 +45,6 @@ next-env.d.ts
 pnpm-lock.yaml
 
 # data
-db/*
 assets/
 **/public/**/*.parquet
 **/public/**/*.geojson

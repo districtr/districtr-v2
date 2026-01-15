@@ -24,7 +24,7 @@ services:
       - "8000:8000"
 
   db:
-    image: postgis/postgis:15-3.3-alpine
+    build: ./db
     container_name: postgres_db
     environment:
       POSTGRES_USER: postgres
@@ -32,6 +32,7 @@ services:
       POSTGRES_DB: districtr
     volumes:
       - __postgres_data:/var/lib/postgresql/data
+      - ./db/scripts:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     healthcheck:
