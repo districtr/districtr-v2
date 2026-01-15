@@ -665,8 +665,12 @@ async def list_comments(
     zip_code: str | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, le=100),
-    search: str | None = Query(default=None, description="Search in title and comment text"),
-    has_map: bool | None = Query(default=None, description="Filter for comments with/without maps"),
+    search: str | None = Query(
+        default=None, description="Search in title and comment text"
+    ),
+    has_map: bool | None = Query(
+        default=None, description="Filter for comments with/without maps"
+    ),
 ):
     stmt = get_comments_base_query(
         tags=tags,

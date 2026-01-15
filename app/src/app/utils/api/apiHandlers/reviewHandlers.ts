@@ -52,18 +52,18 @@ export interface ReviewListParams {
 }
 
 // GET endpoints
-export const getAdminCommentsList = async (
-  params: ReviewListParams = {},
-  session?: any
-) => {
+export const getAdminCommentsList = async (params: ReviewListParams = {}, session?: any) => {
   const searchParams: Record<string, string | number | boolean | (string | number)[]> = {};
- for (const [key, value] of Object.entries(params)) {
-  if (value) {
-    searchParams[key] = value;
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      searchParams[key] = value;
+    }
   }
- }
 
-  const response = await get<ReviewItem[]>('comments/admin/list')({session, queryParams: searchParams});
+  const response = await get<ReviewItem[]>('comments/admin/list')({
+    session,
+    queryParams: searchParams,
+  });
   return response;
 };
 
