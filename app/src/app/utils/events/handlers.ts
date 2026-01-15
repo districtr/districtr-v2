@@ -1,14 +1,7 @@
 import {BLOCK_SOURCE_ID} from '@/app/constants/layers';
-import {MapGeoJSONFeature} from 'maplibre-gl';
 import {MapRef} from 'react-map-gl/maplibre';
 import {MapStore} from '@/app/store/mapStore';
-import {AssignmentsStore, useAssignmentsStore} from '@/app/store/assignmentsStore';
-
-const mapShatterableFeatures = (
-  features: Array<MapGeoJSONFeature>,
-  shatterMappings: AssignmentsStore['shatterMappings'],
-  child_layer: string
-) => {};
+import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 
 /**
  * Resets the selection status of the map to be able to clear all and start over.

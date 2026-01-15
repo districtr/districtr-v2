@@ -39,8 +39,10 @@ export interface AssignmentsStore {
     features: Array<MapGeoJSONFeature>,
     zone: NullableZone
   ) => void;
-  /** Mapping of parent ids to their shattered children */
-  shatterMappings: Record<string, Set<string>>;
+  /** Bi-directional mapping of parent ids to their shattered children */
+  parentToChild: Map<string, Set<string>>;
+  /** Bi-directional mapping of child ids to their parent id for O(1) lookups */
+  childToParent: Map<string, string>;
   /** Assigns the provided geoids to the given zone immediately */
   setZoneAssignments: (zone: NullableZone, gdbPaths: Set<GDBPath>) => void;
   /** Updates accumulated geoids as the user paints */
@@ -56,7 +58,8 @@ export interface AssignmentsStore {
     data: {
       zoneAssignments: AssignmentsStore['zoneAssignments'];
       shatterIds: AssignmentsStore['shatterIds'];
-      shatterMappings: AssignmentsStore['shatterMappings'];
+      parentToChild: AssignmentsStore['parentToChild'];
+      childToParent: AssignmentsStore['childToParent'];
     },
     mapDocument?: DocumentObject
   ) => void;
@@ -66,7 +69,7 @@ export interface AssignmentsStore {
   resetZoneAssignments: () => void;
   /** Replaces or merges shatter state */
   setShatterState: (
-    state: Pick<AssignmentsStore, 'shatterIds' | 'shatterMappings' | 'zoneAssignments'>
+    state: Pick<AssignmentsStore, 'shatterIds' | 'parentToChild' | 'zoneAssignments' | 'childToParent'>
   ) => void;
   /** Clears all shatter state */
   resetShatterState: () => void;
@@ -91,8 +94,9 @@ export interface AssignmentsStore {
     props: {
       _parentIds?: AssignmentsStore['shatterIds']['parents'];
       _zoneAssignments?: AssignmentsStore['zoneAssignments'];
-      _shatterMappings?: AssignmentsStore['shatterMappings'];
+      _parentToChild?: AssignmentsStore['parentToChild'];
       _shatterIds?: AssignmentsStore['shatterIds'];
+      _childToParent?: AssignmentsStore['childToParent'];
       _mapRef?: maplibregl.Map;
       _mapDocument?: DocumentObject;
     },
@@ -101,7 +105,8 @@ export interface AssignmentsStore {
     | {
         zoneAssignments: Map<string, NullableZone>;
         shatterIds: AssignmentsStore['shatterIds'];
-        shatterMappings: AssignmentsStore['shatterMappings'];
+        parentToChild: AssignmentsStore['parentToChild'];
+        childToParent: AssignmentsStore['childToParent'];
       }
     | undefined;
 }
@@ -118,7 +123,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     parents: new Set<string>(),
     children: new Set<string>(),
   },
-  shatterMappings: {},
+  parentToChild: new Map<string, Set<string>>(),
+  childToParent: new Map<string, string>(),
   clientLastUpdated: '',
   setClientLastUpdated: (updated_at: string) => {
     set({
@@ -212,18 +218,20 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     set({
       zoneAssignments: new Map(data.zoneAssignments),
       shatterIds: data.shatterIds,
-      shatterMappings: data.shatterMappings,
+      parentToChild: new Map(data.parentToChild),
+      childToParent: new Map(data.childToParent),
       clientLastUpdated: mapDocument?.updated_at ?? new Date().toISOString(),
     });
     if (mapDocument) {
-      idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at);
+      // Save immediately when loading from document (not during painting)
+      idb.updateIdbAssignments(mapDocument, data.zoneAssignments, mapDocument.updated_at, true);
       useMapStore.getState().mutateMapDocument(mapDocument);
     }
     demographyCache.updatePopulations(data.zoneAssignments);
   },
 
   healParentsIfAllChildrenInSameZone: (
-    {_parentIds, _zoneAssignments, _shatterMappings, _shatterIds, _mapRef, _mapDocument},
+    {_parentIds, _zoneAssignments, _parentToChild, _shatterIds, _childToParent, _mapRef, _mapDocument},
     mutation
   ) => {
     const state = get();
@@ -231,7 +239,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const parentIds = _parentIds ?? state.shatterIds.parents;
     const shatterIds = _shatterIds ?? state.shatterIds;
     const zoneAssignments = _zoneAssignments ?? state.zoneAssignments;
-    const shatterMappings = _shatterMappings ?? state.shatterMappings;
+    const parentToChild = _parentToChild ?? new Map(state.parentToChild);
+    const childToParent = _childToParent ?? new Map(state.childToParent);
     const mapRef = _mapRef ?? mapStoreState.getMapRef();
     const mapDocument = _mapDocument ?? mapStoreState.mapDocument;
 
@@ -244,7 +253,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     }> = [];
 
     parentIds.forEach(parentId => {
-      const children = shatterMappings[parentId];
+      const children = parentToChild.get(parentId);
       if (!children || !children.size) return;
       const {shouldHeal, zone} = checkIfSameZone(children, zoneAssignments);
       if (shouldHeal) {
@@ -261,6 +270,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         healedChildIds.add(childId);
         zoneAssignments.delete(childId);
         shatterIds.children.delete(childId);
+        childToParent.delete(childId);
         if (mapRef && mapDocument.child_layer) {
           mapRef.setFeatureState(
             {
@@ -274,7 +284,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           );
         }
       });
-      delete shatterMappings[parentId];
+      parentToChild.delete(parentId);
       shatterIds.parents.delete(parentId);
       zoneAssignments.set(parentId, zone);
       if (mapRef && mapDocument.parent_layer) {
@@ -297,7 +307,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       return {
         zoneAssignments,
         shatterIds,
-        shatterMappings,
+        parentToChild,
+        childToParent,
       };
     } else {
       set({
@@ -307,9 +318,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           parents: new Set(shatterIds.parents),
           children: new Set(shatterIds.children),
         },
-        shatterMappings: {
-          ...shatterMappings,
-        },
+        parentToChild: new Map(parentToChild),
+        childToParent: new Map(childToParent),
         clientLastUpdated: new Date().toISOString(),
         zonesLastUpdated: new Map(get().zonesLastUpdated),
       });
@@ -319,7 +329,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const {
       accumulatedAssignments,
       shatterIds: _currShatterIds,
-      shatterMappings: _currShatterMappings,
+      parentToChild: _currParentToChild,
+      childToParent: _currChildToParent,
       zoneAssignments: currentZoneAssignments,
       zonesLastUpdated,
       healParentsIfAllChildrenInSameZone,
@@ -339,29 +350,28 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       parents: new Set(_currShatterIds.parents),
       children: new Set(_currShatterIds.children),
     };
-    const _shatterMappings: Record<string, Set<string>> = {
-      ..._currShatterMappings,
-    };
+    const _parentToChild = new Map(_currParentToChild);
 
     const taggedParents = new Set<string>();
     !isFocused &&
       accumulatedAssignments.forEach((_, geoid) => {
         if (_currShatterIds.children.has(geoid)) {
-          const parentId = Object.entries(_shatterMappings).find(([, children]) =>
-            children.has(geoid)
-          )?.[0];
+          const parentId = _currChildToParent.get(geoid);
           if (parentId) {
             taggedParents.add(parentId);
           }
         }
       });
 
+    const _childToParent = new Map(_currChildToParent);
+
     const result = healParentsIfAllChildrenInSameZone(
       {
         _parentIds: taggedParents,
         _zoneAssignments: _zoneAssignments,
-        _shatterMappings: _shatterMappings,
+        _parentToChild: _parentToChild,
         _shatterIds: _shatterIds,
+        _childToParent: _childToParent,
         _mapRef: mapRef,
         _mapDocument: mapDocument,
       },
@@ -369,7 +379,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     );
 
     if (!result) return;
-    const {zoneAssignments, shatterIds, shatterMappings} = result;
+    const {zoneAssignments, shatterIds, parentToChild, childToParent} = result;
     demographyCache.updatePopulations(zoneAssignments);
     idb.updateIdbAssignments(mapDocument, zoneAssignments);
 
@@ -377,7 +387,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       zoneAssignments,
       accumulatedAssignments: new Map<string, NullableZone>(),
       shatterIds,
-      shatterMappings,
+      parentToChild,
+      childToParent,
       clientLastUpdated: new Date().toISOString(),
       zonesLastUpdated: new Map(zonesLastUpdated),
     });
@@ -398,24 +409,47 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         parents: new Set<string>(),
         children: new Set<string>(),
       },
-      shatterMappings: {},
+      parentToChild: new Map<string, Set<string>>(),
+      childToParent: new Map<string, string>(),
     });
   },
 
-  setShatterState: ({shatterIds, shatterMappings, zoneAssignments}) => {
+  setShatterState: ({shatterIds, parentToChild, zoneAssignments, childToParent}) => {
+    // Ensure both maps are provided or build from each other
+    const _parentToChild = parentToChild && parentToChild.size > 0
+      ? new Map(parentToChild)
+      : (() => {
+          const map = new Map<string, Set<string>>();
+          childToParent.forEach((parentId, childId) => {
+            if (!map.has(parentId)) {
+              map.set(parentId, new Set([childId]));
+            } else {
+              map.get(parentId)!.add(childId);
+            }
+          });
+          return map;
+        })();
+    
+    const _childToParent = childToParent && childToParent.size > 0
+      ? new Map(childToParent)
+      : (() => {
+          const map = new Map<string, string>();
+          parentToChild.forEach((children, parentId) => {
+            children.forEach(childId => {
+              map.set(childId, parentId);
+            });
+          });
+          return map;
+        })();
+    
     set({
       shatterIds: {
         parents: new Set(shatterIds.parents),
         children: new Set(shatterIds.children),
       },
-      shatterMappings: Object.keys(shatterMappings).reduce<Record<string, Set<string>>>(
-        (acc, key) => {
-          acc[key] = new Set(shatterMappings[key]);
-          return acc;
-        },
-        {}
-      ),
+      parentToChild: _parentToChild,
       zoneAssignments: new Map(zoneAssignments),
+      childToParent: _childToParent,
     });
   },
 
@@ -425,12 +459,16 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
         parents: new Set<string>(),
         children: new Set<string>(),
       },
-      shatterMappings: {},
+      parentToChild: new Map<string, Set<string>>(),
+      childToParent: new Map<string, string>(),
     });
   },
 
   handlePutAssignments: async (overwrite = false) => {
-    const {zoneAssignments, shatterIds, shatterMappings} = get();
+    // Flush any pending IDB updates before explicit save
+    await idb.flushPendingUpdate();
+    
+    const {zoneAssignments, shatterIds, parentToChild, childToParent} = get();
     const {mapDocument, setMapLock} = useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
@@ -440,7 +478,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       mapDocument: idbDocument.document_metadata,
       zoneAssignments,
       shatterIds,
-      shatterMappings,
+      parentToChild,
+      childToParent,
       overwrite,
     });
     if (
@@ -503,7 +542,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           state.ingestFromDocument({
             zoneAssignments: data.zoneAssignments,
             shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
+            parentToChild: data.parentToChild,
+            childToParent: data.childToParent,
           });
         }
         set({
@@ -531,13 +571,15 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           state.ingestFromDocument({
             zoneAssignments: data.zoneAssignments,
             shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
+            parentToChild: data.parentToChild,
+            childToParent: data.childToParent,
           });
           const response = await putUpdateAssignmentsAndVerify({
             mapDocument: conflict.localDocument,
             zoneAssignments: data.zoneAssignments,
             shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
+            parentToChild: data.parentToChild,
+            childToParent: data.childToParent,
             overwrite: true,
           });
           if (!response.ok) {
@@ -567,7 +609,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           {
             zoneAssignments: data.zoneAssignments,
             shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
+            parentToChild: data.parentToChild,
+            childToParent: data.childToParent,
           },
           conflict.serverDocument
         );
@@ -596,7 +639,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           mapDocument: createMapDocumentResponse.response,
           zoneAssignments: data.zoneAssignments,
           shatterIds: data.shatterIds,
-          shatterMappings: data.shatterMappings,
+          parentToChild: data.parentToChild,
+          childToParent: data.childToParent,
           overwrite: true,
         });
         if (!response.ok) {
@@ -614,7 +658,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
           {
             zoneAssignments: data.zoneAssignments,
             shatterIds: data.shatterIds,
-            shatterMappings: data.shatterMappings,
+            parentToChild: data.parentToChild,
+            childToParent: data.childToParent,
           },
           {
             ...createMapDocumentResponse.response,

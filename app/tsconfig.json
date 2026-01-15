@@ -47,6 +47,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "**/*.mdx",
     ".next/types/**/*.ts",
     "src/app/components/Picker.jsx",
     "src/app/page.jsx",
