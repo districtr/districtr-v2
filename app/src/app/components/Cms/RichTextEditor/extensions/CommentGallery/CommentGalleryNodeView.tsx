@@ -1,44 +1,39 @@
 'use client';
+
 import {NodeViewProps, NodeViewWrapper} from '@tiptap/react';
 import React, {useRef} from 'react';
-import {
-  Box,
-  Button,
-  CheckboxCards,
-  CheckboxGroup,
-  Dialog,
-  Flex,
-  Heading,
-  Switch,
-  Tabs,
-  Text,
-  TextArea,
-  TextField,
-} from '@radix-ui/themes';
-import {PlanGallery, PlanGalleryProps} from './PlanGallery';
+import {Box, Button, CheckboxCards, Dialog, Flex, Heading, Tabs, Text, TextArea, TextField} from '@radix-ui/themes';
+import {CommentGallery, CommentGalleryProps} from './CommentGallery';
 import {GearIcon, TrashIcon} from '@radix-ui/react-icons';
 import {NoFocusBoundary} from '../NoFocusBoundary';
 import {CmsSettingsChips} from '../EditHelpers/CmsSettingsChips';
 
-const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
+const CommentGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, deleteNode}) => {
   const parentRef = useRef<HTMLDivElement>(null);
   // Use a nested editor for the custom content
-  const ids: number[] | undefined = node.attrs.ids || undefined;
-  const tags: string[] | undefined = node.attrs.tags || undefined;
-  const title: string | undefined = node.attrs.title || undefined;
-  const description: string | undefined = node.attrs.description || undefined;
-  const paginate: string | undefined = node.attrs.paginate || undefined;
-  const limit: number | undefined = node.attrs.limit || undefined;
-  const showListView: boolean | undefined = node.attrs.showListView || undefined;
-  const showThumbnails: boolean | undefined = node.attrs.showThumbnails || undefined;
-  const showTitles: boolean | undefined = node.attrs.showTitles || undefined;
-  const showDescriptions: boolean | undefined = node.attrs.showDescriptions || undefined;
-  const showUpdatedAt: boolean | undefined = node.attrs.showUpdatedAt || undefined;
-  const showTags: boolean | undefined = node.attrs.showTags || undefined;
-  const showModule: boolean | undefined = node.attrs.showModule || undefined;
+  const {
+    ids,
+    tags,
+    limit,
+    place,
+    state,
+    zipCode,
+    title,
+    description,
+    paginate,
+    showListView,
+    showIdentifier,
+    showTitles,
+    showPlaces,
+    showStates,
+    showZipCodes,
+    showCreatedAt,
+    showFilters,
+    showMaps,
+  } = node.attrs as CommentGalleryProps;
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const handleUpdate = (updates: Partial<PlanGalleryProps>) => {
+  const handleUpdate = (updates: Partial<CommentGalleryProps>) => {
     const newAttrs = {
       ...node.attrs,
       ...updates,
@@ -49,20 +44,25 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
   return (
     <NodeViewWrapper className="relative border-[1px] border-blue-500 my-4 rounded-md border-dashed" ref={parentRef} contentEditable={false}>
       <NoFocusBoundary parentRef={parentRef}>
-        <PlanGallery
+        <CommentGallery
           ids={ids}
           tags={tags}
-          title={title ?? ''}
-          description={description ?? ''}
-          paginate={paginate === 'true'}
+          place={place}
+          state={state}
+          zipCode={zipCode}
           limit={limit}
-          showListView={showListView}
-          showThumbnails={showThumbnails}
+          showFilters={showFilters}
+          showMaps={showMaps}
+          showIdentifier={showIdentifier}
           showTitles={showTitles}
-          showDescriptions={showDescriptions}
-          showUpdatedAt={showUpdatedAt}
-          showTags={showTags}
-          showModule={showModule}
+          showPlaces={showPlaces}
+          showStates={showStates}
+          showZipCodes={showZipCodes}
+          showCreatedAt={showCreatedAt}
+          showListView={showListView}
+          paginate={paginate}
+          title={title}
+          description={description}
         />
       </NoFocusBoundary>
       <Box position="absolute" top="2" right="2">
@@ -75,7 +75,7 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
             </Dialog.Trigger>
             <Dialog.Content>
               <Flex direction="column" gapY="4">
-                <Heading as="h4">Editing Plan Gallery</Heading>
+                <Heading as="h4">Editing Comment Gallery</Heading>
                 <Flex direction="column" gap="2">
                   <Text>Title</Text>
                   <TextField.Root
@@ -92,6 +92,7 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                     onChange={e => handleUpdate({description: e.target.value})}
                   />
                 </Flex>
+
                 <Flex direction="column" gap="2">
                   <Text>Display Options</Text>
                   <CheckboxCards.Root
@@ -104,36 +105,42 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
                     value={[
                       paginate ? 'paginate' : '',
                       showListView ? 'showListView' : '',
-                      showThumbnails ? 'showThumbnails' : '',
+                      showIdentifier ? 'showIdentifier' : '',
                       showTitles ? 'showTitles' : '',
-                      showDescriptions ? 'showDescriptions' : '',
-                      showUpdatedAt ? 'showUpdatedAt' : '',
-                      showTags ? 'showTags' : '',
-                      showModule ? 'showModule' : '',
+                      showPlaces ? 'showPlaces' : '',
+                      showStates ? 'showStates' : '',
+                      showZipCodes ? 'showZipCodes' : '',
+                      showCreatedAt ? 'showCreatedAt' : '',
+                      showFilters ? 'showFilters' : '',
+                      showMaps ? 'showMaps' : '',
                     ]}
                     onValueChange={value => {
                       handleUpdate({
                         paginate: value.includes('paginate'),
                         showListView: value.includes('showListView'),
-                        showThumbnails: value.includes('showThumbnails'),
                         showTitles: value.includes('showTitles'),
-                        showDescriptions: value.includes('showDescriptions'),
-                        showUpdatedAt: value.includes('showUpdatedAt'),
-                        showTags: value.includes('showTags'),
-                        showModule: value.includes('showModule'),
+                        showPlaces: value.includes('showPlaces'),
+                        showStates: value.includes('showStates'),
+                        showZipCodes: value.includes('showZipCodes'),
+                        showCreatedAt: value.includes('showCreatedAt'),
+                        showIdentifier: value.includes('showIdentifier'),
+                        showFilters: value.includes('showFilters'),
+                        showMaps: value.includes('showMaps'),
                       });
                     }}
                   >
                     <CheckboxCards.Item value="paginate">Paginate Results</CheckboxCards.Item>
                     <CheckboxCards.Item value="showListView">Show List View</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showThumbnails">Show Thumbnails</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showTitles">Show Titles</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showDescriptions">
-                      Show Descriptions
+                    <CheckboxCards.Item value="showIdentifier">
+                      Show Identifier
                     </CheckboxCards.Item>
-                    <CheckboxCards.Item value="showUpdatedAt">Show Updated At</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showTags">Show Tags</CheckboxCards.Item>
-                    <CheckboxCards.Item value="showModule">Show Module</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showTitles">Show Titles</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showPlaces">Show Places</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showStates">Show States</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showZipCodes">Show Zip Codes</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showCreatedAt">Show Created At</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showFilters">Show Filter Controls</CheckboxCards.Item>
+                    <CheckboxCards.Item value="showMaps">Show Map Links</CheckboxCards.Item>
                   </CheckboxCards.Root>
                 </Flex>
 
@@ -177,47 +184,4 @@ const PlanGalleryNodeView: React.FC<NodeViewProps> = ({node, updateAttributes, d
   );
 };
 
-const ChipsPlanGalleryNodeView: React.FC<{
-  entries: string[] | number[];
-  handleUpdate: (updates: {[key: string]: string[] | number[]}) => void;
-  property: string;
-  showTitle?: boolean;
-}> = ({entries, handleUpdate, property, showTitle = false}) => {
-  const [text, setText] = React.useState('');
-  return (
-    <Flex direction="column" gap="2" py="4" mb="2" className="border-b border-gray-300">
-      {showTitle && <Text>{property.charAt(0).toUpperCase() + property.slice(1)}</Text>}
-      <Box>
-        {entries?.map((entry, i) => (
-          <Button
-            className="hover:bg-red-500 hover:text-white w-auto mr-2"
-            variant="outline"
-            // @ts-expect-error
-            onClick={() => handleUpdate({[property]: entries.filter(t => t !== entry)})}
-            key={i}
-          >
-            {entry} &times;
-          </Button>
-        ))}
-      </Box>
-      <Flex direction="row" gap="2">
-        <TextField.Root
-          placeholder={`Add a ${property}`}
-          value={text}
-          onChange={e => setText(e.target.value)}
-        />
-        <Button
-          onClick={() => {
-            // @ts-expect-error
-            handleUpdate({[property]: [...(entries || []), text]});
-            setText('');
-          }}
-        >
-          Add
-        </Button>
-      </Flex>
-    </Flex>
-  );
-};
-
-export default PlanGalleryNodeView;
+export default CommentGalleryNodeView;

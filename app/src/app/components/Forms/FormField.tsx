@@ -48,7 +48,7 @@ export function FormField<T extends FormPart>({
     placeholder: placeholder ?? label,
     type,
     name: `${formPart}-${formProperty as string}`,
-    ariaLabel: `${formPart}-${formProperty as string}`,
+    'aria-label': `${formPart}-${formProperty as string}`,
     value: disabled ? '' : (value ?? ''),
     autoComplete: disabled ? 'off' : autoComplete,
     onBlur: () => required && !validate(value) && setInvalid(true),
