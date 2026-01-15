@@ -40,6 +40,16 @@ type UserFilters = {
   tags: string[];
 };
 
+/** Initial state for user filters */
+const INITIAL_USER_FILTERS: UserFilters = {
+  search: '',
+  hasMap: undefined,
+  place: '',
+  state: '',
+  zipCode: '',
+  tags: [],
+};
+
 /** Custom hook for debounced value */
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -80,17 +90,17 @@ export interface CommentGalleryProps {
   showMaps?: boolean;
 }
 
+/** Location filter field configuration */
+const LOCATION_FIELDS = [
+  {key: 'place' as const, label: 'Place', placeholder: 'City/Place', minWidth: '150px'},
+  {key: 'state' as const, label: 'State', placeholder: 'State', minWidth: '100px'},
+  {key: 'zipCode' as const, label: 'Zip Code', placeholder: 'Zip', minWidth: '100px'},
+];
+
 /** Filter controls component for the gallery */
 const FilterControls: React.FC<{
-  filters: {
-    search: string;
-    hasMap: boolean | undefined;
-    place: string;
-    state: string;
-    zipCode: string;
-    tags: string[];
-  };
-  onFilterChange: (key: string, value: string | boolean | undefined | string[]) => void;
+  filters: UserFilters;
+  onFilterChange: (key: keyof UserFilters, value: UserFilters[keyof UserFilters]) => void;
   onClearFilters: () => void;
 }> = ({filters, onFilterChange, onClearFilters}) => {
   const [tagInput, setTagInput] = useState('');
@@ -180,41 +190,19 @@ const FilterControls: React.FC<{
             </Flex>
 
             {/* Location filters */}
-            <Box className="flex-1 min-w-[150px]">
-              <Text as="label" size="1" weight="medium" className="text-slate-600 block mb-1">
-                Place
-              </Text>
-              <TextField.Root
-                placeholder="City/Place"
-                value={filters.place}
-                onChange={e => onFilterChange('place', e.target.value)}
-                size="2"
-              />
-            </Box>
-
-            <Box className="flex-1 min-w-[100px]">
-              <Text as="label" size="1" weight="medium" className="text-slate-600 block mb-1">
-                State
-              </Text>
-              <TextField.Root
-                placeholder="State"
-                value={filters.state}
-                onChange={e => onFilterChange('state', e.target.value)}
-                size="2"
-              />
-            </Box>
-
-            <Box className="flex-1 min-w-[100px]">
-              <Text as="label" size="1" weight="medium" className="text-slate-600 block mb-1">
-                Zip Code
-              </Text>
-              <TextField.Root
-                placeholder="Zip"
-                value={filters.zipCode}
-                onChange={e => onFilterChange('zipCode', e.target.value)}
-                size="2"
-              />
-            </Box>
+            {LOCATION_FIELDS.map(({key, label, placeholder, minWidth}) => (
+              <Box key={key} className="flex-1" style={{minWidth}}>
+                <Text as="label" size="1" weight="medium" className="text-slate-600 block mb-1">
+                  {label}
+                </Text>
+                <TextField.Root
+                  placeholder={placeholder}
+                  value={filters[key]}
+                  onChange={e => onFilterChange(key, e.target.value)}
+                  size="2"
+                />
+              </Box>
+            ))}
           </Flex>
 
           {/* Tags filter */}
@@ -289,14 +277,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
 }) => {
   // User-controlled filters (when showFilters is enabled)
   // This state updates immediately for responsive UI
-  const [userFilters, setUserFilters] = useState<UserFilters>({
-    search: '',
-    hasMap: undefined,
-    place: '',
-    state: '',
-    zipCode: '',
-    tags: [],
-  });
+  const [userFilters, setUserFilters] = useState<UserFilters>(INITIAL_USER_FILTERS);
 
   // Debounced filters for API queries - only updates after user stops typing
   const debouncedUserFilters = useDebouncedValue(userFilters, DEBOUNCE_DELAY);
@@ -309,14 +290,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
   );
 
   const handleClearFilters = useCallback(() => {
-    setUserFilters({
-      search: '',
-      hasMap: undefined,
-      place: '',
-      state: '',
-      zipCode: '',
-      tags: [],
-    });
+    setUserFilters(INITIAL_USER_FILTERS);
   }, []);
 
   // Combine initial (CMS-set) filters with debounced user-controlled filters
@@ -350,6 +324,20 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
     ]
   );
 
+  // Display options for card and row renderers
+  const displayOptions = useMemo(
+    () => ({
+      showIdentifier,
+      showTitles,
+      showPlaces,
+      showStates,
+      showZipCodes,
+      showCreatedAt,
+      showMaps,
+    }),
+    [showIdentifier, showTitles, showPlaces, showStates, showZipCodes, showCreatedAt, showMaps]
+  );
+
   return (
     <Box>
       {showFilters && (
@@ -378,19 +366,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
         isError={data => !Boolean(data?.ok)}
         errorMessage={data => (data?.ok ? null : data?.error?.detail)}
         gridRenderer={(comment, i) => (
-          <CommentCard
-            key={i}
-            comment={comment}
-            options={{
-              showIdentifier,
-              showTitles,
-              showPlaces,
-              showStates,
-              showZipCodes,
-              showCreatedAt,
-              showMaps,
-            }}
-          />
+          <CommentCard key={i} comment={comment} options={displayOptions} />
         )}
         tableHeader={
           <>
@@ -404,19 +380,7 @@ export const CommentGallery: React.FC<CommentGalleryProps> = ({
           </>
         }
         tableRowRenderer={(comment, i) => (
-          <CommentRow
-            key={i}
-            comment={comment}
-            options={{
-              showIdentifier,
-              showTitles,
-              showPlaces,
-              showStates,
-              showZipCodes,
-              showCreatedAt,
-              showMaps,
-            }}
-          />
+          <CommentRow key={i} comment={comment} options={displayOptions} />
         )}
         emptyState={
           <Flex direction="column" align="center" gap="2" className="py-8">

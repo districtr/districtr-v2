@@ -48,7 +48,7 @@ export interface ReviewListParams {
   place?: string;
   state?: string;
   zip_code?: string;
-  min_moderation_score?: number;
+  max_moderation_score?: number;
 }
 
 // GET endpoints
