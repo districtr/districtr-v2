@@ -389,9 +389,24 @@ def apply_location_filters(
 
 
 def apply_tag_filter(stmt: Select, tag_subquery, tags: list[str] | None) -> Select:
-    """Filter comments to those with at least one matching tag."""
+    """Filter comments to those with all matching tags (each tag in filter must be present)."""
     if tags:
-        stmt = stmt.where(tag_subquery.c.matching_tag_count > 0)
+        # For each tag in the filter, ensure it exists for the comment
+        # We check that the comment has associations to all requested tags
+        for tag_slug in tags:
+            tag_exists = (
+                select(literal(1))
+                .select_from(CommentTag)
+                .join(Tag, col(Tag.id) == CommentTag.tag_id)
+                .where(
+                    and_(
+                        col(CommentTag.comment_id) == Comment.id,
+                        col(Tag.slug) == tag_slug,
+                    )
+                )
+                .correlate(Comment)
+            )
+            stmt = stmt.where(exists(tag_exists))
     return stmt
 
 
