@@ -16,9 +16,12 @@ import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';
 import {VtdBlockLayers} from './VtdBlockLayers';
 import {MetaLayers} from './MetaLayers';
+import {PointSelectionLayer} from './PointSelectionLayer';
 // @ts-ignore plugin has no types
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
+import {PointSource} from '@/app/components/Map/PointSource';
+
 
 export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   const getStateMapRef = useMapStore(state => state.getMapRef);
@@ -165,7 +168,11 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
       >
         <CountyLayers />
         <VtdBlockLayers isDemographicMap={isDemographicMap} />
-        <MetaLayers isDemographicMap={isDemographicMap} />
+        <PointSource>
+          <PointSelectionLayer />
+          <PointSelectionLayer child />
+          <MetaLayers isDemographicMap={isDemographicMap} />
+        </PointSource>
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
       </GlMap>
     </div>
