@@ -53,7 +53,7 @@ export default function ReviewHome() {
   const [place, setPlace] = useState<string | undefined>(undefined);
   const [state, setState] = useState<string | undefined>(undefined);
   const [zipCode, setZipCode] = useState<string | undefined>(undefined);
-  const [minModerationScore, setMinModerationScore] = useState<number>(0);
+  const [maxModerationScore, setMaxModerationScore] = useState<number>(1.0);
 
   const clearAllFilters = () => {
     setReviewStatus(null);
@@ -61,7 +61,7 @@ export default function ReviewHome() {
     setPlace(undefined);
     setState(undefined);
     setZipCode(undefined);
-    setMinModerationScore(0);
+    setMaxModerationScore(1.0);
   };
 
   const {data, status, refetch, isLoading} = useQuery({
@@ -74,7 +74,7 @@ export default function ReviewHome() {
       place,
       state,
       zipCode,
-      minModerationScore,
+      maxModerationScore,
     ],
     queryFn: () =>
       getAdminCommentsList(
@@ -86,7 +86,7 @@ export default function ReviewHome() {
           place,
           state,
           zip_code: zipCode,
-          min_moderation_score: minModerationScore,
+          max_moderation_score: maxModerationScore,
         },
         session
       ),
