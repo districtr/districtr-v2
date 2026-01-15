@@ -1,4 +1,9 @@
-import {EMPTY_FT_COLLECTION, ZONE_LABEL_STYLE} from '@/app/constants/layers';
+import {
+  EMPTY_FT_COLLECTION,
+  ZONE_LABEL_STYLE,
+  SELECTION_POINTS_SOURCE_ID,
+  SELECTION_POINTS_SOURCE_ID_CHILD,
+} from '@/app/constants/layers';
 import {useDemographyStore} from '@/app/store/demography/demographyStore';
 import {useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
@@ -7,111 +12,90 @@ import {demographyCache} from '@/app/utils/demography/demographyCache';
 import GeometryWorker from '@/app/utils/GeometryWorker';
 import React, {useLayoutEffect, useMemo, useState} from 'react';
 import {useEffect} from 'react';
-import {Source, Layer} from 'react-map-gl/maplibre';
+import {Layer, Source} from 'react-map-gl/maplibre';
 import {throttle} from 'lodash';
+import {FilterSpecification} from 'maplibre-gl';
 
 export const MetaLayers: React.FC<{isDemographicMap?: boolean}> = ({isDemographicMap}) => {
   return (
     <>
       {!isDemographicMap && <ZoneNumbersLayer />}
       <PopulationTextLayer />
+      <PopulationTextLayer child />
     </>
   );
 };
 
-const PopulationTextLayer = () => {
+const PopulationTextLayer: React.FC<{child?: boolean}> = ({child = false}) => {
   const captiveIds = useMapStore(state => state.captiveIds);
-  const [pointFeatureCollection, setPointFeatureCollection] =
-    useState<GeoJSON.FeatureCollection<GeoJSON.Point>>(EMPTY_FT_COLLECTION);
+  const shatterIds = useAssignmentsStore(state => state.shatterIds);
   const showBlockPopulationNumbers = useMapControlsStore(
     state => state.mapOptions.showBlockPopulationNumbers
   );
   const showPopulationNumbers = useMapControlsStore(
     state => state.mapOptions.showPopulationNumbers
   );
-  const workerUpdateHash = useMapStore(state => state.workerUpdateHash);
-  const demographyHash = useDemographyStore(state => state.dataHash);
 
-  useEffect(() => {
-    const shouldShow =
-      showPopulationNumbers ||
-      showBlockPopulationNumbers ||
-      (showBlockPopulationNumbers && captiveIds.size);
-    if (!shouldShow) {
-      setPointFeatureCollection(EMPTY_FT_COLLECTION);
-      return;
+  // Create filter based on which population numbers to show
+  const populationFilter = useMemo<FilterSpecification>(() => {
+    if (child) {
+      if (showPopulationNumbers) {
+        return ['literal', true] as FilterSpecification;
+      } else {
+        // match captiveIds
+        return ['match', ['get', 'path'], Array.from(captiveIds), true, false] as FilterSpecification;
+      }
+    } else {
+      if (shatterIds.parents.size) {
+        return ['!', ['match', ['get', 'path'], Array.from(shatterIds.parents), true, false]] as FilterSpecification;
+      } else {
+        return ['literal', false] as FilterSpecification;
+      }
     }
+  }, [child, !child && shatterIds, child && captiveIds]);
 
-    const idSet: Set<string> = showPopulationNumbers
-      ? new Set(demographyCache.table?.dedupe('path').column('path') ?? [])
-      : captiveIds;
-
-    const currIds = new Set(pointFeatureCollection.features.map(f => f.properties?.path));
-    const missingIds = Array.from(idSet).filter(id => !currIds.has(id));
-    if (!missingIds.length) {
-      return;
-    }
-    GeometryWorker?.getCentroidsByIds(missingIds).then(data => {
-      setPointFeatureCollection(prev => ({
-        type: 'FeatureCollection',
-        // Filter out old, irrelevant features (eg broken parents)
-        features: [...prev.features.filter(f => idSet.has(f.properties?.path)), ...data.features],
-      }));
-    });
-    // Trigger on captiveIds changes (shatter/break)
-    // Option changes (showBlockPopulationNumbers, showPopulationNumbers)
-    // Data loads to the worker (workerUpdateHash)
-    // Demography data loads (demographyHash)
-  }, [
-    captiveIds,
-    showBlockPopulationNumbers,
-    showPopulationNumbers,
-    workerUpdateHash,
-    demographyHash,
-  ]);
-
-  if (
-    !showPopulationNumbers &&
-    (!showBlockPopulationNumbers || !pointFeatureCollection.features.length || !captiveIds.size)
-  ) {
+  // Use the shared source from PointSelectionLayer (parent layer)
+  if (!child && !showPopulationNumbers) {
+    return null;
+  }
+  if (child && !showPopulationNumbers && !showBlockPopulationNumbers) {
     return null;
   }
 
   return (
-    <Source id="population-text" type="geojson" data={pointFeatureCollection}>
-      <Layer
-        id="POPULATION_TEXT"
-        type="symbol"
-        source="POPULATION_TEXT"
-        layout={{
-          'text-field': ['get', 'total_pop_20'],
-          'text-font': ['Barlow Bold'],
-          'text-size': [
-            'interpolate',
-            ['linear'],
-            ['zoom'],
-            0,
-            0,
-            10, // z 10 font 8
-            8,
-            12,
-            12,
-            14,
-            14, // At zoom level 18, text size is 18
-          ],
-          'text-anchor': 'center',
-          'text-offset': [0, 0],
-          // padding
-          'text-padding': 0,
-          'text-allow-overlap': ['step', ['zoom'], false, 12, true],
-        }}
-        paint={{
-          'text-color': '#000',
-          'text-halo-color': '#fff',
-          'text-halo-width': 2,
-        }}
-      ></Layer>
-    </Source>
+    <Layer
+      id={`POPULATION_TEXT_${child ? 'CHILD' : 'PARENT'}`}
+      type="symbol"
+      source={child ? SELECTION_POINTS_SOURCE_ID_CHILD : SELECTION_POINTS_SOURCE_ID}
+      filter={populationFilter}  
+      layout={{
+        'text-field': ['get', 'total_pop_20'],
+        'text-font': ['Barlow Bold'],
+        'text-size': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          0,
+          0,
+          10, // z 10 font 8
+          8,
+          12,
+          12,
+          14,
+          14, // At zoom level 18, text size is 18
+        ],
+        'text-anchor': 'center',
+        'text-offset': [0, 0],
+        // padding
+        'text-padding': 0,
+        'text-allow-overlap': ['step', ['zoom'], false, 12, true],
+      }}
+      paint={{
+        'text-color': '#000',
+        'text-halo-color': '#fff',
+        'text-halo-width': 2,
+      }}
+    />
   );
 };
 
@@ -177,7 +161,7 @@ const ZoneNumbersLayer = () => {
 
   useEffect(() => {
     const map = getMapRef();
-    if (map) {
+    if (map && !map.hasImage('lock')) {
       map.loadImage('/lock.png').then(image => map.addImage('lock', image.data));
       map.on('moveend', handleUpdate);
       map.on('zoomend', handleUpdate);

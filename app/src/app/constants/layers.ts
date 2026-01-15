@@ -7,6 +7,8 @@ export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';
 export const BLOCK_LAYER_ID_HIGHLIGHT_CHILD = BLOCK_LAYER_ID + '-highlight-child';
 export const BLOCK_LAYER_ID_CHILD = 'blocks-child';
 export const BLOCK_POINTS_LAYER_ID_CHILD = 'blocks-points-child';
+export const SELECTION_POINTS_SOURCE_ID = 'SELECTION_POINTS';
+export const SELECTION_POINTS_SOURCE_ID_CHILD = 'SELECTION_POINTS_child';
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 
