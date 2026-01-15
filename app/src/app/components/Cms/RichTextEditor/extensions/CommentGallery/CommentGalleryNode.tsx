@@ -96,6 +96,14 @@ export const CommentGalleryNode = Node.create({
         name: 'paginate',
         default: true,
       },
+      {
+        name: 'showFilters',
+        default: false,
+      },
+      {
+        name: 'showMaps',
+        default: true,
+      },
     ];
 
     return attrs.reduce(
