@@ -53,7 +53,7 @@ export default function ReviewHome() {
   const [place, setPlace] = useState<string | undefined>(undefined);
   const [state, setState] = useState<string | undefined>(undefined);
   const [zipCode, setZipCode] = useState<string | undefined>(undefined);
-  const [minModerationScore, setMinModerationScore] = useState<number>(0);
+  const [maxModerationScore, setMaxModerationScore] = useState<number>(1.0);
 
   const clearAllFilters = () => {
     setReviewStatus(null);
@@ -61,7 +61,7 @@ export default function ReviewHome() {
     setPlace(undefined);
     setState(undefined);
     setZipCode(undefined);
-    setMinModerationScore(0);
+    setMaxModerationScore(1.0);
   };
 
   const {data, status, refetch, isLoading} = useQuery({
@@ -74,11 +74,20 @@ export default function ReviewHome() {
       place,
       state,
       zipCode,
-      minModerationScore,
+      maxModerationScore,
     ],
     queryFn: () =>
       getAdminCommentsList(
-        {reviewStatus, offset, limit, tags, place, state, zipCode, minModerationScore},
+        {
+          review_status: reviewStatus,
+          offset,
+          limit,
+          tags,
+          place,
+          state,
+          zip_code: zipCode,
+          max_moderation_score: maxModerationScore,
+        },
         session
       ),
     staleTime: 1000,
@@ -124,7 +133,7 @@ export default function ReviewHome() {
             >
               {REVIEW_STATUS_OPTIONS.map(item => {
                 return (
-                  <RadioGroup.Item value={item.value as string} key={item.name}>
+                  <RadioGroup.Item value={item.value?.toString() ?? ''} key={item.name}>
                     {item.name}
                   </RadioGroup.Item>
                 );
@@ -145,9 +154,14 @@ export default function ReviewHome() {
             <Text>Review and moderate comments, tags, and commenters</Text>
           </Box>
           {isLoading && <Spinner />}
-          {data?.ok && data?.data.length > 0 && (
+          {data && !data.ok && (
+            <Blockquote color="red">
+              Error loading comments: {data.error?.detail || 'Unknown error'}
+            </Blockquote>
+          )}
+          {data?.ok && data?.response.length > 0 && (
             <>
-              {data?.data.map(item => (
+              {data?.response.map(item => (
                 <EntryRow entry={item} onReview={handleReview} key={item.comment_id} />
               ))}
               <Pagination
@@ -158,7 +172,7 @@ export default function ReviewHome() {
               />
             </>
           )}
-          {data?.ok && data?.data.length === 0 && (
+          {data?.ok && data?.response.length === 0 && (
             <Blockquote color="green">No comments to review 🎉</Blockquote>
           )}
           <Grid

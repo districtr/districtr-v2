@@ -1,6 +1,6 @@
 import {Node, mergeAttributes} from '@tiptap/core';
 import {ReactNodeViewRenderer} from '@tiptap/react';
-import BoilerplateNodeView from './BoilerplateNodeView';
+import BoilerplateNodeView from '@/app/components/Cms/RichTextEditor/extensions/Boilerplate/BoilerplateNodeView';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
