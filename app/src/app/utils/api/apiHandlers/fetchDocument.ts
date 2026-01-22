@@ -89,7 +89,11 @@ export const fetchDocument = async (
     return {
       ok: true,
       response: {
-        document: idbDocument.document_metadata,
+        document: {
+          // in case of new info, like overlays
+          ...remoteMetadata.response,
+          ...idbDocument.document_metadata
+        },
         assignments: idbDocument.assignments,
       },
     };

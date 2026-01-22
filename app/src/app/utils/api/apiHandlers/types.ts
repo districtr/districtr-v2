@@ -74,6 +74,7 @@ export interface DocumentObject extends StatusObject {
   parent_geo_unit_type: string | null;
   child_geo_unit_type: string | null;
   data_source_name: string | null;
+  overlays: Overlay[] | null;
 }
 
 export interface MinPublicDocument {

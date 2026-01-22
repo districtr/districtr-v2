@@ -218,6 +218,7 @@ class DocumentPublic(BaseModel):
     parent_geo_unit_type: str | None = None
     child_geo_unit_type: str | None = None
     data_source_name: str | None = None
+    overlays: list["OverlayPublic"] | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):
