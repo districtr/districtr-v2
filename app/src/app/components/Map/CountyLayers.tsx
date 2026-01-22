@@ -10,7 +10,10 @@ export const CountyLayers = () => {
 
   const countyFilter = useMemo(() => {
     // If currentStateFp is set and not empty, match any of its values
-    const stateFpsArray = mapOptions.currentStateFp ? Array.from(mapOptions.currentStateFp) : [];
+    const stateFpsArray =
+      mapOptions.currentStateFp && mapOptions.currentStateFp.size > 0
+        ? Array.from(mapOptions.currentStateFp)
+        : ['-999'];
     return [
       'match',
       ['slice', ['get', 'GEOID'], 0, 2],
