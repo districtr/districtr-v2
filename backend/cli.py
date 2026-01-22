@@ -1,6 +1,7 @@
 import click
 import logging
 import re
+import uuid
 
 from app.core.db import engine
 from app.core.config import settings
@@ -536,10 +537,17 @@ def create_overlay(
 @click.option("--overlay-id", "-o", help="Overlay ID to add", required=True)
 @with_session
 def add_overlay_to_map(session: Session, districtr_map_slug: str, overlay_id: str):
+    # Validate UUID format
+    try:
+        overlay_uuid = uuid.UUID(overlay_id)
+    except ValueError:
+        logger.error(f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID.")
+        return
+
     # First verify the overlay exists
     overlay_check = session.execute(
         text("SELECT overlay_id FROM overlay WHERE overlay_id = :overlay_id"),
-        {"overlay_id": overlay_id},
+        {"overlay_id": str(overlay_uuid)},
     ).one_or_none()
 
     if not overlay_check:
@@ -547,11 +555,12 @@ def add_overlay_to_map(session: Session, districtr_map_slug: str, overlay_id: st
         return
 
     # Get current overlay_ids and append the new one
+    # Use CAST() instead of :: syntax to avoid parameter binding issues
     stmt = text(
         """UPDATE districtrmap
         SET overlay_ids = CASE
-            WHEN overlay_ids IS NULL THEN ARRAY[:overlay_id]::uuid[]
-            WHEN NOT (:overlay_id = ANY(overlay_ids)) THEN array_append(overlay_ids, :overlay_id::uuid)
+            WHEN overlay_ids IS NULL THEN ARRAY[CAST(:overlay_id AS uuid)]
+            WHEN NOT (CAST(:overlay_id AS uuid) = ANY(overlay_ids)) THEN array_append(overlay_ids, CAST(:overlay_id AS uuid))
             ELSE overlay_ids
         END
         WHERE districtr_map_slug = :districtr_map_slug
@@ -559,7 +568,7 @@ def add_overlay_to_map(session: Session, districtr_map_slug: str, overlay_id: st
     )
     result = session.execute(
         stmt,
-        {"districtr_map_slug": districtr_map_slug, "overlay_id": overlay_id},
+        {"districtr_map_slug": districtr_map_slug, "overlay_id": str(overlay_uuid)},
     )
     updated = result.scalar()
 
@@ -574,15 +583,22 @@ def add_overlay_to_map(session: Session, districtr_map_slug: str, overlay_id: st
 @click.option("--overlay-id", "-o", help="Overlay ID to remove", required=True)
 @with_session
 def remove_overlay_from_map(session: Session, districtr_map_slug: str, overlay_id: str):
+    # Validate UUID format
+    try:
+        overlay_uuid = uuid.UUID(overlay_id)
+    except ValueError:
+        logger.error(f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID.")
+        return
+
     stmt = text(
         """UPDATE districtrmap
-        SET overlay_ids = array_remove(overlay_ids, :overlay_id::uuid)
+        SET overlay_ids = array_remove(overlay_ids, CAST(:overlay_id AS uuid))
         WHERE districtr_map_slug = :districtr_map_slug
         RETURNING uuid"""
     )
     result = session.execute(
         stmt,
-        {"districtr_map_slug": districtr_map_slug, "overlay_id": overlay_id},
+        {"districtr_map_slug": districtr_map_slug, "overlay_id": str(overlay_uuid)},
     )
     updated = result.scalar()
 
@@ -596,20 +612,27 @@ def remove_overlay_from_map(session: Session, districtr_map_slug: str, overlay_i
 @click.option("--overlay-id", "-o", help="Overlay ID to delete", required=True)
 @with_session
 def delete_overlay(session: Session, overlay_id: str):
+    # Validate UUID format
+    try:
+        overlay_uuid = uuid.UUID(overlay_id)
+    except ValueError:
+        logger.error(f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID.")
+        return
+
     # First remove this overlay from all districtrmap overlay_ids arrays
     session.execute(
         text(
             """UPDATE districtrmap
-            SET overlay_ids = array_remove(overlay_ids, :overlay_id::uuid)
-            WHERE :overlay_id = ANY(overlay_ids)"""
+            SET overlay_ids = array_remove(overlay_ids, CAST(:overlay_id AS uuid))
+            WHERE CAST(:overlay_id AS uuid) = ANY(overlay_ids)"""
         ),
-        {"overlay_id": overlay_id},
+        {"overlay_id": str(overlay_uuid)},
     )
 
     # Then delete the overlay
     result = session.execute(
         text("DELETE FROM overlay WHERE overlay_id = :overlay_id RETURNING overlay_id"),
-        {"overlay_id": overlay_id},
+        {"overlay_id": str(overlay_uuid)},
     )
     deleted = result.scalar()
 

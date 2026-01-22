@@ -20,30 +20,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Create enum types, but only if not exists to avoid DuplicateObject errors
-    op.execute(
-        """
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'overlaydatatype') THEN
-                CREATE TYPE overlaydatatype AS ENUM ('geojson', 'pmtiles');
-            END IF;
-        END
-        $$;
-        """
-    )
-    op.execute(
-        """
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'overlaylayertype') THEN
-                CREATE TYPE overlaylayertype AS ENUM ('fill', 'line', 'text');
-            END IF;
-        END
-        $$;
-        """
-    )
-
     # Create overlay table
     op.create_table(
         "overlay",
@@ -89,26 +65,6 @@ def downgrade() -> None:
     # Drop overlay table
     op.drop_table("overlay")
 
-    # Drop enum types (still check for existence before dropping)
-    op.execute(
-        """
-        DO $$
-        BEGIN
-            IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'overlaylayertype') THEN
-                DROP TYPE overlaylayertype;
-            END IF;
-        END
-        $$;
-        """
-    )
-    op.execute(
-        """
-        DO $$
-        BEGIN
-            IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'overlaydatatype') THEN
-                DROP TYPE overlaydatatype;
-            END IF;
-        END
-        $$;
-        """
-    )
+    # Drop enum types
+    op.execute(sa.text("DROP TYPE IF EXISTS overlaylayertype"))
+    op.execute(sa.text("DROP TYPE IF EXISTS overlaydatatype"))
