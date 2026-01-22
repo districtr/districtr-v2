@@ -10,7 +10,7 @@ import {useMapStore} from './mapStore';
 import {PaintEventHandler} from '@utils/map/types';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 
-type SidebarPanel = 'layers' | 'population' | 'demography' | 'election' | 'mapValidation';
+type SidebarPanel = 'layers' | 'population' | 'demography' | 'election' | 'mapValidation' | 'overlays';
 
 export interface MapControlsStore {
   selectedZone: Zone;

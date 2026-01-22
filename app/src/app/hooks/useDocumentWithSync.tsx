@@ -1,6 +1,7 @@
 import {useState, useEffect} from 'react';
 import {useMapStore} from '@/app/store/mapStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
+import {useOverlayStore} from '@/app/store/overlayStore';
 import {
   fetchDocument,
   SyncConflictInfo,
@@ -27,6 +28,8 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
   const ingestFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
   const resolveConflict = useAssignmentsStore(state => state.resolveConflict);
+  const fetchOverlays = useOverlayStore(state => state.fetchOverlays);
+  const clearOverlays = useOverlayStore(state => state.clearOverlays);
   const router = useRouter();
 
   const handleConflict = async (resolution: SyncConflictResolution) => {
@@ -89,6 +92,11 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
           },
           result.response.updateLocal ? result.response.document : undefined
         );
+        // Fetch overlays for the map
+        clearOverlays();
+        if (result.response.document.districtr_map_slug) {
+          fetchOverlays(result.response.document.districtr_map_slug);
+        }
         setIsLoading(false);
         setAppLoadingState('loaded');
         return;

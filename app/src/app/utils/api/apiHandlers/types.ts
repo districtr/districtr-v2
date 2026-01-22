@@ -184,3 +184,15 @@ export interface CommentListing {
   };
   tags?: string[];
 }
+
+export interface Overlay {
+  overlay_id: string;
+  name: string;
+  description: string | null;
+  data_type: 'geojson' | 'pmtiles';
+  layer_type: 'fill' | 'line' | 'text';
+  custom_style: Record<string, any> | null;
+  source: string | null;
+  source_layer: string | null;
+  id_property: string | null;
+}

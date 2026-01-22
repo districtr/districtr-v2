@@ -454,5 +454,170 @@ def add_districtr_map_to_map_group(
     logger.info(f"Added {districtr_map_slug} to `{map_group_slug}`.")
 
 
+@cli.command("create-overlay")
+@click.option("--name", "-n", help="Overlay name", required=True)
+@click.option("--description", "-d", help="Overlay description", required=False)
+@click.option(
+    "--data-type",
+    "-dt",
+    type=click.Choice(["geojson", "pmtiles"]),
+    help="Data type (geojson or pmtiles)",
+    required=True,
+)
+@click.option(
+    "--layer-type",
+    "-lt",
+    type=click.Choice(["fill", "line", "text"]),
+    help="Layer type (fill, line, or text)",
+    required=True,
+)
+@click.option("--source", "-s", help="Source URL or S3 path", required=False)
+@click.option(
+    "--source-layer", "-sl", help="Source layer name for pmtiles", required=False
+)
+@click.option(
+    "--custom-style", "-cs", help="Custom style as JSON string", required=False
+)
+@click.option(
+    "--id-property",
+    "-ip",
+    help="Property name to use for text labels (for text layer type)",
+    required=False,
+)
+@with_session
+def create_overlay(
+    session: Session,
+    name: str,
+    description: str | None,
+    data_type: str,
+    layer_type: str,
+    source: str | None,
+    source_layer: str | None,
+    custom_style: str | None,
+    id_property: str | None,
+):
+    import json
+    from uuid import uuid4
+
+    overlay_id = str(uuid4())
+    parsed_style = None
+    if custom_style:
+        try:
+            parsed_style = json.loads(custom_style)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON for custom-style")
+            return
+
+    stmt = text(
+        """INSERT INTO overlay (overlay_id, name, description, data_type, layer_type, source, source_layer, custom_style, id_property)
+        VALUES (:overlay_id, :name, :description, :data_type, :layer_type, :source, :source_layer, :custom_style, :id_property)
+        RETURNING overlay_id"""
+    )
+    result = session.execute(
+        stmt,
+        {
+            "overlay_id": overlay_id,
+            "name": name,
+            "description": description,
+            "data_type": data_type,
+            "layer_type": layer_type,
+            "source": source,
+            "source_layer": source_layer,
+            "custom_style": json.dumps(parsed_style) if parsed_style else None,
+            "id_property": id_property,
+        },
+    )
+    inserted_id = result.scalar()
+    logger.info(f"Created overlay with ID: {inserted_id}")
+
+
+@cli.command("add-overlay-to-map")
+@click.option("--districtr-map-slug", "-d", help="DistrictrMap slug", required=True)
+@click.option("--overlay-id", "-o", help="Overlay ID to add", required=True)
+@with_session
+def add_overlay_to_map(session: Session, districtr_map_slug: str, overlay_id: str):
+    # First verify the overlay exists
+    overlay_check = session.execute(
+        text("SELECT overlay_id FROM overlay WHERE overlay_id = :overlay_id"),
+        {"overlay_id": overlay_id},
+    ).one_or_none()
+
+    if not overlay_check:
+        logger.error(f"Overlay with ID {overlay_id} not found")
+        return
+
+    # Get current overlay_ids and append the new one
+    stmt = text(
+        """UPDATE districtrmap
+        SET overlay_ids = CASE
+            WHEN overlay_ids IS NULL THEN ARRAY[:overlay_id]::uuid[]
+            WHEN NOT (:overlay_id = ANY(overlay_ids)) THEN array_append(overlay_ids, :overlay_id::uuid)
+            ELSE overlay_ids
+        END
+        WHERE districtr_map_slug = :districtr_map_slug
+        RETURNING uuid"""
+    )
+    result = session.execute(
+        stmt,
+        {"districtr_map_slug": districtr_map_slug, "overlay_id": overlay_id},
+    )
+    updated = result.scalar()
+
+    if updated:
+        logger.info(f"Added overlay {overlay_id} to map {districtr_map_slug}")
+    else:
+        logger.error(f"Map with slug {districtr_map_slug} not found")
+
+
+@cli.command("remove-overlay-from-map")
+@click.option("--districtr-map-slug", "-d", help="DistrictrMap slug", required=True)
+@click.option("--overlay-id", "-o", help="Overlay ID to remove", required=True)
+@with_session
+def remove_overlay_from_map(session: Session, districtr_map_slug: str, overlay_id: str):
+    stmt = text(
+        """UPDATE districtrmap
+        SET overlay_ids = array_remove(overlay_ids, :overlay_id::uuid)
+        WHERE districtr_map_slug = :districtr_map_slug
+        RETURNING uuid"""
+    )
+    result = session.execute(
+        stmt,
+        {"districtr_map_slug": districtr_map_slug, "overlay_id": overlay_id},
+    )
+    updated = result.scalar()
+
+    if updated:
+        logger.info(f"Removed overlay {overlay_id} from map {districtr_map_slug}")
+    else:
+        logger.error(f"Map with slug {districtr_map_slug} not found")
+
+
+@cli.command("delete-overlay")
+@click.option("--overlay-id", "-o", help="Overlay ID to delete", required=True)
+@with_session
+def delete_overlay(session: Session, overlay_id: str):
+    # First remove this overlay from all districtrmap overlay_ids arrays
+    session.execute(
+        text(
+            """UPDATE districtrmap
+            SET overlay_ids = array_remove(overlay_ids, :overlay_id::uuid)
+            WHERE :overlay_id = ANY(overlay_ids)"""
+        ),
+        {"overlay_id": overlay_id},
+    )
+
+    # Then delete the overlay
+    result = session.execute(
+        text("DELETE FROM overlay WHERE overlay_id = :overlay_id RETURNING overlay_id"),
+        {"overlay_id": overlay_id},
+    )
+    deleted = result.scalar()
+
+    if deleted:
+        logger.info(f"Deleted overlay {overlay_id}")
+    else:
+        logger.error(f"Overlay with ID {overlay_id} not found")
+
+
 if __name__ == "__main__":
     cli()

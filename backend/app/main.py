@@ -57,6 +57,8 @@ from app.models import (
     BBoxGeoJSONs,
     MapGroup,
     AssignmentsCreate,
+    Overlay,
+    OverlayPublic,
 )
 from app.comments.models import DocumentComment, Tag, CommentTag
 from pydantic_geojson import PolygonModel
@@ -916,3 +918,44 @@ async def get_group(
         "name": group[0].name,
         "slug": group[0].slug,
     }
+
+
+@app.get("/api/districtrmap/{slug}/overlays", response_model=list[OverlayPublic])
+async def get_map_overlays(
+    slug: str,
+    session: Session = Depends(get_session),
+):
+    """Get all overlays associated with a districtr map."""
+    # First get the overlay_ids from the districtrmap
+    districtrmap = session.exec(
+        select(DistrictrMap).where(DistrictrMap.districtr_map_slug == slug)
+    ).first()
+
+    if not districtrmap:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"DistrictrMap matching {slug} does not exist.",
+        )
+
+    if not districtrmap.overlay_ids or len(districtrmap.overlay_ids) == 0:
+        return []
+
+    # Get the overlay details for each overlay_id
+    overlays = session.exec(
+        select(Overlay).where(Overlay.overlay_id.in_(districtrmap.overlay_ids))  # pyright: ignore
+    ).all()
+
+    return [
+        OverlayPublic(
+            overlay_id=str(overlay.overlay_id),
+            name=overlay.name,
+            description=overlay.description,
+            data_type=overlay.data_type,
+            layer_type=overlay.layer_type,
+            custom_style=overlay.custom_style,
+            source=overlay.source,
+            source_layer=overlay.source_layer,
+            id_property=overlay.id_property,
+        )
+        for overlay in overlays
+    ]
