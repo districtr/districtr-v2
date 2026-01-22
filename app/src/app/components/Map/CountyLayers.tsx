@@ -9,10 +9,14 @@ export const CountyLayers = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
 
   const countyFilter = useMemo(() => {
+    // If currentStateFp is set and not empty, match any of its values
+    const stateFpsArray = mapOptions.currentStateFp ? Array.from(mapOptions.currentStateFp) : [];
     return [
-      '==',
+      'match',
       ['slice', ['get', 'GEOID'], 0, 2],
-      mapOptions.currentStateFp ? mapOptions.currentStateFp : '--',
+      stateFpsArray,
+      true,
+      false,
     ] as FilterSpecification;
   }, [mapOptions.currentStateFp]);
 

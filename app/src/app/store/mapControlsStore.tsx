@@ -27,6 +27,7 @@ export interface MapControlsStore {
   setPaintFunction: (paintFunction: PaintEventHandler) => void;
   mapOptions: MapOptions & DistrictrMapOptions;
   setMapOptions: (options: Partial<MapControlsStore['mapOptions']>) => void;
+  setStateFp: (stateFp: string) => void;
   setLockedZones: (zones: Array<NullableZone>) => void;
   toggleLockAllAreas: () => void;
   spatialUnit: SpatialUnit;
@@ -91,6 +92,19 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setPaintFunction: paintFunction => set({paintFunction}),
     mapOptions: DEFAULT_MAP_OPTIONS,
     setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
+    setStateFp: stateFp => {
+      const mapOptions = get().mapOptions;
+      const currentStateFp = mapOptions.currentStateFp;
+      if (!currentStateFp) {
+        set({mapOptions: {...mapOptions, currentStateFp: new Set([stateFp])}});
+      } else if (currentStateFp.has(stateFp)) {
+        // Do nothing and do not trigger a re-render
+        return
+      } else {
+        currentStateFp.add(stateFp);
+        set({mapOptions: {...mapOptions, currentStateFp: new Set(currentStateFp)}});
+      }
+    },
     setLockedZones: zones =>
       set({
         mapOptions: {
