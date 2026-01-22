@@ -485,6 +485,13 @@ def add_districtr_map_to_map_group(
     help="Property name to use for text labels (for text layer type)",
     required=False,
 )
+@click.option(
+    "--districtr-map-slug",
+    "-m",
+    help="DistrictrMap slug(s) to add the overlay to (can be specified multiple times)",
+    multiple=True,
+    required=False,
+)
 @with_session
 def create_overlay(
     session: Session,
@@ -496,6 +503,7 @@ def create_overlay(
     source_layer: str | None,
     custom_style: str | None,
     id_property: str | None,
+    districtr_map_slug: tuple[str, ...],
 ):
     import json
     from uuid import uuid4
@@ -530,6 +538,29 @@ def create_overlay(
     )
     inserted_id = result.scalar()
     logger.info(f"Created overlay with ID: {inserted_id}")
+
+    # Add overlay to specified maps
+    if districtr_map_slug:
+        for map_slug in districtr_map_slug:
+            add_stmt = text(
+                """UPDATE districtrmap
+                SET overlay_ids = CASE
+                    WHEN overlay_ids IS NULL THEN ARRAY[CAST(:overlay_id AS uuid)]
+                    WHEN NOT (CAST(:overlay_id AS uuid) = ANY(overlay_ids)) THEN array_append(overlay_ids, CAST(:overlay_id AS uuid))
+                    ELSE overlay_ids
+                END
+                WHERE districtr_map_slug = :districtr_map_slug
+                RETURNING uuid"""
+            )
+            add_result = session.execute(
+                add_stmt,
+                {"districtr_map_slug": map_slug, "overlay_id": overlay_id},
+            )
+            updated = add_result.scalar()
+            if updated:
+                logger.info(f"Added overlay to map {map_slug}")
+            else:
+                logger.warning(f"Map with slug {map_slug} not found")
 
 
 @cli.command("add-overlay-to-map")
