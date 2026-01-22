@@ -21,5 +21,8 @@ export const getFeatureUnderCursor = (
   brushSize: number,
   layers: string[] = [BLOCK_HOVER_LAYER_ID]
 ): MapGeoJSONFeature[] | undefined => {
-  return filterFeatures(map?.queryRenderedFeatures(e.point, {layers}) || [], true, undefined, true);
+  return filterFeatures({
+    _features: map?.queryRenderedFeatures(e.point, {layers}) || [],
+    filterLocked: true,
+  });
 };

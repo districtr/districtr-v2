@@ -16,6 +16,7 @@ import type {
 } from 'react-map-gl/maplibre';
 import {MapStore, useMapStore} from '@/app/store/mapStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
+import {useOverlayStore} from '@/app/store/overlayStore';
 import {
   BLOCK_HOVER_LAYER_ID,
   BLOCK_HOVER_LAYER_ID_CHILD,
@@ -104,6 +105,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
+
   const {activeTool, paintFunction, brushSize} = mapControls;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
@@ -162,6 +164,7 @@ export const handleMapMouseLeave = (e: MapLayerMouseEvent | MapLayerTouchEvent) 
   setTimeout(() => {
     setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
+    useOverlayStore.getState().setHoveredOverlayFeature(null);
   }, 125);
   useMapControlsStore.getState().setIsPainting(false);
 };
@@ -170,6 +173,7 @@ export const handleMapMouseOut = (e: MapLayerMouseEvent | MapLayerTouchEvent) =>
   setTimeout(() => {
     setHoverFeatures(EMPTY_FEATURE_ARRAY);
     useTooltipStore.getState().setTooltip(null);
+    useOverlayStore.getState().setHoveredOverlayFeature(null);
   }, 250);
   useMapControlsStore.getState().setIsPainting(false);
 };
@@ -178,6 +182,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
+
   const {mapOptions, activeTool, isPainting, paintFunction, brushSize} = mapControls;
   const {mapDocument} = mapStore;
   const {selectedZone} = mapControls;
