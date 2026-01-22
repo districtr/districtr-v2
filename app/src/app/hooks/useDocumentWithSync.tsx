@@ -28,7 +28,7 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
   const setAppLoadingState = useMapStore(state => state.setAppLoadingState);
   const ingestFromDocument = useAssignmentsStore(state => state.ingestFromDocument);
   const resolveConflict = useAssignmentsStore(state => state.resolveConflict);
-  const fetchOverlays = useOverlayStore(state => state.fetchOverlays);
+  const setAvailableOverlays = useOverlayStore(state => state.setAvailableOverlays);
   const clearOverlays = useOverlayStore(state => state.clearOverlays);
   const router = useRouter();
 
@@ -92,10 +92,10 @@ export function useDocumentWithSync({document_id, enabled = true}: UseDocumentWi
           },
           result.response.updateLocal ? result.response.document : undefined
         );
-        // Fetch overlays for the map
+        // Set overlays from document response
         clearOverlays();
-        if (result.response.document.districtr_map_slug) {
-          fetchOverlays(result.response.document.districtr_map_slug);
+        if (result.response.document.overlays) {
+          setAvailableOverlays(result.response.document.overlays);
         }
         setIsLoading(false);
         setAppLoadingState('loaded');
