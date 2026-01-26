@@ -259,7 +259,6 @@ def create_parent_child_edges(
     session.execute(insert_sql, params={"uuid": districtr_map_uuid})
 
 
-
 def add_extent_to_districtrmap(
     session: Session, districtr_map_uuid: str | UUID, bounds: list[float] | None = None
 ) -> None:

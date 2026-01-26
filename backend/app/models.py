@@ -68,9 +68,7 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # Name of the data source for the map
     data_source_name: str | None = Field(nullable=True)
     # State FIPS codes associated with this map
-    statefps: list[str] | None = Field(
-        sa_column=Column(ARRAY(String), nullable=True)
-    )
+    statefps: list[str] | None = Field(sa_column=Column(ARRAY(String), nullable=True))
 
 
 class DistrictrMapPublic(BaseModel):

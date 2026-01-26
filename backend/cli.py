@@ -36,6 +36,7 @@ GPKG_DATA_DIR = environ.get("GPKG_DATA_DIR", settings.VOLUME_PATH)
 
 T = TypeVar("T")
 
+
 @contextmanager
 def session_scope():
     """Provide a transactional scope around a series of operations."""
