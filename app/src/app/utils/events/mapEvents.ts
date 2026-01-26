@@ -310,9 +310,11 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
   if (!tileData.vtLayers) {
     tileData.loadVTLayers();
   }
-  const ft = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer];
-  const currentStateFp = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
-  currentStateFp && setStateFp(currentStateFp);
+  if (!mapDocument?.statefps) {
+    const ft = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer];
+    const currentStateFp = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
+    currentStateFp && setStateFp(currentStateFp);
+  }
   setMapRenderingState('loaded');
   if (mapDocument) {
     GeometryWorker?.loadTileData({

@@ -265,6 +265,10 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         lastUpdatedHash: new Date().toISOString(),
         workerUpdateHash: new Date().toISOString(),
       });
+      if (mapDocument.statefps) {
+        const {setStateFp} = useMapControlsStore.getState();
+        mapDocument.statefps.forEach(stateFp => setStateFp(stateFp));
+      }
     },
     mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
     mapStatus: null,

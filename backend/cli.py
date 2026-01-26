@@ -146,6 +146,13 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
     default=None,
     nargs=4,
 )
+@click.option(
+    "--statefps",
+    help="State FIPS codes (can be specified multiple times)",
+    required=False,
+    type=str,
+    multiple=True,
+)
 @with_session
 def create_districtr_map(
     session: Session,
@@ -160,8 +167,10 @@ def create_districtr_map(
     bounds: list[float] | None = None,
     group_slug: str = "states",
     map_type: str = "default",
+    statefps: tuple[str, ...] = (),
 ):
     logger.info("Creating districtr map...")
+    statefps_list = list(statefps) if statefps else None
     districtr_map_uuid = _create_districtr_map(
         session=session,
         name=name,
@@ -173,6 +182,7 @@ def create_districtr_map(
         gerrydb_table_name=gerrydb_table_name,
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
+        statefps=statefps_list,
     )
 
     if not no_extent:

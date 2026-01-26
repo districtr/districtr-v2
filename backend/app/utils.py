@@ -27,6 +27,7 @@ def create_districtr_map(
     group_slug: str | None = None,
     map_type: str = "default",
     visibility: bool = True,
+    statefps: list[str] | None = None,
 ) -> str:
     """
     Create a new districtr map.
@@ -93,6 +94,15 @@ def create_districtr_map(
             districtr_map_slug=districtr_map_slug,
             group_slug=group_slug,
         )
+
+    # Update statefps if provided (since the stored function doesn't handle it)
+    if statefps is not None:
+        update_stmt = (
+            update(DistrictrMap)
+            .where(DistrictrMap.uuid == inserted_map_uuid[0])
+            .values(statefps=statefps)
+        )
+        session.execute(update_stmt)
 
     return inserted_map_uuid[0]  # pyright: ignore
 
