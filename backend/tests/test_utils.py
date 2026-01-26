@@ -280,7 +280,7 @@ def test_create_parent_child_edges(
 ):
     create_parent_child_edges(
         session=session,
-        districtr_map_uuid=simple_shatterable_districtr_map_no_edges_yet,
+        districtr_map_slug="simple_geos",
     )
     session.commit()
 
