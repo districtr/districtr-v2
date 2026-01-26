@@ -36,7 +36,6 @@ GPKG_DATA_DIR = environ.get("GPKG_DATA_DIR", settings.VOLUME_PATH)
 
 T = TypeVar("T")
 
-
 @contextmanager
 def session_scope():
     """Provide a transactional scope around a series of operations."""
@@ -89,17 +88,12 @@ def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
 @click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=True)
 @with_session
 def create_parent_child_edges(session: Session, districtr_map_slug: str):
+    """
+    Create parent-child edges for a districtr map.
+    Inlined equivalent of add_parent_child_relationships (parent_child_relationships.sql).
+    """
     logger.info("Creating parent-child edges...")
-
-    stmt = text(
-        "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
-    )
-    (districtr_map_uuid,) = session.execute(
-        stmt, params={"districtr_map_slug": districtr_map_slug}
-    ).one()
-    logger.info(f"Found districtmap uuid: {districtr_map_uuid}")
-
-    _create_parent_child_edges(session=session, districtr_map_uuid=districtr_map_uuid)
+    _create_parent_child_edges(session=session, districtr_map_slug=districtr_map_slug)
     logger.info("Parent-child relationship upserted successfully.")
 
 

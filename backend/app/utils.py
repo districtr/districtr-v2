@@ -15,6 +15,11 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
+def _quote_ident(name: str) -> str:
+    """Quote a PostgreSQL identifier (double-quote and escape)."""
+    return '"' + name.replace('"', '""') + '"'
+
+
 def create_districtr_map(
     session: Session,
     name: str,
@@ -167,7 +172,7 @@ def create_shatterable_gerrydb_view(
 
 def create_parent_child_edges(
     session: Session,
-    districtr_map_uuid: str,
+    districtr_map_slug: str,
 ) -> None:
     """
     Create the parent child edges for a given gerrydb map.
@@ -176,15 +181,83 @@ def create_parent_child_edges(
         session: The database session.
         districtr_map_uuid: The UUID of the districtr map.
     """
-    stmt = text("CALL add_parent_child_relationships(:districtr_map_uuid)").bindparams(
-        bindparam(key="districtr_map_uuid", type_=UUIDType),
+    stmt = text(
+        "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
     )
-    session.execute(
-        stmt,
-        {
-            "districtr_map_uuid": districtr_map_uuid,
-        },
+
+    row = session.execute(
+        stmt, params={"districtr_map_slug": districtr_map_slug}
+    ).one_or_none()
+
+    if not row:
+        raise click.ClickException(
+            f"No districtrmap found for slug: {districtr_map_slug}"
+        )
+    (districtr_map_uuid,) = row
+    logger.info(f"Found districtmap uuid: {districtr_map_uuid}")
+
+    # Fetch parent_layer, child_layer
+    map_stmt = text(
+        "SELECT uuid, parent_layer, child_layer FROM districtrmap WHERE uuid = :uuid"
     )
+    map_row = session.execute(
+        map_stmt, params={"uuid": districtr_map_uuid}
+    ).one_or_none()
+    if not map_row:
+        raise click.ClickException(
+            f"No districtrmap found for uuid: {districtr_map_uuid}"
+        )
+    _, parent_layer, child_layer = map_row
+    if not parent_layer or not child_layer:
+        raise click.ClickException(
+            "Districtr map must have both parent_layer and child_layer"
+        )
+
+    # Check not already loaded
+    count_stmt = text(
+        """
+        SELECT COUNT(*) > 0 FROM parentchildedges edges
+        WHERE edges.districtr_map = :uuid
+        """
+    )
+    (previously_loaded,) = session.execute(
+        count_stmt, params={"uuid": districtr_map_uuid}
+    ).one()
+    if previously_loaded:
+        raise click.ClickException(
+            f"Relationships for districtr_map {districtr_map_uuid} already loaded"
+        )
+
+    uuid_str = str(districtr_map_uuid)
+    partition_name = f"parentchildedges_{uuid_str}"
+    parent_ident = f"{GERRY_DB_SCHEMA}.{_quote_ident(parent_layer)}"
+    child_ident = f"{GERRY_DB_SCHEMA}.{_quote_ident(child_layer)}"
+
+    # Create partition (FOR VALUES IN requires literals, not bind params)
+    create_sql = text(
+        f"CREATE TABLE {_quote_ident(partition_name)} "
+        f"PARTITION OF parentchildedges FOR VALUES IN ('{uuid_str}')"
+    )
+    session.execute(create_sql)
+
+    # Insert edges: parent contains child's point-on-surface
+    insert_sql = text(
+        f"""
+        INSERT INTO {_quote_ident(partition_name)} (
+            created_at, districtr_map, parent_path, child_path
+        )
+        SELECT
+            now() AS created_at,
+            :uuid AS districtr_map,
+            parent.path AS parent_path,
+            child.path AS child_path
+        FROM {parent_ident} AS parent
+        JOIN {child_ident} AS child
+        ON ST_Contains(parent.geometry, ST_PointOnSurface(child.geometry))
+        """
+    )
+    session.execute(insert_sql, params={"uuid": districtr_map_uuid})
+
 
 
 def add_extent_to_districtrmap(
