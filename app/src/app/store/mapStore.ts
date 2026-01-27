@@ -224,15 +224,19 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       resetZoneAssignments();
       useDemographyStore.getState().clear();
       useUnassignFeaturesStore.getState().reset();
+      
+      let currentStateFp: Set<string> = new Set();
+      if (mapDocument.statefps) {
+        currentStateFp = new Set(mapDocument.statefps);
+      } else if (currentMapDocument?.parent_layer === mapDocument?.parent_layer) {
+        currentStateFp = new Set(currentMapDocument?.statefps);
+      }
 
       useMapControlsStore.setState({
         mapOptions: {
           ...DEFAULT_MAP_OPTIONS,
           bounds: mapDocument.extent,
-          currentStateFp:
-            currentMapDocument?.parent_layer === mapDocument?.parent_layer
-              ? mapControlsState.mapOptions.currentStateFp
-              : undefined,
+          currentStateFp: currentStateFp,
         },
         activeTool: mapDocument.access === 'edit' ? mapControlsState.activeTool : 'pan',
         selectedZone: 1,
