@@ -188,15 +188,22 @@ export class DocumentsDB extends Dexie {
     });
   };
 
-  updateColorScheme = async (document_id: string, colorScheme: string[]) => {
+  updateColorScheme = async (
+    document_id: string,
+    colorScheme: string[],
+    clientLastUpdated?: string
+  ) => {
     const currDocument = await this.getDocument(document_id);
     if (!currDocument) return;
+    // Update clientLastUpdated to reflect local changes
+    const newClientLastUpdated = clientLastUpdated || new Date().toISOString();
     this.updateDocument({
       ...currDocument,
       document_metadata: {
         ...currDocument.document_metadata,
         color_scheme: colorScheme,
       },
+      clientLastUpdated: newClientLastUpdated,
     });
   };
 

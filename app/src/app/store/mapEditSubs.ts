@@ -22,8 +22,12 @@ export const getMapEditSubs = (useMapStore: typeof _useMapStore) => {
       const colorSchemeIsSame =
         mapDocument?.color_scheme && shallowCompareArray(colorScheme, mapDocument?.color_scheme);
       if (mapDocument && mapStatus?.access === 'edit' && !colorSchemeIsSame) {
-        await patchUpdateColorScheme({document_id: mapDocument.document_id, colors: colorScheme});
-        // Error handling is done inside saveColorScheme
+        // Only save to IDB locally, not to server (server save happens on manual save)
+        await patchUpdateColorScheme({
+          document_id: mapDocument.document_id,
+          colors: colorScheme,
+          saveToServer: false,
+        });
       }
     },
     {equalityFn: shallowCompareArray}

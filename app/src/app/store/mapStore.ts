@@ -32,6 +32,7 @@ import {patchUnShatterParents} from '../utils/api/apiHandlers/patchUnShatterPare
 import {DEFAULT_MAP_OPTIONS, useMapControlsStore} from './mapControlsStore';
 import {useAssignmentsStore} from './assignmentsStore';
 import {patchUpdateReset} from '../utils/api/apiHandlers/patchUpdateReset';
+import {idb} from '../utils/idb/idb';
 
 const combineSetValues = (setRecord: Record<string, Set<unknown>>, keys?: string[]) => {
   const combinedSet = new Set<unknown>(); // Create a new set to hold combined values
@@ -76,6 +77,7 @@ export interface MapStore {
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
   colorScheme: string[];
   setColorScheme: (colors: string[]) => void;
+  setNumDistricts: (numDistricts: number) => void;
 
   // SHATTERING
   /**
@@ -274,6 +276,40 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     },
     colorScheme: DefaultColorScheme,
     setColorScheme: colorScheme => set({colorScheme}),
+    setNumDistricts: numDistricts => {
+      const {mapDocument} = get();
+      if (!mapDocument) return;
+      const newColorScheme = extendColorArray(
+        mapDocument.color_scheme ?? DefaultColorScheme,
+        numDistricts
+      );
+      const updatedDocument = {...mapDocument, num_districts: numDistricts};
+      set({
+        mapDocument: updatedDocument,
+        colorScheme: newColorScheme,
+      });
+      // Update IDB to persist the change locally
+      if (mapDocument.document_id) {
+        const newClientLastUpdated = new Date().toISOString();
+        // Update assignments store's clientLastUpdated so SavePopover detects the change
+        useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
+        
+        idb.getDocument(mapDocument.document_id).then(idbDoc => {
+          if (idbDoc) {
+            idb.updateDocument({
+              id: mapDocument.document_id,
+              document_metadata: updatedDocument,
+              assignments: idbDoc.assignments,
+              clientLastUpdated: newClientLastUpdated,
+            }).catch(err => {
+              console.error('Failed to update IDB with num_districts:', err);
+            });
+          }
+        }).catch(err => {
+          console.error('Failed to get IDB document:', err);
+        });
+      }
+    },
     handleShatter: async features => {
       const {mapDocument, mapLock, setMapLock} = get();
       if (!features.length) {

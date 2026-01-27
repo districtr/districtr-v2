@@ -21,6 +21,7 @@ import {
 import {createMapDocument} from '../utils/api/apiHandlers/createMapDocument';
 import {createWithFullMiddlewares} from './middlewares';
 import {confirmMapDocumentUrlParameter} from '../utils/map/confirmMapDocumentUrlParameter';
+import {shallowCompareArray} from '@utils/arrays';
 
 export interface AssignmentsStore {
   /** Map of geoid -> zone assignments currently in memory */
@@ -109,6 +110,7 @@ export interface AssignmentsStore {
         childToParent: AssignmentsStore['childToParent'];
       }
     | undefined;
+  removeAssignmentsForZonesAbove: (maxZone: number) => void;
 }
 
 export type ZoneAssignmentsMap = AssignmentsStore['zoneAssignments'];
@@ -464,16 +466,85 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     });
   },
 
+  removeAssignmentsForZonesAbove: maxZone => {
+    const {zoneAssignments, zonesLastUpdated} = get();
+    const {mapDocument, getMapRef} = useMapStore.getState();
+    const mapRef = getMapRef();
+
+    const updatedAssignments = new Map(zoneAssignments);
+    const updatedZonesLastUpdated = new Map(zonesLastUpdated);
+    const timestamp = new Date().toISOString();
+    const removedGeoids: Array<{id: string; sourceLayer: string}> = [];
+
+    // Remove assignments for zones above maxZone
+    updatedAssignments.forEach((zone, geoid) => {
+      if (zone !== null && zone > maxZone) {
+        updatedAssignments.delete(geoid);
+        updatedZonesLastUpdated.set(zone, timestamp);
+        
+        // Track geoids to clear on map
+        if (mapDocument && mapRef) {
+          const sourceLayer = mapDocument.child_layer || mapDocument.parent_layer;
+          if (sourceLayer) {
+            removedGeoids.push({id: geoid, sourceLayer});
+          }
+        }
+      }
+    });
+
+    // Clear feature state on map
+    if (mapRef && mapDocument) {
+      removedGeoids.forEach(({id, sourceLayer}) => {
+        mapRef.setFeatureState(
+          {
+            source: BLOCK_SOURCE_ID,
+            id,
+            sourceLayer,
+          },
+          {zone: null}
+        );
+      });
+    }
+
+    // Update IDB if document exists
+    if (mapDocument) {
+      idb.updateIdbAssignments(mapDocument, updatedAssignments, timestamp, true);
+    }
+
+    set({
+      zoneAssignments: updatedAssignments,
+      zonesLastUpdated: updatedZonesLastUpdated,
+      accumulatedAssignments: new Map<string, NullableZone>(),
+    });
+  },
+
   handlePutAssignments: async (overwrite = false) => {
     // Flush any pending IDB updates before explicit save
     await idb.flushPendingUpdate();
     
     const {zoneAssignments, shatterIds, parentToChild, childToParent} = get();
-    const {mapDocument, setMapLock} = useMapStore.getState();
+    const {mapDocument, setMapLock, mutateMapDocument} = useMapStore.getState();
     if (!mapDocument?.document_id || !mapDocument.updated_at) return;
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
     if (!idbDocument) return;
     setMapLock({isLocked: true, reason: 'Saving plan'});
+    
+    // Get local color_scheme and num_districts to include in assignments update
+    const {colorScheme} = useMapStore.getState();
+    const localColorScheme = colorScheme;
+    const localNumDistricts = mapDocument.num_districts;
+    
+    // Determine if color_scheme or num_districts have changed
+    const serverColorScheme = idbDocument.document_metadata.color_scheme;
+    const serverNumDistricts = idbDocument.document_metadata.num_districts;
+    
+    const colorSchemeChanged =
+      localColorScheme &&
+      (!serverColorScheme || !shallowCompareArray(localColorScheme, serverColorScheme));
+    const numDistrictsChanged =
+      localNumDistricts !== serverNumDistricts && localNumDistricts !== null;
+    
+    // Include color_scheme and num_districts in assignments update if they've changed
     const assignmentsPostResponse = await putUpdateAssignmentsAndVerify({
       mapDocument: idbDocument.document_metadata,
       zoneAssignments,
@@ -481,6 +552,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       parentToChild,
       childToParent,
       overwrite,
+      color_scheme: colorSchemeChanged ? localColorScheme : null,
+      num_districts: numDistrictsChanged ? localNumDistricts : null,
     });
     if (
       !assignmentsPostResponse.ok &&

@@ -15,6 +15,8 @@ export interface AssignmentsCreate {
   document_id: string;
   last_updated_at: string;
   overwrite: boolean;
+  color_scheme?: string[] | null;
+  num_districts?: number | null;
 }
 export interface AssignmentsCreateResponse {
   assignments_inserted: number;
