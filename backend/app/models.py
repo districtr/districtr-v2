@@ -240,14 +240,16 @@ class Assignments(SQLModel, table=True):
     geo_id: str = Field(primary_key=True)
     zone: int | None
 
+class AssignmentsMetadata(BaseModel):
+    color_scheme: list[str] | None = None;
+    num_districts: int | None = None;
 
 class AssignmentsCreate(BaseModel):
     document_id: str
     assignments: list[list[str | int | None]]  # [[geo_id, zone], ...]
     last_updated_at: datetime
     overwrite: bool = False
-    color_scheme: list[str] | None = None
-    num_districts: int | None = None
+    metadata: AssignmentsMetadata | None = None
 
 
 class AssignmentsResponse(SQLModel):

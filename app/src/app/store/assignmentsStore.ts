@@ -529,21 +529,6 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     if (!idbDocument) return;
     setMapLock({isLocked: true, reason: 'Saving plan'});
     
-    // Get local color_scheme and num_districts to include in assignments update
-    const {colorScheme} = useMapStore.getState();
-    const localColorScheme = colorScheme;
-    const localNumDistricts = mapDocument.num_districts;
-    
-    // Determine if color_scheme or num_districts have changed
-    const serverColorScheme = idbDocument.document_metadata.color_scheme;
-    const serverNumDistricts = idbDocument.document_metadata.num_districts;
-    
-    const colorSchemeChanged =
-      localColorScheme &&
-      (!serverColorScheme || !shallowCompareArray(localColorScheme, serverColorScheme));
-    const numDistrictsChanged =
-      localNumDistricts !== serverNumDistricts && localNumDistricts !== null;
-    
     // Include color_scheme and num_districts in assignments update if they've changed
     const assignmentsPostResponse = await putUpdateAssignmentsAndVerify({
       mapDocument: idbDocument.document_metadata,
@@ -552,8 +537,6 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       parentToChild,
       childToParent,
       overwrite,
-      color_scheme: colorSchemeChanged ? localColorScheme : null,
-      num_districts: numDistrictsChanged ? localNumDistricts : null,
     });
     if (
       !assignmentsPostResponse.ok &&

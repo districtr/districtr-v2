@@ -1,7 +1,7 @@
 import {NullableZone} from '@/app/constants/types';
 import {formatAssignmentsFromState} from '../../map/formatAssignments';
 import {AssignmentArray, DocumentObject} from './types';
-import {putUpdateAssignments} from './putUpdateAssignments';
+import {putUpdateDocument} from './putUpdateDocument';
 import {AssignmentsStore} from '@/app/store/assignmentsStore';
 import {idb} from '../../idb/idb';
 import {getAssignments} from './getAssignments';
@@ -25,8 +25,6 @@ export const putUpdateAssignmentsAndVerify = async ({
   parentToChild,
   childToParent,
   overwrite = false,
-  color_scheme,
-  num_districts,
 }: {
   mapDocument: DocumentObject;
   zoneAssignments: Map<string, NullableZone>;
@@ -34,8 +32,6 @@ export const putUpdateAssignmentsAndVerify = async ({
   parentToChild: AssignmentsStore['parentToChild'];
   childToParent: AssignmentsStore['childToParent'];
   overwrite?: boolean;
-  color_scheme?: string[] | null;
-  num_districts?: number | null;
 }): Promise<PutUpdateAssignmentsAndVerifyResponse> => {
   const formattedAssignments = formatAssignmentsFromState(
     mapDocument.document_id,
@@ -44,13 +40,15 @@ export const putUpdateAssignmentsAndVerify = async ({
     childToParent,
     'assignment_array'
   );
-  const assignmentsPostResponse = await putUpdateAssignments({
+  const assignmentsPostResponse = await putUpdateDocument({
     assignments: formattedAssignments,
     document_id: mapDocument.document_id,
     last_updated_at: mapDocument.updated_at!,
     overwrite,
-    color_scheme,
-    num_districts,
+    metadata: {
+      color_scheme: mapDocument.color_scheme ?? undefined,
+      num_districts: mapDocument.num_districts ?? undefined,
+    },
   });
   if (!assignmentsPostResponse.ok) {
     return {

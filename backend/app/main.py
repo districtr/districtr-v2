@@ -341,8 +341,7 @@ async def update_assignments(
             - assignments: List of assignment pairs [[geo_id, zone], ...]
             - last_updated_at: Timestamp of the client's last known update (for conflict detection)
             - overwrite: If True, allows overwriting even if document was updated by another client
-            - color_scheme: Optional list of color strings to update the document's color scheme
-            - num_districts: Optional integer to update the document's number of districts
+            - metadata: Optional metadata to update the document
         session (Session): Database session dependency
 
     Returns:
@@ -413,36 +412,37 @@ async def update_assignments(
         updated_at = update_timestamp(session, document_id)
         logger.info(f"Document updated at {updated_at}")
 
-    # Update color_scheme if provided
-    if data.color_scheme is not None:
-        stmt = text(
-            """UPDATE document.document
-            SET color_scheme = :colors
-            WHERE document_id = :document_id"""
-        ).bindparams(
-            bindparam(key="document_id", type_=UUIDType),
-            bindparam(key="colors", type_=ARRAY(String)),
-        )
-        session.execute(stmt, {"document_id": document_id, "colors": data.color_scheme})
-
+   
     # Update num_districts if provided
-    if data.num_districts is not None:
-        if data.num_districts < 1:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Number of districts must be at least 1",
+    if data.metadata is not None:
+        if data.metadata.num_districts is not None:
+            if data.metadata.num_districts < 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Number of districts must be at least 1",
+                )
+            stmt = text(
+                """UPDATE document.document
+                SET num_districts = :num_districts
+                WHERE document_id = :document_id"""
+            ).bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+                bindparam(key="num_districts", type_=Integer),
             )
-        stmt = text(
-            """UPDATE document.document
-            SET num_districts = :num_districts
-            WHERE document_id = :document_id"""
-        ).bindparams(
-            bindparam(key="document_id", type_=UUIDType),
-            bindparam(key="num_districts", type_=Integer),
-        )
-        session.execute(
-            stmt, {"document_id": document_id, "num_districts": data.num_districts}
-        )
+            session.execute(
+                stmt, {"document_id": document_id, "num_districts": data.metadata.num_districts}
+            )
+
+        if data.metadata.color_scheme is not None:
+            stmt = text(
+                """UPDATE document.document
+                SET color_scheme = :colors
+                WHERE document_id = :document_id"""
+            ).bindparams(
+                bindparam(key="document_id", type_=UUIDType),
+                bindparam(key="colors", type_=ARRAY(String)),
+            )
+            session.execute(stmt, {"document_id": document_id, "colors": data.metadata.color_scheme})
 
     session.commit()
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}

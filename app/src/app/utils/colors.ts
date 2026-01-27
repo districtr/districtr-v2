@@ -1,8 +1,15 @@
-export const extendColorArray = (colorArray: string[], numDistricts: number) => {
+import { colorScheme as DefaultColorScheme } from "@/app/constants/colors";
+export const extendColorArray = (
+  colorArray: string[], 
+  numDistricts: number,
+  defaultColorArray: string[] = DefaultColorScheme  
+) => {
   let newColorArray = [...colorArray];
   while (newColorArray.length < numDistricts) {
+    const unusedDefaultColors = defaultColorArray.filter(color => !newColorArray.includes(color));
     newColorArray = newColorArray
-      .concat(...colorArray.map(hexshift))
+      .concat(...unusedDefaultColors)
+      .concat(...defaultColorArray.map(hexshift))
       .filter((color, index, array) => array.findIndex(c => c === color) === index);
   }
   return newColorArray.slice(0, numDistricts);
