@@ -18,14 +18,14 @@ const DEFAULT_LINE_STYLE: Partial<LineLayerSpecification['paint']> = {
 };
 
 const DEFAULT_TEXT_PAINT: Partial<SymbolLayerSpecification['paint']> = {
-  'text-color': '#333',
+  'text-color': '#627BC1',
   'text-halo-color': '#fff',
   'text-halo-width': 1.5,
 };
 
 const DEFAULT_TEXT_LAYOUT: Partial<SymbolLayerSpecification['layout']> = {
-  'text-font': ['Barlow Regular'],
-  'text-size': 12,
+  'text-font': ['Barlow Bold'],
+  'text-size': 14,
   'text-anchor': 'center',
   'text-max-width': 10,
 };
@@ -123,7 +123,7 @@ export const OverlayLayers = () => {
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
 
   const enabledOverlays = useMemo(() => {
-    return availableOverlays.filter(overlay => enabledOverlayIds.has(overlay.overlay_id));
+    return availableOverlays.filter(overlay => enabledOverlayIds.has(overlay.name));
   }, [availableOverlays, enabledOverlayIds]);
 
   return (

@@ -1,12 +1,23 @@
 'use client';
 import {Flex, Text, Switch, Spinner} from '@radix-ui/themes';
 import {useOverlayStore} from '@/app/store/overlayStore';
+import { fastUniqBy } from '@/app/utils/arrays';
+import { useMemo } from 'react';
 
 export const OverlaysPanel = () => {
   const availableOverlays = useOverlayStore(state => state.availableOverlays);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const toggleOverlay = useOverlayStore(state => state.toggleOverlay);
   const isLoading = useOverlayStore(state => state.isLoading);
+  const uniqueOverlays = useMemo(() => {
+    const sortedOverlays = availableOverlays.sort((a, b) => {
+      if (a.name === b.name) {
+        return a.layer_type.localeCompare(b.layer_type);
+      }
+      return a.name.localeCompare(b.name);
+    });
+    return fastUniqBy(sortedOverlays, 'name');
+  }, [availableOverlays]);
 
   if (isLoading) {
     return (
@@ -29,7 +40,7 @@ export const OverlaysPanel = () => {
 
   return (
     <Flex gap="3" direction="column">
-      {availableOverlays.map(overlay => (
+      {uniqueOverlays.map(overlay => (
         <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
           <Flex direction="column" gap="1">
             <Text size="2" weight="medium">
@@ -42,8 +53,8 @@ export const OverlaysPanel = () => {
             )}
           </Flex>
           <Switch
-            checked={enabledOverlayIds.has(overlay.overlay_id)}
-            onCheckedChange={() => toggleOverlay(overlay.overlay_id)}
+            checked={enabledOverlayIds.has(overlay.name)}
+            onCheckedChange={() => toggleOverlay(overlay.name)}
           />
         </Flex>
       ))}
