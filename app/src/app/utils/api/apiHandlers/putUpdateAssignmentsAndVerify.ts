@@ -45,6 +45,7 @@ export const putUpdateAssignmentsAndVerify = async ({
     document_id: mapDocument.document_id,
     last_updated_at: mapDocument.updated_at!,
     overwrite,
+    // TODO: Have metadata confirmed after put and make it possible to update metadata without assignments
     metadata: {
       color_scheme: mapDocument.color_scheme ?? undefined,
       num_districts: mapDocument.num_districts ?? undefined,
