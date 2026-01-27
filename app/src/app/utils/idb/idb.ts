@@ -68,7 +68,7 @@ export class DocumentsDB extends Dexie {
   } | null = null;
 
   // Debounce delay in milliseconds (500ms = save after user pauses for half a second)
-  private readonly DEBOUNCE_DELAY = 500;
+  readonly DEBOUNCE_DELAY = 500;
 
   /**
    * Debounced version of updateIdbAssignments that batches rapid updates.
