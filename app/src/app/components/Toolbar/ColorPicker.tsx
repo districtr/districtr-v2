@@ -6,7 +6,8 @@ import {ColorRadioGroup} from './ColorRadioGroup';
 import {ColorDropdown} from './ColorDropdown';
 import {ColorMultiDropdown} from './ColorMultiDropdown';
 import {ColorCheckbox} from './ColorCheckbox';
-
+import { colorScheme as DefaultColorScheme } from "@/app/constants/colors";
+import { useColorScheme } from '@/app/hooks/useColorScheme';
 export type ColorPickerProps<T extends boolean = false> = T extends true
   ? {
       defaultValue: number[];
@@ -34,7 +35,7 @@ export const ColorPicker = <T extends boolean>({
   _colorScheme,
 }: ColorPickerProps<T>) => {
   const mapDocument = useMapStore(state => state.mapDocument);
-  const _stateColorScheme = useMapStore(state => state.colorScheme);
+  const _stateColorScheme = useColorScheme();
   const colorScheme = _colorScheme ?? _stateColorScheme;
   const hotkeyRef = useRef<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);

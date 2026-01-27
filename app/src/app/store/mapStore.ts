@@ -75,8 +75,6 @@ export interface MapStore {
   mutateMapDocument: (mapDocument: Partial<DocumentObject>) => void;
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
-  colorScheme: string[];
-  setColorScheme: (colors: string[]) => void;
   setNumDistricts: (numDistricts: number) => void;
 
   // SHATTERING
@@ -253,10 +251,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
           token: mapDocument.token,
           password: mapDocument.password,
         },
-        colorScheme: extendColorArray(
-          mapDocument.color_scheme ?? DefaultColorScheme,
-          mapDocument.num_districts ?? FALLBACK_NUM_DISTRICTS
-        ),
         captiveIds: new Set(),
         focusFeatures: [],
         mapLock: null,
@@ -274,8 +268,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       const prev = get().mapStatus || {};
       set({mapStatus: {...prev, ...mapStatus} as StatusObject});
     },
-    colorScheme: DefaultColorScheme,
-    setColorScheme: colorScheme => set({colorScheme}),
     setNumDistricts: numDistricts => {
       const {mapDocument} = get();
       if (!mapDocument) return;
@@ -283,10 +275,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapDocument.color_scheme ?? DefaultColorScheme,
         numDistricts
       );
-      const updatedDocument = {...mapDocument, num_districts: numDistricts};
+      const updatedDocument = {...mapDocument, num_districts: numDistricts, color_scheme: newColorScheme};
       set({
         mapDocument: updatedDocument,
-        colorScheme: newColorScheme,
       });
       // Update IDB to persist the change locally
       if (mapDocument.document_id) {
@@ -454,7 +445,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         set({
           appLoadingState: 'loaded',
           mapLock: null,
-          colorScheme: DefaultColorScheme,
           assignmentsHash: updateHash,
           lastUpdatedHash: updateHash,
         });
