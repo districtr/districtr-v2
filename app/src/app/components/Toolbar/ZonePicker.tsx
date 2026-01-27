@@ -30,7 +30,7 @@ export function ZonePicker() {
   };
 
   const handleDecreaseDistricts = () => {
-    if (numDistricts <= 1) return;
+    if (numDistricts <= 2) return;
     const newNumDistricts = numDistricts - 1;
     setNumDistricts(newNumDistricts);
     // Remove assignments for zones above the new max
@@ -54,7 +54,7 @@ export function ZonePicker() {
             variant="soft"
             size="1"
             onClick={handleDecreaseDistricts}
-            disabled={isReadOnly || numDistricts <= 1}
+            disabled={isReadOnly || numDistricts <= 2}
           >
             <MinusIcon />
           </Button>
