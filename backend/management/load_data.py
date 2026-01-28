@@ -321,7 +321,7 @@ def load_sample_data(
             # Commit districtr views
             session.commit()
             _create_parent_child_edges(
-                session=session, districtr_map_slug=view.districtr_map_slug
+                session=session, districtr_map_uuid=view.districtr_map_uuid
             )
 
         session.commit()

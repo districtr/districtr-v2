@@ -275,10 +275,11 @@ def test_create_shatterable_gerrydb_view(
 
 def test_create_parent_child_edges(
     session: Session,
+    simple_shatterable_districtr_map_no_edges_yet: str,
 ):
     create_parent_child_edges(
         session=session,
-        districtr_map_slug="simple_geos",
+        districtr_map_uuid=simple_shatterable_districtr_map_no_edges_yet,
     )
     session.commit()
 

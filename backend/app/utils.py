@@ -174,26 +174,25 @@ def create_shatterable_gerrydb_view(
 
 def create_parent_child_edges(
     session: Session,
-    districtr_map_slug: str,
+    districtr_map_uuid: str,
 ) -> None:
     """
     Create the parent child edges for a given gerrydb map.
 
     Args:
         session: The database session.
-        districtr_map_slug: The slug of the districtr map.
+        districtr_map_uuid: The UUID of the districtr map.
     """
     stmt = select(DistrictrMap).where(
-        DistrictrMap.districtr_map_slug == districtr_map_slug
+        DistrictrMap.uuid == districtr_map_uuid
     )
     map_row = session.exec(stmt).one()
 
     if not map_row:
-        raise ValueError(f"No districtrmap found for slug: {districtr_map_slug}")
-    districtr_map_uuid, parent_layer, child_layer = (
-        map_row.uuid,
+        raise ValueError(f"No districtrmap found for UUID: {districtr_map_uuid}")
+    parent_layer, child_layer = (
         map_row.parent_layer,
-        map_row.child_layer,
+        map_row.child_layer
     )
     if not parent_layer or not child_layer:
         raise ValueError("Districtr map must have both parent_layer and child_layer")
