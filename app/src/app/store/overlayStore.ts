@@ -3,12 +3,14 @@ import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {Overlay} from '@utils/api/apiHandlers/types';
 import {getMapOverlays} from '@utils/api/apiHandlers/getOverlays';
-import { useMapStore } from './mapStore';
+import {useMapStore} from './mapStore';
+import {dissolve} from '@turf/turf';
+import {Feature, MapGeoJSONFeature} from 'maplibre-gl';
 
 export interface OverlayPaintConstraint {
   overlayId: string;
   featureId: string;
-  geometry: GeoJSON.Geometry;
+  features: MapGeoJSONFeature[];
   featureName?: string;
 }
 
@@ -19,6 +21,7 @@ export interface OverlayStore {
   isLoading: boolean;
   paintConstraint: OverlayPaintConstraint | null;
   hoveredOverlayFeature: {overlayId: string; featureId: string} | null;
+  selectingLayerId: string | null;
   setAvailableOverlays: (overlays: Overlay[]) => void;
   toggleOverlay: (overlayId: string) => void;
   enableOverlay: (overlayId: string) => void;
@@ -39,6 +42,7 @@ export const useOverlayStore = create(
     isLoading: false,
     paintConstraint: null,
     hoveredOverlayFeature: null,
+    selectingLayerId: null,
 
     setAvailableOverlays: (overlays: Overlay[]) => {
       set({availableOverlays: overlays});
@@ -73,7 +77,11 @@ export const useOverlayStore = create(
       newEnabledIds.delete(overlayId);
       // Clear constraint if its overlay is disabled
       if (paintConstraint?.overlayId === overlayId) {
-        set({enabledOverlayIds: newEnabledIds, paintConstraint: null, _idCache: new Map<string, boolean>()});
+        set({
+          enabledOverlayIds: newEnabledIds,
+          paintConstraint: null,
+          _idCache: new Map<string, boolean>(),
+        });
       } else {
         set({enabledOverlayIds: newEnabledIds});
       }
@@ -107,8 +115,33 @@ export const useOverlayStore = create(
     },
 
     setPaintConstraint: (constraint: OverlayPaintConstraint | null) => {
-      console.log('setting paint constraint', constraint);
-      set({paintConstraint: constraint, _idCache: new Map<string, boolean>()});
+      if (constraint) {
+        const mapRef = useMapStore.getState().getMapRef();
+        // query source layer for feature id
+        const sourceFeatures = mapRef?.querySourceFeatures(
+          `overlay-source-${constraint?.overlayId}`
+        );
+        const matchingFeatures = sourceFeatures?.filter(
+          (feature: any) => feature.id === constraint?.featureId
+        );
+        console.log('MATCHING FEATURES', matchingFeatures);
+        if (matchingFeatures && matchingFeatures.length > 0) {
+          set({
+            paintConstraint: {
+              overlayId: constraint?.overlayId,
+              featureId: constraint?.featureId,
+              features: matchingFeatures.map(f => ({
+                ...f,
+                geometry: f._geometry,
+              })),
+            },
+            _idCache: new Map<string, boolean>(),
+            selectingLayerId: null,
+          });
+          return;
+        }
+      }
+      set({paintConstraint: null, _idCache: new Map<string, boolean>(), selectingLayerId: null});
     },
 
     clearPaintConstraint: () => {
@@ -119,20 +152,8 @@ export const useOverlayStore = create(
       set({hoveredOverlayFeature: feature});
     },
 
-    selectOverlayFeature: (
-      overlayId,
-    ) => {
-      const mapRef = useMapStore.getState().getMapRef();
-      if (!mapRef) return;
-      const callback = (e: any) => {
-        const features = mapRef.queryRenderedFeatures(e.point, {layers: [`overlay-click-${overlayId}`]});
-        if (features.length > 0) {
-          const feature = features[0];
-          console.log('selected overlay feature', feature);
-          set({paintConstraint: {overlayId, featureId: feature.id as string, geometry: feature.geometry as GeoJSON.Geometry}});
-        }
-      }
-      mapRef.once('click', callback);
-    }
+    selectOverlayFeature: overlayId => {
+      set({selectingLayerId: overlayId});
+    },
   }))
 );

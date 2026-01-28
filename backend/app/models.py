@@ -68,7 +68,9 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     # Name of the data source for the map
     data_source_name: str | None = Field(nullable=True)
     # Overlay layer IDs associated with this map
-    overlay_ids: list[str] | None = Field(sa_column=Column(ARRAY(UUIDType), nullable=True))
+    overlay_ids: list[str] | None = Field(
+        sa_column=Column(ARRAY(UUIDType), nullable=True)
+    )
 
 
 class DistrictrMapPublic(BaseModel):

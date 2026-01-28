@@ -48,6 +48,16 @@ const SELECTED_LINE_STYLE: Partial<LineLayerSpecification['paint']> = {
   'line-opacity': 1,
 };
 
+const HIGHLIGHT_FILL_COLOR: Partial<FillLayerSpecification['paint']> = {
+  'fill-color': '#000000',
+  'fill-opacity': [
+    'case',
+    ['boolean', ['feature-state', 'hover'], false],
+    0.7,
+    0
+  ]
+};
+
 interface OverlayLayerProps {
   overlay: Overlay;
   hoveredFeatureId: string | null;
@@ -151,7 +161,7 @@ const OverlayLayer = ({
       type: 'fill' as const,
       beforeId: layerId,
       paint: {
-        'fill-color': '#000000',
+        'fill-color': '#FFFFFF',
         'fill-opacity': 0,
       },
     };
@@ -159,45 +169,13 @@ const OverlayLayer = ({
     if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
       baseProps['source-layer'] = overlay.source_layer;
     }
-
-    return baseProps;
-  }, [clickLayerId, layerId, overlay]);
-
-  // Hover highlight layer
-  const hoverLayerProps = useMemo(() => {
-    if (!hoveredFeatureId) return null;
-
-    const baseProps: any = {
-      id: hoverLayerId,
-      type: 'fill' as const,
-      paint: HOVER_FILL_STYLE,
-      filter: ['==', ['get', idProperty], hoveredFeatureId],
-    };
-
-    if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
-      baseProps['source-layer'] = overlay.source_layer;
+    if (overlayFeature) {
+      baseProps.filter = ['!', ['==', ['get', idProperty], overlayFeature.featureId]];
+      baseProps.paint['fill-opacity'] = 0.75;
     }
 
     return baseProps;
-  }, [hoverLayerId, hoveredFeatureId, idProperty, overlay]);
-
-  // Selected constraint highlight layer
-  const selectedLayerProps = useMemo(() => {
-    if (!isConstraintOverlay || !selectedFeatureId) return null;
-
-    const baseProps: any = {
-      id: selectedLayerId,
-      type: 'fill' as const,
-      paint: SELECTED_FILL_STYLE,
-      filter: ['==', ['get', idProperty], selectedFeatureId],
-    };
-
-    if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
-      baseProps['source-layer'] = overlay.source_layer;
-    }
-
-    return baseProps;
-  }, [selectedLayerId, isConstraintOverlay, selectedFeatureId, idProperty, overlay]);
+  }, [clickLayerId, layerId, overlay, overlayFeature?.featureId]);
 
   // Selected constraint outline layer (for emphasis)
   const selectedOutlineProps = useMemo(() => {
@@ -227,9 +205,10 @@ const OverlayLayer = ({
       {/* Main overlay layer */}
       <Layer {...layerProps} />
       {/* Hover highlight layer */}
-      {hoverLayerProps && <Layer {...hoverLayerProps} />}
-      {/* Selected constraint fill layer */}
-      {selectedLayerProps && <Layer {...selectedLayerProps} />}
+      <Layer 
+        type="fill"
+        paint={HIGHLIGHT_FILL_COLOR}
+      />
       {/* Selected constraint outline layer */}
       {selectedOutlineProps && <Layer {...selectedOutlineProps} />}
       {/* Invisible click layer for line overlays */}
@@ -252,15 +231,6 @@ const OverlayLayer = ({
           ],  
         }}
       >
-        <Layer
-          id={`overlay-feature-line-${overlay.overlay_id}`}
-          type="line"
-          paint={{
-            'line-color': '#FF0000',
-            'line-width': 4,
-            'line-opacity': 1,
-          }}
-        />
       </Source>
     }
     </>

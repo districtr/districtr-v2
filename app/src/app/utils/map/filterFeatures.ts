@@ -5,7 +5,7 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {useAssignmentsStore} from '@/app/store/assignmentsStore';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {booleanIntersects, area, intersect} from '@turf/turf';
-import { MultiPolygon, Polygon } from 'geojson';
+import {MultiPolygon, Polygon} from 'geojson';
 
 const MINIMUM_INTERSECTION_AREA_RATIO = 0.25;
 /**
@@ -67,29 +67,33 @@ export const filterFeatures = ({
       } else {
         let intersected = false;
         if (f.geometry.type === 'Point') {
-          intersected = booleanIntersects(paintConstraint.geometry, f.geometry);
+          intersected = paintConstraint.features.some(constraintFeature =>
+            booleanIntersects(constraintFeature.geometry, f.geometry)
+          );
         } else {
           const geomArea = area(f.geometry);
-          const clipped = intersect({
-            type: 'FeatureCollection',
-            features: [
-              {
-                type: 'Feature',
-                geometry: f.geometry as Polygon | MultiPolygon,
-                properties: {},
-              },
-              {
-                type: 'Feature',
-                geometry: paintConstraint.geometry as Polygon | MultiPolygon,
-                properties: {},
-              },
-            ],
+          let clippedArea = 0;
+          paintConstraint.features.forEach(constraintFeature => {
+            const clipped = intersect({
+              type: 'FeatureCollection',
+              features: [
+                {
+                  type: 'Feature',
+                  geometry: constraintFeature.geometry as Polygon | MultiPolygon,
+                  properties: {},
+                },
+                {
+                  type: 'Feature',
+                  geometry: f.geometry as Polygon | MultiPolygon,
+                  properties: {},
+                },
+              ],
+            });
+            if (clipped) {
+              clippedArea += area(clipped.geometry);
+            }
           });
-          if (clipped) {
-            const clippedArea = area(clipped.geometry);
-            const areaRatio = clippedArea / geomArea;
-            intersected = areaRatio > MINIMUM_INTERSECTION_AREA_RATIO;
-          }
+          intersected = clippedArea / geomArea > MINIMUM_INTERSECTION_AREA_RATIO;
         }
         _idCache.set(f.id.toString(), intersected);
         return intersected;

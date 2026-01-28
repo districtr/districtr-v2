@@ -105,11 +105,25 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
   const mapRef = e.target;
   const mapStore = useMapStore.getState();
   const mapControls = useMapControlsStore.getState();
-
+  const {selectingLayerId, setPaintConstraint} = useOverlayStore.getState();
   const {activeTool, paintFunction, brushSize} = mapControls;
   const sourceLayer = mapStore.mapDocument?.parent_layer;
   let selectedFeatures: MapGeoJSONFeature[] | undefined = undefined;
 
+  if (selectingLayerId) {
+    const features = mapRef.queryRenderedFeatures(e.point, {
+      layers: [`overlay-click-${selectingLayerId}`],
+    });
+    if (features.length > 0) {
+      setPaintConstraint({
+        overlayId: selectingLayerId,
+        featureId: features[0].id as string,
+        geometry: features[0].geometry as GeoJSON.Geometry,
+      });
+      setHoverFeatures(EMPTY_FEATURE_ARRAY);
+    }
+    return;
+  }
   if (POINT_SELECT_TOOLS.includes(activeTool)) {
     selectedFeatures = paintFunction(mapRef, e, 0, [BLOCK_HOVER_LAYER_ID]);
   } else if (AREA_SELECT_TOOLS.includes(activeTool)) {
@@ -187,6 +201,7 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   const {mapDocument} = mapStore;
   const {selectedZone} = mapControls;
   const {mutateZoneAssignments} = useAssignmentsStore.getState();
+  const {selectingLayerId} = useOverlayStore.getState();
   const setTooltip = useTooltipStore.getState().setTooltip;
   const sourceLayer = mapDocument?.parent_layer;
   const paintLayers = getLayerIdsToPaint(
@@ -196,7 +211,16 @@ export const handleMapMouseMove = throttle((e: MapLayerMouseEvent | MapLayerTouc
   );
 
   const isBrushingTool = sourceLayer && ALL_BRUSHING_TOOLS.includes(activeTool);
-
+  if (selectingLayerId) {
+    const features = mapRef.queryRenderedFeatures(e.point, {
+      layers: [`overlay-click-${selectingLayerId}`],
+    });
+    if (features.length > 0) {
+      setHoverFeatures([features[0]]);
+      setTooltip(null);
+    }
+    return;
+  }
   if (!isBrushingTool) {
     setHoverFeatures(EMPTY_FEATURE_ARRAY);
     setTooltip(null);
