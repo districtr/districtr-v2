@@ -99,10 +99,11 @@ export const useMapControlsStore = create<MapControlsStore>()(
         set({mapOptions: {...mapOptions, currentStateFp: new Set([stateFp])}});
       } else if (currentStateFp.has(stateFp)) {
         // Do nothing and do not trigger a re-render
-        return
+        return;
       } else {
-        currentStateFp.add(stateFp);
-        set({mapOptions: {...mapOptions, currentStateFp: new Set(currentStateFp)}});
+        const newSet = new Set(currentStateFp);
+        newSet.add(stateFp);
+        set({mapOptions: {...mapOptions, currentStateFp: newSet}});
       }
     },
     setLockedZones: zones =>

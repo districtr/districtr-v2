@@ -68,14 +68,14 @@ export const formatAssignmentsFromDocument = (assignments: Assignment[]) => {
     if (assignment.parent_path) {
       shatterIds.parents.add(assignment.parent_path);
       shatterIds.children.add(assignment.geo_id);
-      
+
       // Build parentToChild
       if (!parentToChild.has(assignment.parent_path)) {
         parentToChild.set(assignment.parent_path, new Set([assignment.geo_id]));
       } else {
         parentToChild.get(assignment.parent_path)!.add(assignment.geo_id);
       }
-      
+
       // Build childToParent
       childToParent.set(assignment.geo_id, assignment.parent_path);
     }

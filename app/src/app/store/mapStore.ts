@@ -224,12 +224,14 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       resetZoneAssignments();
       useDemographyStore.getState().clear();
       useUnassignFeaturesStore.getState().reset();
-      
+
       let currentStateFp: Set<string> = new Set();
       if (mapDocument.statefps) {
         currentStateFp = new Set(mapDocument.statefps);
       } else if (currentMapDocument?.parent_layer === mapDocument?.parent_layer) {
-        currentStateFp = new Set(currentMapDocument?.statefps);
+        currentStateFp = currentMapDocument?.statefps
+          ? new Set(currentMapDocument.statefps)
+          : new Set();
       }
 
       useMapControlsStore.setState({
@@ -269,10 +271,6 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         lastUpdatedHash: new Date().toISOString(),
         workerUpdateHash: new Date().toISOString(),
       });
-      if (mapDocument.statefps) {
-        const {setStateFp} = useMapControlsStore.getState();
-        mapDocument.statefps.forEach(stateFp => setStateFp(stateFp));
-      }
     },
     mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
     mapStatus: null,
