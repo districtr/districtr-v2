@@ -179,7 +179,7 @@ def create_parent_child_edges(
 
     Args:
         session: The database session.
-        districtr_map_uuid: The UUID of the districtr map.
+        districtr_map_slug: The slug of the districtr map.
     """
     stmt = text(
         "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
