@@ -41,13 +41,15 @@ def create_districtr_map(
         session: The database session.
         name: The name of the map.
         districtr_map_slug: The slug of the districtr map.
-        parent_layer_name: The name of the parent layer.
-        child_layer_name: The name of the child layer.
-        group_slug: The slug of the map group.
+        parent_layer: The name of the parent layer.
+        child_layer: The name of the child layer.
         gerrydb_table_name: The name of the gerrydb table.
         num_districts: The number of districts.
         tiles_s3_path: The S3 path to the tiles.
+        group_slug: The slug of the map group.
+        map_type: The type of map.
         visibility: The visibility of the map.
+        statefps: The state FIPS codes associated with the map.
 
     Returns:
         The UUID of the inserted map.
