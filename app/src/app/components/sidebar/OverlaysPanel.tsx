@@ -1,11 +1,11 @@
 'use client';
-import {Flex, Text, Switch, Spinner, Button, Callout} from '@radix-ui/themes';
+import {Flex, Text, Switch, Spinner, Button, Callout, IconButton} from '@radix-ui/themes';
 import {CrossCircledIcon, TargetIcon} from '@radix-ui/react-icons';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
-import { fastUniqBy } from '@/app/utils/arrays';
-import { useMemo } from 'react';
+import {fastUniqBy} from '@/app/utils/arrays';
+import {useMemo} from 'react';
 
 export const OverlaysPanel = () => {
   const availableOverlays = useOverlayStore(state => state.availableOverlays);
@@ -27,7 +27,7 @@ export const OverlaysPanel = () => {
   };
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
-  
+
   const uniqueOverlays = useMemo(() => {
     const sortedOverlays = availableOverlays.sort((a, b) => {
       if (a.name === b.name) {
@@ -42,8 +42,7 @@ export const OverlaysPanel = () => {
 
   return (
     <Flex gap="3" direction="column">
-
-{paintConstraint && (
+      {paintConstraint && (
         <Callout.Root color="orange" size="1">
           <Callout.Icon>
             <TargetIcon />
@@ -71,7 +70,7 @@ export const OverlaysPanel = () => {
         </Flex>
         <Switch
           checked={mapOptions.showCountyBoundaries ?? false}
-          onCheckedChange={(checked) =>
+          onCheckedChange={checked =>
             setMapOptions({
               showCountyBoundaries: checked,
               prominentCountyNames: checked,
@@ -100,10 +99,26 @@ export const OverlaysPanel = () => {
                 </Text>
               )}
             </Flex>
-            <Switch
-              checked={enabledOverlayIds.has(overlay.name)}
-              onCheckedChange={() => toggleOverlay(overlay.name)}
-            />
+            <Flex direction="row" gap="2" align="center" justify="center">
+              <Switch
+                checked={enabledOverlayIds.has(overlay.name)}
+                onCheckedChange={() => toggleOverlay(overlay.name)}
+              />
+              <IconButton
+                onClick={() => handleLocateClick(overlay.overlay_id)}
+                disabled={!enabledOverlayIds.has(overlay.name)}
+                variant="ghost"
+                color="blue"
+                size="1"
+                radius="full"
+                className="cursor-pointer"
+                style={{
+                  opacity: enabledOverlayIds.has(overlay.name) ? 1 : 0.5,
+                }}
+              >
+                <TargetIcon />
+              </IconButton>
+            </Flex>
           </Flex>
         ))
       ) : null}
