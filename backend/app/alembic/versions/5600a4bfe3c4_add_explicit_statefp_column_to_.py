@@ -9,7 +9,7 @@ Create Date: 2026-01-26 18:38:15.010498
 
 """
 
-from typing import Sequence, Union
+from typing import Sequence
 
 from alembic import op
 import sqlalchemy as sa
@@ -19,9 +19,9 @@ from app.constants import SQL_DIR
 
 # revision identifiers, used by Alembic.
 revision: str = "5600a4bfe3c4"
-down_revision: Union[str, None] = "0db008690d60"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "0db008690d60"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 ADD_PARENT_CHILD_RELATIONSHIPS_SQL = "parent_child_relationships.sql"
 
