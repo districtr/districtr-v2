@@ -639,6 +639,133 @@ def remove_overlay_from_map(session: Session, districtr_map_slug: str, overlay_i
         logger.error(f"Map with slug {districtr_map_slug} not found")
 
 
+@cli.command("update-overlay")
+@click.option("--overlay-id", "-o", help="Overlay ID to update", required=True)
+@click.option("--name", "-n", help="Overlay name", required=False)
+@click.option("--description", "-d", help="Overlay description", required=False)
+@click.option(
+    "--data-type",
+    "-dt",
+    type=click.Choice(["geojson", "pmtiles"]),
+    help="Data type (geojson or pmtiles)",
+    required=False,
+)
+@click.option(
+    "--layer-type",
+    "-lt",
+    type=click.Choice(["fill", "line", "text"]),
+    help="Layer type (fill, line, or text)",
+    required=False,
+)
+@click.option("--source", "-s", help="Source URL or S3 path", required=False)
+@click.option(
+    "--source-layer", "-sl", help="Source layer name for pmtiles", required=False
+)
+@click.option(
+    "--custom-style", "-cs", help="Custom style as JSON string", required=False
+)
+@click.option(
+    "--id-property",
+    "-ip",
+    help="Property name to use for text labels (for text layer type)",
+    required=False,
+)
+@with_session
+def update_overlay(
+    session: Session,
+    overlay_id: str,
+    name: str | None,
+    description: str | None,
+    data_type: str | None,
+    layer_type: str | None,
+    source: str | None,
+    source_layer: str | None,
+    custom_style: str | None,
+    id_property: str | None,
+):
+    import json
+
+    # Validate UUID format
+    try:
+        overlay_uuid = uuid.UUID(overlay_id)
+    except ValueError:
+        logger.error(f"Invalid UUID format: {overlay_id}. Overlay ID must be a valid UUID.")
+        return
+
+    # First verify the overlay exists
+    overlay_check = session.execute(
+        text("SELECT overlay_id FROM overlay WHERE overlay_id = :overlay_id"),
+        {"overlay_id": str(overlay_uuid)},
+    ).one_or_none()
+
+    if not overlay_check:
+        logger.error(f"Overlay with ID {overlay_id} not found")
+        return
+
+    # Build update query dynamically based on provided parameters
+    update_fields = []
+    params = {"overlay_id": str(overlay_uuid)}
+
+    if name is not None:
+        update_fields.append("name = :name")
+        params["name"] = name
+
+    if description is not None:
+        update_fields.append("description = :description")
+        params["description"] = description
+
+    if data_type is not None:
+        update_fields.append("data_type = :data_type")
+        params["data_type"] = data_type
+
+    if layer_type is not None:
+        update_fields.append("layer_type = :layer_type")
+        params["layer_type"] = layer_type
+
+    if source is not None:
+        update_fields.append("source = :source")
+        params["source"] = source
+
+    if source_layer is not None:
+        update_fields.append("source_layer = :source_layer")
+        params["source_layer"] = source_layer
+
+    if custom_style is not None:
+        try:
+            parsed_style = json.loads(custom_style)
+            update_fields.append("custom_style = :custom_style")
+            params["custom_style"] = json.dumps(parsed_style)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON for custom-style")
+            return
+
+    if id_property is not None:
+        update_fields.append("id_property = :id_property")
+        params["id_property"] = id_property
+
+    if not update_fields:
+        logger.warning("No fields to update. Provide at least one field to update.")
+        return
+
+    # Add updated_at timestamp
+    update_fields.append("updated_at = CURRENT_TIMESTAMP")
+
+    # Build and execute update query
+    update_query = f"""
+        UPDATE overlay
+        SET {', '.join(update_fields)}
+        WHERE overlay_id = :overlay_id
+        RETURNING overlay_id
+    """
+    result = session.execute(text(update_query), params)
+    updated = result.scalar()
+
+    if updated:
+        logger.info(f"Updated overlay {overlay_id}")
+    else:
+        logger.error(f"Failed to update overlay {overlay_id}")
+
+
 @cli.command("delete-overlay")
 @click.option("--overlay-id", "-o", help="Overlay ID to delete", required=True)
 @with_session

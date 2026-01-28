@@ -4,6 +4,8 @@ import {CrossCircledIcon, TargetIcon} from '@radix-ui/react-icons';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
+import { fastUniqBy } from '@/app/utils/arrays';
+import { useMemo } from 'react';
 
 export const OverlaysPanel = () => {
   const availableOverlays = useOverlayStore(state => state.availableOverlays);
@@ -23,29 +25,25 @@ export const OverlaysPanel = () => {
     clearPaintConstraint();
     setPaintFunction(getFeaturesInBbox);
   };
+  const mapOptions = useMapControlsStore(state => state.mapOptions);
+  const setMapOptions = useMapControlsStore(state => state.setMapOptions);
+  
+  const uniqueOverlays = useMemo(() => {
+    const sortedOverlays = availableOverlays.sort((a, b) => {
+      if (a.name === b.name) {
+        return a.layer_type.localeCompare(b.layer_type);
+      }
+      return a.name.localeCompare(b.name);
+    });
+    return fastUniqBy(sortedOverlays, 'name');
+  }, [availableOverlays]);
 
-  if (isLoading) {
-    return (
-      <Flex direction="column" justify="center" align="center" p="4">
-        <Spinner />
-        <Text size="2" className="ml-2">
-          Loading overlays...
-        </Text>
-      </Flex>
-    );
-  }
-
-  if (availableOverlays.length === 0) {
-    return (
-      <Text color="gray" size="2">
-        No overlay layers configured for this map.
-      </Text>
-    );
-  }
+  const hasOverlays = availableOverlays.length > 0;
 
   return (
     <Flex gap="3" direction="column">
-      {paintConstraint && (
+
+{paintConstraint && (
         <Callout.Root color="orange" size="1">
           <Callout.Icon>
             <TargetIcon />
@@ -61,30 +59,38 @@ export const OverlaysPanel = () => {
           </Callout.Text>
         </Callout.Root>
       )}
-
-      {/* {constraintSelectionMode && (
-        <Callout.Root color="blue" size="1">
-          <Callout.Icon>
-            <TargetIcon />
-          </Callout.Icon>
-          <Callout.Text>
-            <Flex justify="between" align="center" gap="2">
-              <Text size="1">Click an overlay feature on the map to constrain painting</Text>
-              <Button size="1" variant="ghost" color="blue" onClick={handleCancelSelection}>
-                Cancel
-              </Button>
-            </Flex>
-          </Callout.Text>
-        </Callout.Root>
-      )} */}
-
-      {availableOverlays.map(overlay => {
-        const isEnabled = enabledOverlayIds.has(overlay.overlay_id);
-        const hasConstraint = paintConstraint?.overlayId === overlay.overlay_id;
-
-        return (
+      {/* County Layer Controls - Always shown as pseudo-overlay */}
+      <Flex justify="between" align="center" gap="2">
+        <Flex direction="column" gap="1">
+          <Text size="2" weight="medium">
+            County Boundaries and Labels
+          </Text>
+          <Text size="1" color="gray">
+            Show county boundaries and labels
+          </Text>
+        </Flex>
+        <Switch
+          checked={mapOptions.showCountyBoundaries ?? false}
+          onCheckedChange={(checked) =>
+            setMapOptions({
+              showCountyBoundaries: checked,
+              prominentCountyNames: checked,
+            })
+          }
+        />
+      </Flex>
+      {/* Regular Overlay Layers */}
+      {isLoading ? (
+        <Flex direction="column" justify="center" align="center" p="4">
+          <Spinner />
+          <Text size="2" className="ml-2">
+            Loading overlays...
+          </Text>
+        </Flex>
+      ) : hasOverlays ? (
+        uniqueOverlays.map(overlay => (
           <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
-            <Flex direction="column" gap="1" style={{flex: 1}}>
+            <Flex direction="column" gap="1">
               <Text size="2" weight="medium">
                 {overlay.name}
               </Text>
@@ -93,39 +99,14 @@ export const OverlaysPanel = () => {
                   {overlay.description}
                 </Text>
               )}
-              {isEnabled && (
-                <Flex gap="1" mt="1">
-                  {hasConstraint ? (
-                    <Button
-                      size="1"
-                      variant="soft"
-                      color="orange"
-                      onClick={handleReleaseConstraint}
-                    >
-                      <CrossCircledIcon />
-                      Release Constraint
-                    </Button>
-                  ) : (
-                    <Button
-                      size="1"
-                      variant="soft"
-                      color="blue"
-                      onClick={() => handleLocateClick(overlay.overlay_id)}
-                    >
-                      <TargetIcon />
-                      Locate
-                    </Button>
-                  )}
-                </Flex>
-              )}
             </Flex>
             <Switch
-              checked={isEnabled}
-              onCheckedChange={() => toggleOverlay(overlay.overlay_id)}
+              checked={enabledOverlayIds.has(overlay.name)}
+              onCheckedChange={() => toggleOverlay(overlay.name)}
             />
           </Flex>
-        );
-      })}
+        ))
+      ) : null}
     </Flex>
   );
 };
