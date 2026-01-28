@@ -183,33 +183,14 @@ def create_parent_child_edges(
         session: The database session.
         districtr_map_slug: The slug of the districtr map.
     """
-    stmt = text(
-        "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
-    )
+    stmt = select(DistrictrMap).where(DistrictrMap.districtr_map_slug == districtr_map_slug)
+    map_row = session.exec(stmt).one()
 
-    row = session.execute(
-        stmt, params={"districtr_map_slug": districtr_map_slug}
-    ).one_or_none()
-
-    if not row:
+    if not map_row:
         raise click.ClickException(
             f"No districtrmap found for slug: {districtr_map_slug}"
         )
-    (districtr_map_uuid,) = row
-    logger.info(f"Found districtmap uuid: {districtr_map_uuid}")
-
-    # Fetch parent_layer, child_layer
-    map_stmt = text(
-        "SELECT uuid, parent_layer, child_layer FROM districtrmap WHERE uuid = :uuid"
-    )
-    map_row = session.execute(
-        map_stmt, params={"uuid": districtr_map_uuid}
-    ).one_or_none()
-    if not map_row:
-        raise click.ClickException(
-            f"No districtrmap found for uuid: {districtr_map_uuid}"
-        )
-    _, parent_layer, child_layer = map_row
+    districtr_map_uuid, parent_layer, child_layer = map_row.uuid, map_row.parent_layer, map_row.child_layer
     if not parent_layer or not child_layer:
         raise click.ClickException(
             "Districtr map must have both parent_layer and child_layer"
@@ -222,9 +203,11 @@ def create_parent_child_edges(
         WHERE edges.districtr_map = :uuid
         """
     )
+    
     (previously_loaded,) = session.execute(
         count_stmt, params={"uuid": districtr_map_uuid}
     ).one()
+
     if previously_loaded:
         raise click.ClickException(
             f"Relationships for districtr_map {districtr_map_uuid} already loaded"
