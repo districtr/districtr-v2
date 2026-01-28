@@ -319,7 +319,9 @@ def simple_parent_child_geos_districtr_map_fixture(
         parent_layer="simple_parent_geos",
         child_layer="simple_child_geos",
     )
-    create_parent_child_edges(session=session, districtr_map_uuid=inserted_districtr_map)
+    create_parent_child_edges(
+        session=session, districtr_map_uuid=inserted_districtr_map
+    )
     session.commit()
     return inserted_districtr_map
 

@@ -318,7 +318,9 @@ def ks_ellis_document_id(
     ks_ellis_shatterable_districtr_map,
     gerrydb_ks_ellis_geos_view,
 ):
-    create_parent_child_edges(session=session, districtr_map_uuid=ks_ellis_shatterable_districtr_map)
+    create_parent_child_edges(
+        session=session, districtr_map_uuid=ks_ellis_shatterable_districtr_map
+    )
     response = client.post(
         "/api/create_document",
         json={"districtr_map_slug": "ks_ellis_geos"},
