@@ -183,14 +183,20 @@ def create_parent_child_edges(
         session: The database session.
         districtr_map_slug: The slug of the districtr map.
     """
-    stmt = select(DistrictrMap).where(DistrictrMap.districtr_map_slug == districtr_map_slug)
+    stmt = select(DistrictrMap).where(
+        DistrictrMap.districtr_map_slug == districtr_map_slug
+    )
     map_row = session.exec(stmt).one()
 
     if not map_row:
         raise click.ClickException(
             f"No districtrmap found for slug: {districtr_map_slug}"
         )
-    districtr_map_uuid, parent_layer, child_layer = map_row.uuid, map_row.parent_layer, map_row.child_layer
+    districtr_map_uuid, parent_layer, child_layer = (
+        map_row.uuid,
+        map_row.parent_layer,
+        map_row.child_layer,
+    )
     if not parent_layer or not child_layer:
         raise click.ClickException(
             "Districtr map must have both parent_layer and child_layer"
@@ -203,7 +209,7 @@ def create_parent_child_edges(
         WHERE edges.districtr_map = :uuid
         """
     )
-    
+
     (previously_loaded,) = session.execute(
         count_stmt, params={"uuid": districtr_map_uuid}
     ).one()
