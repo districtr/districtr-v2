@@ -4,6 +4,7 @@ import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
+import { SENTINEL_EMPTY_ARRAY } from '@/app/constants/layers';
 
 export const CountyLayers = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
@@ -13,7 +14,7 @@ export const CountyLayers = () => {
     const stateFpsArray =
       mapOptions.currentStateFp && mapOptions.currentStateFp.size > 0
         ? Array.from(mapOptions.currentStateFp)
-        : ['-999'];
+        : SENTINEL_EMPTY_ARRAY;
     return [
       'match',
       ['slice', ['get', 'GEOID'], 0, 2],
