@@ -31,7 +31,7 @@ export const OverlaysPanel = () => {
       <Flex justify="between" align="center" gap="2">
         <Flex direction="column" gap="1">
           <Text size="2" weight="medium">
-            County Boundaries
+            County Boundaries and Labels
           </Text>
           <Text size="1" color="gray">
             Show county boundaries and labels
@@ -40,28 +40,13 @@ export const OverlaysPanel = () => {
         <Switch
           checked={mapOptions.showCountyBoundaries ?? false}
           onCheckedChange={(checked) =>
-            setMapOptions({showCountyBoundaries: checked})
+            setMapOptions({
+              showCountyBoundaries: checked,
+              prominentCountyNames: checked,
+            })
           }
         />
       </Flex>
-      
-      <Flex justify="between" align="center" gap="2">
-        <Flex direction="column" gap="1">
-          <Text size="2" weight="medium">
-            Emphasize County Names
-          </Text>
-          <Text size="1" color="gray">
-            Make county names more prominent
-          </Text>
-        </Flex>
-        <Switch
-          checked={mapOptions.prominentCountyNames ?? false}
-          onCheckedChange={(checked) =>
-            setMapOptions({prominentCountyNames: checked})
-          }
-        />
-      </Flex>
-
       {/* Regular Overlay Layers */}
       {isLoading ? (
         <Flex direction="column" justify="center" align="center" p="4">
@@ -90,12 +75,6 @@ export const OverlaysPanel = () => {
           </Flex>
         ))
       ) : null}
-      
-      {!isLoading && !hasOverlays && (
-        <Text color="gray" size="2" mt="2">
-          No additional overlay layers configured for this map.
-        </Text>
-      )}
     </Flex>
   );
 };
