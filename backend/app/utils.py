@@ -189,18 +189,14 @@ def create_parent_child_edges(
     map_row = session.exec(stmt).one()
 
     if not map_row:
-        raise click.ClickException(
-            f"No districtrmap found for slug: {districtr_map_slug}"
-        )
+        raise ValueError(f"No districtrmap found for slug: {districtr_map_slug}")
     districtr_map_uuid, parent_layer, child_layer = (
         map_row.uuid,
         map_row.parent_layer,
         map_row.child_layer,
     )
     if not parent_layer or not child_layer:
-        raise click.ClickException(
-            "Districtr map must have both parent_layer and child_layer"
-        )
+        raise ValueError("Districtr map must have both parent_layer and child_layer")
 
     # Check not already loaded
     count_stmt = text(
@@ -215,7 +211,7 @@ def create_parent_child_edges(
     ).one()
 
     if previously_loaded:
-        raise click.ClickException(
+        raise ValueError(
             f"Relationships for districtr_map {districtr_map_uuid} already loaded"
         )
 
