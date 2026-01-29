@@ -539,6 +539,7 @@ def create_overlay(
             logger.error("Invalid JSON for custom-style")
             return
 
+    
     stmt = text(
         """INSERT INTO overlay (overlay_id, name, description, data_type, layer_type, source, source_layer, custom_style, id_property)
         VALUES (:overlay_id, :name, :description, :data_type, :layer_type, :source, :source_layer, :custom_style, :id_property)
@@ -797,7 +798,7 @@ def update_overlay(
 
         update_stmt = update_stmt.values(updated_at=datetime.datetime.utcnow())
 
-    result = session.execute(text(update_query), params)
+    result = session.execute(update_stmt, params)
     updated = result.scalar()
 
     if updated:
