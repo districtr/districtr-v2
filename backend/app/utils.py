@@ -219,19 +219,22 @@ def create_parent_child_edges(
             f"Relationships for districtr_map {districtr_map_uuid} already loaded"
         )
 
+    # !Important!
+    # The below sections use f-strings to interpolate the table and column names.
+    # This is safe because the table and column names are trusted input.
+    # In other situations, this may not be the case.
+
     uuid_str = str(districtr_map_uuid)
     partition_name = f"parentchildedges_{uuid_str}"
     parent_ident = f"{GERRY_DB_SCHEMA}.{_quote_ident(parent_layer)}"
     child_ident = f"{GERRY_DB_SCHEMA}.{_quote_ident(child_layer)}"
 
-    # Create partition (FOR VALUES IN requires literals, not bind params)
     create_sql = text(
         f"CREATE TABLE {_quote_ident(partition_name)} "
         f"PARTITION OF parentchildedges FOR VALUES IN ('{uuid_str}')"
     )
     session.execute(create_sql)
 
-    # Insert edges: parent contains child's point-on-surface
     insert_sql = text(
         f"""
         INSERT INTO {_quote_ident(partition_name)} (
