@@ -72,6 +72,8 @@ export interface MapStore {
   setMapViews: (maps: MapStore['mapViews']) => void;
   mapDocument: DocumentObject | null;
   setMapDocument: (mapDocument: DocumentObject) => void;
+  flushMapState: boolean;
+  initiateFlushMapState: () => Promise<void>;
   mutateMapDocument: (mapDocument: Partial<DocumentObject>) => void;
   mapStatus: StatusObject | null;
   setMapStatus: (mapStatus: Partial<StatusObject>) => void;
@@ -268,6 +270,13 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         lastUpdatedHash: new Date().toISOString(),
         workerUpdateHash: new Date().toISOString(),
       });
+    },
+    flushMapState: false,
+    initiateFlushMapState: async () => {
+      set({flushMapState: true})
+      // wait for 50ms
+      await new Promise(resolve => setTimeout(resolve, 50));
+      set({flushMapState: false});
     },
     mutateMapDocument: mapDocument => set({mapDocument: {...get().mapDocument!, ...mapDocument}}),
     mapStatus: null,

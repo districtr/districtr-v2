@@ -570,7 +570,8 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
   handleRevert: async (mapDocument: DocumentObject) => {
     // before doing this operation
     const confirmedMapDocument = confirmMapDocumentUrlParameter(mapDocument.document_id);
-    const {setErrorNotification, setMapLock} = useMapStore.getState();
+    const {setErrorNotification, setMapLock, initiateFlushMapState} = useMapStore.getState();
+    await initiateFlushMapState();
     const {ingestFromDocument} = get();
     if (!confirmedMapDocument) {
       setErrorNotification({

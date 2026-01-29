@@ -1,5 +1,5 @@
 import React from 'react';
-import {Box, Flex, Button, Text} from '@radix-ui/themes';
+import {Box, Flex, Button, Text, TextField} from '@radix-ui/themes';
 import {useMapStore} from '../../store/mapStore';
 import {useMapControlsStore} from '../../store/mapControlsStore';
 import {useAssignmentsStore} from '../../store/assignmentsStore';
@@ -58,14 +58,29 @@ export function ZonePicker() {
           >
             <MinusIcon />
           </Button>
-          <Text size="2" weight="bold" style={{minWidth: '2ch', textAlign: 'center'}}>
-            {numDistricts}
+          <Text size="2" weight="bold" style={{minWidth: '4ch', textAlign: 'center', width: 'auto'}}>
+            <TextField.Root
+              type="number"
+              min={2}
+              max={538}
+              value={numDistricts}
+              disabled={isReadOnly}
+              variant="soft"
+              size="1"
+              onChange={e => {
+                const val = Math.max(2, Math.min(538, Number(e.target.value)));
+                if (!isNaN(val)) {
+                  setNumDistricts(val);
+                }
+              }}
+            >
+            </TextField.Root>
           </Text>
           <Button
             variant="soft"
             size="1"
             onClick={handleIncreaseDistricts}
-            disabled={isReadOnly}
+            disabled={isReadOnly || numDistricts >= 538}
           >
             <PlusIcon />
           </Button>

@@ -22,6 +22,7 @@ export const VtdBlockLayers: React.FC<{
   const showDemographicMap = useMapControlsStore(state => state.mapOptions.showDemographicMap);
   const demographicVariable = useDemographyStore(state => state.variable);
   const demographicVariant = useDemographyStore(state => state.variant);
+  const flushMapState = useMapStore(state => state.flushMapState);
   const [loadedTiles, setLoadedTiles] = useState('');
   const setScale = useDemographyStore(state => state.setScale);
   const demographyDataHash = useDemographyStore(state => state.dataHash);
@@ -85,7 +86,7 @@ export const VtdBlockLayers: React.FC<{
     mapDocument,
     demographicVariant,
   ]);
-  if (!mapDocument || loadedTiles !== mapDocument.tiles_s3_path) return null;
+  if (!mapDocument || loadedTiles !== mapDocument.tiles_s3_path || flushMapState) return null;
 
   return (
     <>
