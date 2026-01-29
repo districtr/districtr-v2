@@ -28,7 +28,11 @@ export const OverlaysPanel = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
 
-  const uniqueOverlays = useMemo(() => {
+  // We want an easy way to make implicit map overlay groups, like outlines and labels.
+  // We could make a construct to manage groupings of overlays, but that's a pain.
+  // Instead, we just assume overlays with exactly the same name are part of the same group.
+  // If admins want separately toggle-able overlays, don't name them the same.
+  const overlaysGroupedByName = useMemo(() => {
     const sortedOverlays = availableOverlays.sort((a, b) => {
       if (a.name === b.name) {
         return a.layer_type.localeCompare(b.layer_type);
@@ -80,7 +84,7 @@ export const OverlaysPanel = () => {
       </Flex>
       {/* Regular Overlay Layers */}
       {hasOverlays ? (
-        uniqueOverlays.map(overlay => (
+        overlaysGroupedByName.map(overlay => (
           <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
             <Flex direction="column" gap="1">
               <Text size="2" weight="medium">
