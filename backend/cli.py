@@ -6,7 +6,7 @@ import json
 
 from app.core.db import engine
 from app.core.config import settings
-from sqlalchemy import text, update
+from sqlalchemy import text, update, select
 from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
@@ -30,7 +30,7 @@ from management.load_data import (
     import_gerrydb_view as _import_gerrydb_view,
 )
 from os import environ
-from app.models import Overlay
+from app.models import Overlay, DistrictrMap
 
 
 logger = logging.getLogger(__name__)

@@ -1,4 +1,4 @@
-from sqlalchemy import text, update, Table, MetaData, select, func
+from sqlalchemy import text, update, Table, MetaData, func
 from sqlalchemy import bindparam, Integer, String, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float, Boolean
