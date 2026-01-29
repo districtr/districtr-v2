@@ -233,8 +233,9 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
       } else if (
         currentMapDocument?.parent_layer &&
         mapDocument?.parent_layer &&
-        currentMapDocument.parent_layer === mapDocument.parent_layer) {
-          newStateFipsSet = new Set(mapControlsState.mapOptions.stateFipsSet)
+        currentMapDocument.parent_layer === mapDocument.parent_layer
+      ) {
+        newStateFipsSet = new Set(mapControlsState.mapOptions.stateFipsSet);
       }
 
       useMapControlsStore.setState({
@@ -273,7 +274,7 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
     },
     flushMapState: false,
     initiateFlushMapState: async () => {
-      set({flushMapState: true})
+      set({flushMapState: true});
       // wait for 50ms
       await new Promise(resolve => setTimeout(resolve, 50));
       set({flushMapState: false});
@@ -291,7 +292,11 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         mapDocument.color_scheme ?? DefaultColorScheme,
         numDistricts
       );
-      const updatedDocument = {...mapDocument, num_districts: numDistricts, color_scheme: newColorScheme};
+      const updatedDocument = {
+        ...mapDocument,
+        num_districts: numDistricts,
+        color_scheme: newColorScheme,
+      };
       set({
         mapDocument: updatedDocument,
       });
@@ -300,21 +305,26 @@ export const useMapStore = createWithDevWrapperAndSubscribe<MapStore>('Districtr
         const newClientLastUpdated = new Date().toISOString();
         // Update assignments store's clientLastUpdated so SavePopover detects the change
         useAssignmentsStore.getState().setClientLastUpdated(newClientLastUpdated);
-        
-        idb.getDocument(mapDocument.document_id).then(idbDoc => {
-          if (idbDoc) {
-            idb.updateDocument({
-              id: mapDocument.document_id,
-              document_metadata: updatedDocument,
-              assignments: idbDoc.assignments,
-              clientLastUpdated: newClientLastUpdated,
-            }).catch(err => {
-              console.error('Failed to update IDB with num_districts:', err);
-            });
-          }
-        }).catch(err => {
-          console.error('Failed to get IDB document:', err);
-        });
+
+        idb
+          .getDocument(mapDocument.document_id)
+          .then(idbDoc => {
+            if (idbDoc) {
+              idb
+                .updateDocument({
+                  id: mapDocument.document_id,
+                  document_metadata: updatedDocument,
+                  assignments: idbDoc.assignments,
+                  clientLastUpdated: newClientLastUpdated,
+                })
+                .catch(err => {
+                  console.error('Failed to update IDB with num_districts:', err);
+                });
+            }
+          })
+          .catch(err => {
+            console.error('Failed to get IDB document:', err);
+          });
       }
     },
     handleShatter: async features => {

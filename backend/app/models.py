@@ -166,7 +166,7 @@ class Document(TimeStampMixin, SQLModel, table=True):
             autoincrement=True,
             index=True,
             server_default=text("nextval('document.document_public_id_seq')"),
-        )
+        ),
     )
     districtr_map_slug: str = Field(
         sa_column=Column(
@@ -244,9 +244,11 @@ class Assignments(SQLModel, table=True):
     geo_id: str = Field(primary_key=True)
     zone: int | None
 
+
 class AssignmentsMetadata(BaseModel):
-    color_scheme: list[str] | None = None;
-    num_districts: int | None = None;
+    color_scheme: list[str] | None = None
+    num_districts: int | None = None
+
 
 class AssignmentsCreate(BaseModel):
     document_id: str

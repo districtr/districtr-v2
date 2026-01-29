@@ -103,7 +103,9 @@ def get_document_public(
         DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
         DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
         DistrictrMap.name.label("map_module"),  # pyright: ignore
-        coalesce(Document.num_districts, DistrictrMap.num_districts).label("num_districts"),  # pyright: ignore
+        coalesce(Document.num_districts, DistrictrMap.num_districts).label(
+            "num_districts"
+        ),  # pyright: ignore
         DistrictrMap.extent.label("extent"),  # pyright: ignore
         DistrictrMap.map_type.label("map_type"),  # pyright: ignore
         DistrictrMap.parent_geo_unit_type.label("parent_geo_unit_type"),  # pyright: ignore

@@ -494,7 +494,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
       if (zone !== null && zone > maxZone) {
         updatedAssignments.delete(geoid);
         updatedZonesLastUpdated.set(zone, timestamp);
-        
+
         // Track geoids to clear on map
         if (mapDocument && mapRef) {
           const sourceLayer = mapDocument.child_layer || mapDocument.parent_layer;
@@ -541,7 +541,7 @@ export const useAssignmentsStore = createWithFullMiddlewares<AssignmentsStore>(
     const idbDocument = await idb.getDocument(mapDocument?.document_id);
     if (!idbDocument) return;
     setMapLock({isLocked: true, reason: 'Saving plan'});
-    
+
     // Include color_scheme and num_districts in assignments update if they've changed
     const assignmentsPostResponse = await putUpdateAssignmentsAndVerify({
       mapDocument: idbDocument.document_metadata,

@@ -1,8 +1,8 @@
-import { colorScheme as DefaultColorScheme } from "@/app/constants/colors";
+import {colorScheme as DefaultColorScheme} from '@/app/constants/colors';
 export const extendColorArray = (
-  colorArray: string[], 
+  colorArray: string[],
   numDistricts: number,
-  defaultColorArray: string[] = DefaultColorScheme  
+  defaultColorArray: string[] = DefaultColorScheme
 ) => {
   let newColorArray = [...colorArray];
   while (newColorArray.length < numDistricts) {

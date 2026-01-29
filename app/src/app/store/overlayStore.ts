@@ -154,6 +154,7 @@ export const useOverlayStore = create(
 
     selectOverlayFeature: overlayId => {
       set({selectingLayerId: overlayId});
-f    },
+      f;
+    },
   }))
 );

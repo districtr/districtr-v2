@@ -4,7 +4,7 @@ import re
 
 from app.core.db import engine
 from app.core.config import settings
-from sqlalchemy import text
+from sqlalchemy import text, select
 from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
@@ -28,6 +28,7 @@ from management.load_data import (
     import_gerrydb_view as _import_gerrydb_view,
 )
 from os import environ
+from app.models import DistrictrMap
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)

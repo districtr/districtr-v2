@@ -2,8 +2,8 @@ import {ColorsSet} from './types';
 import {colorScheme as DefaultColorScheme} from '@constants/colors';
 import {useMapStore} from '@store/mapStore';
 import {useAssignmentsStore} from '@store/assignmentsStore';
-import {patch} from '../factory'; 
-import { idb } from '../../idb/idb';
+import {patch} from '../factory';
+import {idb} from '../../idb/idb';
 
 export const patchUpdateColorScheme = async ({
   document_id,
@@ -30,7 +30,7 @@ export const patchUpdateColorScheme = async ({
 
   // Only save to server if explicitly requested (e.g., on manual save)
   if (!saveToServer) {
-    return {  
+    return {
       ok: true,
       response: {colors} as unknown as ColorsSet,
     } as const;

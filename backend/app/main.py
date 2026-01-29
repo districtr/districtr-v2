@@ -175,7 +175,7 @@ async def create_document(
     # Determine num_districts: from copied document if copying, otherwise from DistrictrMap
     num_districts = districtr_map.num_districts
     copied_document = None
-    
+
     if data.copy_from_doc is not None:
         copy_document_id = parse_document_id(data.copy_from_doc)
         if not copy_document_id:
@@ -201,7 +201,7 @@ async def create_document(
 
     # Create assignment partition
     partition_sql = text(
-        f'CREATE TABLE "document.assignments_{document_id}" PARTITION OF document.assignments FOR VALUES IN (\'{document_id}\')'
+        f"CREATE TABLE \"document.assignments_{document_id}\" PARTITION OF document.assignments FOR VALUES IN ('{document_id}')"
     )
     session.execute(partition_sql)
 
@@ -273,7 +273,9 @@ async def create_document(
             DistrictrMap.child_layer.label("child_layer"),  # pyright: ignore
             DistrictrMap.tiles_s3_path.label("tiles_s3_path"),  # pyright: ignore
             DistrictrMap.name.label("map_module"),  # pyright: ignore
-            coalesce(Document.num_districts, DistrictrMap.num_districts).label("num_districts"),  # pyright: ignore
+            coalesce(Document.num_districts, DistrictrMap.num_districts).label(
+                "num_districts"
+            ),  # pyright: ignore
             DistrictrMap.extent.label("extent"),  # pyright: ignore
             DistrictrMap.map_type.label("map_type"),  # pyright: ignore
             DistrictrMap.statefps.label("statefps"),  # pyright: ignore
@@ -413,7 +415,6 @@ async def update_assignments(
         updated_at = update_timestamp(session, document_id)
         logger.info(f"Document updated at {updated_at}")
 
-   
     # Update num_districts if provided
     if data.metadata is not None:
         if data.metadata.num_districts is not None:
@@ -431,7 +432,11 @@ async def update_assignments(
                 bindparam(key="num_districts", type_=Integer),
             )
             session.execute(
-                stmt, {"document_id": document_id, "num_districts": data.metadata.num_districts}
+                stmt,
+                {
+                    "document_id": document_id,
+                    "num_districts": data.metadata.num_districts,
+                },
             )
 
         if data.metadata.color_scheme is not None:
@@ -443,7 +448,9 @@ async def update_assignments(
                 bindparam(key="document_id", type_=UUIDType),
                 bindparam(key="colors", type_=ARRAY(String)),
             )
-            session.execute(stmt, {"document_id": document_id, "colors": data.metadata.color_scheme})
+            session.execute(
+                stmt, {"document_id": document_id, "colors": data.metadata.color_scheme}
+            )
 
     session.commit()
     return {"assignments_inserted": inserted_count, "updated_at": updated_at}
@@ -531,7 +538,7 @@ async def update_colors(
             DistrictrMap.districtr_map_slug == document.districtr_map_slug
         )
     ).one()
-    
+
     num_districts = document.num_districts or districtr_map.num_districts
 
     if num_districts is not None and num_districts != len(colors):

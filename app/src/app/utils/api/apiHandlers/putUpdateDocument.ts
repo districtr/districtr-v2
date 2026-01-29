@@ -17,7 +17,7 @@ export const putUpdateDocument = async ({
       metadata: {
         color_scheme: metadata?.color_scheme ?? null,
         num_districts: metadata?.num_districts ?? null,
-      }
+      },
     },
   });
 };
