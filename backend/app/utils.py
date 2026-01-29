@@ -10,7 +10,6 @@ from app.models import Document, DistrictUnionsResponse
 from fastapi import BackgroundTasks
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 from app.core.config import settings
-import uuid
 
 metadata = MetaData()
 logger = logging.getLogger(__name__)
@@ -195,12 +194,6 @@ def create_parent_child_edges(
         session: The database session.
         districtr_map_uuid: The UUID of the districtr map.
     """
-    # validate uuid
-    try:
-        uuid.UUID(districtr_map_uuid)
-    except ValueError:
-        raise ValueError(f"Invalid UUID: {districtr_map_uuid}")
-
     stmt = select(DistrictrMap).where(DistrictrMap.uuid == districtr_map_uuid)
     map_row = session.exec(stmt).one_or_none()
 
