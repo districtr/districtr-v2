@@ -70,7 +70,7 @@ export const filterFeatures = ({
           intersected = paintConstraint.features.some(constraintFeature =>
             booleanIntersects(constraintFeature.geometry, f.geometry)
           );
-        } else {
+        } else {  
           const geomArea = area(f.geometry);
           let clippedArea = 0;
           for (const constraintFeature of paintConstraint.features) {

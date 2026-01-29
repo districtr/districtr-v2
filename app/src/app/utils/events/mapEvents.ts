@@ -115,11 +115,7 @@ export const handleMapClick = throttle((e: MapLayerMouseEvent | MapLayerTouchEve
       layers: [`overlay-click-${selectingLayerId}`],
     });
     if (features.length > 0) {
-      setPaintConstraint({
-        overlayId: selectingLayerId,
-        featureId: features[0].id as string,
-        geometry: features[0].geometry as GeoJSON.Geometry,
-      });
+      setPaintConstraint(selectingLayerId, features[0].id as string);
       setHoverFeatures(EMPTY_FEATURE_ARRAY);
     }
     return;

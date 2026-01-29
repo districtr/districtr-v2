@@ -4,6 +4,7 @@ import {Layer, Source} from 'react-map-gl/maplibre';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {Overlay} from '@/app/utils/api/apiHandlers/types';
 import {FillLayerSpecification, LineLayerSpecification, SymbolLayerSpecification} from 'maplibre-gl';
+import { useMapStore } from '@/app/store/mapStore';
 
 const DEFAULT_FILL_STYLE: Partial<FillLayerSpecification['paint']> = {
   'fill-color': '#627BC1',
@@ -60,22 +61,20 @@ const HIGHLIGHT_FILL_COLOR: Partial<FillLayerSpecification['paint']> = {
 
 interface OverlayLayerProps {
   overlay: Overlay;
-  hoveredFeatureId: string | null;
   selectedFeatureId: string | null;
   isConstraintOverlay: boolean;
 }
 
 const OverlayLayer = ({
   overlay,
-  hoveredFeatureId,
   selectedFeatureId,
   isConstraintOverlay,
 }: OverlayLayerProps) => {
   const sourceId = `overlay-source-${overlay.overlay_id}`;
   const layerId = `overlay-layer-${overlay.overlay_id}`;
   const clickLayerId = `overlay-click-${overlay.overlay_id}`;
-  const hoverLayerId = `overlay-hover-${overlay.overlay_id}`;
   const selectedLayerId = `overlay-selected-${overlay.overlay_id}`;
+  const paintConstraint = useOverlayStore(state => state.paintConstraint);
 
   const idProperty = overlay.id_property || 'id';
 
@@ -167,13 +166,13 @@ const OverlayLayer = ({
     if (overlay.data_type === 'pmtiles' && overlay.source_layer) {
       baseProps['source-layer'] = overlay.source_layer;
     }
-    if (overlayFeature) {
-      baseProps.filter = ['!', ['==', ['get', idProperty], overlayFeature.featureId]];
+    if (paintConstraint?.featureId) {
+      baseProps.filter = ['!', ['==', ['get', idProperty], paintConstraint.featureId]];
       baseProps.paint['fill-opacity'] = 0.75;
     }
 
     return baseProps;
-  }, [clickLayerId, layerId, overlay, overlayFeature?.featureId]);
+  }, [clickLayerId, layerId, overlay, paintConstraint?.featureId]);
 
   // Selected constraint outline layer (for emphasis)
   const selectedOutlineProps = useMemo(() => {
@@ -217,7 +216,7 @@ const OverlayLayer = ({
 };
 
 export const OverlayLayers = () => {
-  const availableOverlays = useOverlayStore(state => state.availableOverlays);
+  const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
 

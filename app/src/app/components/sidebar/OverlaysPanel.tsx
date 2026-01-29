@@ -6,12 +6,12 @@ import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
 import {fastUniqBy} from '@/app/utils/arrays';
 import {useMemo} from 'react';
+import {useMapStore} from '@/app/store/mapStore';
 
 export const OverlaysPanel = () => {
-  const availableOverlays = useOverlayStore(state => state.availableOverlays);
+  const availableOverlays = useMapStore(state => state.mapDocument?.overlays ?? []);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
   const toggleOverlay = useOverlayStore(state => state.toggleOverlay);
-  const isLoading = useOverlayStore(state => state.isLoading);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
   const selectOverlayFeature = useOverlayStore(state => state.selectOverlayFeature);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);

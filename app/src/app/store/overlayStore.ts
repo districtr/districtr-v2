@@ -14,41 +14,37 @@ export interface OverlayPaintConstraint {
 }
 
 export interface OverlayStore {
-  availableOverlays: Overlay[];
   _idCache: Map<string, boolean>;
   enabledOverlayIds: Set<string>;
   paintConstraint: OverlayPaintConstraint | null;
   selectingLayerId: string | null;
-  setAvailableOverlays: (overlays: Overlay[]) => void;
   toggleOverlay: (overlayId: string) => void;
   enableOverlay: (overlayId: string) => void;
   disableOverlay: (overlayId: string) => void;
-  clearOverlays: () => void;
-  setPaintConstraint: (constraint: OverlayPaintConstraint | null) => void;
+  setPaintConstraint: (
+    overlayId: string,
+    featureId: string
+  ) => void;
   selectOverlayFeature: (overlayId: string) => void;
   clearPaintConstraint: () => void;
 }
 
 export const useOverlayStore = create(
   subscribeWithSelector<OverlayStore>((set, get) => ({
-    availableOverlays: [],
     _idCache: new Map<string, boolean>(),
     enabledOverlayIds: new Set<string>(),
     paintConstraint: null,
     selectingLayerId: null,
 
-    setAvailableOverlays: (overlays: Overlay[]) => {
-      set({availableOverlays: overlays});
-    },
-
     toggleOverlay: (overlayId: string) => {
-      const {enabledOverlayIds, paintConstraint} = get();
+      const {enabledOverlayIds, paintConstraint, clearPaintConstraint} = get();
       const newEnabledIds = new Set(enabledOverlayIds);
       if (newEnabledIds.has(overlayId)) {
         newEnabledIds.delete(overlayId);
         // Clear constraint if its overlay is disabled
         if (paintConstraint?.overlayId === overlayId) {
-          set({enabledOverlayIds: newEnabledIds, paintConstraint: null});
+          set({enabledOverlayIds: newEnabledIds});
+          clearPaintConstraint();
           return;
         }
       } else {
@@ -65,32 +61,20 @@ export const useOverlayStore = create(
     },
 
     disableOverlay: (overlayId: string) => {
-      const {enabledOverlayIds, paintConstraint} = get();
+      const {enabledOverlayIds, paintConstraint, clearPaintConstraint} = get();
       const newEnabledIds = new Set(enabledOverlayIds);
       newEnabledIds.delete(overlayId);
       // Clear constraint if its overlay is disabled
       if (paintConstraint?.overlayId === overlayId) {
-        set({
-          enabledOverlayIds: newEnabledIds,
-          paintConstraint: null,
-          _idCache: new Map<string, boolean>(),
-        });
+        clearPaintConstraint();
       } else {
         set({enabledOverlayIds: newEnabledIds});
       }
     },
 
-    clearOverlays: () => {
-      set({
-        availableOverlays: [],
-        enabledOverlayIds: new Set<string>(),
-        paintConstraint: null,
-        _idCache: new Map<string, boolean>(),
-      });
-    },
-    setPaintConstraint: (constraint: OverlayPaintConstraint | null) => {
+    setPaintConstraint: (overlayId: string, featureId: string) => {
       const clearPaintConstraint = get().clearPaintConstraint;
-      if (!constraint) {
+      if (!overlayId || !featureId) {
         clearPaintConstraint();
         return;
       }
@@ -100,19 +84,21 @@ export const useOverlayStore = create(
         return;
       }
       // query source layer for feature id
-      const sourceFeatures = mapRef?.querySourceFeatures(`overlay-source-${constraint?.overlayId}`);
+      const sourceFeatures = mapRef?.querySourceFeatures(`overlay-source-${overlayId}`);
       const matchingFeatures = sourceFeatures?.filter(
-        (feature: any) => feature.id === constraint?.featureId
+        (feature: any) => feature.id === featureId
       );
       if (matchingFeatures && matchingFeatures.length > 0) {
         set({
           paintConstraint: {
-            overlayId: constraint?.overlayId,
-            featureId: constraint?.featureId,
+            overlayId: overlayId,
+            featureId: featureId,
+            // Reference needs to be made into a new object since
+            // this comes from a worker
             features: matchingFeatures.map(f => ({
               ...f,
               geometry: f._geometry,
-            })),
+            })) as MapGeoJSONFeature[],
           },
           _idCache: new Map<string, boolean>(),
           selectingLayerId: null,
