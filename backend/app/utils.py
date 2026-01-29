@@ -225,10 +225,6 @@ def create_parent_child_edges(
             f"Relationships for districtr_map {districtr_map_uuid} already loaded"
         )
 
-    # !Important!
-    # The below sections use f-strings to interpolate the table and column names.
-    # This is safe because the table and column names are trusted input.
-    # In other situations, this may not be the case.
     uuid_str = str(districtr_map_uuid)
     partition_name = f"parentchildedges_{uuid_str}"
 
