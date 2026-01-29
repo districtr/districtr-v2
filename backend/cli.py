@@ -6,7 +6,7 @@ import json
 
 from app.core.db import engine
 from app.core.config import settings
-from sqlalchemy import text
+from sqlalchemy import text, update
 from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
@@ -30,6 +30,8 @@ from management.load_data import (
     import_gerrydb_view as _import_gerrydb_view,
 )
 from os import environ
+from app.core.models import Overlay
+
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -770,13 +772,18 @@ def update_overlay(
     # Add updated_at timestamp
     update_fields.append("updated_at = CURRENT_TIMESTAMP")
 
-    # Build and execute update query
-    update_query = f"""
-        UPDATE overlay
-        SET {', '.join(update_fields)}
-        WHERE overlay_id = :overlay_id
-        RETURNING overlay_id
-    """
+    update_stmt = (
+        update(Overlay)
+        .where(Overlay.overlay_id == params["overlay_id"])
+        .values({field.split(' = ')[0]: params[field.split(' = ')[0]] for field in update_fields if field != "updated_at = CURRENT_TIMESTAMP"})
+        .returning(Overlay.overlay_id)
+    )
+
+    # Handle the updated_at separately, because SQLAlchemy expects a datetime object
+    if "updated_at = CURRENT_TIMESTAMP" in update_fields:
+        import datetime
+        update_stmt = update_stmt.values(updated_at=datetime.datetime.utcnow())
+
     result = session.execute(text(update_query), params)
     updated = result.scalar()
 
