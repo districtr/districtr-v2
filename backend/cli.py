@@ -23,7 +23,7 @@ from app.contiguity.main import write_graph, graph_from_gpkg, GraphFileFormat
 from functools import wraps
 from contextlib import contextmanager
 from sqlmodel import Session
-from typing import Callable, TypeVar, Any
+from typing import Callable, TypeVar, Any, Literal
 from management.load_data import (
     load_sample_data,
     Config,
@@ -523,7 +523,7 @@ def create_overlay(
     name: str,
     description: str | None,
     data_type: str,
-    layer_type: str,
+    layer_type: Literal["fill", "line", "text"],
     source: str | None,
     source_layer: str | None,
     custom_style: str | None,
