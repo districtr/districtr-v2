@@ -69,6 +69,8 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     data_source_name: str | None = Field(nullable=True)
     # Overlay layer IDs associated with this map
     overlay_ids: list[str] | None = Field(sa_column=Column(ARRAY(UUIDType), nullable=True))
+    # State FIPS codes associated with this map
+    statefps: list[str] | None = Field(sa_column=Column(ARRAY(String), nullable=True))
 
 
 class DistrictrMapPublic(BaseModel):
@@ -101,6 +103,7 @@ class DistrictrMapUpdate(BaseModel):
     parent_geo_unit_type: str | None = None
     child_geo_unit_type: str | None = None
     data_source_name: str | None = None
+    statefps: list[str] | None = None
 
 
 class GerryDBTable(TimeStampMixin, SQLModel, table=True):
@@ -219,6 +222,7 @@ class DocumentPublic(BaseModel):
     child_geo_unit_type: str | None = None
     data_source_name: str | None = None
     overlays: list["OverlayPublic"] | None = None
+    statefps: list[str] | None = None
 
 
 class DocumentCreatePublic(DocumentPublic):

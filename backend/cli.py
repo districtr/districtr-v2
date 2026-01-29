@@ -87,19 +87,31 @@ def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
 
 
 @cli.command("create-parent-child-edges")
-@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=True)
+@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=False)
+@click.option("--districtr-map-uuid", "-u", help="Districtr map UUID", required=False)
 @with_session
-def create_parent_child_edges(session: Session, districtr_map_slug: str):
+def create_parent_child_edges(
+    session: Session, districtr_map_slug: str | None, districtr_map_uuid: str | None
+):
+    """
+    Create parent-child edges for a districtr map.
+    Inlined equivalent of add_parent_child_relationships (parent_child_relationships.sql).
+    """
+    if not districtr_map_slug and not districtr_map_uuid:
+        raise ValueError(
+            "Either slug (--districtr-map-slug) or UUID (--districtr-map-uuid) must be provided"
+        )
+
+    if districtr_map_slug:
+        districtr_map_uuid = session.exec(
+            select(DistrictrMap.uuid).where(
+                DistrictrMap.districtr_map_slug == districtr_map_slug
+            )
+        ).first()
+        if not districtr_map_uuid:
+            raise ValueError(f"Districtr map with slug {districtr_map_slug} not found")
+
     logger.info("Creating parent-child edges...")
-
-    stmt = text(
-        "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
-    )
-    (districtr_map_uuid,) = session.execute(
-        stmt, params={"districtr_map_slug": districtr_map_slug}
-    ).one()
-    logger.info(f"Found districtmap uuid: {districtr_map_uuid}")
-
     _create_parent_child_edges(session=session, districtr_map_uuid=districtr_map_uuid)
     logger.info("Parent-child relationship upserted successfully.")
 
@@ -147,6 +159,13 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
     default=None,
     nargs=4,
 )
+@click.option(
+    "--statefps",
+    help="State FIPS codes (can be specified multiple times)",
+    required=False,
+    type=str,
+    multiple=True,
+)
 @with_session
 def create_districtr_map(
     session: Session,
@@ -161,8 +180,10 @@ def create_districtr_map(
     bounds: list[float] | None = None,
     group_slug: str = "states",
     map_type: str = "default",
+    statefps: tuple[str, ...] = (),
 ):
     logger.info("Creating districtr map...")
+    statefps_list = list(statefps) if statefps else None
     districtr_map_uuid = _create_districtr_map(
         session=session,
         name=name,
@@ -174,6 +195,7 @@ def create_districtr_map(
         gerrydb_table_name=gerrydb_table_name,
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
+        statefps=statefps_list,
     )
 
     if not no_extent:
