@@ -511,7 +511,7 @@ def add_districtr_map_to_map_group(
     required=False,
 )
 @click.option(
-    "--districtr-map-slug",
+    "--districtr-map-slugs",
     "-m",
     help="DistrictrMap slug(s) to add the overlay to (can be specified multiple times)",
     multiple=True,
@@ -528,7 +528,7 @@ def create_overlay(
     source_layer: str | None,
     custom_style: str | None,
     id_property: str | None,
-    districtr_map_slug: tuple[str, ...],
+    districtr_map_slugs: tuple[str, ...],
 ):
     overlay_id = str(uuid.uuid4())
     parsed_style = None
@@ -562,8 +562,8 @@ def create_overlay(
     logger.info(f"Created overlay with ID: {inserted_id}")
 
     # Add overlay to specified maps via junction table
-    if districtr_map_slug:
-        for map_slug in districtr_map_slug:
+    if districtr_map_slugs:
+        for map_slug in districtr_map_slugs:
             add_stmt = text(
                 """INSERT INTO districtrmap_overlays (districtr_map_id, overlay_id)
                 SELECT uuid, CAST(:overlay_id AS uuid) FROM districtrmap
