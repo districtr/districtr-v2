@@ -198,12 +198,17 @@ async def create_document(
     )
     session.add(new_document)
     session.flush()  # Flush to get the public_id assigned
-
+    # Under most circumstances, we DO NOT want to use f-strings in SQL statements.
+    # However, in this case, we are using a dynamic table name, and SQLAlchemy / Postgres do not
+    # support bind params for identifiers, so we need to use f-strings.
+    partition_name = f'"document.assignments_{document_id}"'
     # Create assignment partition
-    partition_sql = text(
-        f"CREATE TABLE \"document.assignments_{document_id}\" PARTITION OF document.assignments FOR VALUES IN ('{document_id}')"
-    )
-    session.execute(partition_sql)
+    stmt = text(f"""
+        CREATE TABLE "{partition_name}"
+        PARTITION OF document.assignments
+        FOR VALUES IN (:document_id)
+    """)
+    session.execute(stmt, {"document_id": document_id})
 
     created_document = get_document(
         document_id=DocumentID(document_id=document_id), session=session
