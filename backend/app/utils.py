@@ -1,16 +1,18 @@
-from sqlalchemy import text, update
+from sqlalchemy import text, update, Table, MetaData, select, func
 from sqlalchemy import bindparam, Integer, String, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float, Boolean
 import logging
-from app.constants import GERRY_DB_SCHEMA
+from app.constants import GERRY_DB_SCHEMA, PUBLIC_SCHEMA
 from typing import List
 from app.models import UUIDType, DistrictrMap, DistrictrMapUpdate
 from app.models import Document, DistrictUnionsResponse
 from fastapi import BackgroundTasks
 from app.thumbnails.main import generate_thumbnail, THUMBNAIL_BUCKET
 from app.core.config import settings
+import uuid
 
+metadata = MetaData()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -193,11 +195,18 @@ def create_parent_child_edges(
         session: The database session.
         districtr_map_uuid: The UUID of the districtr map.
     """
+    # validate uuid
+    try:
+        uuid.UUID(districtr_map_uuid)
+    except ValueError:
+        raise ValueError(f"Invalid UUID: {districtr_map_uuid}")
+
     stmt = select(DistrictrMap).where(DistrictrMap.uuid == districtr_map_uuid)
-    map_row = session.exec(stmt).one()
+    map_row = session.exec(stmt).one_or_none()
 
     if not map_row:
         raise ValueError(f"No districtrmap found for UUID: {districtr_map_uuid}")
+
     parent_layer, child_layer = (map_row.parent_layer, map_row.child_layer)
     if not parent_layer or not child_layer:
         raise ValueError("Districtr map must have both parent_layer and child_layer")
@@ -209,10 +218,7 @@ def create_parent_child_edges(
         WHERE edges.districtr_map = :uuid
         """
     )
-
-    (previously_loaded,) = session.execute(
-        count_stmt, params={"uuid": districtr_map_uuid}
-    ).one()
+    previously_loaded = session.execute(count_stmt, {"uuid": districtr_map_uuid}).scalar_one()
 
     if previously_loaded:
         raise ValueError(
@@ -223,11 +229,8 @@ def create_parent_child_edges(
     # The below sections use f-strings to interpolate the table and column names.
     # This is safe because the table and column names are trusted input.
     # In other situations, this may not be the case.
-
     uuid_str = str(districtr_map_uuid)
     partition_name = f"parentchildedges_{uuid_str}"
-    parent_ident = f"{GERRY_DB_SCHEMA}.{_quote_ident(parent_layer)}"
-    child_ident = f"{GERRY_DB_SCHEMA}.{_quote_ident(child_layer)}"
 
     create_sql = text(
         f"CREATE TABLE {_quote_ident(partition_name)} "
@@ -235,22 +238,29 @@ def create_parent_child_edges(
     )
     session.execute(create_sql)
 
-    insert_sql = text(
-        f"""
-        INSERT INTO {_quote_ident(partition_name)} (
-            created_at, districtr_map, parent_path, child_path
+    parent = Table(parent_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=session.bind)
+    child  = Table(child_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=session.bind)
+    partition = Table(partition_name, metadata, schema=PUBLIC_SCHEMA, autoload_with=session.bind)
+
+    stmt = (
+        partition.insert()
+        .from_select(
+            ["created_at", "districtr_map", "parent_path", "child_path"],
+            select(
+                func.now(),
+                bindparam("uuid"),
+                parent.c.path,
+                child.c.path,
+            ).where(
+                func.ST_Contains(
+                    parent.c.geometry,
+                    func.ST_PointOnSurface(child.c.geometry)
+                )
+            )
         )
-        SELECT
-            now() AS created_at,
-            :uuid AS districtr_map,
-            parent.path AS parent_path,
-            child.path AS child_path
-        FROM {parent_ident} AS parent
-        JOIN {child_ident} AS child
-        ON ST_Contains(parent.geometry, ST_PointOnSurface(child.geometry))
-        """
     )
-    session.execute(insert_sql, params={"uuid": districtr_map_uuid})
+
+    session.execute(stmt, params={"uuid": districtr_map_uuid})
 
 
 def add_extent_to_districtrmap(
