@@ -16,7 +16,17 @@ logging.basicConfig(level=logging.INFO)
 
 
 def _quote_ident(name: str) -> str:
-    """Quote a PostgreSQL identifier (double-quote and escape)."""
+    """Quote a PostgreSQL identifier (double-quote and escape).
+    
+    This function carries a light SQL injection risk and should only be used
+    with trusted input.
+
+    Args:
+        name (str): The name of the identifier to quote.
+
+    Returns:
+        str: The quoted identifier.
+    """
     return '"' + name.replace('"', '""') + '"'
 
 
