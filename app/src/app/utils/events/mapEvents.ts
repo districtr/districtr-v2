@@ -331,7 +331,7 @@ export const throttledSetWorkerHash = throttle((hash: string) => {
 
 export const handleDataLoad = (e: MapSourceDataEvent) => {
   const {mapDocument, setMapRenderingState, setWorkerUpdateHash} = useMapStore.getState();
-  const {setMapOptions} = useMapControlsStore.getState();
+  const {setStateFp} = useMapControlsStore.getState();
   const {tiles_s3_path, parent_layer} = mapDocument || {};
   if (!tiles_s3_path || !parent_layer || !(e?.source as any)?.url?.includes(tiles_s3_path)) return;
   const tileData = e?.tile?.latestFeatureIndex;
@@ -339,9 +339,11 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
   if (!tileData.vtLayers) {
     tileData.loadVTLayers();
   }
-  const ft = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer];
-  const currentStateFp = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
-  currentStateFp && setMapOptions({currentStateFp});
+  if (!mapDocument?.statefps) {
+    const ft = e?.tile?.latestFeatureIndex?.vtLayers?.[parent_layer];
+    const stateFipsSet = ft?.feature(0)?.properties?.path?.replace('vtd:', '')?.slice(0, 2);
+    stateFipsSet && setStateFp(stateFipsSet);
+  }
   setMapRenderingState('loaded');
   if (mapDocument) {
     GeometryWorker?.loadTileData({

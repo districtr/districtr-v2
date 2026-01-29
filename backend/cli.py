@@ -2,10 +2,11 @@ import click
 import logging
 import re
 import uuid
+import json
 
 from app.core.db import engine
 from app.core.config import settings
-from sqlalchemy import text
+from sqlalchemy import text, update
 from app.utils import (
     create_districtr_map as _create_districtr_map,
     create_map_group as _create_map_group,
@@ -29,6 +30,8 @@ from management.load_data import (
     import_gerrydb_view as _import_gerrydb_view,
 )
 from os import environ
+from app.models import Overlay
+
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -87,19 +90,31 @@ def import_gerrydb_view(session: Session, layer: str, gpkg: str, rm: bool):
 
 
 @cli.command("create-parent-child-edges")
-@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=True)
+@click.option("--districtr-map-slug", "-d", help="Districtr map slug", required=False)
+@click.option("--districtr-map-uuid", "-u", help="Districtr map UUID", required=False)
 @with_session
-def create_parent_child_edges(session: Session, districtr_map_slug: str):
+def create_parent_child_edges(
+    session: Session, districtr_map_slug: str | None, districtr_map_uuid: str | None
+):
+    """
+    Create parent-child edges for a districtr map.
+    Inlined equivalent of add_parent_child_relationships (parent_child_relationships.sql).
+    """
+    if not districtr_map_slug and not districtr_map_uuid:
+        raise ValueError(
+            "Either slug (--districtr-map-slug) or UUID (--districtr-map-uuid) must be provided"
+        )
+
+    if districtr_map_slug:
+        districtr_map_uuid = session.exec(
+            select(DistrictrMap.uuid).where(
+                DistrictrMap.districtr_map_slug == districtr_map_slug
+            )
+        ).first()
+        if not districtr_map_uuid:
+            raise ValueError(f"Districtr map with slug {districtr_map_slug} not found")
+
     logger.info("Creating parent-child edges...")
-
-    stmt = text(
-        "SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug"
-    )
-    (districtr_map_uuid,) = session.execute(
-        stmt, params={"districtr_map_slug": districtr_map_slug}
-    ).one()
-    logger.info(f"Found districtmap uuid: {districtr_map_uuid}")
-
     _create_parent_child_edges(session=session, districtr_map_uuid=districtr_map_uuid)
     logger.info("Parent-child relationship upserted successfully.")
 
@@ -147,6 +162,13 @@ def delete_parent_child_edges(session: Session, districtr_map: str):
     default=None,
     nargs=4,
 )
+@click.option(
+    "--statefps",
+    help="State FIPS codes (can be specified multiple times)",
+    required=False,
+    type=str,
+    multiple=True,
+)
 @with_session
 def create_districtr_map(
     session: Session,
@@ -161,8 +183,10 @@ def create_districtr_map(
     bounds: list[float] | None = None,
     group_slug: str = "states",
     map_type: str = "default",
+    statefps: tuple[str, ...] = (),
 ):
     logger.info("Creating districtr map...")
+    statefps_list = list(statefps) if statefps else None
     districtr_map_uuid = _create_districtr_map(
         session=session,
         name=name,
@@ -174,6 +198,7 @@ def create_districtr_map(
         gerrydb_table_name=gerrydb_table_name,
         num_districts=num_districts,
         tiles_s3_path=tiles_s3_path,
+        statefps=statefps_list,
     )
 
     if not no_extent:
@@ -505,10 +530,7 @@ def create_overlay(
     id_property: str | None,
     districtr_map_slug: tuple[str, ...],
 ):
-    import json
-    from uuid import uuid4
-
-    overlay_id = str(uuid4())
+    overlay_id = str(uuid.uuid4())
     parsed_style = None
     if custom_style:
         try:
@@ -756,14 +778,26 @@ def update_overlay(
     # Add updated_at timestamp
     update_fields.append("updated_at = CURRENT_TIMESTAMP")
 
-    # Build and execute update query
-    update_query = f"""
-        UPDATE overlay
-        SET {', '.join(update_fields)}
-        WHERE overlay_id = :overlay_id
-        RETURNING overlay_id
-    """
-    result = session.execute(text(update_query), params)
+    update_stmt = (
+        update(Overlay)
+        .where(Overlay.overlay_id == params["overlay_id"])
+        .values(
+            {
+                field.split(" = ")[0]: params[field.split(" = ")[0]]
+                for field in update_fields
+                if field != "updated_at = CURRENT_TIMESTAMP"
+            }
+        )
+        .returning(Overlay.overlay_id)
+    )
+
+    # Handle the updated_at separately, because SQLAlchemy expects a datetime object
+    if "updated_at = CURRENT_TIMESTAMP" in update_fields:
+        import datetime
+
+        update_stmt = update_stmt.values(updated_at=datetime.datetime.utcnow())
+
+    result = session.execute(update_stmt, params)
     updated = result.scalar()
 
     if updated:

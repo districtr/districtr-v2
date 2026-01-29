@@ -2,7 +2,6 @@
 import {create} from 'zustand';
 import {subscribeWithSelector} from 'zustand/middleware';
 import {Overlay} from '@utils/api/apiHandlers/types';
-import {getMapOverlays} from '@utils/api/apiHandlers/getOverlays';
 import {useMapStore} from './mapStore';
 import {dissolve} from '@turf/turf';
 import {Feature, MapGeoJSONFeature} from 'maplibre-gl';
@@ -18,20 +17,16 @@ export interface OverlayStore {
   availableOverlays: Overlay[];
   _idCache: Map<string, boolean>;
   enabledOverlayIds: Set<string>;
-  isLoading: boolean;
   paintConstraint: OverlayPaintConstraint | null;
-  hoveredOverlayFeature: {overlayId: string; featureId: string} | null;
   selectingLayerId: string | null;
   setAvailableOverlays: (overlays: Overlay[]) => void;
   toggleOverlay: (overlayId: string) => void;
   enableOverlay: (overlayId: string) => void;
   disableOverlay: (overlayId: string) => void;
   clearOverlays: () => void;
-  fetchOverlays: (districtrMapSlug: string) => Promise<void>;
   setPaintConstraint: (constraint: OverlayPaintConstraint | null) => void;
   selectOverlayFeature: (overlayId: string) => void;
   clearPaintConstraint: () => void;
-  setHoveredOverlayFeature: (feature: {overlayId: string; featureId: string} | null) => void;
 }
 
 export const useOverlayStore = create(
@@ -39,9 +34,7 @@ export const useOverlayStore = create(
     availableOverlays: [],
     _idCache: new Map<string, boolean>(),
     enabledOverlayIds: new Set<string>(),
-    isLoading: false,
     paintConstraint: null,
-    hoveredOverlayFeature: null,
     selectingLayerId: null,
 
     setAvailableOverlays: (overlays: Overlay[]) => {
@@ -91,29 +84,10 @@ export const useOverlayStore = create(
       set({
         availableOverlays: [],
         enabledOverlayIds: new Set<string>(),
-        isLoading: false,
         paintConstraint: null,
-        hoveredOverlayFeature: null,
         _idCache: new Map<string, boolean>(),
       });
     },
-
-    fetchOverlays: async (districtrMapSlug: string) => {
-      set({isLoading: true});
-      try {
-        const result = await getMapOverlays(districtrMapSlug);
-        if (result.ok) {
-          set({availableOverlays: result.response, isLoading: false});
-        } else {
-          console.error('Failed to fetch overlays:', result.error);
-          set({availableOverlays: [], isLoading: false});
-        }
-      } catch (error) {
-        console.error('Error fetching overlays:', error);
-        set({availableOverlays: [], isLoading: false});
-      }
-    },
-
     setPaintConstraint: (constraint: OverlayPaintConstraint | null) => {
       if (constraint) {
         const mapRef = useMapStore.getState().getMapRef();
@@ -146,10 +120,6 @@ export const useOverlayStore = create(
 
     clearPaintConstraint: () => {
       set({paintConstraint: null});
-    },
-
-    setHoveredOverlayFeature: (feature: {overlayId: string; featureId: string} | null) => {
-      set({hoveredOverlayFeature: feature});
     },
 
     selectOverlayFeature: overlayId => {

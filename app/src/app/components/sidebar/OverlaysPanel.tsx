@@ -79,14 +79,7 @@ export const OverlaysPanel = () => {
         />
       </Flex>
       {/* Regular Overlay Layers */}
-      {isLoading ? (
-        <Flex direction="column" justify="center" align="center" p="4">
-          <Spinner />
-          <Text size="2" className="ml-2">
-            Loading overlays...
-          </Text>
-        </Flex>
-      ) : hasOverlays ? (
+      {hasOverlays ? (
         uniqueOverlays.map(overlay => (
           <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
             <Flex direction="column" gap="1">

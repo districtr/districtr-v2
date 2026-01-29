@@ -1,7 +1,7 @@
 """add overlay layers
 
 Revision ID: add_overlay_layers
-Revises: 0db008690d60
+Revises: 5600a4bfe3c4
 Create Date: 2026-01-22
 
 """
@@ -14,7 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID, ARRAY
 
 # revision identifiers, used by Alembic.
 revision: str = "24137793FE9B"
-down_revision: str | None = "0db008690d60"
+down_revision: str | None = "5600a4bfe3c4"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -28,12 +28,12 @@ def upgrade() -> None:
         sa.Column("description", sa.String(), nullable=True),
         sa.Column(
             "data_type",
-            sa.Enum("geojson", "pmtiles", name="overlaydatatype", create_type=False),
+            sa.Enum("geojson", "pmtiles", name="overlaydatatype"),
             nullable=False,
         ),
         sa.Column(
             "layer_type",
-            sa.Enum("fill", "line", "text", name="overlaylayertype", create_type=False),
+            sa.Enum("fill", "line", "text", name="overlaylayertype"),
             nullable=False,
         ),
         sa.Column("custom_style", JSONB, nullable=True),

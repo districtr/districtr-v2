@@ -111,6 +111,7 @@ def get_document_public(
         DistrictrMap.data_source_name.label("data_source_name"),  # pyright: ignore
         DistrictrMap.comment.label("comment"),  # pyright: ignore
         DistrictrMap.overlay_ids.label("overlay_ids"),  # pyright: ignore
+        DistrictrMap.statefps.label("statefps"),  # pyright: ignore
         # get metadata as a json object
         Document.map_metadata.label("map_metadata"),  # pyright: ignore
         coalesce(
