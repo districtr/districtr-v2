@@ -43,7 +43,7 @@ export const DEFAULT_MAP_OPTIONS: MapOptions & DistrictrMapOptions = {
   bearing: 0,
   container: '',
   bounds: undefined,
-  currentStateFp: undefined,
+  stateFipsSet: undefined,
   highlightBrokenDistricts: false,
   higlightUnassigned: false,
   lockPaintedAreas: [],
@@ -94,16 +94,16 @@ export const useMapControlsStore = create<MapControlsStore>()(
     setMapOptions: options => set({mapOptions: {...get().mapOptions, ...options}}),
     setStateFp: stateFp => {
       const mapOptions = get().mapOptions;
-      const currentStateFp = mapOptions.currentStateFp;
-      if (!currentStateFp) {
-        set({mapOptions: {...mapOptions, currentStateFp: new Set([stateFp])}});
-      } else if (currentStateFp.has(stateFp)) {
+      const stateFipsSet = mapOptions.stateFipsSet;
+      if (!stateFipsSet) {
+        set({mapOptions: {...mapOptions, stateFipsSet: new Set([stateFp])}});
+      } else if (stateFipsSet.has(stateFp)) {
         // Do nothing and do not trigger a re-render
         return;
       } else {
-        const newSet = new Set(currentStateFp);
+        const newSet = new Set(stateFipsSet);
         newSet.add(stateFp);
-        set({mapOptions: {...mapOptions, currentStateFp: newSet}});
+        set({mapOptions: {...mapOptions, stateFipsSet: newSet}});
       }
     },
     setLockedZones: zones =>

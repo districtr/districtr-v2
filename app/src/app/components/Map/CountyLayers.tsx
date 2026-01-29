@@ -10,10 +10,10 @@ export const CountyLayers = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
 
   const countyFilter = useMemo(() => {
-    // If currentStateFp is set and not empty, match any of its values
+    // If stateFipsSet is set and not empty, match any of its values
     const stateFpsArray =
-      mapOptions.currentStateFp && mapOptions.currentStateFp.size > 0
-        ? Array.from(mapOptions.currentStateFp)
+      mapOptions.stateFipsSet?.size && mapOptions.stateFipsSet.size > 0
+        ? Array.from(mapOptions.stateFipsSet)
         : SENTINEL_EMPTY_ARRAY;
     return [
       'match',
@@ -22,7 +22,7 @@ export const CountyLayers = () => {
       true,
       false,
     ] as FilterSpecification;
-  }, [mapOptions.currentStateFp]);
+  }, [mapOptions.stateFipsSet]);
 
   return (
     <>

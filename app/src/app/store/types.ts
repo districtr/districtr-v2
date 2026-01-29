@@ -12,7 +12,7 @@ export type DistrictrMapOptions = {
   mode: 'default' | 'break';
   showZoneNumbers?: boolean;
   paintByCounty?: boolean;
-  currentStateFp?: Set<string>;
+  stateFipsSet?: Set<string>;
   showPopulationTooltip?: boolean;
   prominentCountyNames?: boolean;
   showCountyBoundaries?: boolean;
