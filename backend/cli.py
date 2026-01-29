@@ -2,6 +2,7 @@ import click
 import logging
 import re
 import uuid
+import json
 
 from app.core.db import engine
 from app.core.config import settings
@@ -527,10 +528,7 @@ def create_overlay(
     id_property: str | None,
     districtr_map_slug: tuple[str, ...],
 ):
-    import json
-    from uuid import uuid4
-
-    overlay_id = str(uuid4())
+    overlay_id = str(uuid.uuid4())
     parsed_style = None
     if custom_style:
         try:
