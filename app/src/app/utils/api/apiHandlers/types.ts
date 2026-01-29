@@ -74,6 +74,7 @@ export interface DocumentObject extends StatusObject {
   parent_geo_unit_type: string | null;
   child_geo_unit_type: string | null;
   data_source_name: string | null;
+  overlays: Overlay[] | null;
   statefps: string[] | null;
 }
 
@@ -184,4 +185,16 @@ export interface CommentListing {
     updated_at: Date;
   };
   tags?: string[];
+}
+
+export interface Overlay {
+  overlay_id: string;
+  name: string;
+  description: string | null;
+  data_type: 'geojson' | 'pmtiles';
+  layer_type: 'fill' | 'line' | 'text';
+  custom_style: Record<string, any> | null;
+  source: string | null;
+  source_layer: string | null;
+  id_property: string | null;
 }

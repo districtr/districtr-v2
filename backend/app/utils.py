@@ -1,4 +1,4 @@
-from sqlalchemy import text, update, Table, MetaData, select, func
+from sqlalchemy import text, update, Table, MetaData, func
 from sqlalchemy import bindparam, Integer, String, Text
 from sqlalchemy.types import UUID
 from sqlmodel import Session, select, Float, Boolean
@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 
 def _quote_ident(name: str) -> str:
     """Quote a PostgreSQL identifier (double-quote and escape).
-    
+
     This function carries a light SQL injection risk and should only be used
     with trusted input.
 
@@ -211,7 +211,9 @@ def create_parent_child_edges(
         WHERE edges.districtr_map = :uuid
         """
     )
-    previously_loaded = session.execute(count_stmt, {"uuid": districtr_map_uuid}).scalar_one()
+    previously_loaded = session.execute(
+        count_stmt, {"uuid": districtr_map_uuid}
+    ).scalar_one()
 
     if previously_loaded:
         raise ValueError(
@@ -227,26 +229,28 @@ def create_parent_child_edges(
     )
     session.execute(create_sql)
 
-    parent = Table(parent_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=session.bind)
-    child  = Table(child_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=session.bind)
-    partition = Table(partition_name, metadata, schema=PUBLIC_SCHEMA, autoload_with=session.bind)
+    parent = Table(
+        parent_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=session.bind
+    )
+    child = Table(
+        child_layer, metadata, schema=GERRY_DB_SCHEMA, autoload_with=session.bind
+    )
+    partition = Table(
+        partition_name, metadata, schema=PUBLIC_SCHEMA, autoload_with=session.bind
+    )
 
-    stmt = (
-        partition.insert()
-        .from_select(
-            ["created_at", "districtr_map", "parent_path", "child_path"],
-            select(
-                func.now(),
-                bindparam("uuid"),
-                parent.c.path,
-                child.c.path,
-            ).where(
-                func.ST_Contains(
-                    parent.c.geometry,
-                    func.ST_PointOnSurface(child.c.geometry)
-                )
+    stmt = partition.insert().from_select(
+        ["created_at", "districtr_map", "parent_path", "child_path"],
+        select(
+            func.now(),
+            bindparam("uuid"),
+            parent.c.path,
+            child.c.path,
+        ).where(
+            func.ST_Contains(
+                parent.c.geometry, func.ST_PointOnSurface(child.c.geometry)
             )
-        )
+        ),
     )
 
     session.execute(stmt, params={"uuid": districtr_map_uuid})

@@ -16,6 +16,7 @@ import {useLayoutEffect} from 'react';
 import {CountyLayers} from './CountyLayers';
 import {VtdBlockLayers} from './VtdBlockLayers';
 import {MetaLayers} from './MetaLayers';
+import {OverlayLayers} from './OverlayLayers';
 // @ts-ignore plugin has no types
 import syncMaps from '@mapbox/mapbox-gl-sync-move';
 import {useMapRenderer} from '@/app/hooks/useMapRenderer';
@@ -164,6 +165,7 @@ export const MapComponent: React.FC<{isDemographicMap?: boolean}> = ({isDemograp
         interactiveLayerIds={INTERACTIVE_LAYERS}
       >
         <CountyLayers />
+        <OverlayLayers />
         <VtdBlockLayers isDemographicMap={isDemographicMap} />
         <MetaLayers isDemographicMap={isDemographicMap} />
         <NavigationControl showCompass={false} showZoom={true} position="bottom-right" />
