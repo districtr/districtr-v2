@@ -1,8 +1,4 @@
 import {DataDrivenPropertyValueSpecification, ExpressionSpecification} from 'maplibre-gl';
-import {useMapStore} from '../store/mapStore';
-import GeometryWorker from '../utils/GeometryWorker';
-import euclideanDistance from '@turf/distance';
-import {demographyCache} from '../utils/demography/demographyCache';
 export {FALLBACK_NUM_DISTRICTS, OVERLAY_OPACITY} from './mapDefaults';
 export const BLOCK_SOURCE_ID = 'blocks';
 export const BLOCK_LAYER_ID = 'blocks';
@@ -11,6 +7,8 @@ export const BLOCK_LAYER_ID_HIGHLIGHT = BLOCK_LAYER_ID + '-highlight';
 export const BLOCK_LAYER_ID_HIGHLIGHT_CHILD = BLOCK_LAYER_ID + '-highlight-child';
 export const BLOCK_LAYER_ID_CHILD = 'blocks-child';
 export const BLOCK_POINTS_LAYER_ID_CHILD = 'blocks-points-child';
+export const SELECTION_POINTS_SOURCE_ID = 'SELECTION_POINTS';
+export const SELECTION_POINTS_SOURCE_ID_CHILD = 'SELECTION_POINTS_child';
 export const BLOCK_HOVER_LAYER_ID = `${BLOCK_LAYER_ID}-hover`;
 export const BLOCK_HOVER_LAYER_ID_CHILD = `${BLOCK_LAYER_ID_CHILD}-hover`;
 
@@ -107,34 +105,3 @@ export function getLayerFill(
     return innerFillSpec;
   }
 }
-
-const getDissolved = async () => {
-  const activeZones = demographyCache.populations
-    .filter(row => row.total_pop_20 > 0)
-    .map(f => f.zone);
-  const {getMapRef} = useMapStore.getState();
-  const mapRef = getMapRef();
-  if (!mapRef || !GeometryWorker || !activeZones?.length) return;
-  const currentView = mapRef.getBounds();
-  const distanceAcrossCanvas = euclideanDistance(
-    [currentView.getWest(), currentView.getNorth()],
-    [currentView.getEast(), currentView.getNorth()],
-    {units: 'kilometers'}
-  );
-  //px convert to km at current zoom
-  const bufferInKm = 50 / (mapRef.getCanvas().width / distanceAcrossCanvas);
-  const {centroids, dissolved} = await GeometryWorker.getCentroidsFromView({
-    bounds: [
-      currentView.getWest(),
-      currentView.getSouth(),
-      currentView.getEast(),
-      currentView.getNorth(),
-    ],
-    activeZones,
-    strategy: 'center-of-mass',
-    minBuffer: bufferInKm,
-  });
-  return {centroids, dissolved};
-};
-
-export {getDissolved};

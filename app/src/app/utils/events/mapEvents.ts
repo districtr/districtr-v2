@@ -339,15 +339,6 @@ export const handleDataLoad = (e: MapSourceDataEvent) => {
     stateFipsSet && setStateFp(stateFipsSet);
   }
   setMapRenderingState('loaded');
-  if (mapDocument) {
-    GeometryWorker?.loadTileData({
-      tileData: e.tile.latestRawTileData,
-      tileID: e.tile.tileID.canonical,
-      mapDocument,
-      idProp: 'path',
-    });
-    throttledSetWorkerHash(new Date().toISOString());
-  }
 };
 
 export const mapEventHandlers = {
