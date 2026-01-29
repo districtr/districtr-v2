@@ -1,4 +1,4 @@
-from app.models import Overlay
+from app.models import DistrictrMap, DistrictrMapOverlays, Overlay
 from sqlmodel import Session
 from tests.constants import (
     POSTGRES_TEST_DB,
@@ -208,6 +208,7 @@ def test_create_overlay_and_add_to_map(
     assert overlay.layer_type == "fill"
 
     # TODO: Verify overlay was added to map
+    cleanup_overlay(session, "Map Overlay")
 
 
 def test_update_overlay(session: Session):

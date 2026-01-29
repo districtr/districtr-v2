@@ -10,7 +10,7 @@ from typing import Sequence
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB, UUID, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 # revision identifiers, used by Alembic.
 revision: str = "24137793FE9B"
@@ -52,17 +52,38 @@ def upgrade() -> None:
         ),
     )
 
-    # Add overlay_ids column to districtrmap
-    op.add_column(
-        "districtrmap", sa.Column("overlay_ids", ARRAY(UUID()), nullable=True)
+    # Junction table: map <-> overlay many-to-many
+    op.create_table(
+        "districtrmap_overlays",
+        sa.Column(
+            "districtr_map_id",
+            UUID(),
+            sa.ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
+            primary_key=True,
+            nullable=False,
+        ),
+        sa.Column(
+            "overlay_id",
+            UUID(),
+            sa.ForeignKey("overlay.overlay_id", ondelete="CASCADE"),
+            primary_key=True,
+            nullable=False,
+        ),
+    )
+    op.create_index(
+        "idx_districtrmap_overlays_overlay_id",
+        "districtrmap_overlays",
+        ["overlay_id"],
+        unique=False,
     )
 
 
 def downgrade() -> None:
-    # Drop overlay_ids column from districtrmap
-    op.drop_column("districtrmap", "overlay_ids")
-
-    # Drop overlay table
+    op.drop_index(
+        "idx_districtrmap_overlays_overlay_id",
+        table_name="districtrmap_overlays",
+    )
+    op.drop_table("districtrmap_overlays")
     op.drop_table("overlay")
 
     # Drop enum types

@@ -30,7 +30,7 @@ from management.load_data import (
     import_gerrydb_view as _import_gerrydb_view,
 )
 from os import environ
-from app.models import Overlay, DistrictrMap
+from app.models import DistrictrMap, Overlay
 
 
 logger = logging.getLogger(__name__)
@@ -561,18 +561,15 @@ def create_overlay(
     inserted_id = result.scalar()
     logger.info(f"Created overlay with ID: {inserted_id}")
 
-    # Add overlay to specified maps
+    # Add overlay to specified maps via junction table
     if districtr_map_slug:
         for map_slug in districtr_map_slug:
             add_stmt = text(
-                """UPDATE districtrmap
-                SET overlay_ids = CASE
-                    WHEN overlay_ids IS NULL THEN ARRAY[CAST(:overlay_id AS uuid)]
-                    WHEN NOT (CAST(:overlay_id AS uuid) = ANY(overlay_ids)) THEN array_append(overlay_ids, CAST(:overlay_id AS uuid))
-                    ELSE overlay_ids
-                END
+                """INSERT INTO districtrmap_overlays (districtr_map_id, overlay_id)
+                SELECT uuid, CAST(:overlay_id AS uuid) FROM districtrmap
                 WHERE districtr_map_slug = :districtr_map_slug
-                RETURNING uuid"""
+                ON CONFLICT (districtr_map_id, overlay_id) DO NOTHING
+                RETURNING districtr_map_id"""
             )
             add_result = session.execute(
                 add_stmt,
@@ -609,17 +606,12 @@ def add_overlay_to_map(session: Session, districtr_map_slug: str, overlay_id: st
         logger.error(f"Overlay with ID {overlay_id} not found")
         return
 
-    # Get current overlay_ids and append the new one
-    # Use CAST() instead of :: syntax to avoid parameter binding issues
     stmt = text(
-        """UPDATE districtrmap
-        SET overlay_ids = CASE
-            WHEN overlay_ids IS NULL THEN ARRAY[CAST(:overlay_id AS uuid)]
-            WHEN NOT (CAST(:overlay_id AS uuid) = ANY(overlay_ids)) THEN array_append(overlay_ids, CAST(:overlay_id AS uuid))
-            ELSE overlay_ids
-        END
+        """INSERT INTO districtrmap_overlays (districtr_map_id, overlay_id)
+        SELECT uuid, CAST(:overlay_id AS uuid) FROM districtrmap
         WHERE districtr_map_slug = :districtr_map_slug
-        RETURNING uuid"""
+        ON CONFLICT (districtr_map_id, overlay_id) DO NOTHING
+        RETURNING districtr_map_id"""
     )
     result = session.execute(
         stmt,
@@ -648,10 +640,10 @@ def remove_overlay_from_map(session: Session, districtr_map_slug: str, overlay_i
         return
 
     stmt = text(
-        """UPDATE districtrmap
-        SET overlay_ids = array_remove(overlay_ids, CAST(:overlay_id AS uuid))
-        WHERE districtr_map_slug = :districtr_map_slug
-        RETURNING uuid"""
+        """DELETE FROM districtrmap_overlays
+        WHERE overlay_id = CAST(:overlay_id AS uuid)
+        AND districtr_map_id = (SELECT uuid FROM districtrmap WHERE districtr_map_slug = :districtr_map_slug)
+        RETURNING districtr_map_id"""
     )
     result = session.execute(
         stmt,
@@ -819,17 +811,7 @@ def delete_overlay(session: Session, overlay_id: str):
         )
         return
 
-    # First remove this overlay from all districtrmap overlay_ids arrays
-    session.execute(
-        text(
-            """UPDATE districtrmap
-            SET overlay_ids = array_remove(overlay_ids, CAST(:overlay_id AS uuid))
-            WHERE CAST(:overlay_id AS uuid) = ANY(overlay_ids)"""
-        ),
-        {"overlay_id": str(overlay_uuid)},
-    )
-
-    # Then delete the overlay
+    # Junction rows are removed by ON DELETE CASCADE on overlay.overlay_id
     result = session.execute(
         text("DELETE FROM overlay WHERE overlay_id = :overlay_id RETURNING overlay_id"),
         {"overlay_id": str(overlay_uuid)},

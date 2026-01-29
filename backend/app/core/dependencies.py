@@ -1,7 +1,14 @@
 from fastapi import Depends, HTTPException, status
 from sqlmodel import select, Session, literal
 from app.core.models import DocumentID
-from app.models import Document, DocumentPublic, DistrictrMap, Overlay, OverlayPublic
+from app.models import (
+    Document,
+    DocumentPublic,
+    DistrictrMap,
+    DistrictrMapOverlays,
+    Overlay,
+    OverlayPublic,
+)
 from app.save_share.models import (
     DocumentShareStatus,
     MapDocumentToken,
@@ -110,7 +117,7 @@ def get_document_public(
         DistrictrMap.child_geo_unit_type.label("child_geo_unit_type"),  # pyright: ignore
         DistrictrMap.data_source_name.label("data_source_name"),  # pyright: ignore
         DistrictrMap.comment.label("comment"),  # pyright: ignore
-        DistrictrMap.overlay_ids.label("overlay_ids"),  # pyright: ignore
+        DistrictrMap.uuid.label("districtr_map_uuid"),  # pyright: ignore
         DistrictrMap.statefps.label("statefps"),  # pyright: ignore
         # get metadata as a json object
         Document.map_metadata.label("map_metadata"),  # pyright: ignore
@@ -130,26 +137,34 @@ def get_document_public(
 
     result = session.exec(stmt).one()
 
-    # Fetch overlays if overlay_ids exist
+    # Fetch overlays via junction table if map has any
     overlays_list = None
-    if result.overlay_ids and len(result.overlay_ids) > 0:
-        overlays = session.exec(
-            select(Overlay).where(Overlay.overlay_id.in_(result.overlay_ids))  # pyright: ignore
-        ).all()
-        overlays_list = [
-            OverlayPublic(
-                overlay_id=str(overlay.overlay_id),
-                name=overlay.name,
-                description=overlay.description,
-                data_type=overlay.data_type,
-                layer_type=overlay.layer_type,
-                custom_style=overlay.custom_style,
-                source=overlay.source,
-                source_layer=overlay.source_layer,
-                id_property=overlay.id_property,
+    if result.districtr_map_uuid:
+        junction_overlay_ids = session.exec(
+            select(DistrictrMapOverlays.overlay_id).where(
+                DistrictrMapOverlays.districtr_map_id == result.districtr_map_uuid
             )
-            for overlay in overlays
-        ]
+        ).all()
+        if junction_overlay_ids:
+            overlays = session.exec(
+                select(Overlay).where(
+                    Overlay.overlay_id.in_(junction_overlay_ids)  # pyright: ignore
+                )
+            ).all()
+            overlays_list = [
+                OverlayPublic(
+                    overlay_id=str(overlay.overlay_id),
+                    name=overlay.name,
+                    description=overlay.description,
+                    data_type=overlay.data_type,
+                    layer_type=overlay.layer_type,
+                    custom_style=overlay.custom_style,
+                    source=overlay.source,
+                    source_layer=overlay.source_layer,
+                    id_property=overlay.id_property,
+                )
+                for overlay in overlays
+            ]
 
     # Convert result to DocumentPublic with overlays
     return DocumentPublic(

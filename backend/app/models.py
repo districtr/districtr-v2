@@ -67,10 +67,6 @@ class DistrictrMap(TimeStampMixin, SQLModel, table=True):
     child_geo_unit_type: str | None = Field(nullable=True)
     # Name of the data source for the map
     data_source_name: str | None = Field(nullable=True)
-    # Overlay layer IDs associated with this map
-    overlay_ids: list[str] | None = Field(
-        sa_column=Column(ARRAY(UUIDType), nullable=True)
-    )
     # State FIPS codes associated with this map
     statefps: list[str] | None = Field(sa_column=Column(ARRAY(String), nullable=True))
 
@@ -301,6 +297,24 @@ class DistrictrMapsToGroups(SQLModel, table=True):
         sa_column=Column(
             String,
             ForeignKey("map_group.slug"),
+            primary_key=True,
+        )
+    )
+
+
+class DistrictrMapOverlays(SQLModel, table=True):
+    __tablename__ = "districtrmap_overlays"  # pyright: ignore
+    districtr_map_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
+            primary_key=True,
+        )
+    )
+    overlay_id: str = Field(
+        sa_column=Column(
+            UUIDType,
+            ForeignKey("overlay.overlay_id", ondelete="CASCADE"),
             primary_key=True,
         )
     )
