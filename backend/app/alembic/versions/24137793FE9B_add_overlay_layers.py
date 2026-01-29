@@ -28,12 +28,12 @@ def upgrade() -> None:
         sa.Column("description", sa.String(), nullable=True),
         sa.Column(
             "data_type",
-            sa.Enum("geojson", "pmtiles", name="overlaydatatype", create_type=False),
+            sa.Enum("geojson", "pmtiles", name="overlaydatatype"),
             nullable=False,
         ),
         sa.Column(
             "layer_type",
-            sa.Enum("fill", "line", "text", name="overlaylayertype", create_type=False),
+            sa.Enum("fill", "line", "text", name="overlaylayertype"),
             nullable=False,
         ),
         sa.Column("custom_style", JSONB, nullable=True),
