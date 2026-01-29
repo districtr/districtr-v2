@@ -21,10 +21,7 @@ export interface OverlayStore {
   toggleOverlay: (overlayId: string) => void;
   enableOverlay: (overlayId: string) => void;
   disableOverlay: (overlayId: string) => void;
-  setPaintConstraint: (
-    overlayId: string,
-    featureId: string
-  ) => void;
+  setPaintConstraint: (overlayId: string, featureId: string) => void;
   selectOverlayFeature: (overlayId: string) => void;
   clearPaintConstraint: () => void;
 }
@@ -85,9 +82,7 @@ export const useOverlayStore = create(
       }
       // query source layer for feature id
       const sourceFeatures = mapRef?.querySourceFeatures(`overlay-source-${overlayId}`);
-      const matchingFeatures = sourceFeatures?.filter(
-        (feature: any) => feature.id === featureId
-      );
+      const matchingFeatures = sourceFeatures?.filter((feature: any) => feature.id === featureId);
       if (matchingFeatures && matchingFeatures.length > 0) {
         set({
           paintConstraint: {
