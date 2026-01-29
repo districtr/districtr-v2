@@ -73,7 +73,7 @@ export const filterFeatures = ({
         } else {
           const geomArea = area(f.geometry);
           let clippedArea = 0;
-          paintConstraint.features.forEach(constraintFeature => {
+          for (const constraintFeature of paintConstraint.features) {
             const clipped = intersect({
               type: 'FeatureCollection',
               features: [
@@ -91,9 +91,12 @@ export const filterFeatures = ({
             });
             if (clipped) {
               clippedArea += area(clipped.geometry);
+              intersected = clippedArea / geomArea > MINIMUM_INTERSECTION_AREA_RATIO;
             }
-          });
-          intersected = clippedArea / geomArea > MINIMUM_INTERSECTION_AREA_RATIO;
+            if (intersected) {
+              break;
+            }
+          }
         }
         _idCache.set(f.id.toString(), intersected);
         return intersected;

@@ -76,8 +76,6 @@ const OverlayLayer = ({
   const clickLayerId = `overlay-click-${overlay.overlay_id}`;
   const hoverLayerId = `overlay-hover-${overlay.overlay_id}`;
   const selectedLayerId = `overlay-selected-${overlay.overlay_id}`;
-  const overlayFeature = useOverlayStore(state => state.paintConstraint);
-  const showOverlayFeature = overlayFeature?.overlayId === overlay.overlay_id;
 
   const idProperty = overlay.id_property || 'id';
 
@@ -214,25 +212,6 @@ const OverlayLayer = ({
       {/* Invisible click layer for line overlays */}
       {clickLayerProps && <Layer {...clickLayerProps} />}
     </Source>
-    {showOverlayFeature && 
-      <Source
-        id={sourceId + '-overlay-feature'}
-        type="geojson"
-        data={{
-          type: 'FeatureCollection',
-          features: [
-            {
-              type: 'Feature',
-              geometry: overlayFeature?.geometry,
-              properties: {
-                name: overlayFeature?.featureName,
-              },
-            },
-          ],  
-        }}
-      >
-      </Source>
-    }
     </>
   );
 };
@@ -240,7 +219,6 @@ const OverlayLayer = ({
 export const OverlayLayers = () => {
   const availableOverlays = useOverlayStore(state => state.availableOverlays);
   const enabledOverlayIds = useOverlayStore(state => state.enabledOverlayIds);
-  const hoveredOverlayFeature = useOverlayStore(state => state.hoveredOverlayFeature);
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
 
   const enabledOverlays = useMemo(() => {
@@ -250,14 +228,12 @@ export const OverlayLayers = () => {
   return (
     <>
       {enabledOverlays.map(overlay => {
-        const isHoveredOverlay = hoveredOverlayFeature?.overlayId === overlay.overlay_id;
         const isConstraintOverlay = paintConstraint?.overlayId === overlay.overlay_id;
 
         return (
           <OverlayLayer
             key={overlay.overlay_id}
             overlay={overlay}
-            hoveredFeatureId={isHoveredOverlay ? hoveredOverlayFeature.featureId : null}
             selectedFeatureId={isConstraintOverlay ? paintConstraint.featureId : null}
             isConstraintOverlay={isConstraintOverlay}
           />

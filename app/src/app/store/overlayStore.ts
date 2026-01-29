@@ -89,37 +89,46 @@ export const useOverlayStore = create(
       });
     },
     setPaintConstraint: (constraint: OverlayPaintConstraint | null) => {
-      if (constraint) {
-        const mapRef = useMapStore.getState().getMapRef();
-        // query source layer for feature id
-        const sourceFeatures = mapRef?.querySourceFeatures(
-          `overlay-source-${constraint?.overlayId}`
-        );
-        const matchingFeatures = sourceFeatures?.filter(
-          (feature: any) => feature.id === constraint?.featureId
-        );
-        console.log('MATCHING FEATURES', matchingFeatures);
-        if (matchingFeatures && matchingFeatures.length > 0) {
-          set({
-            paintConstraint: {
-              overlayId: constraint?.overlayId,
-              featureId: constraint?.featureId,
-              features: matchingFeatures.map(f => ({
-                ...f,
-                geometry: f._geometry,
-              })),
-            },
-            _idCache: new Map<string, boolean>(),
-            selectingLayerId: null,
-          });
-          return;
-        }
+      const clearPaintConstraint = get().clearPaintConstraint;
+      if (!constraint) {
+        clearPaintConstraint();
+        return;
       }
-      set({paintConstraint: null, _idCache: new Map<string, boolean>(), selectingLayerId: null});
+      const mapRef = useMapStore.getState().getMapRef();
+      if (!mapRef) {
+        clearPaintConstraint();
+        return;
+      }
+      // query source layer for feature id
+      const sourceFeatures = mapRef?.querySourceFeatures(`overlay-source-${constraint?.overlayId}`);
+      const matchingFeatures = sourceFeatures?.filter(
+        (feature: any) => feature.id === constraint?.featureId
+      );
+      if (matchingFeatures && matchingFeatures.length > 0) {
+        set({
+          paintConstraint: {
+            overlayId: constraint?.overlayId,
+            featureId: constraint?.featureId,
+            features: matchingFeatures.map(f => ({
+              ...f,
+              geometry: f._geometry,
+            })),
+          },
+          _idCache: new Map<string, boolean>(),
+          selectingLayerId: null,
+        });
+        return;
+      } else {
+        clearPaintConstraint();
+      }
     },
 
     clearPaintConstraint: () => {
-      set({paintConstraint: null});
+      set({
+        paintConstraint: null,
+        _idCache: new Map<string, boolean>(),
+        selectingLayerId: null,
+      });
     },
 
     selectOverlayFeature: overlayId => {
