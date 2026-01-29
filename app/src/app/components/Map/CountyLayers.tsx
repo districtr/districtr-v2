@@ -4,17 +4,25 @@ import {GEODATA_URL} from '@/app/utils/api/constants';
 import {FilterSpecification} from 'maplibre-gl';
 import {useMemo} from 'react';
 import {Layer, Source} from 'react-map-gl/maplibre';
+import { SENTINEL_EMPTY_ARRAY } from '@/app/constants/layers';
 
 export const CountyLayers = () => {
   const mapOptions = useMapControlsStore(state => state.mapOptions);
 
   const countyFilter = useMemo(() => {
+    // If stateFipsSet is set and not empty, match any of its values
+    const stateFpsArray =
+      mapOptions.stateFipsSet?.size && mapOptions.stateFipsSet.size > 0
+        ? Array.from(mapOptions.stateFipsSet)
+        : SENTINEL_EMPTY_ARRAY;
     return [
-      '==',
+      'match',
       ['slice', ['get', 'GEOID'], 0, 2],
-      mapOptions.currentStateFp ? mapOptions.currentStateFp : '--',
+      stateFpsArray,
+      true,
+      false,
     ] as FilterSpecification;
-  }, [mapOptions.currentStateFp]);
+  }, [mapOptions.stateFipsSet]);
 
   return (
     <>

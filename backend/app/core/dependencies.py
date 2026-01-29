@@ -110,6 +110,7 @@ def get_document_public(
         DistrictrMap.child_geo_unit_type.label("child_geo_unit_type"),  # pyright: ignore
         DistrictrMap.data_source_name.label("data_source_name"),  # pyright: ignore
         DistrictrMap.comment.label("comment"),  # pyright: ignore
+        DistrictrMap.statefps.label("statefps"),  # pyright: ignore
         # get metadata as a json object
         Document.map_metadata.label("map_metadata"),  # pyright: ignore
         coalesce(
