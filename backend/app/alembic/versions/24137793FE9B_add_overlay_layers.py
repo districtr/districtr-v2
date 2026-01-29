@@ -55,19 +55,22 @@ def upgrade() -> None:
     # Junction table: map <-> overlay many-to-many
     op.create_table(
         "districtrmap_overlays",
-        sa.Column(
-            "districtr_map_id",
-            UUID(),
-            sa.ForeignKey("districtrmap.uuid", ondelete="CASCADE"),
-            primary_key=True,
-            nullable=False,
+        sa.Column("districtr_map_id", UUID(), primary_key=True, nullable=False),
+        sa.Column("overlay_id", UUID(), primary_key=True, nullable=False),
+        sa.PrimaryKeyConstraint(
+            "districtr_map_id", "overlay_id", name="districtrmap_overlays_pkey"
         ),
-        sa.Column(
-            "overlay_id",
-            UUID(),
-            sa.ForeignKey("overlay.overlay_id", ondelete="CASCADE"),
-            primary_key=True,
-            nullable=False,
+        sa.ForeignKeyConstraint(
+            ["districtr_map_id"],
+            ["districtrmap.uuid"],
+            ondelete="CASCADE",
+            name="fk_districtrmap_overlays_districtr_map_id",
+        ),
+        sa.ForeignKeyConstraint(
+            ["overlay_id"],
+            ["overlay.overlay_id"],
+            ondelete="CASCADE",
+            name="fk_districtrmap_overlays_overlay_id",
         ),
     )
     op.create_index(
