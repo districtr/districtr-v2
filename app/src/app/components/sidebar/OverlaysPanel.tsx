@@ -1,6 +1,12 @@
 'use client';
-import {Flex, Text, Switch, Spinner, Button, Callout, IconButton} from '@radix-ui/themes';
-import {CrossCircledIcon, TargetIcon} from '@radix-ui/react-icons';
+import {Flex, Text, Switch, Spinner, Button, Callout, IconButton, Tooltip} from '@radix-ui/themes';
+import {
+  CrossCircledIcon,
+  InfoCircledIcon,
+  MaskOffIcon,
+  MaskOnIcon,
+  TargetIcon,
+} from '@radix-ui/react-icons';
 import {useOverlayStore} from '@/app/store/overlayStore';
 import {useMapControlsStore} from '@/app/store/mapControlsStore';
 import {getFeaturesInBbox} from '@utils/map/getFeaturesInBbox';
@@ -15,16 +21,11 @@ export const OverlaysPanel = () => {
   const paintConstraint = useOverlayStore(state => state.paintConstraint);
   const selectOverlayFeature = useOverlayStore(state => state.selectOverlayFeature);
   const clearPaintConstraint = useOverlayStore(state => state.clearPaintConstraint);
-  const setPaintFunction = useMapControlsStore(state => state.setPaintFunction);
-
+  const selectingLayerId = useOverlayStore(state => state.selectingLayerId);
   const handleLocateClick = (overlayId: string) => {
     selectOverlayFeature(overlayId);
   };
 
-  const handleReleaseConstraint = () => {
-    clearPaintConstraint();
-    setPaintFunction(getFeaturesInBbox);
-  };
   const mapOptions = useMapControlsStore(state => state.mapOptions);
   const setMapOptions = useMapControlsStore(state => state.setMapOptions);
 
@@ -47,19 +48,23 @@ export const OverlaysPanel = () => {
   return (
     <Flex gap="3" direction="column">
       {paintConstraint && (
-        <Callout.Root color="orange" size="1">
-          <Callout.Icon>
-            <TargetIcon />
-          </Callout.Icon>
-          <Callout.Text>
-            <Flex justify="between" align="center" gap="2">
-              <Text size="1">Paint constrained to: {paintConstraint.featureName}</Text>
-              <Button size="1" variant="ghost" color="orange" onClick={handleReleaseConstraint}>
-                <CrossCircledIcon />
-                Release
-              </Button>
-            </Flex>
-          </Callout.Text>
+        <Button variant="outline" color="orange" onClick={clearPaintConstraint}>
+          <Flex justify="between" align="center" gap="2">
+            <Text size="2">Release paint mask</Text>
+            <MaskOffIcon />
+          </Flex>
+        </Button>
+      )}
+      {!!(!paintConstraint && selectingLayerId) && (
+        <Callout.Root color="violet" size="1" className="flex">
+          <Flex justify="between" align="center" gap="2" className="mx-auto">
+            <Callout.Icon>
+              <TargetIcon className="animate-pulse" />
+            </Callout.Icon>
+            <Callout.Text>
+              <Text size="2">You are selecting an area on the map to paint within.<br/> Click the map to select an area.</Text>
+            </Callout.Text>
+          </Flex>
         </Callout.Root>
       )}
       {/* County Layer Controls - Always shown as pseudo-overlay */}
@@ -83,42 +88,48 @@ export const OverlaysPanel = () => {
         />
       </Flex>
       {/* Regular Overlay Layers */}
-      {hasOverlays ? (
-        overlaysGroupedByName.map(overlay => (
-          <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
-            <Flex direction="column" gap="1">
-              <Text size="2" weight="medium">
-                {overlay.name}
-              </Text>
-              {overlay.description && (
-                <Text size="1" color="gray">
-                  {overlay.description}
+      {hasOverlays
+        ? overlaysGroupedByName.map(overlay => (
+            <Flex key={overlay.overlay_id} justify="between" align="center" gap="2">
+              <Flex direction="column" gap="1">
+                <Text size="2" weight="medium">
+                  {overlay.name}
                 </Text>
-              )}
+                {overlay.description && (
+                  <Text size="1" color="gray">
+                    {overlay.description}
+                  </Text>
+                )}
+              </Flex>
+              <Flex direction="row" gap="2" align="center" justify="center">
+                <Switch
+                  checked={enabledOverlayIds.has(overlay.name)}
+                  onCheckedChange={() => toggleOverlay(overlay.name)}
+                />
+                <Tooltip content="Choose an area to paint within.">
+                  <IconButton
+                    onClick={() => handleLocateClick(overlay.overlay_id)}
+                    disabled={!enabledOverlayIds.has(overlay.name)}
+                    variant="ghost"
+                    color="blue"
+                    size="1"
+                    radius="full"
+                    className="cursor-pointer"
+                    style={{
+                      opacity: enabledOverlayIds.has(overlay.name) ? 1 : 0.5,
+                    }}
+                  >
+                    {paintConstraint?.overlayId === overlay.overlay_id ? (
+                      <MaskOffIcon />
+                    ) : (
+                      <MaskOnIcon />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </Flex>
             </Flex>
-            <Flex direction="row" gap="2" align="center" justify="center">
-              <Switch
-                checked={enabledOverlayIds.has(overlay.name)}
-                onCheckedChange={() => toggleOverlay(overlay.name)}
-              />
-              <IconButton
-                onClick={() => handleLocateClick(overlay.overlay_id)}
-                disabled={!enabledOverlayIds.has(overlay.name)}
-                variant="ghost"
-                color="blue"
-                size="1"
-                radius="full"
-                className="cursor-pointer"
-                style={{
-                  opacity: enabledOverlayIds.has(overlay.name) ? 1 : 0.5,
-                }}
-              >
-                <TargetIcon />
-              </IconButton>
-            </Flex>
-          </Flex>
-        ))
-      ) : null}
+          ))
+        : null}
     </Flex>
   );
 };

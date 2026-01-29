@@ -92,7 +92,7 @@ export const useOverlayStore = create(
             // this comes from a worker
             features: matchingFeatures.map(f => ({
               ...f,
-              geometry: f._geometry,
+              geometry: f.geometry,
             })) as MapGeoJSONFeature[],
           },
           _idCache: new Map<string, boolean>(),
