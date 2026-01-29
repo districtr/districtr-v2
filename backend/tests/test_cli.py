@@ -183,7 +183,7 @@ def test_create_overlay_and_add_to_map(
         "geojson",
         "--layer-type",
         "fill",
-        "--districtr-map-slug",
+        "--districtr-map-slugs",
         "ks_demo_view_census_blocks_summary_stats",
     ]
 
@@ -208,6 +208,7 @@ def test_create_overlay_and_add_to_map(
     assert overlay.layer_type == "fill"
 
     # TODO: Verify overlay was added to map
+    
     cleanup_overlay(session, "Map Overlay")
 
 
